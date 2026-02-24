@@ -1,1 +1,2 @@
 # Kinship
+CRM for friendships
