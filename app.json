@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Kinship",
+    "slug": "kinship",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "kinship",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FDF7ED"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.kinship.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FDF7ED"
+      },
+      "package": "com.kinship.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      "expo-asset",
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow Kinship to access your contacts to help you add people to your garden."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

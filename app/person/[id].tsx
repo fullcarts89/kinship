@@ -1,0 +1,1660 @@
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  Image,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, Stack, router, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
+import {
+  ChevronLeft,
+  MessageCircle,
+  Phone,
+  Sparkles,
+  Heart,
+  Calendar,
+  Clock,
+  BookOpen,
+  Camera,
+  Leaf,
+  Users,
+  Share2,
+  MoreHorizontal,
+  Check,
+} from "lucide-react-native";
+import { colors, fonts } from "@design/tokens";
+import {
+  Skeleton,
+  ErrorState,
+  EmptyState,
+  FadeIn,
+} from "@/components/ui";
+import {
+  usePerson,
+  usePersonMemories,
+  usePersonInteractions,
+  useCreateInteraction,
+} from "@/hooks";
+import { usePersonPhoto } from "@/hooks/usePersonPhoto";
+import {
+  formatRelativeDate,
+  formatEmotionLabel,
+  relationshipLabels,
+} from "@/lib/formatters";
+import {
+  SeedIllustration,
+  SproutSmallIllustration,
+  SunlightIllustration,
+  FlourishingGardenIllustration,
+  GardenRevealIllustration,
+  SingleSproutIllustration,
+} from "@/components/illustrations";
+import { OrientationOverlay } from "@/components/OrientationOverlay";
+import type { HighlightRect } from "@/components/OrientationOverlay";
+import { useOrientation, ORIENTATION_STEP_SCREEN } from "@/hooks/useOrientation";
+import { usePersonGrowth } from "@/hooks/useGrowth";
+import {
+  recordReflectionGrowth,
+  getTransitionToastMessage,
+  growthStageLabels,
+} from "@/lib/growthEngine";
+import type { GrowthStage } from "@/lib/growthEngine";
+import { showGrowthToast } from "@/components/ui/GrowthToast";
+import type { Interaction, Memory } from "@/types/database";
+import type { InteractionType, Emotion, IconComponent } from "@/types";
+
+// ─── Design Tokens ─────────────────────────────────────────────────────────
+
+const sage = "#7A9E7E";
+const sageDark = "#4A7055";
+const sagePale = "#EBF3EB";
+const sageLight = "#C8DEC9";
+const gold = "#D4A853";
+const goldLight = "#F0DBA0";
+const cream = "#FDF7ED";
+const nearBlack = "#1C1917";
+const warmGray = "#78716C";
+const white = "#FFFFFF";
+const borderColor = "#E8E4DD";
+const lavender = "#C5B8E8";
+const sky = "#B8D4E8";
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const interactionIcons: Record<InteractionType, IconComponent> = {
+  message: MessageCircle,
+  call: Phone,
+  video: Camera,
+  in_person: Users,
+  gift: Share2,
+  letter: Sparkles,
+  social_media: MessageCircle,
+  other: MoreHorizontal,
+};
+
+const interactionLabels: Record<InteractionType, string> = {
+  message: "Message",
+  call: "Call",
+  video: "Video call",
+  in_person: "In person",
+  gift: "Shared something",
+  letter: "Letter",
+  social_media: "Social media",
+  other: "Other",
+};
+
+// ─── Tab Types ──────────────────────────────────────────────────────────────
+
+type ProfileTab = "context" | "timeline" | "memories";
+
+// ─── Quick Action Button ────────────────────────────────────────────────────
+
+function QuickAction({
+  icon: Icon,
+  label,
+  bgColor,
+  onPress,
+}: {
+  icon: IconComponent;
+  label: string;
+  bgColor: string;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withTiming(0.92, {
+      duration: 80,
+      easing: Easing.out(Easing.ease),
+    });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withTiming(1, {
+      duration: 150,
+      easing: Easing.out(Easing.ease),
+    });
+  };
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={{ alignItems: "center" }}
+    >
+      <Animated.View
+        style={[
+          {
+            width: 48,
+            height: 48,
+            borderRadius: 15,
+            backgroundColor: bgColor + "38",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 6,
+          },
+          animStyle,
+        ]}
+      >
+        <Icon color={bgColor} size={22} />
+      </Animated.View>
+      <Text
+        style={{
+          fontFamily: fonts.sans,
+          fontSize: 10,
+          color: warmGray,
+          textAlign: "center",
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+// ─── Growth Stage Plant ─────────────────────────────────────────────────────
+
+/** Maps a growth stage to the appropriate plant illustration. */
+function GrowthPlant({ stage, size = 100 }: { stage: GrowthStage; size?: number }) {
+  switch (stage) {
+    case "seed":
+      return <SeedIllustration size={size} />;
+    case "sprout":
+      return <SproutSmallIllustration size={size} />;
+    case "youngPlant":
+      return <SunlightIllustration size={size} />;
+    case "mature":
+      return <FlourishingGardenIllustration size={size} />;
+    case "blooming":
+      return <GardenRevealIllustration size={size} />;
+    case "tree":
+      return <GardenRevealIllustration size={Math.round(size * 1.15)} />;
+  }
+}
+
+// ─── Photo Picker Modal ────────────────────────────────────────────────────
+
+function PhotoPickerModal({
+  visible,
+  hasPhoto,
+  onChoosePhoto,
+  onRemovePhoto,
+  onClose,
+}: {
+  visible: boolean;
+  hasPhoto: boolean;
+  onChoosePhoto: () => void;
+  onRemovePhoto: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={{ flex: 1, justifyContent: "flex-end" }}>
+        {/* Dimmed overlay */}
+        <Pressable
+          onPress={onClose}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(28,24,20,0.44)",
+          }}
+        />
+
+        {/* Sheet */}
+        <View
+          style={{
+            backgroundColor: white,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingHorizontal: 24,
+            paddingBottom: 40,
+            paddingTop: 6,
+          }}
+        >
+          {/* Handle pill */}
+          <View
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 100,
+              backgroundColor: "#E8E0D6",
+              alignSelf: "center",
+              marginTop: 12,
+              marginBottom: 24,
+            }}
+          />
+
+          {/* Choose from library */}
+          <Pressable
+            onPress={onChoosePhoto}
+            style={{
+              backgroundColor: sagePale,
+              borderRadius: 14,
+              paddingVertical: 16,
+              paddingHorizontal: 20,
+              marginBottom: 10,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <Camera color={sage} size={20} strokeWidth={1.8} />
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 16,
+                color: nearBlack,
+                marginLeft: 12,
+              }}
+            >
+              Choose from library
+            </Text>
+          </Pressable>
+
+          {/* Remove photo (only if one exists) */}
+          {hasPhoto && (
+            <Pressable
+              onPress={onRemovePhoto}
+              style={{
+                backgroundColor: white,
+                borderWidth: 1.5,
+                borderColor: borderColor,
+                borderRadius: 14,
+                paddingVertical: 16,
+                paddingHorizontal: 20,
+                marginBottom: 10,
+                alignItems: "center",
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sansMedium,
+                  fontSize: 16,
+                  color: warmGray,
+                }}
+              >
+                Remove photo
+              </Text>
+            </Pressable>
+          )}
+
+          {/* Cancel */}
+          <Pressable
+            onPress={onClose}
+            style={{
+              paddingVertical: 14,
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansMedium,
+                fontSize: 16,
+                color: warmGray,
+              }}
+            >
+              Cancel
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Reflect Sheet ──────────────────────────────────────────────────────────
+//
+// Bottom sheet for capturing lightweight reflections — small moments and
+// touchpoints that already happened. Distinct from "Memory" which is for
+// deeper, more meaningful moments. Reflections feed the timeline and
+// contribute to growth stage progression.
+
+/** Interaction types available in the Reflect flow, with friendly labels. */
+const reflectTypes: { type: InteractionType; label: string; icon: IconComponent }[] = [
+  { type: "message",   label: "Text",            icon: MessageCircle },
+  { type: "call",      label: "Call",             icon: Phone },
+  { type: "in_person", label: "In person",        icon: Users },
+  { type: "gift",      label: "Shared something", icon: Share2 },
+  { type: "other",     label: "Other",            icon: MoreHorizontal },
+];
+
+/** Emotion subset for reflections — the five most natural post-interaction feelings. */
+const reflectEmotions: { emotion: Emotion; label: string; emoji: string }[] = [
+  { emotion: "connected", label: "Connected", emoji: "\uD83D\uDCAB" },
+  { emotion: "grateful",  label: "Grateful",  emoji: "\uD83D\uDE4F" },
+  { emotion: "inspired",  label: "Inspired",  emoji: "\u2728" },
+  { emotion: "joyful",    label: "Happy",     emoji: "\uD83D\uDE0A" },
+  { emotion: "peaceful",  label: "Calm",      emoji: "\uD83C\uDF38" },
+];
+
+function ReflectSheet({
+  visible,
+  personName,
+  personId,
+  onSaved,
+  onClose,
+}: {
+  visible: boolean;
+  personName: string;
+  personId: string;
+  onSaved: () => void;
+  onClose: () => void;
+}) {
+  const [selectedType, setSelectedType] = useState<InteractionType>("message");
+  const [selectedEmotion, setSelectedEmotion] = useState<Emotion | null>(null);
+  const [note, setNote] = useState("");
+  const [phase, setPhase] = useState<"form" | "saved">("form");
+
+  const { createInteraction, isCreating } = useCreateInteraction();
+
+  // Reset form when sheet opens
+  const handleClose = () => {
+    setSelectedType("message");
+    setSelectedEmotion(null);
+    setNote("");
+    setPhase("form");
+    onClose();
+  };
+
+  const handleSave = async () => {
+    await createInteraction({
+      person_id: personId,
+      type: selectedType,
+      note: note.trim() || null,
+      emotion: selectedEmotion,
+    });
+
+    // Record growth for reflection (reach-outs don't call this)
+    const transition = recordReflectionGrowth(personId);
+    if (transition) {
+      transition.personName = personName;
+      const toast = getTransitionToastMessage(transition);
+      showGrowthToast(toast.text, toast.emoji);
+    }
+
+    // Show brief success state, then close
+    setPhase("saved");
+    setTimeout(() => {
+      handleClose();
+      onSaved();
+    }, 900);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1, justifyContent: "flex-end" }}
+      >
+        {/* Dimmed overlay */}
+        <Pressable
+          onPress={handleClose}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(28,24,20,0.44)",
+          }}
+        />
+
+        {/* Sheet */}
+        <View
+          style={{
+            backgroundColor: white,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingHorizontal: 24,
+            paddingBottom: 40,
+            paddingTop: 6,
+          }}
+        >
+          {/* Handle pill */}
+          <View
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 100,
+              backgroundColor: "#E8E0D6",
+              alignSelf: "center",
+              marginTop: 12,
+              marginBottom: 20,
+            }}
+          />
+
+          {phase === "saved" ? (
+            /* ── Success state ── */
+            <View style={{ alignItems: "center", paddingVertical: 32 }}>
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: sagePale,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <Check color={sage} size={24} strokeWidth={2.5} />
+              </View>
+              <Text
+                style={{
+                  fontFamily: fonts.serif,
+                  fontSize: 20,
+                  color: nearBlack,
+                  textAlign: "center",
+                }}
+              >
+                Added to your story
+              </Text>
+            </View>
+          ) : (
+            /* ── Form state ── */
+            <>
+              {/* Header with illustration */}
+              <View style={{ alignItems: "center", marginBottom: 20 }}>
+                <SingleSproutIllustration size={48} />
+                <Text
+                  style={{
+                    fontFamily: fonts.serif,
+                    fontSize: 22,
+                    color: nearBlack,
+                    marginTop: 12,
+                    textAlign: "center",
+                  }}
+                >
+                  Reflect
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.sans,
+                    fontSize: 14,
+                    color: warmGray,
+                    marginTop: 6,
+                    textAlign: "center",
+                    lineHeight: 20,
+                    maxWidth: 260,
+                  }}
+                >
+                  Capture the little moments that keep your story alive.
+                </Text>
+              </View>
+
+              {/* Interaction type chips */}
+              <View style={{ marginBottom: 20 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 11,
+                    color: warmGray,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 10,
+                  }}
+                >
+                  What happened?
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {reflectTypes.map(({ type, label, icon: TypeIcon }) => {
+                    const isSelected = selectedType === type;
+                    return (
+                      <Pressable
+                        key={type}
+                        onPress={() => setSelectedType(type)}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                          paddingVertical: 10,
+                          paddingHorizontal: 14,
+                          borderRadius: 20,
+                          backgroundColor: isSelected ? sagePale : white,
+                          borderWidth: 1.5,
+                          borderColor: isSelected ? sage : borderColor,
+                        }}
+                      >
+                        <TypeIcon
+                          color={isSelected ? sage : warmGray}
+                          size={15}
+                          strokeWidth={isSelected ? 2 : 1.5}
+                        />
+                        <Text
+                          style={{
+                            fontFamily: isSelected ? fonts.sansSemiBold : fonts.sansMedium,
+                            fontSize: 14,
+                            color: isSelected ? sage : nearBlack,
+                          }}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Optional note */}
+              <View style={{ marginBottom: 20 }}>
+                <TextInput
+                  value={note}
+                  onChangeText={setNote}
+                  placeholder="Any details to remember? (optional)"
+                  placeholderTextColor={warmGray + "88"}
+                  multiline
+                  maxLength={280}
+                  style={{
+                    fontFamily: fonts.sans,
+                    fontSize: 15,
+                    color: nearBlack,
+                    backgroundColor: cream,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: borderColor,
+                    paddingHorizontal: 16,
+                    paddingTop: 14,
+                    paddingBottom: 14,
+                    minHeight: 72,
+                    textAlignVertical: "top",
+                  }}
+                />
+              </View>
+
+              {/* Optional emotion chips */}
+              <View style={{ marginBottom: 24 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 11,
+                    color: warmGray,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 10,
+                  }}
+                >
+                  How did it feel? (optional)
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {reflectEmotions.map(({ emotion, label, emoji }) => {
+                    const isSelected = selectedEmotion === emotion;
+                    return (
+                      <Pressable
+                        key={emotion}
+                        onPress={() =>
+                          setSelectedEmotion(isSelected ? null : emotion)
+                        }
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 5,
+                          paddingVertical: 8,
+                          paddingHorizontal: 12,
+                          borderRadius: 20,
+                          backgroundColor: isSelected ? goldLight + "66" : white,
+                          borderWidth: 1.5,
+                          borderColor: isSelected ? gold : borderColor,
+                        }}
+                      >
+                        <Text style={{ fontSize: 14 }}>{emoji}</Text>
+                        <Text
+                          style={{
+                            fontFamily: isSelected ? fonts.sansSemiBold : fonts.sans,
+                            fontSize: 13,
+                            color: isSelected ? nearBlack : warmGray,
+                          }}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Action buttons */}
+              <Pressable
+                onPress={handleSave}
+                disabled={isCreating}
+                style={{
+                  backgroundColor: sage,
+                  borderRadius: 14,
+                  paddingVertical: 16,
+                  alignItems: "center",
+                  marginBottom: 10,
+                  opacity: isCreating ? 0.6 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 16,
+                    color: white,
+                  }}
+                >
+                  {isCreating ? "Saving..." : "Add to your story"}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleClose}
+                style={{ paddingVertical: 14, alignItems: "center" }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMedium,
+                    fontSize: 16,
+                    color: warmGray,
+                  }}
+                >
+                  Not now
+                </Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ─── Tab Bar ────────────────────────────────────────────────────────────────
+
+function ProfileTabBar({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: ProfileTab;
+  onTabChange: (tab: ProfileTab) => void;
+}) {
+  const tabs: { key: ProfileTab; label: string }[] = [
+    { key: "context", label: "Context" },
+    { key: "timeline", label: "Timeline" },
+    { key: "memories", label: "Memories" },
+  ];
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        borderBottomWidth: 1,
+        borderBottomColor: borderColor,
+        paddingHorizontal: 24,
+        marginBottom: 20,
+      }}
+    >
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.key;
+        return (
+          <Pressable
+            key={tab.key}
+            onPress={() => onTabChange(tab.key)}
+            style={{
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              marginRight: 8,
+              borderBottomWidth: 2,
+              borderBottomColor: isActive ? sage : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: isActive ? fonts.sansSemiBold : fonts.sans,
+                fontSize: 15,
+                color: isActive ? sage : warmGray,
+              }}
+            >
+              {tab.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Context Tab Content ────────────────────────────────────────────────────
+
+function ContextTab({
+  personId,
+  personName,
+  relationshipType,
+  memories,
+  interactions,
+}: {
+  personId: string;
+  personName: string;
+  relationshipType: string;
+  memories: Memory[];
+  interactions: Interaction[];
+}) {
+  const contextBriefs: string[] = [];
+  if (memories.length > 0)
+    contextBriefs.push(`${memories.length} shared ${memories.length === 1 ? "memory" : "memories"} saved`);
+  if (interactions.length > 0)
+    contextBriefs.push(`${interactions.length} recorded ${interactions.length === 1 ? "interaction" : "interactions"}`);
+  contextBriefs.push(`${relationshipType} relationship`);
+
+  return (
+    <View style={{ paddingHorizontal: 24 }}>
+      {/* Context Brief Card */}
+      <View
+        style={{
+          backgroundColor: sagePale,
+          borderRadius: 20,
+          padding: 20,
+          borderWidth: 1,
+          borderColor: sageLight,
+          marginBottom: 20,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
+          <Text style={{ fontSize: 16, marginRight: 8 }}>{"\uD83C\uDF3F"}</Text>
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 15,
+              color: nearBlack,
+            }}
+          >
+            Context Brief
+          </Text>
+        </View>
+        {contextBriefs.map((brief, i) => (
+          <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 8 }}>
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: sage,
+                marginTop: 7,
+                marginRight: 12,
+              }}
+            />
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 14,
+                color: nearBlack,
+                lineHeight: 20,
+                flex: 1,
+              }}
+            >
+              {brief}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Next Best Action Card */}
+      <LinearGradient
+        colors={[goldLight, "#F4B89E66"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          borderRadius: 20,
+          padding: 20,
+          marginBottom: 20,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: fonts.sansSemiBold,
+            fontSize: 11,
+            color: warmGray,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            marginBottom: 10,
+          }}
+        >
+          Suggested next step
+        </Text>
+        <Text
+          style={{
+            fontFamily: fonts.serif,
+            fontSize: 18,
+            color: nearBlack,
+            lineHeight: 24,
+            marginBottom: 16,
+          }}
+        >
+          {memories.length === 0
+            ? `Save a favorite moment with ${personName}`
+            : `It's been a while — reach out to ${personName}`}
+        </Text>
+        <Pressable
+          onPress={() => {
+            if (memories.length === 0) {
+              router.push(`/memory/add?personId=${personId}`);
+            } else {
+              router.push(`/reach-out/${personId}`);
+            }
+          }}
+          style={{
+            backgroundColor: white,
+            borderRadius: 12,
+            paddingVertical: 12,
+            paddingHorizontal: 20,
+            alignSelf: "flex-start",
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 14,
+              color: sageDark,
+            }}
+          >
+            {memories.length === 0 ? "Add a memory" : "Send a message"}
+          </Text>
+        </Pressable>
+      </LinearGradient>
+    </View>
+  );
+}
+
+// ─── Timeline Tab Content ───────────────────────────────────────────────────
+
+/** Emotion emojis for timeline display — matches home screen pattern. */
+const emotionEmojis: Record<Emotion, string> = {
+  grateful: "\uD83D\uDE4F",
+  connected: "\uD83D\uDCAB",
+  curious: "\uD83D\uDD0E",
+  joyful: "\uD83D\uDE0A",
+  nostalgic: "\uD83C\uDF05",
+  proud: "\u2B50",
+  peaceful: "\uD83C\uDF38",
+  inspired: "\u2728",
+  hopeful: "\uD83C\uDF31",
+  loved: "\uD83D\uDC9B",
+};
+
+function TimelineTab({ interactions }: { interactions: Interaction[] }) {
+  if (interactions.length === 0) {
+    return (
+      <View style={{ paddingHorizontal: 24 }}>
+        <EmptyState
+          icon={Calendar}
+          title="Your story together"
+          message="When you reflect or connect, those moments will show up here."
+          className="py-xl"
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ paddingHorizontal: 24 }}>
+      {interactions.slice(0, 10).map((interaction, index) => {
+        const Icon = interactionIcons[interaction.type] || Clock;
+        const label = interactionLabels[interaction.type] || "Activity";
+        const iconColors: Record<string, string> = {
+          message: sage,
+          call: sky,
+          video: sky,
+          in_person: "#F4B89E",
+          gift: gold,
+          letter: lavender,
+          social_media: sage,
+          other: warmGray,
+        };
+        const iconBg = iconColors[interaction.type] || sage;
+        const hasNote = !!interaction.note;
+        const hasEmotion = !!interaction.emotion;
+
+        return (
+          <FadeIn key={interaction.id} delay={index * 40}>
+            <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 16 }}>
+              {/* Icon circle + connector line */}
+              <View style={{ alignItems: "center", marginRight: 14 }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: iconBg + "22",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon color={iconBg} size={16} />
+                </View>
+                {index < Math.min(interactions.length, 10) - 1 && (
+                  <View
+                    style={{
+                      width: 2,
+                      height: hasNote ? 24 : 16,
+                      backgroundColor: sagePale,
+                      marginTop: 4,
+                    }}
+                  />
+                )}
+              </View>
+
+              {/* Content — enhanced for reflections with note/emotion */}
+              <View style={{ flex: 1, paddingTop: 2 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansMedium,
+                      fontSize: 14,
+                      color: nearBlack,
+                    }}
+                  >
+                    {label}
+                  </Text>
+                  {hasEmotion && (
+                    <Text style={{ fontSize: 13 }}>
+                      {emotionEmojis[interaction.emotion!]}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Reflection note — only shown for interactions with detail */}
+                {hasNote && (
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 13,
+                      color: nearBlack,
+                      lineHeight: 18,
+                      marginTop: 3,
+                      marginBottom: 2,
+                    }}
+                    numberOfLines={2}
+                  >
+                    {interaction.note}
+                  </Text>
+                )}
+
+                <Text
+                  style={{
+                    fontFamily: fonts.sans,
+                    fontSize: 13,
+                    color: warmGray,
+                    marginTop: hasNote ? 2 : 2,
+                  }}
+                >
+                  {formatRelativeDate(interaction.created_at)}
+                </Text>
+              </View>
+            </View>
+          </FadeIn>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Memories Tab Content ───────────────────────────────────────────────────
+
+function MemoriesTab({ memories, personId }: { memories: Memory[]; personId: string }) {
+  if (memories.length === 0) {
+    return (
+      <View style={{ paddingHorizontal: 24 }}>
+        <EmptyState
+          icon={BookOpen}
+          title="No memories yet"
+          message="Capture special moments and things you want to remember."
+          actionLabel="Add a memory"
+          onAction={() => router.push(`/memory/add?personId=${personId}`)}
+          className="py-xl"
+        />
+      </View>
+    );
+  }
+
+  // 2-column grid of memory cards
+  const rows: Memory[][] = [];
+  for (let i = 0; i < memories.length; i += 2) {
+    rows.push(memories.slice(i, i + 2));
+  }
+
+  const cardColors: [string, string][] = [
+    [sagePale, sageLight + "88"],
+    [goldLight + "44", "#F4B89E44"],
+    [lavender + "33", sky + "33"],
+  ];
+
+  return (
+    <View style={{ paddingHorizontal: 24 }}>
+      {rows.map((row, rowIndex) => (
+        <View key={rowIndex} style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
+          {row.map((memory, colIndex) => {
+            const colorPair = cardColors[(rowIndex * 2 + colIndex) % cardColors.length];
+            return (
+              <View
+                key={memory.id}
+                style={{
+                  flex: 1,
+                  backgroundColor: white,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: borderColor,
+                  overflow: "hidden",
+                }}
+              >
+                <LinearGradient
+                  colors={colorPair}
+                  style={{
+                    height: 80,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text style={{ fontSize: 24, opacity: 0.5 }}>{"\uD83D\uDCF8"}</Text>
+                </LinearGradient>
+                <View style={{ padding: 12 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansMedium,
+                      fontSize: 13,
+                      color: nearBlack,
+                      marginBottom: 4,
+                    }}
+                    numberOfLines={2}
+                  >
+                    {memory.content}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 11,
+                      color: warmGray,
+                    }}
+                  >
+                    {formatRelativeDate(memory.created_at)}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+          {/* Fill empty space in last row */}
+          {row.length === 1 && <View style={{ flex: 1 }} />}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ─── Skeleton Loading ──────────────────────────────────────────────────────
+
+function PersonDetailSkeleton({ insets }: { insets: { top: number; bottom: number } }) {
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: cream }}
+      contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={{ paddingHorizontal: 24, paddingTop: insets.top + 8 }}>
+        <Skeleton width={40} height={40} circle className="mb-lg" />
+      </View>
+      <View className="items-center px-xl mb-xl">
+        <Skeleton width={160} height={160} circle />
+        <Skeleton width={160} height={30} className="mt-lg" />
+        <Skeleton width={80} height={28} borderRadius={24} className="mt-sm" />
+      </View>
+      <View className="flex-row justify-center gap-2xl px-xl mb-2xl">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <View key={i} className="items-center">
+            <Skeleton width={48} height={48} borderRadius={15} />
+            <Skeleton width={40} height={10} className="mt-xs" />
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+// ─── Main Screen ─────────────────────────────────────────────────────────────
+
+export default function PersonDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
+  const [activeTab, setActiveTab] = useState<ProfileTab>("context");
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showReflectSheet, setShowReflectSheet] = useState(false);
+
+  const {
+    person,
+    isLoading: personLoading,
+    error: personError,
+    refetch: refetchPerson,
+  } = usePerson(id ?? "");
+  const {
+    memories,
+    isLoading: memoriesLoading,
+    refetch: refetchMemories,
+  } = usePersonMemories(id ?? "");
+  const {
+    interactions,
+    latestInteraction,
+    isLoading: interactionsLoading,
+    refetch: refetchInteractions,
+  } = usePersonInteractions(id ?? "");
+  const { photoUri, setPhoto, removePhoto } = usePersonPhoto(id ?? "");
+
+  const isLoading = personLoading || memoriesLoading || interactionsLoading;
+
+  // ─── Plant exit hint animation ──────────────────────────────────────────
+  // All hooks MUST be called before any early returns (React rules of hooks)
+  const plantExitScale = useSharedValue(1);
+  const plantExitOpacity = useSharedValue(0.85);
+
+  const plantExitStyle = useAnimatedStyle(() => ({
+    opacity: plantExitOpacity.value,
+    transform: [{ scale: plantExitScale.value }],
+  }));
+
+  // Refetch data + reset plant when screen regains focus (after returning from modal)
+  useFocusEffect(
+    useCallback(() => {
+      refetchMemories();
+      refetchInteractions();
+      plantExitScale.value = withTiming(1, { duration: 300 });
+      plantExitOpacity.value = withTiming(0.85, { duration: 300 });
+    }, [refetchMemories, refetchInteractions])
+  );
+
+  // ─── Orientation Steps 3–4 ────────────────────────────────────────────────
+  const orientation = useOrientation();
+  const quickActionBarRef = useRef<View>(null);
+  const reflectButtonRef = useRef<View>(null);
+  const [orientationHighlight, setOrientationHighlight] =
+    useState<HighlightRect | null>(null);
+
+  const showOrientation =
+    orientation.isActive &&
+    ORIENTATION_STEP_SCREEN[orientation.currentStep] === "person";
+
+  // Measure the target element for the spotlight cutout
+  useEffect(() => {
+    if (!showOrientation) {
+      setOrientationHighlight(null);
+      return;
+    }
+
+    const targetRef =
+      orientation.currentStep === 3 ? quickActionBarRef : reflectButtonRef;
+
+    const timer = setTimeout(() => {
+      targetRef.current?.measureInWindow((x, y, width, height) => {
+        if (width > 0 && height > 0) {
+          setOrientationHighlight({ x, y, width, height, borderRadius: 16 });
+        }
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [showOrientation, orientation.currentStep]);
+
+  const orientationStepConfig: Record<
+    number,
+    {
+      title: string;
+      body: string;
+      primaryLabel: string;
+      cardPosition: "above" | "below" | "center";
+    }
+  > = {
+    3: {
+      title: "Stay connected",
+      body: "Quick actions let you text, call, or reflect on moments with the people in your garden.",
+      primaryLabel: "Continue",
+      cardPosition: "below",
+    },
+    4: {
+      title: "Reflect on moments",
+      body: "Tap Reflect to capture a small moment — a text, a call, a feeling. These feed your garden\u2019s growth.",
+      primaryLabel: "Finish",
+      cardPosition: "above",
+    },
+  };
+
+  const handleOrientationAdvance = useCallback(async () => {
+    await orientation.advance();
+  }, [orientation.advance]);
+
+  const currentOrientationConfig =
+    orientationStepConfig[orientation.currentStep];
+
+  // ─── Growth (must be before early returns) ────────────────────────────────
+  const growth = usePersonGrowth(id ?? "");
+
+  // ─── Loading ─────────────────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <PersonDetailSkeleton insets={insets} />
+      </>
+    );
+  }
+
+  // ─── Error ───────────────────────────────────────────────────────────────
+  if (personError || !person) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={{ flex: 1, backgroundColor: cream }}>
+          <View style={{ paddingHorizontal: 24, paddingTop: insets.top + 8 }}>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={12}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: "rgba(255,255,255,0.8)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <ChevronLeft color={nearBlack} size={22} />
+            </Pressable>
+          </View>
+          <ErrorState
+            message={personError ? "Couldn't load this person." : "Person not found."}
+            onRetry={refetchPerson}
+          />
+        </View>
+      </>
+    );
+  }
+
+  const relationLabel = relationshipLabels[person.relationship_type];
+  const growthStage = growth.stage;
+  const growthLabel = growth.label;
+
+  const handleChoosePhoto = async () => {
+    setShowPhotoModal(false);
+
+    // Request permission first — required on iOS
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      // Permission denied — nothing we can do
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhoto(result.assets[0].uri);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setShowPhotoModal(false);
+    removePhoto();
+  };
+
+  const handleReachOut = () => {
+    // Animate plant exit hint — gentle scale-up + fade
+    plantExitScale.value = withTiming(1.08, {
+      duration: 250,
+      easing: Easing.out(Easing.ease),
+    });
+    plantExitOpacity.value = withTiming(0, {
+      duration: 250,
+      easing: Easing.out(Easing.ease),
+    });
+
+    // Navigate after brief delay so user sees animation start
+    setTimeout(() => {
+      router.push(`/reach-out/${person!.id}`);
+    }, 80);
+  };
+
+  // ─── Content ─────────────────────────────────────────────────────────────
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: cream }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!showOrientation}
+      >
+        {/* Header Background */}
+        <LinearGradient
+          colors={[sagePale, cream]}
+          style={{
+            paddingTop: insets.top + 8,
+            paddingBottom: 0,
+          }}
+        >
+          {/* Back Navigation */}
+          <View style={{ paddingHorizontal: 24, marginBottom: 8 }}>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={12}
+              style={{ flexDirection: "row", alignItems: "center" }}
+            >
+              <ChevronLeft color={sage} size={20} />
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 14,
+                  color: sage,
+                  marginLeft: 4,
+                }}
+              >
+                My garden
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Growth Stage Plant Illustration */}
+          <View style={{ alignItems: "center", marginBottom: 4 }}>
+            <Animated.View style={plantExitStyle}>
+              <GrowthPlant stage={growthStage} size={100} />
+            </Animated.View>
+          </View>
+
+          {/* Friend Photo / Avatar with camera overlay */}
+          <View style={{ alignItems: "center", marginBottom: 16 }}>
+            <Pressable
+              onPress={() => setShowPhotoModal(true)}
+              style={{ position: "relative" }}
+            >
+              {photoUri ? (
+                <Image
+                  source={{ uri: photoUri }}
+                  style={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: 48,
+                    borderWidth: 3,
+                    borderColor: white,
+                  }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <LinearGradient
+                  colors={[sageLight, sage]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: 48,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 3,
+                    borderColor: white,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansSemiBold,
+                      fontSize: 36,
+                      color: white,
+                    }}
+                  >
+                    {person.name.charAt(0).toUpperCase()}
+                  </Text>
+                </LinearGradient>
+              )}
+
+              {/* Camera overlay button */}
+              <View
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  right: 0,
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  backgroundColor: sage,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 2,
+                  borderColor: white,
+                }}
+              >
+                <Camera color={white} size={14} strokeWidth={2} />
+              </View>
+            </Pressable>
+          </View>
+        </LinearGradient>
+
+        <FadeIn>
+          {/* Person Info */}
+          <View style={{ alignItems: "center", paddingHorizontal: 24, marginBottom: 20 }}>
+            <Text
+              style={{
+                fontFamily: fonts.serif,
+                fontSize: 28,
+                color: nearBlack,
+                marginBottom: 10,
+              }}
+            >
+              {person.name}
+            </Text>
+
+            {/* Status Badges — growth stage + relationship + last interaction */}
+            <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+              {/* Growth Stage Badge */}
+              <View
+                style={{
+                  backgroundColor: sageLight + "66",
+                  borderRadius: 20,
+                  paddingVertical: 6,
+                  paddingHorizontal: 14,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <Text style={{ fontSize: 12 }}>{"\uD83C\uDF31"}</Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMedium,
+                    fontSize: 13,
+                    color: sageDark,
+                  }}
+                >
+                  {growthLabel}
+                </Text>
+              </View>
+
+              {/* Relationship Badge */}
+              <View
+                style={{
+                  backgroundColor: sagePale,
+                  borderRadius: 20,
+                  paddingVertical: 6,
+                  paddingHorizontal: 14,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMedium,
+                    fontSize: 13,
+                    color: sageDark,
+                  }}
+                >
+                  {relationLabel}
+                </Text>
+              </View>
+
+              {/* Last Interaction Badge */}
+              {latestInteraction && (
+                <View
+                  style={{
+                    backgroundColor: goldLight + "66",
+                    borderRadius: 20,
+                    paddingVertical: 6,
+                    paddingHorizontal: 14,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansMedium,
+                      fontSize: 13,
+                      color: warmGray,
+                    }}
+                  >
+                    Last: {formatRelativeDate(latestInteraction.created_at)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Quick Action Bar */}
+          <View
+            ref={quickActionBarRef}
+            collapsable={false}
+            style={{
+              flexDirection: "row",
+              justifyContent: "center",
+              gap: 32,
+              paddingHorizontal: 24,
+              marginBottom: 24,
+            }}
+          >
+            <QuickAction
+              icon={MessageCircle}
+              label="Text"
+              bgColor={sage}
+              onPress={handleReachOut}
+            />
+            <QuickAction
+              icon={Phone}
+              label="Call"
+              bgColor="#5E9EA0"
+              onPress={handleReachOut}
+            />
+            <View ref={reflectButtonRef} collapsable={false}>
+              <QuickAction
+                icon={Leaf}
+                label="Reflect"
+                bgColor={gold}
+                onPress={() => setShowReflectSheet(true)}
+              />
+            </View>
+            <QuickAction
+              icon={Camera}
+              label="Memory"
+              bgColor={lavender}
+              onPress={() => router.push(`/memory/add?personId=${person.id}`)}
+            />
+          </View>
+
+          {/* Tab Navigation */}
+          <ProfileTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+
+          {/* Tab Content */}
+          {activeTab === "context" && (
+            <ContextTab
+              personId={person.id}
+              personName={person.name}
+              relationshipType={relationLabel}
+              memories={memories}
+              interactions={interactions}
+            />
+          )}
+          {activeTab === "timeline" && <TimelineTab interactions={interactions} />}
+          {activeTab === "memories" && (
+            <MemoriesTab memories={memories} personId={person.id} />
+          )}
+        </FadeIn>
+      </ScrollView>
+
+      {/* Photo Picker Modal */}
+      <PhotoPickerModal
+        visible={showPhotoModal}
+        hasPhoto={!!photoUri}
+        onChoosePhoto={handleChoosePhoto}
+        onRemovePhoto={handleRemovePhoto}
+        onClose={() => setShowPhotoModal(false)}
+      />
+
+      {/* Reflect Sheet — lightweight interaction capture */}
+      <ReflectSheet
+        visible={showReflectSheet}
+        personName={person.name}
+        personId={person.id}
+        onSaved={() => {
+          refetchInteractions();
+        }}
+        onClose={() => setShowReflectSheet(false)}
+      />
+
+      {/* Orientation overlay — Steps 3 & 4 (person profile) */}
+      {showOrientation && currentOrientationConfig && (
+        <OrientationOverlay
+          isOpen={showOrientation}
+          step={orientation.currentStep}
+          totalSteps={orientation.totalSteps}
+          highlightRect={orientationHighlight}
+          title={currentOrientationConfig.title}
+          body={currentOrientationConfig.body}
+          primaryLabel={currentOrientationConfig.primaryLabel}
+          onPrimary={handleOrientationAdvance}
+          onSkip={orientation.skip}
+          cardPosition={currentOrientationConfig.cardPosition}
+        />
+      )}
+    </>
+  );
+}
