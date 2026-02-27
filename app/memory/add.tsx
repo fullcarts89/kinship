@@ -1,18 +1,18 @@
 /**
- * Add Photo Memory — 4-Screen Photo Memory Capture Flow
+ * Unified Capture Flow — 2-Screen Memory Capture
  *
- * S1 (step 0): Add Photo — image picker, person selector, title, note, AI assist
- * S2 (step 1): AI Loading — arc spinner, sparkles, fading dots, privacy
- * S3 (step 2): AI Suggestion — editable description, Use this / Try again / Dismiss
- * S4 (step 3): Memory Saved — GardenRevealIllustration, checkmark, back to garden
+ * S1 (step 0): Capture — person selector, text input, photo, emotion chips
+ * S2 (step 1): Saved — GardenRevealIllustration, confirmation, back to garden
  *
  * Flow:
- * S1 → S2: Tap "Generate description"
- * S2 → S3: Generation completes (~2.2s)
- * S3 → S1: "Use this" (fills note) or "Dismiss"
- * S3 → S2: "Try again"
- * S1 → S4: Tap "Save memory"
- * S4 → Today Dashboard: Tap "Back to garden"
+ * S1 → S2: Tap "Save to garden" → auto-classifies + saves
+ * S2 → Garden: Tap "Back to garden"
+ *
+ * Auto-classification:
+ * - Has photo OR text ≥ 140 chars → meaningful (+3 growth points)
+ * - Text 1-139 chars, no photo     → simple    (+2 growth points)
+ *
+ * The user never sees these categories. They just capture.
  */
 import React, { useState, useCallback, useEffect } from "react";
 import {
@@ -36,22 +36,13 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withDelay,
-  withRepeat,
-  withSequence,
   Easing,
 } from "react-native-reanimated";
-import Svg, {
-  Circle as SvgCircle,
-  Defs,
-  LinearGradient as SvgLinearGradient,
-  Stop,
-} from "react-native-svg";
 import {
   Camera,
   X,
   Check,
-  Sparkles,
-  Shield,
+  Mic,
   ChevronDown,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
@@ -62,7 +53,9 @@ import {
   getTransitionToastMessage,
 } from "@/lib/growthEngine";
 import { showGrowthToast } from "@/components/ui/GrowthToast";
+import { emotionList, formatEmotionLabel } from "@/lib/formatters";
 import type { Person } from "@/types/database";
+import type { Emotion } from "@/types";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 
@@ -70,27 +63,23 @@ const sage = colors.sage;
 const sageDark = colors.moss;
 const sagePale = colors.sagePale;
 const sageLight = colors.sageLight;
-const gold = colors.gold;
-const goldLight = colors.goldLight;
-const goldPale = colors.goldPale;
 const cream = colors.cream;
 const nearBlack = colors.nearBlack;
 const warmGray = colors.warmGray;
 const white = colors.white;
 const borderClr = colors.border;
 
-// ─── Prototype AI Descriptions ──────────────────────────────────────────────
+// ─── Auto-Classification ────────────────────────────────────────────────────
 
-const AI_DESCRIPTIONS = [
-  "A warm afternoon spent catching up over coffee, sharing stories about the week and laughing at inside jokes that only the two of you understand.",
-  "A beautiful moment of connection — the kind that reminds you why this person matters so much in your life.",
-  "Sitting together in comfortable silence, the kind that only comes with people who truly know you.",
-  "A spontaneous adventure that turned into one of those golden memories you'll hold onto forever.",
-  "One of those rare conversations where time seemed to stand still and everything felt perfectly right.",
-];
-
-function getRandomDescription(): string {
-  return AI_DESCRIPTIONS[Math.floor(Math.random() * AI_DESCRIPTIONS.length)];
+function classifyCapture(
+  content: string,
+  hasPhoto: boolean,
+  emotion: Emotion | null
+): "meaningful" | "simple" {
+  if (hasPhoto) return "meaningful";
+  if (content.length >= 140) return "meaningful";
+  if (emotion !== null) return "meaningful";
+  return "simple";
 }
 
 // ─── Person Selector Modal ──────────────────────────────────────────────────
@@ -225,195 +214,50 @@ function PersonSelectorModal({
   );
 }
 
-// ─── Arc Spinner (AI Loading) ───────────────────────────────────────────────
+// ─── S1: Capture ────────────────────────────────────────────────────────────
 
-function ArcSpinner() {
-  const rotation = useSharedValue(0);
-
-  useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 1400, easing: Easing.linear }),
-      -1
-    );
-  }, []);
-
-  const spinStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
-
-  const circumference = 2 * Math.PI * 42;
-
-  return (
-    <View
-      style={{
-        width: 100,
-        height: 100,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Animated.View style={[{ width: 100, height: 100 }, spinStyle]}>
-        <Svg width={100} height={100} viewBox="0 0 100 100">
-          <Defs>
-            <SvgLinearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0%" stopColor={gold} />
-              <Stop offset="100%" stopColor={sage} />
-            </SvgLinearGradient>
-          </Defs>
-          <SvgCircle
-            cx={50}
-            cy={50}
-            r={42}
-            stroke="url(#arcGrad)"
-            strokeWidth={3.5}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={`${circumference * 0.3} ${circumference * 0.7}`}
-          />
-        </Svg>
-      </Animated.View>
-      {/* Sparkles center */}
-      <View style={{ position: "absolute" }}>
-        <Sparkles size={26} color={gold} />
-      </View>
-    </View>
-  );
-}
-
-// ─── Fading Dots ────────────────────────────────────────────────────────────
-
-function FadingDots() {
-  const o1 = useSharedValue(0.3);
-  const o2 = useSharedValue(0.3);
-  const o3 = useSharedValue(0.3);
-
-  useEffect(() => {
-    const animate = (
-      v: Animated.SharedValue<number>,
-      delay: number
-    ) => {
-      v.value = withDelay(
-        delay,
-        withRepeat(
-          withSequence(
-            withTiming(1, { duration: 400 }),
-            withTiming(0.3, { duration: 400 })
-          ),
-          -1
-        )
-      );
-    };
-    animate(o1, 0);
-    animate(o2, 200);
-    animate(o3, 400);
-  }, []);
-
-  const s1 = useAnimatedStyle(() => ({ opacity: o1.value }));
-  const s2 = useAnimatedStyle(() => ({ opacity: o2.value }));
-  const s3 = useAnimatedStyle(() => ({ opacity: o3.value }));
-
-  const dotStyle = {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: warmGray,
-    marginHorizontal: 4,
-  };
-
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center" }}>
-      <Animated.View style={[dotStyle, s1]} />
-      <Animated.View style={[dotStyle, s2]} />
-      <Animated.View style={[dotStyle, s3]} />
-    </View>
-  );
-}
-
-// ─── S1: Add Photo ──────────────────────────────────────────────────────────
-
-function S1_AddPhoto({
+function S1_Capture({
   photoUri,
   person,
-  title,
-  note,
+  content,
+  selectedEmotion,
   onPickPhoto,
   onRemovePhoto,
   onOpenPersonSelector,
-  onChangeTitle,
-  onChangeNote,
-  onGenerateAI,
+  onChangeContent,
+  onSelectEmotion,
   onSave,
   onCancel,
   isSaving,
 }: {
   photoUri: string | null;
   person: Person | null;
-  title: string;
-  note: string;
+  content: string;
+  selectedEmotion: Emotion | null;
   onPickPhoto: () => void;
   onRemovePhoto: () => void;
   onOpenPersonSelector: () => void;
-  onChangeTitle: (v: string) => void;
-  onChangeNote: (v: string) => void;
-  onGenerateAI: () => void;
+  onChangeContent: (v: string) => void;
+  onSelectEmotion: (e: Emotion | null) => void;
   onSave: () => void;
   onCancel: () => void;
   isSaving: boolean;
 }) {
-  const canSave = !!person && (note.trim().length > 0 || title.trim().length > 0);
+  const canSave = !!person && content.trim().length > 0;
 
   return (
     <>
-      {/* Header */}
+      {/* Header — X close */}
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-between",
           paddingHorizontal: 20,
           paddingVertical: 12,
         }}
       >
         <Pressable onPress={onCancel} hitSlop={12}>
-          <Text
-            style={{
-              fontFamily: fonts.sansMedium,
-              fontSize: 15,
-              color: warmGray,
-            }}
-          >
-            Cancel
-          </Text>
-        </Pressable>
-        <Text
-          style={{
-            fontFamily: fonts.sansSemiBold,
-            fontSize: 15,
-            color: nearBlack,
-          }}
-        >
-          Add memory
-        </Text>
-        <Pressable
-          onPress={onSave}
-          disabled={!canSave || isSaving}
-          style={{
-            backgroundColor: canSave ? sage : sageLight,
-            paddingVertical: 7,
-            paddingHorizontal: 16,
-            borderRadius: 10,
-            opacity: canSave && !isSaving ? 1 : 0.5,
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: fonts.sansSemiBold,
-              fontSize: 13,
-              color: white,
-            }}
-          >
-            {isSaving ? "Saving..." : "Save"}
-          </Text>
+          <X size={24} color={nearBlack} />
         </Pressable>
       </View>
 
@@ -424,91 +268,22 @@ function S1_AddPhoto({
       >
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Photo Picker ──────────────────────────────── */}
-          {photoUri ? (
-            <View
-              style={{
-                borderRadius: 20,
-                overflow: "hidden",
-                marginBottom: 20,
-                position: "relative",
-              }}
-            >
-              <Image
-                source={{ uri: photoUri }}
-                style={{ width: "100%", height: 220, borderRadius: 20 }}
-                resizeMode="cover"
-              />
-              <Pressable
-                onPress={onRemovePhoto}
-                style={{
-                  position: "absolute",
-                  top: 12,
-                  right: 12,
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
-                  backgroundColor: "rgba(0,0,0,0.45)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <X size={16} color={white} />
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable
-              onPress={onPickPhoto}
-              style={{
-                height: 180,
-                borderRadius: 20,
-                borderWidth: 2,
-                borderStyle: "dashed",
-                borderColor: sageLight,
-                backgroundColor: sagePale + "44",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 20,
-              }}
-            >
-              <View
-                style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 26,
-                  backgroundColor: sagePale,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 10,
-                }}
-              >
-                <Camera size={24} color={sage} />
-              </View>
-              <Text
-                style={{
-                  fontFamily: fonts.sansMedium,
-                  fontSize: 14,
-                  color: sage,
-                }}
-              >
-                Tap to add a photo
-              </Text>
-              <Text
-                style={{
-                  fontFamily: fonts.sans,
-                  fontSize: 12,
-                  color: warmGray,
-                  marginTop: 4,
-                }}
-              >
-                Optional — add photos freely
-              </Text>
-            </Pressable>
-          )}
+          {/* ── Title ─────────────────────────────────────── */}
+          <Text
+            style={{
+              fontFamily: fonts.serif,
+              fontSize: 28,
+              color: nearBlack,
+              marginBottom: 24,
+              lineHeight: 34,
+            }}
+          >
+            Capture a moment
+          </Text>
 
           {/* ── Person Selector ────────────────────────────── */}
           <Pressable
@@ -573,383 +348,227 @@ function S1_AddPhoto({
             <ChevronDown size={18} color={warmGray} />
           </Pressable>
 
-          {/* ── Title ──────────────────────────────────────── */}
+          {/* ── Content Input ──────────────────────────────── */}
           <RNTextInput
-            placeholder="Title (optional)"
+            placeholder="What's on your mind?"
             placeholderTextColor={warmGray + "88"}
-            value={title}
-            onChangeText={onChangeTitle}
-            style={{
-              fontFamily: fonts.sansMedium,
-              fontSize: 18,
-              color: nearBlack,
-              backgroundColor: white,
-              borderRadius: 14,
-              padding: 14,
-              borderWidth: 1,
-              borderColor: borderClr,
-              marginBottom: 12,
-            }}
-          />
-
-          {/* ── Note ───────────────────────────────────────── */}
-          <RNTextInput
-            placeholder="Write about this moment..."
-            placeholderTextColor={warmGray + "88"}
-            value={note}
-            onChangeText={onChangeNote}
+            value={content}
+            onChangeText={onChangeContent}
             multiline
             textAlignVertical="top"
             style={{
               fontFamily: fonts.sans,
-              fontSize: 15,
+              fontSize: 16,
               color: nearBlack,
               backgroundColor: white,
               borderRadius: 14,
-              padding: 14,
-              paddingTop: 14,
+              padding: 16,
+              paddingTop: 16,
               borderWidth: 1,
               borderColor: borderClr,
-              minHeight: 100,
-              marginBottom: 20,
-              lineHeight: 22,
+              minHeight: 120,
+              marginBottom: 16,
+              lineHeight: 24,
             }}
           />
 
-          {/* ── AI Assist Divider ──────────────────────────── */}
+          {/* ── Photo / Voice Row ─────────────────────────── */}
           <View
             style={{
-              height: 1,
-              backgroundColor: borderClr,
-              marginBottom: 20,
+              flexDirection: "row",
+              gap: 12,
+              marginBottom: 24,
             }}
-          />
-
-          {/* ── AI Assist Section ──────────────────────────── */}
-          <View style={{ alignItems: "center", marginBottom: 12 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 6,
-                marginBottom: 12,
-              }}
-            >
-              <Sparkles size={16} color={gold} />
-              <Text
+          >
+            {/* Photo button */}
+            {photoUri ? (
+              <View
                 style={{
-                  fontFamily: fonts.sansMedium,
-                  fontSize: 14,
-                  color: nearBlack,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: sagePale,
+                  borderRadius: 12,
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderWidth: 1,
+                  borderColor: sageLight,
                 }}
               >
-                Want help describing this moment?
-              </Text>
-            </View>
+                <Image
+                  source={{ uri: photoUri }}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    marginRight: 10,
+                  }}
+                  resizeMode="cover"
+                />
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMedium,
+                    fontSize: 13,
+                    color: sage,
+                    marginRight: 10,
+                  }}
+                >
+                  Photo added
+                </Text>
+                <Pressable onPress={onRemovePhoto} hitSlop={8}>
+                  <X size={16} color={warmGray} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={onPickPhoto}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderColor: borderClr,
+                  backgroundColor: white,
+                }}
+              >
+                <Camera size={18} color={sage} />
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMedium,
+                    fontSize: 13,
+                    color: nearBlack,
+                  }}
+                >
+                  Add photo
+                </Text>
+              </Pressable>
+            )}
 
-            {/* Generate button */}
+            {/* Voice button — disabled placeholder */}
             <Pressable
-              onPress={onGenerateAI}
-              disabled={!photoUri}
+              disabled
               style={{
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 8,
-                paddingVertical: 11,
-                paddingHorizontal: 20,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
                 borderRadius: 12,
                 borderWidth: 1.5,
-                borderColor: photoUri ? goldLight : borderClr,
-                backgroundColor: photoUri ? goldPale + "55" : "transparent",
-                opacity: photoUri ? 1 : 0.5,
+                borderColor: borderClr,
+                backgroundColor: white,
+                opacity: 0.45,
               }}
             >
-              <Sparkles size={14} color={photoUri ? gold : warmGray} />
+              <Mic size={18} color={warmGray} />
+              <Text
+                style={{
+                  fontFamily: fonts.sansMedium,
+                  fontSize: 13,
+                  color: warmGray,
+                }}
+              >
+                Voice
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* ── Emotion Chips ─────────────────────────────── */}
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 16,
+              color: nearBlack,
+              marginBottom: 12,
+            }}
+          >
+            How does this feel?
+          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 8,
+              marginBottom: 32,
+            }}
+          >
+            {emotionList.map((emotion) => {
+              const isSelected = selectedEmotion === emotion;
+              return (
+                <Pressable
+                  key={emotion}
+                  onPress={() =>
+                    onSelectEmotion(isSelected ? null : emotion)
+                  }
+                  style={{
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    borderRadius: 100,
+                    backgroundColor: isSelected ? sage : sagePale,
+                    borderWidth: isSelected ? 0 : 0,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansMedium,
+                      fontSize: 14,
+                      color: isSelected ? white : warmGray,
+                    }}
+                  >
+                    {formatEmotionLabel(emotion)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* ── Save Button ───────────────────────────────── */}
+          <Pressable
+            onPress={onSave}
+            disabled={!canSave || isSaving}
+            style={{
+              borderRadius: 16,
+              overflow: "hidden",
+              opacity: canSave && !isSaving ? 1 : 0.5,
+            }}
+          >
+            <LinearGradient
+              colors={[sage, sageDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                paddingVertical: 16,
+                alignItems: "center",
+                borderRadius: 16,
+                shadowColor: sage,
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.25,
+                shadowRadius: 18,
+                elevation: 6,
+              }}
+            >
               <Text
                 style={{
                   fontFamily: fonts.sansSemiBold,
-                  fontSize: 13,
-                  color: photoUri ? gold : warmGray,
+                  fontSize: 16,
+                  color: white,
                 }}
               >
-                Generate description
+                {isSaving ? "Saving..." : "Save to garden"}
               </Text>
-            </Pressable>
-
-            {/* Privacy note */}
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 5,
-                marginTop: 12,
-              }}
-            >
-              <Shield size={12} color={warmGray} />
-              <Text
-                style={{
-                  fontFamily: fonts.sans,
-                  fontSize: 11,
-                  color: warmGray,
-                  lineHeight: 16,
-                  flex: 1,
-                }}
-              >
-                Descriptions are generated on-device. Nothing is stored or sent
-                to servers.
-              </Text>
-            </View>
-          </View>
+            </LinearGradient>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </>
   );
 }
 
-// ─── S2: AI Loading ─────────────────────────────────────────────────────────
+// ─── S2: Saved Confirmation ─────────────────────────────────────────────────
 
-function S2_AILoading() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 40,
-      }}
-    >
-      {/* Spinner */}
-      <ArcSpinner />
-
-      {/* "Thinking..." */}
-      <Text
-        style={{
-          fontFamily: fonts.serif,
-          fontSize: 22,
-          color: nearBlack,
-          marginTop: 28,
-          marginBottom: 12,
-        }}
-      >
-        Thinking...
-      </Text>
-
-      {/* Fading dots */}
-      <FadingDots />
-
-      {/* Privacy note */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          marginTop: 40,
-          paddingHorizontal: 20,
-        }}
-      >
-        <Shield size={14} color={warmGray} />
-        <Text
-          style={{
-            fontFamily: fonts.sans,
-            fontSize: 12,
-            color: warmGray,
-            lineHeight: 18,
-          }}
-        >
-          Your photo stays on your device
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-// ─── S3: AI Suggestion ──────────────────────────────────────────────────────
-
-function S3_AISuggestion({
-  suggestion,
-  onChangeSuggestion,
-  onUseThis,
-  onTryAgain,
-  onDismiss,
-}: {
-  suggestion: string;
-  onChangeSuggestion: (v: string) => void;
-  onUseThis: () => void;
-  onTryAgain: () => void;
-  onDismiss: () => void;
-}) {
-  const fadeOpacity = useSharedValue(0);
-  const fadeTranslateY = useSharedValue(16);
-
-  useEffect(() => {
-    fadeOpacity.value = withTiming(1, { duration: 500 });
-    fadeTranslateY.value = withTiming(0, { duration: 500 });
-  }, []);
-
-  const fadeStyle = useAnimatedStyle(() => ({
-    opacity: fadeOpacity.value,
-    transform: [{ translateY: fadeTranslateY.value }],
-  }));
-
-  return (
-    <View
-      style={{
-        flex: 1,
-        paddingHorizontal: 24,
-        justifyContent: "center",
-      }}
-    >
-      <Animated.View style={fadeStyle}>
-        {/* AI Suggestion badge */}
-        <View
-          style={{
-            alignSelf: "center",
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            backgroundColor: goldPale,
-            paddingVertical: 5,
-            paddingHorizontal: 12,
-            borderRadius: 100,
-            marginBottom: 20,
-          }}
-        >
-          <View
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: gold,
-            }}
-          />
-          <Text
-            style={{
-              fontFamily: fonts.sansSemiBold,
-              fontSize: 11,
-              color: gold,
-              textTransform: "uppercase",
-              letterSpacing: 0.8,
-            }}
-          >
-            AI Suggestion
-          </Text>
-        </View>
-
-        {/* Title */}
-        <Text
-          style={{
-            fontFamily: fonts.serif,
-            fontSize: 24,
-            color: nearBlack,
-            textAlign: "center",
-            lineHeight: 30,
-            marginBottom: 24,
-          }}
-        >
-          Here's a description{"\n"}of that moment
-        </Text>
-
-        {/* Editable suggestion block */}
-        <View
-          style={{
-            backgroundColor: goldPale + "66",
-            borderRadius: 16,
-            borderWidth: 1.5,
-            borderColor: goldLight,
-            padding: 16,
-            marginBottom: 28,
-          }}
-        >
-          <RNTextInput
-            value={suggestion}
-            onChangeText={onChangeSuggestion}
-            multiline
-            textAlignVertical="top"
-            style={{
-              fontFamily: fonts.sans,
-              fontSize: 15,
-              color: nearBlack,
-              lineHeight: 23,
-              minHeight: 100,
-              padding: 0,
-            }}
-          />
-        </View>
-
-        {/* CTAs */}
-        <Pressable
-          onPress={onUseThis}
-          style={{
-            backgroundColor: sage,
-            borderRadius: 14,
-            paddingVertical: 14,
-            alignItems: "center",
-            marginBottom: 10,
-            shadowColor: sage,
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: 0.25,
-            shadowRadius: 12,
-            elevation: 4,
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: fonts.sansSemiBold,
-              fontSize: 15,
-              color: white,
-            }}
-          >
-            Use this
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onTryAgain}
-          style={{
-            borderRadius: 14,
-            paddingVertical: 14,
-            alignItems: "center",
-            borderWidth: 1.5,
-            borderColor: goldLight,
-            marginBottom: 10,
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: fonts.sansSemiBold,
-              fontSize: 15,
-              color: gold,
-            }}
-          >
-            Try again
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onDismiss}
-          style={{
-            paddingVertical: 12,
-            alignItems: "center",
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: fonts.sans,
-              fontSize: 14,
-              color: warmGray,
-            }}
-          >
-            Dismiss
-          </Text>
-        </Pressable>
-      </Animated.View>
-    </View>
-  );
-}
-
-// ─── S4: Memory Saved ───────────────────────────────────────────────────────
-
-function S4_MemorySaved({
+function S2_Saved({
   personName,
   onBackToGarden,
 }: {
@@ -1005,55 +624,36 @@ function S4_MemorySaved({
         <GardenRevealIllustration size={200} />
       </Animated.View>
 
-      {/* Checkmark circle */}
-      <Animated.View style={[{ marginTop: -10 }, gardenStyle]}>
-        <View
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
-            backgroundColor: sage,
-            alignItems: "center",
-            justifyContent: "center",
-            shadowColor: sage,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 12,
-            elevation: 4,
-          }}
-        >
-          <Check size={24} color={white} strokeWidth={2.5} />
-        </View>
-      </Animated.View>
-
       {/* Text content */}
       <Animated.View
-        style={[{ alignItems: "center", marginTop: 24, width: "100%" }, contentStyle]}
+        style={[
+          { alignItems: "center", marginTop: 28, width: "100%" },
+          contentStyle,
+        ]}
       >
         <Text
           style={{
             fontFamily: fonts.serif,
-            fontSize: 28,
+            fontSize: 24,
             color: nearBlack,
             textAlign: "center",
-            lineHeight: 34,
-            marginBottom: 10,
+            lineHeight: 30,
+            marginBottom: 8,
           }}
         >
-          That moment matters.
+          Saved to your garden
         </Text>
         <Text
           style={{
             fontFamily: fonts.sans,
-            fontSize: 15,
+            fontSize: 16,
             color: warmGray,
             textAlign: "center",
             lineHeight: 22,
             marginBottom: 36,
-            maxWidth: 280,
           }}
         >
-          Your memory with {personName} has been saved to your garden.
+          with {personName}
         </Text>
 
         {/* CTA */}
@@ -1103,14 +703,13 @@ export default function AddMemoryScreen() {
   const { createMemory, isCreating } = useCreateMemory();
 
   // ── State ─────────────────────────────────────────────────────────────
-  const [step, setStep] = useState(0); // 0=Add, 1=AILoading, 2=AISuggestion, 3=Saved
+  const [step, setStep] = useState(0); // 0=Capture, 1=Saved
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [personId, setPersonId] = useState<string | null>(
     preselectedPersonId ?? persons[0]?.id ?? null
   );
-  const [title, setTitle] = useState("");
-  const [note, setNote] = useState("");
-  const [aiSuggestion, setAiSuggestion] = useState("");
+  const [content, setContent] = useState("");
+  const [selectedEmotion, setSelectedEmotion] = useState<Emotion | null>(null);
   const [showPersonModal, setShowPersonModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -1127,53 +726,22 @@ export default function AddMemoryScreen() {
 
   // ── Image Picker ──────────────────────────────────────────────────────
   const pickImage = useCallback(async () => {
-    const { status } =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch {
       Alert.alert(
-        "Permission needed",
-        "Please allow access to your photo library to add photos."
+        "Couldn't open photos",
+        "Please check that Kinship has permission to access your photo library in Settings."
       );
-      return;
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
-    }
-  }, []);
-
-  // ── AI Generation (simulated) ─────────────────────────────────────────
-  const handleGenerateAI = useCallback(() => {
-    setStep(1); // Go to AI Loading
-    setAiSuggestion(getRandomDescription());
-
-    // Auto-advance to suggestion after delay
-    setTimeout(() => {
-      setStep(2);
-    }, 2200);
-  }, []);
-
-  const handleUseThis = useCallback(() => {
-    setNote(aiSuggestion);
-    setStep(0);
-  }, [aiSuggestion]);
-
-  const handleTryAgain = useCallback(() => {
-    setAiSuggestion(getRandomDescription());
-    setStep(1);
-    setTimeout(() => {
-      setStep(2);
-    }, 2200);
-  }, []);
-
-  const handleDismiss = useCallback(() => {
-    setStep(0);
   }, []);
 
   // ── Save Memory ───────────────────────────────────────────────────────
@@ -1182,17 +750,24 @@ export default function AddMemoryScreen() {
 
     setIsSaving(true);
     try {
-      const content = [title.trim(), note.trim()].filter(Boolean).join(" — ");
-      const memoryContent = content || "A moment shared together";
-      await createMemory({
+      const memoryContent = content.trim() || "A moment shared together";
+
+      const created = await createMemory({
         person_id: personId,
         content: memoryContent,
-        emotion: null,
+        emotion: selectedEmotion,
+        photo_url: photoUri ?? null,
       });
 
-      // Record growth for this memory
+      // Only award growth and advance to success if save actually succeeded
+      if (!created) {
+        Alert.alert("Error", "Failed to save memory. Please try again.");
+        return;
+      }
+
+      // Record growth — meaningful gets +3, simple gets +2
       const transition = recordMemoryGrowth(personId, {
-        emotion: null,
+        emotion: selectedEmotion,
         content: memoryContent,
       });
       if (transition && selectedPerson) {
@@ -1201,13 +776,14 @@ export default function AddMemoryScreen() {
         showGrowthToast(toast.text, toast.emoji);
       }
 
-      setStep(3); // Show celebration
-    } catch {
-      Alert.alert("Error", "Failed to save memory. Please try again.");
+      setStep(1); // Show saved confirmation
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert("Error", msg);
     } finally {
       setIsSaving(false);
     }
-  }, [personId, title, note, createMemory, selectedPerson]);
+  }, [personId, content, photoUri, selectedEmotion, createMemory, selectedPerson]);
 
   const handleBackToGarden = useCallback(() => {
     if (router.canGoBack()) {
@@ -1238,37 +814,24 @@ export default function AddMemoryScreen() {
         }}
       >
         {step === 0 && (
-          <S1_AddPhoto
+          <S1_Capture
             photoUri={photoUri}
             person={selectedPerson}
-            title={title}
-            note={note}
+            content={content}
+            selectedEmotion={selectedEmotion}
             onPickPhoto={pickImage}
             onRemovePhoto={() => setPhotoUri(null)}
             onOpenPersonSelector={() => setShowPersonModal(true)}
-            onChangeTitle={setTitle}
-            onChangeNote={setNote}
-            onGenerateAI={handleGenerateAI}
+            onChangeContent={setContent}
+            onSelectEmotion={setSelectedEmotion}
             onSave={handleSave}
             onCancel={handleCancel}
             isSaving={isSaving}
           />
         )}
 
-        {step === 1 && <S2_AILoading />}
-
-        {step === 2 && (
-          <S3_AISuggestion
-            suggestion={aiSuggestion}
-            onChangeSuggestion={setAiSuggestion}
-            onUseThis={handleUseThis}
-            onTryAgain={handleTryAgain}
-            onDismiss={handleDismiss}
-          />
-        )}
-
-        {step === 3 && (
-          <S4_MemorySaved
+        {step === 1 && (
+          <S2_Saved
             personName={selectedPerson?.name ?? "them"}
             onBackToGarden={handleBackToGarden}
           />
