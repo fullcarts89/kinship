@@ -30,6 +30,7 @@ export interface Person {
   name: string;
   photo_url: string | null;
   relationship_type: RelationshipType;
+  birthday?: string; // ISO date string, e.g. "1990-03-15" — year optional
   created_at: string;
 }
 
@@ -39,6 +40,7 @@ export interface Memory {
   person_id: string;
   content: string;
   emotion: Emotion | null;
+  photo_url: string | null;
   created_at: string;
 }
 
@@ -74,7 +76,7 @@ export interface Suggestion {
 
 export type UserInsert = Omit<User, "id" | "created_at">;
 export type PersonInsert = Omit<Person, "id" | "created_at">;
-export type MemoryInsert = Omit<Memory, "id" | "created_at">;
+export type MemoryInsert = Omit<Memory, "id" | "created_at" | "photo_url"> & { photo_url?: string | null };
 /**
  * InteractionInsert — note and emotion are optional since bare
  * interactions (e.g. from the reach-out flow) don't include them.

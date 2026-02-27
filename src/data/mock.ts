@@ -29,6 +29,7 @@ export const mockPeople: Person[] = [
     name: "Sarah Miller",
     photo_url: null,
     relationship_type: "friend",
+    birthday: "1994-03-01",
     created_at: "2026-01-15T10:00:00Z",
   },
   {
@@ -45,6 +46,7 @@ export const mockPeople: Person[] = [
     name: "Mom",
     photo_url: null,
     relationship_type: "family",
+    birthday: "1968-07-22",
     created_at: "2026-02-01T09:00:00Z",
   },
   {
@@ -53,6 +55,7 @@ export const mockPeople: Person[] = [
     name: "Alex Rivera",
     photo_url: null,
     relationship_type: "friend",
+    birthday: "1996-12-03",
     created_at: "2026-02-05T16:45:00Z",
   },
   {
@@ -74,6 +77,7 @@ export const mockMemories: Memory[] = [
     person_id: "p1",
     content: "Had an amazing brunch at that new cafe downtown. Sarah told me about her promotion — so proud of her!",
     emotion: "joyful",
+    photo_url: null,
     created_at: "2026-02-20T12:00:00Z",
   },
   {
@@ -82,6 +86,7 @@ export const mockMemories: Memory[] = [
     person_id: "p3",
     content: "Mom sent her famous banana bread recipe. Spent the afternoon baking together over video call.",
     emotion: "grateful",
+    photo_url: null,
     created_at: "2026-02-18T15:00:00Z",
   },
   {
@@ -90,6 +95,7 @@ export const mockMemories: Memory[] = [
     person_id: "p2",
     content: "James shared a great article on sustainable design. Led to a 2-hour conversation about our future plans.",
     emotion: "inspired",
+    photo_url: null,
     created_at: "2026-02-15T10:30:00Z",
   },
   {
@@ -98,6 +104,7 @@ export const mockMemories: Memory[] = [
     person_id: "p4",
     content: "Went hiking at Runyon Canyon. Alex showed me a hidden trail I'd never seen before.",
     emotion: "connected",
+    photo_url: null,
     created_at: "2026-02-12T09:00:00Z",
   },
   {
@@ -106,6 +113,7 @@ export const mockMemories: Memory[] = [
     person_id: "p5",
     content: "Dr. Patel gave incredible advice about navigating career transitions. Feeling more confident about the path ahead.",
     emotion: "hopeful",
+    photo_url: null,
     created_at: "2026-02-08T14:00:00Z",
   },
 ];
