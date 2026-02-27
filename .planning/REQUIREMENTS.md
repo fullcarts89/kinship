@@ -92,41 +92,41 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| PHOTO-01 | TBD | Pending |
-| PHOTO-02 | TBD | Pending |
-| PHOTO-03 | TBD | Pending |
-| REACH-01 | TBD | Pending |
-| REACH-02 | TBD | Pending |
-| REACH-03 | TBD | Pending |
-| REACH-04 | TBD | Pending |
-| INTL-01 | TBD | Pending |
-| INTL-02 | TBD | Pending |
-| INTL-03 | TBD | Pending |
-| INTL-04 | TBD | Pending |
-| INTL-05 | TBD | Pending |
-| CAL-01 | TBD | Pending |
-| CAL-02 | TBD | Pending |
-| CAL-03 | TBD | Pending |
-| CAL-04 | TBD | Pending |
-| VIS-01 | TBD | Pending |
-| VIS-02 | TBD | Pending |
-| MEM-01 | TBD | Pending |
-| MEM-02 | TBD | Pending |
-| CONT-01 | TBD | Pending |
-| CONT-02 | TBD | Pending |
-| WALK-01 | TBD | Pending |
-| WALK-02 | TBD | Pending |
-| VITAL-01 | TBD | Pending |
-| VITAL-02 | TBD | Pending |
-| VITAL-03 | TBD | Pending |
+| Requirement | Phase | Phase Name | Status |
+|-------------|-------|------------|--------|
+| PHOTO-01 | 1 | Photo & Media | Pending |
+| PHOTO-02 | 1 | Photo & Media | Pending |
+| PHOTO-03 | 1 | Photo & Media | Pending |
+| MEM-01 | 2 | Memory Detail Views | Pending |
+| MEM-02 | 2 | Memory Detail Views | Pending |
+| CONT-01 | 3 | Contact Integration | Pending |
+| CONT-02 | 3 | Contact Integration | Pending |
+| REACH-03 | 4 | Reach-Out Flow Core | Pending |
+| REACH-04 | 4 | Reach-Out Flow Core | Pending |
+| REACH-01 | 5 | Reach-Out Intelligence | Pending |
+| REACH-02 | 5 | Reach-Out Intelligence | Pending |
+| VIS-01 | 6 | Garden Visuals & Vitality Wiring | Pending |
+| VIS-02 | 6 | Garden Visuals & Vitality Wiring | Pending |
+| VITAL-01 | 6 | Garden Visuals & Vitality Wiring | Pending |
+| VITAL-02 | 6 | Garden Visuals & Vitality Wiring | Pending |
+| VITAL-03 | 6 | Garden Visuals & Vitality Wiring | Pending |
+| INTL-01 | 7 | Intelligence Context Layer | Pending |
+| INTL-02 | 7 | Intelligence Context Layer | Pending |
+| INTL-03 | 7 | Intelligence Context Layer | Pending |
+| INTL-04 | 7 | Intelligence Context Layer | Pending |
+| INTL-05 | 7 | Intelligence Context Layer | Pending |
+| WALK-01 | 8 | Garden Walk | Pending |
+| WALK-02 | 8 | Garden Walk | Pending |
+| CAL-01 | 9 | Calendar Integration | Pending |
+| CAL-02 | 9 | Calendar Integration | Pending |
+| CAL-03 | 9 | Calendar Integration | Pending |
+| CAL-04 | 9 | Calendar Integration | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
-- Mapped to phases: 0
-- Unmapped: 27 (awaiting roadmap)
+- Mapped to phases: 27
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after initial definition*
+*Last updated: 2026-02-27 — phase mappings added after roadmap creation*
