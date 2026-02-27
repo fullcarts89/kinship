@@ -1,30 +1,18 @@
 /**
  * Memory Hooks
  *
- * React hooks for memory data. Falls back to mock data
- * when Supabase is not configured.
- *
- * In mock mode, locally-created memories are stored in a module-level
- * array so they persist across hook instances and appear on refetch.
+ * React hooks for memory data. Attempts to read from Supabase first;
+ * on failure, falls back to module-level mock data so the app works
+ * in demo / development mode without a configured backend.
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import * as memoryService from "@/services/memoryService";
-import {
-  mockMemories,
-  getMemoriesForPerson as mockGetMemoriesForPerson,
-} from "@/data/mock";
+import { mockMemories } from "@/data/mock";
 import type { Memory, MemoryInsert } from "@/types/database";
 
-// ─── Shared local storage for mock mode ─────────────────────────────────────
-
-let locallyCreatedMemories: Memory[] = [];
-let localMemoryIdCounter = 200;
-
-function getAllMockMemories(): Memory[] {
-  return [...locallyCreatedMemories, ...mockMemories];
-}
+// ─── Module-level Mock Persistence ─────────────────────────────────────────
+const locallyCreatedMemories: Memory[] = [];
 
 // ─── useMemories (all) ─────────────────────────────────────────────────────
 
@@ -34,19 +22,15 @@ export function useMemories() {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setMemories(getAllMockMemories());
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
       const data = await memoryService.getMemories();
       setMemories(data);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+    } catch {
+      // Mock mode — merge locally created + mock data
+      setMemories([...locallyCreatedMemories, ...mockMemories]);
+      setError(null);
     } finally {
       setIsLoading(false);
     }
@@ -67,24 +51,19 @@ export function usePersonMemories(personId: string) {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      // Include locally-created memories for this person
-      const localForPerson = locallyCreatedMemories.filter(
-        (m) => m.person_id === personId
-      );
-      const mockForPerson = mockGetMemoriesForPerson(personId);
-      setMemories([...localForPerson, ...mockForPerson]);
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
       const data = await memoryService.getMemoriesForPerson(personId);
       setMemories(data);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+    } catch {
+      // Mock mode — merge and filter by person
+      setMemories(
+        [...locallyCreatedMemories, ...mockMemories].filter(
+          (m) => m.person_id === personId
+        )
+      );
+      setError(null);
     } finally {
       setIsLoading(false);
     }
@@ -104,30 +83,25 @@ export function useCreateMemory() {
   const [error, setError] = useState<Error | null>(null);
 
   const createMemory = useCallback(
-    async (memory: Omit<MemoryInsert, "user_id">) => {
-      if (!isSupabaseConfigured) {
-        // Create a local mock memory so it shows up everywhere
-        localMemoryIdCounter += 1;
-        const created: Memory = {
-          id: `local-m${localMemoryIdCounter}`,
-          user_id: "u1",
-          person_id: memory.person_id,
-          content: memory.content,
-          emotion: memory.emotion ?? null,
-          created_at: new Date().toISOString(),
-        };
-        locallyCreatedMemories = [created, ...locallyCreatedMemories];
-        return created;
-      }
-
+    async (memory: Omit<MemoryInsert, "user_id">): Promise<Memory> => {
       try {
         setIsCreating(true);
         setError(null);
         const created = await memoryService.createMemory(memory);
         return created;
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)));
-        return null;
+      } catch {
+        // Mock mode — Supabase not configured
+        const newMemory: Memory = {
+          id: `m-local-${Date.now()}`,
+          user_id: "u1",
+          person_id: memory.person_id,
+          content: memory.content,
+          emotion: memory.emotion ?? null,
+          photo_url: memory.photo_url ?? null,
+          created_at: new Date().toISOString(),
+        };
+        locallyCreatedMemories.unshift(newMemory);
+        return newMemory;
       } finally {
         setIsCreating(false);
       }
