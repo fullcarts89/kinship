@@ -8,13 +8,13 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Progress
 
 - Phases: 0/9 complete
-- Requirements: 0/27 complete
+- Requirements: 2/27 complete
 
 ### Phase Checklist
 
 | # | Phase | Status | Requirements Done |
 |---|-------|--------|-------------------|
-| 1 | Photo & Media | Not started | 0/3 |
+| 1 | Photo & Media | In Progress (Plan 1/2 done) | 2/3 |
 | 2 | Memory Detail Views | Not started | 0/2 |
 | 3 | Contact Integration | Not started | 0/2 |
 | 4 | Reach-Out Flow Core | Not started | 0/2 |
@@ -26,8 +26,9 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 
 ## Current Position
 
-- **Active phase:** None (ready to start Phase 1)
-- **Next action:** `/gsd:plan-phase 1`
+- **Active phase:** Phase 1 — Photo & Media (Plan 1/2 complete)
+- **Current plan:** 01-01 complete, 01-02 next
+- **Next action:** Execute plan 01-02 (display layer)
 
 ## Phase Dependencies
 
@@ -48,6 +49,7 @@ Phases 6 (Garden Visuals) and 3 (Contact Integration) are independently workable
 | Date | Action | Notes |
 |------|--------|-------|
 | 2026-02-27 | Project initialized | 27 requirements, 9 phases, roadmap created |
+| 2026-02-27 | Completed 01-01 | photo_url on Memory, mock persistence, picker fix (2 min, 3 tasks, 4 files) |
 
 ## Open Issues
 
@@ -64,6 +66,8 @@ Inherited from PROJECT.md — reproduced here for quick reference:
 | Calendar permission in Garden Walk setup + manageable in Settings | Natural onboarding moment + ongoing control |
 | Show device contact info on imported person profiles | Users expect to see phone/email when they import someone |
 | 7-day minimum lag before memory resurfaces | Prevents "revisit this memory" appearing for something just captured |
+| MemoryInsert omits photo_url then re-adds as optional | Keeps Memory row type strict while insert is lenient — backward-compatible |
+| memoryService unchanged for photo_url | Spread operator passes all fields through automatically |
 
 ## Architecture Reminders
 
