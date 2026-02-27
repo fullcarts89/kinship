@@ -12,7 +12,7 @@
 | # | Phase | Goal | Requirements | Plans |
 |---|-------|------|--------------|-------|
 | 1 | Photo & Media | Fix photo picker and ensure photos persist and display correctly | PHOTO-01, PHOTO-02, PHOTO-03 | 2/2 Complete |
-| 2 | Memory Detail Views | Make memories tappable with a full detail view including photos | MEM-01, MEM-02 | 4 |
+| 2 | Memory Detail Views | Make memories tappable with a full detail view including photos | MEM-01, MEM-02 | 2 |
 | 3 | Contact Integration | Pull device contact info onto imported person profiles | CONT-01, CONT-02 | 5 |
 | 4 | Reach-Out Flow Core | Fix routing bugs and hide action buttons with no contact info | REACH-03, REACH-04 | 5 |
 | 5 | Reach-Out Intelligence | Add memory carousel and contextual action options to reach-out | REACH-01, REACH-02 | 6 |
@@ -56,11 +56,10 @@
 4. If the memory has an emotion tag, it is displayed (with the correct label/emoji) in the detail view.
 5. The detail view has a working back navigation that returns the user to the person's profile without losing scroll position.
 
-### Plans (to be created)
-- 2-01: Audit current memory card components — confirm no `onPress` handler exists and identify all places memory cards are rendered
-- 2-02: Create (or wire existing) memory detail screen / modal with content, emotion, date, and photo layout
-- 2-03: Wire `onPress` on all memory card instances to navigate to / present the detail view with the correct memory ID
-- 2-04: Verify back navigation returns to person profile correctly using `router.canGoBack()` safety pattern
+### Plans: 2 plans
+
+- [ ] 02-01-PLAN.md — Data/utility layer: Add useMemory(id) hook, move emotionEmojis to formatters.ts, update barrel exports
+- [ ] 02-02-PLAN.md — Screen + wiring: Create memory detail screen (app/memory/[id].tsx), wire onPress on memory cards and MemorySpotlight
 
 ---
 
