@@ -25,6 +25,7 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
@@ -38,17 +39,23 @@ import Animated, {
   withRepeat,
   withSequence,
   Easing,
+  FadeInUp,
 } from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
 import { Skeleton, ErrorState, FadeIn } from "@/components/ui";
 import { OrientationOverlay } from "@/components/OrientationOverlay";
 import type { HighlightRect } from "@/components/OrientationOverlay";
-import { usePersons, useMemories, useAllInteractions } from "@/hooks";
+import { usePersons, useMemories, useAllInteractions, useAllVitalities } from "@/hooks";
 import { useBootstrapGrowth } from "@/hooks/useGrowth";
+import VitalPlant from "@/components/VitalPlant";
 import { useOrientation, ORIENTATION_STEP_SCREEN } from "@/hooks/useOrientation";
 import { getGrowthInfo } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
 import { formatRelativeDate } from "@/lib/formatters";
+import { generateSuggestions } from "@/lib/suggestionEngine";
+import type { IntelligentSuggestion, SuggestionType } from "@/lib/suggestionEngine";
+import { getRecentCalendarMatches } from "@/lib/calendarEngine";
+import type { CalendarMatch } from "@/lib/calendarEngine";
 import {
   GardenRevealIllustration,
   WateringIllustration,
@@ -56,7 +63,6 @@ import {
   SproutSmallIllustration,
   SmallGardenIllustration,
   FlourishingGardenIllustration,
-  SunlightIllustration,
 } from "@/components/illustrations";
 import type { Person, Memory } from "@/types/database";
 
@@ -67,7 +73,6 @@ const sageDark = colors.moss;
 const sagePale = colors.sagePale;
 const sageLight = colors.sageLight;
 const gold = colors.gold;
-const goldLight = colors.goldLight;
 const cream = colors.cream;
 const nearBlack = colors.nearBlack;
 const warmGray = colors.warmGray;
@@ -94,13 +99,6 @@ function getGardenPhrase(pCount: number, mCount: number): string {
   if (mCount > 0) return "is blooming";
   if (pCount >= 2) return "is growing";
   return "has a new sprout";
-}
-
-function daysSince(d: string): number {
-  return Math.max(
-    0,
-    Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
-  );
 }
 
 const emotionEmojis: Record<string, string> = {
@@ -147,67 +145,47 @@ function GrowthPlantIllustration({
 /**
  * Animated potted plant — each person is a plant in the garden.
  * Uses actual plant illustrations based on growth stage.
- * Sways gently like a plant in the breeze (2-3s ease-in-out loop).
+ * Sway animation is now handled by VitalPlant (vitality-aware).
  */
 function SwayingPlant({
   person,
   index,
+  vitalityScore,
   onPress,
 }: {
   person: Person;
   index: number;
+  vitalityScore: number;
   onPress: () => void;
 }) {
   const stage = getGrowthInfo(person.id).stage;
-  const sway = useSharedValue(0);
-  const duration = 2400 + (index % 3) * 400; // 2.4s, 2.8s, 3.2s cycle
-
-  useEffect(() => {
-    sway.value = withDelay(
-      index * 180,
-      withRepeat(
-        withSequence(
-          withTiming(3, {
-            duration: duration / 2,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          withTiming(-3, {
-            duration: duration / 2,
-            easing: Easing.inOut(Easing.ease),
-          })
-        ),
-        -1,
-        true
-      )
-    );
-  }, []);
-
-  const swayStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${sway.value}deg` }],
-  }));
 
   return (
     <Pressable
       onPress={onPress}
       style={{ alignItems: "center", marginRight: 18, width: 72 }}
     >
-      <Animated.View
-        style={[
-          {
-            width: 68,
-            height: 68,
-            borderRadius: 20,
-            backgroundColor: sagePale,
-            alignItems: "center",
-            justifyContent: "center",
-            borderWidth: 1,
-            borderColor: sageLight,
-          },
-          swayStyle,
-        ]}
+      <View
+        style={{
+          width: 68,
+          height: 68,
+          borderRadius: 20,
+          backgroundColor: sagePale,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 1,
+          borderColor: sageLight,
+        }}
       >
-        <GrowthPlantIllustration stage={stage} size={44} />
-      </Animated.View>
+        <VitalPlant
+          vitalityScore={vitalityScore}
+          size={44}
+          index={index}
+          staggerDelay={0}
+        >
+          <GrowthPlantIllustration stage={stage} size={44} />
+        </VitalPlant>
+      </View>
       <Text
         style={{
           fontFamily: fonts.sansMedium,
@@ -359,17 +337,25 @@ function MemorySpotlight({
           elevation: 2,
         }}
       >
-        {/* Gradient header */}
-        <LinearGradient
-          colors={[sagePale, sageLight + "66"]}
-          style={{
-            height: 72,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text style={{ fontSize: 28, opacity: 0.5 }}>{headerEmoji}</Text>
-        </LinearGradient>
+        {/* Photo or gradient header */}
+        {memory.photo_url ? (
+          <Image
+            source={{ uri: memory.photo_url }}
+            style={{ height: 140, width: "100%" }}
+            resizeMode="cover"
+          />
+        ) : (
+          <LinearGradient
+            colors={[sagePale, sageLight + "66"]}
+            style={{
+              height: 72,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ fontSize: 28, opacity: 0.5 }}>{headerEmoji}</Text>
+          </LinearGradient>
+        )}
         <View style={{ padding: 16 }}>
           <Text
             style={{
@@ -440,135 +426,100 @@ function SectionLabel({
   );
 }
 
-// ─── Gentle Suggestion Card ─────────────────────────────────────────────────
+// ─── Suggestion Type Icons & Navigation ─────────────────────────────────────
+
+const SUGGESTION_ICON: Record<SuggestionType, string> = {
+  birthday_upcoming: "\uD83C\uDF82",    // 🎂
+  memory_resurface: "\uD83D\uDCAD",     // 💭
+  drift_reconnect: "\uD83C\uDF3F",      // 🌿
+  post_event_capture: "\uD83D\uDCF8",   // 📸
+  general_reach_out: "\uD83D\uDC8C",    // 💌
+};
+
+function handleSuggestionPress(suggestion: IntelligentSuggestion) {
+  switch (suggestion.type) {
+    case "birthday_upcoming":
+      router.push(`/reach-out/${suggestion.personId}`);
+      break;
+    case "post_event_capture":
+      router.push(`/memory/add?personId=${suggestion.personId}`);
+      break;
+    case "memory_resurface":
+    case "drift_reconnect":
+    case "general_reach_out":
+    default:
+      router.push(`/person/${suggestion.personId}`);
+      break;
+  }
+}
+
+// ─── Dynamic Suggestion Card ────────────────────────────────────────────────
 
 /**
- * Invitational suggestion cards — never directive.
- * Language: "You could…", "Maybe…", never "You should…"
- * Always dismissible. No due dates, no guilt metrics.
+ * Dynamically generated suggestion card from the suggestion engine.
+ * Shows an icon, reason text, and navigates on tap.
+ * Uses FadeInUp stagger animation for a gentle entrance.
  */
-function GentleSuggestionCard({
-  person,
-  variant,
+function DynamicSuggestionCard({
+  suggestion,
+  index,
 }: {
-  person: Person;
-  variant: "reconnect" | "memory" | "warmth";
+  suggestion: IntelligentSuggestion;
+  index: number;
 }) {
-  const firstName = person.name.split(" ")[0];
-
-  const config = {
-    reconnect: {
-      colors: [goldLight + "88", peach + "44"] as [string, string],
-      borderColor: goldLight,
-      illustration: <SunlightIllustration size={56} />,
-      label: "A gentle thought",
-      text: `Maybe reach out to ${firstName}? No rush — whenever feels right.`,
-      cta: "Say hello",
-    },
-    memory: {
-      colors: [sagePale, sageLight + "66"] as [string, string],
-      borderColor: sageLight,
-      illustration: <SmallGardenIllustration size={56} />,
-      label: "Plant a memory",
-      text: `You could add a moment with ${firstName} — even a small one.`,
-      cta: "Add moment",
-    },
-    warmth: {
-      colors: [colors.lavender + "33", sagePale] as [string, string],
-      borderColor: colors.lavender + "55",
-      illustration: <SingleSproutIllustration size={50} />,
-      label: "Growing together",
-      text: `${firstName}'s plant could use a little sunlight \u2600\uFE0F`,
-      cta: "Visit",
-    },
-  }[variant];
+  const icon = SUGGESTION_ICON[suggestion.type] ?? "\uD83D\uDC8C";
 
   return (
-    <LinearGradient
-      colors={config.colors}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{
-        borderRadius: 20,
-        padding: 16,
-        flexDirection: "row",
-        gap: 12,
-        alignItems: "center",
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: config.borderColor,
-      }}
-    >
-      <View style={{ width: 56, alignItems: "center" }}>
-        {config.illustration}
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text
+    <Animated.View entering={FadeInUp.delay(index * 100).duration(400)}>
+      <Pressable
+        onPress={() => handleSuggestionPress(suggestion)}
+        style={{
+          backgroundColor: white,
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: borderClr,
+          padding: 16,
+          marginBottom: 12,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 14,
+          shadowColor: nearBlack,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
+          elevation: 2,
+        }}
+      >
+        {/* Icon circle */}
+        <View
           style={{
-            fontFamily: fonts.sans,
-            fontSize: 11,
-            color: warmGray,
-            marginBottom: 3,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: sagePale,
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {config.label}
-        </Text>
-        <Text
-          style={{
-            fontFamily: fonts.sansMedium,
-            fontSize: 14,
-            color: nearBlack,
-            lineHeight: 20,
-            marginBottom: 10,
-          }}
-        >
-          {config.text}
-        </Text>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Pressable
-            onPress={() => router.push(`/person/${person.id}`)}
-            style={{
-              backgroundColor: sage,
-              paddingVertical: 7,
-              paddingHorizontal: 14,
-              borderRadius: 10,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: fonts.sansSemiBold,
-                fontSize: 12,
-                color: white,
-              }}
-            >
-              {config.cta}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={{
-              backgroundColor: "transparent",
-              paddingVertical: 7,
-              paddingHorizontal: 14,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: "#E8E0D6",
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: fonts.sans,
-                fontSize: 12,
-                color: warmGray,
-              }}
-            >
-              Not now
-            </Text>
-          </Pressable>
+          <Text style={{ fontSize: 20 }}>{icon}</Text>
         </View>
-      </View>
-    </LinearGradient>
+
+        {/* Reason text */}
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              fontFamily: fonts.sansMedium,
+              fontSize: 14,
+              color: nearBlack,
+              lineHeight: 20,
+            }}
+            numberOfLines={3}
+          >
+            {suggestion.reason}
+          </Text>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -628,6 +579,10 @@ export default function GardenScreen() {
   // Bootstrap growth store from existing data on first load
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
   useBootstrapGrowth(memories, allInteractions, isLoading);
+
+  // Vitality scores for all persons (used by plant carousel)
+  const personIds = useMemo(() => persons.map((p) => p.id), [persons]);
+  const vitalities = useAllVitalities(personIds, memories, allInteractions);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -723,31 +678,30 @@ export default function GardenScreen() {
     return memories[dayIdx % memories.length];
   }, [memories]);
 
-  // Gentle suggestions: pick up to 3 people who could use attention
-  const suggestions = useMemo(() => {
-    if (persons.length === 0) return [];
-    const variants: Array<"reconnect" | "memory" | "warmth"> = [
-      "reconnect",
-      "memory",
-      "warmth",
-    ];
-    // Sort by most days since last memory
-    const withGap = persons
-      .map((p) => {
-        const pm = memories.filter((m) => m.person_id === p.id);
-        const lastDate =
-          pm.length > 0
-            ? Math.max(...pm.map((m) => new Date(m.created_at).getTime()))
-            : new Date(p.created_at).getTime();
-        return { person: p, daysAgo: daysSince(new Date(lastDate).toISOString()) };
-      })
-      .filter((x) => x.daysAgo > 2)
-      .sort((a, b) => b.daysAgo - a.daysAgo);
-    return withGap.slice(0, 3).map((item, i) => ({
-      person: item.person,
-      variant: variants[i % variants.length],
-    }));
-  }, [persons, memories]);
+  // Calendar matches for post-event suggestions (Tier 2)
+  const [calendarMatches, setCalendarMatches] = useState<CalendarMatch[]>([]);
+
+  useEffect(() => {
+    if (persons.length === 0) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const matches = await getRecentCalendarMatches(persons);
+        if (!cancelled) setCalendarMatches(matches);
+      } catch {
+        // Calendar unavailable or permission denied — fail gracefully
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [persons]);
+
+  // Dynamic suggestions from the suggestion engine (ranked, deduped, max 3)
+  const suggestions = useMemo(
+    () => generateSuggestions(persons, memories, allInteractions, calendarMatches, 3),
+    [persons, memories, allInteractions, calendarMatches]
+  );
 
   // ── Actions ───────────────────────────────────────────────────────────
   const handleRefresh = useCallback(async () => {
@@ -824,7 +778,8 @@ export default function GardenScreen() {
         <FadeIn>
           <View style={{ paddingHorizontal: 24 }}>
             {/* ─── Header ─────────────────────────────────────── */}
-            <View
+            <Animated.View
+              entering={FadeInUp.duration(400)}
               style={{
                 flexDirection: "row",
                 justifyContent: "space-between",
@@ -895,11 +850,11 @@ export default function GardenScreen() {
                   <Text style={{ fontSize: 18 }}>{"\uD83D\uDC64"}</Text>
                 </Pressable>
               </View>
-            </View>
+            </Animated.View>
 
             {/* ─── Your Living Garden ───────────────────────────── */}
             {hasPeople ? (
-              <>
+              <Animated.View entering={FadeInUp.delay(100).duration(400)}>
                 <SectionLabel
                   text="Your living garden"
                   subtitle="Each plant grows as you add memories together"
@@ -934,6 +889,7 @@ export default function GardenScreen() {
                       <SwayingPlant
                         person={p}
                         index={i}
+                        vitalityScore={vitalities[p.id]?.score ?? 1.0}
                         onPress={() => router.push(`/person/${p.id}`)}
                       />
                     </View>
@@ -953,9 +909,10 @@ export default function GardenScreen() {
                 >
                   {"\u2190"} Swipe to explore {"\u2192"}
                 </Text>
-              </>
+              </Animated.View>
             ) : (
               /* Empty garden — first-time CTA */
+              <Animated.View entering={FadeInUp.delay(100).duration(400)}>
               <Pressable onPress={() => router.push("/(tabs)/add")}>
                 <LinearGradient
                   colors={[white, sagePale]}
@@ -1024,60 +981,116 @@ export default function GardenScreen() {
                   </View>
                 </LinearGradient>
               </Pressable>
+              </Animated.View>
             )}
 
             {/* ─── A Moment Worth Revisiting ──────────────────── */}
             {spotlightMemory && (
-              <>
+              <Animated.View entering={FadeInUp.delay(200).duration(400)}>
                 <SectionLabel text="A moment worth revisiting" />
                 <MemorySpotlight
                   memory={spotlightMemory}
                   person={personsMap.get(spotlightMemory.person_id)}
                 />
-              </>
+              </Animated.View>
             )}
 
             {/* ─── Gentle Suggestions ─────────────────────────── */}
-            {suggestions.length > 0 && (
-              <>
+            {hasPeople && (
+              <Animated.View entering={FadeInUp.delay(300).duration(400)}>
                 <SectionLabel
                   text="Gentle suggestions"
                   subtitle="No pressure — just warm invitations"
                 />
-                {suggestions.map(({ person, variant }) => (
-                  <GentleSuggestionCard
-                    key={person.id}
-                    person={person}
-                    variant={variant}
-                  />
-                ))}
-              </>
+                {suggestions.length > 0 ? (
+                  <>
+                    {suggestions.map((suggestion, i) => (
+                      <DynamicSuggestionCard
+                        key={suggestion.id}
+                        suggestion={suggestion}
+                        index={i}
+                      />
+                    ))}
+                    {/* Preview Garden Walk link */}
+                    <Pressable
+                      onPress={() => router.push("/garden-walk")}
+                      style={{
+                        alignSelf: "center",
+                        paddingVertical: 10,
+                        paddingHorizontal: 16,
+                        marginTop: 4,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: fonts.sans,
+                          fontSize: 13,
+                          color: sage,
+                          textDecorationLine: "underline",
+                          textDecorationColor: sage + "66",
+                        }}
+                      >
+                        Preview Garden Walk
+                      </Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <View
+                    style={{
+                      backgroundColor: white,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: borderClr,
+                      paddingVertical: 28,
+                      paddingHorizontal: 20,
+                      alignItems: "center",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: fonts.sans,
+                        fontSize: 14,
+                        color: warmGray,
+                        textAlign: "center",
+                        lineHeight: 20,
+                      }}
+                    >
+                      Your garden is growing. Capture more moments to see
+                      personalized suggestions here.
+                    </Text>
+                  </View>
+                )}
+              </Animated.View>
             )}
 
             {/* Empty memories placeholder */}
             {hasPeople && memories.length === 0 && (
-              <View
-                style={{
-                  backgroundColor: white,
-                  borderRadius: 20,
-                  paddingVertical: 36,
-                  paddingHorizontal: 24,
-                  borderWidth: 1,
-                  borderColor: borderClr,
-                  alignItems: "center",
-                  marginTop: 8,
-                }}
-              >
-                <Text
+              <Animated.View entering={FadeInUp.delay(300).duration(400)}>
+                <View
                   style={{
-                    fontFamily: fonts.sans,
-                    fontSize: 15,
-                    color: warmGray,
+                    backgroundColor: white,
+                    borderRadius: 20,
+                    paddingVertical: 36,
+                    paddingHorizontal: 24,
+                    borderWidth: 1,
+                    borderColor: borderClr,
+                    alignItems: "center",
+                    marginTop: 8,
                   }}
                 >
-                  Your memories will appear here
-                </Text>
-              </View>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 15,
+                      color: warmGray,
+                    }}
+                  >
+                    Your memories will appear here
+                  </Text>
+                </View>
+              </Animated.View>
             )}
           </View>
         </FadeIn>

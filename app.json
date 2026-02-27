@@ -15,14 +15,21 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.kinship.app"
+      "bundleIdentifier": "com.kinship.app",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FDF7ED"
       },
-      "package": "com.kinship.app"
+      "package": "com.kinship.app",
+      "permissions": [
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -35,14 +42,40 @@
       "expo-secure-store",
       "expo-asset",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Kinship to access your photos to attach them to memories in your garden."
+        }
+      ],
+      [
         "expo-contacts",
         {
           "contactsPermission": "Allow Kinship to access your contacts to help you add people to your garden."
         }
-      ]
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow Kinship to check your calendar so it can gently suggest capturing memories after events with people in your garden."
+        }
+      ],
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b2f87ba6-d5b8-4c19-8b76-9fec05b85df4"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b2f87ba6-d5b8-4c19-8b76-9fec05b85df4"
     }
   }
 }
