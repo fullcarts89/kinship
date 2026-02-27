@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,9 +6,8 @@ import {
   ScrollView,
   Image,
   Modal,
-  TextInput,
-  KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router, useFocusEffect } from "expo-router";
@@ -30,7 +29,6 @@ import {
   Clock,
   BookOpen,
   Camera,
-  Leaf,
   Users,
   Share2,
   MoreHorizontal,
@@ -47,9 +45,10 @@ import {
   usePerson,
   usePersonMemories,
   usePersonInteractions,
-  useCreateInteraction,
+  usePersonVitality,
 } from "@/hooks";
 import { usePersonPhoto } from "@/hooks/usePersonPhoto";
+import VitalPlant from "@/components/VitalPlant";
 import {
   formatRelativeDate,
   formatEmotionLabel,
@@ -61,19 +60,21 @@ import {
   SunlightIllustration,
   FlourishingGardenIllustration,
   GardenRevealIllustration,
-  SingleSproutIllustration,
 } from "@/components/illustrations";
 import { OrientationOverlay } from "@/components/OrientationOverlay";
 import type { HighlightRect } from "@/components/OrientationOverlay";
 import { useOrientation, ORIENTATION_STEP_SCREEN } from "@/hooks/useOrientation";
 import { usePersonGrowth } from "@/hooks/useGrowth";
 import {
-  recordReflectionGrowth,
-  getTransitionToastMessage,
   growthStageLabels,
 } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
-import { showGrowthToast } from "@/components/ui/GrowthToast";
+
+import {
+  getTextureForPerson,
+  dismissTexture,
+} from "@/lib/textureEngine";
+import type { TextureInfo } from "@/lib/textureEngine";
 import type { Interaction, Memory } from "@/types/database";
 import type { InteractionType, Emotion, IconComponent } from "@/types";
 
@@ -103,6 +104,7 @@ const interactionIcons: Record<InteractionType, IconComponent> = {
   gift: Share2,
   letter: Sparkles,
   social_media: MessageCircle,
+  check_in: Sparkles,
   other: MoreHorizontal,
 };
 
@@ -114,6 +116,7 @@ const interactionLabels: Record<InteractionType, string> = {
   gift: "Shared something",
   letter: "Letter",
   social_media: "Social media",
+  check_in: "Check-in",
   other: "Other",
 };
 
@@ -345,368 +348,6 @@ function PhotoPickerModal({
           </Pressable>
         </View>
       </View>
-    </Modal>
-  );
-}
-
-// ─── Reflect Sheet ──────────────────────────────────────────────────────────
-//
-// Bottom sheet for capturing lightweight reflections — small moments and
-// touchpoints that already happened. Distinct from "Memory" which is for
-// deeper, more meaningful moments. Reflections feed the timeline and
-// contribute to growth stage progression.
-
-/** Interaction types available in the Reflect flow, with friendly labels. */
-const reflectTypes: { type: InteractionType; label: string; icon: IconComponent }[] = [
-  { type: "message",   label: "Text",            icon: MessageCircle },
-  { type: "call",      label: "Call",             icon: Phone },
-  { type: "in_person", label: "In person",        icon: Users },
-  { type: "gift",      label: "Shared something", icon: Share2 },
-  { type: "other",     label: "Other",            icon: MoreHorizontal },
-];
-
-/** Emotion subset for reflections — the five most natural post-interaction feelings. */
-const reflectEmotions: { emotion: Emotion; label: string; emoji: string }[] = [
-  { emotion: "connected", label: "Connected", emoji: "\uD83D\uDCAB" },
-  { emotion: "grateful",  label: "Grateful",  emoji: "\uD83D\uDE4F" },
-  { emotion: "inspired",  label: "Inspired",  emoji: "\u2728" },
-  { emotion: "joyful",    label: "Happy",     emoji: "\uD83D\uDE0A" },
-  { emotion: "peaceful",  label: "Calm",      emoji: "\uD83C\uDF38" },
-];
-
-function ReflectSheet({
-  visible,
-  personName,
-  personId,
-  onSaved,
-  onClose,
-}: {
-  visible: boolean;
-  personName: string;
-  personId: string;
-  onSaved: () => void;
-  onClose: () => void;
-}) {
-  const [selectedType, setSelectedType] = useState<InteractionType>("message");
-  const [selectedEmotion, setSelectedEmotion] = useState<Emotion | null>(null);
-  const [note, setNote] = useState("");
-  const [phase, setPhase] = useState<"form" | "saved">("form");
-
-  const { createInteraction, isCreating } = useCreateInteraction();
-
-  // Reset form when sheet opens
-  const handleClose = () => {
-    setSelectedType("message");
-    setSelectedEmotion(null);
-    setNote("");
-    setPhase("form");
-    onClose();
-  };
-
-  const handleSave = async () => {
-    await createInteraction({
-      person_id: personId,
-      type: selectedType,
-      note: note.trim() || null,
-      emotion: selectedEmotion,
-    });
-
-    // Record growth for reflection (reach-outs don't call this)
-    const transition = recordReflectionGrowth(personId);
-    if (transition) {
-      transition.personName = personName;
-      const toast = getTransitionToastMessage(transition);
-      showGrowthToast(toast.text, toast.emoji);
-    }
-
-    // Show brief success state, then close
-    setPhase("saved");
-    setTimeout(() => {
-      handleClose();
-      onSaved();
-    }, 900);
-  };
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={handleClose}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1, justifyContent: "flex-end" }}
-      >
-        {/* Dimmed overlay */}
-        <Pressable
-          onPress={handleClose}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(28,24,20,0.44)",
-          }}
-        />
-
-        {/* Sheet */}
-        <View
-          style={{
-            backgroundColor: white,
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            paddingHorizontal: 24,
-            paddingBottom: 40,
-            paddingTop: 6,
-          }}
-        >
-          {/* Handle pill */}
-          <View
-            style={{
-              width: 36,
-              height: 4,
-              borderRadius: 100,
-              backgroundColor: "#E8E0D6",
-              alignSelf: "center",
-              marginTop: 12,
-              marginBottom: 20,
-            }}
-          />
-
-          {phase === "saved" ? (
-            /* ── Success state ── */
-            <View style={{ alignItems: "center", paddingVertical: 32 }}>
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  backgroundColor: sagePale,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 16,
-                }}
-              >
-                <Check color={sage} size={24} strokeWidth={2.5} />
-              </View>
-              <Text
-                style={{
-                  fontFamily: fonts.serif,
-                  fontSize: 20,
-                  color: nearBlack,
-                  textAlign: "center",
-                }}
-              >
-                Added to your story
-              </Text>
-            </View>
-          ) : (
-            /* ── Form state ── */
-            <>
-              {/* Header with illustration */}
-              <View style={{ alignItems: "center", marginBottom: 20 }}>
-                <SingleSproutIllustration size={48} />
-                <Text
-                  style={{
-                    fontFamily: fonts.serif,
-                    fontSize: 22,
-                    color: nearBlack,
-                    marginTop: 12,
-                    textAlign: "center",
-                  }}
-                >
-                  Reflect
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: fonts.sans,
-                    fontSize: 14,
-                    color: warmGray,
-                    marginTop: 6,
-                    textAlign: "center",
-                    lineHeight: 20,
-                    maxWidth: 260,
-                  }}
-                >
-                  Capture the little moments that keep your story alive.
-                </Text>
-              </View>
-
-              {/* Interaction type chips */}
-              <View style={{ marginBottom: 20 }}>
-                <Text
-                  style={{
-                    fontFamily: fonts.sansSemiBold,
-                    fontSize: 11,
-                    color: warmGray,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 10,
-                  }}
-                >
-                  What happened?
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                  {reflectTypes.map(({ type, label, icon: TypeIcon }) => {
-                    const isSelected = selectedType === type;
-                    return (
-                      <Pressable
-                        key={type}
-                        onPress={() => setSelectedType(type)}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 6,
-                          paddingVertical: 10,
-                          paddingHorizontal: 14,
-                          borderRadius: 20,
-                          backgroundColor: isSelected ? sagePale : white,
-                          borderWidth: 1.5,
-                          borderColor: isSelected ? sage : borderColor,
-                        }}
-                      >
-                        <TypeIcon
-                          color={isSelected ? sage : warmGray}
-                          size={15}
-                          strokeWidth={isSelected ? 2 : 1.5}
-                        />
-                        <Text
-                          style={{
-                            fontFamily: isSelected ? fonts.sansSemiBold : fonts.sansMedium,
-                            fontSize: 14,
-                            color: isSelected ? sage : nearBlack,
-                          }}
-                        >
-                          {label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Optional note */}
-              <View style={{ marginBottom: 20 }}>
-                <TextInput
-                  value={note}
-                  onChangeText={setNote}
-                  placeholder="Any details to remember? (optional)"
-                  placeholderTextColor={warmGray + "88"}
-                  multiline
-                  maxLength={280}
-                  style={{
-                    fontFamily: fonts.sans,
-                    fontSize: 15,
-                    color: nearBlack,
-                    backgroundColor: cream,
-                    borderRadius: 14,
-                    borderWidth: 1,
-                    borderColor: borderColor,
-                    paddingHorizontal: 16,
-                    paddingTop: 14,
-                    paddingBottom: 14,
-                    minHeight: 72,
-                    textAlignVertical: "top",
-                  }}
-                />
-              </View>
-
-              {/* Optional emotion chips */}
-              <View style={{ marginBottom: 24 }}>
-                <Text
-                  style={{
-                    fontFamily: fonts.sansSemiBold,
-                    fontSize: 11,
-                    color: warmGray,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 10,
-                  }}
-                >
-                  How did it feel? (optional)
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                  {reflectEmotions.map(({ emotion, label, emoji }) => {
-                    const isSelected = selectedEmotion === emotion;
-                    return (
-                      <Pressable
-                        key={emotion}
-                        onPress={() =>
-                          setSelectedEmotion(isSelected ? null : emotion)
-                        }
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 5,
-                          paddingVertical: 8,
-                          paddingHorizontal: 12,
-                          borderRadius: 20,
-                          backgroundColor: isSelected ? goldLight + "66" : white,
-                          borderWidth: 1.5,
-                          borderColor: isSelected ? gold : borderColor,
-                        }}
-                      >
-                        <Text style={{ fontSize: 14 }}>{emoji}</Text>
-                        <Text
-                          style={{
-                            fontFamily: isSelected ? fonts.sansSemiBold : fonts.sans,
-                            fontSize: 13,
-                            color: isSelected ? nearBlack : warmGray,
-                          }}
-                        >
-                          {label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Action buttons */}
-              <Pressable
-                onPress={handleSave}
-                disabled={isCreating}
-                style={{
-                  backgroundColor: sage,
-                  borderRadius: 14,
-                  paddingVertical: 16,
-                  alignItems: "center",
-                  marginBottom: 10,
-                  opacity: isCreating ? 0.6 : 1,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: fonts.sansSemiBold,
-                    fontSize: 16,
-                    color: white,
-                  }}
-                >
-                  {isCreating ? "Saving..." : "Add to your story"}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleClose}
-                style={{ paddingVertical: 14, alignItems: "center" }}
-              >
-                <Text
-                  style={{
-                    fontFamily: fonts.sansMedium,
-                    fontSize: 16,
-                    color: warmGray,
-                  }}
-                >
-                  Not now
-                </Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -1088,16 +729,24 @@ function MemoriesTab({ memories, personId }: { memories: Memory[]; personId: str
                   overflow: "hidden",
                 }}
               >
-                <LinearGradient
-                  colors={colorPair}
-                  style={{
-                    height: 80,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text style={{ fontSize: 24, opacity: 0.5 }}>{"\uD83D\uDCF8"}</Text>
-                </LinearGradient>
+                {memory.photo_url ? (
+                  <Image
+                    source={{ uri: memory.photo_url }}
+                    style={{ height: 80, width: "100%" }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={colorPair}
+                    style={{
+                      height: 80,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ fontSize: 24, opacity: 0.5 }}>{"\uD83D\uDCF8"}</Text>
+                  </LinearGradient>
+                )}
                 <View style={{ padding: 12 }}>
                   <Text
                     style={{
@@ -1167,7 +816,7 @@ export default function PersonDetailScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<ProfileTab>("context");
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [showReflectSheet, setShowReflectSheet] = useState(false);
+
 
   const {
     person,
@@ -1213,7 +862,7 @@ export default function PersonDetailScreen() {
   // ─── Orientation Steps 3–4 ────────────────────────────────────────────────
   const orientation = useOrientation();
   const quickActionBarRef = useRef<View>(null);
-  const reflectButtonRef = useRef<View>(null);
+  const captureButtonRef = useRef<View>(null);
   const [orientationHighlight, setOrientationHighlight] =
     useState<HighlightRect | null>(null);
 
@@ -1229,7 +878,7 @@ export default function PersonDetailScreen() {
     }
 
     const targetRef =
-      orientation.currentStep === 3 ? quickActionBarRef : reflectButtonRef;
+      orientation.currentStep === 3 ? quickActionBarRef : captureButtonRef;
 
     const timer = setTimeout(() => {
       targetRef.current?.measureInWindow((x, y, width, height) => {
@@ -1258,22 +907,58 @@ export default function PersonDetailScreen() {
       cardPosition: "below",
     },
     4: {
-      title: "Reflect on moments",
-      body: "Tap Reflect to capture a small moment — a text, a call, a feeling. These feed your garden\u2019s growth.",
+      title: "Capture moments",
+      body: "Tap Capture to save a moment with this person. Photos, thoughts, feelings \u2014 these feed your garden\u2019s growth.",
       primaryLabel: "Finish",
       cardPosition: "above",
     },
   };
 
   const handleOrientationAdvance = useCallback(async () => {
+    const isLastStep =
+      orientation.currentStep >= orientation.totalSteps;
     await orientation.advance();
-  }, [orientation.advance]);
+    if (isLastStep) {
+      // After orientation completes, show Garden Walk setup
+      router.push("/garden-walk-setup");
+    }
+  }, [orientation.advance, orientation.currentStep, orientation.totalSteps]);
 
   const currentOrientationConfig =
     orientationStepConfig[orientation.currentStep];
 
   // ─── Growth (must be before early returns) ────────────────────────────────
   const growth = usePersonGrowth(id ?? "");
+
+  // ─── Vitality (must be before early returns) ──────────────────────────────
+  const vitality = usePersonVitality(memories, interactions);
+
+  // ─── Texture label (must be before early returns) ────────────────────────
+  const [textureDismissCount, setTextureDismissCount] = useState(0);
+  const textureInfo: TextureInfo | null = useMemo(
+    () =>
+      getTextureForPerson(
+        id ?? "",
+        memories.map((m) => ({ content: m.content, emotion: m.emotion }))
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [id, memories, textureDismissCount]
+  );
+
+  const textureFadeOpacity = useSharedValue(0);
+  useEffect(() => {
+    if (textureInfo) {
+      textureFadeOpacity.value = withTiming(1, {
+        duration: 400,
+        easing: Easing.out(Easing.ease),
+      });
+    } else {
+      textureFadeOpacity.value = 0;
+    }
+  }, [textureInfo]);
+  const textureFadeStyle = useAnimatedStyle(() => ({
+    opacity: textureFadeOpacity.value,
+  }));
 
   // ─── Loading ─────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -1323,21 +1008,18 @@ export default function PersonDetailScreen() {
   const handleChoosePhoto = async () => {
     setShowPhotoModal(false);
 
-    // Request permission first — required on iOS
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      // Permission denied — nothing we can do
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setPhoto(result.assets[0].uri);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPhoto(result.assets[0].uri);
+      }
+    } catch {
+      // Permission denied or picker failed — nothing we can do
     }
   };
 
@@ -1405,7 +1087,12 @@ export default function PersonDetailScreen() {
           {/* Growth Stage Plant Illustration */}
           <View style={{ alignItems: "center", marginBottom: 4 }}>
             <Animated.View style={plantExitStyle}>
-              <GrowthPlant stage={growthStage} size={100} />
+              <VitalPlant
+                vitalityScore={vitality.score}
+                size={100}
+              >
+                <GrowthPlant stage={growthStage} size={100} />
+              </VitalPlant>
             </Animated.View>
           </View>
 
@@ -1558,6 +1245,75 @@ export default function PersonDetailScreen() {
                 </View>
               )}
             </View>
+
+            {/* Texture Label — relationship flavor inferred from captures */}
+            {textureInfo && (
+              <Animated.View
+                style={[
+                  {
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: 6,
+                  },
+                  textureFadeStyle,
+                ]}
+              >
+                <Pressable
+                  onPress={() =>
+                    Alert.alert(
+                      textureInfo.displayLabel,
+                      "Based on your shared moments. Tap \u2715 to dismiss."
+                    )
+                  }
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <Text style={{ fontSize: 14 }}>{textureInfo.emoji}</Text>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 13,
+                      color: sage,
+                    }}
+                  >
+                    {textureInfo.displayLabel}
+                  </Text>
+                </Pressable>
+
+                {/* Dismiss button */}
+                <Pressable
+                  onPress={() => {
+                    dismissTexture(id ?? "", textureInfo.label);
+                    setTextureDismissCount((c) => c + 1);
+                  }}
+                  hitSlop={8}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 10,
+                    backgroundColor: sagePale,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginLeft: 2,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 11,
+                      color: warmGray,
+                      lineHeight: 13,
+                    }}
+                  >
+                    {"\u2715"}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            )}
           </View>
 
           {/* Quick Action Bar */}
@@ -1584,20 +1340,14 @@ export default function PersonDetailScreen() {
               bgColor="#5E9EA0"
               onPress={handleReachOut}
             />
-            <View ref={reflectButtonRef} collapsable={false}>
+            <View ref={captureButtonRef} collapsable={false}>
               <QuickAction
-                icon={Leaf}
-                label="Reflect"
+                icon={Camera}
+                label="Capture"
                 bgColor={gold}
-                onPress={() => setShowReflectSheet(true)}
+                onPress={() => router.push(`/memory/add?personId=${person.id}`)}
               />
             </View>
-            <QuickAction
-              icon={Camera}
-              label="Memory"
-              bgColor={lavender}
-              onPress={() => router.push(`/memory/add?personId=${person.id}`)}
-            />
           </View>
 
           {/* Tab Navigation */}
@@ -1627,17 +1377,6 @@ export default function PersonDetailScreen() {
         onChoosePhoto={handleChoosePhoto}
         onRemovePhoto={handleRemovePhoto}
         onClose={() => setShowPhotoModal(false)}
-      />
-
-      {/* Reflect Sheet — lightweight interaction capture */}
-      <ReflectSheet
-        visible={showReflectSheet}
-        personName={person.name}
-        personId={person.id}
-        onSaved={() => {
-          refetchInteractions();
-        }}
-        onClose={() => setShowReflectSheet(false)}
       />
 
       {/* Orientation overlay — Steps 3 & 4 (person profile) */}
