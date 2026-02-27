@@ -718,8 +718,9 @@ function MemoriesTab({ memories, personId }: { memories: Memory[]; personId: str
           {row.map((memory, colIndex) => {
             const colorPair = cardColors[(rowIndex * 2 + colIndex) % cardColors.length];
             return (
-              <View
+              <Pressable
                 key={memory.id}
+                onPress={() => router.push(`/memory/${memory.id}`)}
                 style={{
                   flex: 1,
                   backgroundColor: white,
@@ -769,7 +770,7 @@ function MemoriesTab({ memories, personId }: { memories: Memory[]; personId: str
                     {formatRelativeDate(memory.created_at)}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             );
           })}
           {/* Fill empty space in last row */}

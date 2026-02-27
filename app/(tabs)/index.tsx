@@ -310,7 +310,7 @@ function MemorySpotlight({
   return (
     <Animated.View style={fadeUpStyle}>
       <Pressable
-        onPress={() => router.push(`/person/${person.id}`)}
+        onPress={() => router.push(`/memory/${memory.id}`)}
         style={{
           backgroundColor: white,
           borderRadius: 20,
