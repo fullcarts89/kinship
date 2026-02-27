@@ -7,14 +7,14 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 
 ## Progress
 
-- Phases: 0/9 complete
-- Requirements: 2/27 complete
+- Phases: 1/9 complete
+- Requirements: 3/27 complete
 
 ### Phase Checklist
 
 | # | Phase | Status | Requirements Done |
 |---|-------|--------|-------------------|
-| 1 | Photo & Media | In Progress (Plan 1/2 done) | 2/3 |
+| 1 | Photo & Media | Complete (2026-02-27) | 3/3 |
 | 2 | Memory Detail Views | Not started | 0/2 |
 | 3 | Contact Integration | Not started | 0/2 |
 | 4 | Reach-Out Flow Core | Not started | 0/2 |
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 
 ## Current Position
 
-- **Active phase:** Phase 1 — Photo & Media (Plan 1/2 complete)
-- **Current plan:** 01-01 complete, 01-02 next
-- **Next action:** Execute plan 01-02 (display layer)
+- **Active phase:** Phase 1 complete. Phase 2 — Memory Detail Views next.
+- **Current plan:** Phase 1 complete (2/2 plans done)
+- **Next action:** Plan Phase 2 (Memory Detail Views)
 
 ## Phase Dependencies
 
@@ -50,6 +50,8 @@ Phases 6 (Garden Visuals) and 3 (Contact Integration) are independently workable
 |------|--------|-------|
 | 2026-02-27 | Project initialized | 27 requirements, 9 phases, roadmap created |
 | 2026-02-27 | Completed 01-01 | photo_url on Memory, mock persistence, picker fix (2 min, 3 tasks, 4 files) |
+| 2026-02-27 | Completed 01-02 | Photo display in memory cards + spotlight, expo-image-picker plugin (2 min, 3 tasks, 3 files) |
+| 2026-02-27 | Phase 1 complete | All 3 PHOTO requirements satisfied. Ready for Phase 2. |
 
 ## Open Issues
 
@@ -68,6 +70,8 @@ Inherited from PROJECT.md — reproduced here for quick reference:
 | 7-day minimum lag before memory resurfaces | Prevents "revisit this memory" appearing for something just captured |
 | MemoryInsert omits photo_url then re-adds as optional | Keeps Memory row type strict while insert is lenient — backward-compatible |
 | memoryService unchanged for photo_url | Spread operator passes all fields through automatically |
+| Memory card photo 80px, spotlight photo 140px | Card matches gradient height; spotlight gets prominence as featured display |
+| Conditional Image/LinearGradient pattern for photo_url | Reusable across future memory display surfaces (Phase 2 detail view) |
 
 ## Architecture Reminders
 

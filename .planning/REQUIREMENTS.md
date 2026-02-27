@@ -11,7 +11,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [x] **PHOTO-01**: User can select photos from any album/collection folder in the photo picker (not just recent)
 - [x] **PHOTO-02**: Photos attached to memories are persisted and display correctly in memory views
-- [ ] **PHOTO-03**: Photos display in the memory detail view and memory list/cards on person profiles
+- [x] **PHOTO-03**: Photos display in the memory detail view and memory list/cards on person profiles
 
 ### Reach-Out Flow
 
