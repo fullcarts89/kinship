@@ -11,7 +11,7 @@
 
 | # | Phase | Goal | Requirements | Plans |
 |---|-------|------|--------------|-------|
-| 1 | Photo & Media | Fix photo picker and ensure photos persist and display correctly | PHOTO-01, PHOTO-02, PHOTO-03 | 5 |
+| 1 | Photo & Media | Fix photo picker and ensure photos persist and display correctly | PHOTO-01, PHOTO-02, PHOTO-03 | 2 |
 | 2 | Memory Detail Views | Make memories tappable with a full detail view including photos | MEM-01, MEM-02 | 4 |
 | 3 | Contact Integration | Pull device contact info onto imported person profiles | CONT-01, CONT-02 | 5 |
 | 4 | Reach-Out Flow Core | Fix routing bugs and hide action buttons with no contact info | REACH-03, REACH-04 | 5 |
@@ -36,12 +36,10 @@
 4. No broken image placeholders appear on any memory card or list row that previously had a photo attached.
 5. A memory saved without a photo shows no broken image state — just the memory content.
 
-### Plans (to be created)
-- 1-01: Audit photo picker implementation — identify why collection folders are inaccessible (mediaType, album filtering, permission scope)
-- 1-02: Fix photo picker to enumerate and display all user albums/collections
-- 1-03: Trace photo URI from selection through to memory save — identify where URI is dropped or not persisted in mock data
-- 1-04: Fix photo URI persistence in `useMemories` / `locallyCreatedMemories` so URI survives re-renders and focus cycles
-- 1-05: Verify photo renders correctly on memory cards in person profile and in the Add screen preview
+### Plans: 2 plans
+
+- [ ] 01-01-PLAN.md — Data layer: Add photo_url to Memory type, implement mock persistence for memories, fix photo picker album access and wire photo_url through save
+- [ ] 01-02-PLAN.md — Display layer: Render photos in memory cards (person profile) and MemorySpotlight (home screen), register expo-image-picker plugin in app.json, visual verification
 
 ---
 
