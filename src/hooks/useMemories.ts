@@ -111,3 +111,33 @@ export function useCreateMemory() {
 
   return { createMemory, isCreating, error };
 }
+
+// ─── useMemory (single by ID) ──────────────────────────────────────────────
+
+export function useMemory(id: string) {
+  const [memory, setMemory] = useState<Memory | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      // Placeholder for future Supabase lookup
+      throw new Error("mock mode");
+    } catch {
+      // Mock mode — search locally created + mock data
+      const found =
+        [...locallyCreatedMemories, ...mockMemories].find(
+          (m) => m.id === id
+        ) ?? null;
+      setMemory(found);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { memory, isLoading };
+}

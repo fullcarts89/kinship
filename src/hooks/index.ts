@@ -12,7 +12,7 @@ export { useTheme } from "@/providers/ThemeProvider";
 // ─── Data Hooks ─────────────────────────────────────────────────────────────
 
 export { usePersons, usePerson } from "./usePersons";
-export { useMemories, usePersonMemories, useCreateMemory } from "./useMemories";
+export { useMemories, usePersonMemories, useCreateMemory, useMemory } from "./useMemories";
 export {
   usePersonInteractions,
   useAllInteractions,
@@ -22,3 +22,11 @@ export {
 // ─── Growth Hooks ──────────────────────────────────────────────────────────
 
 export { usePersonGrowth, useBootstrapGrowth } from "./useGrowth";
+
+// ─── Vitality Hooks ────────────────────────────────────────────────────────
+
+export { usePersonVitality, useAllVitalities } from "./useVitality";
+
+// ─── Suggestion Hooks ─────────────────────────────────────────────────────
+
+export { useSuggestions } from "./useSuggestions";

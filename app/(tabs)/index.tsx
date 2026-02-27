@@ -51,7 +51,7 @@ import VitalPlant from "@/components/VitalPlant";
 import { useOrientation, ORIENTATION_STEP_SCREEN } from "@/hooks/useOrientation";
 import { getGrowthInfo } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
-import { formatRelativeDate } from "@/lib/formatters";
+import { formatRelativeDate, emotionEmojis } from "@/lib/formatters";
 import { generateSuggestions } from "@/lib/suggestionEngine";
 import type { IntelligentSuggestion, SuggestionType } from "@/lib/suggestionEngine";
 import { getRecentCalendarMatches } from "@/lib/calendarEngine";
@@ -101,18 +101,6 @@ function getGardenPhrase(pCount: number, mCount: number): string {
   return "has a new sprout";
 }
 
-const emotionEmojis: Record<string, string> = {
-  grateful: "\uD83D\uDE4F",
-  connected: "\uD83D\uDCAB",
-  curious: "\uD83D\uDD2E",
-  joyful: "\uD83D\uDE0A",
-  nostalgic: "\uD83C\uDF05",
-  proud: "\u2B50",
-  peaceful: "\uD83C\uDF38",
-  inspired: "\u2728",
-  hopeful: "\uD83C\uDF31",
-  loved: "\uD83D\uDC9B",
-};
 
 // ─── Growth Illustration Picker ──────────────────────────────────────────────
 

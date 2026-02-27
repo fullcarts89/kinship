@@ -41,6 +41,21 @@ export const emotionList: Emotion[] = [
   "loved",
 ];
 
+// ─── Emotion Emojis ────────────────────────────────────────────────────────
+
+export const emotionEmojis: Record<string, string> = {
+  grateful: "\uD83D\uDE4F",
+  connected: "\uD83D\uDCAB",
+  curious: "\uD83D\uDD2E",
+  joyful: "\uD83D\uDE0A",
+  nostalgic: "\uD83C\uDF05",
+  proud: "\u2B50",
+  peaceful: "\uD83C\uDF38",
+  inspired: "\u2728",
+  hopeful: "\uD83C\uDF31",
+  loved: "\uD83D\uDC9B",
+};
+
 // ─── Relationship Helpers ───────────────────────────────────────────────────
 
 export const relationshipLabels: Record<RelationshipType, string> = {
