@@ -42,8 +42,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Memory & Detail Views
 
-- [ ] **MEM-01**: User can tap a memory card to view its full detail (content, emotion, photos, date)
-- [ ] **MEM-02**: Memory detail view displays all attached photos
+- [x] **MEM-01**: User can tap a memory card to view its full detail (content, emotion, photos, date)
+- [x] **MEM-02**: Memory detail view displays all attached photos
 
 ### Contact Integration
 

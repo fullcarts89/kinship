@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: Phase 1 complete (2/2 plans done)
+current_plan: Phase 2 complete (2/2 plans done)
 status: unknown
-last_updated: "2026-02-27T22:49:52.885Z"
+last_updated: "2026-02-27T23:30:00.000Z"
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_phases: 2
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # State: Kinship Intelligence Layer
@@ -17,19 +17,19 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-27)
 **Core value:** The app must feel like a calm, living garden — never a productivity dashboard.
-**Current focus:** Phase 1
+**Current focus:** Phase 2 complete, Phase 3 next
 
 ## Progress
 
-- Phases: 1/9 complete
-- Requirements: 3/27 complete
+- Phases: 2/9 complete
+- Requirements: 5/27 complete
 
 ### Phase Checklist
 
 | # | Phase | Status | Requirements Done |
 |---|-------|--------|-------------------|
 | 1 | Photo & Media | Complete (2026-02-27) | 3/3 |
-| 2 | Memory Detail Views | Not started | 0/2 |
+| 2 | Memory Detail Views | Complete (2026-02-27) | 2/2 |
 | 3 | Contact Integration | Not started | 0/2 |
 | 4 | Reach-Out Flow Core | Not started | 0/2 |
 | 5 | Reach-Out Intelligence | Not started | 0/2 |
@@ -40,9 +40,9 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 
 ## Current Position
 
-- **Active phase:** Phase 1 complete. Phase 2 — Memory Detail Views next.
-- **Current plan:** Phase 1 complete (2/2 plans done)
-- **Next action:** Plan Phase 2 (Memory Detail Views)
+- **Active phase:** Phase 2 complete. Phase 3 — Contact Integration next.
+- **Current plan:** Phase 2 complete (2/2 plans done)
+- **Next action:** Plan Phase 3 (Contact Integration)
 
 ## Phase Dependencies
 
@@ -66,6 +66,9 @@ Phases 6 (Garden Visuals) and 3 (Contact Integration) are independently workable
 | 2026-02-27 | Completed 01-01 | photo_url on Memory, mock persistence, picker fix (2 min, 3 tasks, 4 files) |
 | 2026-02-27 | Completed 01-02 | Photo display in memory cards + spotlight, expo-image-picker plugin (2 min, 3 tasks, 3 files) |
 | 2026-02-27 | Phase 1 complete | All 3 PHOTO requirements satisfied. Ready for Phase 2. |
+| 2026-02-27 | Completed 02-01 | useMemory(id) hook, emotionEmojis to formatters (2 tasks, 4 files) |
+| 2026-02-27 | Completed 02-02 | Memory detail screen, onPress wiring on cards + spotlight (2 tasks, 3 files) |
+| 2026-02-27 | Phase 2 complete | MEM-01, MEM-02 satisfied. Memory cards tappable, detail view works. |
 
 ## Open Issues
 
