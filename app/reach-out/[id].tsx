@@ -15,6 +15,7 @@ import Animated, {
 import {
   MessageCircle,
   Phone,
+  Users,
   Video,
   X,
 } from "lucide-react-native";
@@ -338,40 +339,73 @@ function BridgeScreen({
               </Text>
             </Pressable>
 
-            {/* Phone */}
-            <Pressable
-              onPress={() => onChannelSelected("call")}
-              style={{
-                backgroundColor: white,
-                borderWidth: 1,
-                borderColor: sage + "44",
-                borderRadius: 16,
-                paddingVertical: 18,
-                paddingHorizontal: 20,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Phone size={18} color={sage} />
-            </Pressable>
+            {/* Phone — only when contact has phone number */}
+            {person.phone && (
+              <Pressable
+                onPress={() => onChannelSelected("call")}
+                style={{
+                  backgroundColor: white,
+                  borderWidth: 1,
+                  borderColor: sage + "44",
+                  borderRadius: 16,
+                  paddingVertical: 18,
+                  paddingHorizontal: 20,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Phone size={18} color={sage} />
+              </Pressable>
+            )}
 
-            {/* Video */}
-            <Pressable
-              onPress={() => onChannelSelected("video")}
+            {/* Video — only when contact has phone number */}
+            {person.phone && (
+              <Pressable
+                onPress={() => onChannelSelected("video")}
+                style={{
+                  backgroundColor: white,
+                  borderWidth: 1,
+                  borderColor: sage + "44",
+                  borderRadius: 16,
+                  paddingVertical: 18,
+                  paddingHorizontal: 20,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Video size={18} color={sage} />
+              </Pressable>
+            )}
+          </View>
+
+          {/* Meet in person — always available */}
+          <Pressable
+            onPress={() => onChannelSelected("in_person")}
+            style={{
+              backgroundColor: white,
+              borderWidth: 1,
+              borderColor: borderColor,
+              borderRadius: 16,
+              paddingVertical: 14,
+              paddingHorizontal: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              marginTop: 10,
+            }}
+          >
+            <Users size={16} color={warmGray} />
+            <Text
               style={{
-                backgroundColor: white,
-                borderWidth: 1,
-                borderColor: sage + "44",
-                borderRadius: 16,
-                paddingVertical: 18,
-                paddingHorizontal: 20,
-                alignItems: "center",
-                justifyContent: "center",
+                fontFamily: fonts.sans,
+                fontSize: 15,
+                color: nearBlack,
               }}
             >
-              <Video size={18} color={sage} />
-            </Pressable>
-          </View>
+              Meet in person
+            </Text>
+          </Pressable>
         </View>
 
         {/* Not now */}
