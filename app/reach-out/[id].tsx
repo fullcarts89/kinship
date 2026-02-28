@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router } from "expo-router";
@@ -27,20 +27,18 @@ import {
 import {
   usePerson,
   usePersonMemories,
+  usePersonInteractions,
   useCreateInteraction,
 } from "@/hooks";
 import { PlantBridgeIllustration } from "@/components/illustrations";
-import {
-  getBestMemoryForReachOut,
-  getMemoryContextLabel,
-} from "@/lib/memorySelection";
-import type { Person } from "@/types/database";
+import { MemoryCarousel } from "@/components/MemoryCarousel";
+import { getReachOutActions } from "@/lib/reachOutActionEngine";
+import type { Person, Interaction } from "@/types/database";
 import type { InteractionType } from "@/types";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 
 const sage = "#7A9E7E";
-const sagePale = "#EBF3EB";
 const sageLight = "#C8DEC9";
 const cream = "#FDF7ED";
 const nearBlack = "#1C1917";
@@ -48,26 +46,56 @@ const warmGray = "#78716C";
 const white = "#FFFFFF";
 const borderColor = "#E8E4DD";
 
+// ─── Icon Mapping ───────────────────────────────────────────────────────────
+
+function getActionIcon(type: InteractionType) {
+  switch (type) {
+    case "call":
+      return Phone;
+    case "video":
+      return Video;
+    case "in_person":
+      return Users;
+    case "message":
+    default:
+      return MessageCircle;
+  }
+}
+
 // ─── Bridge Screen (Screen 1) ───────────────────────────────────────────────
 
 function BridgeScreen({
   person,
+  interactions,
   onChannelSelected,
   onDismiss,
 }: {
   person: Person;
+  interactions: Interaction[];
   onChannelSelected: (channelType: InteractionType) => void;
   onDismiss: () => void;
 }) {
   const { memories } = usePersonMemories(person.id);
-  const recentMemory = getBestMemoryForReachOut(memories);
-  const memoryLabel = recentMemory ? getMemoryContextLabel(recentMemory) : null;
 
-  const suggestedOpenings = [
-    "This made me think of you",
-    "I loved this day",
-    "How have you been?",
-  ];
+  // Filter memories to past year, sorted most recent first (REACH-01)
+  const recentMemories = useMemo(() => {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    return memories
+      .filter((m) => new Date(m.created_at) >= oneYearAgo)
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+  }, [memories]);
+
+  const hasMemories = recentMemories.length > 0;
+
+  // Get contextual action options (REACH-02)
+  const actions = useMemo(
+    () => getReachOutActions(person, interactions),
+    [person, interactions]
+  );
 
   // ─── Entrance animation (fade + rise + scale) ──────────────────────────
   const contentOpacity = useSharedValue(0);
@@ -160,67 +188,27 @@ function BridgeScreen({
           </LinearGradient>
         </View>
 
-        {/* Memory Preview with Context Label */}
-        {recentMemory && (
-          <Animated.View style={[{ marginBottom: 20 }, memoryCardStyle]}>
-            {/* Context label */}
-            {memoryLabel && (
-              <Text
-                style={{
-                  fontFamily: fonts.sans,
-                  fontSize: 12,
-                  color: warmGray,
-                  textAlign: "center",
-                  marginBottom: 8,
-                  letterSpacing: 0.2,
-                }}
-              >
-                {memoryLabel}
-              </Text>
-            )}
-            <LinearGradient
-              colors={[sagePale, sageLight]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+        {/* Memory Carousel — swipeable recent memories (REACH-01) */}
+        {hasMemories && (
+          <Animated.View style={[{ marginBottom: 20, marginHorizontal: -20 }, memoryCardStyle]}>
+            <Text
               style={{
-                width: "100%",
-                height: 180,
-                borderRadius: 20,
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-                position: "relative",
+                fontFamily: fonts.sans,
+                fontSize: 12,
+                color: warmGray,
+                textAlign: "center",
+                marginBottom: 8,
+                letterSpacing: 0.2,
               }}
             >
-              <Text style={{ fontSize: 64, opacity: 0.6 }}>{"\uD83D\uDCF8"}</Text>
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 12,
-                  left: 12,
-                  backgroundColor: "rgba(255,255,255,0.95)",
-                  paddingVertical: 6,
-                  paddingHorizontal: 12,
-                  borderRadius: 8,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: fonts.sansMedium,
-                    fontSize: 11,
-                    color: warmGray,
-                  }}
-                  numberOfLines={1}
-                >
-                  {recentMemory.content.slice(0, 40)}
-                </Text>
-              </View>
-            </LinearGradient>
+              Moments you've shared
+            </Text>
+            <MemoryCarousel memories={recentMemories} />
           </Animated.View>
         )}
 
         {/* Fallback when no memories exist */}
-        {!recentMemory && (
+        {!hasMemories && (
           <Animated.View style={[{ marginBottom: 20 }, memoryCardStyle]}>
             <Text
               style={{
@@ -242,7 +230,7 @@ function BridgeScreen({
           <PlantBridgeIllustration size={64} />
         </Animated.View>
 
-        {/* Primary Text */}
+        {/* Primary Text — varies by context */}
         <Text
           style={{
             fontFamily: fonts.serif,
@@ -254,39 +242,90 @@ function BridgeScreen({
             marginBottom: 24,
           }}
         >
-          {recentMemory
-            ? "This moment could mean something to them"
-            : "Sometimes the simplest reach-out matters most"}
+          {hasMemories
+            ? "A moment to reconnect"
+            : interactions.length > 0
+              ? `Stay connected with ${person.name}`
+              : "Sometimes the simplest reach-out matters most"}
         </Text>
 
-        {/* Suggested Opening Chips */}
-        <View style={{ marginBottom: 24 }}>
-          <Text
-            style={{
-              fontFamily: fonts.sansSemiBold,
-              fontSize: 11,
-              color: warmGray,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              marginBottom: 10,
-            }}
-          >
-            Suggested opening
-          </Text>
-          <View style={{ gap: 8 }}>
-            {suggestedOpenings.map((text, i) => (
+        {/* Spacer to push actions to bottom */}
+        <View style={{ flex: 1 }} />
+
+        {/* Contextual Action Buttons (REACH-02) */}
+        <View style={{ marginBottom: 16 }}>
+          {actions.map((action, index) => {
+            const IconComponent = getActionIcon(action.type);
+
+            if (action.isPrimary) {
+              return (
+                <Pressable
+                  key={action.type}
+                  onPress={() => onChannelSelected(action.type)}
+                  style={{
+                    backgroundColor: sage,
+                    borderRadius: 16,
+                    paddingVertical: 18,
+                    paddingHorizontal: 20,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                    shadowColor: sage,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 16,
+                    elevation: 4,
+                    marginBottom: 10,
+                  }}
+                >
+                  <IconComponent size={18} color={white} />
+                  <View style={{ alignItems: "center" }}>
+                    <Text
+                      style={{
+                        fontFamily: fonts.sansSemiBold,
+                        fontSize: 16,
+                        color: white,
+                      }}
+                    >
+                      {action.label}
+                    </Text>
+                    {action.sublabel && (
+                      <Text
+                        style={{
+                          fontFamily: fonts.sans,
+                          fontSize: 12,
+                          color: "rgba(255,255,255,0.8)",
+                          marginTop: 2,
+                        }}
+                      >
+                        {action.sublabel}
+                      </Text>
+                    )}
+                  </View>
+                </Pressable>
+              );
+            }
+
+            return (
               <Pressable
-                key={i}
-                onPress={() => onChannelSelected("message")}
+                key={action.type}
+                onPress={() => onChannelSelected(action.type)}
                 style={{
-                  backgroundColor: i === 0 ? sagePale : white,
+                  backgroundColor: white,
                   borderWidth: 1,
-                  borderColor: i === 0 ? sage : borderColor,
-                  borderRadius: 12,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
+                  borderColor: borderColor,
+                  borderRadius: 16,
+                  paddingVertical: 14,
+                  paddingHorizontal: 20,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginBottom: index < actions.length - 1 ? 8 : 0,
                 }}
               >
+                <IconComponent size={16} color={warmGray} />
                 <Text
                   style={{
                     fontFamily: fonts.sans,
@@ -294,118 +333,11 @@ function BridgeScreen({
                     color: nearBlack,
                   }}
                 >
-                  "{text}"
+                  {action.label}
                 </Text>
               </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* Spacer to push actions to bottom */}
-        <View style={{ flex: 1 }} />
-
-        {/* Contact Action Buttons */}
-        <View style={{ marginBottom: 16 }}>
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            {/* Message - Primary */}
-            <Pressable
-              onPress={() => onChannelSelected("message")}
-              style={{
-                flex: 1,
-                backgroundColor: sage,
-                borderRadius: 16,
-                paddingVertical: 18,
-                paddingHorizontal: 20,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                shadowColor: sage,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.25,
-                shadowRadius: 16,
-                elevation: 4,
-              }}
-            >
-              <MessageCircle size={18} color={white} />
-              <Text
-                style={{
-                  fontFamily: fonts.sansSemiBold,
-                  fontSize: 16,
-                  color: white,
-                }}
-              >
-                Message
-              </Text>
-            </Pressable>
-
-            {/* Phone — only when contact has phone number */}
-            {person.phone && (
-              <Pressable
-                onPress={() => onChannelSelected("call")}
-                style={{
-                  backgroundColor: white,
-                  borderWidth: 1,
-                  borderColor: sage + "44",
-                  borderRadius: 16,
-                  paddingVertical: 18,
-                  paddingHorizontal: 20,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Phone size={18} color={sage} />
-              </Pressable>
-            )}
-
-            {/* Video — only when contact has phone number */}
-            {person.phone && (
-              <Pressable
-                onPress={() => onChannelSelected("video")}
-                style={{
-                  backgroundColor: white,
-                  borderWidth: 1,
-                  borderColor: sage + "44",
-                  borderRadius: 16,
-                  paddingVertical: 18,
-                  paddingHorizontal: 20,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Video size={18} color={sage} />
-              </Pressable>
-            )}
-          </View>
-
-          {/* Meet in person — always available */}
-          <Pressable
-            onPress={() => onChannelSelected("in_person")}
-            style={{
-              backgroundColor: white,
-              borderWidth: 1,
-              borderColor: borderColor,
-              borderRadius: 16,
-              paddingVertical: 14,
-              paddingHorizontal: 20,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              marginTop: 10,
-            }}
-          >
-            <Users size={16} color={warmGray} />
-            <Text
-              style={{
-                fontFamily: fonts.sans,
-                fontSize: 15,
-                color: nearBlack,
-              }}
-            >
-              Meet in person
-            </Text>
-          </Pressable>
+            );
+          })}
         </View>
 
         {/* Not now */}
@@ -431,6 +363,7 @@ export default function ReachOutScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { person, isLoading, error, refetch } = usePerson(id ?? "");
+  const { interactions } = usePersonInteractions(id ?? "");
   const { createInteraction } = useCreateInteraction();
 
   // ─── Loading ─────────────────────────────────────────────────────────────
@@ -552,6 +485,7 @@ export default function ReachOutScreen() {
         {/* Bridge Screen */}
         <BridgeScreen
           person={person}
+          interactions={interactions}
           onChannelSelected={handleChannelSelected}
           onDismiss={handleDismiss}
         />
