@@ -13,7 +13,7 @@
 |---|-------|------|--------------|-------|
 | 1 | Photo & Media | Fix photo picker and ensure photos persist and display correctly | PHOTO-01, PHOTO-02, PHOTO-03 | 2/2 Complete |
 | 2 | Memory Detail Views | Make memories tappable with a full detail view including photos | MEM-01, MEM-02 | 2/2 Complete |
-| 3 | Contact Integration | Pull device contact info onto imported person profiles | CONT-01, CONT-02 | 5 |
+| 3 | Contact Integration | Pull device contact info onto imported person profiles | CONT-01, CONT-02 | 2 |
 | 4 | Reach-Out Flow Core | Fix routing bugs and hide action buttons with no contact info | REACH-03, REACH-04 | 5 |
 | 5 | Reach-Out Intelligence | Add memory carousel and contextual action options to reach-out | REACH-01, REACH-02 | 6 |
 | 6 | Garden Visuals & Vitality Wiring | Unify plant icons and wire VitalPlant across all plant-rendering surfaces | VIS-01, VIS-02, VITAL-01, VITAL-02, VITAL-03 | 8 |
@@ -76,12 +76,10 @@
 4. A person added manually (not from contacts) shows no phantom phone or email fields.
 5. If the device denies contacts permission, the profile degrades gracefully with no crash and no empty broken field.
 
-### Plans (to be created)
-- 3-01: Audit how person records store contact origin — identify `contactId` or equivalent field available for re-querying device contacts
-- 3-02: Implement lazy `require("expo-contacts")` contact lookup by ID in person profile screen, wrapped in try/catch
-- 3-03: Map returned contact fields (phoneNumbers, emailAddresses) onto profile display — handle empty/undefined gracefully
-- 3-04: Test permission-denied path — confirm no crash, no broken UI
-- 3-05: Confirm contact data is available to reach-out action logic (feeds into Phase 4 REACH-04 fix)
+### Plans: 2 plans
+
+- [ ] 03-01-PLAN.md — Data layer: Add phone/email to Person type, mock data, and wire createPerson save payload in add flow
+- [ ] 03-02-PLAN.md — Display layer: Render phone/email on person profile, verify no top-level expo-contacts imports
 
 ---
 
