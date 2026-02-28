@@ -31,6 +31,8 @@ export interface Person {
   photo_url: string | null;
   relationship_type: RelationshipType;
   birthday?: string; // ISO date string, e.g. "1990-03-15" — year optional
+  phone?: string | null;   // From device contacts import
+  email?: string | null;   // From device contacts import
   created_at: string;
 }
 

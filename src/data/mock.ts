@@ -30,6 +30,8 @@ export const mockPeople: Person[] = [
     photo_url: null,
     relationship_type: "friend",
     birthday: "1994-03-01",
+    phone: "(555) 123-4567",
+    email: "sarah.miller@email.com",
     created_at: "2026-01-15T10:00:00Z",
   },
   {
@@ -47,6 +49,7 @@ export const mockPeople: Person[] = [
     photo_url: null,
     relationship_type: "family",
     birthday: "1968-07-22",
+    phone: "(555) 987-6543",
     created_at: "2026-02-01T09:00:00Z",
   },
   {

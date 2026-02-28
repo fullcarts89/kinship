@@ -104,9 +104,23 @@ interface ContactEntry {
   name: string;
   phone?: string;
   email?: string;
+  birthday?: string; // ISO date string, e.g. "1990-03-15"
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** Format a birthday ISO string for display preview (e.g. "Mar 15") */
+function formatBirthdayPreview(birthday: string): string {
+  const months = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+  const parts = birthday.split("-");
+  if (parts.length < 3) return birthday;
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  return `${months[monthIdx] ?? "?"} ${day}`;
+}
 
 /** Get initials from a name */
 function getInitials(name: string): string {
@@ -492,18 +506,35 @@ function StepContactSelection({
         fields: [
           ExpoContacts.Fields.PhoneNumbers,
           ExpoContacts.Fields.Emails,
+          ExpoContacts.Fields.Birthday,
         ],
         sort: ExpoContacts.SortTypes.FirstName,
       });
 
       const mapped: ContactEntry[] = data
         .filter((c: any) => c.name && c.name.trim().length > 0)
-        .map((c: any) => ({
-          id: c.id || String(Math.random()),
-          name: c.name || "",
-          phone: c.phoneNumbers?.[0]?.number,
-          email: c.emails?.[0]?.email,
-        }));
+        .map((c: any) => {
+          // Extract birthday from expo-contacts format { day, month, year }
+          let birthday: string | undefined;
+          if (c.birthday) {
+            const { year, month, day } = c.birthday;
+            if (month != null && day != null) {
+              // Month is 0-indexed in expo-contacts
+              const m = String(month + 1).padStart(2, "0");
+              const d = String(day).padStart(2, "0");
+              birthday = year
+                ? `${year}-${m}-${d}`
+                : `0000-${m}-${d}`; // Year unknown
+            }
+          }
+          return {
+            id: c.id || String(Math.random()),
+            name: c.name || "",
+            phone: c.phoneNumbers?.[0]?.number,
+            email: c.emails?.[0]?.email,
+            birthday,
+          };
+        });
 
       setContactsList(mapped);
     } catch {
@@ -666,7 +697,7 @@ function StepContactSelection({
                 >
                   {contact.name}
                 </Text>
-                {contact.phone && (
+                {(contact.phone || contact.birthday) && (
                   <Text
                     numberOfLines={1}
                     style={{
@@ -676,7 +707,14 @@ function StepContactSelection({
                       marginTop: 1,
                     }}
                   >
-                    {contact.phone}
+                    {[
+                      contact.phone,
+                      contact.birthday
+                        ? `🎂 ${formatBirthdayPreview(contact.birthday)}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join("  ·  ")}
                   </Text>
                 )}
               </View>
@@ -1723,6 +1761,7 @@ export default function AddPersonScreen() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [birthday, setBirthday] = useState<string | undefined>(undefined);
   const [relationship, setRelationship] = useState<RelationshipType | null>(
     null
   );
@@ -1745,6 +1784,7 @@ export default function AddPersonScreen() {
         setName("");
         setPhone("");
         setEmail("");
+        setBirthday(undefined);
         setRelationship(null);
         setInterests([]);
         setCustomInterests([]);
@@ -1775,32 +1815,49 @@ export default function AddPersonScreen() {
     setName(contact.name);
     setPhone(contact.phone || "");
     setEmail(contact.email || "");
+    setBirthday(contact.birthday);
     setStep(2); // Skip to relationship after contact selection
   };
 
   // ─── Photo picker (memory photo — square crop) ─────────────────────
 
   const handlePickPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch {
+      Alert.alert(
+        "Couldn't open photos",
+        "Please check that Kinship has permission to access your photo library in Settings."
+      );
     }
   };
 
   // ─── Profile photo picker (circular crop) ─────────────────────────
 
   const handlePickProfilePhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setProfilePhotoUri(result.assets[0].uri);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setProfilePhotoUri(result.assets[0].uri);
+      }
+    } catch {
+      Alert.alert(
+        "Couldn't open photos",
+        "Please check that Kinship has permission to access your photo library in Settings."
+      );
     }
   };
 
@@ -1891,6 +1948,9 @@ export default function AddPersonScreen() {
         name: name.trim(),
         photo_url: profilePhotoUri || null,
         relationship_type: relationship,
+        birthday,
+        phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
       });
 
       if (memoryText.trim() && newPerson) {
@@ -1903,8 +1963,9 @@ export default function AddPersonScreen() {
 
       // Advance to celebration screen
       setStep(6);
-    } catch {
-      Alert.alert("Error", "Failed to save. Please try again.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert("Error", msg);
     } finally {
       setIsSaving(false);
     }
