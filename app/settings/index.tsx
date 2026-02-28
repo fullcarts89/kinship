@@ -1,6 +1,6 @@
-import React from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
-import { router } from "expo-router";
+import React, { useState, useCallback } from "react";
+import { View, Text, Pressable, ScrollView, Linking } from "react-native";
+import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ArrowLeft,
@@ -9,9 +9,14 @@ import {
   Shield,
   Settings,
   Info,
+  Calendar,
   ChevronRight,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
+import {
+  checkCalendarPermission,
+  type CalendarPermissionStatus,
+} from "@/lib/calendarEngine";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 
@@ -44,11 +49,13 @@ function SettingsRow({
   label,
   last = false,
   onPress,
+  rightElement,
 }: {
   icon: any;
   label: string;
   last?: boolean;
   onPress?: () => void;
+  rightElement?: React.ReactNode;
 }) {
   return (
     <Pressable
@@ -86,7 +93,7 @@ function SettingsRow({
       >
         {label}
       </Text>
-      <ChevronRight size={15} strokeWidth={2} color="#D4CFC8" />
+      {rightElement ?? <ChevronRight size={15} strokeWidth={2} color="#D4CFC8" />}
     </Pressable>
   );
 }
@@ -95,6 +102,27 @@ function SettingsRow({
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+
+  // Calendar permission status — refreshes each time Settings gains focus
+  const [calendarStatus, setCalendarStatus] =
+    useState<CalendarPermissionStatus>("undetermined");
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const status = await checkCalendarPermission();
+          if (!cancelled) setCalendarStatus(status);
+        } catch {
+          // expo-calendar unavailable — leave as undetermined
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: settingsBg }}>
@@ -194,6 +222,47 @@ export default function SettingsScreen() {
               onPress={() => router.push("/settings/privacy")}
             />
             <SettingsRow
+              icon={Calendar}
+              label="Calendar"
+              onPress={() => Linking.openSettings()}
+              rightElement={
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor:
+                        calendarStatus === "granted"
+                          ? colors.sage
+                          : colors.warmGray,
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 13,
+                      color:
+                        calendarStatus === "granted"
+                          ? colors.sage
+                          : colors.warmGray,
+                    }}
+                  >
+                    {calendarStatus === "granted"
+                      ? "Connected"
+                      : "Not connected"}
+                  </Text>
+                  <ChevronRight size={15} strokeWidth={2} color="#D4CFC8" />
+                </View>
+              }
+            />
+            <SettingsRow
               icon={Settings}
               label="Account"
               onPress={() => router.push("/settings/account")}
@@ -217,7 +286,12 @@ export default function SettingsScreen() {
               elevation: 1,
             }}
           >
-            <SettingsRow icon={Info} label="About" last />
+            <SettingsRow
+              icon={Info}
+              label="About"
+              onPress={() => router.push("/settings/about")}
+              last
+            />
           </View>
         </View>
 

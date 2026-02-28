@@ -509,12 +509,18 @@ function generateCalendarSuggestions(
     if (recentlyContactedIds.has(match.personId)) continue;
     seenPersons.add(match.personId);
 
+    // Include the event name for context — helps the user recall the moment
+    const eventSnippet =
+      match.eventTitle.length > 30
+        ? match.eventTitle.slice(0, 27).trimEnd() + "..."
+        : match.eventTitle;
+
     suggestions.push({
       id: `suggestion-post_event_capture-${match.personId}`,
       type: "post_event_capture",
       personId: match.personId,
       personName: match.personName,
-      reason: `Looks like you saw ${match.personName} recently \u2014 anything worth remembering?`,
+      reason: `Capture a memory from "${eventSnippet}" with ${match.personName}`,
       priority: 70,
       metadata: {
         calendarEventName: match.eventTitle,

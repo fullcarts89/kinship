@@ -123,6 +123,44 @@ function getExpoCalendar(): any | null {
 // ─── Permission ─────────────────────────────────────────────────────────────
 
 /**
+ * Return the cached calendar permission status without triggering
+ * any system dialog or async work. Useful for synchronous reads
+ * (e.g. conditional rendering in Settings).
+ */
+export function getCalendarPermissionStatus(): CalendarPermissionStatus {
+  return _permissionStatus;
+}
+
+/**
+ * Check the current calendar permission status WITHOUT triggering the
+ * system permission dialog. Updates the module-level cache.
+ *
+ * Use this in Settings to display current status; use
+ * `requestCalendarPermission` in Garden Walk setup to actually prompt.
+ *
+ * Returns 'undetermined' if the native module is unavailable.
+ */
+export async function checkCalendarPermission(): Promise<CalendarPermissionStatus> {
+  const ExpoCalendar = getExpoCalendar();
+  if (!ExpoCalendar) {
+    return _permissionStatus;
+  }
+
+  try {
+    const { status } = await ExpoCalendar.getCalendarPermissionsAsync();
+    if (status === "granted") {
+      _permissionStatus = "granted";
+    } else {
+      _permissionStatus = "denied";
+    }
+  } catch {
+    // Fail silently — retain existing cached value
+  }
+
+  return _permissionStatus;
+}
+
+/**
  * Request calendar permission using expo-calendar.
  * Caches the result at module level so repeated calls are cheap.
  * Returns 'undetermined' if the native module is unavailable.
