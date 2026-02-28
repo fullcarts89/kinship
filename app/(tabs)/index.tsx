@@ -630,11 +630,17 @@ export default function GardenScreen() {
     [persons.length, memories.length]
   );
 
-  // Spotlight memory: rotates daily
+  // Spotlight memory: rotates daily, only shows memories 7+ days old (INTL-04)
   const spotlightMemory = useMemo(() => {
     if (memories.length === 0) return null;
-    const dayIdx = Math.floor(Date.now() / 86400000);
-    return memories[dayIdx % memories.length];
+    const now = Date.now();
+    const MIN_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+    const eligible = memories.filter(
+      (m) => now - new Date(m.created_at).getTime() >= MIN_AGE_MS
+    );
+    if (eligible.length === 0) return null;
+    const dayIdx = Math.floor(now / 86400000);
+    return eligible[dayIdx % eligible.length];
   }, [memories]);
 
   // Calendar matches for post-event suggestions (Tier 2)

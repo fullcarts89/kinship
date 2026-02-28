@@ -1,27 +1,18 @@
 /**
  * Interaction Hooks
  *
- * React hooks for interaction data. Falls back to mock data
- * when Supabase is not configured.
- *
- * In mock mode, locally-created interactions are stored in a module-level
- * array so they persist across hook instances and appear on refetch.
+ * React hooks for interaction data. Attempts to read from Supabase first;
+ * on failure, falls back to module-level mock data so the app works
+ * in demo / development mode without a configured backend.
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import * as interactionService from "@/services/interactionService";
-import {
-  mockInteractions,
-  getInteractionsForPerson as mockGetInteractionsForPerson,
-  getLatestInteraction as mockGetLatestInteraction,
-} from "@/data/mock";
+import { mockInteractions } from "@/data/mock";
 import type { Interaction, InteractionInsert } from "@/types/database";
 
-// ─── Shared local storage for mock mode ─────────────────────────────────────
-
-let locallyCreatedInteractions: Interaction[] = [];
-let localInteractionIdCounter = 300;
+// ─── Module-level Mock Persistence ─────────────────────────────────────────
+const locallyCreatedInteractions: Interaction[] = [];
 
 // ─── usePersonInteractions ──────────────────────────────────────────────────
 
@@ -33,25 +24,6 @@ export function usePersonInteractions(personId: string) {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      // Include locally-created interactions for this person
-      const localForPerson = locallyCreatedInteractions.filter(
-        (i) => i.person_id === personId
-      );
-      const mockForPerson = mockGetInteractionsForPerson(personId);
-      const allInteractions = [...localForPerson, ...mockForPerson];
-      setInteractions(allInteractions);
-
-      // Latest = most recent by created_at
-      const sorted = [...allInteractions].sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      setLatestInteraction(sorted[0] ?? null);
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
@@ -61,8 +33,17 @@ export function usePersonInteractions(personId: string) {
       ]);
       setInteractions(allInteractions);
       setLatestInteraction(latest);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+    } catch {
+      // Mock mode — merge locally created + mock data, filtered by person
+      const allMock = [...locallyCreatedInteractions, ...mockInteractions].filter(
+        (i) => i.person_id === personId
+      );
+      const sorted = allMock.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setInteractions(sorted);
+      setLatestInteraction(sorted[0] ?? null);
+      setError(null);
     } finally {
       setIsLoading(false);
     }
@@ -83,11 +64,16 @@ export function useCreateInteraction() {
 
   const createInteraction = useCallback(
     async (interaction: Omit<InteractionInsert, "user_id">) => {
-      if (!isSupabaseConfigured) {
-        // Create a local mock interaction so it shows up everywhere
-        localInteractionIdCounter += 1;
-        const created: Interaction = {
-          id: `local-i${localInteractionIdCounter}`,
+      try {
+        setIsCreating(true);
+        setError(null);
+        const created =
+          await interactionService.createInteraction(interaction);
+        return created;
+      } catch {
+        // Mock mode — Supabase not configured
+        const newInteraction: Interaction = {
+          id: `i-local-${Date.now()}`,
           user_id: "u1",
           person_id: interaction.person_id,
           type: interaction.type,
@@ -95,19 +81,8 @@ export function useCreateInteraction() {
           emotion: interaction.emotion ?? null,
           created_at: new Date().toISOString(),
         };
-        locallyCreatedInteractions = [created, ...locallyCreatedInteractions];
-        return created;
-      }
-
-      try {
-        setIsCreating(true);
-        setError(null);
-        const created =
-          await interactionService.createInteraction(interaction);
-        return created;
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)));
-        return null;
+        locallyCreatedInteractions.unshift(newInteraction);
+        return newInteraction;
       } finally {
         setIsCreating(false);
       }
@@ -120,27 +95,30 @@ export function useCreateInteraction() {
 
 // ─── useAllInteractions ────────────────────────────────────────────────────
 
-/** Fetch all interactions (all people). Used for growth bootstrapping. */
+/** Fetch all interactions (all people). Used for growth bootstrapping and suggestions. */
 export function useAllInteractions() {
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!isSupabaseConfigured) {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await interactionService.getAllInteractions();
+      setInteractions(data);
+    } catch {
+      // Mock mode — merge locally created + mock data
       setInteractions([...locallyCreatedInteractions, ...mockInteractions]);
+      setError(null);
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    // When Supabase is connected, this would call a "get all" service
-    // For now, falls through to mock
-    setInteractions([...locallyCreatedInteractions, ...mockInteractions]);
-    setIsLoading(false);
   }, []);
 
   useEffect(() => {
     fetch();
   }, [fetch]);
 
-  return { interactions, isLoading, refetch: fetch };
+  return { interactions, isLoading, error, refetch: fetch };
 }
