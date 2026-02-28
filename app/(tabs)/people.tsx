@@ -13,7 +13,7 @@
  *   Mature (10–16) → Blooming (17–26) → Established Tree (27+)
  */
 
-import React, { useEffect, useMemo, useCallback, useState } from "react";
+import React, { useMemo, useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -25,13 +25,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  withDelay,
-  Easing,
   FadeInUp,
 } from "react-native-reanimated";
 import {
@@ -42,18 +35,13 @@ import {
 } from "lucide-react-native";
 import { colors, fonts, shadows } from "@design/tokens";
 import { Skeleton, ErrorState, EmptyState, FadeIn } from "@/components/ui";
-import { usePersons, useMemories, useAllInteractions, useBootstrapGrowth } from "@/hooks";
+import { usePersons, useMemories, useAllInteractions, useBootstrapGrowth, useAllVitalities } from "@/hooks";
+import VitalPlant from "@/components/VitalPlant";
+import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
 import { relationshipLabels } from "@/lib/formatters";
 import { getGrowthInfo, type GrowthStage } from "@/lib/growthEngine";
 import type { Person, Memory } from "@/types/database";
 import type { RelationshipType } from "@/types";
-import {
-  SingleSproutIllustration,
-  SproutSmallIllustration,
-  SmallGardenIllustration,
-  FlourishingGardenIllustration,
-  GardenRevealIllustration,
-} from "@/components/illustrations";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -90,30 +78,6 @@ const STAGE_EMOJI: Record<GrowthStage, string> = {
   blooming: "🌸",
   tree: "🏡",
 };
-
-/** Render the appropriate plant illustration for a growth stage */
-function GrowthIllustration({
-  stage,
-  size = 44,
-}: {
-  stage: GrowthStage;
-  size?: number;
-}) {
-  switch (stage) {
-    case "seed":
-      return <SingleSproutIllustration size={size} />;
-    case "sprout":
-      return <SingleSproutIllustration size={size + 6} />;
-    case "youngPlant":
-      return <SproutSmallIllustration size={size + 4} />;
-    case "mature":
-      return <SmallGardenIllustration size={size + 6} />;
-    case "blooming":
-      return <FlourishingGardenIllustration size={size + 6} />;
-    case "tree":
-      return <GardenRevealIllustration size={size + 10} />;
-  }
-}
 
 /** Get a growth-language description for the connection count */
 function getGardenSubtitle(count: number): string {
@@ -208,41 +172,15 @@ function GardenSkeleton({ topPad }: { topPad: number }) {
 const CanopyPlantCard = React.memo(function CanopyPlantCard({
   person,
   index,
+  vitalityScore,
 }: {
   person: Person;
   index: number;
+  vitalityScore: number;
 }) {
   const personColor = PLANT_COLORS[index % PLANT_COLORS.length];
   const growth = getGrowthInfo(person.id);
   const emoji = STAGE_EMOJI[growth.stage];
-
-  // ─── Subtle sway animation (3–5s cycle, organic) ──────────────────────
-  const sway = useSharedValue(0);
-  const duration = 3000 + (index % 3) * 800; // Stagger: 3s, 3.8s, 4.6s
-
-  useEffect(() => {
-    sway.value = withDelay(
-      index * 120,
-      withRepeat(
-        withSequence(
-          withTiming(3.5, {
-            duration: duration / 2,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          withTiming(-3.5, {
-            duration: duration / 2,
-            easing: Easing.inOut(Easing.ease),
-          })
-        ),
-        -1,
-        true
-      )
-    );
-  }, []);
-
-  const swayStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${sway.value}deg` }],
-  }));
 
   return (
     <Pressable
@@ -250,23 +188,28 @@ const CanopyPlantCard = React.memo(function CanopyPlantCard({
       style={{ alignItems: "center", marginRight: 14, width: 78 }}
     >
       {/* Plant circle container */}
-      <Animated.View style={swayStyle}>
-        <View
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 16,
-            backgroundColor: `${personColor}11`,
-            borderWidth: 1.5,
-            borderColor: `${personColor}38`,
-            alignItems: "center",
-            justifyContent: "center",
-            overflow: "hidden",
-          }}
+      <View
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: 16,
+          backgroundColor: `${personColor}11`,
+          borderWidth: 1.5,
+          borderColor: `${personColor}38`,
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+        }}
+      >
+        <VitalPlant
+          vitalityScore={vitalityScore}
+          size={40}
+          index={index}
+          staggerDelay={0}
         >
-          <GrowthIllustration stage={growth.stage} size={40} />
-        </View>
-      </Animated.View>
+          <GrowthPlantIllustration stage={growth.stage} size={40} />
+        </VitalPlant>
+      </View>
 
       {/* Name */}
       <Text
@@ -305,10 +248,12 @@ const PersonRow = React.memo(function PersonRow({
   person,
   memoryCount,
   index,
+  vitalityScore,
 }: {
   person: Person;
   memoryCount: number;
   index: number;
+  vitalityScore: number;
 }) {
   const personColor = PLANT_COLORS[index % PLANT_COLORS.length];
   const relColor =
@@ -363,7 +308,9 @@ const PersonRow = React.memo(function PersonRow({
               borderRadius: 14,
             }}
           />
-          <Text style={{ fontSize: 22 }}>{emoji}</Text>
+          <VitalPlant vitalityScore={vitalityScore} size={24} index={index}>
+            <GrowthPlantIllustration stage={growth.stage} size={24} />
+          </VitalPlant>
         </View>
 
         {/* Info */}
@@ -464,18 +411,28 @@ export default function YourGardenScreen() {
   // Bootstrap growth points from existing data (runs once)
   useBootstrapGrowth(memories, allInteractions, isLoading);
 
+  // Vitality scores for all persons
+  const personIds = useMemo(() => persons.map((p) => p.id), [persons]);
+  const vitalities = useAllVitalities(personIds, memories, allInteractions);
+
   const memoryCountMap = useMemo(
     () => buildMemoryCountMap(memories),
     [memories]
   );
 
-  // Sort people: highest growth points first (most evolved garden plants first)
+  // Sort people: primary by growth points desc, secondary by vitality score desc
+  // This causes dormant plants to drift to the right within the same growth tier
   const sortedPersons = useMemo(
     () =>
-      [...persons].sort(
-        (a, b) => getGrowthInfo(b.id).points - getGrowthInfo(a.id).points
-      ),
-    [persons, memories, allInteractions]
+      [...persons].sort((a, b) => {
+        const growthDiff = getGrowthInfo(b.id).points - getGrowthInfo(a.id).points;
+        if (growthDiff !== 0) return growthDiff;
+        // Secondary sort: higher vitality first (dormant drifts right)
+        const vitalityA = vitalities[a.id]?.score ?? 1.0;
+        const vitalityB = vitalities[b.id]?.score ?? 1.0;
+        return vitalityB - vitalityA;
+      }),
+    [persons, memories, allInteractions, vitalities]
   );
 
   const handleRefresh = useCallback(async () => {
@@ -617,6 +574,7 @@ export default function YourGardenScreen() {
                     key={person.id}
                     person={person}
                     index={i}
+                    vitalityScore={vitalities[person.id]?.score ?? 1.0}
                   />
                 ))}
               </ScrollView>
@@ -651,6 +609,7 @@ export default function YourGardenScreen() {
                 person={person}
                 memoryCount={memoryCountMap[person.id] || 0}
                 index={i}
+                vitalityScore={vitalities[person.id]?.score ?? 1.0}
               />
             ))}
           </>

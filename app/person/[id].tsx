@@ -50,18 +50,12 @@ import {
 } from "@/hooks";
 import { usePersonPhoto } from "@/hooks/usePersonPhoto";
 import VitalPlant from "@/components/VitalPlant";
+import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
 import {
   formatRelativeDate,
   formatEmotionLabel,
   relationshipLabels,
 } from "@/lib/formatters";
-import {
-  SeedIllustration,
-  SproutSmallIllustration,
-  SunlightIllustration,
-  FlourishingGardenIllustration,
-  GardenRevealIllustration,
-} from "@/components/illustrations";
 import { OrientationOverlay } from "@/components/OrientationOverlay";
 import type { HighlightRect } from "@/components/OrientationOverlay";
 import { useOrientation, ORIENTATION_STEP_SCREEN } from "@/hooks/useOrientation";
@@ -193,26 +187,6 @@ function QuickAction({
       </Text>
     </Pressable>
   );
-}
-
-// ─── Growth Stage Plant ─────────────────────────────────────────────────────
-
-/** Maps a growth stage to the appropriate plant illustration. */
-function GrowthPlant({ stage, size = 100 }: { stage: GrowthStage; size?: number }) {
-  switch (stage) {
-    case "seed":
-      return <SeedIllustration size={size} />;
-    case "sprout":
-      return <SproutSmallIllustration size={size} />;
-    case "youngPlant":
-      return <SunlightIllustration size={size} />;
-    case "mature":
-      return <FlourishingGardenIllustration size={size} />;
-    case "blooming":
-      return <GardenRevealIllustration size={size} />;
-    case "tree":
-      return <GardenRevealIllustration size={Math.round(size * 1.15)} />;
-  }
 }
 
 // ─── Photo Picker Modal ────────────────────────────────────────────────────
@@ -1093,7 +1067,7 @@ export default function PersonDetailScreen() {
                 vitalityScore={vitality.score}
                 size={100}
               >
-                <GrowthPlant stage={growthStage} size={100} />
+                <GrowthPlantIllustration stage={growthStage} size={100} />
               </VitalPlant>
             </Animated.View>
           </View>

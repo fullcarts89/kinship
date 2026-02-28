@@ -48,6 +48,7 @@ import type { HighlightRect } from "@/components/OrientationOverlay";
 import { usePersons, useMemories, useAllInteractions, useAllVitalities } from "@/hooks";
 import { useBootstrapGrowth } from "@/hooks/useGrowth";
 import VitalPlant from "@/components/VitalPlant";
+import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
 import { useOrientation, ORIENTATION_STEP_SCREEN } from "@/hooks/useOrientation";
 import { getGrowthInfo } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
@@ -59,10 +60,6 @@ import type { CalendarMatch } from "@/lib/calendarEngine";
 import {
   GardenRevealIllustration,
   WateringIllustration,
-  SingleSproutIllustration,
-  SproutSmallIllustration,
-  SmallGardenIllustration,
-  FlourishingGardenIllustration,
 } from "@/components/illustrations";
 import type { Person, Memory } from "@/types/database";
 
@@ -101,32 +98,6 @@ function getGardenPhrase(pCount: number, mCount: number): string {
   return "has a new sprout";
 }
 
-
-// ─── Growth Illustration Picker ──────────────────────────────────────────────
-
-/** Pick the right potted-plant illustration for a person's growth stage */
-function GrowthPlantIllustration({
-  stage,
-  size = 48,
-}: {
-  stage: GrowthStage;
-  size?: number;
-}) {
-  switch (stage) {
-    case "seed":
-      return <SingleSproutIllustration size={size} />;
-    case "sprout":
-      return <SproutSmallIllustration size={size + 6} />;
-    case "youngPlant":
-      return <SmallGardenIllustration size={size + 4} />;
-    case "mature":
-      return <FlourishingGardenIllustration size={size + 6} />;
-    case "blooming":
-      return <FlourishingGardenIllustration size={size + 10} />;
-    case "tree":
-      return <GardenRevealIllustration size={size + 14} />;
-  }
-}
 
 // ─── Swaying Garden Plant ───────────────────────────────────────────────────
 
