@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, Pressable, ScrollView, Alert } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, Pressable, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,7 +13,6 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import {
-  ChevronLeft,
   MessageCircle,
   Phone,
   Video,
@@ -23,7 +22,6 @@ import { fonts } from "@design/tokens";
 import {
   Skeleton,
   ErrorState,
-  FadeIn,
 } from "@/components/ui";
 import {
   usePerson,
@@ -36,12 +34,11 @@ import {
   getMemoryContextLabel,
 } from "@/lib/memorySelection";
 import type { Person } from "@/types/database";
-import type { Emotion } from "@/types";
+import type { InteractionType } from "@/types";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 
 const sage = "#7A9E7E";
-const sageDark = "#4A7055";
 const sagePale = "#EBF3EB";
 const sageLight = "#C8DEC9";
 const cream = "#FDF7ED";
@@ -58,7 +55,7 @@ function BridgeScreen({
   onDismiss,
 }: {
   person: Person;
-  onChannelSelected: () => void;
+  onChannelSelected: (channelType: InteractionType) => void;
   onDismiss: () => void;
 }) {
   const { memories } = usePersonMemories(person.id);
@@ -279,7 +276,7 @@ function BridgeScreen({
             {suggestedOpenings.map((text, i) => (
               <Pressable
                 key={i}
-                onPress={onChannelSelected}
+                onPress={() => onChannelSelected("message")}
                 style={{
                   backgroundColor: i === 0 ? sagePale : white,
                   borderWidth: 1,
@@ -311,7 +308,7 @@ function BridgeScreen({
           <View style={{ flexDirection: "row", gap: 10 }}>
             {/* Message - Primary */}
             <Pressable
-              onPress={onChannelSelected}
+              onPress={() => onChannelSelected("message")}
               style={{
                 flex: 1,
                 backgroundColor: sage,
@@ -343,7 +340,7 @@ function BridgeScreen({
 
             {/* Phone */}
             <Pressable
-              onPress={onChannelSelected}
+              onPress={() => onChannelSelected("call")}
               style={{
                 backgroundColor: white,
                 borderWidth: 1,
@@ -360,7 +357,7 @@ function BridgeScreen({
 
             {/* Video */}
             <Pressable
-              onPress={onChannelSelected}
+              onPress={() => onChannelSelected("video")}
               style={{
                 backgroundColor: white,
                 borderWidth: 1,
@@ -394,114 +391,11 @@ function BridgeScreen({
   );
 }
 
-// ─── Passive Follow-Up Screen (Screen 2) ────────────────────────────────────
-
-function PassiveFollowUpScreen({
-  personId,
-  onSaveMemory,
-  onDismiss,
-}: {
-  personId: string;
-  onSaveMemory: () => void;
-  onDismiss: () => void;
-}) {
-  return (
-    <FadeIn className="flex-1">
-      <LinearGradient
-        colors={[cream, sagePale]}
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 32,
-        }}
-      >
-        {/* Plant Bridge Illustration */}
-        <PlantBridgeIllustration size={120} />
-
-        {/* Headline */}
-        <Text
-          style={{
-            fontFamily: fonts.serif,
-            fontSize: 28,
-            color: nearBlack,
-            textAlign: "center",
-            lineHeight: 36,
-            marginTop: 32,
-            marginBottom: 16,
-            maxWidth: 280,
-          }}
-        >
-          Moments like this continue to grow
-        </Text>
-
-        {/* Subtext */}
-        <Text
-          style={{
-            fontFamily: fonts.sans,
-            fontSize: 16,
-            color: warmGray,
-            textAlign: "center",
-            lineHeight: 24,
-            marginBottom: 40,
-            maxWidth: 260,
-          }}
-        >
-          Capture it while it's still fresh
-        </Text>
-
-        {/* Save Memory Button */}
-        <Pressable
-          onPress={onSaveMemory}
-          style={{
-            backgroundColor: sage,
-            borderRadius: 16,
-            paddingVertical: 18,
-            paddingHorizontal: 48,
-            alignItems: "center",
-            marginBottom: 14,
-            shadowColor: sage,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.25,
-            shadowRadius: 16,
-            elevation: 4,
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: fonts.sansSemiBold,
-              fontSize: 17,
-              color: white,
-            }}
-          >
-            Save Memory
-          </Text>
-        </Pressable>
-
-        {/* Maybe Later */}
-        <Pressable onPress={onDismiss} style={{ padding: 12 }}>
-          <Text
-            style={{
-              fontFamily: fonts.sansMedium,
-              fontSize: 15,
-              color: warmGray,
-            }}
-          >
-            Maybe later
-          </Text>
-        </Pressable>
-      </LinearGradient>
-    </FadeIn>
-  );
-}
-
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function ReachOutScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const [phase, setPhase] = useState<"bridge" | "followup">("bridge");
-
   const { person, isLoading, error, refetch } = usePerson(id ?? "");
   const { createInteraction } = useCreateInteraction();
 
@@ -558,7 +452,7 @@ export default function ReachOutScreen() {
               paddingTop: 12,
             }}
           >
-            <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/people")} hitSlop={12}>
               <X color={warmGray} size={22} />
             </Pressable>
           </View>
@@ -573,25 +467,25 @@ export default function ReachOutScreen() {
 
   // ─── Handlers ────────────────────────────────────────────────────────────
 
-  const handleChannelSelected = async () => {
-    // Simulate opening external app, then show follow-up
+  const handleChannelSelected = async (channelType: InteractionType) => {
     try {
       await createInteraction({
         person_id: person.id,
-        type: "message",
+        type: channelType,
       });
     } catch {
       // Silent fail
     }
-    setPhase("followup");
-  };
-
-  const handleSaveMemory = () => {
-    router.replace(`/memory/add?personId=${person.id}`);
+    // Navigate directly to check-in — no intermediate screen (REACH-03)
+    router.replace(`/reach-out/check-in/${person.id}`);
   };
 
   const handleDismiss = () => {
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)/people");
+    }
   };
 
   // ─── Content ─────────────────────────────────────────────────────────────
@@ -607,36 +501,26 @@ export default function ReachOutScreen() {
         }}
       >
         {/* Header */}
-        {phase === "bridge" && (
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              paddingHorizontal: 24,
-              paddingTop: 8,
-              paddingBottom: 4,
-            }}
-          >
-            <Pressable onPress={handleDismiss} hitSlop={12}>
-              <X color={warmGray} size={22} />
-            </Pressable>
-          </View>
-        )}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            paddingHorizontal: 24,
+            paddingTop: 8,
+            paddingBottom: 4,
+          }}
+        >
+          <Pressable onPress={handleDismiss} hitSlop={12}>
+            <X color={warmGray} size={22} />
+          </Pressable>
+        </View>
 
-        {/* Screens */}
-        {phase === "bridge" ? (
-          <BridgeScreen
-            person={person}
-            onChannelSelected={handleChannelSelected}
-            onDismiss={handleDismiss}
-          />
-        ) : (
-          <PassiveFollowUpScreen
-            personId={id ?? ""}
-            onSaveMemory={handleSaveMemory}
-            onDismiss={handleDismiss}
-          />
-        )}
+        {/* Bridge Screen */}
+        <BridgeScreen
+          person={person}
+          onChannelSelected={handleChannelSelected}
+          onDismiss={handleDismiss}
+        />
       </View>
     </>
   );
