@@ -33,6 +33,7 @@ import {
   Share2,
   MoreHorizontal,
   Check,
+  Mail,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import {
@@ -1316,6 +1317,62 @@ export default function PersonDetailScreen() {
               </Animated.View>
             )}
           </View>
+
+          {/* Contact Info */}
+          {(person.phone || person.email) && (
+            <View style={{ paddingHorizontal: 24, marginBottom: 16, gap: 10 }}>
+              {person.phone && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: sagePale,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Phone size={15} color={sage} />
+                  </View>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 14,
+                      color: nearBlack,
+                    }}
+                  >
+                    {person.phone}
+                  </Text>
+                </View>
+              )}
+              {person.email && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: sagePale,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Mail size={15} color={sage} />
+                  </View>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 14,
+                      color: nearBlack,
+                    }}
+                  >
+                    {person.email}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Quick Action Bar */}
           <View
