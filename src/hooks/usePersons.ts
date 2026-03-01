@@ -1,29 +1,19 @@
 /**
  * Person Hooks
  *
- * React hooks for person data. Falls back to mock data
- * when Supabase is not configured.
- *
- * In mock mode, locally-created people are stored in a module-level
- * array so they persist across hook instances (different tabs) and
- * appear on refetch.
+ * React hooks for person data. Attempts to read from Supabase first;
+ * on failure, falls back to module-level mock data so the app works
+ * in demo / development mode without a configured backend.
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import * as personService from "@/services/personService";
-import { mockPeople, getPersonById as mockGetPersonById } from "@/data/mock";
+import { mockPeople } from "@/data/mock";
 import type { Person, PersonInsert } from "@/types/database";
 
-// ─── Shared local storage for mock mode ─────────────────────────────────────
-// Persists across all hook instances so every tab sees newly-added people.
-
-let locallyCreatedPeople: Person[] = [];
-let localIdCounter = 100;
-
-function getAllMockPeople(): Person[] {
-  return [...locallyCreatedPeople, ...mockPeople];
-}
+// ─── Module-level Mock Persistence ─────────────────────────────────────────
+const locallyCreatedPeople: Person[] = [];
 
 // ─── usePersons ─────────────────────────────────────────────────────────────
 
@@ -33,19 +23,17 @@ export function usePersons() {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setPersons(getAllMockPeople());
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
       const data = await personService.getPersons();
-      setPersons(data);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+      // Always merge locally created people so saves persist across refetches
+      const localIds = new Set(locallyCreatedPeople.map((p) => p.id));
+      setPersons([...locallyCreatedPeople, ...data.filter((p) => !localIds.has(p.id))]);
+    } catch {
+      // Mock mode — merge locally created + mock data
+      setPersons([...locallyCreatedPeople, ...mockPeople]);
+      setError(null);
     } finally {
       setIsLoading(false);
     }
@@ -56,26 +44,29 @@ export function usePersons() {
   }, [fetch]);
 
   const createPerson = useCallback(
-    async (person: Omit<PersonInsert, "user_id">) => {
-      if (!isSupabaseConfigured) {
-        // Create a local mock person so it shows up everywhere
-        localIdCounter += 1;
-        const created: Person = {
-          id: `local-${localIdCounter}`,
+    async (person: Omit<PersonInsert, "user_id">): Promise<Person> => {
+      try {
+        const created = await personService.createPerson(person);
+        locallyCreatedPeople.unshift(created);
+        setPersons((prev) => [created, ...prev]);
+        return created;
+      } catch {
+        // Mock mode — Supabase not configured or auth failed
+        const newPerson: Person = {
+          id: `p-local-${Date.now()}`,
           user_id: "u1",
           name: person.name,
           photo_url: person.photo_url ?? null,
           relationship_type: person.relationship_type,
+          birthday: person.birthday,
+          phone: person.phone ?? null,
+          email: person.email ?? null,
           created_at: new Date().toISOString(),
         };
-        locallyCreatedPeople = [created, ...locallyCreatedPeople];
-        setPersons(getAllMockPeople());
-        return created;
+        locallyCreatedPeople.unshift(newPerson);
+        setPersons((prev) => [newPerson, ...prev]);
+        return newPerson;
       }
-
-      const created = await personService.createPerson(person);
-      setPersons((prev) => [created, ...prev]);
-      return created;
     },
     []
   );
@@ -92,22 +83,16 @@ export function usePerson(id: string) {
   const cancelledRef = useRef(false);
 
   const fetch = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      // Check locally-created people first, then mock data
-      const local = locallyCreatedPeople.find((p) => p.id === id);
-      setPerson(local ?? mockGetPersonById(id) ?? null);
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
       const data = await personService.getPersonById(id);
       if (!cancelledRef.current) setPerson(data);
-    } catch (err) {
-      if (!cancelledRef.current)
-        setError(err instanceof Error ? err : new Error(String(err)));
+    } catch {
+      if (!cancelledRef.current) {
+        setPerson(null);
+        setError(null);
+      }
     } finally {
       if (!cancelledRef.current) setIsLoading(false);
     }

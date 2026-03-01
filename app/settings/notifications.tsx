@@ -24,6 +24,11 @@ import {
   SeedIllustration,
   RestingPlantIllustration,
 } from "@/components/illustrations";
+import {
+  getGardenWalkPreferences,
+  setGardenWalkPreferences,
+  GardenWalkPreferences,
+} from "@/lib/notificationEngine";
 
 // ─── Category Config ────────────────────────────────────────────────────────
 
@@ -74,6 +79,26 @@ const FREQ_OPTIONS = [
   { key: "rarely", emoji: "🌱", label: "Rarely", sub: "Occasionally, when it matters" },
   { key: "pause", emoji: "🌙", label: "Pause", sub: "None for now — rest your garden" },
 ];
+
+// ─── Day Picker Labels ──────────────────────────────────────────────────────
+
+const DAY_LABELS = [
+  { key: 0, short: "S" },
+  { key: 1, short: "M" },
+  { key: 2, short: "T" },
+  { key: 3, short: "W" },
+  { key: 4, short: "T" },
+  { key: 5, short: "F" },
+  { key: 6, short: "S" },
+];
+
+/** Convert 24-hour "HH:MM" to 12-hour "h:MM AM/PM". */
+function formatTime12h(time24: string): string {
+  const [h, m] = time24.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${m.toString().padStart(2, "0")} ${suffix}`;
+}
 
 // ─── NavBar ─────────────────────────────────────────────────────────────────
 
@@ -356,15 +381,21 @@ function OverviewScreen({
   onOpenPause: () => void;
   insetTop: number;
 }) {
-  const [toggles, setToggles] = useState<Record<string, boolean>>({
-    memory: true,
-    capture: true,
-    suggest: true,
-    garden: true,
-  });
+  // Garden Walk state — synced with the notification engine
+  const [gardenWalkPrefs, setLocalGardenWalkPrefs] = useState<GardenWalkPreferences>(
+    getGardenWalkPreferences
+  );
 
-  const toggle = (key: string) =>
-    setToggles((t) => ({ ...t, [key]: !t[key] }));
+  // Local toggles for memory resurface & birthday (will connect to Supabase later)
+  const [memoryResurfaceOn, setMemoryResurfaceOn] = useState(true);
+  const [birthdayOn, setBirthdayOn] = useState(true);
+
+  // Sync engine whenever local prefs change
+  const updateGardenWalk = (partial: Partial<GardenWalkPreferences>) => {
+    const updated = { ...gardenWalkPrefs, ...partial };
+    setLocalGardenWalkPrefs(updated);
+    setGardenWalkPreferences(partial);
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -413,24 +444,317 @@ function OverviewScreen({
             height: 1,
             backgroundColor: "#F0EBE3",
             marginHorizontal: 22,
-            marginBottom: 16,
+            marginBottom: 18,
           }}
         />
 
-        {/* Category Cards */}
-        <View style={{ paddingHorizontal: 22 }}>
-          {CATEGORY_CONFIG.map((cfg) => (
-            <NotifCategoryCard
-              key={cfg.key}
-              cfg={cfg}
-              on={toggles[cfg.key]}
-              onToggle={() => toggle(cfg.key)}
-              onPress={() => onOpenCategory(cfg.key)}
-            />
-          ))}
+        {/* ── Garden Walk Section ──────────────────────────────────── */}
+        <View style={{ paddingHorizontal: 22, marginBottom: 20 }}>
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 12,
+              color: colors.warmGray,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              marginBottom: 10,
+            }}
+          >
+            Garden Walk
+          </Text>
+
+          <View
+            style={{
+              backgroundColor: colors.white,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: "#E5E0D8",
+              overflow: "hidden",
+            }}
+          >
+            {/* Toggle row */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 16,
+                  color: colors.nearBlack,
+                }}
+              >
+                Garden Walk
+              </Text>
+              <SoftToggle
+                on={gardenWalkPrefs.enabled}
+                onToggle={() => updateGardenWalk({ enabled: !gardenWalkPrefs.enabled })}
+              />
+            </View>
+
+            {gardenWalkPrefs.enabled && (
+              <>
+                {/* Thin separator */}
+                <View
+                  style={{
+                    height: 1,
+                    backgroundColor: "#F0EBE3",
+                    marginHorizontal: 16,
+                  }}
+                />
+
+                {/* Day picker */}
+                <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansSemiBold,
+                      fontSize: 12,
+                      color: colors.warmGray,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.6,
+                      marginBottom: 10,
+                    }}
+                  >
+                    Day
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    {DAY_LABELS.map((day) => {
+                      const selected = gardenWalkPrefs.dayOfWeek === day.key;
+                      return (
+                        <Pressable
+                          key={day.key}
+                          onPress={() => updateGardenWalk({ dayOfWeek: day.key })}
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 19,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: selected ? colors.sage : "transparent",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontFamily: selected ? fonts.sansSemiBold : fonts.sans,
+                              fontSize: 14,
+                              color: selected ? colors.white : colors.warmGray,
+                            }}
+                          >
+                            {day.short}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Thin separator */}
+                <View
+                  style={{
+                    height: 1,
+                    backgroundColor: "#F0EBE3",
+                    marginHorizontal: 16,
+                    marginTop: 8,
+                  }}
+                />
+
+                {/* Time display */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansSemiBold,
+                      fontSize: 12,
+                      color: colors.warmGray,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.6,
+                    }}
+                  >
+                    Time
+                  </Text>
+                  <View
+                    style={{
+                      backgroundColor: colors.sagePale,
+                      borderRadius: 10,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: fonts.sansSemiBold,
+                        fontSize: 14,
+                        color: colors.moss,
+                      }}
+                    >
+                      {formatTime12h(gardenWalkPrefs.timeOfDay)}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
+
+            {/* Description */}
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingBottom: 14,
+                paddingTop: gardenWalkPrefs.enabled ? 0 : 2,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 13,
+                  color: colors.warmGray,
+                  lineHeight: 19,
+                }}
+              >
+                A weekly visit to your garden with a resurfaced memory and
+                suggested connections.
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* Quiet Garden Card */}
+        {/* ── Memory Resurface Section ─────────────────────────────── */}
+        <View style={{ paddingHorizontal: 22, marginBottom: 20 }}>
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 12,
+              color: colors.warmGray,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              marginBottom: 10,
+            }}
+          >
+            Memory Resurface
+          </Text>
+
+          <View
+            style={{
+              backgroundColor: colors.white,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: "#E5E0D8",
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 8,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 16,
+                  color: colors.nearBlack,
+                }}
+              >
+                Memory Resurface
+              </Text>
+              <SoftToggle
+                on={memoryResurfaceOn}
+                onToggle={() => setMemoryResurfaceOn((v) => !v)}
+              />
+            </View>
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 13,
+                color: colors.warmGray,
+                lineHeight: 19,
+              }}
+            >
+              Occasionally revisit a meaningful moment from your past.
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Birthday Notifications Section ───────────────────────── */}
+        <View style={{ paddingHorizontal: 22, marginBottom: 20 }}>
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 12,
+              color: colors.warmGray,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              marginBottom: 10,
+            }}
+          >
+            Birthday Notifications
+          </Text>
+
+          <View
+            style={{
+              backgroundColor: colors.white,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: "#E5E0D8",
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 8,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 16,
+                  color: colors.nearBlack,
+                }}
+              >
+                Birthday Notifications
+              </Text>
+              <SoftToggle
+                on={birthdayOn}
+                onToggle={() => setBirthdayOn((v) => !v)}
+              />
+            </View>
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 13,
+                color: colors.warmGray,
+                lineHeight: 19,
+              }}
+            >
+              A gentle heads-up when someone's birthday is coming up.
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Quiet Garden Card ─────────────────────────────────────── */}
         <View style={{ paddingHorizontal: 22, paddingTop: 4 }}>
           <Pressable
             onPress={onOpenPause}
@@ -482,6 +806,22 @@ function OverviewScreen({
             </View>
             <ChevronRight size={14} strokeWidth={2} color="#D4CFC8" />
           </Pressable>
+        </View>
+
+        {/* ── Footer Text ──────────────────────────────────────────── */}
+        <View style={{ paddingHorizontal: 32, paddingTop: 22, paddingBottom: 8 }}>
+          <Text
+            style={{
+              fontFamily: fonts.sans,
+              fontSize: 13,
+              color: colors.warmGray,
+              lineHeight: 20,
+              textAlign: "center",
+            }}
+          >
+            Kinship will never send you more than a few gentle notifications per
+            week.
+          </Text>
         </View>
       </ScrollView>
     </View>

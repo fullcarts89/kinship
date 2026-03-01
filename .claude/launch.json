@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "expo",
+      "name": "expo-web",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["expo", "start", "--ios"],
-      "port": 8081
+      "runtimeArgs": ["expo", "start", "--port", "8082"],
+      "port": 8082
     }
   ]
 }

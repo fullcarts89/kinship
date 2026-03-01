@@ -2,7 +2,7 @@
  * Memory Service
  *
  * CRUD operations for the memories table.
- * Uses PLACEHOLDER_USER_ID until auth is connected.
+ * Uses authenticated user ID from Supabase session.
  *
  * Note: insert uses `as any` cast because our hand-written Database types
  * don't fully satisfy Supabase's deeply-nested generics. Replace with
@@ -10,19 +10,19 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import { getAuthUserId } from "@/lib/auth";
 import type { Memory, MemoryInsert } from "@/types/database";
-
-const PLACEHOLDER_USER_ID = "u1";
 
 // ─── Read ───────────────────────────────────────────────────────────────────
 
 export async function getMemories(): Promise<Memory[]> {
   if (!supabase) throw new Error("Supabase not configured");
 
+  const userId = await getAuthUserId();
   const { data, error } = await supabase
     .from("memories")
     .select("*")
-    .eq("user_id", PLACEHOLDER_USER_ID)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -34,10 +34,11 @@ export async function getMemoriesForPerson(
 ): Promise<Memory[]> {
   if (!supabase) throw new Error("Supabase not configured");
 
+  const userId = await getAuthUserId();
   const { data, error } = await supabase
     .from("memories")
     .select("*")
-    .eq("user_id", PLACEHOLDER_USER_ID)
+    .eq("user_id", userId)
     .eq("person_id", personId)
     .order("created_at", { ascending: false });
 
@@ -48,10 +49,11 @@ export async function getMemoriesForPerson(
 export async function getRecentMemories(limit = 5): Promise<Memory[]> {
   if (!supabase) throw new Error("Supabase not configured");
 
+  const userId = await getAuthUserId();
   const { data, error } = await supabase
     .from("memories")
     .select("*")
-    .eq("user_id", PLACEHOLDER_USER_ID)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -66,7 +68,8 @@ export async function createMemory(
 ): Promise<Memory> {
   if (!supabase) throw new Error("Supabase not configured");
 
-  const row = { ...memory, user_id: PLACEHOLDER_USER_ID };
+  const userId = await getAuthUserId();
+  const row = { ...memory, user_id: userId };
   const { data, error } = await supabase
     .from("memories")
     .insert(row as any)   // eslint-disable-line @typescript-eslint/no-explicit-any

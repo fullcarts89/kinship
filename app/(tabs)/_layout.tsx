@@ -9,6 +9,7 @@ import {
   Camera,
   MessageCircle,
   UserPlus,
+  BookUser,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -55,6 +56,11 @@ export default function TabLayout() {
   const handleAddSomeone = () => {
     closeTendSheet();
     router.push("/(tabs)/add");
+  };
+
+  const handleImportContacts = () => {
+    closeTendSheet();
+    router.push("/import-contacts");
   };
 
   return (
@@ -389,6 +395,62 @@ export default function TabLayout() {
                   }}
                 >
                   Plant a new person in your garden
+                </Text>
+              </View>
+            </Pressable>
+
+            {/* Action D: Import from contacts (TERTIARY — bordered, lighter) */}
+            <Pressable
+              onPress={handleImportContacts}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 18,
+                paddingHorizontal: 20,
+                borderRadius: 18,
+                backgroundColor: colors.white,
+                borderWidth: 1.5,
+                borderColor: colors.sageLight,
+                marginTop: 12,
+              }}
+            >
+              <View
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 12,
+                  backgroundColor: colors.sagePale,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 14,
+                }}
+              >
+                <BookUser
+                  color={colors.sage}
+                  size={22}
+                  strokeWidth={1.8}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 16,
+                    color: colors.nearBlack,
+                    marginBottom: 2,
+                  }}
+                >
+                  Import from contacts
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.sans,
+                    fontSize: 13,
+                    color: colors.warmGray,
+                    lineHeight: 18,
+                  }}
+                >
+                  Bring someone from your phone into the garden
                 </Text>
               </View>
             </Pressable>

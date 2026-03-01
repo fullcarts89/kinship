@@ -1,24 +1,23 @@
 import { Redirect } from "expo-router";
+import { useAuth } from "@/providers";
 
 /**
  * Entry Point
  *
  * Determines where to route the user on app launch:
- * - Always opens directly to the main app (tabs)
- * - Sign-in is only required when Supabase auth is connected
- *   and the user has no valid session
- *
- * When auth is wired up:
- * - Check session from AuthProvider
- * - If valid session exists → go to tabs (no sign-in needed)
- * - If no session → redirect to /(auth)/login
+ * - If Supabase is configured and user has a valid session → tabs
+ * - If Supabase is configured and no session → login screen
+ * - If Supabase is NOT configured (mock mode) → tabs (dev workflow)
  */
 export default function Index() {
-  // TODO: When Supabase auth is connected, uncomment:
-  // const { isAuthenticated, isLoading } = useAuth();
-  // if (isLoading) return null; // splash screen still showing
-  // if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
+  const { isAuthenticated, isLoading } = useAuth();
 
-  // For now, always go straight to the app — no sign-in required
+  // Keep splash screen visible while checking persisted session
+  if (isLoading) return null;
+
+  // No session → login
+  if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
+
+  // Authenticated (or mock mode) → main app
   return <Redirect href="/(tabs)" />;
 }

@@ -31,8 +31,15 @@ export function usePersonInteractions(personId: string) {
         interactionService.getInteractionsForPerson(personId),
         interactionService.getLatestInteraction(personId),
       ]);
-      setInteractions(allInteractions);
-      setLatestInteraction(latest);
+      // Always merge locally created interactions so saves persist across refetches
+      const localForPerson = locallyCreatedInteractions.filter((i) => i.person_id === personId);
+      const localIds = new Set(localForPerson.map((i) => i.id));
+      const merged = [...localForPerson, ...allInteractions.filter((i) => !localIds.has(i.id))];
+      const sorted = merged.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setInteractions(sorted);
+      setLatestInteraction(sorted[0] ?? null);
     } catch {
       // Mock mode — merge locally created + mock data, filtered by person
       const allMock = [...locallyCreatedInteractions, ...mockInteractions].filter(
@@ -106,7 +113,9 @@ export function useAllInteractions() {
       setIsLoading(true);
       setError(null);
       const data = await interactionService.getAllInteractions();
-      setInteractions(data);
+      // Always merge locally created interactions so saves persist across refetches
+      const localIds = new Set(locallyCreatedInteractions.map((i) => i.id));
+      setInteractions([...locallyCreatedInteractions, ...data.filter((i) => !localIds.has(i.id))]);
     } catch {
       // Mock mode — merge locally created + mock data
       setInteractions([...locallyCreatedInteractions, ...mockInteractions]);

@@ -9,7 +9,7 @@
  * that will require AsyncStorage or backend storage in a future phase.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 // ─── Session-level photo storage ────────────────────────────────────────────
 // Shared across all hook instances so every screen sees the same photo.
@@ -22,6 +22,11 @@ export function usePersonPhoto(personId: string) {
   const [photoUri, setPhotoUri] = useState<string | null>(
     personPhotos.get(personId) ?? null
   );
+
+  // Sync local state when personId changes (prevents stale photo)
+  useEffect(() => {
+    setPhotoUri(personPhotos.get(personId) ?? null);
+  }, [personId]);
 
   const setPhoto = useCallback(
     (uri: string) => {

@@ -1,8 +1,7 @@
 /**
  * Sign In Screen
  *
- * PRIMARY AUTHENTICATION SCREEN for returning users entering the app.
- * NOT a recovery screen.
+ * PRIMARY AUTHENTICATION SCREEN for users entering the app.
  *
  * Design:
  * - SignInPlant illustration (140px) — single centered plant with
@@ -11,21 +10,30 @@
  * - Supporting: "Your relationships are here" — simple presence statement
  * - PRIMARY AUTH: Apple + Google social buttons (white bg, sageLight border)
  * - Divider with "or"
- * - SECONDARY: "Sign in with email" text link
+ * - SECONDARY: "Sign in with email" → inline email/password form
  * - "Forgot password?" link at bottom
  *
- * ANIMATION:
- * - Plant sway: 4s ease-in-out infinite, subtle 0.5px translateX + 0.3deg rotate
- * - Sparkles: 2.5s fade 0.3→0.8 opacity, infinite
- *
- * TONE: This is normal app entry, NOT about returning after absence or recovery.
+ * Three modes (step state):
+ * - "main" → social buttons + "sign in with email" link
+ * - "email" → email/password form with sign-in / sign-up toggle
+ * - "forgot" → email input for password reset
  */
 
-import React, { useEffect } from "react";
-import { View, Text, Pressable } from "react-native";
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Mail, ArrowLeft } from "lucide-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -35,9 +43,15 @@ import Animated, {
   withDelay,
   Easing,
 } from "react-native-reanimated";
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import { colors, fonts } from "@design/tokens";
 import { SingleSproutIllustration } from "@/components/illustrations";
+import { useAuth } from "@/providers";
+import { isSupabaseConfigured } from "@/lib/supabase";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type ScreenMode = "main" | "email" | "forgot";
 
 // ─── Sparkle Particle ───────────────────────────────────────────────────────
 
@@ -137,6 +151,20 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const {
+    signInWithApple,
+    signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+    resetPassword,
+  } = useAuth();
+
+  // ─── Screen mode state ─────────────────────────────────────────────────
+  const [mode, setMode] = useState<ScreenMode>("main");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
 
   // ─── Plant sway animation (4s ease-in-out, subtle) ────────────────────
   const plantTranslateX = useSharedValue(0);
@@ -188,240 +216,559 @@ export default function LoginScreen() {
     transform: [{ translateY: contentTranslateY.value }],
   }));
 
+  // ─── Auth Handlers ─────────────────────────────────────────────────────
+
+  const handleApple = useCallback(async () => {
+    setIsBusy(true);
+    try {
+      await signInWithApple();
+      router.replace("/loading");
+    } catch (err: any) {
+      // Apple user cancelled → error code 1001
+      if (err?.code === "ERR_CANCELED" || err?.code === 1001) return;
+      Alert.alert("Sign in failed", err?.message ?? "Something went wrong");
+    } finally {
+      setIsBusy(false);
+    }
+  }, [signInWithApple]);
+
+  const handleGoogle = useCallback(async () => {
+    setIsBusy(true);
+    try {
+      await signInWithGoogle();
+      router.replace("/loading");
+    } catch (err: any) {
+      Alert.alert("Sign in failed", err?.message ?? "Something went wrong");
+    } finally {
+      setIsBusy(false);
+    }
+  }, [signInWithGoogle]);
+
+  const handleEmailSubmit = useCallback(async () => {
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail || !trimmedPassword) {
+      Alert.alert("Missing fields", "Please enter your email and password.");
+      return;
+    }
+
+    if (trimmedPassword.length < 6) {
+      Alert.alert("Password too short", "Password must be at least 6 characters.");
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      if (isSignUp) {
+        await signUpWithEmail(trimmedEmail, trimmedPassword);
+      } else {
+        await signInWithEmail(trimmedEmail, trimmedPassword);
+      }
+      router.replace("/loading");
+    } catch (err: any) {
+      Alert.alert(
+        isSignUp ? "Sign up failed" : "Sign in failed",
+        err?.message ?? "Something went wrong"
+      );
+    } finally {
+      setIsBusy(false);
+    }
+  }, [email, password, isSignUp, signInWithEmail, signUpWithEmail]);
+
+  const handleForgotPassword = useCallback(async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      Alert.alert("Enter your email", "Please enter your email address first.");
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      await resetPassword(trimmedEmail);
+      Alert.alert(
+        "Check your inbox",
+        "If an account exists for that email, you'll receive a password reset link.",
+        [{ text: "OK", onPress: () => setMode("main") }]
+      );
+    } catch (err: any) {
+      Alert.alert("Error", err?.message ?? "Something went wrong");
+    } finally {
+      setIsBusy(false);
+    }
+  }, [email, resetPassword]);
+
+  // ─── Render ────────────────────────────────────────────────────────────
+
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: colors.cream,
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom,
-      }}
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.cream }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      {/* ─── Back button ──────────────────────────────────────── */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }}>
-        <Pressable
-          onPress={() => {
-            if (router.canGoBack()) router.back();
-            else router.replace("/(tabs)");
-          }}
-          hitSlop={12}
-          style={{ flexDirection: "row", alignItems: "center" }}
-        >
-          <ChevronLeft color={colors.sage} size={20} />
-          <Text
-            style={{
-              fontFamily: fonts.sansMedium,
-              fontSize: 15,
-              color: colors.sage,
-              marginLeft: 2,
-            }}
-          >
-            Back
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* ─── Main content ─────────────────────────────────────── */}
-      <View
-        style={{
-          flex: 1,
-          paddingHorizontal: 32,
-          justifyContent: "center",
-          alignItems: "center",
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
         }}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
       >
-        {/* ─── Plant illustration with sparkles ─────────────── */}
-        <View style={{ alignItems: "center", marginBottom: 32, height: 170, width: 170 }}>
-          {/* Sparkle particles */}
-          <Sparkle x={20} y={18} delay={0} size={10} />
-          <Sparkle x={130} y={30} delay={600} size={8} />
-          <Sparkle x={140} y={85} delay={1200} size={7} />
-          <Sparkle x={10} y={95} delay={800} size={9} />
-          <Sparkle x={75} y={5} delay={400} size={6} />
-
-          {/* Swaying plant */}
-          <Animated.View
-            style={[
-              {
-                alignItems: "center",
-                justifyContent: "center",
-                marginTop: 15,
-              },
-              plantSwayStyle,
-            ]}
-          >
-            <SingleSproutIllustration size={140} />
-          </Animated.View>
-        </View>
-
-        {/* ─── Headline ─────────────────────────────────────── */}
-        <Animated.View style={[{ alignItems: "center" }, contentFadeStyle]}>
-          <Text
-            style={{
-              fontFamily: fonts.serif,
-              fontSize: 30,
-              color: colors.nearBlack,
-              textAlign: "center",
-              lineHeight: 38,
-              marginBottom: 8,
-            }}
-          >
-            Enter your garden
-          </Text>
-          <Text
-            style={{
-              fontFamily: fonts.sans,
-              fontSize: 15,
-              color: colors.warmGray,
-              textAlign: "center",
-              lineHeight: 22,
-              marginBottom: 36,
-            }}
-          >
-            Your relationships are here
-          </Text>
-
-          {/* ─── Continue with Apple ──────────────────────────── */}
-          <Pressable
-            onPress={() => {
-              // TODO: Apple Sign In via expo-apple-authentication
-              // After auth, show loading animation → tabs
-              router.replace("/loading");
-            }}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
-              width: "100%",
-              backgroundColor: colors.white,
-              borderWidth: 1.5,
-              borderColor: colors.sageLight,
-              borderRadius: 16,
-              paddingVertical: 15,
-              marginBottom: 12,
-            }}
-          >
-            <AppleLogo size={20} />
-            <Text
-              style={{
-                fontFamily: fonts.sansSemiBold,
-                fontSize: 16,
-                color: colors.nearBlack,
+        {/* ─── Back button (only in mock mode or email/forgot sub-screens) ─── */}
+        {(!isSupabaseConfigured || mode !== "main") && (
+          <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }}>
+            <Pressable
+              onPress={() => {
+                if (mode !== "main") {
+                  setMode("main");
+                  setEmail("");
+                  setPassword("");
+                  setIsSignUp(false);
+                } else if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/(tabs)");
+                }
               }}
+              hitSlop={12}
+              style={{ flexDirection: "row", alignItems: "center" }}
             >
-              Continue with Apple
-            </Text>
-          </Pressable>
+              {mode !== "main" ? (
+                <ArrowLeft color={colors.sage} size={20} />
+              ) : (
+                <ChevronLeft color={colors.sage} size={20} />
+              )}
+              <Text
+                style={{
+                  fontFamily: fonts.sansMedium,
+                  fontSize: 15,
+                  color: colors.sage,
+                  marginLeft: 2,
+                }}
+              >
+                Back
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
-          {/* ─── Continue with Google ─────────────────────────── */}
-          <Pressable
-            onPress={() => {
-              // TODO: Google Sign In via expo-auth-session
-              // After auth, show loading animation → tabs
-              router.replace("/loading");
-            }}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
-              width: "100%",
-              backgroundColor: colors.white,
-              borderWidth: 1.5,
-              borderColor: colors.sageLight,
-              borderRadius: 16,
-              paddingVertical: 15,
-              marginBottom: 24,
-            }}
-          >
-            <GoogleLogo size={20} />
-            <Text
-              style={{
-                fontFamily: fonts.sansSemiBold,
-                fontSize: 16,
-                color: colors.nearBlack,
-              }}
-            >
-              Continue with Google
-            </Text>
-          </Pressable>
+        {/* ─── Spacer when no back button ─── */}
+        {isSupabaseConfigured && mode === "main" && (
+          <View style={{ height: insets.top > 0 ? 20 : 52 }} />
+        )}
 
-          {/* ─── Divider ─────────────────────────────────────── */}
+        {/* ─── Main content ─────────────────────────────────────── */}
+        <View
+          style={{
+            flex: 1,
+            paddingHorizontal: 32,
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          {/* ─── Plant illustration with sparkles ─────────────── */}
           <View
             style={{
-              flexDirection: "row",
               alignItems: "center",
-              width: "100%",
-              marginBottom: 24,
+              marginBottom: mode === "main" ? 32 : 20,
+              height: mode === "main" ? 170 : 120,
+              width: 170,
             }}
           >
-            <View
+            {mode === "main" && (
+              <>
+                <Sparkle x={20} y={18} delay={0} size={10} />
+                <Sparkle x={130} y={30} delay={600} size={8} />
+                <Sparkle x={140} y={85} delay={1200} size={7} />
+                <Sparkle x={10} y={95} delay={800} size={9} />
+                <Sparkle x={75} y={5} delay={400} size={6} />
+              </>
+            )}
+            <Animated.View
+              style={[
+                {
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginTop: mode === "main" ? 15 : 0,
+                },
+                plantSwayStyle,
+              ]}
+            >
+              <SingleSproutIllustration size={mode === "main" ? 140 : 100} />
+            </Animated.View>
+          </View>
+
+          {/* ─── Headline ─────────────────────────────────────── */}
+          <Animated.View style={[{ alignItems: "center", width: "100%" }, contentFadeStyle]}>
+            <Text
               style={{
-                flex: 1,
-                height: 1,
-                backgroundColor: colors.border,
+                fontFamily: fonts.serif,
+                fontSize: mode === "main" ? 30 : 24,
+                color: colors.nearBlack,
+                textAlign: "center",
+                lineHeight: mode === "main" ? 38 : 32,
+                marginBottom: 8,
               }}
-            />
+            >
+              {mode === "main"
+                ? "Enter your garden"
+                : mode === "email"
+                  ? isSignUp
+                    ? "Create your garden"
+                    : "Welcome back"
+                  : "Reset password"}
+            </Text>
             <Text
               style={{
                 fontFamily: fonts.sans,
-                fontSize: 13,
-                color: colors.warmGray,
-                paddingHorizontal: 16,
-              }}
-            >
-              or
-            </Text>
-            <View
-              style={{
-                flex: 1,
-                height: 1,
-                backgroundColor: colors.border,
-              }}
-            />
-          </View>
-
-          {/* ─── Sign in with email ──────────────────────────── */}
-          <Pressable
-            onPress={() => {
-              // TODO: Navigate to email sign in form
-              router.replace("/loading");
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: fonts.sansSemiBold,
                 fontSize: 15,
-                color: colors.sage,
+                color: colors.warmGray,
                 textAlign: "center",
+                lineHeight: 22,
+                marginBottom: mode === "main" ? 36 : 24,
               }}
             >
-              Sign in with email
+              {mode === "main"
+                ? "Your relationships are here"
+                : mode === "email"
+                  ? isSignUp
+                    ? "Sign up to start growing"
+                    : "Sign in to your garden"
+                  : "We'll send you a reset link"}
             </Text>
-          </Pressable>
-        </Animated.View>
-      </View>
 
-      {/* ─── Forgot password link ─────────────────────────────── */}
-      <Animated.View style={[{ paddingBottom: 24, alignItems: "center" }, contentFadeStyle]}>
-        <Pressable
-          onPress={() => {
-            // TODO: Navigate to forgot password screen
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: fonts.sans,
-              fontSize: 14,
-              color: colors.warmGray,
-              textAlign: "center",
-            }}
+            {/* ═══════════════════════════════════════════════════════
+                MODE: MAIN — Social buttons + email link
+                ═══════════════════════════════════════════════════════ */}
+            {mode === "main" && (
+              <>
+                {/* Continue with Apple */}
+                <Pressable
+                  onPress={handleApple}
+                  disabled={isBusy}
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                    width: "100%",
+                    backgroundColor: colors.white,
+                    borderWidth: 1.5,
+                    borderColor: colors.sageLight,
+                    borderRadius: 16,
+                    paddingVertical: 15,
+                    marginBottom: 12,
+                    opacity: pressed || isBusy ? 0.7 : 1,
+                  })}
+                >
+                  {isBusy ? (
+                    <ActivityIndicator size="small" color={colors.sage} />
+                  ) : (
+                    <>
+                      <AppleLogo size={20} />
+                      <Text
+                        style={{
+                          fontFamily: fonts.sansSemiBold,
+                          fontSize: 16,
+                          color: colors.nearBlack,
+                        }}
+                      >
+                        Continue with Apple
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+
+                {/* Continue with Google */}
+                <Pressable
+                  onPress={handleGoogle}
+                  disabled={isBusy}
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                    width: "100%",
+                    backgroundColor: colors.white,
+                    borderWidth: 1.5,
+                    borderColor: colors.sageLight,
+                    borderRadius: 16,
+                    paddingVertical: 15,
+                    marginBottom: 24,
+                    opacity: pressed || isBusy ? 0.7 : 1,
+                  })}
+                >
+                  {isBusy ? (
+                    <ActivityIndicator size="small" color={colors.sage} />
+                  ) : (
+                    <>
+                      <GoogleLogo size={20} />
+                      <Text
+                        style={{
+                          fontFamily: fonts.sansSemiBold,
+                          fontSize: 16,
+                          color: colors.nearBlack,
+                        }}
+                      >
+                        Continue with Google
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+
+                {/* Divider */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    width: "100%",
+                    marginBottom: 24,
+                  }}
+                >
+                  <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 13,
+                      color: colors.warmGray,
+                      paddingHorizontal: 16,
+                    }}
+                  >
+                    or
+                  </Text>
+                  <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+                </View>
+
+                {/* Sign in with email */}
+                <Pressable onPress={() => setMode("email")}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansSemiBold,
+                      fontSize: 15,
+                      color: colors.sage,
+                      textAlign: "center",
+                    }}
+                  >
+                    Sign in with email
+                  </Text>
+                </Pressable>
+
+                {/* Reserved for future dev shortcuts */}
+              </>
+            )}
+
+            {/* ═══════════════════════════════════════════════════════
+                MODE: EMAIL — Email/password form
+                ═══════════════════════════════════════════════════════ */}
+            {mode === "email" && (
+              <>
+                {/* Email input */}
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Email address"
+                  placeholderTextColor={colors.warmGray}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  editable={!isBusy}
+                  style={{
+                    width: "100%",
+                    backgroundColor: colors.white,
+                    borderWidth: 1.5,
+                    borderColor: colors.sageLight,
+                    borderRadius: 14,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    fontFamily: fonts.sans,
+                    fontSize: 16,
+                    color: colors.nearBlack,
+                    marginBottom: 12,
+                  }}
+                />
+
+                {/* Password input */}
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Password"
+                  placeholderTextColor={colors.warmGray}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  editable={!isBusy}
+                  style={{
+                    width: "100%",
+                    backgroundColor: colors.white,
+                    borderWidth: 1.5,
+                    borderColor: colors.sageLight,
+                    borderRadius: 14,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    fontFamily: fonts.sans,
+                    fontSize: 16,
+                    color: colors.nearBlack,
+                    marginBottom: 20,
+                  }}
+                />
+
+                {/* Submit button */}
+                <View
+                  style={{
+                    width: "100%",
+                    backgroundColor: colors.sage,
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    marginBottom: 16,
+                  }}
+                >
+                  <Pressable
+                    onPress={handleEmailSubmit}
+                    disabled={isBusy}
+                    style={{
+                      paddingVertical: 15,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      opacity: isBusy ? 0.7 : 1,
+                    }}
+                  >
+                    {isBusy ? (
+                      <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                      <Text
+                        style={{
+                          fontFamily: fonts.sansSemiBold,
+                          fontSize: 16,
+                          color: colors.white,
+                        }}
+                      >
+                        {isSignUp ? "Create account" : "Sign in"}
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
+
+                {/* Toggle sign-in / sign-up */}
+                <Pressable onPress={() => setIsSignUp((prev) => !prev)}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 14,
+                      color: colors.warmGray,
+                      textAlign: "center",
+                    }}
+                  >
+                    {isSignUp
+                      ? "Already have an account? Sign in"
+                      : "Don't have an account? Sign up"}
+                  </Text>
+                </Pressable>
+              </>
+            )}
+
+            {/* ═══════════════════════════════════════════════════════
+                MODE: FORGOT — Password reset
+                ═══════════════════════════════════════════════════════ */}
+            {mode === "forgot" && (
+              <>
+                {/* Email input */}
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Email address"
+                  placeholderTextColor={colors.warmGray}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  editable={!isBusy}
+                  style={{
+                    width: "100%",
+                    backgroundColor: colors.white,
+                    borderWidth: 1.5,
+                    borderColor: colors.sageLight,
+                    borderRadius: 14,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    fontFamily: fonts.sans,
+                    fontSize: 16,
+                    color: colors.nearBlack,
+                    marginBottom: 20,
+                  }}
+                />
+
+                {/* Send reset link button */}
+                <Pressable
+                  onPress={handleForgotPassword}
+                  disabled={isBusy}
+                  style={({ pressed }) => ({
+                    width: "100%",
+                    backgroundColor: colors.sage,
+                    borderRadius: 16,
+                    paddingVertical: 15,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: pressed || isBusy ? 0.7 : 1,
+                  })}
+                >
+                  {isBusy ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text
+                      style={{
+                        fontFamily: fonts.sansSemiBold,
+                        fontSize: 16,
+                        color: colors.white,
+                      }}
+                    >
+                      Send reset link
+                    </Text>
+                  )}
+                </Pressable>
+              </>
+            )}
+          </Animated.View>
+        </View>
+
+        {/* ─── Forgot password link (main mode only) ─────────────── */}
+        {mode === "main" && (
+          <Animated.View
+            style={[{ paddingBottom: 24, alignItems: "center" }, contentFadeStyle]}
           >
-            Forgot password?
-          </Text>
-        </Pressable>
-      </Animated.View>
-    </View>
+            <Pressable onPress={() => setMode("forgot")}>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 14,
+                  color: colors.warmGray,
+                  textAlign: "center",
+                }}
+              >
+                Forgot password?
+              </Text>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* ─── Forgot password link from email mode ──────────────── */}
+        {mode === "email" && !isSignUp && (
+          <View style={{ paddingBottom: 24, alignItems: "center" }}>
+            <Pressable onPress={() => setMode("forgot")}>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 14,
+                  color: colors.warmGray,
+                  textAlign: "center",
+                }}
+              >
+                Forgot password?
+              </Text>
+            </Pressable>
+          </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

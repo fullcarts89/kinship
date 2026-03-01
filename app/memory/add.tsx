@@ -725,11 +725,13 @@ export default function AddMemoryScreen() {
   }, [persons, personId, preselectedPersonId]);
 
   // ── Image Picker ──────────────────────────────────────────────────────
+  // No permission request needed — PHPickerViewController (iOS 14+) runs
+  // in its own process and shows ALL albums/folders regardless of the
+  // app's photo-library permission status.
   const pickImage = useCallback(async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-        allowsEditing: false,
         quality: 0.8,
       });
 
@@ -777,8 +779,8 @@ export default function AddMemoryScreen() {
       }
 
       setStep(1); // Show saved confirmation
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+    } catch (err: any) {
+      const msg = err?.message ?? (typeof err === "string" ? err : "Something went wrong. Please try again.");
       Alert.alert("Error", msg);
     } finally {
       setIsSaving(false);

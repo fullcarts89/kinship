@@ -2,7 +2,7 @@
  * Person Service
  *
  * CRUD operations for the persons table.
- * Uses PLACEHOLDER_USER_ID until auth is connected.
+ * Uses authenticated user ID from Supabase session.
  *
  * Note: insert/update use `as any` casts because our hand-written Database
  * types don't fully satisfy Supabase's deeply-nested generics. Replace with
@@ -10,19 +10,19 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import { getAuthUserId } from "@/lib/auth";
 import type { Person, PersonInsert, PersonUpdate } from "@/types/database";
-
-const PLACEHOLDER_USER_ID = "u1";
 
 // ─── Read ───────────────────────────────────────────────────────────────────
 
 export async function getPersons(): Promise<Person[]> {
   if (!supabase) throw new Error("Supabase not configured");
 
+  const userId = await getAuthUserId();
   const { data, error } = await supabase
     .from("persons")
     .select("*")
-    .eq("user_id", PLACEHOLDER_USER_ID)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -32,11 +32,12 @@ export async function getPersons(): Promise<Person[]> {
 export async function getPersonById(id: string): Promise<Person | null> {
   if (!supabase) throw new Error("Supabase not configured");
 
+  const userId = await getAuthUserId();
   const { data, error } = await supabase
     .from("persons")
     .select("*")
     .eq("id", id)
-    .eq("user_id", PLACEHOLDER_USER_ID)
+    .eq("user_id", userId)
     .single();
 
   if (error) {
@@ -53,7 +54,8 @@ export async function createPerson(
 ): Promise<Person> {
   if (!supabase) throw new Error("Supabase not configured");
 
-  const row = { ...person, user_id: PLACEHOLDER_USER_ID };
+  const userId = await getAuthUserId();
+  const row = { ...person, user_id: userId };
   const { data, error } = await supabase
     .from("persons")
     .insert(row as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -70,12 +72,13 @@ export async function updatePerson(
 ): Promise<Person> {
   if (!supabase) throw new Error("Supabase not configured");
 
+  const userId = await getAuthUserId();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const query = supabase.from("persons") as any;
   const { data, error } = await query
     .update(updates)
     .eq("id", id)
-    .eq("user_id", PLACEHOLDER_USER_ID)
+    .eq("user_id", userId)
     .select()
     .single();
 
@@ -86,11 +89,12 @@ export async function updatePerson(
 export async function deletePerson(id: string): Promise<void> {
   if (!supabase) throw new Error("Supabase not configured");
 
+  const userId = await getAuthUserId();
   const { error } = await supabase
     .from("persons")
     .delete()
     .eq("id", id)
-    .eq("user_id", PLACEHOLDER_USER_ID);
+    .eq("user_id", userId);
 
   if (error) throw error;
 }

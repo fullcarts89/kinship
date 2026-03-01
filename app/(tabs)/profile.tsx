@@ -27,10 +27,12 @@ import {
 import { colors, fonts } from "@design/tokens";
 import { FadeIn } from "@/components/ui";
 import { usePersons, useMemories } from "@/hooks";
+import { useAuth } from "@/providers";
 import {
   PlantRingIllustration,
   FlourishingGardenIllustration,
 } from "@/components/illustrations";
+import { getGardenWalkPreferences } from "@/lib/notificationEngine";
 
 // ─── Design tokens (local) ──────────────────────────────────────────────────
 
@@ -149,12 +151,116 @@ function SettingsRow({
   );
 }
 
+// ─── Day / Time helpers ─────────────────────────────────────────────────────
+
+const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatTime12h(time24: string): string {
+  const [h, m] = time24.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+// ─── Garden Walk Card ───────────────────────────────────────────────────────
+
+function GardenWalkCard() {
+  const prefs = getGardenWalkPreferences();
+  const dayLabel = DAY_NAMES_SHORT[prefs.dayOfWeek] ?? "Sun";
+  const timeLabel = formatTime12h(prefs.timeOfDay);
+
+  return (
+    <Pressable
+      onPress={() => router.push("/settings/notifications")}
+      style={{
+        backgroundColor: white,
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: borderClr,
+        marginBottom: 28,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
+        <FlourishingGardenIllustration size={56} />
+        <View style={{ flex: 1, marginLeft: 16 }}>
+          <Text
+            style={{
+              fontFamily: fonts.serif,
+              fontSize: 17,
+              color: nearBlack,
+              marginBottom: 2,
+            }}
+          >
+            Garden Walk
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.sans,
+              fontSize: 13,
+              color: warmGray,
+              lineHeight: 18,
+            }}
+          >
+            Your weekly moment to revisit{"\n"}memories and nurture connections
+          </Text>
+        </View>
+      </View>
+
+      {/* Schedule display */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 10,
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: sagePale,
+            borderRadius: 10,
+            paddingVertical: 6,
+            paddingHorizontal: 12,
+            borderWidth: 1,
+            borderColor: sageLight,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 14,
+              color: moss,
+            }}
+          >
+            {prefs.enabled ? `${dayLabel}s at ${timeLabel}` : "Paused"}
+          </Text>
+        </View>
+
+        <View style={{ flex: 1 }} />
+
+        <Text
+          style={{
+            fontFamily: fonts.sansMedium,
+            fontSize: 13,
+            color: sage,
+          }}
+        >
+          Edit
+        </Text>
+        <ChevronRight color={sage} size={14} strokeWidth={2.5} />
+      </View>
+    </Pressable>
+  );
+}
+
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { persons, refetch: refetchPersons } = usePersons();
   const { memories, refetch: refetchMemories } = useMemories();
+  const { signOut } = useAuth();
 
   // Refetch on tab focus so stats stay current
   useFocusEffect(
@@ -305,32 +411,8 @@ export default function ProfileScreen() {
           />
         </View>
 
-        {/* ─── Garden Illustration ─────────────────────────────── */}
-        <View
-          style={{
-            backgroundColor: white,
-            borderRadius: 20,
-            padding: 20,
-            alignItems: "center",
-            borderWidth: 1,
-            borderColor: borderClr,
-            marginBottom: 28,
-          }}
-        >
-          <FlourishingGardenIllustration size={100} />
-          <Text
-            style={{
-              fontFamily: fonts.sansMedium,
-              fontSize: 14,
-              color: moss,
-              marginTop: 12,
-              textAlign: "center",
-              lineHeight: 20,
-            }}
-          >
-            Every connection in your garden{"\n"}grows at its own pace
-          </Text>
-        </View>
+        {/* ─── Garden Walk Card ────────────────────────────────── */}
+        <GardenWalkCard />
 
         {/* ─── Settings ────────────────────────────────────────── */}
         <Text
@@ -363,7 +445,7 @@ export default function ProfileScreen() {
           <SettingsRow
             icon={<Heart color={sage} size={18} strokeWidth={2} />}
             label="About Kinship"
-            onPress={() => {}}
+            onPress={() => router.push("/settings/about")}
           />
           <SettingsRow
             icon={
@@ -372,8 +454,12 @@ export default function ProfileScreen() {
             label="Sign out"
             color={colors.terracotta}
             showChevron={false}
-            onPress={() => {
-              // TODO: Call signOut from AuthProvider when wired
+            onPress={async () => {
+              try {
+                await signOut();
+              } catch {
+                // Proceed to login even if signOut fails
+              }
               router.replace("/(auth)/login");
             }}
           />

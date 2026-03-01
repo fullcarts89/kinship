@@ -12,17 +12,18 @@
  * native module dependency on @react-native-community/datetimepicker.
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
   Pressable,
   ScrollView,
+  FlatList,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
-import { ChevronUp, ChevronDown, Calendar, Check } from "lucide-react-native";
+import { Calendar, Check } from "lucide-react-native";
 import { colors, fonts, shadows, radii } from "@design/tokens";
 import { WateringIllustration } from "@/components/illustrations";
 import { setGardenWalkPreferences } from "@/lib/notificationEngine";
@@ -74,12 +75,17 @@ export default function GardenWalkSetupScreen() {
 
   const currentSlot = TIME_SLOTS[timeIndex];
 
-  const handleTimeUp = useCallback(() => {
-    setTimeIndex((prev) => Math.min(prev + 1, TIME_SLOTS.length - 1));
-  }, []);
+  const timeListRef = useRef<FlatList>(null);
 
-  const handleTimeDown = useCallback(() => {
-    setTimeIndex((prev) => Math.max(prev - 1, 0));
+  // Scroll to selected time on mount
+  useEffect(() => {
+    setTimeout(() => {
+      timeListRef.current?.scrollToIndex({
+        index: timeIndex,
+        animated: false,
+        viewPosition: 0.5,
+      });
+    }, 600); // After entering animation completes
   }, []);
 
   const handleAllowCalendar = useCallback(async () => {
@@ -240,10 +246,10 @@ export default function GardenWalkSetupScreen() {
           </Text>
         </Animated.View>
 
-        {/* Time picker — custom stepper */}
+        {/* Time picker — horizontally scrollable chips */}
         <Animated.View
           entering={FadeInUp.delay(400).duration(400)}
-          style={{ width: "100%", marginBottom: 40, alignItems: "center" }}
+          style={{ width: "100%", marginBottom: 40 }}
         >
           <Text
             style={{
@@ -259,85 +265,46 @@ export default function GardenWalkSetupScreen() {
             Time
           </Text>
 
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 16,
+          <FlatList
+            ref={timeListRef}
+            data={TIME_SLOTS}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(_, i) => `time-${i}`}
+            contentContainerStyle={{ paddingHorizontal: 8 }}
+            getItemLayout={(_, index) => ({ length: 96, offset: 96 * index, index })}
+            onScrollToIndexFailed={() => {}}
+            renderItem={({ item, index }) => {
+              const isSelected = timeIndex === index;
+              return (
+                <Pressable
+                  onPress={() => setTimeIndex(index)}
+                  style={{
+                    paddingVertical: 12,
+                    paddingHorizontal: 18,
+                    borderRadius: 16,
+                    backgroundColor: isSelected ? colors.sage : colors.white,
+                    borderWidth: isSelected ? 0 : 1,
+                    borderColor: colors.border,
+                    marginRight: 8,
+                    minWidth: 88,
+                    alignItems: "center",
+                    ...(isSelected ? shadows.soft : {}),
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: isSelected ? fonts.sansSemiBold : fonts.sansMedium,
+                      fontSize: 15,
+                      color: isSelected ? colors.white : colors.nearBlack,
+                    }}
+                  >
+                    {formatTimeSlot(item.hour, item.minute)}
+                  </Text>
+                </Pressable>
+              );
             }}
-          >
-            {/* Down arrow */}
-            <Pressable
-              onPress={handleTimeDown}
-              disabled={timeIndex === 0}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: timeIndex === 0 ? colors.border : colors.sagePale,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <ChevronDown
-                size={20}
-                strokeWidth={2}
-                color={timeIndex === 0 ? colors.warmGray : colors.sage}
-              />
-            </Pressable>
-
-            {/* Time display */}
-            <View
-              style={{
-                backgroundColor: colors.white,
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: radii.lg,
-                paddingVertical: 14,
-                paddingHorizontal: 28,
-                minWidth: 140,
-                alignItems: "center",
-                ...shadows.soft,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: fonts.sansSemiBold,
-                  fontSize: 20,
-                  color: colors.nearBlack,
-                }}
-              >
-                {formatTimeSlot(currentSlot.hour, currentSlot.minute)}
-              </Text>
-            </View>
-
-            {/* Up arrow */}
-            <Pressable
-              onPress={handleTimeUp}
-              disabled={timeIndex === TIME_SLOTS.length - 1}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor:
-                  timeIndex === TIME_SLOTS.length - 1
-                    ? colors.border
-                    : colors.sagePale,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <ChevronUp
-                size={20}
-                strokeWidth={2}
-                color={
-                  timeIndex === TIME_SLOTS.length - 1
-                    ? colors.warmGray
-                    : colors.sage
-                }
-              />
-            </Pressable>
-          </View>
+          />
         </Animated.View>
 
         {/* Calendar permission — optional, skippable */}

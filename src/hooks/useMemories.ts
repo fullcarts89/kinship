@@ -26,7 +26,9 @@ export function useMemories() {
       setIsLoading(true);
       setError(null);
       const data = await memoryService.getMemories();
-      setMemories(data);
+      // Always merge locally created memories so saves persist across refetches
+      const localIds = new Set(locallyCreatedMemories.map((m) => m.id));
+      setMemories([...locallyCreatedMemories, ...data.filter((m) => !localIds.has(m.id))]);
     } catch {
       // Mock mode — merge locally created + mock data
       setMemories([...locallyCreatedMemories, ...mockMemories]);
@@ -55,7 +57,10 @@ export function usePersonMemories(personId: string) {
       setIsLoading(true);
       setError(null);
       const data = await memoryService.getMemoriesForPerson(personId);
-      setMemories(data);
+      // Always merge locally created memories so saves persist across refetches
+      const localForPerson = locallyCreatedMemories.filter((m) => m.person_id === personId);
+      const localIds = new Set(localForPerson.map((m) => m.id));
+      setMemories([...localForPerson, ...data.filter((m) => !localIds.has(m.id))]);
     } catch {
       // Mock mode — merge and filter by person
       setMemories(

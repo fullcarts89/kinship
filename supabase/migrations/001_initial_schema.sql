@@ -18,6 +18,7 @@ CREATE TABLE persons (
       'friend', 'family', 'partner', 'colleague',
       'mentor', 'acquaintance', 'other'
     )),
+  birthday   TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -82,7 +83,13 @@ CREATE TABLE interactions (
   type       TEXT NOT NULL
     CHECK (type IN (
       'message', 'call', 'video', 'in_person',
-      'gift', 'letter', 'social_media', 'other'
+      'gift', 'letter', 'social_media', 'check_in', 'neighbor', 'other'
+    )),
+  note       TEXT,
+  emotion    TEXT
+    CHECK (emotion IN (
+      'grateful', 'connected', 'curious', 'joyful', 'nostalgic',
+      'proud', 'peaceful', 'inspired', 'hopeful', 'loved'
     )),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

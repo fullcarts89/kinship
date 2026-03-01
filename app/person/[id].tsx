@@ -404,6 +404,12 @@ function ContextTab({
     contextBriefs.push(`${interactions.length} recorded ${interactions.length === 1 ? "interaction" : "interactions"}`);
   contextBriefs.push(`${relationshipType} relationship`);
 
+  // Determine if this person was contacted recently (within 24 hours)
+  const recentlyCutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const wasRecentlyContacted = interactions.some(
+    (i) => new Date(i.created_at).getTime() >= recentlyCutoff
+  );
+
   return (
     <View style={{ paddingHorizontal: 24 }}>
       {/* Context Brief Card */}
@@ -490,11 +496,13 @@ function ContextTab({
         >
           {memories.length === 0
             ? `Save a favorite moment with ${personName}`
-            : `It's been a while — reach out to ${personName}`}
+            : wasRecentlyContacted
+              ? `Your garden with ${personName} is blooming. Capture a moment while it's fresh.`
+              : `A moment with ${personName} could brighten your day`}
         </Text>
         <Pressable
           onPress={() => {
-            if (memories.length === 0) {
+            if (memories.length === 0 || wasRecentlyContacted) {
               router.push(`/memory/add?personId=${personId}`);
             } else {
               router.push(`/reach-out/${personId}`);
@@ -515,7 +523,7 @@ function ContextTab({
               color: sageDark,
             }}
           >
-            {memories.length === 0 ? "Add a memory" : "Send a message"}
+            {memories.length === 0 || wasRecentlyContacted ? "Add a memory" : "Send a message"}
           </Text>
         </Pressable>
       </LinearGradient>

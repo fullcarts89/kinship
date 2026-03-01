@@ -29,6 +29,7 @@ import {
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import { FadeIn } from "@/components/ui";
+import { useAuth } from "@/providers";
 import {
   SeedIllustration,
   WateringIllustration,
@@ -2207,6 +2208,7 @@ export default function AccountScreen() {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState("");
+  const { user, signOut, isAuthenticated } = useAuth();
 
   const screenInsets: Insets = {
     top: insets.top,
@@ -2286,7 +2288,7 @@ export default function AccountScreen() {
       return (
         <S8_AccountSignedIn
           insets={screenInsets}
-          email={email || "amara@example.com"}
+          email={user?.email || email || "amara@example.com"}
           onLogOut={() => setStep(8)}
           onSwitch={() => setStep(9)}
           onDeactivate={() => setStep(10)}
@@ -2300,7 +2302,14 @@ export default function AccountScreen() {
       return (
         <S9_LogOutModal
           insets={screenInsets}
-          onConfirm={() => setStep(0)}
+          onConfirm={async () => {
+            try {
+              await signOut();
+            } catch {
+              // Proceed even if signOut fails
+            }
+            router.replace("/(auth)/login");
+          }}
           onCancel={() => setStep(7)}
         />
       );

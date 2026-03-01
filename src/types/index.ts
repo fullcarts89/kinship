@@ -45,6 +45,7 @@ export type InteractionType =
   | "gift"
   | "letter"
   | "social_media"
+  | "check_in"
   | "other";
 
 /** Suggestion types from the intelligence engine */

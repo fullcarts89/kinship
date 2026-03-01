@@ -12,6 +12,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -34,6 +35,8 @@ import {
   FadingGardenIllustration,
 } from "@/components/illustrations";
 import { TextInput as RNTextInput } from "react-native";
+import { usePersons, useMemories, useAllInteractions } from "@/hooks";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 
@@ -288,8 +291,8 @@ function PrivacyDataScreen({
       <View style={{ marginHorizontal: 14, marginTop: 16 }}>
         <View style={{ backgroundColor: white, borderRadius: 18, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}>
           <SettingsRow icon={Download} label="Export Data" onPress={goExport} />
-          <SettingsRow icon={Shield} label="Privacy Policy" />
-          <SettingsRow icon={AlertCircle} label="Terms of Service" last />
+          <SettingsRow icon={Shield} label="Privacy Policy" onPress={() => router.push("/settings/privacy-policy")} />
+          <SettingsRow icon={AlertCircle} label="Terms of Service" onPress={() => router.push("/settings/terms")} last />
         </View>
       </View>
       <View style={{ marginHorizontal: 14, marginTop: 14 }}>
@@ -463,6 +466,9 @@ function DeleteConfirmedScreen({ onDone, insets }: { onDone: () => void; insets:
 export default function PrivacyScreen() {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
+  const { persons } = usePersons();
+  const { memories } = useMemories();
+  const { interactions } = useAllInteractions();
 
   const screenInsets: Insets = { top: insets.top, bottom: insets.bottom };
 
@@ -474,11 +480,61 @@ export default function PrivacyScreen() {
     }
   }, []);
 
+  const handleExport = useCallback(async () => {
+    try {
+      const exportData = {
+        exported_at: new Date().toISOString(),
+        persons: persons.map((p) => ({
+          name: p.name,
+          relationship_type: p.relationship_type,
+          birthday: (p as any).birthday ?? null,
+          created_at: p.created_at,
+        })),
+        memories: memories.map((m) => ({
+          person_id: m.person_id,
+          content: m.content,
+          emotion: m.emotion,
+          created_at: m.created_at,
+        })),
+        interactions: interactions.map((i) => ({
+          person_id: i.person_id,
+          type: i.type,
+          note: i.note ?? null,
+          emotion: i.emotion ?? null,
+          created_at: i.created_at,
+        })),
+      };
+
+      const jsonString = JSON.stringify(exportData, null, 2);
+
+      // Lazy require to avoid crash if modules aren't available
+      const FileSystem = require("expo-file-system");
+      const Sharing = require("expo-sharing");
+
+      const fileUri = FileSystem.documentDirectory + "kinship-export.json";
+      await FileSystem.writeAsStringAsync(fileUri, jsonString, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: "application/json",
+          dialogTitle: "Export your garden data",
+          UTI: "public.json",
+        });
+      } else {
+        Alert.alert("Export saved", "Your data has been saved to the app's documents folder.");
+      }
+    } catch (err: any) {
+      Alert.alert("Export failed", err?.message ?? "Something went wrong");
+    }
+  }, [persons, memories, interactions]);
+
   switch (step) {
     case 0:
       return <PrivacyDataScreen insets={screenInsets} goExport={() => setStep(1)} goDelete={() => setStep(2)} onBack={goBack} />;
     case 1:
-      return <ExportDataScreen insets={screenInsets} onDownload={() => setStep(0)} onCancel={() => setStep(0)} />;
+      return <ExportDataScreen insets={screenInsets} onDownload={handleExport} onCancel={() => setStep(0)} />;
     case 2:
       return <DeleteStep1Screen insets={screenInsets} onContinue={() => setStep(3)} onCancel={() => setStep(0)} />;
     case 3:
