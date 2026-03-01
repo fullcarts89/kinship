@@ -70,8 +70,11 @@ import {
   dismissTexture,
 } from "@/lib/textureEngine";
 import type { TextureInfo } from "@/lib/textureEngine";
-import type { Interaction, Memory } from "@/types/database";
+import type { Interaction, Memory, Person } from "@/types/database";
 import type { InteractionType, Emotion, IconComponent } from "@/types";
+import { getNextBestAction } from "@/lib/nextActionEngine";
+import type { GrowthInfo } from "@/lib/growthEngine";
+import type { VitalityInfo } from "@/lib/vitalityEngine";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────
 
@@ -385,30 +388,27 @@ function ProfileTabBar({
 // ─── Context Tab Content ────────────────────────────────────────────────────
 
 function ContextTab({
-  personId,
-  personName,
-  relationshipType,
+  person,
   memories,
   interactions,
+  growthInfo,
+  vitalityInfo,
 }: {
-  personId: string;
-  personName: string;
-  relationshipType: string;
+  person: Person;
   memories: Memory[];
   interactions: Interaction[];
+  growthInfo: GrowthInfo;
+  vitalityInfo: VitalityInfo;
 }) {
+  const relationLabel = relationshipLabels[person.relationship_type] ?? person.relationship_type;
   const contextBriefs: string[] = [];
   if (memories.length > 0)
     contextBriefs.push(`${memories.length} shared ${memories.length === 1 ? "memory" : "memories"} saved`);
   if (interactions.length > 0)
     contextBriefs.push(`${interactions.length} recorded ${interactions.length === 1 ? "interaction" : "interactions"}`);
-  contextBriefs.push(`${relationshipType} relationship`);
+  contextBriefs.push(`${relationLabel} relationship`);
 
-  // Determine if this person was contacted recently (within 24 hours)
-  const recentlyCutoff = Date.now() - 24 * 60 * 60 * 1000;
-  const wasRecentlyContacted = interactions.some(
-    (i) => new Date(i.created_at).getTime() >= recentlyCutoff
-  );
+  const action = getNextBestAction({ person, memories, interactions, growthInfo, vitalityInfo });
 
   return (
     <View style={{ paddingHorizontal: 24 }}>
@@ -491,41 +491,52 @@ function ContextTab({
             fontSize: 18,
             color: nearBlack,
             lineHeight: 24,
-            marginBottom: 16,
+            marginBottom: action.body ? 6 : 16,
           }}
         >
-          {memories.length === 0
-            ? `Save a favorite moment with ${personName}`
-            : wasRecentlyContacted
-              ? `Your garden with ${personName} is blooming. Capture a moment while it's fresh.`
-              : `A moment with ${personName} could brighten your day`}
+          {action.headline}
         </Text>
-        <Pressable
-          onPress={() => {
-            if (memories.length === 0 || wasRecentlyContacted) {
-              router.push(`/memory/add?personId=${personId}`);
-            } else {
-              router.push(`/reach-out/${personId}`);
-            }
-          }}
-          style={{
-            backgroundColor: white,
-            borderRadius: 12,
-            paddingVertical: 12,
-            paddingHorizontal: 20,
-            alignSelf: "flex-start",
-          }}
-        >
+        {action.body && (
           <Text
             style={{
-              fontFamily: fonts.sansSemiBold,
+              fontFamily: fonts.sans,
               fontSize: 14,
-              color: sageDark,
+              color: warmGray,
+              lineHeight: 20,
+              marginBottom: 16,
             }}
           >
-            {memories.length === 0 || wasRecentlyContacted ? "Add a memory" : "Send a message"}
+            {action.body}
           </Text>
-        </Pressable>
+        )}
+        {action.actionLabel && (
+          <Pressable
+            onPress={() => {
+              if (action.actionType === "add_memory") {
+                router.push(`/memory/add?personId=${person.id}`);
+              } else {
+                router.push(`/reach-out/${person.id}`);
+              }
+            }}
+            style={{
+              backgroundColor: white,
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 20,
+              alignSelf: "flex-start",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 14,
+                color: sageDark,
+              }}
+            >
+              {action.actionLabel}
+            </Text>
+          </Pressable>
+        )}
       </LinearGradient>
     </View>
   );
@@ -1398,11 +1409,11 @@ export default function PersonDetailScreen() {
           {/* Tab Content */}
           {activeTab === "context" && (
             <ContextTab
-              personId={person.id}
-              personName={person.name}
-              relationshipType={relationLabel}
+              person={person}
               memories={memories}
               interactions={interactions}
+              growthInfo={growth}
+              vitalityInfo={vitality}
             />
           )}
           {activeTab === "timeline" && <TimelineTab interactions={interactions} />}

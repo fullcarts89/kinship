@@ -94,7 +94,7 @@ const MEMORY_RESURFACE_OLD_AGE_DAYS = 30;
  * Handles year wrap-around (e.g. birthday in January when current month is December).
  * Returns null if the person has no birthday field.
  */
-function daysUntilNextBirthday(birthday: string | undefined): number | null {
+export function daysUntilNextBirthday(birthday: string | undefined): number | null {
   if (!birthday) return null;
 
   const now = new Date();
@@ -315,7 +315,7 @@ function getGeneralCopy(person: Person, vitalityLevel: VitalityLevel): string {
  * Simple deterministic hash from string to positive integer.
  * Used for stable template selection that doesn't change between renders.
  */
-function simpleHash(str: string): number {
+export function simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
