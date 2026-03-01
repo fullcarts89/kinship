@@ -10,6 +10,7 @@ import {
   Settings,
   Info,
   Calendar,
+  RotateCcw,
   ChevronRight,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
@@ -17,6 +18,7 @@ import {
   checkCalendarPermission,
   type CalendarPermissionStatus,
 } from "@/lib/calendarEngine";
+import { useOrientation } from "@/hooks";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 
@@ -102,6 +104,8 @@ function SettingsRow({
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+
+  const { reset: resetOrientation } = useOrientation();
 
   // Calendar permission status — refreshes each time Settings gains focus
   const [calendarStatus, setCalendarStatus] =
@@ -266,6 +270,14 @@ export default function SettingsScreen() {
               icon={Settings}
               label="Account"
               onPress={() => router.push("/settings/account")}
+            />
+            <SettingsRow
+              icon={RotateCcw}
+              label="Replay orientation"
+              onPress={async () => {
+                await resetOrientation();
+                router.replace("/(tabs)");
+              }}
               last
             />
           </View>

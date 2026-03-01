@@ -30,3 +30,7 @@ export { usePersonVitality, useAllVitalities } from "./useVitality";
 // ─── Suggestion Hooks ─────────────────────────────────────────────────────
 
 export { useSuggestions } from "./useSuggestions";
+
+// ─── Orientation Hooks ───────────────────────────────────────────────────
+
+export { useOrientation } from "./useOrientation";

@@ -19,6 +19,8 @@ CREATE TABLE persons (
       'mentor', 'acquaintance', 'other'
     )),
   birthday   TEXT,
+  phone      TEXT,
+  email      TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -52,6 +54,7 @@ CREATE TABLE memories (
       'grateful', 'connected', 'curious', 'joyful', 'nostalgic',
       'proud', 'peaceful', 'inspired', 'hopeful', 'loved'
     )),
+  photo_url  TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

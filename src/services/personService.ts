@@ -42,7 +42,7 @@ export async function getPersonById(id: string): Promise<Person | null> {
 
   if (error) {
     if (error.code === "PGRST116") return null; // not found
-    throw error;
+    throw new Error(error.message || "Database operation failed");
   }
   return data as Person;
 }

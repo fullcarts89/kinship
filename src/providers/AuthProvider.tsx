@@ -125,7 +125,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       nonce: rawNonce,
     });
 
-    if (error) throw error;
+    if (error) throw new Error(error.message || "Apple sign-in failed");
   }, []);
 
   // ─── Google Sign-In ────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       },
     });
 
-    if (error) throw error;
+    if (error) throw new Error(error.message || "Google sign-in failed");
     if (!data.url) throw new Error("No OAuth URL returned");
 
     // Open in-app browser for Google OAuth consent
@@ -176,7 +176,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           access_token: accessToken,
           refresh_token: refreshToken,
         });
-        if (sessionError) throw sessionError;
+        if (sessionError) throw new Error(sessionError.message || "Failed to set session");
       } else {
         throw new Error("Missing tokens in OAuth redirect");
       }
@@ -195,7 +195,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         password,
       });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message || "Sign-in failed");
     },
     []
   );
@@ -208,7 +208,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const { data, error } = await supabase.auth.signUp({ email, password });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message || "Sign-up failed");
 
       // Supabase returns no error but also no session when the email already exists
       // (security measure to prevent email enumeration). Detect this and give a
@@ -233,7 +233,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) throw new Error(error.message || "Sign-out failed");
     // State is updated by the onAuthStateChange listener
   }, []);
 
@@ -243,7 +243,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!supabase) throw new Error("Supabase not configured");
 
     const { error } = await supabase.auth.resetPasswordForEmail(email);
-    if (error) throw error;
+    if (error) throw new Error(error.message || "Password reset failed");
   }, []);
 
   // ─── Context Value ─────────────────────────────────────────────────────
