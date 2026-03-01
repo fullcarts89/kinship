@@ -196,7 +196,7 @@ export default function SettingsScreen() {
               elevation: 1,
             }}
           >
-            <SettingsRow icon={User} label="Profile" last />
+            <SettingsRow icon={User} label="Profile" onPress={() => router.replace("/(tabs)/profile")} last />
           </View>
         </View>
 
