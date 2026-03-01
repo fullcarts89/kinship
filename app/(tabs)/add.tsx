@@ -1537,14 +1537,14 @@ export default function AddPersonScreen() {
     }
   };
 
-  // ─── Profile photo picker (circular crop) ─────────────────────────
+  // ─── Profile photo picker ────────────────────────────────────────
+  // No allowsEditing — that forces UIImagePickerController which can't
+  // browse album folders. Visual circle crop is handled by borderRadius.
 
   const handlePickProfilePhoto = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-        allowsEditing: true,
-        aspect: [1, 1],
         quality: 0.8,
       });
       if (!result.canceled && result.assets[0]) {
