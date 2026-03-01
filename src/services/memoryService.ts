@@ -25,7 +25,7 @@ export async function getMemories(): Promise<Memory[]> {
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Memory[];
 }
 
@@ -42,7 +42,7 @@ export async function getMemoriesForPerson(
     .eq("person_id", personId)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Memory[];
 }
 
@@ -57,7 +57,7 @@ export async function getRecentMemories(limit = 5): Promise<Memory[]> {
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Memory[];
 }
 
@@ -76,6 +76,6 @@ export async function createMemory(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Memory;
 }

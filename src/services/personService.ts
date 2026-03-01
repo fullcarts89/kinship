@@ -25,7 +25,7 @@ export async function getPersons(): Promise<Person[]> {
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Person[];
 }
 
@@ -62,7 +62,7 @@ export async function createPerson(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Person;
 }
 
@@ -82,7 +82,7 @@ export async function updatePerson(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Person;
 }
 
@@ -96,5 +96,5 @@ export async function deletePerson(id: string): Promise<void> {
     .eq("id", id)
     .eq("user_id", userId);
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
 }

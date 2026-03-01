@@ -28,7 +28,7 @@ export async function getInteractionsForPerson(
     .eq("person_id", personId)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Interaction[];
 }
 
@@ -47,7 +47,7 @@ export async function getLatestInteraction(
     .limit(1)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Interaction | null;
 }
 
@@ -61,7 +61,7 @@ export async function getAllInteractions(): Promise<Interaction[]> {
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Interaction[];
 }
 
@@ -80,6 +80,6 @@ export async function createInteraction(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Database operation failed");
   return data as Interaction;
 }

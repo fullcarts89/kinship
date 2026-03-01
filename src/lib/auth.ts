@@ -26,7 +26,7 @@ export async function getAuthUserId(): Promise<string> {
     error,
   } = await supabase.auth.getSession();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Authentication error");
 
   if (!session?.user?.id) {
     throw new Error(
