@@ -1523,8 +1523,12 @@ export default function AddPersonScreen() {
   const handlePickPhoto = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
+        mediaTypes: ["images", "livePhotos"],
         quality: 0.8,
+        presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+        // Compatible mode ensures HEIF/iCloud photos from Memories get transcoded
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (!result.canceled && result.assets[0]) {
         setPhotoUri(result.assets[0].uri);
@@ -1544,8 +1548,12 @@ export default function AddPersonScreen() {
   const handlePickProfilePhoto = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
+        mediaTypes: ["images", "livePhotos"],
         quality: 0.8,
+        presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+        // Compatible mode ensures HEIF/iCloud photos from Memories get transcoded
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (!result.canceled && result.assets[0]) {
         setProfilePhotoUri(result.assets[0].uri);

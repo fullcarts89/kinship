@@ -30,7 +30,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Leaf } from "lucide-react-native";
+import { Bell, Settings } from "lucide-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -798,7 +798,7 @@ export default function GardenScreen() {
                     justifyContent: "center",
                   }}
                 >
-                  <Leaf size={16} strokeWidth={2} color={sage} />
+                  <Bell size={16} strokeWidth={2} color={sage} />
                 </Pressable>
                 {/* Settings */}
                 <Pressable
@@ -812,7 +812,7 @@ export default function GardenScreen() {
                     justifyContent: "center",
                   }}
                 >
-                  <Text style={{ fontSize: 18 }}>{"\uD83D\uDC64"}</Text>
+                  <Settings size={16} strokeWidth={2} color={sage} />
                 </Pressable>
               </View>
             </Animated.View>

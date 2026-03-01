@@ -123,33 +123,54 @@ export function checkDuplicate(
 export async function loadDeviceContacts(): Promise<{
   contacts: ContactEntry[];
   permissionDenied: boolean;
+  accessLimited: boolean;
+  error?: string;
 }> {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   let ExpoContacts: any;
   try {
     ExpoContacts = require("expo-contacts");
-  } catch {
-    return { contacts: [], permissionDenied: true };
+  } catch (e: any) {
+    return { contacts: [], permissionDenied: true, accessLimited: false, error: `Module load failed: ${e?.message}` };
   }
 
   try {
-    const { status } = await ExpoContacts.requestPermissionsAsync();
+    const permResponse = await ExpoContacts.requestPermissionsAsync();
+    const { status, accessPrivileges } = permResponse;
     if (status !== "granted") {
-      return { contacts: [], permissionDenied: true };
+      return { contacts: [], permissionDenied: true, accessLimited: false, error: `Permission: ${status}, access: ${accessPrivileges ?? "unknown"}` };
     }
 
+    const isLimited = accessPrivileges === "limited";
+
+    // Fetch ALL contacts — include Name/FirstName fields explicitly
+    // and skip SortTypes (not always available) — we sort locally instead
     const { data } = await ExpoContacts.getContactsAsync({
       fields: [
+        ExpoContacts.Fields.Name,
+        ExpoContacts.Fields.FirstName,
+        ExpoContacts.Fields.LastName,
         ExpoContacts.Fields.PhoneNumbers,
         ExpoContacts.Fields.Emails,
         ExpoContacts.Fields.Birthday,
       ],
-      sort: ExpoContacts.SortTypes.FirstName,
     });
 
+    if (!data || !Array.isArray(data)) {
+      return { contacts: [], permissionDenied: false, accessLimited: isLimited, error: `getContactsAsync returned: ${typeof data}` };
+    }
+
     const contacts: ContactEntry[] = data
-      .filter((c: any) => c.name && c.name.trim().length > 0)
       .map((c: any) => {
+        // Build display name — use `name` first, fall back to firstName + lastName
+        const displayName = (
+          c.name ||
+          [c.firstName, c.middleName, c.lastName].filter(Boolean).join(" ") ||
+          ""
+        ).trim();
+
+        if (!displayName) return null;
+
         // Convert expo-contacts birthday { day, month (0-indexed), year }
         let birthday: string | undefined;
         if (c.birthday) {
@@ -163,16 +184,20 @@ export async function loadDeviceContacts(): Promise<{
 
         return {
           id: c.id || String(Math.random()),
-          name: c.name || "",
+          name: displayName,
           phone: c.phoneNumbers?.[0]?.number,
           email: c.emails?.[0]?.email,
           birthday,
         };
-      });
+      })
+      .filter(Boolean) as ContactEntry[];
 
-    return { contacts, permissionDenied: false };
-  } catch {
-    return { contacts: [], permissionDenied: true };
+    // Sort locally by name (ascending, case-insensitive)
+    contacts.sort((a, b) => a.name.localeCompare(b.name));
+
+    return { contacts, permissionDenied: false, accessLimited: isLimited };
+  } catch (e: any) {
+    return { contacts: [], permissionDenied: false, accessLimited: false, error: `Fetch failed: ${e?.message}` };
   }
 }
 

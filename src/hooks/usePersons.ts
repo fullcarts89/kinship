@@ -89,9 +89,14 @@ export function usePerson(id: string) {
       const data = await personService.getPersonById(id);
       if (!cancelledRef.current) setPerson(data);
     } catch {
+      // Mock fallback — check locally created people, then mock data
       if (!cancelledRef.current) {
-        setPerson(null);
-        setError(null);
+        const local =
+          locallyCreatedPeople.find((p) => p.id === id) ??
+          mockPeople.find((p) => p.id === id) ??
+          null;
+        setPerson(local);
+        setError(local ? null : new Error("Person not found"));
       }
     } finally {
       if (!cancelledRef.current) setIsLoading(false);

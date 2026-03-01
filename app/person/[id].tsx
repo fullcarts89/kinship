@@ -994,8 +994,12 @@ export default function PersonDetailScreen() {
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
+        mediaTypes: ["images", "livePhotos"],
         quality: 0.8,
+        presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+        // Compatible mode ensures HEIF/iCloud photos from Memories get transcoded
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (!result.canceled && result.assets[0]) {
         setPhoto(result.assets[0].uri);

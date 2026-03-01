@@ -19,9 +19,9 @@ import {
   FlatList,
   TextInput as RNTextInput,
   ActivityIndicator,
+  Linking,
 } from "react-native";
-import Animated, { FadeInUp } from "react-native-reanimated";
-import { Search, BookUser, Leaf } from "lucide-react-native";
+import { Search, BookUser, Leaf, Settings } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import type { Person } from "@/types/database";
 import {
@@ -33,6 +33,11 @@ import {
   type AnnotatedContact,
 } from "@/lib/contacts";
 
+// ─── Layout Constants ────────────────────────────────────────────────────────
+
+/** Fixed row height: paddingVertical 12×2 + avatar 44 + borderBottom 1 = 69 */
+const ITEM_HEIGHT = 69;
+
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 interface ContactPickerProps {
@@ -41,9 +46,6 @@ interface ContactPickerProps {
   /** Fires when the user taps "Select" on a non-duplicate contact */
   onSelectContact: (contact: ContactEntry) => void;
 }
-
-// ─── Max stagger animations ────────────────────────────────────────────────
-const MAX_ANIMATED = 20;
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -54,6 +56,8 @@ export default function ContactPicker({
   const [rawContacts, setRawContacts] = useState<ContactEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [accessLimited, setAccessLimited] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // ── Load contacts on mount ────────────────────────────────────────────
@@ -68,6 +72,10 @@ export default function ContactPicker({
         setPermissionDenied(true);
       } else {
         setRawContacts(result.contacts);
+        setAccessLimited(result.accessLimited);
+      }
+      if (result.error) {
+        setLoadError(result.error);
       }
       setLoading(false);
     })();
@@ -166,37 +174,30 @@ export default function ContactPicker({
   // ── Render a single contact row ───────────────────────────────────────
   const renderItem = ({
     item,
-    index,
   }: {
     item: AnnotatedContact;
     index: number;
   }) => {
-    const entering =
-      index < MAX_ANIMATED
-        ? FadeInUp.delay(index * 40).duration(300)
-        : undefined;
-
+    const dup = item.isDuplicate;
     return (
-      <Animated.View entering={entering}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingVertical: 12,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-            opacity: item.isDuplicate ? 0.5 : 1,
-          }}
-        >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          height: ITEM_HEIGHT,
+          paddingHorizontal: 4,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          backgroundColor: colors.cream,
+        }}
+      >
           {/* Avatar */}
           <View
             style={{
               width: 44,
               height: 44,
               borderRadius: 22,
-              backgroundColor: item.isDuplicate
-                ? colors.border
-                : colors.sagePale,
+              backgroundColor: dup ? colors.border : colors.sagePale,
               alignItems: "center",
               justifyContent: "center",
               marginRight: 12,
@@ -206,7 +207,7 @@ export default function ContactPicker({
               style={{
                 fontFamily: fonts.sansSemiBold,
                 fontSize: 16,
-                color: item.isDuplicate ? colors.warmGray : colors.sage,
+                color: dup ? colors.warmGray : colors.sage,
               }}
             >
               {getInitials(item.name)}
@@ -220,7 +221,7 @@ export default function ContactPicker({
               style={{
                 fontFamily: fonts.sansSemiBold,
                 fontSize: 15,
-                color: colors.nearBlack,
+                color: dup ? colors.warmGray : colors.nearBlack,
               }}
             >
               {item.name}
@@ -233,6 +234,7 @@ export default function ContactPicker({
                   fontSize: 13,
                   color: colors.warmGray,
                   marginTop: 1,
+                  opacity: dup ? 0.5 : 1,
                 }}
               >
                 {[
@@ -248,7 +250,7 @@ export default function ContactPicker({
           </View>
 
           {/* Action pill */}
-          {item.isDuplicate ? (
+          {dup ? (
             <View
               style={{
                 flexDirection: "row",
@@ -292,14 +294,56 @@ export default function ContactPicker({
               </Text>
             </Pressable>
           )}
-        </View>
-      </Animated.View>
+      </View>
     );
   };
 
   // ── Main render ───────────────────────────────────────────────────────
   return (
     <View style={{ flex: 1 }}>
+      {/* Limited access banner */}
+      {accessLimited && (
+        <Pressable
+          onPress={() => Linking.openSettings()}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: colors.goldPale,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: colors.goldLight,
+            padding: 12,
+            paddingHorizontal: 14,
+            marginBottom: 12,
+            gap: 10,
+          }}
+        >
+          <Settings size={18} color={colors.warmGray} strokeWidth={2} />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 13,
+                color: colors.nearBlack,
+                marginBottom: 2,
+              }}
+            >
+              Showing only some contacts
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 12,
+                color: colors.warmGray,
+                lineHeight: 17,
+              }}
+            >
+              Tap to open Settings and allow full contact access
+            </Text>
+          </View>
+        </Pressable>
+      )}
+
       {/* Search bar */}
       <View
         style={{
@@ -320,7 +364,6 @@ export default function ContactPicker({
           onChangeText={setSearchQuery}
           placeholder="Search contacts"
           placeholderTextColor={colors.warmGray}
-          autoFocus
           style={{
             flex: 1,
             fontFamily: fonts.sans,
@@ -337,12 +380,18 @@ export default function ContactPicker({
         data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
+        getItemLayout={(_, index) => ({
+          length: ITEM_HEIGHT,
+          offset: ITEM_HEIGHT * index,
+          index,
+        })}
+        style={{ flex: 1 }}
         initialNumToRender={30}
         maxToRenderPerBatch={20}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          <View style={{ alignItems: "center", paddingTop: 40 }}>
+          <View style={{ alignItems: "center", paddingTop: 40, paddingHorizontal: 16 }}>
             <Text
               style={{
                 fontFamily: fonts.sans,
@@ -353,8 +402,37 @@ export default function ContactPicker({
             >
               {searchQuery
                 ? "No contacts match your search"
-                : "No contacts found"}
+                : "No contacts found on this device"}
             </Text>
+            {loadError && !searchQuery && (
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 12,
+                  color: colors.warmGray,
+                  textAlign: "center",
+                  marginTop: 8,
+                  opacity: 0.7,
+                }}
+              >
+                {loadError}
+              </Text>
+            )}
+            {!loadError && !searchQuery && rawContacts.length === 0 && (
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 13,
+                  color: colors.warmGray,
+                  textAlign: "center",
+                  marginTop: 12,
+                  lineHeight: 20,
+                }}
+              >
+                Check that Kinship has full contact access in{"\n"}
+                Settings → Kinship → Contacts
+              </Text>
+            )}
           </View>
         }
       />

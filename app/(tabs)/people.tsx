@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Sprout,
   Users,
+  BookUser,
 } from "lucide-react-native";
 import { colors, fonts, shadows } from "@design/tokens";
 import { Skeleton, ErrorState, EmptyState, FadeIn } from "@/components/ui";
@@ -519,20 +520,40 @@ export default function YourGardenScreen() {
             </Text>
           </View>
 
-          <Pressable
-            onPress={() => router.push("/(tabs)/add")}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: colors.sage,
-              alignItems: "center",
-              justifyContent: "center",
-              ...shadows.soft,
-            }}
-          >
-            <Plus color={colors.white} size={20} strokeWidth={2.5} />
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            {/* Import from contacts */}
+            <Pressable
+              onPress={() => router.push("/import-contacts")}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: colors.white,
+                borderWidth: 1.5,
+                borderColor: colors.sageLight,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <BookUser color={colors.sage} size={18} strokeWidth={2} />
+            </Pressable>
+
+            {/* Add person manually */}
+            <Pressable
+              onPress={() => router.push("/(tabs)/add")}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: colors.sage,
+                alignItems: "center",
+                justifyContent: "center",
+                ...shadows.soft,
+              }}
+            >
+              <Plus color={colors.white} size={20} strokeWidth={2.5} />
+            </Pressable>
+          </View>
         </View>
 
         {/* ─── Empty State ───────────────────────────────────────────────── */}
@@ -545,6 +566,30 @@ export default function YourGardenScreen() {
               actionLabel="Plant a seed"
               onAction={() => router.push("/(tabs)/add")}
             />
+
+            {/* Import from contacts — secondary CTA */}
+            <Pressable
+              onPress={() => router.push("/import-contacts")}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                paddingVertical: 14,
+                marginTop: 8,
+              }}
+            >
+              <BookUser color={colors.sage} size={18} strokeWidth={1.8} />
+              <Text
+                style={{
+                  fontFamily: fonts.sansSemiBold,
+                  fontSize: 15,
+                  color: colors.sage,
+                }}
+              >
+                Import from contacts
+              </Text>
+            </Pressable>
           </View>
         )}
 

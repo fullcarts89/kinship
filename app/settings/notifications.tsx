@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   Modal,
   Animated,
+  FlatList,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -92,12 +93,30 @@ const DAY_LABELS = [
   { key: 6, short: "S" },
 ];
 
-/** Convert 24-hour "HH:MM" to 12-hour "h:MM AM/PM". */
-function formatTime12h(time24: string): string {
+// ─── Alarm-Style Time Picker Helpers ─────────────────────────────────────────
+
+const HOURS_12 = Array.from({ length: 12 }, (_, i) => i + 1); // 1–12
+const MINUTES = Array.from({ length: 60 }, (_, i) => i); // 0–59
+const AMPM = ["AM", "PM"] as const;
+const WHEEL_ITEM_HEIGHT = 44;
+const VISIBLE_ITEMS = 3; // show 3 items at once (one selected in center)
+
+/** Parse "HH:MM" (24h) → { hour12, minute, ampm } */
+function parse24hTo12h(time24: string): { hour12: number; minute: number; ampm: "AM" | "PM" } {
   const [h, m] = time24.split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${hour12}:${m.toString().padStart(2, "0")} ${suffix}`;
+  return {
+    hour12: h === 0 ? 12 : h > 12 ? h - 12 : h,
+    minute: m,
+    ampm: h >= 12 ? "PM" : "AM",
+  };
+}
+
+/** Compose 12h components back to "HH:MM" (24h) */
+function compose24h(hour12: number, minute: number, ampm: "AM" | "PM"): string {
+  let h24 = hour12;
+  if (ampm === "AM" && hour12 === 12) h24 = 0;
+  else if (ampm === "PM" && hour12 !== 12) h24 = hour12 + 12;
+  return `${String(h24).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 // ─── NavBar ─────────────────────────────────────────────────────────────────
@@ -196,6 +215,177 @@ function SoftToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
         {on && <Leaf size={11} strokeWidth={2.5} color={colors.sage} />}
       </View>
     </Pressable>
+  );
+}
+
+// ─── ScrollWheelColumn ───────────────────────────────────────────────────────
+
+/**
+ * A single scroll-wheel column (like an alarm clock picker).
+ * Uses a vertical FlatList with snap-to-interval to simulate a wheel.
+ * The selected item is highlighted in the center row.
+ */
+function ScrollWheelColumn<T extends string | number>({
+  items,
+  selectedIndex,
+  onSelect,
+  formatItem,
+  width,
+}: {
+  items: readonly T[];
+  selectedIndex: number;
+  onSelect: (index: number) => void;
+  formatItem: (item: T) => string;
+  width: number;
+}) {
+  const listRef = useRef<FlatList>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+
+  // Scroll to selected index on mount
+  useEffect(() => {
+    if (!isScrolling) {
+      setTimeout(() => {
+        listRef.current?.scrollToOffset({
+          offset: selectedIndex * WHEEL_ITEM_HEIGHT,
+          animated: false,
+        });
+      }, 50);
+    }
+  }, [selectedIndex]);
+
+  return (
+    <View style={{ width, height: WHEEL_ITEM_HEIGHT * VISIBLE_ITEMS, overflow: "hidden" }}>
+      {/* Selection highlight band */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: WHEEL_ITEM_HEIGHT, // center row
+          left: 4,
+          right: 4,
+          height: WHEEL_ITEM_HEIGHT,
+          backgroundColor: colors.sage + "1A",
+          borderRadius: 10,
+          zIndex: 1,
+        }}
+      />
+
+      <FlatList
+        ref={listRef}
+        data={items as unknown as T[]}
+        keyExtractor={(_, i) => String(i)}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+        snapToInterval={WHEEL_ITEM_HEIGHT}
+        decelerationRate="fast"
+        onScrollBeginDrag={() => setIsScrolling(true)}
+        onMomentumScrollEnd={(e) => {
+          setIsScrolling(false);
+          const idx = Math.round(e.nativeEvent.contentOffset.y / WHEEL_ITEM_HEIGHT);
+          const clamped = Math.max(0, Math.min(idx, items.length - 1));
+          onSelect(clamped);
+        }}
+        contentContainerStyle={{
+          // Top/bottom padding so first/last items can be centered
+          paddingTop: WHEEL_ITEM_HEIGHT,
+          paddingBottom: WHEEL_ITEM_HEIGHT,
+        }}
+        getItemLayout={(_, index) => ({
+          length: WHEEL_ITEM_HEIGHT,
+          offset: WHEEL_ITEM_HEIGHT * index,
+          index,
+        })}
+        renderItem={({ item, index }) => {
+          const isSelected = index === selectedIndex;
+          return (
+            <View
+              style={{
+                height: WHEEL_ITEM_HEIGHT,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: isSelected ? fonts.sansSemiBold : fonts.sans,
+                  fontSize: isSelected ? 20 : 16,
+                  color: isSelected ? colors.nearBlack : colors.warmGray,
+                  opacity: isSelected ? 1 : 0.5,
+                }}
+              >
+                {formatItem(item)}
+              </Text>
+            </View>
+          );
+        }}
+      />
+    </View>
+  );
+}
+
+// ─── AlarmTimePicker ─────────────────────────────────────────────────────────
+
+function AlarmTimePicker({
+  timeOfDay,
+  onChange,
+}: {
+  timeOfDay: string;
+  onChange: (time24: string) => void;
+}) {
+  const { hour12, minute, ampm } = parse24hTo12h(timeOfDay);
+  const hourIdx = HOURS_12.indexOf(hour12);
+  const minuteIdx = minute;
+  const ampmIdx = AMPM.indexOf(ampm);
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+      }}
+    >
+      {/* Hour */}
+      <ScrollWheelColumn
+        items={HOURS_12}
+        selectedIndex={hourIdx >= 0 ? hourIdx : 0}
+        onSelect={(idx) => onChange(compose24h(HOURS_12[idx], minute, ampm))}
+        formatItem={(h) => String(h)}
+        width={56}
+      />
+
+      {/* Colon separator */}
+      <Text
+        style={{
+          fontFamily: fonts.sansSemiBold,
+          fontSize: 22,
+          color: colors.nearBlack,
+          marginHorizontal: 2,
+        }}
+      >
+        :
+      </Text>
+
+      {/* Minute */}
+      <ScrollWheelColumn
+        items={MINUTES}
+        selectedIndex={minuteIdx}
+        onSelect={(idx) => onChange(compose24h(hour12, MINUTES[idx], ampm))}
+        formatItem={(m) => String(m).padStart(2, "0")}
+        width={56}
+      />
+
+      {/* AM/PM */}
+      <ScrollWheelColumn
+        items={AMPM}
+        selectedIndex={ampmIdx >= 0 ? ampmIdx : 0}
+        onSelect={(idx) => onChange(compose24h(hour12, minute, AMPM[idx]))}
+        formatItem={(s) => s}
+        width={56}
+      />
+    </View>
   );
 }
 
@@ -568,16 +758,8 @@ function OverviewScreen({
                   }}
                 />
 
-                {/* Time display */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingHorizontal: 16,
-                    paddingVertical: 14,
-                  }}
-                >
+                {/* Time — alarm-style scroll wheel picker */}
+                <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
                   <Text
                     style={{
                       fontFamily: fonts.sansSemiBold,
@@ -585,28 +767,15 @@ function OverviewScreen({
                       color: colors.warmGray,
                       textTransform: "uppercase",
                       letterSpacing: 0.6,
+                      marginBottom: 6,
                     }}
                   >
                     Time
                   </Text>
-                  <View
-                    style={{
-                      backgroundColor: colors.sagePale,
-                      borderRadius: 10,
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontFamily: fonts.sansSemiBold,
-                        fontSize: 14,
-                        color: colors.moss,
-                      }}
-                    >
-                      {formatTime12h(gardenWalkPrefs.timeOfDay)}
-                    </Text>
-                  </View>
+                  <AlarmTimePicker
+                    timeOfDay={gardenWalkPrefs.timeOfDay}
+                    onChange={(t) => updateGardenWalk({ timeOfDay: t })}
+                  />
                 </View>
               </>
             )}
