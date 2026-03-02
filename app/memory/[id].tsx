@@ -14,11 +14,12 @@ import {
   Image,
   Pressable,
   ActivityIndicator,
+  Share,
 } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Share2 } from "lucide-react-native";
 import { useMemory, usePerson } from "@/hooks";
 import {
   emotionEmojis,
@@ -38,6 +39,18 @@ export default function MemoryDetailScreen() {
       router.back();
     } else {
       router.replace("/(tabs)/people");
+    }
+  };
+
+  const handleShare = async () => {
+    if (!memory) return;
+    const personLine = person ? `A memory with ${person.name}` : "A memory";
+    const dateLine = formatRelativeDate(memory.created_at);
+    const message = `${personLine}\n\n${memory.content}\n\n${dateLine}\n\nShared from Kinship 🌱`;
+    try {
+      await Share.share({ message });
+    } catch {
+      // user dismissed share sheet — no-op
     }
   };
 
@@ -104,6 +117,24 @@ export default function MemoryDetailScreen() {
           }}
         >
           <ChevronLeft color={colors.nearBlack} size={20} />
+        </Pressable>
+
+        {/* Share Button Overlay */}
+        <Pressable
+          onPress={handleShare}
+          style={{
+            position: "absolute",
+            top: insets.top + 12,
+            right: 16,
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: "rgba(255,255,255,0.9)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Share2 color={colors.nearBlack} size={18} />
         </Pressable>
 
         {/* Content Area */}
