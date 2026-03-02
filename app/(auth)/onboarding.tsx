@@ -19,7 +19,9 @@ import { Button } from "@/components/ui";
 import {
   GardenGrowthIllustration,
   SeedIllustration,
+  SuccessIllustration,
 } from "@/components/illustrations";
+import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
 
 // ─── Design Tokens (local) ──────────────────────────────────────────────────
 
@@ -46,25 +48,25 @@ interface Slide {
 
 const slides: Slide[] = [
   {
-    headline: "Life moves fast",
-    subtext: "It's easy to lose touch with people who matter most",
+    headline: "You're the kind of person who shows up",
+    subtext: "Kinship helps you stay close with the people who matter most",
     showCTA: false,
   },
   {
-    headline: "Moments fade quietly",
-    subtext: "The photos stay. The feelings don't always",
+    headline: "The friend who always remembered",
+    subtext: "Capture moments, notice what matters, tend to what grows",
     showCTA: false,
   },
   {
-    headline: "Kinship helps your relationships grow",
-    subtext: "Stay close in the moments that matter",
+    headline: "Your relationships deserve to grow",
+    subtext: "Start with one person. Watch what happens.",
     showCTA: true,
   },
 ];
 
 // ─── Onboarding Screens Enum ────────────────────────────────────────────────
 
-type OnboardingScreen = "carousel" | "addPerson" | "addMemory" | "dashboard";
+type OnboardingScreen = "carousel" | "addPerson" | "dreamPreview" | "addMemory" | "dashboard";
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -91,8 +93,16 @@ export default function OnboardingScreen() {
           insets={insets}
           name={personName}
           onNameChange={setPersonName}
-          onNext={() => setScreen("addMemory")}
+          onNext={() => setScreen("dreamPreview")}
           onSkip={() => setScreen("dashboard")}
+        />
+      );
+    case "dreamPreview":
+      return (
+        <DreamPreviewScreen
+          insets={insets}
+          personName={personName || "them"}
+          onNext={() => setScreen("addMemory")}
         />
       );
     case "addMemory":
@@ -579,6 +589,194 @@ function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreen
           </Pressable>
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCREEN 5b: Dream Outcome Preview
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface DreamPreviewScreenProps {
+  insets: { top: number; bottom: number };
+  personName: string;
+  onNext: () => void;
+}
+
+function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenProps) {
+  const displayName = personName === "them" ? "someone you love" : personName;
+  const firstName = personName === "them" ? "them" : personName.split(" ")[0];
+
+  const sampleMemories = [
+    { emoji: "☕", text: `That long coffee catch-up with ${firstName}` },
+    { emoji: "🎉", text: `Celebrating ${firstName}'s big news` },
+    { emoji: "🌧️", text: `The late night call when ${firstName} needed to talk` },
+  ];
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: cream,
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+      }}
+    >
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Plant illustration — Blooming stage represents the future state */}
+        <View style={{ alignItems: "center", marginTop: 40, marginBottom: 8 }}>
+          <GrowthPlantIllustration stage="blooming" size={120} />
+        </View>
+
+        {/* Stage label */}
+        <Text
+          style={{
+            fontFamily: fonts.sansMedium,
+            fontSize: 12,
+            color: sage,
+            textAlign: "center",
+            textTransform: "uppercase",
+            letterSpacing: 1,
+            marginBottom: 20,
+          }}
+        >
+          Blooming · Stage 5 of 6
+        </Text>
+
+        {/* Headline */}
+        <Text
+          style={{
+            fontFamily: fonts.serif,
+            fontSize: 28,
+            color: nearBlack,
+            lineHeight: 36,
+            textAlign: "center",
+            marginBottom: 10,
+          }}
+        >
+          This is {displayName}'s plant in a few months
+        </Text>
+        <Text
+          style={{
+            fontFamily: fonts.sans,
+            fontSize: 15,
+            color: warmGray,
+            lineHeight: 23,
+            textAlign: "center",
+            marginBottom: 32,
+          }}
+        >
+          Every memory you capture helps it grow. Here's what your garden story could look like.
+        </Text>
+
+        {/* Sample memories preview */}
+        <Text
+          style={{
+            fontFamily: fonts.sansSemiBold,
+            fontSize: 11,
+            color: warmGray,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            marginBottom: 12,
+          }}
+        >
+          Moments you might capture
+        </Text>
+        <View style={{ gap: 10, marginBottom: 32 }}>
+          {sampleMemories.map((m, i) => (
+            <View
+              key={i}
+              style={{
+                backgroundColor: white,
+                borderRadius: 14,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                borderWidth: 1,
+                borderColor: borderColor,
+              }}
+            >
+              <Text style={{ fontSize: 20 }}>{m.emoji}</Text>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 14,
+                  color: nearBlack,
+                  flex: 1,
+                  lineHeight: 20,
+                }}
+              >
+                {m.text}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Identity statement */}
+        <View
+          style={{
+            backgroundColor: sagePale,
+            borderRadius: 16,
+            paddingVertical: 18,
+            paddingHorizontal: 20,
+            marginBottom: 32,
+            borderWidth: 1,
+            borderColor: sageLight,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.sansMedium,
+              fontSize: 15,
+              color: sageDark,
+              lineHeight: 22,
+              textAlign: "center",
+            }}
+          >
+            You'll be the friend {firstName === "them" ? "they" : firstName} thinks of when someone asks{" "}
+            <Text style={{ fontFamily: fonts.sansSemiBold }}>"who always shows up?"</Text>
+          </Text>
+        </View>
+      </ScrollView>
+
+      {/* CTA */}
+      <View
+        style={{
+          paddingHorizontal: 24,
+          paddingBottom: Math.max(insets.bottom, 16) + 8,
+        }}
+      >
+        <Pressable
+          onPress={onNext}
+          style={{
+            backgroundColor: sage,
+            borderRadius: 16,
+            paddingVertical: 18,
+            alignItems: "center",
+            shadowColor: sage,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.3,
+            shadowRadius: 20,
+            elevation: 8,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 17,
+              color: white,
+            }}
+          >
+            Add your first memory with {firstName}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

@@ -8,6 +8,7 @@ import {
   Modal,
   Platform,
   Alert,
+  Share,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router, useFocusEffect } from "expo-router";
@@ -1042,6 +1043,20 @@ export default function PersonDetailScreen() {
     }, 80);
   };
 
+  const handlePlantASeed = async () => {
+    if (!person) return;
+    const firstName = person.name.split(" ")[0];
+    const message =
+      `Hey ${firstName}! I've been thinking about you and added you to my Kinship garden 🌱\n\n` +
+      `Kinship helps me stay close with the people who matter most — by capturing moments, noticing what matters, and tending to the relationships I care about.\n\n` +
+      `Download it here: https://kinship.app`;
+    try {
+      await Share.share({ message });
+    } catch {
+      // user dismissed — no-op
+    }
+  };
+
   // ─── Content ─────────────────────────────────────────────────────────────
   return (
     <>
@@ -1401,6 +1416,12 @@ export default function PersonDetailScreen() {
                 onPress={() => router.push(`/memory/add?personId=${person.id}`)}
               />
             </View>
+            <QuickAction
+              icon={Share2}
+              label="Invite"
+              bgColor={lavender}
+              onPress={handlePlantASeed}
+            />
           </View>
 
           {/* Tab Navigation */}
