@@ -30,6 +30,10 @@ import {
   setGardenWalkPreferences,
   GardenWalkPreferences,
 } from "@/lib/notificationEngine";
+import {
+  scheduleGardenWalkNotification,
+  cancelAllNotifications,
+} from "@/lib/notificationService";
 
 // ─── Category Config ────────────────────────────────────────────────────────
 
@@ -580,11 +584,18 @@ function OverviewScreen({
   const [memoryResurfaceOn, setMemoryResurfaceOn] = useState(true);
   const [birthdayOn, setBirthdayOn] = useState(true);
 
-  // Sync engine whenever local prefs change
+  // Sync engine whenever local prefs change, then reschedule the real notification
   const updateGardenWalk = (partial: Partial<GardenWalkPreferences>) => {
     const updated = { ...gardenWalkPrefs, ...partial };
     setLocalGardenWalkPrefs(updated);
     setGardenWalkPreferences(partial);
+
+    // Reschedule (or cancel) the push notification to match the new prefs
+    if (updated.enabled) {
+      scheduleGardenWalkNotification();
+    } else {
+      cancelAllNotifications();
+    }
   };
 
   return (
@@ -1734,6 +1745,7 @@ export default function NotificationSettingsScreen() {
         onPause={() => {
           setShowPauseModal(false);
           setPhase("paused");
+          cancelAllNotifications();
         }}
         onCancel={() => setShowPauseModal(false)}
       />
