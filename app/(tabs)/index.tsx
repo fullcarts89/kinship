@@ -52,7 +52,7 @@ import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
 import { useOrientation, ORIENTATION_STEP_SCREEN } from "@/hooks/useOrientation";
 import { getGrowthInfo } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
-import { formatRelativeDate, emotionEmojis } from "@/lib/formatters";
+import { formatRelativeDate, formatMemoryDate, getMemoryDate, emotionEmojis } from "@/lib/formatters";
 import { generateSuggestions } from "@/lib/suggestionEngine";
 import type { IntelligentSuggestion, SuggestionType } from "@/lib/suggestionEngine";
 import { getRecentCalendarMatches } from "@/lib/calendarEngine";
@@ -413,7 +413,7 @@ function MemorySpotlight({
             <Text
               style={{ fontFamily: fonts.sans, fontSize: 13, color: warmGray }}
             >
-              {formatRelativeDate(memory.created_at)}
+              {formatMemoryDate(getMemoryDate(memory))}
             </Text>
           </View>
         </View>
@@ -710,7 +710,7 @@ export default function GardenScreen() {
     const now = Date.now();
     const MIN_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
     const eligible = memories.filter(
-      (m) => now - new Date(m.created_at).getTime() >= MIN_AGE_MS
+      (m) => now - new Date(m.occurred_at || m.created_at).getTime() >= MIN_AGE_MS
     );
     if (eligible.length === 0) return null;
     const dayIdx = Math.floor(now / 86400000);

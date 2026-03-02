@@ -154,8 +154,8 @@ function isMeaningfulMemory(memory: Memory): boolean {
  */
 function memoryAgeDays(memory: Memory): number {
   const now = Date.now();
-  const created = new Date(memory.created_at).getTime();
-  return Math.floor((now - created) / (1000 * 60 * 60 * 24));
+  const eventDate = new Date(memory.occurred_at || memory.created_at).getTime();
+  return Math.floor((now - eventDate) / (1000 * 60 * 60 * 24));
 }
 
 /**
@@ -400,8 +400,8 @@ function generateMemoryResurfaceSuggestions(
       bestMemoryByPerson.set(memory.person_id, memory);
     } else {
       // Keep the most recent meaningful old memory
-      const existingDate = new Date(existing.created_at).getTime();
-      const currentDate = new Date(memory.created_at).getTime();
+      const existingDate = new Date(existing.occurred_at || existing.created_at).getTime();
+      const currentDate = new Date(memory.occurred_at || memory.created_at).getTime();
       if (currentDate > existingDate) {
         bestMemoryByPerson.set(memory.person_id, memory);
       }

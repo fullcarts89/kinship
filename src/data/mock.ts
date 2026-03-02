@@ -81,6 +81,7 @@ export const mockMemories: Memory[] = [
     content: "Had an amazing brunch at that new cafe downtown. Sarah told me about her promotion — so proud of her!",
     emotion: "joyful",
     photo_url: null,
+    occurred_at: "2026-02-19T12:00:00Z",
     created_at: "2026-02-20T12:00:00Z",
   },
   {
@@ -90,6 +91,7 @@ export const mockMemories: Memory[] = [
     content: "Mom sent her famous banana bread recipe. Spent the afternoon baking together over video call.",
     emotion: "grateful",
     photo_url: null,
+    occurred_at: "2026-02-17T15:00:00Z",
     created_at: "2026-02-18T15:00:00Z",
   },
   {
@@ -99,6 +101,7 @@ export const mockMemories: Memory[] = [
     content: "James shared a great article on sustainable design. Led to a 2-hour conversation about our future plans.",
     emotion: "inspired",
     photo_url: null,
+    occurred_at: "2026-02-14T10:30:00Z",
     created_at: "2026-02-15T10:30:00Z",
   },
   {
@@ -108,6 +111,7 @@ export const mockMemories: Memory[] = [
     content: "Went hiking at Runyon Canyon. Alex showed me a hidden trail I'd never seen before.",
     emotion: "connected",
     photo_url: null,
+    occurred_at: "2026-02-11T09:00:00Z",
     created_at: "2026-02-12T09:00:00Z",
   },
   {
@@ -117,6 +121,7 @@ export const mockMemories: Memory[] = [
     content: "Dr. Patel gave incredible advice about navigating career transitions. Feeling more confident about the path ahead.",
     emotion: "hopeful",
     photo_url: null,
+    occurred_at: "2026-02-07T14:00:00Z",
     created_at: "2026-02-08T14:00:00Z",
   },
 ];

@@ -44,6 +44,7 @@ import {
   Check,
   Mic,
   ChevronDown,
+  Calendar,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import { usePersons, useCreateMemory } from "@/hooks";
@@ -53,7 +54,7 @@ import {
   getTransitionToastMessage,
 } from "@/lib/growthEngine";
 import { showGrowthToast } from "@/components/ui/GrowthToast";
-import { emotionList, formatEmotionLabel } from "@/lib/formatters";
+import { emotionList, formatEmotionLabel, formatMemoryDate } from "@/lib/formatters";
 import type { Person } from "@/types/database";
 import type { Emotion } from "@/types";
 
@@ -214,6 +215,166 @@ function PersonSelectorModal({
   );
 }
 
+// ─── Date Picker Modal ─────────────────────────────────────────────────────
+
+function DatePickerModal({
+  visible,
+  selectedDate,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  selectedDate: Date;
+  onSelect: (date: Date) => void;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  // Build last 30 days as "earlier" options
+  const earlierDates: Date[] = [];
+  for (let i = 2; i <= 30; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    earlierDates.push(d);
+  }
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <Pressable
+        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }}
+        onPress={onClose}
+      >
+        <View style={{ flex: 1 }} />
+        <Pressable
+          onPress={(e) => e.stopPropagation()}
+          style={{
+            backgroundColor: white,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingTop: 20,
+            paddingBottom: insets.bottom + 20,
+            paddingHorizontal: 24,
+            maxHeight: "60%",
+          }}
+        >
+          {/* Handle */}
+          <View
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: borderClr,
+              alignSelf: "center",
+              marginBottom: 20,
+            }}
+          />
+          <Text
+            style={{
+              fontFamily: fonts.serif,
+              fontSize: 22,
+              color: nearBlack,
+              marginBottom: 16,
+            }}
+          >
+            When did this happen?
+          </Text>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Today */}
+            <Pressable
+              onPress={() => { onSelect(today); onClose(); }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                padding: 14,
+                borderRadius: 14,
+                marginBottom: 6,
+                backgroundColor: isSameDay(selectedDate, today) ? sagePale : "transparent",
+                borderWidth: isSameDay(selectedDate, today) ? 1 : 0,
+                borderColor: sageLight,
+              }}
+            >
+              <Text style={{ flex: 1, fontFamily: fonts.sansMedium, fontSize: 16, color: nearBlack }}>
+                Today
+              </Text>
+              {isSameDay(selectedDate, today) && (
+                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: sage, alignItems: "center", justifyContent: "center" }}>
+                  <Check size={14} color={white} />
+                </View>
+              )}
+            </Pressable>
+
+            {/* Yesterday */}
+            <Pressable
+              onPress={() => { onSelect(yesterday); onClose(); }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                padding: 14,
+                borderRadius: 14,
+                marginBottom: 6,
+                backgroundColor: isSameDay(selectedDate, yesterday) ? sagePale : "transparent",
+                borderWidth: isSameDay(selectedDate, yesterday) ? 1 : 0,
+                borderColor: sageLight,
+              }}
+            >
+              <Text style={{ flex: 1, fontFamily: fonts.sansMedium, fontSize: 16, color: nearBlack }}>
+                Yesterday
+              </Text>
+              {isSameDay(selectedDate, yesterday) && (
+                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: sage, alignItems: "center", justifyContent: "center" }}>
+                  <Check size={14} color={white} />
+                </View>
+              )}
+            </Pressable>
+
+            {/* Divider */}
+            <View style={{ height: 1, backgroundColor: borderClr, marginVertical: 8 }} />
+
+            {/* Earlier dates */}
+            {earlierDates.map((d) => {
+              const selected = isSameDay(selectedDate, d);
+              return (
+                <Pressable
+                  key={d.toISOString()}
+                  onPress={() => { onSelect(d); onClose(); }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    padding: 14,
+                    borderRadius: 14,
+                    marginBottom: 4,
+                    backgroundColor: selected ? sagePale : "transparent",
+                    borderWidth: selected ? 1 : 0,
+                    borderColor: sageLight,
+                  }}
+                >
+                  <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 15, color: nearBlack }}>
+                    {d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                  </Text>
+                  {selected && (
+                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: sage, alignItems: "center", justifyContent: "center" }}>
+                      <Check size={14} color={white} />
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 // ─── S1: Capture ────────────────────────────────────────────────────────────
 
 function S1_Capture({
@@ -221,9 +382,11 @@ function S1_Capture({
   person,
   content,
   selectedEmotion,
+  occurredAt,
   onPickPhoto,
   onRemovePhoto,
   onOpenPersonSelector,
+  onOpenDatePicker,
   onChangeContent,
   onSelectEmotion,
   onSave,
@@ -234,9 +397,11 @@ function S1_Capture({
   person: Person | null;
   content: string;
   selectedEmotion: Emotion | null;
+  occurredAt: Date;
   onPickPhoto: () => void;
   onRemovePhoto: () => void;
   onOpenPersonSelector: () => void;
+  onOpenDatePicker: () => void;
   onChangeContent: (v: string) => void;
   onSelectEmotion: (e: Emotion | null) => void;
   onSave: () => void;
@@ -345,6 +510,34 @@ function S1_Capture({
                 Select a person
               </Text>
             )}
+            <ChevronDown size={18} color={warmGray} />
+          </Pressable>
+
+          {/* ── Date Selector ───────────────────────────────── */}
+          <Pressable
+            onPress={onOpenDatePicker}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: white,
+              borderRadius: 14,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: borderClr,
+              marginBottom: 16,
+            }}
+          >
+            <Calendar size={18} color={sage} style={{ marginRight: 10 }} />
+            <Text
+              style={{
+                flex: 1,
+                fontFamily: fonts.sansMedium,
+                fontSize: 15,
+                color: nearBlack,
+              }}
+            >
+              {formatMemoryDate(occurredAt.toISOString())}
+            </Text>
             <ChevronDown size={18} color={warmGray} />
           </Pressable>
 
@@ -711,6 +904,8 @@ export default function AddMemoryScreen() {
   const [content, setContent] = useState("");
   const [selectedEmotion, setSelectedEmotion] = useState<Emotion | null>(null);
   const [showPersonModal, setShowPersonModal] = useState(false);
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [occurredAt, setOccurredAt] = useState<Date>(new Date());
   const [isSaving, setIsSaving] = useState(false);
 
   const selectedPerson = personId
@@ -763,6 +958,7 @@ export default function AddMemoryScreen() {
         content: memoryContent,
         emotion: selectedEmotion,
         photo_url: photoUri ?? null,
+        occurred_at: occurredAt.toISOString(),
       });
 
       // Only award growth and advance to success if save actually succeeded
@@ -825,9 +1021,11 @@ export default function AddMemoryScreen() {
             person={selectedPerson}
             content={content}
             selectedEmotion={selectedEmotion}
+            occurredAt={occurredAt}
             onPickPhoto={pickImage}
             onRemovePhoto={() => setPhotoUri(null)}
             onOpenPersonSelector={() => setShowPersonModal(true)}
+            onOpenDatePicker={() => setShowDateModal(true)}
             onChangeContent={setContent}
             onSelectEmotion={setSelectedEmotion}
             onSave={handleSave}
@@ -851,6 +1049,14 @@ export default function AddMemoryScreen() {
         selectedId={personId}
         onSelect={setPersonId}
         onClose={() => setShowPersonModal(false)}
+      />
+
+      {/* Date picker modal */}
+      <DatePickerModal
+        visible={showDateModal}
+        selectedDate={occurredAt}
+        onSelect={setOccurredAt}
+        onClose={() => setShowDateModal(false)}
       />
     </>
   );

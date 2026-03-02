@@ -22,7 +22,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { fonts } from "@design/tokens";
-import { emotionEmojis, formatEmotionLabel, formatRelativeDate } from "@/lib/formatters";
+import { emotionEmojis, formatEmotionLabel, formatMemoryDate, getMemoryDate } from "@/lib/formatters";
 import type { Memory } from "@/types/database";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ function MemoryCard({ memory }: { memory: Memory }) {
               }),
             }}
           >
-            {formatRelativeDate(memory.created_at)}
+            {formatMemoryDate(getMemoryDate(memory))}
           </Text>
         </View>
       </LinearGradient>

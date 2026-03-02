@@ -272,7 +272,7 @@ function mostRecentMemoryMinutesAgo(memories: Memory[]): number | null {
   if (memories.length === 0) return null;
   let latest = 0;
   for (const m of memories) {
-    const t = new Date(m.created_at).getTime();
+    const t = new Date(m.occurred_at || m.created_at).getTime();
     if (t > latest) latest = t;
   }
   return (Date.now() - latest) / (1000 * 60);

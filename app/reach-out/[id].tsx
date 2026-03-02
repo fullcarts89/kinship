@@ -82,10 +82,10 @@ function BridgeScreen({
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     return memories
-      .filter((m) => new Date(m.created_at) >= oneYearAgo)
+      .filter((m) => new Date(m.occurred_at || m.created_at) >= oneYearAgo)
       .sort(
         (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          new Date(b.occurred_at || b.created_at).getTime() - new Date(a.occurred_at || a.created_at).getTime()
       );
   }, [memories]);
 

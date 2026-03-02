@@ -69,11 +69,11 @@ export function getVitalityLevel(score: number): VitalityLevel {
  * Returns 999 if no activity exists (brand-new person with no data).
  */
 export function getDaysSinceLastActivity(
-  memories: { created_at: string }[],
+  memories: { occurred_at?: string; created_at: string }[],
   interactions: { created_at: string }[]
 ): number {
   const allDates = [
-    ...memories.map((m) => new Date(m.created_at).getTime()),
+    ...memories.map((m) => new Date(m.occurred_at || m.created_at).getTime()),
     ...interactions.map((i) => new Date(i.created_at).getTime()),
   ];
   if (allDates.length === 0) return 999;

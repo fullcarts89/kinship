@@ -22,6 +22,23 @@ export function formatRelativeDate(dateString: string): string {
   return `${Math.floor(diffDays / 30)} months ago`;
 }
 
+/** Absolute date display: "Feb 19, 2026" — or "Feb 19" if same year */
+export function formatMemoryDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
+/** Returns the event date for a memory, falling back to created_at */
+export function getMemoryDate(memory: { occurred_at?: string; created_at: string }): string {
+  return memory.occurred_at || memory.created_at;
+}
+
 // ─── Emotion Helpers ────────────────────────────────────────────────────────
 
 export function formatEmotionLabel(emotion: Emotion): string {
