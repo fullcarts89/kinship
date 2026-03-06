@@ -24,7 +24,8 @@ import { useMemory, usePerson } from "@/hooks";
 import {
   emotionEmojis,
   formatEmotionLabel,
-  formatRelativeDate,
+  formatMemoryDate,
+  getMemoryDate,
 } from "@/lib/formatters";
 import { colors, fonts } from "@design/tokens";
 
@@ -45,7 +46,7 @@ export default function MemoryDetailScreen() {
   const handleShare = async () => {
     if (!memory) return;
     const personLine = person ? `A memory with ${person.name}` : "A memory";
-    const dateLine = formatRelativeDate(memory.created_at);
+    const dateLine = formatMemoryDate(getMemoryDate(memory));
     const message = `${personLine}\n\n${memory.content}\n\n${dateLine}\n\nShared from Kinship 🌱`;
     try {
       await Share.share({ message });
@@ -190,7 +191,7 @@ export default function MemoryDetailScreen() {
               marginBottom: 16,
             }}
           >
-            {formatRelativeDate(memory.created_at)}
+            {formatMemoryDate(getMemoryDate(memory))}
           </Text>
 
           {/* Full Content — no truncation */}

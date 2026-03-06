@@ -55,6 +55,8 @@ import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
 import {
   formatRelativeDate,
   formatEmotionLabel,
+  formatMemoryDate,
+  getMemoryDate,
   relationshipLabels,
 } from "@/lib/formatters";
 import { OrientationOverlay } from "@/components/OrientationOverlay";
@@ -694,84 +696,119 @@ function MemoriesTab({ memories, personId }: { memories: Memory[]; personId: str
     );
   }
 
-  // 2-column grid of memory cards
-  const rows: Memory[][] = [];
-  for (let i = 0; i < memories.length; i += 2) {
-    rows.push(memories.slice(i, i + 2));
-  }
+  // Sort chronologically by event date (newest first)
+  const sorted = [...memories].sort(
+    (a, b) => new Date(getMemoryDate(b)).getTime() - new Date(getMemoryDate(a)).getTime()
+  );
 
-  const cardColors: [string, string][] = [
-    [sagePale, sageLight + "88"],
-    [goldLight + "44", "#F4B89E44"],
-    [lavender + "33", sky + "33"],
-  ];
+  const emotionEmoji: Record<string, string> = {
+    grateful: "\uD83D\uDE4F",
+    connected: "\uD83D\uDCAB",
+    curious: "\uD83D\uDD2E",
+    joyful: "\uD83D\uDE0A",
+    nostalgic: "\uD83C\uDF05",
+    proud: "\u2B50",
+    peaceful: "\uD83C\uDF38",
+    inspired: "\u2728",
+    hopeful: "\uD83C\uDF31",
+    loved: "\uD83D\uDC9B",
+  };
 
   return (
     <View style={{ paddingHorizontal: 24 }}>
-      {rows.map((row, rowIndex) => (
-        <View key={rowIndex} style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
-          {row.map((memory, colIndex) => {
-            const colorPair = cardColors[(rowIndex * 2 + colIndex) % cardColors.length];
-            return (
-              <Pressable
-                key={memory.id}
-                onPress={() => router.push(`/memory/${memory.id}`)}
+      {sorted.map((memory, index) => {
+        const emoji = memory.emotion ? emotionEmoji[memory.emotion] ?? "\uD83C\uDF3F" : "\uD83C\uDF3F";
+        return (
+          <Pressable
+            key={memory.id}
+            onPress={() => router.push(`/memory/${memory.id}`)}
+            style={{
+              flexDirection: "row",
+              backgroundColor: white,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: borderColor,
+              overflow: "hidden",
+              marginBottom: 10,
+            }}
+          >
+            {/* Timeline dot + line */}
+            <View style={{ width: 44, alignItems: "center", paddingTop: 18 }}>
+              <View
                 style={{
-                  flex: 1,
-                  backgroundColor: white,
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: borderColor,
-                  overflow: "hidden",
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: sage,
+                }}
+              />
+              {index < sorted.length - 1 && (
+                <View
+                  style={{
+                    width: 2,
+                    flex: 1,
+                    backgroundColor: sageLight,
+                    marginTop: 4,
+                  }}
+                />
+              )}
+            </View>
+
+            {/* Card content */}
+            <View style={{ flex: 1, paddingVertical: 14, paddingRight: 14 }}>
+              {/* Date header */}
+              <Text
+                style={{
+                  fontFamily: fonts.sansSemiBold,
+                  fontSize: 12,
+                  color: sage,
+                  marginBottom: 6,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.4,
                 }}
               >
-                {memory.photo_url ? (
-                  <Image
-                    source={{ uri: memory.photo_url }}
-                    style={{ height: 80, width: "100%" }}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <LinearGradient
-                    colors={colorPair}
-                    style={{
-                      height: 80,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text style={{ fontSize: 24, opacity: 0.5 }}>{"\uD83D\uDCF8"}</Text>
-                  </LinearGradient>
+                {formatMemoryDate(getMemoryDate(memory))}
+              </Text>
+
+              {/* Content */}
+              <Text
+                style={{
+                  fontFamily: fonts.sansMedium,
+                  fontSize: 14,
+                  color: nearBlack,
+                  lineHeight: 20,
+                  marginBottom: 6,
+                }}
+                numberOfLines={3}
+              >
+                {memory.content}
+              </Text>
+
+              {/* Emotion + photo indicator */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {memory.emotion && (
+                  <Text style={{ fontSize: 14 }}>{emoji}</Text>
                 )}
-                <View style={{ padding: 12 }}>
-                  <Text
-                    style={{
-                      fontFamily: fonts.sansMedium,
-                      fontSize: 13,
-                      color: nearBlack,
-                      marginBottom: 4,
-                    }}
-                    numberOfLines={2}
-                  >
-                    {memory.content}
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: fonts.sans,
-                      fontSize: 11,
-                      color: warmGray,
-                    }}
-                  >
-                    {formatRelativeDate(memory.created_at)}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
-          {/* Fill empty space in last row */}
-          {row.length === 1 && <View style={{ flex: 1 }} />}
-        </View>
-      ))}
+                {memory.photo_url && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Text style={{ fontSize: 12 }}>{"\uD83D\uDCF7"}</Text>
+                    <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: warmGray }}>Photo</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Thumbnail if photo */}
+            {memory.photo_url && (
+              <Image
+                source={{ uri: memory.photo_url }}
+                style={{ width: 72, height: "100%" }}
+                resizeMode="cover"
+              />
+            )}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

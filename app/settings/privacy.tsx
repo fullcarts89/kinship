@@ -494,6 +494,7 @@ export default function PrivacyScreen() {
           person_id: m.person_id,
           content: m.content,
           emotion: m.emotion,
+          occurred_at: m.occurred_at,
           created_at: m.created_at,
         })),
         interactions: interactions.map((i) => ({

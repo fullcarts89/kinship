@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from "react";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
@@ -14,6 +14,10 @@ import {
 } from "@expo-google-fonts/dm-sans";
 import { AppProviders } from "@/providers";
 import { GrowthToastOverlay } from "@/components/ui/GrowthToast";
+import {
+  setupNotificationHandler,
+  addNotificationResponseListener,
+} from "@/lib/notificationService";
 import "../global.css";
 
 // Prevent splash screen from auto-hiding until fonts are loaded
@@ -47,6 +51,24 @@ export default function RootLayout() {
   useEffect(() => {
     onLayoutRootView();
   }, [onLayoutRootView]);
+
+  // ── Notification setup ───────────────────────────────────────────────
+  useEffect(() => {
+    setupNotificationHandler();
+
+    const subscription = addNotificationResponseListener((response) => {
+      const data = response.notification.request.content.data;
+      const personId = data.personId as string | undefined;
+
+      if (personId) {
+        router.push(`/person/${personId}`);
+      }
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
 
   // Don't render until fonts are loaded
   if (!fontsLoaded && !fontError) {

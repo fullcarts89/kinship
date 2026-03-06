@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
 import { usePersons, useMemories, useAllInteractions } from "@/hooks";
-import { formatRelativeDate, emotionEmojis, relationshipLabels } from "@/lib/formatters";
+import { formatRelativeDate, formatMemoryDate, getMemoryDate, emotionEmojis, relationshipLabels } from "@/lib/formatters";
 import { getGrowthInfo } from "@/lib/growthEngine";
 import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
 import { SmallGardenIllustration } from "@/components/illustrations";
@@ -112,7 +112,7 @@ function DigestMemoryCard({ memory, personName }: { memory: Memory; personName: 
             with {personName}
           </Text>
           <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: warmGray }}>
-            {formatRelativeDate(memory.created_at)}
+            {formatMemoryDate(getMemoryDate(memory))}
           </Text>
         </View>
       </View>
@@ -330,9 +330,11 @@ export default function ActivityScreen() {
     [persons]
   );
 
-  // Filter to this week
+  // Filter to this week (use occurred_at for memories)
   const weekMemories = useMemo(
-    () => memories.filter((m) => isThisWeek(m.created_at)),
+    () => memories
+      .filter((m) => isThisWeek(getMemoryDate(m)))
+      .sort((a, b) => new Date(getMemoryDate(b)).getTime() - new Date(getMemoryDate(a)).getTime()),
     [memories]
   );
 
@@ -532,7 +534,7 @@ export default function ActivityScreen() {
                       marginBottom: 14,
                     }}
                   >
-                    Memories added this week
+                    Moments from this week
                   </Text>
                   {weekMemories.map((memory) => {
                     const person = personsMap.get(memory.person_id);

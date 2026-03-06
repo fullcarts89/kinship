@@ -74,8 +74,8 @@ export function getBestMemoryForReachOut(memories: Memory[]): Memory | null {
  */
 export function getMemoryContextLabel(memory: Memory): string {
   const now = new Date();
-  const created = new Date(memory.created_at);
-  const diffMs = now.getTime() - created.getTime();
+  const eventDate = new Date(memory.occurred_at || memory.created_at);
+  const diffMs = now.getTime() - eventDate.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffDays < 7) {

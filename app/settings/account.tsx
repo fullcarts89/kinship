@@ -7,6 +7,7 @@ import {
   TextInput as RNTextInput,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -37,6 +38,7 @@ import {
   InboxCheckIllustration,
   FadingGardenIllustration,
 } from "@/components/illustrations";
+import { exportGardenData } from "@/lib/exportService";
 
 // ─── Design Tokens (local) ──────────────────────────────────────────────────
 
@@ -1974,10 +1976,21 @@ function S16_ExportData({
   onCancel,
   insets,
 }: {
-  onDownload: () => void;
+  onDownload: () => Promise<void>;
   onCancel: () => void;
   insets: Insets;
 }) {
+  const [exporting, setExporting] = useState(false);
+
+  const handleDownload = useCallback(async () => {
+    setExporting(true);
+    try {
+      await onDownload();
+    } finally {
+      setExporting(false);
+    }
+  }, [onDownload]);
+
   const items = [
     "Your relationship list & notes",
     "Memory entries & timestamps",
@@ -2083,7 +2096,21 @@ function S16_ExportData({
           gap: 10,
         }}
       >
-        <SageBtn label="Download JSON" onPress={onDownload} />
+        {exporting ? (
+          <View
+            style={{
+              width: "100%",
+              paddingVertical: 15,
+              alignItems: "center",
+              borderRadius: 18,
+              backgroundColor: sagePale,
+            }}
+          >
+            <ActivityIndicator size="small" color={sage} />
+          </View>
+        ) : (
+          <SageBtn label="Download JSON" onPress={handleDownload} />
+        )}
         <OutlineBtn label="Cancel" onPress={onCancel} />
       </View>
     </View>
@@ -2367,7 +2394,10 @@ export default function AccountScreen() {
       return (
         <S16_ExportData
           insets={screenInsets}
-          onDownload={() => setStep(14)}
+          onDownload={async () => {
+            await exportGardenData();
+            setStep(14);
+          }}
           onCancel={() => setStep(14)}
         />
       );

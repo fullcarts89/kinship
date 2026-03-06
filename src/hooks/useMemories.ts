@@ -103,6 +103,7 @@ export function useCreateMemory() {
           content: memory.content,
           emotion: memory.emotion ?? null,
           photo_url: memory.photo_url ?? null,
+          occurred_at: memory.occurred_at ?? new Date().toISOString(),
           created_at: new Date().toISOString(),
         };
         locallyCreatedMemories.unshift(newMemory);

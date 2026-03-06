@@ -43,7 +43,8 @@ export interface Memory {
   content: string;
   emotion: Emotion | null;
   photo_url: string | null;
-  created_at: string;
+  occurred_at: string;   // When the memory happened (ISO date or datetime)
+  created_at: string;    // When it was added to the app
 }
 
 /**
@@ -78,7 +79,7 @@ export interface Suggestion {
 
 export type UserInsert = Omit<User, "id" | "created_at">;
 export type PersonInsert = Omit<Person, "id" | "created_at">;
-export type MemoryInsert = Omit<Memory, "id" | "created_at" | "photo_url"> & { photo_url?: string | null };
+export type MemoryInsert = Omit<Memory, "id" | "created_at" | "photo_url" | "occurred_at"> & { photo_url?: string | null; occurred_at?: string };
 /**
  * InteractionInsert — note and emotion are optional since bare
  * interactions (e.g. from the reach-out flow) don't include them.
