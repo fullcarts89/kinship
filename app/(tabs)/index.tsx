@@ -162,6 +162,80 @@ function SwayingPlant({
   );
 }
 
+// ─── Garden Summary Card ────────────────────────────────────────────────────
+
+function GardenSummaryCard({
+  personCount,
+  memoryCount,
+  interactionCount,
+}: {
+  personCount: number;
+  memoryCount: number;
+  interactionCount: number;
+}) {
+  const stats = [
+    { value: personCount, label: personCount === 1 ? "seed planted" : "seeds planted" },
+    { value: memoryCount, label: memoryCount === 1 ? "moment saved" : "moments saved" },
+    { value: interactionCount, label: interactionCount === 1 ? "connection made" : "connections made" },
+  ];
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        backgroundColor: white,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: borderClr,
+        paddingVertical: 14,
+        paddingHorizontal: 8,
+        marginBottom: 20,
+        shadowColor: nearBlack,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.03,
+        shadowRadius: 6,
+        elevation: 1,
+      }}
+    >
+      {stats.map((stat, i) => (
+        <View
+          key={i}
+          style={{
+            flex: 1,
+            alignItems: "center",
+            borderRightWidth: i < stats.length - 1 ? 1 : 0,
+            borderRightColor: borderClr,
+            paddingHorizontal: 4,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 20,
+              color: sage,
+              lineHeight: 24,
+            }}
+          >
+            {stat.value}
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.sans,
+              fontSize: 11,
+              color: warmGray,
+              textAlign: "center",
+              marginTop: 2,
+              lineHeight: 14,
+            }}
+          >
+            {stat.label}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ─── Plant a Seed FAB ───────────────────────────────────────────────────────
 
 /** Floating action button with gentle pulse animation */
@@ -823,6 +897,13 @@ export default function GardenScreen() {
                 <SectionLabel
                   text="Your living garden"
                   subtitle="Each plant grows as you add memories together"
+                />
+
+                {/* Garden Summary Card */}
+                <GardenSummaryCard
+                  personCount={persons.length}
+                  memoryCount={memories.length}
+                  interactionCount={allInteractions.length}
                 />
 
                 {/* Garden illustration hero — orientation Step 1 target */}
