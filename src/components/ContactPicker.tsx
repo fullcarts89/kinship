@@ -45,6 +45,11 @@ interface ContactPickerProps {
   persons: Person[];
   /** Fires when the user taps "Select" on a non-duplicate contact */
   onSelectContact: (contact: ContactEntry) => void;
+  /**
+   * Optional: shown as a CTA when contact permission is denied,
+   * letting the user continue by adding people manually.
+   */
+  onContinueManually?: () => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -52,6 +57,7 @@ interface ContactPickerProps {
 export default function ContactPicker({
   persons,
   onSelectContact,
+  onContinueManually,
 }: ContactPickerProps) {
   const [rawContacts, setRawContacts] = useState<ContactEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,7 +158,7 @@ export default function ContactPicker({
             marginBottom: 8,
           }}
         >
-          Contact access needed
+          Kinship can't see your contacts
         </Text>
         <Text
           style={{
@@ -162,11 +168,49 @@ export default function ContactPicker({
             textAlign: "center",
             lineHeight: 22,
             maxWidth: 280,
+            marginBottom: 24,
           }}
         >
-          Enable contact access in Settings to bring in the people you already
-          know. You can always add people manually.
+          You can allow access in Settings, or add people by hand — whichever
+          feels right.
         </Text>
+        {onContinueManually && (
+          <Pressable
+            onPress={onContinueManually}
+            style={{
+              paddingVertical: 13,
+              paddingHorizontal: 28,
+              borderRadius: 18,
+              backgroundColor: colors.sage,
+              marginBottom: 14,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 15,
+                color: colors.white,
+              }}
+            >
+              Add someone by hand
+            </Text>
+          </Pressable>
+        )}
+        <Pressable
+          onPress={() => Linking.openSettings()}
+          hitSlop={8}
+          style={{ paddingVertical: 8 }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.sansMedium,
+              fontSize: 14,
+              color: colors.sage,
+            }}
+          >
+            Open Settings
+          </Text>
+        </Pressable>
       </View>
     );
   }

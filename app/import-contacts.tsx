@@ -38,6 +38,11 @@ export default function ImportContactsScreen() {
     }
   };
 
+  const handleContinueManually = () => {
+    // Contacts are unavailable — let the user add someone by hand instead
+    router.push("/(tabs)/add");
+  };
+
   return (
     <View
       style={{
@@ -76,6 +81,7 @@ export default function ImportContactsScreen() {
         <ContactPicker
           persons={persons}
           onSelectContact={handleSelectContact}
+          onContinueManually={handleContinueManually}
         />
       </View>
     </View>

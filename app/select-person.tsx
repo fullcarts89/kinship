@@ -15,7 +15,14 @@
  */
 
 import React from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -270,7 +277,10 @@ export default function SelectPersonScreen() {
       : "Choose someone";
 
   return (
-    <View style={{ flex: 1, backgroundColor: cream }}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: cream }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       {/* Header */}
       <View
         style={{
@@ -337,6 +347,7 @@ export default function SelectPersonScreen() {
           style={{ flex: 1, paddingHorizontal: 22 }}
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {persons.map((person) => (
             <PersonRow
@@ -347,6 +358,6 @@ export default function SelectPersonScreen() {
           ))}
         </ScrollView>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }

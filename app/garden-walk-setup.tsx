@@ -68,9 +68,13 @@ export default function GardenWalkSetupScreen() {
   const [selectedDay, setSelectedDay] = useState(0);
   const [timeIndex, setTimeIndex] = useState(DEFAULT_TIME_INDEX);
 
-  // Calendar permission state: "pending" = not yet asked, "granted" = allowed, "skipped" = declined/skipped
+  // Calendar permission state:
+  //   "pending" = not yet asked
+  //   "granted" = allowed
+  //   "skipped" = user chose to skip
+  //   "denied"  = permission denied or native module failed
   const [calendarStatus, setCalendarStatus] = useState<
-    "pending" | "granted" | "skipped"
+    "pending" | "granted" | "skipped" | "denied"
   >("pending");
 
   const currentSlot = TIME_SLOTS[timeIndex];
@@ -91,10 +95,11 @@ export default function GardenWalkSetupScreen() {
   const handleAllowCalendar = useCallback(async () => {
     try {
       const status = await requestCalendarPermission();
-      setCalendarStatus(status === "granted" ? "granted" : "skipped");
+      setCalendarStatus(status === "granted" ? "granted" : "denied");
     } catch {
-      // Native module unavailable — treat as skipped
-      setCalendarStatus("skipped");
+      // Native module unavailable — surface a gentle message instead
+      // of failing silently
+      setCalendarStatus("denied");
     }
   }, []);
 
@@ -429,6 +434,23 @@ export default function GardenWalkSetupScreen() {
                 }}
               >
                 No problem at all. You can enable this{"\n"}anytime in Settings.
+              </Text>
+            </View>
+          )}
+
+          {calendarStatus === "denied" && (
+            <View style={{ alignItems: "center" }}>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 13,
+                  color: colors.warmGray,
+                  textAlign: "center",
+                  lineHeight: 18,
+                }}
+              >
+                Calendar access is off — you can enable it{"\n"}anytime in your
+                device Settings.
               </Text>
             </View>
           )}
