@@ -6,7 +6,7 @@
  *
  * Presented as a modal via memory/_layout.tsx (presentation: "modal").
  */
-import React, { useRef } from "react";
+import React, { useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,12 +15,23 @@ import {
   Pressable,
   ActivityIndicator,
   Share,
+  Alert,
 } from "react-native";
-import { useLocalSearchParams, router, Stack } from "expo-router";
+import {
+  useLocalSearchParams,
+  router,
+  Stack,
+  useFocusEffect,
+} from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft, Send, Share2 } from "lucide-react-native";
-import { useMemory, usePerson, useCreateInteraction } from "@/hooks";
+import { ChevronLeft, Pencil, Send, Share2 } from "lucide-react-native";
+import {
+  useMemory,
+  usePerson,
+  useCreateInteraction,
+  useDeleteMemory,
+} from "@/hooks";
 import { MemoryShareCard } from "@/components/MemoryShareCard";
 import { shareViewAsImage } from "@/lib/shareImage";
 import { buildShareFooter } from "@/lib/appLinks";
@@ -35,10 +46,18 @@ import { colors, fonts } from "@design/tokens";
 export default function MemoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { memory, isLoading } = useMemory(id ?? "");
+  const { memory, isLoading, refetch } = useMemory(id ?? "");
   const { person } = usePerson(memory?.person_id ?? "");
   const { createInteraction } = useCreateInteraction();
+  const { deleteMemory, isDeleting } = useDeleteMemory();
   const cardRef = useRef<View>(null);
+
+  // Refresh when returning from the edit screen so changes show right away
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const firstName = person?.name.split(" ")[0];
 
@@ -48,6 +67,30 @@ export default function MemoryDetailScreen() {
     } else {
       router.replace("/(tabs)/people");
     }
+  };
+
+  const handleEdit = () => {
+    if (!id) return;
+    router.push(`/memory/edit/${id}`);
+  };
+
+  const handleRemove = () => {
+    if (!id || isDeleting) return;
+    Alert.alert(
+      "Remove this memory?",
+      "It will be gone from your garden. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            await deleteMemory(id);
+            handleBack();
+          },
+        },
+      ]
+    );
   };
 
   const handleShare = async () => {
@@ -174,6 +217,24 @@ export default function MemoryDetailScreen() {
           <Share2 color={colors.nearBlack} size={18} />
         </Pressable>
 
+        {/* Edit Button Overlay */}
+        <Pressable
+          onPress={handleEdit}
+          style={{
+            position: "absolute",
+            top: insets.top + 12,
+            right: 62,
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: "rgba(255,255,255,0.9)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Pencil color={colors.nearBlack} size={17} />
+        </Pressable>
+
         {/* Content Area */}
         <ScrollView
           style={{ flex: 1 }}
@@ -270,6 +331,30 @@ export default function MemoryDetailScreen() {
               </Text>
             </Pressable>
           )}
+
+          {/* Remove this memory — quiet, warm danger action */}
+          <Pressable
+            onPress={handleRemove}
+            disabled={isDeleting}
+            hitSlop={8}
+            style={{
+              alignSelf: "center",
+              marginTop: 28,
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              opacity: isDeleting ? 0.5 : 1,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansMedium,
+                fontSize: 13,
+                color: colors.error,
+              }}
+            >
+              {isDeleting ? "Removing..." : "Remove this memory"}
+            </Text>
+          </Pressable>
         </ScrollView>
       </View>
     </>
