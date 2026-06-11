@@ -53,6 +53,8 @@ import { useOrientation, ORIENTATION_STEP_SCREEN } from "@/hooks/useOrientation"
 import { getGrowthInfo } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
 import { formatRelativeDate, formatMemoryDate, getMemoryDate, emotionEmojis } from "@/lib/formatters";
+import { selectSpotlightMemory } from "@/lib/spotlightEngine";
+import { scheduleAmbientNotifications } from "@/lib/notificationService";
 import { generateSuggestions } from "@/lib/suggestionEngine";
 import type { IntelligentSuggestion, SuggestionType } from "@/lib/suggestionEngine";
 import { getRecentCalendarMatches } from "@/lib/calendarEngine";
@@ -141,6 +143,7 @@ function SwayingPlant({
           size={44}
           index={index}
           staggerDelay={0}
+          personId={person.id}
         >
           <GrowthPlantIllustration stage={stage} size={44} />
         </VitalPlant>
@@ -352,9 +355,12 @@ function PlantASeedFAB({ onPress }: { onPress: () => void }) {
 function MemorySpotlight({
   memory,
   person,
+  reason,
 }: {
   memory: Memory;
   person: Person | undefined;
+  /** Warm caption for why this memory surfaced today, e.g. "One year ago today" */
+  reason?: string | null;
 }) {
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(10);
@@ -431,6 +437,18 @@ function MemorySpotlight({
           >
             {memory.content}
           </Text>
+          {reason && (
+            <Text
+              style={{
+                fontFamily: fonts.sansMedium,
+                fontSize: 12,
+                color: gold,
+                marginBottom: 6,
+              }}
+            >
+              {reason}
+            </Text>
+          )}
           <View
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
@@ -733,18 +751,18 @@ export default function GardenScreen() {
     [persons.length, memories.length]
   );
 
-  // Spotlight memory: rotates daily, only shows memories 7+ days old (INTL-04)
-  const spotlightMemory = useMemo(() => {
-    if (memories.length === 0) return null;
-    const now = Date.now();
-    const MIN_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-    const eligible = memories.filter(
-      (m) => now - new Date(m.occurred_at || m.created_at).getTime() >= MIN_AGE_MS
-    );
-    if (eligible.length === 0) return null;
-    const dayIdx = Math.floor(now / 86400000);
-    return eligible[dayIdx % eligible.length];
-  }, [memories]);
+  // Spotlight memory: weighted daily pick (anniversaries, photos, emotions),
+  // only shows memories 7+ days old (INTL-04). Deterministic per day.
+  const spotlight = useMemo(() => selectSpotlightMemory(memories), [memories]);
+
+  // Ambient notification scheduling — fire-and-forget once per mount,
+  // after persons + memories have loaded. No-ops without permission.
+  const ambientScheduled = useRef(false);
+  useEffect(() => {
+    if (personsLoading || memoriesLoading || ambientScheduled.current) return;
+    ambientScheduled.current = true;
+    scheduleAmbientNotifications(memories, persons).catch(() => {});
+  }, [personsLoading, memoriesLoading, memories, persons]);
 
   // Calendar matches for post-event suggestions (Tier 2)
   const [calendarMatches, setCalendarMatches] = useState<CalendarMatch[]>([]);
@@ -1061,12 +1079,13 @@ export default function GardenScreen() {
             )}
 
             {/* ─── A Moment Worth Revisiting ──────────────────── */}
-            {spotlightMemory && (
+            {spotlight && (
               <Animated.View entering={FadeInUp.delay(200).duration(400)}>
                 <SectionLabel text="A moment worth revisiting" />
                 <MemorySpotlight
-                  memory={spotlightMemory}
-                  person={personsMap.get(spotlightMemory.person_id)}
+                  memory={spotlight.memory}
+                  person={personsMap.get(spotlight.memory.person_id)}
+                  reason={spotlight.reason}
                 />
               </Animated.View>
             )}
