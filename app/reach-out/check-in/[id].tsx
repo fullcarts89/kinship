@@ -31,6 +31,10 @@ import {
   getTransitionToastMessage,
 } from "@/lib/growthEngine";
 import { showGrowthToast } from "@/components/ui/GrowthToast";
+import {
+  requestNotificationPermissions,
+  schedulePostReachOutCapturePrompt,
+} from "@/lib/notificationService";
 import { RestingPlantIllustration } from "@/components/illustrations";
 import { Skeleton } from "@/components/ui";
 import { colors, fonts } from "@design/tokens";
@@ -59,6 +63,7 @@ export default function CheckInScreen() {
     useState<Emotion | null>(null);
   const [note, setNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -104,6 +109,7 @@ export default function CheckInScreen() {
 
     const hasReaction = selectedEmotion !== null;
     const hasNote = note.trim().length > 0;
+    let saved = false;
 
     try {
       // Create a check_in interaction
@@ -113,6 +119,7 @@ export default function CheckInScreen() {
         emotion: selectedEmotion,
         note: note.trim() || null,
       });
+      saved = created != null;
 
       // Only award growth if save succeeded AND user provided input
       if (created && (hasReaction || hasNote)) {
@@ -127,7 +134,30 @@ export default function CheckInScreen() {
       // Silent fail — the interaction is best-effort
     }
 
-    navigateBack();
+    if (!saved) {
+      navigateBack();
+      return;
+    }
+
+    // Gentle delayed nudge (~3h) to capture a memory while it's fresh.
+    // Asking for permission here is intentional — it's the most
+    // contextual moment. Fire-and-forget; the service caps cadence.
+    const firstName = person.name.split(" ")[0];
+    requestNotificationPermissions()
+      .then((granted) => {
+        if (granted) {
+          return schedulePostReachOutCapturePrompt(person.id, firstName);
+        }
+      })
+      .catch(() => {});
+
+    // Brief, skippable choice — capture now, or be done
+    setIsSaving(false);
+    setIsSaved(true);
+  };
+
+  const handleCaptureMoment = () => {
+    router.replace(`/memory/add?personId=${person.id}`);
   };
 
   const handleSkip = () => {
@@ -141,6 +171,106 @@ export default function CheckInScreen() {
       router.replace("/(tabs)/people");
     }
   };
+
+  // ─── Saved — brief, skippable bridge to memory capture ─────────────────
+
+  if (isSaved) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.cream,
+            paddingTop: insets.top + 32,
+            paddingBottom: insets.bottom + 24,
+            paddingHorizontal: 24,
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <View style={{ marginBottom: 28 }}>
+              <RestingPlantIllustration size={140} />
+            </View>
+            <Text
+              style={{
+                fontFamily: fonts.serif,
+                fontSize: 28,
+                color: colors.nearBlack,
+                textAlign: "center",
+                lineHeight: 36,
+                marginBottom: 12,
+                maxWidth: 300,
+              }}
+            >
+              Tucked away
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 15,
+                color: colors.warmGray,
+                textAlign: "center",
+                lineHeight: 22,
+                maxWidth: 300,
+              }}
+            >
+              If a moment with {person.name} feels worth keeping, now's a
+              lovely time.
+            </Text>
+          </View>
+
+          {/* Capture a moment — primary */}
+          <Pressable
+            onPress={handleCaptureMoment}
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              backgroundColor: colors.sage,
+              borderRadius: 16,
+              paddingVertical: 18,
+              alignItems: "center",
+              marginBottom: 14,
+              shadowColor: colors.sage,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 16,
+              elevation: 4,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 17,
+                color: colors.white,
+              }}
+            >
+              Capture a moment from this
+            </Text>
+          </Pressable>
+
+          {/* Done — secondary */}
+          <Pressable onPress={navigateBack} style={{ padding: 12 }}>
+            <Text
+              style={{
+                fontFamily: fonts.sansMedium,
+                fontSize: 15,
+                color: colors.warmGray,
+              }}
+            >
+              Done
+            </Text>
+          </Pressable>
+        </View>
+      </>
+    );
+  }
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
