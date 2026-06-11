@@ -30,7 +30,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bell, Settings } from "lucide-react-native";
+import { Bell, ChevronRight, Leaf, Settings } from "lucide-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -168,10 +168,12 @@ function GardenSummaryCard({
   personCount,
   memoryCount,
   interactionCount,
+  onViewWeek,
 }: {
   personCount: number;
   memoryCount: number;
   interactionCount: number;
+  onViewWeek: () => void;
 }) {
   const stats = [
     { value: personCount, label: personCount === 1 ? "seed planted" : "seeds planted" },
@@ -180,9 +182,9 @@ function GardenSummaryCard({
   ];
 
   return (
-    <View
+    <Pressable
+      onPress={onViewWeek}
       style={{
-        flexDirection: "row",
         backgroundColor: white,
         borderRadius: 16,
         borderWidth: 1,
@@ -197,42 +199,69 @@ function GardenSummaryCard({
         elevation: 1,
       }}
     >
-      {stats.map((stat, i) => (
-        <View
-          key={i}
+      <View style={{ flexDirection: "row" }}>
+        {stats.map((stat, i) => (
+          <View
+            key={i}
+            style={{
+              flex: 1,
+              alignItems: "center",
+              borderRightWidth: i < stats.length - 1 ? 1 : 0,
+              borderRightColor: borderClr,
+              paddingHorizontal: 4,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 20,
+                color: sage,
+                lineHeight: 24,
+              }}
+            >
+              {stat.value}
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 11,
+                color: warmGray,
+                textAlign: "center",
+                marginTop: 2,
+                lineHeight: 14,
+              }}
+            >
+              {stat.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* View your week — opens the Weekly Garden Digest */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
+          marginTop: 12,
+          paddingTop: 10,
+          borderTopWidth: 1,
+          borderTopColor: borderClr,
+        }}
+      >
+        <Text
           style={{
-            flex: 1,
-            alignItems: "center",
-            borderRightWidth: i < stats.length - 1 ? 1 : 0,
-            borderRightColor: borderClr,
-            paddingHorizontal: 4,
+            fontFamily: fonts.sansMedium,
+            fontSize: 13,
+            color: sage,
           }}
         >
-          <Text
-            style={{
-              fontFamily: fonts.sansSemiBold,
-              fontSize: 20,
-              color: sage,
-              lineHeight: 24,
-            }}
-          >
-            {stat.value}
-          </Text>
-          <Text
-            style={{
-              fontFamily: fonts.sans,
-              fontSize: 11,
-              color: warmGray,
-              textAlign: "center",
-              marginTop: 2,
-              lineHeight: 14,
-            }}
-          >
-            {stat.label}
-          </Text>
-        </View>
-      ))}
-    </View>
+          View your week
+        </Text>
+        <ChevronRight color={sage} size={14} strokeWidth={2.5} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -904,6 +933,7 @@ export default function GardenScreen() {
                   personCount={persons.length}
                   memoryCount={memories.length}
                   interactionCount={allInteractions.length}
+                  onViewWeek={() => router.push("/(tabs)/activity")}
                 />
 
                 {/* Garden illustration hero — orientation Step 1 target */}
@@ -1057,29 +1087,6 @@ export default function GardenScreen() {
                         index={i}
                       />
                     ))}
-                    {/* Preview Garden Walk link */}
-                    <Pressable
-                      onPress={() => router.push("/garden-walk")}
-                      style={{
-                        alignSelf: "center",
-                        paddingVertical: 10,
-                        paddingHorizontal: 16,
-                        marginTop: 4,
-                        marginBottom: 8,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontFamily: fonts.sans,
-                          fontSize: 13,
-                          color: sage,
-                          textDecorationLine: "underline",
-                          textDecorationColor: sage + "66",
-                        }}
-                      >
-                        Preview Garden Walk
-                      </Text>
-                    </Pressable>
                   </>
                 ) : (
                   <View
@@ -1108,6 +1115,64 @@ export default function GardenScreen() {
                     </Text>
                   </View>
                 )}
+
+                {/* ─── Take a Garden Walk ─────────────────────── */}
+                <Pressable
+                  onPress={() => router.push("/garden-walk-setup")}
+                  style={{
+                    backgroundColor: white,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: borderClr,
+                    padding: 16,
+                    marginTop: 4,
+                    marginBottom: 12,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                    shadowColor: nearBlack,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: sagePale,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Leaf color={sage} size={20} strokeWidth={1.8} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontFamily: fonts.sansMedium,
+                        fontSize: 14,
+                        color: nearBlack,
+                        marginBottom: 2,
+                      }}
+                    >
+                      Take a garden walk
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: fonts.sans,
+                        fontSize: 13,
+                        color: warmGray,
+                        lineHeight: 18,
+                      }}
+                    >
+                      A quiet stroll through your week, whenever you're ready
+                    </Text>
+                  </View>
+                  <ChevronRight color={warmGray} size={18} strokeWidth={2} />
+                </Pressable>
               </Animated.View>
             )}
 

@@ -23,6 +23,7 @@ import {
   LogOut,
   ChevronRight,
   Heart,
+  Sprout,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import { FadeIn } from "@/components/ui";
@@ -427,6 +428,11 @@ export default function ProfileScreen() {
         </Text>
 
         <View style={{ marginBottom: 20 }}>
+          <SettingsRow
+            icon={<Sprout color={sage} size={18} strokeWidth={2} />}
+            label="Your week in the garden"
+            onPress={() => router.push("/(tabs)/activity")}
+          />
           <SettingsRow
             icon={<Settings color={sage} size={18} strokeWidth={2} />}
             label="Account"
