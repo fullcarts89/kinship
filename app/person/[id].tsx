@@ -35,6 +35,7 @@ import {
   MoreHorizontal,
   Check,
   Mail,
+  Pencil,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import {
@@ -883,14 +884,16 @@ export default function PersonDetailScreen() {
     transform: [{ scale: plantExitScale.value }],
   }));
 
-  // Refetch data + reset plant when screen regains focus (after returning from modal)
+  // Refetch data + reset plant when screen regains focus (after returning
+  // from a modal or the edit screen)
   useFocusEffect(
     useCallback(() => {
+      refetchPerson();
       refetchMemories();
       refetchInteractions();
       plantExitScale.value = withTiming(1, { duration: 300 });
       plantExitOpacity.value = withTiming(0.85, { duration: 300 });
-    }, [refetchMemories, refetchInteractions])
+    }, [refetchPerson, refetchMemories, refetchInteractions])
   );
 
   // ─── Orientation Steps 3–4 ────────────────────────────────────────────────
@@ -1214,16 +1217,39 @@ export default function PersonDetailScreen() {
         <FadeIn>
           {/* Person Info */}
           <View style={{ alignItems: "center", paddingHorizontal: 24, marginBottom: 20 }}>
-            <Text
+            <View
               style={{
-                fontFamily: fonts.serif,
-                fontSize: 28,
-                color: nearBlack,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
                 marginBottom: 10,
               }}
             >
-              {person.name}
-            </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.serif,
+                  fontSize: 28,
+                  color: nearBlack,
+                }}
+              >
+                {person.name}
+              </Text>
+              <Pressable
+                onPress={() => router.push(`/person/edit/${person.id}`)}
+                hitSlop={10}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: sagePale,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Pencil color={sage} size={14} strokeWidth={1.8} />
+              </Pressable>
+            </View>
 
             {/* Status Badges — growth stage + relationship + last interaction */}
             <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
@@ -1363,6 +1389,49 @@ export default function PersonDetailScreen() {
               </Animated.View>
             )}
           </View>
+
+          {/* What they love — interest chips */}
+          {person.interests && person.interests.length > 0 && (
+            <View style={{ paddingHorizontal: 24, marginBottom: 16 }}>
+              <Text
+                style={{
+                  fontFamily: fonts.sansSemiBold,
+                  fontSize: 11,
+                  color: warmGray,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  marginBottom: 8,
+                }}
+              >
+                What they love
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {person.interests.map((interest) => (
+                  <View
+                    key={interest}
+                    style={{
+                      backgroundColor: sagePale,
+                      borderWidth: 1,
+                      borderColor: sageLight,
+                      borderRadius: 16,
+                      paddingVertical: 5,
+                      paddingHorizontal: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: fonts.sansMedium,
+                        fontSize: 12,
+                        color: sageDark,
+                      }}
+                    >
+                      {interest}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Contact Info */}
           {(person.phone || person.email) && (
