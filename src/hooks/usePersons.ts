@@ -30,6 +30,12 @@ function persistPeople(): void {
   saveCollection("people", locallyCreatedPeople);
 }
 
+/** Remove all locally created people (used by the delete-account flow). */
+export function clearLocalPeople(): void {
+  locallyCreatedPeople.length = 0;
+  persistPeople();
+}
+
 // ─── usePersons ─────────────────────────────────────────────────────────────
 
 export function usePersons() {

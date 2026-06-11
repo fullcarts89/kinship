@@ -376,6 +376,18 @@ export function bootstrapGrowthFromData(
   notifyListeners();
 }
 
+/**
+ * Reset all growth state (used by the delete-account flow).
+ * Allows a fresh bootstrap on the next data load.
+ */
+export function resetGrowthState(): void {
+  _growthPoints.clear();
+  _dailyPoints.clear();
+  _recentTransitions.clear();
+  _isBootstrapped = false;
+  notifyListeners();
+}
+
 // ─── Subscription ───────────────────────────────────────────────────────────
 
 /**

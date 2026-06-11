@@ -35,7 +35,14 @@ import {
   FadingGardenIllustration,
 } from "@/components/illustrations";
 import { TextInput as RNTextInput } from "react-native";
-import { usePersons, useMemories, useAllInteractions } from "@/hooks";
+import { clearLocalPeople } from "@/hooks/usePersons";
+import { clearLocalMemories } from "@/hooks/useMemories";
+import { clearLocalInteractions } from "@/hooks/useInteractions";
+import { deleteAllPersons } from "@/services/personService";
+import { exportGardenData } from "@/lib/exportService";
+import { clearAllCollections } from "@/lib/localStore";
+import { resetGrowthState } from "@/lib/growthEngine";
+import { useAuth } from "@/providers";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
@@ -466,9 +473,7 @@ function DeleteConfirmedScreen({ onDone, insets }: { onDone: () => void; insets:
 export default function PrivacyScreen() {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
-  const { persons } = usePersons();
-  const { memories } = useMemories();
-  const { interactions } = useAllInteractions();
+  const { signOut } = useAuth();
 
   const screenInsets: Insets = { top: insets.top, bottom: insets.bottom };
 
@@ -481,55 +486,42 @@ export default function PrivacyScreen() {
   }, []);
 
   const handleExport = useCallback(async () => {
-    try {
-      const exportData = {
-        exported_at: new Date().toISOString(),
-        persons: persons.map((p) => ({
-          name: p.name,
-          relationship_type: p.relationship_type,
-          birthday: (p as any).birthday ?? null,
-          created_at: p.created_at,
-        })),
-        memories: memories.map((m) => ({
-          person_id: m.person_id,
-          content: m.content,
-          emotion: m.emotion,
-          occurred_at: m.occurred_at,
-          created_at: m.created_at,
-        })),
-        interactions: interactions.map((i) => ({
-          person_id: i.person_id,
-          type: i.type,
-          note: i.note ?? null,
-          emotion: i.emotion ?? null,
-          created_at: i.created_at,
-        })),
-      };
-
-      const jsonString = JSON.stringify(exportData, null, 2);
-
-      // Lazy require to avoid crash if modules aren't available
-      const FileSystem = require("expo-file-system");
-      const Sharing = require("expo-sharing");
-
-      const fileUri = FileSystem.documentDirectory + "kinship-export.json";
-      await FileSystem.writeAsStringAsync(fileUri, jsonString, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: "application/json",
-          dialogTitle: "Export your garden data",
-          UTI: "public.json",
-        });
-      } else {
-        Alert.alert("Export saved", "Your data has been saved to the app's documents folder.");
-      }
-    } catch (err: any) {
-      Alert.alert("Export failed", err?.message ?? "Something went wrong");
+    // exportService merges Supabase data (when configured) with everything
+    // created on-device, writes the JSON, and opens the share sheet.
+    const result = await exportGardenData();
+    if (!result.success) {
+      Alert.alert("Export failed", result.error ?? "Something went wrong");
     }
-  }, [persons, memories, interactions]);
+  }, []);
+
+  const handleDelete = useCallback(async () => {
+    // Remove server data first (memories/interactions cascade from persons),
+    // then wipe everything stored on this device.
+    if (isSupabaseConfigured) {
+      try {
+        await deleteAllPersons();
+      } catch {
+        // Offline or auth failure — local data is still removed below;
+        // server rows remain protected by RLS until the next attempt.
+      }
+    }
+    clearLocalPeople();
+    clearLocalMemories();
+    clearLocalInteractions();
+    clearAllCollections();
+    resetGrowthState();
+    try {
+      await signOut();
+    } catch {
+      // Sign-out failure shouldn't trap the user in the delete flow.
+    }
+    setStep(4);
+  }, [signOut]);
+
+  const handleDeleteDone = useCallback(() => {
+    // Entry redirect decides: login when Supabase is configured, tabs in mock mode.
+    router.replace("/");
+  }, []);
 
   switch (step) {
     case 0:
@@ -539,9 +531,9 @@ export default function PrivacyScreen() {
     case 2:
       return <DeleteStep1Screen insets={screenInsets} onContinue={() => setStep(3)} onCancel={() => setStep(0)} />;
     case 3:
-      return <DeleteStep2Screen insets={screenInsets} onDelete={() => setStep(4)} onCancel={() => setStep(2)} />;
+      return <DeleteStep2Screen insets={screenInsets} onDelete={handleDelete} onCancel={() => setStep(2)} />;
     case 4:
-      return <DeleteConfirmedScreen insets={screenInsets} onDone={goBack} />;
+      return <DeleteConfirmedScreen insets={screenInsets} onDone={handleDeleteDone} />;
     default:
       return null;
   }

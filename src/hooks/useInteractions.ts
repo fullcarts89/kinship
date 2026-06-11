@@ -30,6 +30,12 @@ function persistInteractions(): void {
   saveCollection("interactions", locallyCreatedInteractions);
 }
 
+/** Remove all locally created interactions (used by the delete-account flow). */
+export function clearLocalInteractions(): void {
+  locallyCreatedInteractions.length = 0;
+  persistInteractions();
+}
+
 // ─── usePersonInteractions ──────────────────────────────────────────────────
 
 export function usePersonInteractions(personId: string) {

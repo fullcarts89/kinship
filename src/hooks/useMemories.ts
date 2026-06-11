@@ -30,6 +30,12 @@ function persistMemories(): void {
   saveCollection("memories", locallyCreatedMemories);
 }
 
+/** Remove all locally created memories (used by the delete-account flow). */
+export function clearLocalMemories(): void {
+  locallyCreatedMemories.length = 0;
+  persistMemories();
+}
+
 // ─── useMemories (all) ─────────────────────────────────────────────────────
 
 export function useMemories() {
