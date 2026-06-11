@@ -86,7 +86,7 @@ export function getDaysSinceLastActivity(
  * Convenience: compute full VitalityInfo for a person's activity history.
  */
 export function getVitalityInfo(
-  memories: { created_at: string }[],
+  memories: { occurred_at?: string; created_at: string }[],
   interactions: { created_at: string }[]
 ): VitalityInfo {
   const days = getDaysSinceLastActivity(memories, interactions);

@@ -8,11 +8,27 @@
 
 import { useState, useEffect, useCallback } from "react";
 import * as interactionService from "@/services/interactionService";
+import { loadCollection, saveCollection } from "@/lib/localStore";
 import { mockInteractions } from "@/data/mock";
 import type { Interaction, InteractionInsert } from "@/types/database";
 
 // ─── Module-level Mock Persistence ─────────────────────────────────────────
 const locallyCreatedInteractions: Interaction[] = [];
+
+/** Hydrate locally created interactions from disk exactly once per app launch. */
+let _hydration: Promise<void> | null = null;
+function ensureHydrated(): Promise<void> {
+  if (!_hydration) {
+    _hydration = loadCollection<Interaction>("interactions").then((stored) => {
+      locallyCreatedInteractions.push(...stored);
+    });
+  }
+  return _hydration;
+}
+
+function persistInteractions(): void {
+  saveCollection("interactions", locallyCreatedInteractions);
+}
 
 // ─── usePersonInteractions ──────────────────────────────────────────────────
 
@@ -24,6 +40,7 @@ export function usePersonInteractions(personId: string) {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
+    await ensureHydrated();
     try {
       setIsLoading(true);
       setError(null);
@@ -71,6 +88,7 @@ export function useCreateInteraction() {
 
   const createInteraction = useCallback(
     async (interaction: Omit<InteractionInsert, "user_id">) => {
+      await ensureHydrated();
       try {
         setIsCreating(true);
         setError(null);
@@ -89,6 +107,7 @@ export function useCreateInteraction() {
           created_at: new Date().toISOString(),
         };
         locallyCreatedInteractions.unshift(newInteraction);
+        persistInteractions();
         return newInteraction;
       } finally {
         setIsCreating(false);
@@ -109,6 +128,7 @@ export function useAllInteractions() {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
+    await ensureHydrated();
     try {
       setIsLoading(true);
       setError(null);

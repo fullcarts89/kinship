@@ -4,21 +4,20 @@
  * Gathers all garden data (persons, memories, interactions, preferences)
  * and exports it as a JSON file via the native share sheet.
  *
- * Falls back to mock data when Supabase is not configured or the fetch fails.
+ * When Supabase is configured, exports the user's server data. Otherwise
+ * exports the locally persisted garden (people, memories, and interactions
+ * the user actually created on this device) — never the bundled demo data.
  */
 
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
 import { getPersons } from "@/services/personService";
 import { getMemories } from "@/services/memoryService";
 import { getAllInteractions } from "@/services/interactionService";
 import { getGardenWalkPreferences } from "@/lib/notificationEngine";
-import {
-  mockPeople,
-  mockMemories,
-  mockInteractions,
-} from "@/data/mock";
+import { loadCollection } from "@/lib/localStore";
+import type { Person, Memory, Interaction } from "@/types/database";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -31,26 +30,34 @@ export interface ExportResult {
 
 export async function exportGardenData(): Promise<ExportResult> {
   try {
-    // Fetch live data, falling back to mock if Supabase is unavailable
-    let persons;
+    // Fetch live data; fall back to the locally persisted garden when
+    // Supabase is unavailable. Local data is merged in either way so
+    // nothing the user created on-device is left out of their export.
+    const [localPersons, localMemories, localInteractions] = await Promise.all([
+      loadCollection<Person>("people"),
+      loadCollection<Memory>("memories"),
+      loadCollection<Interaction>("interactions"),
+    ]);
+
+    let persons: Person[];
     try {
-      persons = await getPersons();
+      persons = mergeById(localPersons, await getPersons());
     } catch {
-      persons = mockPeople;
+      persons = localPersons;
     }
 
-    let memories;
+    let memories: Memory[];
     try {
-      memories = await getMemories();
+      memories = mergeById(localMemories, await getMemories());
     } catch {
-      memories = mockMemories;
+      memories = localMemories;
     }
 
-    let interactions;
+    let interactions: Interaction[];
     try {
-      interactions = await getAllInteractions();
+      interactions = mergeById(localInteractions, await getAllInteractions());
     } catch {
-      interactions = mockInteractions;
+      interactions = localInteractions;
     }
 
     const gardenWalk = getGardenWalkPreferences();
@@ -67,13 +74,10 @@ export async function exportGardenData(): Promise<ExportResult> {
     };
 
     const json = JSON.stringify(exportPayload, null, 2);
-    const fileUri = `${FileSystem.cacheDirectory}kinship-export.json`;
+    const file = new File(Paths.cache, "kinship-export.json");
+    file.write(json);
 
-    await FileSystem.writeAsStringAsync(fileUri, json, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
-
-    await Sharing.shareAsync(fileUri, {
+    await Sharing.shareAsync(file.uri, {
       mimeType: "application/json",
       dialogTitle: "Export your garden",
       UTI: "public.json",
@@ -85,4 +89,9 @@ export async function exportGardenData(): Promise<ExportResult> {
       err instanceof Error ? err.message : "Unknown export error";
     return { success: false, error: message };
   }
+}
+
+function mergeById<T extends { id: string }>(local: T[], remote: T[]): T[] {
+  const localIds = new Set(local.map((item) => item.id));
+  return [...local, ...remote.filter((item) => !localIds.has(item.id))];
 }

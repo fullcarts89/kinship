@@ -8,11 +8,27 @@
 
 import { useState, useEffect, useCallback } from "react";
 import * as memoryService from "@/services/memoryService";
+import { loadCollection, saveCollection } from "@/lib/localStore";
 import { mockMemories } from "@/data/mock";
 import type { Memory, MemoryInsert } from "@/types/database";
 
 // ─── Module-level Mock Persistence ─────────────────────────────────────────
 const locallyCreatedMemories: Memory[] = [];
+
+/** Hydrate locally created memories from disk exactly once per app launch. */
+let _hydration: Promise<void> | null = null;
+function ensureHydrated(): Promise<void> {
+  if (!_hydration) {
+    _hydration = loadCollection<Memory>("memories").then((stored) => {
+      locallyCreatedMemories.push(...stored);
+    });
+  }
+  return _hydration;
+}
+
+function persistMemories(): void {
+  saveCollection("memories", locallyCreatedMemories);
+}
 
 // ─── useMemories (all) ─────────────────────────────────────────────────────
 
@@ -22,6 +38,7 @@ export function useMemories() {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
+    await ensureHydrated();
     try {
       setIsLoading(true);
       setError(null);
@@ -53,6 +70,7 @@ export function usePersonMemories(personId: string) {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
+    await ensureHydrated();
     try {
       setIsLoading(true);
       setError(null);
@@ -89,6 +107,7 @@ export function useCreateMemory() {
 
   const createMemory = useCallback(
     async (memory: Omit<MemoryInsert, "user_id">): Promise<Memory> => {
+      await ensureHydrated();
       try {
         setIsCreating(true);
         setError(null);
@@ -107,6 +126,7 @@ export function useCreateMemory() {
           created_at: new Date().toISOString(),
         };
         locallyCreatedMemories.unshift(newMemory);
+        persistMemories();
         return newMemory;
       } finally {
         setIsCreating(false);
@@ -125,6 +145,7 @@ export function useMemory(id: string) {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetch = useCallback(async () => {
+    await ensureHydrated();
     try {
       setIsLoading(true);
       // Placeholder for future Supabase lookup

@@ -7,13 +7,28 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import * as personService from "@/services/personService";
+import { loadCollection, saveCollection } from "@/lib/localStore";
 import { mockPeople } from "@/data/mock";
 import type { Person, PersonInsert } from "@/types/database";
 
 // ─── Module-level Mock Persistence ─────────────────────────────────────────
 const locallyCreatedPeople: Person[] = [];
+
+/** Hydrate locally created people from disk exactly once per app launch. */
+let _hydration: Promise<void> | null = null;
+function ensureHydrated(): Promise<void> {
+  if (!_hydration) {
+    _hydration = loadCollection<Person>("people").then((stored) => {
+      locallyCreatedPeople.push(...stored);
+    });
+  }
+  return _hydration;
+}
+
+function persistPeople(): void {
+  saveCollection("people", locallyCreatedPeople);
+}
 
 // ─── usePersons ─────────────────────────────────────────────────────────────
 
@@ -23,6 +38,7 @@ export function usePersons() {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
+    await ensureHydrated();
     try {
       setIsLoading(true);
       setError(null);
@@ -45,6 +61,7 @@ export function usePersons() {
 
   const createPerson = useCallback(
     async (person: Omit<PersonInsert, "user_id">): Promise<Person> => {
+      await ensureHydrated();
       try {
         const created = await personService.createPerson(person);
         locallyCreatedPeople.unshift(created);
@@ -64,6 +81,7 @@ export function usePersons() {
           created_at: new Date().toISOString(),
         };
         locallyCreatedPeople.unshift(newPerson);
+        persistPeople();
         setPersons((prev) => [newPerson, ...prev]);
         return newPerson;
       }
@@ -83,6 +101,7 @@ export function usePerson(id: string) {
   const cancelledRef = useRef(false);
 
   const fetch = useCallback(async () => {
+    await ensureHydrated();
     try {
       setIsLoading(true);
       setError(null);

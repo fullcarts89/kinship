@@ -111,7 +111,7 @@ export async function scheduleGardenWalkNotification(): Promise<void> {
       },
     },
     trigger: {
-      type: "date" as const,
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
       date: triggerDate,
     },
   });
@@ -223,6 +223,8 @@ export function setupNotificationHandler(): void {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: false,
       shouldSetBadge: false,
     }),
