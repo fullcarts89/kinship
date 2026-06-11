@@ -11,7 +11,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { getAuthUserId } from "@/lib/auth";
-import type { Memory, MemoryInsert } from "@/types/database";
+import type { Memory, MemoryInsert, MemoryUpdate } from "@/types/database";
 
 // ─── Read ───────────────────────────────────────────────────────────────────
 
@@ -78,4 +78,37 @@ export async function createMemory(
 
   if (error) throw new Error(error.message || "Database operation failed");
   return data as Memory;
+}
+
+export async function updateMemory(
+  id: string,
+  updates: MemoryUpdate
+): Promise<Memory> {
+  if (!supabase) throw new Error("Supabase not configured");
+
+  const userId = await getAuthUserId();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const query = supabase.from("memories") as any;
+  const { data, error } = await query
+    .update(updates)
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message || "Database operation failed");
+  return data as Memory;
+}
+
+export async function deleteMemory(id: string): Promise<void> {
+  if (!supabase) throw new Error("Supabase not configured");
+
+  const userId = await getAuthUserId();
+  const { error } = await supabase
+    .from("memories")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message || "Database operation failed");
 }

@@ -11,12 +11,13 @@ export { useTheme } from "@/providers/ThemeProvider";
 
 // ─── Data Hooks ─────────────────────────────────────────────────────────────
 
-export { usePersons, usePerson, useUpdatePerson } from "./usePersons";
-export { useMemories, usePersonMemories, useCreateMemory, useMemory } from "./useMemories";
+export { usePersons, usePerson, useUpdatePerson, useDeletePerson } from "./usePersons";
+export { useMemories, usePersonMemories, useCreateMemory, useMemory, useUpdateMemory, useDeleteMemory } from "./useMemories";
 export {
   usePersonInteractions,
   useAllInteractions,
   useCreateInteraction,
+  useDeleteInteraction,
 } from "./useInteractions";
 
 // ─── Growth Hooks ──────────────────────────────────────────────────────────

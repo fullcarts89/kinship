@@ -10,20 +10,37 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import * as personService from "@/services/personService";
 import { loadCollection, saveCollection } from "@/lib/localStore";
 import { mockPeople } from "@/data/mock";
+import { removeLocalMemoriesForPerson } from "@/hooks/useMemories";
+import { removeLocalInteractionsForPerson } from "@/hooks/useInteractions";
 import type { Person, PersonInsert, PersonUpdate } from "@/types/database";
 
 // ─── Module-level Mock Persistence ─────────────────────────────────────────
 const locallyCreatedPeople: Person[] = [];
 
+/** IDs of removed people — tombstones so demo data can't resurrect. */
+const locallyDeletedPersonIds = new Set<string>();
+
 /** Hydrate locally created people from disk exactly once per app launch. */
 let _hydration: Promise<void> | null = null;
 function ensureHydrated(): Promise<void> {
   if (!_hydration) {
-    _hydration = loadCollection<Person>("people").then((stored) => {
+    _hydration = Promise.all([
+      loadCollection<Person>("people"),
+      loadCollection<string>("deleted-people"),
+    ]).then(([stored, deleted]) => {
       locallyCreatedPeople.push(...stored);
+      deleted.forEach((id) => locallyDeletedPersonIds.add(id));
     });
   }
   return _hydration;
+}
+
+function persistDeletedPeople(): void {
+  saveCollection("deleted-people", [...locallyDeletedPersonIds]);
+}
+
+function isPersonDeleted(id: string): boolean {
+  return locallyDeletedPersonIds.has(id);
 }
 
 function persistPeople(): void {
@@ -48,7 +65,9 @@ function upsertLocalPerson(person: Person): void {
 /** Remove all locally created people (used by the delete-account flow). */
 export function clearLocalPeople(): void {
   locallyCreatedPeople.length = 0;
+  locallyDeletedPersonIds.clear();
   persistPeople();
+  persistDeletedPeople();
 }
 
 // ─── usePersons ─────────────────────────────────────────────────────────────
@@ -66,14 +85,20 @@ export function usePersons() {
       const data = await personService.getPersons();
       // Always merge locally created people so saves persist across refetches
       const localIds = new Set(locallyCreatedPeople.map((p) => p.id));
-      setPersons([...locallyCreatedPeople, ...data.filter((p) => !localIds.has(p.id))]);
+      setPersons(
+        [...locallyCreatedPeople, ...data.filter((p) => !localIds.has(p.id))].filter(
+          (p) => !isPersonDeleted(p.id)
+        )
+      );
     } catch {
       // Mock mode — merge locally created + mock data (local shadows mock)
       const localIds = new Set(locallyCreatedPeople.map((p) => p.id));
-      setPersons([
-        ...locallyCreatedPeople,
-        ...mockPeople.filter((p) => !localIds.has(p.id)),
-      ]);
+      setPersons(
+        [
+          ...locallyCreatedPeople,
+          ...mockPeople.filter((p) => !localIds.has(p.id)),
+        ].filter((p) => !isPersonDeleted(p.id))
+      );
       setError(null);
     } finally {
       setIsLoading(false);
@@ -150,6 +175,40 @@ export function useUpdatePerson() {
   return { updatePerson, isUpdating };
 }
 
+// ─── useDeletePerson ────────────────────────────────────────────────────────
+
+export function useDeletePerson() {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  /**
+   * Remove a person from the garden, along with their memories and
+   * interactions. Works in both Supabase mode (rows cascade via FK)
+   * and mock mode (local tombstones).
+   */
+  const deletePerson = useCallback(async (id: string): Promise<void> => {
+    await ensureHydrated();
+    setIsDeleting(true);
+    try {
+      try {
+        await personService.deletePerson(id);
+      } catch {
+        // Mock mode — the tombstone below is the deletion
+      }
+      const idx = locallyCreatedPeople.findIndex((p) => p.id === id);
+      if (idx >= 0) locallyCreatedPeople.splice(idx, 1);
+      locallyDeletedPersonIds.add(id);
+      persistPeople();
+      persistDeletedPeople();
+      await removeLocalMemoriesForPerson(id);
+      await removeLocalInteractionsForPerson(id);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, []);
+
+  return { deletePerson, isDeleting };
+}
+
 // ─── usePerson ──────────────────────────────────────────────────────────────
 
 export function usePerson(id: string) {
@@ -168,10 +227,11 @@ export function usePerson(id: string) {
     } catch {
       // Mock fallback — check locally created people, then mock data
       if (!cancelledRef.current) {
-        const local =
-          locallyCreatedPeople.find((p) => p.id === id) ??
-          mockPeople.find((p) => p.id === id) ??
-          null;
+        const local = isPersonDeleted(id)
+          ? null
+          : (locallyCreatedPeople.find((p) => p.id === id) ??
+            mockPeople.find((p) => p.id === id) ??
+            null);
         setPerson(local);
         setError(local ? null : new Error("Person not found"));
       }

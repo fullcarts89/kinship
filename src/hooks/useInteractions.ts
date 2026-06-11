@@ -15,12 +15,19 @@ import type { Interaction, InteractionInsert } from "@/types/database";
 // ─── Module-level Mock Persistence ─────────────────────────────────────────
 const locallyCreatedInteractions: Interaction[] = [];
 
+/** IDs of deleted interactions — tombstones so demo data can't resurrect. */
+const locallyDeletedInteractionIds = new Set<string>();
+
 /** Hydrate locally created interactions from disk exactly once per app launch. */
 let _hydration: Promise<void> | null = null;
 function ensureHydrated(): Promise<void> {
   if (!_hydration) {
-    _hydration = loadCollection<Interaction>("interactions").then((stored) => {
+    _hydration = Promise.all([
+      loadCollection<Interaction>("interactions"),
+      loadCollection<string>("deleted-interactions"),
+    ]).then(([stored, deleted]) => {
       locallyCreatedInteractions.push(...stored);
+      deleted.forEach((id) => locallyDeletedInteractionIds.add(id));
     });
   }
   return _hydration;
@@ -30,10 +37,36 @@ function persistInteractions(): void {
   saveCollection("interactions", locallyCreatedInteractions);
 }
 
+function persistDeletedInteractions(): void {
+  saveCollection("deleted-interactions", [...locallyDeletedInteractionIds]);
+}
+
+function isDeleted(i: Interaction): boolean {
+  return locallyDeletedInteractionIds.has(i.id);
+}
+
+/** Cascade helper: drop every interaction belonging to a removed person. */
+export async function removeLocalInteractionsForPerson(personId: string): Promise<void> {
+  await ensureHydrated();
+  for (let i = locallyCreatedInteractions.length - 1; i >= 0; i--) {
+    if (locallyCreatedInteractions[i].person_id === personId) {
+      locallyDeletedInteractionIds.add(locallyCreatedInteractions[i].id);
+      locallyCreatedInteractions.splice(i, 1);
+    }
+  }
+  for (const it of mockInteractions) {
+    if (it.person_id === personId) locallyDeletedInteractionIds.add(it.id);
+  }
+  persistInteractions();
+  persistDeletedInteractions();
+}
+
 /** Remove all locally created interactions (used by the delete-account flow). */
 export function clearLocalInteractions(): void {
   locallyCreatedInteractions.length = 0;
+  locallyDeletedInteractionIds.clear();
   persistInteractions();
+  persistDeletedInteractions();
 }
 
 // ─── usePersonInteractions ──────────────────────────────────────────────────
@@ -57,7 +90,9 @@ export function usePersonInteractions(personId: string) {
       // Always merge locally created interactions so saves persist across refetches
       const localForPerson = locallyCreatedInteractions.filter((i) => i.person_id === personId);
       const localIds = new Set(localForPerson.map((i) => i.id));
-      const merged = [...localForPerson, ...allInteractions.filter((i) => !localIds.has(i.id))];
+      const merged = [...localForPerson, ...allInteractions.filter((i) => !localIds.has(i.id))].filter(
+        (i) => !isDeleted(i)
+      );
       const sorted = merged.sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
@@ -65,9 +100,11 @@ export function usePersonInteractions(personId: string) {
       setLatestInteraction(sorted[0] ?? null);
     } catch {
       // Mock mode — merge locally created + mock data, filtered by person
-      const allMock = [...locallyCreatedInteractions, ...mockInteractions].filter(
-        (i) => i.person_id === personId
-      );
+      const localIds = new Set(locallyCreatedInteractions.map((i) => i.id));
+      const allMock = [
+        ...locallyCreatedInteractions,
+        ...mockInteractions.filter((i) => !localIds.has(i.id)),
+      ].filter((i) => i.person_id === personId && !isDeleted(i));
       const sorted = allMock.sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
@@ -141,10 +178,20 @@ export function useAllInteractions() {
       const data = await interactionService.getAllInteractions();
       // Always merge locally created interactions so saves persist across refetches
       const localIds = new Set(locallyCreatedInteractions.map((i) => i.id));
-      setInteractions([...locallyCreatedInteractions, ...data.filter((i) => !localIds.has(i.id))]);
+      setInteractions(
+        [...locallyCreatedInteractions, ...data.filter((i) => !localIds.has(i.id))].filter(
+          (i) => !isDeleted(i)
+        )
+      );
     } catch {
-      // Mock mode — merge locally created + mock data
-      setInteractions([...locallyCreatedInteractions, ...mockInteractions]);
+      // Mock mode — merge locally created + mock data (local shadows mock)
+      const localIds = new Set(locallyCreatedInteractions.map((i) => i.id));
+      setInteractions(
+        [
+          ...locallyCreatedInteractions,
+          ...mockInteractions.filter((i) => !localIds.has(i.id)),
+        ].filter((i) => !isDeleted(i))
+      );
       setError(null);
     } finally {
       setIsLoading(false);
@@ -156,4 +203,31 @@ export function useAllInteractions() {
   }, [fetch]);
 
   return { interactions, isLoading, error, refetch: fetch };
+}
+
+// ─── useDeleteInteraction ───────────────────────────────────────────────────
+
+export function useDeleteInteraction() {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const deleteInteraction = useCallback(async (id: string): Promise<void> => {
+    await ensureHydrated();
+    setIsDeleting(true);
+    try {
+      try {
+        await interactionService.deleteInteraction(id);
+      } catch {
+        // Mock mode — the tombstone below is the deletion
+      }
+      const idx = locallyCreatedInteractions.findIndex((i) => i.id === id);
+      if (idx >= 0) locallyCreatedInteractions.splice(idx, 1);
+      locallyDeletedInteractionIds.add(id);
+      persistInteractions();
+      persistDeletedInteractions();
+    } finally {
+      setIsDeleting(false);
+    }
+  }, []);
+
+  return { deleteInteraction, isDeleting };
 }
