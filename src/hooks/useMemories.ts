@@ -238,7 +238,7 @@ export function useMemory(id: string) {
     fetch();
   }, [fetch]);
 
-  return { memory, isLoading };
+  return { memory, isLoading, refetch: fetch };
 }
 
 // ─── useUpdateMemory ────────────────────────────────────────────────────────
