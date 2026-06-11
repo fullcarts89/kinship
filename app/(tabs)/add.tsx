@@ -31,6 +31,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { takePhotoWithCamera } from "@/lib/photoPicker";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -1627,6 +1628,21 @@ export default function AddPersonScreen() {
   // app's photo-library permission status.
 
   const handlePickPhoto = async () => {
+    if (Platform.OS !== "web") {
+      const choice = await new Promise<"camera" | "library" | null>((resolve) => {
+        Alert.alert("Add a photo", undefined, [
+          { text: "Take photo", onPress: () => resolve("camera") },
+          { text: "Choose from library", onPress: () => resolve("library") },
+          { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
+        ]);
+      });
+      if (choice === null) return;
+      if (choice === "camera") {
+        const uri = await takePhotoWithCamera();
+        if (uri) setPhotoUri(uri);
+        return;
+      }
+    }
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images", "livePhotos"],
@@ -1652,6 +1668,21 @@ export default function AddPersonScreen() {
   // browse album folders. Visual circle crop is handled by borderRadius.
 
   const handlePickProfilePhoto = async () => {
+    if (Platform.OS !== "web") {
+      const choice = await new Promise<"camera" | "library" | null>((resolve) => {
+        Alert.alert("Add a photo", undefined, [
+          { text: "Take photo", onPress: () => resolve("camera") },
+          { text: "Choose from library", onPress: () => resolve("library") },
+          { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
+        ]);
+      });
+      if (choice === null) return;
+      if (choice === "camera") {
+        const uri = await takePhotoWithCamera();
+        if (uri) setProfilePhotoUri(uri);
+        return;
+      }
+    }
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images", "livePhotos"],

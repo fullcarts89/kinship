@@ -249,6 +249,9 @@ export default function SelectPersonScreen() {
       case "reach-out":
         router.replace(`/reach-out/${person.id}`);
         break;
+      case "quick-note":
+        router.replace(`/quick-note/${person.id}`);
+        break;
       default:
         // Fallback: close the screen
         if (router.canGoBack()) {
@@ -276,7 +279,9 @@ export default function SelectPersonScreen() {
   const headerText =
     intent === "reach-out"
       ? "Who would you like to\nreach out to?"
-      : "Choose someone";
+      : intent === "quick-note"
+        ? "Who is this about?"
+        : "Choose someone";
 
   return (
     <KeyboardAvoidingView

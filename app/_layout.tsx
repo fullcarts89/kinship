@@ -157,6 +157,13 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="quick-note"
+          options={{
+            headerShown: false,
+            presentation: "modal",
+          }}
+        />
+        <Stack.Screen
           name="import-contacts"
           options={{
             headerShown: false,

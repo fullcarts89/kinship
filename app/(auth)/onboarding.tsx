@@ -11,10 +11,9 @@ import {
   PanResponder,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Camera, ChevronRight } from "lucide-react-native";
+import { Camera, ChevronLeft, ChevronRight } from "lucide-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -37,6 +36,7 @@ import { Button, PressableScale } from "@/components/ui";
 import { usePersons, useCreateMemory } from "@/hooks";
 import { recordMemoryGrowth } from "@/lib/growthEngine";
 import { markOnboardingComplete } from "@/lib/onboardingStatus";
+import { pickPhoto } from "@/lib/photoPicker";
 import {
   GardenGrowthIllustration,
   SeedIllustration,
@@ -177,6 +177,37 @@ function SettleSwayIllustration({
   return <Animated.View style={animStyle}>{children}</Animated.View>;
 }
 
+// ─── Back Button ────────────────────────────────────────────────────────────
+
+function StepBackButton({ onPress, topInset }: { onPress: () => void; topInset: number }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={12}
+      accessibilityLabel="Go back"
+      style={{
+        position: "absolute",
+        top: topInset + 10,
+        left: 20,
+        zIndex: 10,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: white,
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: nearBlack,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 2,
+      }}
+    >
+      <ChevronLeft size={20} color={warmGray} />
+    </Pressable>
+  );
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
@@ -257,6 +288,7 @@ export default function OnboardingScreen() {
           name={personName}
           onNameChange={setPersonName}
           onNext={handlePersonNext}
+          onBack={() => setScreen("carousel")}
           onSkip={() => setScreen("dashboard")}
         />
       );
@@ -267,6 +299,7 @@ export default function OnboardingScreen() {
           insets={insets}
           personName={personName || "them"}
           onNext={() => setScreen("addMemory")}
+          onBack={() => setScreen("addPerson")}
         />
       );
       break;
@@ -276,6 +309,7 @@ export default function OnboardingScreen() {
           insets={insets}
           personName={personName || "them"}
           onSave={handleMemorySave}
+          onBack={() => setScreen("dreamPreview")}
           onSkip={() => setScreen("dashboard")}
         />
       );
@@ -508,6 +542,7 @@ interface AddFirstPersonProps {
   name: string;
   onNameChange: (name: string) => void;
   onNext: () => void;
+  onBack: () => void;
   onSkip: () => void;
 }
 
@@ -516,6 +551,7 @@ function AddFirstPersonScreen({
   name,
   onNameChange,
   onNext,
+  onBack,
   onSkip,
 }: AddFirstPersonProps) {
   return (
@@ -527,6 +563,7 @@ function AddFirstPersonScreen({
         paddingBottom: insets.bottom,
       }}
     >
+      <StepBackButton onPress={onBack} topInset={insets.top} />
       <View style={{ flex: 1, paddingHorizontal: 24 }}>
         {/* Illustration — settles in with a soft overshoot, then sways gently */}
         <View style={{ alignItems: "center", marginTop: 40, marginBottom: 8 }}>
@@ -648,25 +685,17 @@ interface AddMemoryScreenProps {
   insets: { top: number; bottom: number };
   personName: string;
   onSave: (content: string, photoUri: string | null) => void;
+  onBack: () => void;
   onSkip: () => void;
 }
 
-function AddMemoryScreen({ insets, personName, onSave, onSkip }: AddMemoryScreenProps) {
+function AddMemoryScreen({ insets, personName, onSave, onBack, onSkip }: AddMemoryScreenProps) {
   const [memoryText, setMemoryText] = useState("");
   const [photoUri, setPhotoUri] = useState<string | null>(null);
 
-  const pickPhoto = useCallback(async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
-      }
-    } catch {
-      // Picker unavailable — text-only memory still works.
-    }
+  const handlePickPhoto = useCallback(async () => {
+    const uri = await pickPhoto();
+    if (uri) setPhotoUri(uri);
   }, []);
 
   return (
@@ -678,6 +707,7 @@ function AddMemoryScreen({ insets, personName, onSave, onSkip }: AddMemoryScreen
         paddingBottom: insets.bottom,
       }}
     >
+      <StepBackButton onPress={onBack} topInset={insets.top} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 24, flexGrow: 1 }}
@@ -710,16 +740,16 @@ function AddMemoryScreen({ insets, personName, onSave, onSkip }: AddMemoryScreen
 
         {/* Photo Picker Area */}
         {photoUri ? (
-          <Pressable onPress={pickPhoto} style={{ marginBottom: 24 }}>
+          <PressableScale onPress={handlePickPhoto} style={{ marginBottom: 24 }}>
             <Image
               source={{ uri: photoUri }}
               style={{ width: "100%", height: 220, borderRadius: 24 }}
               resizeMode="cover"
             />
-          </Pressable>
+          </PressableScale>
         ) : (
-        <Pressable
-          onPress={pickPhoto}
+        <PressableScale
+          onPress={handlePickPhoto}
           style={{
             backgroundColor: sagePale,
             borderWidth: 2,
@@ -772,7 +802,7 @@ function AddMemoryScreen({ insets, personName, onSave, onSkip }: AddMemoryScreen
           >
             Or write about your memory below
           </Text>
-        </Pressable>
+        </PressableScale>
         )}
 
         {/* Text Field */}
@@ -856,6 +886,7 @@ interface DreamPreviewScreenProps {
   insets: { top: number; bottom: number };
   personName: string;
   onNext: () => void;
+  onBack: () => void;
 }
 
 /** Final grow stage: bloom settles in with a spring, then sways gently. */
@@ -946,10 +977,12 @@ function GrowingBloomIllustration({ size }: { size: number }) {
   );
 }
 
-function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenProps) {
+function DreamPreviewScreen({ insets, personName, onNext, onBack }: DreamPreviewScreenProps) {
   const displayName = personName === "them" ? "someone you love" : personName;
   const firstName = personName === "them" ? "them" : personName.split(" ")[0];
 
+  // Decorative preview only — rendered at reduced opacity with a caption
+  // so it never reads as tappable.
   const sampleMemories = [
     { emoji: "☕", text: `That long coffee catch-up with ${firstName}` },
     { emoji: "🎉", text: `Celebrating ${firstName}'s big news` },
@@ -965,6 +998,7 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
         paddingBottom: insets.bottom,
       }}
     >
+      <StepBackButton onPress={onBack} topInset={insets.top} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}
@@ -1027,9 +1061,9 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
             marginBottom: 12,
           }}
         >
-          Moments you might capture
+          A glimpse of what's ahead
         </Text>
-        <View style={{ gap: 10, marginBottom: 32 }}>
+        <View style={{ gap: 10, marginBottom: 32, opacity: 0.65 }}>
           {sampleMemories.map((m, i) => (
             <View
               key={i}
@@ -1043,6 +1077,7 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
                 gap: 12,
                 borderWidth: 1,
                 borderColor: borderColor,
+                borderStyle: "dashed",
               }}
             >
               <Text style={{ fontSize: 20 }}>{m.emoji}</Text>

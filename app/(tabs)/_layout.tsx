@@ -10,6 +10,7 @@ import {
   MessageCircle,
   UserPlus,
   BookUser,
+  PenLine,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -124,6 +125,11 @@ export default function TabLayout() {
   const handleReachOut = () => {
     closeTendSheet();
     router.push("/select-person?intent=reach-out");
+  };
+
+  const handleQuickNote = () => {
+    closeTendSheet();
+    router.push("/select-person?intent=quick-note");
   };
 
   const handleAddSomeone = () => {
@@ -348,6 +354,58 @@ export default function TabLayout() {
                   </Text>
                 </View>
               </LinearGradient>
+            </Pressable>
+
+            {/* Action A2: Quick note (SECONDARY — bordered) */}
+            <Pressable
+              onPress={handleQuickNote}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 18,
+                paddingHorizontal: 20,
+                borderRadius: 18,
+                backgroundColor: colors.white,
+                borderWidth: 1.5,
+                borderColor: colors.sageLight,
+                marginBottom: 12,
+              }}
+            >
+              <View
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 12,
+                  backgroundColor: colors.sagePale,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 14,
+                }}
+              >
+                <PenLine color={colors.sage} size={22} strokeWidth={1.8} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 16,
+                    color: colors.nearBlack,
+                    marginBottom: 2,
+                  }}
+                >
+                  Quick note
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.sans,
+                    fontSize: 13,
+                    color: colors.warmGray,
+                    lineHeight: 18,
+                  }}
+                >
+                  Jot down a detail before it slips away
+                </Text>
+              </View>
             </Pressable>
 
             {/* Action B: Reach out (SECONDARY — bordered) */}

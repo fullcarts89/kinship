@@ -30,6 +30,7 @@ import {
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { takePhotoWithCamera } from "@/lib/photoPicker";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   FadeIn,
@@ -1031,6 +1032,21 @@ export default function AddMemoryScreen() {
   // in its own process and shows ALL albums/folders regardless of the
   // app's photo-library permission status.
   const pickImage = useCallback(async () => {
+    if (Platform.OS !== "web") {
+      const choice = await new Promise<"camera" | "library" | null>((resolve) => {
+        Alert.alert("Add a photo", undefined, [
+          { text: "Take photo", onPress: () => resolve("camera") },
+          { text: "Choose from library", onPress: () => resolve("library") },
+          { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
+        ]);
+      });
+      if (choice === null) return;
+      if (choice === "camera") {
+        const uri = await takePhotoWithCamera();
+        if (uri) setPhotoUri(uri);
+        return;
+      }
+    }
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images", "livePhotos"],

@@ -20,7 +20,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as ImagePicker from "expo-image-picker";
+import { pickPhoto } from "@/lib/photoPicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { Camera, X, RefreshCw } from "lucide-react-native";
 import { useMemory, useUpdateMemory } from "@/hooks";
@@ -63,20 +63,8 @@ export default function EditMemoryScreen() {
 
   // ─── Photo Picking ──────────────────────────────────────────────────────
   const pickImage = useCallback(async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images", "livePhotos"],
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
-      }
-    } catch {
-      Alert.alert(
-        "Couldn't open photos",
-        "Something went wrong opening your photo library. Please try again."
-      );
-    }
+    const uri = await pickPhoto();
+    if (uri) setPhotoUri(uri);
   }, []);
 
   // ─── Save ───────────────────────────────────────────────────────────────
