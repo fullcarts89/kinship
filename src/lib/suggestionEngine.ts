@@ -187,6 +187,26 @@ function getRecentlyContactedPersonIds(
   return recentIds;
 }
 
+/**
+ * Person IDs with a memory captured inside the window. Used to avoid
+ * suggesting post-event capture for moments the user already kept.
+ */
+function getRecentlyCapturedPersonIds(
+  memories: Memory[],
+  hoursWindow: number
+): Set<string> {
+  const cutoff = Date.now() - hoursWindow * 60 * 60 * 1000;
+  const recentIds = new Set<string>();
+
+  for (const memory of memories) {
+    if (new Date(memory.created_at).getTime() >= cutoff) {
+      recentIds.add(memory.person_id);
+    }
+  }
+
+  return recentIds;
+}
+
 // ─── Personalized Copy (INTL-05) ────────────────────────────────────────────
 
 /**
@@ -494,7 +514,7 @@ function generateDriftSuggestions(
  */
 function generateCalendarSuggestions(
   calendarMatches: CalendarMatch[] | undefined,
-  recentlyContactedIds: Set<string>
+  recentlyCapturedIds: Set<string>
 ): IntelligentSuggestion[] {
   if (!calendarMatches || calendarMatches.length === 0) return [];
 
@@ -505,8 +525,10 @@ function generateCalendarSuggestions(
 
   for (const match of calendarMatches) {
     if (seenPersons.has(match.personId)) continue;
-    // INTL-02/03: Skip persons contacted recently
-    if (recentlyContactedIds.has(match.personId)) continue;
+    // Skip only when a memory was already captured for this person —
+    // a logged reach-out must NOT suppress this suggestion, because
+    // having just seen the person is exactly when capture converts.
+    if (recentlyCapturedIds.has(match.personId)) continue;
     seenPersons.add(match.personId);
 
     // Include the event name for context — helps the user recall the moment
@@ -521,7 +543,10 @@ function generateCalendarSuggestions(
       personId: match.personId,
       personName: match.personName,
       reason: `Capture a memory from "${eventSnippet}" with ${match.personName}`,
-      priority: 70,
+      // A real event that just happened is the highest-conversion
+      // suggestion the app can make — above everything except an
+      // imminent birthday.
+      priority: 90,
       metadata: {
         calendarEventName: match.eventTitle,
       },
@@ -628,9 +653,15 @@ export function generateSuggestions(
     interactions,
     recentlyContactedIds
   );
+  // Post-event capture is gated on recent *memories*, not reach-outs —
+  // people you just saw are the ones you most want to capture with.
+  const recentlyCapturedIds = getRecentlyCapturedPersonIds(
+    memories,
+    RECENCY_EXCLUSION_HOURS
+  );
   const calendarSuggestions = generateCalendarSuggestions(
     calendarMatches,
-    recentlyContactedIds
+    recentlyCapturedIds
   );
 
   // Collect personIds already covered by higher-priority types
