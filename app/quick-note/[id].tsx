@@ -2,9 +2,10 @@
  * Quick Note — jot something down about a person before it slips away.
  *
  * Built for the moment right after (or during) a conversation: one
- * autofocused field, one save. Saves as a reflection on the person's
- * history (interaction with a note), so it earns gentle growth and
- * shows up in their timeline.
+ * autofocused field, one save. Notes are PROFILE FACTS ("sister's
+ * wedding is in June"), not history events — they live on the person
+ * and show up on their profile, with no growth mechanics. This also
+ * fits someone you literally just met.
  */
 
 import React, { useState, useCallback } from "react";
@@ -22,15 +23,13 @@ import { X, PenLine } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { colors, fonts, radii, shadows } from "@design/tokens";
 import { PressableScale } from "@/components/ui";
-import { usePerson, useCreateInteraction } from "@/hooks";
-import { recordReflectionGrowth, getTransitionToastMessage } from "@/lib/growthEngine";
-import { showGrowthToast } from "@/components/ui/GrowthToast";
+import { usePerson, useUpdatePerson } from "@/hooks";
 
 export default function QuickNoteScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { person } = usePerson(id);
-  const { createInteraction, isCreating } = useCreateInteraction();
+  const { updatePerson, isUpdating } = useUpdatePerson();
   const [note, setNote] = useState("");
 
   const firstName = person?.name.split(" ")[0] ?? "them";
@@ -44,25 +43,18 @@ export default function QuickNoteScreen() {
     const trimmed = note.trim();
     if (!trimmed || !person) return;
     try {
-      await createInteraction({
-        person_id: person.id,
-        type: "other",
-        note: trimmed,
+      await updatePerson(person.id, {
+        notes: [
+          ...(person.notes ?? []),
+          { text: trimmed, created_at: new Date().toISOString() },
+        ],
       });
-      const transition = recordReflectionGrowth(person.id);
-      if (transition) {
-        const toast = getTransitionToastMessage({
-          ...transition,
-          personName: person.name.split(" ")[0],
-        });
-        showGrowthToast(toast.text, toast.emoji);
-      }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     } catch {
       // Saved locally at worst — never trap the user in a quick flow.
     }
     handleClose();
-  }, [note, person, createInteraction, handleClose]);
+  }, [note, person, updatePerson, handleClose]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -163,14 +155,14 @@ export default function QuickNoteScreen() {
                 lineHeight: 18,
               }}
             >
-              Saved to {firstName}'s history — details, plans, little things
+              Saved to {firstName}'s profile — details, plans, little things
               worth holding onto.
             </Text>
           </Animated.View>
 
           <PressableScale
             haptic
-            disabled={!note.trim() || isCreating}
+            disabled={!note.trim() || isUpdating}
             onPress={handleSave}
             style={{
               backgroundColor: note.trim() ? colors.sage : colors.sageLight,
@@ -186,7 +178,7 @@ export default function QuickNoteScreen() {
                 color: colors.white,
               }}
             >
-              {isCreating ? "Saving..." : "Save note"}
+              {isUpdating ? "Saving..." : "Save note"}
             </Text>
           </PressableScale>
         </View>

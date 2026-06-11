@@ -24,6 +24,12 @@ export interface User {
   created_at: string;
 }
 
+/** A quick fact worth remembering about a person (not an event). */
+export interface PersonNote {
+  text: string;
+  created_at: string;
+}
+
 export interface Person {
   id: string;
   user_id: string;
@@ -34,6 +40,7 @@ export interface Person {
   phone?: string | null;   // From device contacts import
   email?: string | null;   // From device contacts import
   interests?: string[] | null; // Tag chips from the add/edit flow
+  notes?: PersonNote[] | null; // Quick notes — profile facts, not history
   created_at: string;
 }
 

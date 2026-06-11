@@ -56,6 +56,7 @@ import {
   usePersonInteractions,
   usePersonVitality,
   useDeleteInteraction,
+  useUpdatePerson,
 } from "@/hooks";
 import { usePersonPhoto } from "@/hooks/usePersonPhoto";
 import VitalPlant from "@/components/VitalPlant";
@@ -377,13 +378,31 @@ function ContextTab({
   interactions,
   growthInfo,
   vitalityInfo,
+  onPersonChanged,
 }: {
   person: Person;
   memories: Memory[];
   interactions: Interaction[];
   growthInfo: GrowthInfo;
   vitalityInfo: VitalityInfo;
+  onPersonChanged: () => void;
 }) {
+  const { updatePerson } = useUpdatePerson();
+
+  const handleRemoveNote = (index: number) => {
+    Alert.alert("Remove this note?", undefined, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          const notes = (person.notes ?? []).filter((_, i) => i !== index);
+          await updatePerson(person.id, { notes });
+          onPersonChanged();
+        },
+      },
+    ]);
+  };
   const relationLabel = relationshipLabels[person.relationship_type] ?? person.relationship_type;
   const contextBriefs: string[] = [];
   if (memories.length > 0)
@@ -445,6 +464,77 @@ function ContextTab({
           </View>
         ))}
       </View>
+
+      {/* Notes — quick profile facts from the Quick note flow */}
+      {(person.notes?.length ?? 0) > 0 && (
+        <View
+          style={{
+            backgroundColor: white,
+            borderRadius: 20,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: borderColor,
+            marginBottom: 20,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+            <Text style={{ fontSize: 15, marginRight: 8 }}>{"\uD83D\uDCDD"}</Text>
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 15,
+                color: nearBlack,
+              }}
+            >
+              Notes
+            </Text>
+          </View>
+          {(person.notes ?? []).map((n, i) => (
+            <Pressable
+              key={`${n.created_at}-${i}`}
+              onLongPress={() => handleRemoveNote(i)}
+              delayLongPress={400}
+              style={{
+                paddingVertical: 8,
+                borderTopWidth: i === 0 ? 0 : 1,
+                borderTopColor: borderColor,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 14,
+                  color: nearBlack,
+                  lineHeight: 20,
+                }}
+              >
+                {n.text}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 11,
+                  color: warmGray,
+                  marginTop: 3,
+                }}
+              >
+                {formatMemoryDate(n.created_at)}
+              </Text>
+            </Pressable>
+          ))}
+          <Text
+            style={{
+              fontFamily: fonts.sans,
+              fontSize: 11,
+              color: warmGray,
+              textAlign: "center",
+              marginTop: 10,
+            }}
+          >
+            Press and hold a note to remove it
+          </Text>
+        </View>
+      )}
 
       {/* Next Best Action Card */}
       <LinearGradient
@@ -1618,6 +1708,7 @@ export default function PersonDetailScreen() {
               interactions={interactions}
               growthInfo={growth}
               vitalityInfo={vitality}
+              onPersonChanged={refetchPerson}
             />
           )}
           {activeTab === "timeline" && (
