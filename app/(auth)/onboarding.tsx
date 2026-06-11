@@ -27,9 +27,13 @@ import Animated, {
   FadeIn,
   FadeOut,
   FadeInUp,
+  SlideInRight,
+  SlideOutLeft,
+  SlideInLeft,
+  SlideOutRight,
 } from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
-import { Button } from "@/components/ui";
+import { Button, PressableScale } from "@/components/ui";
 import { usePersons, useCreateMemory } from "@/hooks";
 import { recordMemoryGrowth } from "@/lib/growthEngine";
 import { markOnboardingComplete } from "@/lib/onboardingStatus";
@@ -92,6 +96,35 @@ const slideImages = [
 // ─── Onboarding Screens Enum ────────────────────────────────────────────────
 
 type OnboardingScreen = "carousel" | "addPerson" | "dreamPreview" | "addMemory" | "dashboard";
+
+/** Flow order — used to decide whether a step change moves forward or back. */
+const SCREEN_ORDER: Record<OnboardingScreen, number> = {
+  carousel: 0,
+  addPerson: 1,
+  dreamPreview: 2,
+  addMemory: 3,
+  dashboard: 4,
+};
+
+const STEP_DURATION = 350;
+const stepEasing = Easing.out(Easing.cubic);
+
+/**
+ * Direction-aware slide pair for step transitions: forward steps slide in
+ * from the right (old screen exits left), backward steps mirror that.
+ */
+function stepTransition(direction: "forward" | "backward") {
+  if (direction === "backward") {
+    return {
+      entering: SlideInLeft.duration(STEP_DURATION).easing(stepEasing),
+      exiting: SlideOutRight.duration(STEP_DURATION).easing(stepEasing),
+    };
+  }
+  return {
+    entering: SlideInRight.duration(STEP_DURATION).easing(stepEasing),
+    exiting: SlideOutLeft.duration(STEP_DURATION).easing(stepEasing),
+  };
+}
 
 // ─── Shared Animation Helpers ───────────────────────────────────────────────
 
@@ -199,16 +232,26 @@ export default function OnboardingScreen() {
     router.replace("/(tabs)");
   }, []);
 
+  // Track the previous step so transitions know which way to slide.
+  const prevIndexRef = useRef(SCREEN_ORDER[screen]);
+  const screenIndex = SCREEN_ORDER[screen];
+  const direction = screenIndex >= prevIndexRef.current ? "forward" : "backward";
+  useEffect(() => {
+    prevIndexRef.current = screenIndex;
+  }, [screenIndex]);
+
+  let content: React.ReactNode = null;
   switch (screen) {
     case "carousel":
-      return (
+      content = (
         <CarouselScreen
           insets={insets}
           onNext={() => setScreen("addPerson")}
         />
       );
+      break;
     case "addPerson":
-      return (
+      content = (
         <AddFirstPersonScreen
           insets={insets}
           name={personName}
@@ -217,16 +260,18 @@ export default function OnboardingScreen() {
           onSkip={() => setScreen("dashboard")}
         />
       );
+      break;
     case "dreamPreview":
-      return (
+      content = (
         <DreamPreviewScreen
           insets={insets}
           personName={personName || "them"}
           onNext={() => setScreen("addMemory")}
         />
       );
+      break;
     case "addMemory":
-      return (
+      content = (
         <AddMemoryScreen
           insets={insets}
           personName={personName || "them"}
@@ -234,15 +279,34 @@ export default function OnboardingScreen() {
           onSkip={() => setScreen("dashboard")}
         />
       );
+      break;
     case "dashboard":
-      return (
+      content = (
         <DashboardEntryScreen
           insets={insets}
           personName={personName || "Someone"}
           onFinish={handleFinish}
         />
       );
+      break;
   }
+
+  const { entering, exiting } = stepTransition(direction);
+
+  return (
+    // Cream backdrop stays put behind both screens so nothing flashes white
+    // while one slides out and the other slides in.
+    <View style={{ flex: 1, backgroundColor: cream }}>
+      <Animated.View
+        key={screen}
+        entering={entering}
+        exiting={exiting}
+        style={{ flex: 1 }}
+      >
+        {content}
+      </Animated.View>
+    </View>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -403,8 +467,9 @@ function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
 
           {/* CTA Button - Only on last slide */}
           {slides[currentSlide].showCTA && (
-            <Pressable
+            <PressableScale
               onPress={onNext}
+              pressedScale={0.97}
               style={{
                 backgroundColor: sage,
                 borderRadius: 16,
@@ -426,7 +491,7 @@ function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
               >
                 Begin
               </Text>
-            </Pressable>
+            </PressableScale>
           )}
         </Animated.View>
       </View>
@@ -530,8 +595,10 @@ function AddFirstPersonScreen({
 
         {/* CTA */}
         <View style={{ paddingBottom: 20 }}>
-          <Pressable
+          <PressableScale
             onPress={onNext}
+            pressedScale={0.97}
+            haptic
             style={{
               backgroundColor: sage,
               borderRadius: 16,
@@ -553,9 +620,9 @@ function AddFirstPersonScreen({
             >
               Continue
             </Text>
-          </Pressable>
+          </PressableScale>
 
-          <Pressable onPress={onSkip} style={{ alignItems: "center", marginTop: 18 }}>
+          <PressableScale onPress={onSkip} pressedScale={0.96} style={{ alignItems: "center", marginTop: 18 }}>
             <Text
               style={{
                 fontFamily: fonts.sansMedium,
@@ -566,7 +633,7 @@ function AddFirstPersonScreen({
             >
               Skip
             </Text>
-          </Pressable>
+          </PressableScale>
         </View>
       </View>
     </View>
@@ -736,8 +803,10 @@ function AddMemoryScreen({ insets, personName, onSave, onSkip }: AddMemoryScreen
 
         {/* CTA */}
         <View style={{ paddingBottom: 20 }}>
-          <Pressable
+          <PressableScale
             onPress={() => onSave(memoryText, photoUri)}
+            pressedScale={0.97}
+            haptic
             style={{
               backgroundColor: sage,
               borderRadius: 16,
@@ -759,9 +828,9 @@ function AddMemoryScreen({ insets, personName, onSave, onSkip }: AddMemoryScreen
             >
               Add Memory
             </Text>
-          </Pressable>
+          </PressableScale>
 
-          <Pressable onPress={onSkip} style={{ alignItems: "center", marginTop: 18 }}>
+          <PressableScale onPress={onSkip} pressedScale={0.96} style={{ alignItems: "center", marginTop: 18 }}>
             <Text
               style={{
                 fontFamily: fonts.sansMedium,
@@ -772,7 +841,7 @@ function AddMemoryScreen({ insets, personName, onSave, onSkip }: AddMemoryScreen
             >
               Skip
             </Text>
-          </Pressable>
+          </PressableScale>
         </View>
       </ScrollView>
     </View>
@@ -1026,8 +1095,9 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
           paddingBottom: Math.max(insets.bottom, 16) + 8,
         }}
       >
-        <Pressable
+        <PressableScale
           onPress={onNext}
+          pressedScale={0.97}
           style={{
             backgroundColor: sage,
             borderRadius: 16,
@@ -1049,7 +1119,7 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
           >
             Add your first memory with {firstName}
           </Text>
-        </Pressable>
+        </PressableScale>
       </View>
     </View>
   );
@@ -1305,8 +1375,10 @@ function DashboardEntryScreen({
           backgroundColor: cream,
         }}
       >
-        <Pressable
+        <PressableScale
           onPress={onFinish}
+          pressedScale={0.97}
+          haptic
           style={{
             backgroundColor: sage,
             borderRadius: 16,
@@ -1328,7 +1400,7 @@ function DashboardEntryScreen({
           >
             Enter your garden
           </Text>
-        </Pressable>
+        </PressableScale>
       </View>
     </View>
   );
