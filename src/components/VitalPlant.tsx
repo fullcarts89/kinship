@@ -32,6 +32,7 @@ import {
   type VitalityLevel,
 } from "@/lib/vitalityEngine";
 import { usePersonGrowth } from "@/hooks/useGrowth";
+import { GrowthCelebration } from "@/components/GrowthCelebration";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -156,6 +157,11 @@ export default function VitalPlant({
           }}
         />
       )}
+
+      {/* Stage-transition celebration: glow ring + drifting leaves */}
+      {personId ? (
+        <GrowthCelebration trigger={justTransitioned} size={size} />
+      ) : null}
     </Animated.View>
   );
 }
