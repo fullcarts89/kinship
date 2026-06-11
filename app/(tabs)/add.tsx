@@ -40,6 +40,10 @@ import Animated, {
   withDelay,
   Easing,
   FadeInUp,
+  SlideInRight,
+  SlideInLeft,
+  SlideOutRight,
+  SlideOutLeft,
 } from "react-native-reanimated";
 import {
   ChevronLeft,
@@ -51,6 +55,7 @@ import {
   Camera,
 } from "lucide-react-native";
 import { colors, fonts, shadows } from "@design/tokens";
+import { PressableScale } from "@/components/ui";
 import { usePersons, useCreateMemory } from "@/hooks";
 import {
   relationshipLabels,
@@ -74,6 +79,10 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 type FlowPath = "manual" | "contacts";
 
 const TOTAL_STEPS = 7; // entry, name/contact, relationship, interests, memory, plant, celebration
+
+/** Step transition timing — gentle slide, matches the calm-garden feel */
+const STEP_TRANSITION_MS = 340;
+const STEP_TRANSITION_EASING = Easing.out(Easing.cubic);
 
 /** Relationship options displayed in the flow (matches design spec) */
 const FLOW_RELATIONSHIPS: { type: RelationshipType; label: string }[] = [
@@ -493,14 +502,14 @@ function StepRelationship({
           marginTop: 28,
         }}
       >
-        {FLOW_RELATIONSHIPS.map(({ type, label }) => {
+        {FLOW_RELATIONSHIPS.map(({ type, label }, index) => {
           const isSelected = selected === type;
           return (
             <Animated.View
               key={type}
-              entering={FadeInUp.delay(FLOW_RELATIONSHIPS.indexOf({ type, label } as any) * 40).duration(300)}
+              entering={FadeInUp.delay(index * 40).duration(300)}
             >
-              <Pressable
+              <PressableScale
                 onPress={() => onSelect(type)}
                 style={{
                   backgroundColor: isSelected ? colors.sage : colors.white,
@@ -524,7 +533,7 @@ function StepRelationship({
                 >
                   {label}
                 </Text>
-              </Pressable>
+              </PressableScale>
             </Animated.View>
           );
         })}
@@ -624,7 +633,7 @@ function StepInterests({
         {INTERESTS.map((interest) => {
           const isSelected = selected.includes(interest);
           return (
-            <Pressable
+            <PressableScale
               key={interest}
               onPress={() => onToggle(interest)}
               style={{
@@ -645,7 +654,7 @@ function StepInterests({
               >
                 {interest}
               </Text>
-            </Pressable>
+            </PressableScale>
           );
         })}
 
@@ -653,7 +662,7 @@ function StepInterests({
         {customInterests.map((interest) => {
           const isSelected = selected.includes(interest);
           return (
-            <Pressable
+            <PressableScale
               key={`custom-${interest}`}
               onPress={() => onToggle(interest)}
               style={{
@@ -674,7 +683,7 @@ function StepInterests({
               >
                 {interest}
               </Text>
-            </Pressable>
+            </PressableScale>
           );
         })}
 
@@ -734,7 +743,7 @@ function StepInterests({
             </Pressable>
           </View>
         ) : (
-          <Pressable
+          <PressableScale
             onPress={() => setShowInput(true)}
             style={{
               borderWidth: 1.5,
@@ -754,7 +763,7 @@ function StepInterests({
             >
               + Add your own
             </Text>
-          </Pressable>
+          </PressableScale>
         )}
       </View>
     </View>
@@ -1420,7 +1429,10 @@ function StepCelebration({
           </View>
 
           {/* Continue CTA (matches MemoryCelebration sage gradient button) */}
-          <Pressable
+          {/* Width lives on a wrapper View — PressableScale's outer Pressable
+              is unstyled, so layout styles must not ride on its `style` prop */}
+          <View style={{ width: "100%" }}>
+          <PressableScale
             onPress={onBackToGarden}
             style={{ width: "100%", borderRadius: 18, overflow: "hidden" }}
           >
@@ -1449,7 +1461,8 @@ function StepCelebration({
                 Back to garden
               </Text>
             </LinearGradient>
-          </Pressable>
+          </PressableScale>
+          </View>
 
           {/* Footer wisdom (matches MemoryCelebration) */}
           <Text
@@ -1482,6 +1495,42 @@ export default function AddPersonScreen() {
   const [flowPath, setFlowPath] = useState<FlowPath | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // ─── Step transition direction ─────────────────────────────────────
+  // Tracks the previous step so each navigation knows whether it moves
+  // forward (slide left) or backward (slide right).
+  const prevStepRef = useRef(0);
+  const [stepDirection, setStepDirection] = useState<1 | -1>(1);
+
+  /**
+   * Direction-aware step navigation.
+   *
+   * The direction state is committed first so the currently-mounted step
+   * wrapper re-renders with the correct `exiting` animation (Reanimated
+   * reconfigures exiting on prop updates), then the step swap is deferred
+   * one frame so the outgoing view unmounts with that fresh direction.
+   */
+  const navigateToStep = useCallback(
+    (next: number, onCommit?: () => void) => {
+      const direction: 1 | -1 = next >= prevStepRef.current ? 1 : -1;
+      prevStepRef.current = next;
+      setStepDirection(direction);
+      requestAnimationFrame(() => {
+        setStep(next);
+        // Extra state resets ride along with the step swap so the
+        // outgoing step doesn't re-render with cleared state mid-exit.
+        onCommit?.();
+      });
+    },
+    []
+  );
+
+  /** Jump without animation concerns (focus resets / contact imports). */
+  const jumpToStep = useCallback((next: number) => {
+    prevStepRef.current = next;
+    setStepDirection(1);
+    setStep(next);
+  }, []);
+
   const { persons, createPerson } = usePersons();
   const { createMemory } = useCreateMemory();
 
@@ -1510,7 +1559,7 @@ export default function AddPersonScreen() {
       const imported = consumePendingImport();
       if (imported) {
         // Pre-fill from the imported contact and jump to Step 2
-        setStep(2);
+        jumpToStep(2);
         setFlowPath("contacts");
         setIsSaving(false);
         setName(imported.name);
@@ -1530,7 +1579,7 @@ export default function AddPersonScreen() {
 
       if (hasCompletedRef.current) {
         // Reset all state for a fresh flow
-        setStep(0);
+        jumpToStep(0);
         setFlowPath(null);
         setIsSaving(false);
         setName("");
@@ -1546,7 +1595,7 @@ export default function AddPersonScreen() {
         setProfilePhotoUri(null);
         hasCompletedRef.current = false;
       }
-    }, [])
+    }, [jumpToStep])
   );
 
   const toggleInterest = useCallback((interest: string) => {
@@ -1561,7 +1610,7 @@ export default function AddPersonScreen() {
 
   const handleChoosePath = (path: FlowPath) => {
     setFlowPath(path);
-    setStep(1);
+    navigateToStep(1);
   };
 
   const handleSelectContact = (contact: ContactEntry) => {
@@ -1569,7 +1618,7 @@ export default function AddPersonScreen() {
     setPhone(contact.phone || "");
     setEmail(contact.email || "");
     setBirthday(contact.birthday);
-    setStep(2); // Skip to relationship after contact selection
+    navigateToStep(2); // Skip to relationship after contact selection
   };
 
   // ─── Photo picker (memory photo) ───────────────────────────────────
@@ -1654,23 +1703,24 @@ export default function AddPersonScreen() {
       // "Plant in your garden" triggers save → celebration
       handleSave();
     } else if (step < TOTAL_STEPS - 1) {
-      setStep((prev) => prev + 1);
+      navigateToStep(step + 1);
     }
   };
 
   const handleBack = () => {
     if (step === 2 && flowPath === "contacts") {
       // From relationship step, go back to entry when on contacts path
-      setStep(0);
-      setFlowPath(null);
-      setName("");
-      setPhone("");
-      setEmail("");
-    } else if (step > 0) {
-      setStep((prev) => prev - 1);
-      if (step === 1) {
+      navigateToStep(0, () => {
         setFlowPath(null);
-      }
+        setName("");
+        setPhone("");
+        setEmail("");
+      });
+    } else if (step > 0) {
+      navigateToStep(
+        step - 1,
+        step === 1 ? () => setFlowPath(null) : undefined
+      );
     }
   };
 
@@ -1727,7 +1777,7 @@ export default function AddPersonScreen() {
       }
 
       // Advance to celebration screen
-      setStep(6);
+      navigateToStep(6);
     } catch (err: any) {
       const msg =
         err?.message ??
@@ -1891,21 +1941,35 @@ export default function AddPersonScreen() {
         )}
 
         {/* ─── Content ───────────────────────────────────────────────── */}
-        {isCelebration ? (
-          renderStep()
-        ) : (
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{
-              flexGrow: 1,
-              paddingHorizontal: 24,
-            }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {renderStep()}
-          </ScrollView>
-        )}
+        {/* Keyed by step: each navigation unmounts the old step (slide-out)
+            and mounts the new one (slide-in), direction-aware. The wrapper
+            is flex:1 so ScrollView / KeyboardAvoidingView layout is intact. */}
+        <Animated.View
+          key={step}
+          style={{ flex: 1 }}
+          entering={(stepDirection === 1 ? SlideInRight : SlideInLeft)
+            .duration(STEP_TRANSITION_MS)
+            .easing(STEP_TRANSITION_EASING)}
+          exiting={(stepDirection === 1 ? SlideOutLeft : SlideOutRight)
+            .duration(STEP_TRANSITION_MS)
+            .easing(STEP_TRANSITION_EASING)}
+        >
+          {isCelebration ? (
+            renderStep()
+          ) : (
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                flexGrow: 1,
+                paddingHorizontal: 24,
+              }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {renderStep()}
+            </ScrollView>
+          )}
+        </Animated.View>
 
         {/* ─── Bottom Navigation ─────────────────────────────────────── */}
         {showBottomNav && (
@@ -1940,35 +2004,43 @@ export default function AddPersonScreen() {
 
             <View style={{ flexDirection: "row", gap: 12 }}>
               {/* Skip button for optional steps */}
+              {/* flex/width live on wrapper Views — PressableScale's outer
+                  Pressable is unstyled, so layout styles can't ride on it */}
               {isOptionalStep && (
-                <Pressable
-                  onPress={handleContinue}
-                  style={{
-                    flex: 1,
-                    borderRadius: 18,
-                    paddingVertical: 16,
-                    alignItems: "center",
-                  }}
-                >
-                  <Text
+                <View style={{ flex: 1 }}>
+                  <PressableScale
+                    onPress={handleContinue}
                     style={{
-                      fontFamily: fonts.sansMedium,
-                      fontSize: 15,
-                      color: colors.warmGray,
+                      borderRadius: 18,
+                      paddingVertical: 16,
+                      alignItems: "center",
                     }}
                   >
-                    Skip for now
-                  </Text>
-                </Pressable>
+                    <Text
+                      style={{
+                        fontFamily: fonts.sansMedium,
+                        fontSize: 15,
+                        color: colors.warmGray,
+                      }}
+                    >
+                      Skip for now
+                    </Text>
+                  </PressableScale>
+                </View>
               )}
 
-              {/* Primary CTA */}
-              <Pressable
-                onPress={handleContinue}
-                disabled={!canContinue() || isSaving}
+              {/* Primary CTA — haptic only on the final "Plant" action */}
+              <View
                 style={{
                   flex: isOptionalStep ? 1 : undefined,
                   width: isOptionalStep ? undefined : "100%",
+                }}
+              >
+              <PressableScale
+                onPress={handleContinue}
+                disabled={!canContinue() || isSaving}
+                haptic={isConfirmation}
+                style={{
                   borderRadius: 18,
                   overflow: "hidden",
                   opacity: canContinue() && !isSaving ? 1 : 0.5,
@@ -2003,7 +2075,8 @@ export default function AddPersonScreen() {
                         : "Continue"}
                   </Text>
                 </LinearGradient>
-              </Pressable>
+              </PressableScale>
+              </View>
             </View>
           </View>
         )}
