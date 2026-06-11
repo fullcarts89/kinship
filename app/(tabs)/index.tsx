@@ -40,15 +40,20 @@ import Animated, {
   withSequence,
   Easing,
   FadeInUp,
+  LinearTransition,
+  interpolate,
+  runOnJS,
 } from "react-native-reanimated";
+import Svg, { Path } from "react-native-svg";
 import { colors, fonts } from "@design/tokens";
-import { Skeleton, ErrorState, FadeIn } from "@/components/ui";
+import { Skeleton, ErrorState, FadeIn, PressableScale } from "@/components/ui";
 import { OrientationOverlay } from "@/components/OrientationOverlay";
 import type { HighlightRect } from "@/components/OrientationOverlay";
 import { usePersons, useMemories, useAllInteractions, useAllVitalities } from "@/hooks";
 import { useBootstrapGrowth } from "@/hooks/useGrowth";
 import VitalPlant from "@/components/VitalPlant";
-import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
+import LivingPlant from "@/components/LivingPlant";
+import { getVitalityLevel, getSwayParams } from "@/lib/vitalityEngine";
 import { useOrientation, ORIENTATION_STEP_SCREEN } from "@/hooks/useOrientation";
 import { getGrowthInfo } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
@@ -120,9 +125,11 @@ function SwayingPlant({
   onPress: () => void;
 }) {
   const stage = getGrowthInfo(person.id).stage;
+  // Leaf sway amplitude tracks vitality — vibrant plants move more.
+  const leafAmplitude = getSwayParams(getVitalityLevel(vitalityScore)).amplitude;
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       style={{ alignItems: "center", marginRight: 18, width: 72 }}
     >
@@ -145,7 +152,7 @@ function SwayingPlant({
           staggerDelay={0}
           personId={person.id}
         >
-          <GrowthPlantIllustration stage={stage} size={44} />
+          <LivingPlant stage={stage} size={44} amplitude={leafAmplitude} />
         </VitalPlant>
       </View>
       <Text
@@ -161,7 +168,87 @@ function SwayingPlant({
       >
         {person.name.split(" ")[0]}
       </Text>
-    </Pressable>
+    </PressableScale>
+  );
+}
+
+// ─── Drifting Leaf (ambient life) ───────────────────────────────────────────
+
+/**
+ * A single tiny leaf that occasionally (every 18–30s) drifts diagonally
+ * down across the garden carousel with a slow rotation, then fades out.
+ * Purely ambient — pointerEvents none, never more than one leaf at a time.
+ */
+const LEAF_DRIFT_DURATION = 7000;
+
+function DriftingLeaf() {
+  const progress = useSharedValue(0);
+  const startX = useSharedValue(40);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const schedule = () => {
+      if (cancelled) return;
+      // Long random pause between leaves: 18–30 seconds
+      const delay = 18000 + Math.random() * 12000;
+      timer = setTimeout(() => {
+        if (cancelled) return;
+        startX.value = 16 + Math.random() * 220; // randomize entry point
+        progress.value = 0;
+        progress.value = withTiming(
+          1,
+          { duration: LEAF_DRIFT_DURATION, easing: Easing.inOut(Easing.sin) },
+          (finished) => {
+            if (finished) runOnJS(schedule)();
+          }
+        );
+      }, delay);
+    };
+
+    schedule();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  const leafStyle = useAnimatedStyle(() => {
+    const p = progress.value;
+    return {
+      opacity: interpolate(p, [0, 0.15, 0.7, 1], [0, 0.7, 0.55, 0]),
+      transform: [
+        { translateX: startX.value + p * 60 },
+        { translateY: p * 180 },
+        { rotate: `${p * 140}deg` },
+      ],
+    };
+  });
+
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: "hidden",
+      }}
+    >
+      <Animated.View
+        style={[{ position: "absolute", top: 0, left: 0 }, leafStyle]}
+      >
+        <Svg width={10} height={10} viewBox="0 0 10 10">
+          <Path
+            d="M1 5 C2.5 1.5 7 0.5 9 2 C8.5 6.5 4.5 9 1.2 8 C0.5 7 0.5 6 1 5"
+            fill={sageLight}
+          />
+        </Svg>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -185,7 +272,7 @@ function GardenSummaryCard({
   ];
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onViewWeek}
       style={{
         backgroundColor: white,
@@ -264,7 +351,7 @@ function GardenSummaryCard({
         </Text>
         <ChevronRight color={sage} size={14} strokeWidth={2.5} />
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -550,8 +637,11 @@ function DynamicSuggestionCard({
   const icon = SUGGESTION_ICON[suggestion.type] ?? "\uD83D\uDC8C";
 
   return (
-    <Animated.View entering={FadeInUp.delay(index * 100).duration(400)}>
-      <Pressable
+    <Animated.View
+      entering={FadeInUp.delay(index * 100).duration(400)}
+      layout={LinearTransition.duration(250)}
+    >
+      <PressableScale
         onPress={() => handleSuggestionPress(suggestion)}
         style={{
           backgroundColor: white,
@@ -598,7 +688,7 @@ function DynamicSuggestionCard({
             {suggestion.reason}
           </Text>
         </View>
-      </Pressable>
+      </PressableScale>
     </Animated.View>
   );
 }
@@ -954,41 +1044,47 @@ export default function GardenScreen() {
                   onViewWeek={() => router.push("/(tabs)/activity")}
                 />
 
-                {/* Garden illustration hero — orientation Step 1 target */}
-                <View
-                  ref={gardenHeroRef}
-                  style={{ alignItems: "center", marginBottom: 12 }}
-                >
-                  <GardenRevealIllustration size={180} />
-                </View>
+                {/* Garden hero + carousel, with ambient drifting leaf */}
+                <View>
+                  {/* Garden illustration hero — orientation Step 1 target */}
+                  <View
+                    ref={gardenHeroRef}
+                    style={{ alignItems: "center", marginBottom: 12 }}
+                  >
+                    <GardenRevealIllustration size={180} />
+                  </View>
 
-                {/* Interactive plant avatars — each plant = a person */}
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  scrollEnabled={!showOrientation}
-                  contentContainerStyle={{
-                    paddingRight: 8,
-                    paddingBottom: 4,
-                    paddingLeft: 4,
-                  }}
-                  style={{ marginBottom: 6 }}
-                >
-                  {persons.map((p, i) => (
-                    <View
-                      key={p.id}
-                      ref={i === 0 ? firstPlantRef : undefined}
-                      collapsable={false}
-                    >
-                      <SwayingPlant
-                        person={p}
-                        index={i}
-                        vitalityScore={vitalities[p.id]?.score ?? 1.0}
-                        onPress={() => router.push(`/person/${p.id}`)}
-                      />
-                    </View>
-                  ))}
-                </ScrollView>
+                  {/* Interactive plant avatars — each plant = a person */}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    scrollEnabled={!showOrientation}
+                    contentContainerStyle={{
+                      paddingRight: 8,
+                      paddingBottom: 4,
+                      paddingLeft: 4,
+                    }}
+                    style={{ marginBottom: 6 }}
+                  >
+                    {persons.map((p, i) => (
+                      <View
+                        key={p.id}
+                        ref={i === 0 ? firstPlantRef : undefined}
+                        collapsable={false}
+                      >
+                        <SwayingPlant
+                          person={p}
+                          index={i}
+                          vitalityScore={vitalities[p.id]?.score ?? 1.0}
+                          onPress={() => router.push(`/person/${p.id}`)}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
+
+                  {/* Ambient life — one occasional drifting leaf */}
+                  <DriftingLeaf />
+                </View>
 
                 {/* Swipe hint */}
                 <Text
@@ -1136,7 +1232,7 @@ export default function GardenScreen() {
                 )}
 
                 {/* ─── Take a Garden Walk ─────────────────────── */}
-                <Pressable
+                <PressableScale
                   onPress={() => router.push("/garden-walk-setup")}
                   style={{
                     backgroundColor: white,
@@ -1191,7 +1287,7 @@ export default function GardenScreen() {
                     </Text>
                   </View>
                   <ChevronRight color={warmGray} size={18} strokeWidth={2} />
-                </Pressable>
+                </PressableScale>
               </Animated.View>
             )}
 
