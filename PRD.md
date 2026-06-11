@@ -42,13 +42,13 @@ Kinship is a mobile app that helps people nurture their closest relationships th
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | Expo SDK 52 (React Native) |
-| Navigation | Expo Router 4.0 (file-based, Tab + Stack) |
+| Framework | Expo SDK 54 (React Native) |
+| Navigation | Expo Router 6 (file-based, Tab + Stack) |
 | Language | TypeScript (strict mode) |
 | Styling | NativeWind 4.1 (Tailwind CSS for RN) |
-| Animations | react-native-reanimated 3.16 |
+| Animations | react-native-reanimated 4.1 |
 | Illustrations | react-native-svg (hand-drawn plant SVGs) |
-| Backend | Supabase (auth + Postgres) — _not yet connected_ |
+| Backend | Supabase (auth + Postgres) — optional; mock mode with on-device persistence when unconfigured |
 | Local storage | expo-secure-store (orientation status, auth tokens) |
 | Icons | lucide-react-native |
 | Fonts | DM Serif Display (headings), DM Sans (body) |
@@ -510,14 +510,12 @@ Expo Router's file-based routing with:
 - 14 SVG plant illustrations
 
 ### Not Yet Connected / Pending
-- **Supabase backend** — Auth, database, real-time subscriptions (services scaffolded, mock data in use)
+- **Supabase credentials** — Auth, database, and services are fully wired; the app
+  runs in mock mode (with on-device persistence) until `.env` is populated
 - **AI memory descriptions** — Placeholder loading animation in place, no AI connected
-- **Push notifications** — Demo screens built, no scheduling/delivery
-- **Contact import** — UI structure in add flow, expo-contacts not wired
-- **Session persistence** — App currently redirects to tabs on launch
-- **Export data** — Settings screen built, functionality pending
-- **"About Kinship" screen** — Not yet created
-- **"Replay orientation" button** — Settings row exists, not wired
+- **Push notification delivery** — Scheduling code exists (expo-notifications);
+  remote/push delivery and server triggers pending
+- **App Store submission** — eas.json needs Apple ID / ASC app ID / team ID
 
 ---
 
