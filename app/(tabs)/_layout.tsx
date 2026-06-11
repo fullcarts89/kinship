@@ -205,12 +205,6 @@ export default function TabLayout() {
           }}
         />
         {/* Hide activity tab - merged into person profile timeline */}
-        <Tabs.Screen
-          name="activity"
-          options={{
-            href: null,
-          }}
-        />
       </Tabs>
 
       {/* ── "Tend your garden" bottom sheet ────────────────────────────── */}

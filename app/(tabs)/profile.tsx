@@ -431,7 +431,7 @@ export default function ProfileScreen() {
           <SettingsRow
             icon={<Sprout color={sage} size={18} strokeWidth={2} />}
             label="Your week in the garden"
-            onPress={() => router.push("/(tabs)/activity")}
+            onPress={() => router.push("/activity")}
           />
           <SettingsRow
             icon={<Settings color={sage} size={18} strokeWidth={2} />}

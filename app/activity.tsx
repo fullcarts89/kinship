@@ -15,7 +15,9 @@ import {
   ScrollView,
   Image,
   Alert,
+  Pressable,
 } from "react-native";
+import { ChevronLeft } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -458,6 +460,26 @@ export default function ActivityScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingHorizontal: 24 }}>
+          {/* Back */}
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace("/(tabs)");
+            }}
+            hitSlop={12}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: white,
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 16,
+            }}
+          >
+            <ChevronLeft size={20} color={warmGray} />
+          </Pressable>
+
           {/* Header */}
           <Animated.View entering={FadeInUp.duration(400)} style={{ marginBottom: 24 }}>
             <Text

@@ -1041,7 +1041,7 @@ export default function GardenScreen() {
                   personCount={persons.length}
                   memoryCount={memories.length}
                   interactionCount={allInteractions.length}
-                  onViewWeek={() => router.push("/(tabs)/activity")}
+                  onViewWeek={() => router.push("/activity")}
                 />
 
                 {/* Garden hero + carousel, with ambient drifting leaf */}
@@ -1233,7 +1233,7 @@ export default function GardenScreen() {
 
                 {/* ─── Take a Garden Walk ─────────────────────── */}
                 <PressableScale
-                  onPress={() => router.push("/garden-walk-setup")}
+                  onPress={() => router.push("/garden-walk")}
                   style={{
                     backgroundColor: white,
                     borderRadius: 16,

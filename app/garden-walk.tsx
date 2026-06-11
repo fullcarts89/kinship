@@ -28,7 +28,13 @@ import {
   useMemories,
   useAllInteractions,
   useSuggestions,
+  usePersonGrowth,
 } from "@/hooks";
+import { PressableScale } from "@/components/ui";
+import VitalPlant from "@/components/VitalPlant";
+import LivingPlant from "@/components/LivingPlant";
+import { getVitalityInfo } from "@/lib/vitalityEngine";
+import type { Person, Memory, Interaction } from "@/types/database";
 import type { SuggestionType } from "@/lib/suggestionEngine";
 
 // ─── Suggestion Type Icons ──────────────────────────────────────────────────
@@ -70,6 +76,71 @@ function getInitials(name: string): string {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+}
+
+// ─── Stroll Row ─────────────────────────────────────────────────────────────
+
+/** One plant on the walk — the literal "stroll past your garden". */
+function WalkPlantRow({
+  person,
+  memories,
+  interactions,
+  index,
+}: {
+  person: Person;
+  memories: Memory[];
+  interactions: Interaction[];
+  index: number;
+}) {
+  const growth = usePersonGrowth(person.id);
+  const vitality = getVitalityInfo(
+    memories.filter((m) => m.person_id === person.id),
+    interactions.filter((i) => i.person_id === person.id)
+  );
+
+  return (
+    <Animated.View entering={FadeInUp.delay(150 + index * 80).duration(350)}>
+      <PressableScale
+        onPress={() => router.push(`/person/${person.id}`)}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: colors.white,
+          borderRadius: radii.lg,
+          padding: spacing.md,
+          marginBottom: spacing.sm + 2,
+          ...shadows.soft,
+        }}
+      >
+        <VitalPlant vitalityScore={vitality.score} size={52} personId={person.id}>
+          <LivingPlant stage={growth.stage} size={52} />
+        </VitalPlant>
+        <View style={{ flex: 1, marginLeft: spacing.md }}>
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 16,
+              color: colors.nearBlack,
+            }}
+            numberOfLines={1}
+          >
+            {person.name}
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.sans,
+              fontSize: 13,
+              color: colors.warmGray,
+              marginTop: 2,
+            }}
+          >
+            {growth.label}
+          </Text>
+        </View>
+        <ChevronRight size={18} color={colors.warmGray} />
+      </PressableScale>
+    </Animated.View>
+  );
 }
 
 // ─── Close Handler ──────────────────────────────────────────────────────────
@@ -123,7 +194,7 @@ export default function GardenWalkScreen() {
   }, [memoryResurface, memories]);
 
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
-  const isEmpty = !isLoading && allSuggestions.length === 0;
+  const isEmpty = !isLoading && allSuggestions.length === 0 && persons.length === 0;
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -171,6 +242,35 @@ export default function GardenWalkScreen() {
             Your garden this week
           </Text>
         </Animated.View>
+
+        {/* ─── The stroll: every plant in the garden ──────────────────── */}
+        {!isLoading && persons.length > 0 && (
+          <View style={{ marginBottom: spacing["2xl"] }}>
+            <Animated.View entering={FadeInUp.duration(400).delay(80)}>
+              <Text
+                style={{
+                  fontFamily: fonts.sansSemiBold,
+                  fontSize: 13,
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                  color: colors.warmGray,
+                  marginBottom: spacing.md,
+                }}
+              >
+                Stroll past your plants
+              </Text>
+            </Animated.View>
+            {persons.map((person, index) => (
+              <WalkPlantRow
+                key={person.id}
+                person={person}
+                memories={memories}
+                interactions={interactions}
+                index={index}
+              />
+            ))}
+          </View>
+        )}
 
         {/* ─── Loading state ────────────────────────────────────────────── */}
         {isLoading && (

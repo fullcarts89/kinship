@@ -68,7 +68,7 @@ export default function RootLayout() {
       } else if (type === "memory_resurface" && memoryId) {
         router.push(`/memory/${memoryId}`);
       } else if (type === "weekly_digest") {
-        router.push("/(tabs)/activity");
+        router.push("/activity");
       } else if (type === "garden_walk") {
         router.push("/garden-walk");
       } else if (personId) {
@@ -147,6 +147,13 @@ export default function RootLayout() {
             headerShown: false,
             presentation: "card",
             animation: "fade",
+          }}
+        />
+        <Stack.Screen
+          name="activity"
+          options={{
+            headerShown: false,
+            presentation: "card",
           }}
         />
         <Stack.Screen
