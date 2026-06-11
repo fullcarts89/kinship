@@ -504,7 +504,7 @@ function S1_Capture({
               lineHeight: 34,
             }}
           >
-            Capture a moment
+            Capture a memory
           </Text>
 
           {/* ── Person Selector ────────────────────────────── */}

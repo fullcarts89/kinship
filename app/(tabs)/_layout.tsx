@@ -23,6 +23,9 @@ import Animated, {
   withRepeat,
   withDelay,
   Easing,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
   type SharedValue,
 } from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
@@ -214,26 +217,35 @@ export default function TabLayout() {
       <Modal
         visible={showTendSheet}
         transparent
-        animationType="slide"
+        animationType="none"
         statusBarTranslucent
         onRequestClose={closeTendSheet}
       >
         <View style={{ flex: 1, justifyContent: "flex-end" }}>
-          {/* Dimmed overlay — tap to dismiss */}
-          <Pressable
-            onPress={closeTendSheet}
+          {/* Dimmed overlay — fades in, tap to dismiss */}
+          <Animated.View
+            entering={FadeIn.duration(220)}
+            exiting={FadeOut.duration(180)}
             style={{
               position: "absolute",
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: "rgba(28,24,20,0.44)",
             }}
-          />
+          >
+            <Pressable
+              onPress={closeTendSheet}
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(28,24,20,0.44)",
+              }}
+            />
+          </Animated.View>
 
-          {/* Sheet content */}
-          <View
+          {/* Sheet content — springs up from below */}
+          <Animated.View
+            entering={SlideInDown.springify().damping(17).stiffness(190).mass(0.9)}
             style={{
               backgroundColor: colors.white,
               borderTopLeftRadius: 24,
@@ -328,7 +340,7 @@ export default function TabLayout() {
                       marginBottom: 2,
                     }}
                   >
-                    Capture a moment
+                    Capture a memory
                   </Text>
                   <Text
                     style={{
@@ -510,7 +522,7 @@ export default function TabLayout() {
                 </Text>
               </View>
             </Pressable>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>

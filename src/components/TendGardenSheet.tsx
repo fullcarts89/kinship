@@ -10,7 +10,7 @@
  *
  * Why exactly 3 actions:
  * These three map to the core relationship-nurturing loop:
- *   1. Capture a moment  — preserve what matters
+ *   1. Capture a memory  — preserve what matters
  *   2. Reach out         — reconnect with someone
  *   3. Add someone       — grow your garden
  *
@@ -186,7 +186,7 @@ export function TendGardenSheet({ visible, onClose }: TendGardenSheetProps) {
             </Text>
           </View>
 
-          {/* ── Action A: Capture a moment (PRIMARY — filled gradient) ── */}
+          {/* ── Action A: Capture a memory (PRIMARY — filled gradient) ── */}
           <PressableScale
             onPress={handleCaptureMemory}
             haptic={true}
@@ -231,7 +231,7 @@ export function TendGardenSheet({ visible, onClose }: TendGardenSheetProps) {
                     marginBottom: 2,
                   }}
                 >
-                  Capture a moment
+                  Capture a memory
                 </Text>
                 <Text
                   style={{

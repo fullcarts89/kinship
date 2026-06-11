@@ -322,7 +322,7 @@ function EmptyWeekState() {
             color: white,
           }}
         >
-          Capture a moment
+          Capture a memory
         </Text>
       </PressableScale>
     </View>

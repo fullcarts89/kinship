@@ -80,6 +80,20 @@ const gold = colors.gold;
 const peach = colors.peach;
 const terracotta = colors.terracotta;
 
+/**
+ * Per-stage zoom applied around the ground point (50, 86) so the plant
+ * fills its canvas. Without this the geometry occupies only ~a third of
+ * the viewBox and reads as a smudge at carousel sizes.
+ */
+const STAGE_ZOOM: Record<GrowthStage, number> = {
+  seed: 2.0,
+  sprout: 1.8,
+  youngPlant: 1.6,
+  mature: 1.5,
+  blooming: 1.45,
+  tree: 1.4,
+};
+
 const PLANT_SPECS: Record<GrowthStage, PlantSpec> = {
   seed: {
     stem: null,
@@ -280,10 +294,13 @@ export function LivingPlant({
   // Randomize the starting phase a touch so a row of plants doesn't move in lockstep.
   const startPhase = useMemo(() => Math.random() * 0.5, []);
 
+  const zoom = STAGE_ZOOM[stage];
+
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100">
+      <G scale={zoom} origin="50, 86">
       {/* Ground mound */}
-      <Ellipse cx={50} cy={88} rx={20} ry={5} fill={terracotta} opacity={0.35} />
+      <Ellipse cx={50} cy={88} rx={18} ry={4.5} fill={terracotta} opacity={0.35} />
 
       {spec.seed ? (
         <G>
@@ -322,6 +339,7 @@ export function LivingPlant({
           ))}
         </>
       )}
+      </G>
     </Svg>
   );
 }

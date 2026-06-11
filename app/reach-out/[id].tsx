@@ -454,7 +454,7 @@ function SavedMomentScreen({
             color: white,
           }}
         >
-          Capture a moment from this
+          Capture a memory from this
         </Text>
       </Pressable>
 

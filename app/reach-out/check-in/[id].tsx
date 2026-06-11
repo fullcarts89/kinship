@@ -251,7 +251,7 @@ export default function CheckInScreen() {
                 color: colors.white,
               }}
             >
-              Capture a moment from this
+              Capture a memory from this
             </Text>
           </Pressable>
 

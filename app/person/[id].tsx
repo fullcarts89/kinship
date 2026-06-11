@@ -557,7 +557,7 @@ function TimelineTab({
     (interaction: Interaction) => {
       if (isDeleting) return;
       Alert.alert(
-        "Remove this moment?",
+        "Remove this check-in?",
         `It will be removed from ${firstName}'s history.`,
         [
           { text: "Cancel", style: "cancel" },
@@ -581,7 +581,7 @@ function TimelineTab({
         <EmptyState
           icon={Calendar}
           title="Your story together"
-          message="When you reflect or connect, those moments will show up here."
+          message="When you reflect or connect, those check-ins will show up here."
           className="py-xl"
         />
       </View>
@@ -705,7 +705,7 @@ function TimelineTab({
           marginTop: 4,
         }}
       >
-        Press and hold a moment to remove it
+        Press and hold a check-in to remove it
       </Text>
     </View>
   );
@@ -749,6 +749,34 @@ function MemoriesTab({ memories, personId }: { memories: Memory[]; personId: str
 
   return (
     <View style={{ paddingHorizontal: 24 }}>
+      {/* Always-visible capture CTA — creating a memory from a profile
+          should take exactly one obvious tap */}
+      <PressableScale
+        haptic
+        onPress={() => router.push(`/memory/add?personId=${personId}`)}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: sage,
+          borderRadius: 16,
+          paddingVertical: 14,
+          marginBottom: 16,
+          gap: 8,
+        }}
+      >
+        <Camera size={18} color={white} strokeWidth={2} />
+        <Text
+          style={{
+            fontFamily: fonts.sansSemiBold,
+            fontSize: 15,
+            color: white,
+          }}
+        >
+          Capture a memory
+        </Text>
+      </PressableScale>
+
       {sorted.map((memory, index) => {
         const emoji = memory.emotion ? emotionEmoji[memory.emotion] ?? "\uD83C\uDF3F" : "\uD83C\uDF3F";
         return (
