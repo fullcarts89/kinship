@@ -8,12 +8,11 @@
  * Tone: calm reflection, never a productivity dashboard.
  * "Look how much you've grown your garden this week."
  */
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
-  Pressable,
   Image,
   Alert,
 } from "react-native";
@@ -21,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInUp } from "react-native-reanimated";
+import { PressableScale, Skeleton } from "@/components/ui";
 import { colors, fonts } from "@design/tokens";
 import { usePersons, useMemories, useAllInteractions } from "@/hooks";
 import { formatRelativeDate, formatMemoryDate, getMemoryDate, emotionEmojis, relationshipLabels } from "@/lib/formatters";
@@ -84,7 +84,7 @@ function DigestMemoryCard({ memory, personName }: { memory: Memory; personName: 
   const emoji = memory.emotion ? emotionEmojis[memory.emotion] ?? "🌿" : "🌿";
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => router.push(`/memory/${memory.id}`)}
       style={{
         backgroundColor: white,
@@ -135,7 +135,7 @@ function DigestMemoryCard({ memory, personName }: { memory: Memory; personName: 
           </Text>
         </View>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -163,7 +163,7 @@ function InteractionRow({
   const emoji = INTERACTION_EMOJI[interaction.type] ?? "💌";
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => router.push(`/person/${interaction.person_id}`)}
       style={{
         flexDirection: "row",
@@ -206,7 +206,7 @@ function InteractionRow({
       <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: warmGray }}>
         {formatRelativeDate(interaction.created_at)}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -224,7 +224,7 @@ function TendedPlantRow({
   const growth = getGrowthInfo(personId);
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => router.push(`/person/${personId}`)}
       style={{
         flexDirection: "row",
@@ -260,7 +260,7 @@ function TendedPlantRow({
         </Text>
       </View>
       <Text style={{ fontSize: 16 }}>🌱</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -301,7 +301,7 @@ function EmptyWeekState() {
       >
         Capture a memory or reach out to someone to see your week here.
       </Text>
-      <Pressable
+      <PressableScale
         onPress={() => router.push("/memory/add")}
         style={{
           backgroundColor: sage,
@@ -324,7 +324,7 @@ function EmptyWeekState() {
         >
           Capture a moment
         </Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }
@@ -334,8 +334,8 @@ function EmptyWeekState() {
 export default function ActivityScreen() {
   const insets = useSafeAreaInsets();
   const { persons } = usePersons();
-  const { memories, refetch: refetchMemories } = useMemories();
-  const { interactions, refetch: refetchInteractions } = useAllInteractions();
+  const { memories, isLoading: memoriesLoading, refetch: refetchMemories } = useMemories();
+  const { interactions, isLoading: interactionsLoading, refetch: refetchInteractions } = useAllInteractions();
 
   useFocusEffect(
     useCallback(() => {
@@ -343,6 +343,14 @@ export default function ActivityScreen() {
       refetchInteractions();
     }, [refetchMemories, refetchInteractions])
   );
+
+  // Show skeletons only for the first load — focus refetches flip isLoading
+  // again, and we don't want the digest to flash back to placeholders.
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  useEffect(() => {
+    if (!memoriesLoading && !interactionsLoading) setHasLoadedOnce(true);
+  }, [memoriesLoading, interactionsLoading]);
+  const showSkeletons = !hasLoadedOnce && (memoriesLoading || interactionsLoading);
 
   const personsMap = useMemo(
     () => new Map(persons.map((p) => [p.id, p])),
@@ -499,12 +507,19 @@ export default function ActivityScreen() {
             )}
           </Animated.View>
 
-          {totalWeekActivity === 0 ? (
+          {showSkeletons ? (
+            /* First load — skeleton blocks roughly matching the stat cards */
+            <View style={{ gap: 14 }}>
+              <Skeleton width="100%" height={94} borderRadius={16} />
+              <Skeleton width="100%" height={94} borderRadius={16} />
+              <Skeleton width="60%" height={22} borderRadius={8} />
+            </View>
+          ) : totalWeekActivity === 0 ? (
             <EmptyWeekState />
           ) : (
             <>
               {/* Week at a Glance */}
-              <Animated.View entering={FadeInUp.delay(80).duration(400)} style={{ marginBottom: 28 }}>
+              <Animated.View entering={FadeInUp.delay(60).duration(400)} style={{ marginBottom: 28 }}>
                 <View
                   style={{
                     flexDirection: "row",
@@ -558,7 +573,7 @@ export default function ActivityScreen() {
 
               {/* Plants tended this week */}
               {tendedPersons.length > 0 && (
-                <Animated.View entering={FadeInUp.delay(160).duration(400)} style={{ marginBottom: 28 }}>
+                <Animated.View entering={FadeInUp.delay(120).duration(400)} style={{ marginBottom: 28 }}>
                   <Text
                     style={{
                       fontFamily: fonts.serif,
@@ -592,7 +607,7 @@ export default function ActivityScreen() {
 
               {/* Memories this week */}
               {weekMemories.length > 0 && (
-                <Animated.View entering={FadeInUp.delay(240).duration(400)} style={{ marginBottom: 28 }}>
+                <Animated.View entering={FadeInUp.delay(180).duration(400)} style={{ marginBottom: 28 }}>
                   <Text
                     style={{
                       fontFamily: fonts.serif,
@@ -628,7 +643,7 @@ export default function ActivityScreen() {
 
               {/* Interactions this week */}
               {weekInteractions.length > 0 && (
-                <Animated.View entering={FadeInUp.delay(320).duration(400)} style={{ marginBottom: 28 }}>
+                <Animated.View entering={FadeInUp.delay(240).duration(400)} style={{ marginBottom: 28 }}>
                   <Text
                     style={{
                       fontFamily: fonts.serif,
@@ -663,7 +678,7 @@ export default function ActivityScreen() {
               )}
 
               {/* Warm closing line */}
-              <Animated.View entering={FadeInUp.delay(400).duration(400)}>
+              <Animated.View entering={FadeInUp.delay(300).duration(400)}>
                 <View
                   style={{
                     backgroundColor: sagePale,
@@ -707,9 +722,9 @@ export default function ActivityScreen() {
           )}
 
           {/* Season recap — shareable */}
-          {hasSeasonActivity && (
+          {!showSkeletons && hasSeasonActivity && (
             <Animated.View
-              entering={FadeInUp.delay(480).duration(400)}
+              entering={FadeInUp.delay(360).duration(400)}
               style={{ marginTop: 32 }}
             >
               <Text
@@ -879,32 +894,32 @@ export default function ActivityScreen() {
               </View>
 
               {/* Share action — outside the captured card */}
-              <Pressable
-                onPress={handleShareSeason}
-                style={{
-                  alignSelf: "center",
-                  marginTop: 14,
-                  backgroundColor: sage,
-                  borderRadius: 14,
-                  paddingVertical: 12,
-                  paddingHorizontal: 24,
-                  shadowColor: sage,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 12,
-                  elevation: 4,
-                }}
-              >
-                <Text
+              <View style={{ alignItems: "center", marginTop: 14 }}>
+                <PressableScale
+                  onPress={handleShareSeason}
                   style={{
-                    fontFamily: fonts.sansSemiBold,
-                    fontSize: 14,
-                    color: white,
+                    backgroundColor: sage,
+                    borderRadius: 14,
+                    paddingVertical: 12,
+                    paddingHorizontal: 24,
+                    shadowColor: sage,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 12,
+                    elevation: 4,
                   }}
                 >
-                  Share this season
-                </Text>
-              </Pressable>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansSemiBold,
+                      fontSize: 14,
+                      color: white,
+                    }}
+                  >
+                    Share this season
+                  </Text>
+                </PressableScale>
+              </View>
             </Animated.View>
           )}
         </View>

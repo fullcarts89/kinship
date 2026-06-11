@@ -26,6 +26,8 @@ import {
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import Animated, { FadeInUp } from "react-native-reanimated";
+import { PressableScale } from "@/components/ui";
 import {
   X,
   ChevronRight,
@@ -76,7 +78,7 @@ function PersonRow({
     person.relationship_type.slice(1);
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       style={{
         flexDirection: "row",
@@ -149,7 +151,7 @@ function PersonRow({
 
       {/* Chevron */}
       <ChevronRight size={16} strokeWidth={2} color="#D4CFC8" />
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -349,12 +351,18 @@ export default function SelectPersonScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {persons.map((person) => (
-            <PersonRow
+          {persons.map((person, index) => (
+            <Animated.View
               key={person.id}
-              person={person}
-              onPress={() => handleSelectPerson(person)}
-            />
+              // Gentle stagger on mount — delay capped at ~12 rows so long
+              // lists don't make the bottom of the screen wait.
+              entering={FadeInUp.delay(Math.min(index, 12) * 30).duration(250)}
+            >
+              <PersonRow
+                person={person}
+                onPress={() => handleSelectPerson(person)}
+              />
+            </Animated.View>
           ))}
         </ScrollView>
       )}
