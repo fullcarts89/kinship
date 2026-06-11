@@ -49,6 +49,7 @@ import {
   usePersonMemories,
   usePersonInteractions,
   usePersonVitality,
+  useDeleteInteraction,
 } from "@/hooks";
 import { usePersonPhoto } from "@/hooks/usePersonPhoto";
 import VitalPlant from "@/components/VitalPlant";
@@ -563,7 +564,39 @@ const emotionEmojis: Record<Emotion, string> = {
   loved: "\uD83D\uDC9B",
 };
 
-function TimelineTab({ interactions }: { interactions: Interaction[] }) {
+function TimelineTab({
+  interactions,
+  firstName,
+  onInteractionsChanged,
+}: {
+  interactions: Interaction[];
+  firstName: string;
+  onInteractionsChanged: () => void;
+}) {
+  const { deleteInteraction, isDeleting } = useDeleteInteraction();
+
+  const handleLongPress = useCallback(
+    (interaction: Interaction) => {
+      if (isDeleting) return;
+      Alert.alert(
+        "Remove this moment?",
+        `It will be removed from ${firstName}'s history.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: async () => {
+              await deleteInteraction(interaction.id);
+              onInteractionsChanged();
+            },
+          },
+        ]
+      );
+    },
+    [deleteInteraction, isDeleting, firstName, onInteractionsChanged]
+  );
+
   if (interactions.length === 0) {
     return (
       <View style={{ paddingHorizontal: 24 }}>
@@ -598,7 +631,10 @@ function TimelineTab({ interactions }: { interactions: Interaction[] }) {
 
         return (
           <FadeIn key={interaction.id} delay={index * 40}>
-            <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 16 }}>
+            <Pressable
+              onLongPress={() => handleLongPress(interaction)}
+              style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 16 }}
+            >
               {/* Icon circle + connector line */}
               <View style={{ alignItems: "center", marginRight: 14 }}>
                 <View
@@ -672,10 +708,23 @@ function TimelineTab({ interactions }: { interactions: Interaction[] }) {
                   {formatRelativeDate(interaction.created_at)}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           </FadeIn>
         );
       })}
+
+      {/* Removal hint — subtle caption below the list */}
+      <Text
+        style={{
+          fontFamily: fonts.sans,
+          fontSize: 11,
+          color: warmGray,
+          textAlign: "center",
+          marginTop: 4,
+        }}
+      >
+        Press and hold a moment to remove it
+      </Text>
     </View>
   );
 }
@@ -1542,7 +1591,13 @@ export default function PersonDetailScreen() {
               vitalityInfo={vitality}
             />
           )}
-          {activeTab === "timeline" && <TimelineTab interactions={interactions} />}
+          {activeTab === "timeline" && (
+            <TimelineTab
+              interactions={interactions}
+              firstName={person.name.split(" ")[0]}
+              onInteractionsChanged={refetchInteractions}
+            />
+          )}
           {activeTab === "memories" && (
             <MemoriesTab memories={memories} personId={person.id} />
           )}
