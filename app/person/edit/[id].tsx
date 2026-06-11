@@ -16,6 +16,7 @@ import {
   TextInput as RNTextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router } from "expo-router";
@@ -24,7 +25,7 @@ import * as ImagePicker from "expo-image-picker";
 import { ChevronLeft, Camera } from "lucide-react-native";
 import { colors, fonts, shadows } from "@design/tokens";
 import { Skeleton, ErrorState } from "@/components/ui";
-import { usePerson, useUpdatePerson } from "@/hooks";
+import { usePerson, useUpdatePerson, useDeletePerson } from "@/hooks";
 import { usePersonPhoto } from "@/hooks/usePersonPhoto";
 import { relationshipLabels } from "@/lib/formatters";
 import type { RelationshipType } from "@/types";
@@ -91,6 +92,7 @@ export default function EditPersonScreen() {
 
   const { person, isLoading, error, refetch } = usePerson(id ?? "");
   const { updatePerson, isUpdating } = useUpdatePerson();
+  const { deletePerson, isDeleting } = useDeletePerson();
   const { photoUri: sessionPhotoUri, setPhoto } = usePersonPhoto(id ?? "");
 
   // ─── Form state ────────────────────────────────────────────────────────
@@ -173,6 +175,34 @@ export default function EditPersonScreen() {
   };
 
   const canSave = name.trim().length > 0 && relationship !== null && !isUpdating;
+
+  const handleRemove = () => {
+    if (!id || !person || isDeleting) return;
+    const firstName = (name.trim() || person.name).split(" ")[0];
+    Alert.alert(
+      `Remove ${firstName} from your garden?`,
+      "Their plant, memories, and moments will be removed. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deletePerson(id);
+              // The profile beneath us no longer exists — replace so
+              // back-navigation can't land on it.
+              router.replace("/(tabs)/people");
+            } catch {
+              setSaveError(
+                "Couldn't let them rest just yet — give it another try in a moment."
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleSave = async () => {
     if (!id || !relationship || !name.trim()) return;
@@ -640,6 +670,48 @@ export default function EditPersonScreen() {
               </Text>
             </LinearGradient>
           </Pressable>
+
+          {/* ─── Remove from garden — quiet, separated danger action ──── */}
+          <View
+            style={{
+              height: 1,
+              backgroundColor: colors.border,
+              marginTop: 36,
+              marginBottom: 20,
+            }}
+          />
+          <Pressable
+            onPress={handleRemove}
+            disabled={isDeleting}
+            hitSlop={8}
+            style={{
+              alignItems: "center",
+              paddingVertical: 10,
+              opacity: isDeleting ? 0.5 : 1,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansMedium,
+                fontSize: 14,
+                color: colors.error,
+              }}
+            >
+              {isDeleting ? "Letting them rest..." : "Remove from garden"}
+            </Text>
+          </Pressable>
+          <Text
+            style={{
+              fontFamily: fonts.sans,
+              fontSize: 12,
+              color: colors.warmGray,
+              textAlign: "center",
+              lineHeight: 18,
+              marginTop: 4,
+            }}
+          >
+            Their plant and the memories you've kept will go with them.
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </>
