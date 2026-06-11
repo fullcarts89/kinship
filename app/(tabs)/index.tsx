@@ -192,7 +192,7 @@ function DriftingLeaf() {
     const schedule = () => {
       if (cancelled) return;
       // Long random pause between leaves: 18–30 seconds
-      const delay = 18000 + Math.random() * 12000;
+      const delay = 8000 + Math.random() * 8000;
       timer = setTimeout(() => {
         if (cancelled) return;
         startX.value = 16 + Math.random() * 220; // randomize entry point
@@ -217,7 +217,7 @@ function DriftingLeaf() {
   const leafStyle = useAnimatedStyle(() => {
     const p = progress.value;
     return {
-      opacity: interpolate(p, [0, 0.15, 0.7, 1], [0, 0.7, 0.55, 0]),
+      opacity: interpolate(p, [0, 0.15, 0.7, 1], [0, 0.9, 0.7, 0]),
       transform: [
         { translateX: startX.value + p * 60 },
         { translateY: p * 180 },

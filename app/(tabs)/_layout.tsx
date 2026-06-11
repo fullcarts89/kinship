@@ -28,7 +28,7 @@ import Animated, {
 import { colors, fonts } from "@design/tokens";
 
 // ─── Tend FAB ────────────────────────────────────────────────────────────────
-// The center FAB quietly "breathes" (scale 1 → 1.03 → 1, one breath every ~6s)
+// The center FAB quietly "breathes" (scale 1 → 1.05 → 1, one breath every ~6s)
 // to invite the primary action, and dips to 0.94 with a spring when pressed.
 // The press pulse is driven by the tab's tabPress listener via a shared value
 // so tab behavior stays untouched.
@@ -44,7 +44,7 @@ function TendFabIcon({ pressScale }: { pressScale: SharedValue<number> }) {
       withSequence(
         withDelay(
           4000,
-          withTiming(1.03, {
+          withTiming(1.05, {
             duration: 1000,
             easing: Easing.inOut(Easing.sin),
           })

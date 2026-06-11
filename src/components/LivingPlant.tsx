@@ -15,7 +15,7 @@
  *   blooming   → + flowers
  *   tree       → tallest, dense leaves, multiple blooms
  *
- * Calm-brand motion rules: leaf rotation stays within ±4°, the cycle is
+ * Calm-brand motion rules: leaf rotation stays within ±7°, the cycle is
  * slow (~3.2s), and everything eases — nothing snaps or bounces.
  *
  * Usage (drop-in for the static stage illustrations):
@@ -212,9 +212,9 @@ function Bloom({
 }) {
   const animatedProps = useAnimatedProps(() => {
     const t = (driver.value + spec.phase) % 1;
-    const breath = 1 + Math.sin(t * Math.PI * 2) * 0.04;
+    const breath = 1 + Math.sin(t * Math.PI * 2) * 0.08;
     return {
-      rotation: Math.sin(t * Math.PI * 2) * 3,
+      rotation: Math.sin(t * Math.PI * 2) * 5,
       origin: `${spec.x}, ${spec.y}`,
       scale: spec.scale * breath,
     };
@@ -249,7 +249,7 @@ export interface LivingPlantProps {
   size: number;
   /**
    * Sway amplitude in degrees added on top of each leaf's resting angle.
-   * Callers can soften motion for low-vitality plants. Default 3.5.
+   * Callers can soften motion for low-vitality plants. Default 6.
    */
   amplitude?: number;
   /** Disable motion entirely (e.g. reduce-motion contexts). */
@@ -259,7 +259,7 @@ export interface LivingPlantProps {
 export function LivingPlant({
   stage,
   size,
-  amplitude = 3.5,
+  amplitude = 6,
   animated = true,
 }: LivingPlantProps) {
   const spec = PLANT_SPECS[stage];

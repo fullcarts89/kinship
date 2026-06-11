@@ -2,10 +2,10 @@
  * PressableScale
  *
  * The app-wide touch-feedback primitive: a Pressable that springs down
- * to ~0.97 scale while pressed and springs back on release, with an
+ * to ~0.95 scale while pressed and springs back on release, with an
  * optional light haptic tick on press.
  *
- * Calm-brand rules: never scales below 0.96, spring is soft (no wobble),
+ * Calm-brand rules: never scales below 0.94, spring is soft (no wobble),
  * and haptics default OFF — enable `haptic` only for meaningful actions
  * (saving, planting, completing), not every list row.
  *
@@ -25,7 +25,7 @@ import * as Haptics from "expo-haptics";
 const SPRING = { damping: 20, stiffness: 300, mass: 0.6 };
 
 export interface PressableScaleProps extends Omit<PressableProps, "style"> {
-  /** Scale while pressed. Keep within 0.96–0.99. */
+  /** Scale while pressed. Keep within 0.94–0.98. */
   pressedScale?: number;
   /** Fire a light haptic tick on press-in. Reserve for meaningful actions. */
   haptic?: boolean;
@@ -34,7 +34,7 @@ export interface PressableScaleProps extends Omit<PressableProps, "style"> {
 }
 
 export function PressableScale({
-  pressedScale = 0.97,
+  pressedScale = 0.95,
   haptic = false,
   onPressIn,
   onPressOut,
