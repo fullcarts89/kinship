@@ -44,7 +44,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Kinship to access your photos to attach them to memories in your garden."
+          "photosPermission": "Allow Kinship to access your photos to attach them to memories in your garden.",
+          "cameraPermission": "Allow Kinship to use your camera to take photos for your memories."
         }
       ],
       [
