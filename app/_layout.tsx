@@ -58,9 +58,20 @@ export default function RootLayout() {
 
     const subscription = addNotificationResponseListener((response) => {
       const data = response.notification.request.content.data;
+      const type = data.type as string | undefined;
       const personId = data.personId as string | undefined;
+      const memoryId = data.memoryId as string | undefined;
 
-      if (personId) {
+      // Land the user on the surface the notification promised
+      if (type === "memory_capture_prompt" && personId) {
+        router.push(`/memory/add?personId=${personId}`);
+      } else if (type === "memory_resurface" && memoryId) {
+        router.push(`/memory/${memoryId}`);
+      } else if (type === "weekly_digest") {
+        router.push("/(tabs)/activity");
+      } else if (type === "garden_walk") {
+        router.push("/garden-walk");
+      } else if (personId) {
         router.push(`/person/${personId}`);
       }
     });
