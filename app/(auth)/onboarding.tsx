@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   Dimensions,
   ImageBackground,
   ScrollView,
-  Animated as RNAnimated,
   PanResponder,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,6 +15,19 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Camera, ChevronRight } from "lucide-react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  Easing,
+  FadeIn,
+  FadeOut,
+  FadeInUp,
+} from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
 import { Button } from "@/components/ui";
 import { usePersons, useCreateMemory } from "@/hooks";
@@ -24,6 +36,7 @@ import { markOnboardingComplete } from "@/lib/onboardingStatus";
 import {
   GardenGrowthIllustration,
   SeedIllustration,
+  SingleSproutIllustration,
   SuccessIllustration,
 } from "@/components/illustrations";
 import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
@@ -69,9 +82,67 @@ const slides: Slide[] = [
   },
 ];
 
+// Warm full-bleed photos for the carousel (restored from the original design).
+const slideImages = [
+  "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=900&q=80",
+  "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?w=900&q=80",
+  "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=900&q=80",
+];
+
 // ─── Onboarding Screens Enum ────────────────────────────────────────────────
 
 type OnboardingScreen = "carousel" | "addPerson" | "dreamPreview" | "addMemory" | "dashboard";
+
+// ─── Shared Animation Helpers ───────────────────────────────────────────────
+
+/**
+ * Gentle settle-in (soft overshoot) followed by a continuous, calm sway —
+ * borrowed from the plant-rest stage on the loading screen.
+ */
+function SettleSwayIllustration({
+  children,
+  settleDuration = 700,
+  swayDeg = 2.5,
+  swayDuration = 2500,
+}: {
+  children: React.ReactNode;
+  settleDuration?: number;
+  swayDeg?: number;
+  swayDuration?: number;
+}) {
+  const scale = useSharedValue(0.6);
+  const sway = useSharedValue(0);
+
+  useEffect(() => {
+    scale.value = withTiming(1, {
+      duration: settleDuration,
+      easing: Easing.out(Easing.back(1.7)),
+    });
+    sway.value = withDelay(
+      settleDuration,
+      withRepeat(
+        withSequence(
+          withTiming(swayDeg, {
+            duration: swayDuration / 2,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(-swayDeg, {
+            duration: swayDuration / 2,
+            easing: Easing.inOut(Easing.ease),
+          })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { rotate: `${sway.value}deg` }],
+  }));
+
+  return <Animated.View style={animStyle}>{children}</Animated.View>;
+}
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -183,9 +254,36 @@ interface CarouselScreenProps {
   onNext: () => void;
 }
 
+/** One full-bleed slide photo that cross-fades in/out as the slide changes. */
+function CarouselSlideImage({ uri, visible }: { uri: string; visible: boolean }) {
+  const opacity = useSharedValue(visible ? 1 : 0);
+
+  useEffect(() => {
+    opacity.value = withTiming(visible ? 1 : 0, {
+      duration: 600,
+      easing: Easing.inOut(Easing.ease),
+    });
+  }, [visible]);
+
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+        fadeStyle,
+      ]}
+    >
+      <ImageBackground source={{ uri }} style={{ flex: 1 }} resizeMode="cover" />
+    </Animated.View>
+  );
+}
+
 function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const scrollX = useRef(new RNAnimated.Value(0)).current;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -194,17 +292,17 @@ function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
         Math.abs(gestureState.dx) > 10,
       onPanResponderRelease: (_, gestureState) => {
         if (Math.abs(gestureState.dx) > 50) {
-          if (gestureState.dx < 0 && currentSlide < slides.length - 1) {
-            setCurrentSlide((prev) => prev + 1);
-          } else if (gestureState.dx > 0 && currentSlide > 0) {
-            setCurrentSlide((prev) => prev - 1);
+          if (gestureState.dx < 0) {
+            setCurrentSlide((prev) => Math.min(prev + 1, slides.length - 1));
+          } else if (gestureState.dx > 0) {
+            setCurrentSlide((prev) => Math.max(prev - 1, 0));
           }
         }
       },
     })
   ).current;
 
-  // Gradient placeholder backgrounds for slides (since we can't use Unsplash reliably)
+  // Warm gradient base — shown behind each photo while it loads.
   const slideColors: [string, string][] = [
     ["#6B8E7B", "#3A5B4A"],
     ["#8B7E6A", "#5A4D3A"],
@@ -215,56 +313,67 @@ function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
     <View style={{ flex: 1, backgroundColor: cream }} {...panResponder.panHandlers}>
       <LinearGradient
         colors={slideColors[currentSlide]}
-        style={{ flex: 1 }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-      >
-        {/* Dark overlay on bottom */}
-        <LinearGradient
-          colors={["transparent", "rgba(28,25,23,0.5)", "rgba(28,25,23,0.85)"]}
-          locations={[0, 0.3, 1]}
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: "70%",
-          }}
-        />
+      />
 
-        {/* Content at bottom */}
+      {/* Full-bleed photos, cross-fading between slides */}
+      {slideImages.map((uri, i) => (
+        <CarouselSlideImage key={uri} uri={uri} visible={i === currentSlide} />
+      ))}
+
+      {/* Dark overlay on bottom for text legibility */}
+      <LinearGradient
+        colors={["transparent", "rgba(28,25,23,0.5)", "rgba(28,25,23,0.85)"]}
+        locations={[0, 0.3, 1]}
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "70%",
+        }}
+      />
+
+      {/* Content at bottom */}
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "flex-end",
+          paddingHorizontal: 32,
+          paddingBottom: Math.max(insets.bottom, 20) + 28,
+        }}
+      >
+        {/* Page Indicator Dots */}
         <View
           style={{
-            flex: 1,
-            justifyContent: "flex-end",
-            paddingHorizontal: 32,
-            paddingBottom: Math.max(insets.bottom, 20) + 28,
+            flexDirection: "row",
+            justifyContent: "center",
+            gap: 8,
+            marginBottom: 32,
           }}
         >
-          {/* Page Indicator Dots */}
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "center",
-              gap: 8,
-              marginBottom: 32,
-            }}
-          >
-            {slides.map((_, i) => (
-              <Pressable key={i} onPress={() => setCurrentSlide(i)}>
-                <View
-                  style={{
-                    width: i === currentSlide ? 32 : 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor:
-                      i === currentSlide ? white : "rgba(255,255,255,0.4)",
-                  }}
-                />
-              </Pressable>
-            ))}
-          </View>
+          {slides.map((_, i) => (
+            <Pressable key={i} onPress={() => setCurrentSlide(i)}>
+              <View
+                style={{
+                  width: i === currentSlide ? 32 : 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor:
+                    i === currentSlide ? white : "rgba(255,255,255,0.4)",
+                }}
+              />
+            </Pressable>
+          ))}
+        </View>
 
+        {/* Text slides up + fades in on every slide change */}
+        <Animated.View
+          key={currentSlide}
+          entering={FadeInUp.duration(500).easing(Easing.out(Easing.cubic))}
+        >
           {/* Headline */}
           <Text
             style={{
@@ -319,8 +428,8 @@ function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
               </Text>
             </Pressable>
           )}
-        </View>
-      </LinearGradient>
+        </Animated.View>
+      </View>
     </View>
   );
 }
@@ -354,9 +463,11 @@ function AddFirstPersonScreen({
       }}
     >
       <View style={{ flex: 1, paddingHorizontal: 24 }}>
-        {/* Illustration */}
+        {/* Illustration — settles in with a soft overshoot, then sways gently */}
         <View style={{ alignItems: "center", marginTop: 40, marginBottom: 8 }}>
-          <SeedIllustration size={140} />
+          <SettleSwayIllustration settleDuration={700} swayDeg={2.5} swayDuration={2500}>
+            <SeedIllustration size={140} />
+          </SettleSwayIllustration>
         </View>
 
         {/* Title */}
@@ -678,6 +789,94 @@ interface DreamPreviewScreenProps {
   onNext: () => void;
 }
 
+/** Final grow stage: bloom settles in with a spring, then sways gently. */
+function BloomSettle({ size }: { size: number }) {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.7);
+  const sway = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withTiming(1, { duration: 300 });
+    scale.value = withSpring(1, { damping: 10, stiffness: 120 });
+    sway.value = withDelay(
+      900,
+      withRepeat(
+        withSequence(
+          withTiming(2, { duration: 1250, easing: Easing.inOut(Easing.ease) }),
+          withTiming(-2, { duration: 1250, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }, { rotate: `${sway.value}deg` }],
+  }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <GrowthPlantIllustration stage="blooming" size={size} />
+    </Animated.View>
+  );
+}
+
+/**
+ * Plant grows in over ~1.8s: seed → sprout → bloom, coarse stage steps
+ * like loading.tsx, with cross-fades between stages.
+ */
+function GrowingBloomIllustration({ size }: { size: number }) {
+  const [growStage, setGrowStage] = useState(0);
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setGrowStage(1), 600),
+      setTimeout(() => setGrowStage(2), 1200),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const stageWrap = {
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  };
+
+  return (
+    <View style={{ width: size, height: size }}>
+      {growStage === 0 && (
+        <Animated.View
+          style={stageWrap}
+          entering={FadeIn.duration(250)}
+          exiting={FadeOut.duration(250)}
+        >
+          <SeedIllustration size={size * 0.7} />
+        </Animated.View>
+      )}
+      {growStage === 1 && (
+        <Animated.View
+          style={stageWrap}
+          entering={FadeIn.duration(250)}
+          exiting={FadeOut.duration(250)}
+        >
+          <SingleSproutIllustration size={size * 0.8} />
+        </Animated.View>
+      )}
+      {growStage === 2 && (
+        <View style={stageWrap}>
+          <BloomSettle size={size} />
+        </View>
+      )}
+    </View>
+  );
+}
+
 function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenProps) {
   const displayName = personName === "them" ? "someone you love" : personName;
   const firstName = personName === "them" ? "them" : personName.split(" ")[0];
@@ -702,9 +901,9 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
         contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Plant illustration — Blooming stage represents the future state */}
+        {/* Plant illustration — grows seed → sprout → bloom into the future state */}
         <View style={{ alignItems: "center", marginTop: 40, marginBottom: 8 }}>
-          <GrowthPlantIllustration stage="blooming" size={120} />
+          <GrowingBloomIllustration size={120} />
         </View>
 
         {/* Stage label */}
@@ -943,27 +1142,31 @@ function DashboardEntryScreen({
             marginBottom: 28,
           }}
         >
-          {/* Illustration */}
+          {/* Illustration — gentle scale-in, then a calm sway loop */}
           <View style={{ alignItems: "center", marginBottom: 24 }}>
-            <GardenGrowthIllustration size={110} />
+            <SettleSwayIllustration settleDuration={650} swayDeg={2} swayDuration={2800}>
+              <GardenGrowthIllustration size={110} />
+            </SettleSwayIllustration>
           </View>
 
           {/* Title */}
-          <Text
-            style={{
-              fontFamily: fonts.serif,
-              fontSize: 24,
-              color: nearBlack,
-              textAlign: "center",
-              lineHeight: 31,
-              marginBottom: 24,
-            }}
-          >
-            Help your garden grow
-          </Text>
+          <Animated.View entering={FadeInUp.duration(450).delay(200)}>
+            <Text
+              style={{
+                fontFamily: fonts.serif,
+                fontSize: 24,
+                color: nearBlack,
+                textAlign: "center",
+                lineHeight: 31,
+                marginBottom: 24,
+              }}
+            >
+              Help your garden grow
+            </Text>
+          </Animated.View>
 
           {/* Suggestion Items */}
-          <View style={{ gap: 12 }}>
+          <Animated.View entering={FadeInUp.duration(450).delay(350)} style={{ gap: 12 }}>
             {suggestions.map((item, i) => (
               <Pressable
                 key={i}
@@ -994,10 +1197,11 @@ function DashboardEntryScreen({
                 <ChevronRight size={20} color={warmGray} style={{ opacity: 0.5 }} />
               </Pressable>
             ))}
-          </View>
+          </Animated.View>
         </LinearGradient>
 
         {/* Your Garden Section */}
+        <Animated.View entering={FadeInUp.duration(450).delay(500)}>
         <Text
           style={{
             fontFamily: fonts.sansSemiBold,
@@ -1088,6 +1292,7 @@ function DashboardEntryScreen({
             Your memories will appear here
           </Text>
         </View>
+        </Animated.View>
       </ScrollView>
 
       {/* Bottom CTA */}
