@@ -22,6 +22,11 @@ import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePerson, useCreateInteraction } from "@/hooks";
 import {
+  emotionList,
+  emotionEmojis,
+  formatEmotionLabel,
+} from "@/lib/formatters";
+import {
   recordReflectionGrowth,
   getTransitionToastMessage,
 } from "@/lib/growthEngine";
@@ -33,19 +38,11 @@ import type { Emotion } from "@/types";
 
 // ─── Emoji → Emotion Mapping ──────────────────────────────────────────────
 
-interface ReactionOption {
-  emoji: string;
-  emotion: Emotion;
-  label: string;
-}
-
-const REACTIONS: ReactionOption[] = [
-  { emoji: "\uD83D\uDE0A", emotion: "connected", label: "Connected" },
-  { emoji: "\u2764\uFE0F", emotion: "loved", label: "Loved" },
-  { emoji: "\uD83C\uDF31", emotion: "hopeful", label: "Hopeful" },
-  { emoji: "\u2728", emotion: "inspired", label: "Inspired" },
-  { emoji: "\uD83E\uDD17", emotion: "grateful", label: "Grateful" },
-];
+/**
+ * Canonical emotion options \u2014 sourced from the app-wide taxonomy in
+ * src/lib/formatters.ts so emoji and labels stay consistent everywhere.
+ */
+const REACTIONS: Emotion[] = emotionList;
 
 // ─── Screen ───────────────────────────────────────────────────────────────
 
@@ -58,8 +55,8 @@ export default function CheckInScreen() {
   const { createInteraction } = useCreateInteraction();
 
   // ─── Local state ────────────────────────────────────────────────────────
-  const [selectedReaction, setSelectedReaction] =
-    useState<ReactionOption | null>(null);
+  const [selectedEmotion, setSelectedEmotion] =
+    useState<Emotion | null>(null);
   const [note, setNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -105,7 +102,7 @@ export default function CheckInScreen() {
     if (isSaving) return;
     setIsSaving(true);
 
-    const hasReaction = selectedReaction !== null;
+    const hasReaction = selectedEmotion !== null;
     const hasNote = note.trim().length > 0;
 
     try {
@@ -113,7 +110,7 @@ export default function CheckInScreen() {
       const created = await createInteraction({
         person_id: person.id,
         type: "check_in",
-        emotion: selectedReaction?.emotion ?? null,
+        emotion: selectedEmotion,
         note: note.trim() || null,
       });
 
@@ -190,21 +187,21 @@ export default function CheckInScreen() {
           <View
             style={{
               flexDirection: "row",
+              flexWrap: "wrap",
               justifyContent: "center",
               gap: 12,
               marginBottom: 28,
+              maxWidth: 360,
             }}
           >
-            {REACTIONS.map((reaction) => {
-              const isSelected =
-                selectedReaction?.emotion === reaction.emotion;
+            {REACTIONS.map((emotion) => {
+              const isSelected = selectedEmotion === emotion;
               return (
                 <Pressable
-                  key={reaction.emotion}
+                  key={emotion}
+                  accessibilityLabel={formatEmotionLabel(emotion)}
                   onPress={() =>
-                    setSelectedReaction(
-                      isSelected ? null : reaction
-                    )
+                    setSelectedEmotion(isSelected ? null : emotion)
                   }
                   style={{
                     width: 56,
@@ -221,7 +218,9 @@ export default function CheckInScreen() {
                       : colors.white,
                   }}
                 >
-                  <Text style={{ fontSize: 24 }}>{reaction.emoji}</Text>
+                  <Text style={{ fontSize: 24 }}>
+                    {emotionEmojis[emotion]}
+                  </Text>
                 </Pressable>
               );
             })}

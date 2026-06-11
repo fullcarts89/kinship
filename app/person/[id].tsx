@@ -81,19 +81,19 @@ import type { VitalityInfo } from "@/lib/vitalityEngine";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────
 
-const sage = "#7A9E7E";
-const sageDark = "#4A7055";
-const sagePale = "#EBF3EB";
-const sageLight = "#C8DEC9";
-const gold = "#D4A853";
-const goldLight = "#F0DBA0";
-const cream = "#FDF7ED";
-const nearBlack = "#1C1917";
-const warmGray = "#78716C";
-const white = "#FFFFFF";
-const borderColor = "#E8E4DD";
-const lavender = "#C5B8E8";
-const sky = "#B8D4E8";
+const sage = colors.sage;
+const sageDark = colors.moss;
+const sagePale = colors.sagePale;
+const sageLight = colors.sageLight;
+const gold = colors.gold;
+const goldLight = colors.goldLight;
+const cream = colors.cream;
+const nearBlack = colors.nearBlack;
+const warmGray = colors.warmGray;
+const white = colors.white;
+const borderColor = colors.border;
+const lavender = colors.lavender;
+const sky = colors.sky;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

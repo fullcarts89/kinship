@@ -52,7 +52,11 @@ import {
 } from "lucide-react-native";
 import { colors, fonts, shadows } from "@design/tokens";
 import { usePersons, useCreateMemory } from "@/hooks";
-import { relationshipLabels } from "@/lib/formatters";
+import {
+  relationshipLabels,
+  emotionList,
+  formatEmotionLabel,
+} from "@/lib/formatters";
 import ContactPicker from "@/components/ContactPicker";
 import { getInitials, consumePendingImport, type ContactEntry } from "@/lib/contacts";
 import {
@@ -61,7 +65,7 @@ import {
   SingleSproutIllustration,
   SeedIllustration,
 } from "@/components/illustrations";
-import type { RelationshipType } from "@/types";
+import type { RelationshipType, Emotion } from "@/types";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -766,11 +770,15 @@ function StepFirstMemory({
   onChangeText,
   photoUri,
   onPickPhoto,
+  emotion,
+  onSelectEmotion,
 }: {
   memoryText: string;
   onChangeText: (v: string) => void;
   photoUri: string | null;
   onPickPhoto: () => void;
+  emotion: Emotion | null;
+  onSelectEmotion: (v: Emotion | null) => void;
 }) {
   return (
     <View style={{ flex: 1, justifyContent: "center" }}>
@@ -922,6 +930,52 @@ function StepFirstMemory({
           minHeight: 100,
         }}
       />
+
+      {/* Emotion chips (optional) */}
+      <Text
+        style={{
+          fontFamily: fonts.sansSemiBold,
+          fontSize: 13,
+          color: colors.warmGray,
+          marginTop: 16,
+          marginBottom: 10,
+        }}
+      >
+        How did it feel?
+      </Text>
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        {emotionList.map((option) => {
+          const isSelected = emotion === option;
+          return (
+            <Pressable
+              key={option}
+              onPress={() => onSelectEmotion(isSelected ? null : option)}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+                borderRadius: 100,
+                backgroundColor: isSelected ? colors.sage : colors.sagePale,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sansMedium,
+                  fontSize: 14,
+                  color: isSelected ? colors.white : colors.warmGray,
+                }}
+              >
+                {formatEmotionLabel(option)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -1442,6 +1496,7 @@ export default function AddPersonScreen() {
   const [interests, setInterests] = useState<string[]>([]);
   const [customInterests, setCustomInterests] = useState<string[]>([]);
   const [memoryText, setMemoryText] = useState("");
+  const [memoryEmotion, setMemoryEmotion] = useState<Emotion | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
 
@@ -1466,6 +1521,7 @@ export default function AddPersonScreen() {
         setInterests([]);
         setCustomInterests([]);
         setMemoryText("");
+        setMemoryEmotion(null);
         setPhotoUri(null);
         setProfilePhotoUri(null);
         hasCompletedRef.current = false;
@@ -1485,6 +1541,7 @@ export default function AddPersonScreen() {
         setInterests([]);
         setCustomInterests([]);
         setMemoryText("");
+        setMemoryEmotion(null);
         setPhotoUri(null);
         setProfilePhotoUri(null);
         hasCompletedRef.current = false;
@@ -1662,7 +1719,7 @@ export default function AddPersonScreen() {
         await createMemory({
           person_id: newPerson.id,
           content: memoryText.trim() || "A moment shared together",
-          emotion: null,
+          emotion: memoryEmotion,
           photo_url: photoUri ?? null,
         });
       }
@@ -1721,6 +1778,8 @@ export default function AddPersonScreen() {
             onChangeText={setMemoryText}
             photoUri={photoUri}
             onPickPhoto={handlePickPhoto}
+            emotion={memoryEmotion}
+            onSelectEmotion={setMemoryEmotion}
           />
         );
       case 5:
