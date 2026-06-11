@@ -8,13 +8,14 @@
  * Tone: calm reflection, never a productivity dashboard.
  * "Look how much you've grown your garden this week."
  */
-import React, { useMemo } from "react";
+import React, { useMemo, useRef } from "react";
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   Image,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
@@ -24,8 +25,10 @@ import { colors, fonts } from "@design/tokens";
 import { usePersons, useMemories, useAllInteractions } from "@/hooks";
 import { formatRelativeDate, formatMemoryDate, getMemoryDate, emotionEmojis, relationshipLabels } from "@/lib/formatters";
 import { getGrowthInfo } from "@/lib/growthEngine";
+import { simpleHash } from "@/lib/suggestionEngine";
+import { shareViewAsImage } from "@/lib/shareImage";
 import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
-import { SmallGardenIllustration } from "@/components/illustrations";
+import { SmallGardenIllustration, FlourishingGardenIllustration } from "@/components/illustrations";
 import type { Memory, Interaction } from "@/types/database";
 import { useCallback } from "react";
 
@@ -57,6 +60,22 @@ function getWeekSummaryPhrase(memCount: number, interactionCount: number): strin
   if (total >= 4) return "Your garden is blooming";
   if (total >= 2) return "Your garden is growing";
   return "A quiet week of tending";
+}
+
+type SeasonName = "spring" | "summer" | "autumn" | "winter";
+
+/**
+ * Current meteorological season and its start date.
+ * Spring: Mar–May, Summer: Jun–Aug, Autumn: Sep–Nov, Winter: Dec–Feb.
+ */
+function getSeasonInfo(now: Date): { name: SeasonName; start: Date } {
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  if (month >= 2 && month <= 4) return { name: "spring", start: new Date(year, 2, 1) };
+  if (month >= 5 && month <= 7) return { name: "summer", start: new Date(year, 5, 1) };
+  if (month >= 8 && month <= 10) return { name: "autumn", start: new Date(year, 8, 1) };
+  // Winter starts Dec 1 — of last year if we're in Jan or Feb
+  return { name: "winter", start: new Date(month === 11 ? year : year - 1, 11, 1) };
 }
 
 // ─── Memory Card ────────────────────────────────────────────────────────────
@@ -357,6 +376,64 @@ export default function ActivityScreen() {
   const totalWeekActivity = weekMemories.length + weekInteractions.length;
   const summaryPhrase = getWeekSummaryPhrase(weekMemories.length, weekInteractions.length);
 
+  // Gentle look ahead — rotate through the garden by week number so the
+  // invitation is stable for the week but changes with the seasons of time.
+  const nextWeekPerson = useMemo(() => {
+    if (persons.length === 0) return null;
+    const sorted = [...persons].sort((a, b) => a.id.localeCompare(b.id));
+    const weekNumber = Math.floor(Date.now() / ONE_WEEK_MS);
+    return sorted[simpleHash(String(weekNumber)) % sorted.length];
+  }, [persons]);
+
+  // ── Season recap ──
+  const season = useMemo(() => getSeasonInfo(new Date()), []);
+
+  const seasonStats = useMemo(() => {
+    const startMs = season.start.getTime();
+    const seasonMemories = memories.filter(
+      (m) => new Date(getMemoryDate(m)).getTime() >= startMs
+    );
+    const seasonInteractions = interactions.filter(
+      (i) => new Date(i.created_at).getTime() >= startMs
+    );
+    const seedsPlanted = persons.filter(
+      (p) => new Date(p.created_at).getTime() >= startMs
+    ).length;
+    const connected = new Set<string>();
+    seasonMemories.forEach((m) => connected.add(m.person_id));
+    seasonInteractions.forEach((i) => connected.add(i.person_id));
+    // Up to 2 excerpts — prefer memories with an emotion or a photo
+    const score = (m: Memory) => (m.emotion ? 2 : 0) + (m.photo_url ? 1 : 0);
+    const excerpts = [...seasonMemories]
+      .sort(
+        (a, b) =>
+          score(b) - score(a) ||
+          new Date(getMemoryDate(b)).getTime() - new Date(getMemoryDate(a)).getTime()
+      )
+      .slice(0, 2);
+    return {
+      seedsPlanted,
+      momentsKept: seasonMemories.length,
+      peopleConnected: connected.size,
+      excerpts,
+    };
+  }, [memories, interactions, persons, season]);
+
+  const hasSeasonActivity =
+    seasonStats.seedsPlanted + seasonStats.momentsKept + seasonStats.peopleConnected > 0;
+
+  const seasonCardRef = useRef<View>(null);
+
+  const handleShareSeason = useCallback(async () => {
+    const result = await shareViewAsImage(seasonCardRef, "Share your season");
+    if (!result.success && result.error) {
+      Alert.alert(
+        "Couldn't share just yet",
+        "Your season is safe and sound here — sharing didn't work this time."
+      );
+    }
+  }, []);
+
   const today = new Date();
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - 6);
@@ -609,9 +686,226 @@ export default function ActivityScreen() {
                   >
                     Every moment you capture is a small act of love. Your garden noticed. 🌿
                   </Text>
+                  {nextWeekPerson && (
+                    <Text
+                      style={{
+                        fontFamily: fonts.sans,
+                        fontSize: 13,
+                        color: sageDark,
+                        textAlign: "center",
+                        lineHeight: 20,
+                        marginTop: 8,
+                        opacity: 0.85,
+                      }}
+                    >
+                      Next week, your garden might enjoy a quiet moment with {nextWeekPerson.name}.
+                    </Text>
+                  )}
                 </View>
               </Animated.View>
             </>
+          )}
+
+          {/* Season recap — shareable */}
+          {hasSeasonActivity && (
+            <Animated.View
+              entering={FadeInUp.delay(480).duration(400)}
+              style={{ marginTop: 32 }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.serif,
+                  fontSize: 20,
+                  color: nearBlack,
+                  marginBottom: 4,
+                }}
+              >
+                Your {season.name} so far
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 13,
+                  color: warmGray,
+                  marginBottom: 14,
+                }}
+              >
+                Since {season.start.toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+              </Text>
+
+              {/* Capture-ready card */}
+              <View
+                ref={seasonCardRef}
+                collapsable={false}
+                style={{
+                  backgroundColor: cream,
+                  borderRadius: 24,
+                  borderWidth: 1,
+                  borderColor: borderClr,
+                  overflow: "hidden",
+                  padding: 24,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.serif,
+                    fontSize: 24,
+                    color: nearBlack,
+                    lineHeight: 30,
+                  }}
+                >
+                  Your {season.name}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.serif,
+                    fontSize: 24,
+                    color: sage,
+                    lineHeight: 30,
+                    marginBottom: 18,
+                  }}
+                >
+                  in the garden
+                </Text>
+
+                {/* Season stats */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    backgroundColor: white,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: borderClr,
+                    paddingVertical: 14,
+                    marginBottom: 18,
+                  }}
+                >
+                  {[
+                    { value: seasonStats.seedsPlanted, label: seasonStats.seedsPlanted === 1 ? "seed\nplanted" : "seeds\nplanted" },
+                    { value: seasonStats.momentsKept, label: seasonStats.momentsKept === 1 ? "moment\nkept" : "moments\nkept" },
+                    { value: seasonStats.peopleConnected, label: seasonStats.peopleConnected === 1 ? "person\nconnected" : "people\nconnected" },
+                  ].map((stat, i, arr) => (
+                    <View
+                      key={i}
+                      style={{
+                        flex: 1,
+                        alignItems: "center",
+                        borderRightWidth: i < arr.length - 1 ? 1 : 0,
+                        borderRightColor: borderClr,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: fonts.sansSemiBold,
+                          fontSize: 24,
+                          color: sage,
+                          lineHeight: 28,
+                        }}
+                      >
+                        {stat.value}
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: fonts.sans,
+                          fontSize: 11,
+                          color: warmGray,
+                          textAlign: "center",
+                          marginTop: 4,
+                          lineHeight: 15,
+                        }}
+                      >
+                        {stat.label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* A couple of moments worth keeping */}
+                {seasonStats.excerpts.map((memory) => {
+                  const person = personsMap.get(memory.person_id);
+                  const quote =
+                    memory.content.length > 110
+                      ? `${memory.content.slice(0, 107).trimEnd()}…`
+                      : memory.content;
+                  return (
+                    <View key={memory.id} style={{ marginBottom: 14 }}>
+                      <Text
+                        style={{
+                          fontFamily: fonts.serif,
+                          fontSize: 16,
+                          lineHeight: 24,
+                          color: nearBlack,
+                        }}
+                      >
+                        “{quote}”
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: fonts.sans,
+                          fontSize: 12,
+                          color: warmGray,
+                          marginTop: 4,
+                        }}
+                      >
+                        {memory.emotion ? `${emotionEmojis[memory.emotion] ?? "🌿"} ` : ""}with {person?.name ?? "someone dear"}
+                      </Text>
+                    </View>
+                  );
+                })}
+
+                {/* Footer */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    borderTopWidth: 1,
+                    borderTopColor: borderClr,
+                    paddingTop: 14,
+                    marginTop: 4,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 12,
+                      color: warmGray,
+                    }}
+                  >
+                    Kept in Kinship 🌱
+                  </Text>
+                  <FlourishingGardenIllustration size={56} />
+                </View>
+              </View>
+
+              {/* Share action — outside the captured card */}
+              <Pressable
+                onPress={handleShareSeason}
+                style={{
+                  alignSelf: "center",
+                  marginTop: 14,
+                  backgroundColor: sage,
+                  borderRadius: 14,
+                  paddingVertical: 12,
+                  paddingHorizontal: 24,
+                  shadowColor: sage,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 12,
+                  elevation: 4,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 14,
+                    color: white,
+                  }}
+                >
+                  Share this season
+                </Text>
+              </Pressable>
+            </Animated.View>
           )}
         </View>
       </ScrollView>

@@ -75,6 +75,7 @@ import {
 import type { TextureInfo } from "@/lib/textureEngine";
 import type { Interaction, Memory, Person } from "@/types/database";
 import type { InteractionType, Emotion, IconComponent } from "@/types";
+import { buildInviteMessage } from "@/lib/appLinks";
 import { getNextBestAction } from "@/lib/nextActionEngine";
 import type { GrowthInfo } from "@/lib/growthEngine";
 import type { VitalityInfo } from "@/lib/vitalityEngine";
@@ -1083,10 +1084,7 @@ export default function PersonDetailScreen() {
   const handlePlantASeed = async () => {
     if (!person) return;
     const firstName = person.name.split(" ")[0];
-    const message =
-      `Hey ${firstName}! I've been thinking about you and added you to my Kinship garden 🌱\n\n` +
-      `Kinship helps me stay close with the people who matter most — by capturing moments, noticing what matters, and tending to the relationships I care about.\n\n` +
-      `Download it here: https://kinship.app`;
+    const message = buildInviteMessage(firstName);
     try {
       await Share.share({ message });
     } catch {
@@ -1139,6 +1137,7 @@ export default function PersonDetailScreen() {
               <VitalPlant
                 vitalityScore={vitality.score}
                 size={100}
+                personId={person.id}
               >
                 <GrowthPlantIllustration stage={growthStage} size={100} />
               </VitalPlant>

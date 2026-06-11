@@ -207,6 +207,7 @@ const CanopyPlantCard = React.memo(function CanopyPlantCard({
           size={40}
           index={index}
           staggerDelay={0}
+          personId={person.id}
         >
           <GrowthPlantIllustration stage={growth.stage} size={40} />
         </VitalPlant>
@@ -309,7 +310,12 @@ const PersonRow = React.memo(function PersonRow({
               borderRadius: 14,
             }}
           />
-          <VitalPlant vitalityScore={vitalityScore} size={24} index={index}>
+          <VitalPlant
+            vitalityScore={vitalityScore}
+            size={24}
+            index={index}
+            personId={person.id}
+          >
             <GrowthPlantIllustration stage={growth.stage} size={24} />
           </VitalPlant>
         </View>

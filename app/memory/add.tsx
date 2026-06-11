@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
+  FadeIn,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
@@ -81,6 +82,55 @@ function classifyCapture(
   if (content.length >= 140) return "meaningful";
   if (emotion !== null) return "meaningful";
   return "simple";
+}
+
+// ─── Reflection Prompt ──────────────────────────────────────────────────────
+// A gentle, optional nudge that appears once the entry has some substance.
+// Purely inspirational — never required, never blocks saving.
+
+const REFLECTION_QUESTIONS = [
+  "What made this moment different?",
+  "What did they do that you want to remember?",
+  "What did it feel like right afterward?",
+  "What do you want to remember about this in a year?",
+  "What did they say that stuck with you?",
+] as const;
+
+const EMOTION_QUESTION_INDEX: Partial<Record<Emotion, number>> = {
+  grateful: 1,
+  loved: 1,
+  joyful: 2,
+  connected: 2,
+  nostalgic: 3,
+  peaceful: 3,
+  curious: 4,
+  inspired: 4,
+  proud: 4,
+  hopeful: 4,
+};
+
+function getReflectionQuestion(
+  emotion: Emotion | null,
+  personId: string | null,
+  contentLength: number
+): string {
+  // Emotion-specific question when one is selected
+  if (emotion) {
+    const idx = EMOTION_QUESTION_INDEX[emotion];
+    if (idx !== undefined) return REFLECTION_QUESTIONS[idx];
+  }
+  // Otherwise pick deterministically — person id hash keeps it stable
+  // across renders; content-length bucket as a last resort.
+  if (personId) {
+    let hash = 0;
+    for (let i = 0; i < personId.length; i++) {
+      hash = (hash * 31 + personId.charCodeAt(i)) | 0;
+    }
+    return REFLECTION_QUESTIONS[Math.abs(hash) % REFLECTION_QUESTIONS.length];
+  }
+  return REFLECTION_QUESTIONS[
+    Math.floor(contentLength / 80) % REFLECTION_QUESTIONS.length
+  ];
 }
 
 // ─── Person Selector Modal ──────────────────────────────────────────────────
@@ -564,6 +614,29 @@ function S1_Capture({
               lineHeight: 24,
             }}
           />
+
+          {/* ── Reflection Prompt — gentle, optional ───────── */}
+          {content.length > 40 && (
+            <Animated.Text
+              entering={FadeIn.duration(500)}
+              style={{
+                fontFamily: fonts.sans,
+                fontStyle: "italic",
+                fontSize: 13,
+                color: warmGray,
+                lineHeight: 18,
+                marginTop: -6,
+                marginBottom: 16,
+                paddingHorizontal: 4,
+              }}
+            >
+              {getReflectionQuestion(
+                selectedEmotion,
+                person?.id ?? null,
+                content.length
+              )}
+            </Animated.Text>
+          )}
 
           {/* ── Photo / Voice Row ─────────────────────────── */}
           <View

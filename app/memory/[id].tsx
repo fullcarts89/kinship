@@ -6,7 +6,7 @@
  *
  * Presented as a modal via memory/_layout.tsx (presentation: "modal").
  */
-import React from "react";
+import React, { useRef } from "react";
 import {
   View,
   Text,
@@ -19,8 +19,11 @@ import {
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft, Share2 } from "lucide-react-native";
-import { useMemory, usePerson } from "@/hooks";
+import { ChevronLeft, Send, Share2 } from "lucide-react-native";
+import { useMemory, usePerson, useCreateInteraction } from "@/hooks";
+import { MemoryShareCard } from "@/components/MemoryShareCard";
+import { shareViewAsImage } from "@/lib/shareImage";
+import { buildShareFooter } from "@/lib/appLinks";
 import {
   emotionEmojis,
   formatEmotionLabel,
@@ -34,6 +37,10 @@ export default function MemoryDetailScreen() {
   const insets = useSafeAreaInsets();
   const { memory, isLoading } = useMemory(id ?? "");
   const { person } = usePerson(memory?.person_id ?? "");
+  const { createInteraction } = useCreateInteraction();
+  const cardRef = useRef<View>(null);
+
+  const firstName = person?.name.split(" ")[0];
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -45,13 +52,30 @@ export default function MemoryDetailScreen() {
 
   const handleShare = async () => {
     if (!memory) return;
+    const { success } = await shareViewAsImage(cardRef, "Share this memory");
+    if (success) return;
+
+    // Image capture failed — fall back to plain text share
     const personLine = person ? `A memory with ${person.name}` : "A memory";
     const dateLine = formatMemoryDate(getMemoryDate(memory));
-    const message = `${personLine}\n\n${memory.content}\n\n${dateLine}\n\nShared from Kinship 🌱`;
+    const message = `${personLine}\n\n${memory.content}\n\n${dateLine}\n\n${buildShareFooter()}`;
     try {
       await Share.share({ message });
     } catch {
       // user dismissed share sheet — no-op
+    }
+  };
+
+  const handleSendToPerson = async () => {
+    if (!memory || !person || !firstName) return;
+    const { success } = await shareViewAsImage(cardRef, `Send to ${firstName}`);
+    if (success) {
+      // Sharing a memory with its subject is a reach-out — log it
+      await createInteraction({
+        person_id: person.id,
+        type: "message",
+        note: "Shared this memory with them",
+      });
     }
   };
 
@@ -88,6 +112,18 @@ export default function MemoryDetailScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={{ flex: 1, backgroundColor: colors.cream }}>
+        {/* Offscreen share card — captured by shareViewAsImage */}
+        <View
+          style={{ position: "absolute", left: -9999, top: 0 }}
+          pointerEvents="none"
+        >
+          <MemoryShareCard
+            ref={cardRef}
+            memory={memory}
+            personName={person?.name ?? "someone you love"}
+          />
+        </View>
+
         {/* Photo Header */}
         {memory.photo_url ? (
           <Image
@@ -205,6 +241,35 @@ export default function MemoryDetailScreen() {
           >
             {memory.content}
           </Text>
+
+          {/* Send to {firstName} — share the card with the memory's subject */}
+          {person && firstName && (
+            <Pressable
+              onPress={handleSendToPerson}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                marginTop: 32,
+                backgroundColor: colors.sage,
+                borderRadius: 100,
+                paddingVertical: 14,
+                paddingHorizontal: 24,
+              }}
+            >
+              <Send color={colors.white} size={16} />
+              <Text
+                style={{
+                  fontFamily: fonts.sansMedium,
+                  fontSize: 15,
+                  color: colors.white,
+                }}
+              >
+                Send to {firstName}
+              </Text>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
     </>
