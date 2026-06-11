@@ -17,8 +17,13 @@ import * as ImagePicker from "expo-image-picker";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedScrollHandler,
   withTiming,
   Easing,
+  interpolate,
+  Extrapolation,
+  FadeInUp,
+  LinearTransition,
 } from "react-native-reanimated";
 import {
   ChevronLeft,
@@ -43,6 +48,7 @@ import {
   ErrorState,
   EmptyState,
   FadeIn,
+  PressableScale,
 } from "@/components/ui";
 import {
   usePerson,
@@ -53,7 +59,7 @@ import {
 } from "@/hooks";
 import { usePersonPhoto } from "@/hooks/usePersonPhoto";
 import VitalPlant from "@/components/VitalPlant";
-import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
+import { LivingPlant } from "@/components/LivingPlant";
 import {
   formatRelativeDate,
   formatEmotionLabel,
@@ -141,49 +147,21 @@ function QuickAction({
   bgColor: string;
   onPress: () => void;
 }) {
-  const scale = useSharedValue(1);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withTiming(0.92, {
-      duration: 80,
-      easing: Easing.out(Easing.ease),
-    });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withTiming(1, {
-      duration: 150,
-      easing: Easing.out(Easing.ease),
-    });
-  };
-
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={{ alignItems: "center" }}
-    >
-      <Animated.View
-        style={[
-          {
-            width: 48,
-            height: 48,
-            borderRadius: 15,
-            backgroundColor: bgColor + "38",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 6,
-          },
-          animStyle,
-        ]}
+    <PressableScale onPress={onPress} style={{ alignItems: "center" }}>
+      <View
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 15,
+          backgroundColor: bgColor + "38",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 6,
+        }}
       >
         <Icon color={bgColor} size={22} />
-      </Animated.View>
+      </View>
       <Text
         style={{
           fontFamily: fonts.sans,
@@ -194,7 +172,7 @@ function QuickAction({
       >
         {label}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -516,7 +494,7 @@ function ContextTab({
           </Text>
         )}
         {action.actionLabel && (
-          <Pressable
+          <PressableScale
             onPress={() => {
               if (action.actionType === "add_memory") {
                 router.push(`/memory/add?personId=${person.id}`);
@@ -541,7 +519,7 @@ function ContextTab({
             >
               {action.actionLabel}
             </Text>
-          </Pressable>
+          </PressableScale>
         )}
       </LinearGradient>
     </View>
@@ -630,7 +608,11 @@ function TimelineTab({
         const hasEmotion = !!interaction.emotion;
 
         return (
-          <FadeIn key={interaction.id} delay={index * 40}>
+          <Animated.View
+            key={interaction.id}
+            entering={FadeInUp.delay(Math.min(index, 8) * 40).duration(300)}
+            layout={LinearTransition.duration(250)}
+          >
             <Pressable
               onLongPress={() => handleLongPress(interaction)}
               style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 16 }}
@@ -709,7 +691,7 @@ function TimelineTab({
                 </Text>
               </View>
             </Pressable>
-          </FadeIn>
+          </Animated.View>
         );
       })}
 
@@ -770,19 +752,23 @@ function MemoriesTab({ memories, personId }: { memories: Memory[]; personId: str
       {sorted.map((memory, index) => {
         const emoji = memory.emotion ? emotionEmoji[memory.emotion] ?? "\uD83C\uDF3F" : "\uD83C\uDF3F";
         return (
-          <Pressable
+          <Animated.View
             key={memory.id}
-            onPress={() => router.push(`/memory/${memory.id}`)}
-            style={{
-              flexDirection: "row",
-              backgroundColor: white,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: borderColor,
-              overflow: "hidden",
-              marginBottom: 10,
-            }}
+            entering={FadeInUp.delay(Math.min(index, 8) * 40).duration(300)}
+            layout={LinearTransition.duration(250)}
           >
+            <PressableScale
+              onPress={() => router.push(`/memory/${memory.id}`)}
+              style={{
+                flexDirection: "row",
+                backgroundColor: white,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: borderColor,
+                overflow: "hidden",
+                marginBottom: 10,
+              }}
+            >
             {/* Timeline dot + line */}
             <View style={{ width: 44, alignItems: "center", paddingTop: 18 }}>
               <View
@@ -857,7 +843,8 @@ function MemoriesTab({ memories, personId }: { memories: Memory[]; personId: str
                 resizeMode="cover"
               />
             )}
-          </Pressable>
+            </PressableScale>
+          </Animated.View>
         );
       })}
     </View>
@@ -931,6 +918,16 @@ export default function PersonDetailScreen() {
   const plantExitStyle = useAnimatedStyle(() => ({
     opacity: plantExitOpacity.value,
     transform: [{ scale: plantExitScale.value }],
+  }));
+
+  // ─── Header parallax — subtle scroll-linked translate + fade ─────────────
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+  const headerParallaxStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -scrollY.value * 0.4 }],
+    opacity: interpolate(scrollY.value, [0, 120], [1, 0.6], Extrapolation.CLAMP),
   }));
 
   // Refetch data + reset plant when screen regains focus (after returning
@@ -1148,13 +1145,16 @@ export default function PersonDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView
+      <Animated.ScrollView
         style={{ flex: 1, backgroundColor: cream }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!showOrientation}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
       >
-        {/* Header Background */}
+        {/* Header Background — translates up at ~0.4x scroll and fades subtly */}
+        <Animated.View style={headerParallaxStyle}>
         <LinearGradient
           colors={[sagePale, cream]}
           style={{
@@ -1191,7 +1191,7 @@ export default function PersonDetailScreen() {
                 size={100}
                 personId={person.id}
               >
-                <GrowthPlantIllustration stage={growthStage} size={100} />
+                <LivingPlant stage={growthStage} size={100} />
               </VitalPlant>
             </Animated.View>
           </View>
@@ -1262,6 +1262,7 @@ export default function PersonDetailScreen() {
             </Pressable>
           </View>
         </LinearGradient>
+        </Animated.View>
 
         <FadeIn>
           {/* Person Info */}
@@ -1284,7 +1285,7 @@ export default function PersonDetailScreen() {
               >
                 {person.name}
               </Text>
-              <Pressable
+              <PressableScale
                 onPress={() => router.push(`/person/edit/${person.id}`)}
                 hitSlop={10}
                 style={{
@@ -1297,7 +1298,7 @@ export default function PersonDetailScreen() {
                 }}
               >
                 <Pencil color={sage} size={14} strokeWidth={1.8} />
-              </Pressable>
+              </PressableScale>
             </View>
 
             {/* Status Badges — growth stage + relationship + last interaction */}
@@ -1602,7 +1603,7 @@ export default function PersonDetailScreen() {
             <MemoriesTab memories={memories} personId={person.id} />
           )}
         </FadeIn>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Photo Picker Modal */}
       <PhotoPickerModal
