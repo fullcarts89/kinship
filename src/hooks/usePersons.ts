@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import * as personService from "@/services/personService";
 import { loadCollection, saveCollection } from "@/lib/localStore";
 import { mockPeople } from "@/data/mock";
-import type { Person, PersonInsert } from "@/types/database";
+import type { Person, PersonInsert, PersonUpdate } from "@/types/database";
 
 // ─── Module-level Mock Persistence ─────────────────────────────────────────
 const locallyCreatedPeople: Person[] = [];
@@ -28,6 +28,21 @@ function ensureHydrated(): Promise<void> {
 
 function persistPeople(): void {
   saveCollection("people", locallyCreatedPeople);
+}
+
+/**
+ * Insert or replace a person in the local store. Local entries shadow
+ * mock/demo data with the same id, which is how edits to demo people
+ * survive in mock mode.
+ */
+function upsertLocalPerson(person: Person): void {
+  const idx = locallyCreatedPeople.findIndex((p) => p.id === person.id);
+  if (idx >= 0) {
+    locallyCreatedPeople[idx] = person;
+  } else {
+    locallyCreatedPeople.unshift(person);
+  }
+  persistPeople();
 }
 
 /** Remove all locally created people (used by the delete-account flow). */
@@ -53,8 +68,12 @@ export function usePersons() {
       const localIds = new Set(locallyCreatedPeople.map((p) => p.id));
       setPersons([...locallyCreatedPeople, ...data.filter((p) => !localIds.has(p.id))]);
     } catch {
-      // Mock mode — merge locally created + mock data
-      setPersons([...locallyCreatedPeople, ...mockPeople]);
+      // Mock mode — merge locally created + mock data (local shadows mock)
+      const localIds = new Set(locallyCreatedPeople.map((p) => p.id));
+      setPersons([
+        ...locallyCreatedPeople,
+        ...mockPeople.filter((p) => !localIds.has(p.id)),
+      ]);
       setError(null);
     } finally {
       setIsLoading(false);
@@ -96,6 +115,39 @@ export function usePersons() {
   );
 
   return { persons, isLoading, error, refetch: fetch, createPerson };
+}
+
+// ─── useUpdatePerson ────────────────────────────────────────────────────────
+
+export function useUpdatePerson() {
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const updatePerson = useCallback(
+    async (id: string, updates: PersonUpdate): Promise<Person | null> => {
+      await ensureHydrated();
+      setIsUpdating(true);
+      try {
+        const updated = await personService.updatePerson(id, updates);
+        upsertLocalPerson(updated);
+        return updated;
+      } catch {
+        // Mock mode — apply the update to the local copy, shadowing
+        // demo data when the person came from mock.
+        const existing =
+          locallyCreatedPeople.find((p) => p.id === id) ??
+          mockPeople.find((p) => p.id === id);
+        if (!existing) return null;
+        const updated: Person = { ...existing, ...updates };
+        upsertLocalPerson(updated);
+        return updated;
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    []
+  );
+
+  return { updatePerson, isUpdating };
 }
 
 // ─── usePerson ──────────────────────────────────────────────────────────────

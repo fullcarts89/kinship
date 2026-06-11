@@ -1706,6 +1706,7 @@ export default function AddPersonScreen() {
 
     setIsSaving(true);
     try {
+      const allInterests = [...interests, ...customInterests];
       const newPerson = await createPerson({
         name: name.trim(),
         photo_url: profilePhotoUri || null,
@@ -1713,6 +1714,7 @@ export default function AddPersonScreen() {
         birthday,
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
+        interests: allInterests.length > 0 ? allInterests : null,
       });
 
       if ((memoryText.trim() || photoUri) && newPerson) {

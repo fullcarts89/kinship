@@ -33,6 +33,7 @@ export interface Person {
   birthday?: string; // ISO date string, e.g. "1990-03-15" — year optional
   phone?: string | null;   // From device contacts import
   email?: string | null;   // From device contacts import
+  interests?: string[] | null; // Tag chips from the add/edit flow
   created_at: string;
 }
 

@@ -11,7 +11,7 @@ export { useTheme } from "@/providers/ThemeProvider";
 
 // ─── Data Hooks ─────────────────────────────────────────────────────────────
 
-export { usePersons, usePerson } from "./usePersons";
+export { usePersons, usePerson, useUpdatePerson } from "./usePersons";
 export { useMemories, usePersonMemories, useCreateMemory, useMemory } from "./useMemories";
 export {
   usePersonInteractions,
