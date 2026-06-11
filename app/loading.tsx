@@ -404,7 +404,9 @@ export default function LoadingScreen() {
       setTimeout(() => setStage(2), 1600),
       setTimeout(() => setStage(3), 2400),
       setTimeout(() => {
-        router.replace("/(tabs)");
+        // Route through the entry redirect so first-time users get
+        // onboarding instead of landing on an empty home screen.
+        router.replace("/");
       }, 3400),
     ];
     return () => timers.forEach(clearTimeout);

@@ -139,14 +139,6 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
-          name="onboarding"
-          options={{
-            headerShown: false,
-            presentation: "card",
-            animation: "fade",
-          }}
-        />
-        <Stack.Screen
           name="import-contacts"
           options={{
             headerShown: false,

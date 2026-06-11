@@ -3,6 +3,7 @@ import {
   View,
   Text,
   Pressable,
+  Image,
   TextInput as RNTextInput,
   Dimensions,
   ImageBackground,
@@ -11,11 +12,15 @@ import {
   PanResponder,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Camera, ChevronRight } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import { Button } from "@/components/ui";
+import { usePersons, useCreateMemory } from "@/hooks";
+import { recordMemoryGrowth } from "@/lib/growthEngine";
+import { markOnboardingComplete } from "@/lib/onboardingStatus";
 import {
   GardenGrowthIllustration,
   SeedIllustration,
@@ -74,8 +79,52 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const [screen, setScreen] = useState<OnboardingScreen>("carousel");
   const [personName, setPersonName] = useState("");
+  const personIdRef = useRef<string | null>(null);
+  const { createPerson } = usePersons();
+  const { createMemory } = useCreateMemory();
 
-  const handleFinish = useCallback(() => {
+  // Plant the first person for real — onboarding used to be visual-only,
+  // so the name the user typed never reached their garden.
+  const handlePersonNext = useCallback(async () => {
+    setScreen("dreamPreview");
+    const name = personName.trim();
+    if (!name || personIdRef.current) return;
+    try {
+      const person = await createPerson({
+        name,
+        relationship_type: "friend",
+        photo_url: null,
+      });
+      personIdRef.current = person.id;
+    } catch {
+      // Planting failed — the user can re-add from the garden tab.
+    }
+  }, [personName, createPerson]);
+
+  const handleMemorySave = useCallback(
+    async (content: string, photoUri: string | null) => {
+      setScreen("dashboard");
+      const personId = personIdRef.current;
+      const trimmed = content.trim();
+      if (!personId || (!trimmed && !photoUri)) return;
+      try {
+        const memory = await createMemory({
+          person_id: personId,
+          content: trimmed,
+          emotion: null,
+          photo_url: photoUri,
+        });
+        recordMemoryGrowth(personId, memory);
+      } catch {
+        // Memory save failed — the celebration still plays; the user
+        // can capture it again from the Tend sheet.
+      }
+    },
+    [createMemory]
+  );
+
+  const handleFinish = useCallback(async () => {
+    await markOnboardingComplete();
     router.replace("/(tabs)");
   }, []);
 
@@ -93,7 +142,7 @@ export default function OnboardingScreen() {
           insets={insets}
           name={personName}
           onNameChange={setPersonName}
-          onNext={() => setScreen("dreamPreview")}
+          onNext={handlePersonNext}
           onSkip={() => setScreen("dashboard")}
         />
       );
@@ -110,7 +159,7 @@ export default function OnboardingScreen() {
         <AddMemoryScreen
           insets={insets}
           personName={personName || "them"}
-          onNext={() => setScreen("dashboard")}
+          onSave={handleMemorySave}
           onSkip={() => setScreen("dashboard")}
         />
       );
@@ -420,12 +469,27 @@ function AddFirstPersonScreen({
 interface AddMemoryScreenProps {
   insets: { top: number; bottom: number };
   personName: string;
-  onNext: () => void;
+  onSave: (content: string, photoUri: string | null) => void;
   onSkip: () => void;
 }
 
-function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreenProps) {
+function AddMemoryScreen({ insets, personName, onSave, onSkip }: AddMemoryScreenProps) {
   const [memoryText, setMemoryText] = useState("");
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+
+  const pickPhoto = useCallback(async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch {
+      // Picker unavailable — text-only memory still works.
+    }
+  }, []);
 
   return (
     <View
@@ -467,7 +531,17 @@ function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreen
         </View>
 
         {/* Photo Picker Area */}
+        {photoUri ? (
+          <Pressable onPress={pickPhoto} style={{ marginBottom: 24 }}>
+            <Image
+              source={{ uri: photoUri }}
+              style={{ width: "100%", height: 220, borderRadius: 24 }}
+              resizeMode="cover"
+            />
+          </Pressable>
+        ) : (
         <Pressable
+          onPress={pickPhoto}
           style={{
             backgroundColor: sagePale,
             borderWidth: 2,
@@ -521,6 +595,7 @@ function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreen
             Or write about your memory below
           </Text>
         </Pressable>
+        )}
 
         {/* Text Field */}
         <RNTextInput
@@ -551,7 +626,7 @@ function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreen
         {/* CTA */}
         <View style={{ paddingBottom: 20 }}>
           <Pressable
-            onPress={onNext}
+            onPress={() => onSave(memoryText, photoUri)}
             style={{
               backgroundColor: sage,
               borderRadius: 16,
