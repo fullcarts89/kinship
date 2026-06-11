@@ -33,10 +33,13 @@ import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   FadeIn,
+  FadeInUp,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
+  withSpring,
+  withSequence,
   Easing,
 } from "react-native-reanimated";
 import {
@@ -49,7 +52,11 @@ import {
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import { usePersons, useCreateMemory } from "@/hooks";
-import { GardenRevealIllustration } from "@/components/illustrations";
+import { PressableScale } from "@/components/ui";
+import {
+  GardenRevealIllustration,
+  SeedIllustration,
+} from "@/components/illustrations";
 import {
   recordMemoryGrowth,
   getTransitionToastMessage,
@@ -763,7 +770,7 @@ function S1_Capture({
             {emotionList.map((emotion) => {
               const isSelected = selectedEmotion === emotion;
               return (
-                <Pressable
+                <PressableScale
                   key={emotion}
                   onPress={() =>
                     onSelectEmotion(isSelected ? null : emotion)
@@ -785,15 +792,16 @@ function S1_Capture({
                   >
                     {formatEmotionLabel(emotion)}
                   </Text>
-                </Pressable>
+                </PressableScale>
               );
             })}
           </View>
 
           {/* ── Save Button ───────────────────────────────── */}
-          <Pressable
+          <PressableScale
             onPress={onSave}
             disabled={!canSave || isSaving}
+            haptic={true}
             style={{
               borderRadius: 16,
               overflow: "hidden",
@@ -825,7 +833,7 @@ function S1_Capture({
                 {isSaving ? "Saving..." : "Save to garden"}
               </Text>
             </LinearGradient>
-          </Pressable>
+          </PressableScale>
         </ScrollView>
       </KeyboardAvoidingView>
     </>
@@ -841,39 +849,54 @@ function S2_Saved({
   personName: string;
   onBackToGarden: () => void;
 }) {
-  // Garden illustration grows from center
-  const gardenScale = useSharedValue(0.3);
+  // Planting sequence:
+  //   1. A small seed drops from above and lands with a tiny squash (0–610ms)
+  //   2. The seed fades out as the garden grows in its place (620–1100ms)
+  //   3. Text and CTA stagger in beneath (950–1500ms)
+  const seedTranslateY = useSharedValue(-60);
+  const seedScale = useSharedValue(1);
+  const seedOpacity = useSharedValue(0);
+  const gardenScale = useSharedValue(0.7);
   const gardenOpacity = useSharedValue(0);
-  const contentOpacity = useSharedValue(0);
-  const contentTranslateY = useSharedValue(20);
 
   useEffect(() => {
-    // Illustration grows
-    gardenScale.value = withTiming(1, {
-      duration: 800,
-      easing: Easing.out(Easing.back(1.5)),
+    // 1. Seed drops in — accelerating, like gravity
+    seedOpacity.value = withTiming(1, { duration: 120 });
+    seedTranslateY.value = withTiming(0, {
+      duration: 450,
+      easing: Easing.in(Easing.quad),
     });
-    gardenOpacity.value = withTiming(1, { duration: 500 });
 
-    // Content fades in after illustration
-    contentOpacity.value = withDelay(
-      500,
-      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
+    // ...lands with a quick squash
+    seedScale.value = withDelay(
+      450,
+      withSequence(
+        withTiming(0.82, { duration: 80 }),
+        withTiming(1.05, { duration: 80 }),
+        withTiming(1, { duration: 70 })
+      )
     );
-    contentTranslateY.value = withDelay(
-      500,
-      withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) })
+
+    // 2. Seed fades away as the garden grows from where it landed
+    seedOpacity.value = withDelay(650, withTiming(0, { duration: 280 }));
+    gardenOpacity.value = withDelay(620, withTiming(1, { duration: 320 }));
+    gardenScale.value = withDelay(
+      620,
+      withSpring(1, { damping: 12, stiffness: 140 })
     );
   }, []);
+
+  const seedStyle = useAnimatedStyle(() => ({
+    opacity: seedOpacity.value,
+    transform: [
+      { translateY: seedTranslateY.value },
+      { scale: seedScale.value },
+    ],
+  }));
 
   const gardenStyle = useAnimatedStyle(() => ({
     transform: [{ scale: gardenScale.value }],
     opacity: gardenOpacity.value,
-  }));
-
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-    transform: [{ translateY: contentTranslateY.value }],
   }));
 
   return (
@@ -885,17 +908,23 @@ function S2_Saved({
         paddingHorizontal: 32,
       }}
     >
-      {/* Garden illustration with grow animation */}
-      <Animated.View style={[{ alignItems: "center" }, gardenStyle]}>
-        <GardenRevealIllustration size={200} />
-      </Animated.View>
+      {/* Seed drop + garden grow */}
+      <View style={{ alignItems: "center", justifyContent: "center" }}>
+        <Animated.View style={[{ alignItems: "center" }, gardenStyle]}>
+          <GardenRevealIllustration size={200} />
+        </Animated.View>
+        <Animated.View
+          pointerEvents="none"
+          style={[{ position: "absolute" }, seedStyle]}
+        >
+          <SeedIllustration size={36} />
+        </Animated.View>
+      </View>
 
-      {/* Text content */}
+      {/* Text content — staggers in after the garden grows */}
       <Animated.View
-        style={[
-          { alignItems: "center", marginTop: 28, width: "100%" },
-          contentStyle,
-        ]}
+        entering={FadeInUp.delay(950).duration(400)}
+        style={{ alignItems: "center", marginTop: 28, width: "100%" }}
       >
         <Text
           style={{
@@ -921,9 +950,14 @@ function S2_Saved({
         >
           with {personName}
         </Text>
+      </Animated.View>
 
-        {/* CTA */}
-        <Pressable
+      {/* CTA — last to arrive */}
+      <Animated.View
+        entering={FadeInUp.delay(1100).duration(400)}
+        style={{ width: "100%" }}
+      >
+        <PressableScale
           onPress={onBackToGarden}
           style={{ width: "100%", borderRadius: 16, overflow: "hidden" }}
         >
@@ -952,7 +986,7 @@ function S2_Saved({
               Back to garden
             </Text>
           </LinearGradient>
-        </Pressable>
+        </PressableScale>
       </Animated.View>
     </View>
   );

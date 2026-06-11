@@ -19,11 +19,17 @@
  * 3 actions would overwhelm the gentle, calm experience.
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, Pressable, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+} from "react-native-reanimated";
 import {
   Sprout,
   Camera,
@@ -31,6 +37,13 @@ import {
   UserPlus,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
+import { PressableScale } from "@/components/ui";
+
+// Sheet starts this far below its resting position before springing up.
+const SHEET_OFFSCREEN_Y = 480;
+
+// Soft spring — settles quickly with only a few px of overshoot.
+const SHEET_SPRING = { damping: 17, stiffness: 190, mass: 0.9 };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -43,6 +56,29 @@ interface TendGardenSheetProps {
 
 export function TendGardenSheet({ visible, onClose }: TendGardenSheetProps) {
   const insets = useSafeAreaInsets();
+
+  // ── Entrance animation ──────────────────────────────────────────────────
+  // The Modal itself doesn't animate (animationType="none"); instead the
+  // backdrop fades in while the sheet springs up from below.
+  const backdropOpacity = useSharedValue(0);
+  const sheetTranslateY = useSharedValue(SHEET_OFFSCREEN_Y);
+
+  useEffect(() => {
+    if (visible) {
+      backdropOpacity.value = 0;
+      sheetTranslateY.value = SHEET_OFFSCREEN_Y;
+      backdropOpacity.value = withTiming(1, { duration: 220 });
+      sheetTranslateY.value = withSpring(0, SHEET_SPRING);
+    }
+  }, [visible, backdropOpacity, sheetTranslateY]);
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetTranslateY.value }],
+  }));
 
   // ── Navigation handlers ──────────────────────────────────────────────────
   // Each handler closes the sheet first, then navigates. This ensures the
@@ -70,33 +106,40 @@ export function TendGardenSheet({ visible, onClose }: TendGardenSheetProps) {
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="none"
       statusBarTranslucent
     >
       <View style={{ flex: 1, justifyContent: "flex-end" }}>
-        {/* Dimmed overlay — tap to dismiss */}
-        <Pressable
-          onPress={onClose}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(28,24,20,0.44)",
-          }}
-        />
+        {/* Dimmed overlay — fades in, tap to dismiss */}
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(28,24,20,0.44)",
+            },
+            backdropStyle,
+          ]}
+        >
+          <Pressable onPress={onClose} style={{ flex: 1 }} />
+        </Animated.View>
 
-        {/* Sheet content */}
-        <View
-          style={{
-            backgroundColor: colors.white,
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            paddingHorizontal: 24,
-            paddingBottom: insets.bottom + 24,
-            paddingTop: 6,
-          }}
+        {/* Sheet content — springs up from below */}
+        <Animated.View
+          style={[
+            {
+              backgroundColor: colors.white,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingHorizontal: 24,
+              paddingBottom: insets.bottom + 24,
+              paddingTop: 6,
+            },
+            sheetStyle,
+          ]}
         >
           {/* Handle pill */}
           <View
@@ -144,8 +187,9 @@ export function TendGardenSheet({ visible, onClose }: TendGardenSheetProps) {
           </View>
 
           {/* ── Action A: Capture a moment (PRIMARY — filled gradient) ── */}
-          <Pressable
+          <PressableScale
             onPress={handleCaptureMemory}
+            haptic={true}
             style={{ marginBottom: 12, borderRadius: 18, overflow: "hidden" }}
           >
             <LinearGradient
@@ -201,10 +245,10 @@ export function TendGardenSheet({ visible, onClose }: TendGardenSheetProps) {
                 </Text>
               </View>
             </LinearGradient>
-          </Pressable>
+          </PressableScale>
 
           {/* ── Action B: Reach out (SECONDARY — bordered) ── */}
-          <Pressable
+          <PressableScale
             onPress={handleReachOut}
             style={{
               flexDirection: "row",
@@ -257,10 +301,10 @@ export function TendGardenSheet({ visible, onClose }: TendGardenSheetProps) {
                 Connect with someone in your garden
               </Text>
             </View>
-          </Pressable>
+          </PressableScale>
 
           {/* ── Action C: Add someone (SECONDARY — bordered) ── */}
-          <Pressable
+          <PressableScale
             onPress={handleAddSomeone}
             style={{
               flexDirection: "row",
@@ -308,8 +352,8 @@ export function TendGardenSheet({ visible, onClose }: TendGardenSheetProps) {
                 Plant a new person in your garden
               </Text>
             </View>
-          </Pressable>
-        </View>
+          </PressableScale>
+        </Animated.View>
       </View>
     </Modal>
   );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs } from "expo-router";
 import { View, Pressable, Modal, Text } from "react-native";
 import {
@@ -14,7 +14,76 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withSequence,
+  withRepeat,
+  withDelay,
+  Easing,
+  type SharedValue,
+} from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
+
+// ─── Tend FAB ────────────────────────────────────────────────────────────────
+// The center FAB quietly "breathes" (scale 1 → 1.03 → 1, one breath every ~6s)
+// to invite the primary action, and dips to 0.94 with a spring when pressed.
+// The press pulse is driven by the tab's tabPress listener via a shared value
+// so tab behavior stays untouched.
+
+const FAB_PRESS_SPRING = { damping: 18, stiffness: 280, mass: 0.7 };
+
+function TendFabIcon({ pressScale }: { pressScale: SharedValue<number> }) {
+  const breathe = useSharedValue(1);
+
+  useEffect(() => {
+    // One gentle breath per ~6s cycle: rest 4s, swell 1s, release 1s.
+    breathe.value = withRepeat(
+      withSequence(
+        withDelay(
+          4000,
+          withTiming(1.03, {
+            duration: 1000,
+            easing: Easing.inOut(Easing.sin),
+          })
+        ),
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      false
+    );
+  }, [breathe]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: breathe.value * pressScale.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          backgroundColor: colors.sage,
+          alignItems: "center",
+          justifyContent: "center",
+          marginTop: -16,
+          shadowColor: colors.nearBlack,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 4,
+        },
+        animatedStyle,
+      ]}
+    >
+      <Sprout color={colors.white} size={26} strokeWidth={2.5} />
+    </Animated.View>
+  );
+}
 
 /**
  * Tab Layout
@@ -40,6 +109,7 @@ import { colors, fonts } from "@design/tokens";
 export default function TabLayout() {
   const [showTendSheet, setShowTendSheet] = useState(false);
   const insets = useSafeAreaInsets();
+  const fabPressScale = useSharedValue(1);
 
   const closeTendSheet = () => setShowTendSheet(false);
 
@@ -109,31 +179,17 @@ export default function TabLayout() {
           listeners={{
             tabPress: (e) => {
               e.preventDefault();
+              // Quick spring dip for press feedback, then open the sheet
+              fabPressScale.value = withSequence(
+                withSpring(0.94, FAB_PRESS_SPRING),
+                withSpring(1, FAB_PRESS_SPRING)
+              );
               setShowTendSheet(true);
             },
           }}
           options={{
             title: "",
-            tabBarIcon: () => (
-              <View
-                style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 26,
-                  backgroundColor: colors.sage,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginTop: -16,
-                  shadowColor: colors.nearBlack,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.15,
-                  shadowRadius: 8,
-                  elevation: 4,
-                }}
-              >
-                <Sprout color={colors.white} size={26} strokeWidth={2.5} />
-              </View>
-            ),
+            tabBarIcon: () => <TendFabIcon pressScale={fabPressScale} />,
           }}
         />
         <Tabs.Screen
