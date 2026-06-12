@@ -37,7 +37,7 @@ import {
 } from "lucide-react-native";
 import { colors, fonts, shadows } from "@design/tokens";
 import { Skeleton, ErrorState, EmptyState, FadeIn, PressableScale } from "@/components/ui";
-import { usePersons, useMemories, useAllInteractions, useBootstrapGrowth, useAllVitalities } from "@/hooks";
+import { usePersons, useMemories, useAllInteractions, useBootstrapGrowth, useAllVitalities, useActiveSeason } from "@/hooks";
 import VitalPlant from "@/components/VitalPlant";
 import LivingPlant from "@/components/LivingPlant";
 import { getVitalityLevel, getSwayParams } from "@/lib/vitalityEngine";
@@ -57,6 +57,13 @@ const PLANT_COLORS = [
   colors.gold,
   colors.sky,
 ];
+
+/**
+ * Season setup screen — doubles as the mid-season edit for v1
+ * (SPEC_TENDING_SEASONS §3.3). Ships with the season flow; typed routes
+ * will pick it up once the route file exists — cast until then.
+ */
+const SEASON_SETUP_ROUTE = "/season/new" as never;
 
 /** Relationship type → accent color */
 const RELATIONSHIP_COLORS: Record<string, string> = {
@@ -418,6 +425,9 @@ export default function YourGardenScreen() {
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
   const error = personsError || memoriesError;
 
+  // Active season — only used for the quiet header affordance label.
+  const { season, isLoading: seasonLoading } = useActiveSeason();
+
   // Bootstrap growth points from existing data (runs once)
   useBootstrapGrowth(memories, allInteractions, isLoading);
 
@@ -529,39 +539,61 @@ export default function YourGardenScreen() {
             </Text>
           </View>
 
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            {/* Import from contacts */}
-            <Pressable
-              onPress={() => router.push("/import-contacts")}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: colors.white,
-                borderWidth: 1.5,
-                borderColor: colors.sageLight,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <BookUser color={colors.sage} size={18} strokeWidth={2} />
-            </Pressable>
+          <View style={{ alignItems: "flex-end" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              {/* Import from contacts */}
+              <Pressable
+                onPress={() => router.push("/import-contacts")}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: colors.white,
+                  borderWidth: 1.5,
+                  borderColor: colors.sageLight,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <BookUser color={colors.sage} size={18} strokeWidth={2} />
+              </Pressable>
 
-            {/* Add person manually */}
-            <Pressable
-              onPress={() => router.push("/(tabs)/add")}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: colors.sage,
-                alignItems: "center",
-                justifyContent: "center",
-                ...shadows.soft,
-              }}
-            >
-              <Plus color={colors.white} size={20} strokeWidth={2.5} />
-            </Pressable>
+              {/* Add person manually */}
+              <Pressable
+                onPress={() => router.push("/(tabs)/add")}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: colors.sage,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  ...shadows.soft,
+                }}
+              >
+                <Plus color={colors.white} size={20} strokeWidth={2.5} />
+              </Pressable>
+            </View>
+
+            {/* Quiet season affordance — setup screen doubles as edit
+                (SPEC_TENDING_SEASONS §3.3) */}
+            {!seasonLoading && persons.length > 0 && (
+              <Pressable
+                onPress={() => router.push(SEASON_SETUP_ROUTE)}
+                hitSlop={8}
+                style={{ marginTop: 10, paddingVertical: 2 }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMedium,
+                    fontSize: 13,
+                    color: season ? colors.sage : colors.warmGray,
+                  }}
+                >
+                  {season ? "Your season" : "Begin a season"}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
 

@@ -30,7 +30,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bell, ChevronRight, Leaf, Settings } from "lucide-react-native";
+import { Bell, ChevronRight, Leaf, Pencil, Settings, Sprout } from "lucide-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -49,7 +49,7 @@ import { colors, fonts } from "@design/tokens";
 import { Skeleton, ErrorState, FadeIn, PressableScale } from "@/components/ui";
 import { OrientationOverlay } from "@/components/OrientationOverlay";
 import type { HighlightRect } from "@/components/OrientationOverlay";
-import { usePersons, useMemories, useAllInteractions, useAllVitalities, useOpenPromises } from "@/hooks";
+import { usePersons, useMemories, useAllInteractions, useAllVitalities, useOpenPromises, useActiveSeason } from "@/hooks";
 import { useBootstrapGrowth } from "@/hooks/useGrowth";
 import VitalPlant from "@/components/VitalPlant";
 import LivingPlant from "@/components/LivingPlant";
@@ -88,6 +88,13 @@ const borderClr = colors.border;
 /** Per-person accent colors, cycled for visual variety */
 const PLANT_COLORS = [sage, "#5E9EA0", lavender, peach, gold, colors.sky];
 
+// ─── Season Routes ──────────────────────────────────────────────────────────
+// The season setup screen doubles as the mid-season edit for v1
+// (SPEC_TENDING_SEASONS §3.3). These screens ship with the season flow;
+// typed routes will pick them up once the route files exist — cast until then.
+const SEASON_SETUP_ROUTE = "/season/new" as never;
+const SEASON_RETROSPECTIVE_ROUTE = "/season/retrospective" as never;
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function getGreeting(): { text: string; emoji: string } {
@@ -118,26 +125,32 @@ function SwayingPlant({
   index,
   vitalityScore,
   onPress,
+  scale = 1,
 }: {
   person: Person;
   index: number;
   vitalityScore: number;
   onPress: () => void;
+  /** Visual scale — the season strip renders the same plant ~25% larger. */
+  scale?: number;
 }) {
   const stage = getGrowthInfo(person.id).stage;
   // Leaf sway amplitude tracks vitality — vibrant plants move more.
   const leafAmplitude = getSwayParams(getVitalityLevel(vitalityScore)).amplitude;
+  const box = Math.round(68 * scale);
+  const plant = Math.round(44 * scale);
+  const slot = Math.round(72 * scale);
 
   return (
     <PressableScale
       onPress={onPress}
-      style={{ alignItems: "center", marginRight: 18, width: 72 }}
+      style={{ alignItems: "center", marginRight: 18, width: slot }}
     >
       <View
         style={{
-          width: 68,
-          height: 68,
-          borderRadius: 20,
+          width: box,
+          height: box,
+          borderRadius: Math.round(20 * scale),
           backgroundColor: sagePale,
           alignItems: "center",
           justifyContent: "center",
@@ -147,22 +160,22 @@ function SwayingPlant({
       >
         <VitalPlant
           vitalityScore={vitalityScore}
-          size={44}
+          size={plant}
           index={index}
           staggerDelay={0}
           personId={person.id}
         >
-          <LivingPlant stage={stage} size={44} amplitude={leafAmplitude} />
+          <LivingPlant stage={stage} size={plant} amplitude={leafAmplitude} />
         </VitalPlant>
       </View>
       <Text
         style={{
           fontFamily: fonts.sansMedium,
-          fontSize: 12,
+          fontSize: scale > 1 ? 13 : 12,
           color: nearBlack,
           textAlign: "center",
           marginTop: 8,
-          maxWidth: 72,
+          maxWidth: slot,
         }}
         numberOfLines={1}
       >
@@ -748,6 +761,13 @@ export default function GardenScreen() {
     refetch: refetchInteractions,
   } = useAllInteractions();
   const { promises: openPromises } = useOpenPromises();
+  const {
+    season,
+    commitments,
+    endedSeason,
+    isLoading: seasonLoading,
+    refetch: refetchSeason,
+  } = useActiveSeason();
 
   // Bootstrap growth store from existing data on first load
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
@@ -839,6 +859,16 @@ export default function GardenScreen() {
 
   const greeting = useMemo(() => getGreeting(), []);
 
+  // Tended people for the season strip, in commitment order.
+  // Identical plants to the garden — being tended confers attention,
+  // never judgment (SPEC_TENDING_SEASONS §3.5).
+  const tendedPersons = useMemo(() => {
+    if (!season) return [] as Person[];
+    return commitments
+      .map((c) => personsMap.get(c.person_id))
+      .filter((p): p is Person => p !== undefined);
+  }, [season, commitments, personsMap]);
+
   const gardenPhrase = useMemo(
     () => getGardenPhrase(persons.length, memories.length),
     [persons.length, memories.length]
@@ -885,9 +915,9 @@ export default function GardenScreen() {
   // ── Actions ───────────────────────────────────────────────────────────
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchPersons(), refetchMemories(), refetchInteractions()]);
+    await Promise.all([refetchPersons(), refetchMemories(), refetchInteractions(), refetchSeason()]);
     setRefreshing(false);
-  }, [refetchPersons, refetchMemories, refetchInteractions]);
+  }, [refetchPersons, refetchMemories, refetchInteractions, refetchSeason]);
 
   const handleRetry = useCallback(() => {
     refetchPersons();
@@ -895,13 +925,15 @@ export default function GardenScreen() {
     refetchInteractions();
   }, [refetchPersons, refetchMemories, refetchInteractions]);
 
-  // Refetch data whenever this tab gains focus (e.g. after adding a person)
+  // Refetch data whenever this tab gains focus (e.g. after adding a person,
+  // or returning from season setup / retrospective)
   useFocusEffect(
     useCallback(() => {
       refetchPersons();
       refetchMemories();
       refetchInteractions();
-    }, [refetchPersons, refetchMemories, refetchInteractions])
+      refetchSeason();
+    }, [refetchPersons, refetchMemories, refetchInteractions, refetchSeason])
   );
 
   const hasPeople = persons.length > 0;
@@ -1030,6 +1062,125 @@ export default function GardenScreen() {
                 </Pressable>
               </View>
             </Animated.View>
+
+            {/* ─── Your Season (Tending Seasons §3.3) ───────────── */}
+            {/* No status markers, counts, or completion states — ever
+                (SPEC_TENDING_SEASONS §3.5). Just the tended plants. */}
+            {!seasonLoading && season && tendedPersons.length > 0 && (
+              <Animated.View
+                entering={FadeInUp.delay(50).duration(400)}
+                style={{ marginBottom: 24 }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 11,
+                    letterSpacing: 1,
+                    textTransform: "uppercase",
+                    color: sage,
+                    marginBottom: 12,
+                  }}
+                >
+                  {season.name} — Your season
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  scrollEnabled={!showOrientation}
+                  contentContainerStyle={{
+                    paddingLeft: 4,
+                    paddingRight: 8,
+                    paddingBottom: 4,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  {tendedPersons.map((p, i) => (
+                    <SwayingPlant
+                      key={p.id}
+                      person={p}
+                      index={i}
+                      scale={1.25}
+                      vitalityScore={vitalities[p.id]?.score ?? 1.0}
+                      onPress={() => router.push(`/person/${p.id}`)}
+                    />
+                  ))}
+                  {/* Quiet edit affordance — setup screen doubles as edit */}
+                  <Pressable
+                    onPress={() => router.push(SEASON_SETUP_ROUTE)}
+                    hitSlop={8}
+                    style={{
+                      width: 44,
+                      height: 85, // matches the scaled plant container
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Pencil color={warmGray} size={16} strokeWidth={1.8} />
+                  </Pressable>
+                </ScrollView>
+              </Animated.View>
+            )}
+
+            {/* ─── Season's End (in place of the strip) ─────────── */}
+            {!seasonLoading && endedSeason && (
+              <Animated.View entering={FadeInUp.delay(50).duration(400)}>
+                <PressableScale
+                  onPress={() => router.push(SEASON_RETROSPECTIVE_ROUTE)}
+                  style={{
+                    backgroundColor: white,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: borderClr,
+                    padding: 16,
+                    marginBottom: 24,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                    shadowColor: nearBlack,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: gold + "1A",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Leaf color={gold} size={20} strokeWidth={1.8} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontFamily: fonts.sansMedium,
+                        fontSize: 14,
+                        color: nearBlack,
+                        marginBottom: 2,
+                      }}
+                    >
+                      Your {endedSeason.name} has come to a close
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: fonts.sans,
+                        fontSize: 13,
+                        color: warmGray,
+                        lineHeight: 18,
+                      }}
+                    >
+                      Take a look back at what grew
+                    </Text>
+                  </View>
+                  <ChevronRight color={warmGray} size={18} strokeWidth={2} />
+                </PressableScale>
+              </Animated.View>
+            )}
 
             {/* ─── Your Living Garden ───────────────────────────── */}
             {hasPeople ? (
@@ -1291,6 +1442,68 @@ export default function GardenScreen() {
                   </View>
                   <ChevronRight color={warmGray} size={18} strokeWidth={2} />
                 </PressableScale>
+
+                {/* ─── Begin a Tending Season ─────────────── */}
+                {!seasonLoading &&
+                  !season &&
+                  !endedSeason &&
+                  persons.length >= 2 && (
+                    <PressableScale
+                      onPress={() => router.push(SEASON_SETUP_ROUTE)}
+                      style={{
+                        backgroundColor: white,
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: borderClr,
+                        padding: 16,
+                        marginBottom: 12,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 14,
+                        shadowColor: nearBlack,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.04,
+                        shadowRadius: 8,
+                        elevation: 2,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: sagePale,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Sprout color={sage} size={20} strokeWidth={1.8} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontFamily: fonts.sansMedium,
+                            fontSize: 14,
+                            color: nearBlack,
+                            marginBottom: 2,
+                          }}
+                        >
+                          Begin a tending season
+                        </Text>
+                        <Text
+                          style={{
+                            fontFamily: fonts.sans,
+                            fontSize: 13,
+                            color: warmGray,
+                            lineHeight: 18,
+                          }}
+                        >
+                          Choose a few people to intentionally invest in
+                        </Text>
+                      </View>
+                      <ChevronRight color={warmGray} size={18} strokeWidth={2} />
+                    </PressableScale>
+                  )}
               </Animated.View>
             )}
 
