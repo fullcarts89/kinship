@@ -24,9 +24,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { PressableScale, Skeleton } from "@/components/ui";
 import { colors, fonts } from "@design/tokens";
-import { usePersons, useMemories, useAllInteractions } from "@/hooks";
+import { usePersons, useMemories, useAllInteractions, useActiveSeason } from "@/hooks";
 import { formatRelativeDate, formatMemoryDate, getMemoryDate, emotionEmojis, relationshipLabels } from "@/lib/formatters";
 import { getGrowthInfo } from "@/lib/growthEngine";
+import { daysUntilRhythmOpens } from "@/lib/seasonEngine";
 import { simpleHash } from "@/lib/suggestionEngine";
 import { shareViewAsImage } from "@/lib/shareImage";
 import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
@@ -338,6 +339,7 @@ export default function ActivityScreen() {
   const { persons } = usePersons();
   const { memories, isLoading: memoriesLoading, refetch: refetchMemories } = useMemories();
   const { interactions, isLoading: interactionsLoading, refetch: refetchInteractions } = useAllInteractions();
+  const { season: activeSeason, commitments } = useActiveSeason();
 
   useFocusEffect(
     useCallback(() => {
@@ -386,14 +388,38 @@ export default function ActivityScreen() {
   const totalWeekActivity = weekMemories.length + weekInteractions.length;
   const summaryPhrase = getWeekSummaryPhrase(weekMemories.length, weekInteractions.length);
 
-  // Gentle look ahead — rotate through the garden by week number so the
-  // invitation is stable for the week but changes with the seasons of time.
+  // ── Season opening — tended people's first names, nothing more ──
+  const seasonFirstNames = useMemo(() => {
+    if (!activeSeason) return [];
+    return commitments
+      .map((c) => personsMap.get(c.person_id)?.name.split(" ")[0])
+      .filter((n): n is string => !!n);
+  }, [activeSeason, commitments, personsMap]);
+
+  // Gentle look ahead. When a season is active, prefer the tended person
+  // whose rhythm opens soonest — still just an invitation, never a metric.
+  // Otherwise rotate through the garden by week number so the invitation
+  // is stable for the week but changes with the seasons of time.
   const nextWeekPerson = useMemo(() => {
+    if (activeSeason && commitments.length > 0) {
+      let soonest = null;
+      let soonestDays = Infinity;
+      for (const commitment of commitments) {
+        const person = personsMap.get(commitment.person_id);
+        if (!person) continue;
+        const days = daysUntilRhythmOpens(commitment, interactions);
+        if (days < soonestDays) {
+          soonestDays = days;
+          soonest = person;
+        }
+      }
+      if (soonest) return soonest;
+    }
     if (persons.length === 0) return null;
     const sorted = [...persons].sort((a, b) => a.id.localeCompare(b.id));
     const weekNumber = Math.floor(Date.now() / ONE_WEEK_MS);
     return sorted[simpleHash(String(weekNumber)) % sorted.length];
-  }, [persons]);
+  }, [persons, activeSeason, commitments, personsMap, interactions]);
 
   // ── Season recap ──
   const season = useMemo(() => getSeasonInfo(new Date()), []);
@@ -528,6 +554,43 @@ export default function ActivityScreen() {
               </Text>
             )}
           </Animated.View>
+
+          {/* Season opening — who you're tending this season, names only */}
+          {activeSeason && seasonFirstNames.length > 0 && (
+            <Animated.View entering={FadeInUp.delay(30).duration(400)} style={{ marginBottom: 28 }}>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 12,
+                  color: warmGray,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  marginBottom: 10,
+                }}
+              >
+                {activeSeason.name}
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {seasonFirstNames.map((name, i) => (
+                  <View
+                    key={`${name}-${i}`}
+                    style={{
+                      backgroundColor: sagePale,
+                      borderWidth: 1,
+                      borderColor: sageLight,
+                      borderRadius: 999,
+                      paddingVertical: 6,
+                      paddingHorizontal: 14,
+                    }}
+                  >
+                    <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: sageDark }}>
+                      {name}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </Animated.View>
+          )}
 
           {showSkeletons ? (
             /* First load — skeleton blocks roughly matching the stat cards */

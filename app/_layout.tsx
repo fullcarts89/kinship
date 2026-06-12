@@ -164,6 +164,13 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="season"
+          options={{
+            headerShown: false,
+            presentation: "card",
+          }}
+        />
+        <Stack.Screen
           name="import-contacts"
           options={{
             headerShown: false,
