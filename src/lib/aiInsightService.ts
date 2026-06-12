@@ -176,6 +176,76 @@ export async function extractPromiseFromText(
   }
 }
 
+// ─── Season reflection (Phase 4) ────────────────────────────────────────────
+
+const REFLECT_SYSTEM = `You write one short, warm reflection paragraph closing a "season" of intentional friendship-tending in Kinship, a calm garden app. You receive what actually happened: people tended, memories kept, moments shared.
+
+Rules (inviolable):
+- Report only what HAPPENED. Never name what didn't happen, never compare against intentions, never imply falling short.
+- If little happened, say less — one true warm sentence beats manufactured positivity.
+- Ground it in specifics (names, a memory detail) when available.
+- 2-4 sentences, second person ("you"), warm but not saccharine. No emoji.`;
+
+const REFLECT_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    reflection: { type: "string" as const, description: "2-4 warm sentences" },
+  },
+  required: ["reflection"],
+  additionalProperties: false,
+};
+
+export interface SeasonReflectionInput {
+  seasonName: string;
+  people: { name: string; memoriesKept: number; momentsShared: number }[];
+  sampleMemories: string[];
+}
+
+export async function generateSeasonReflection(
+  input: SeasonReflectionInput
+): Promise<string | null> {
+  if (!isAIConfigured()) return null;
+  try {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.functions.invoke("ai-insight", {
+        body: { mode: "season_reflection", ...input },
+      });
+      if (error || !data?.reflection) return null;
+      return data.reflection as string;
+    }
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": DEV_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 16000,
+        output_config: {
+          effort: "low",
+          format: { type: "json_schema", schema: REFLECT_SCHEMA },
+        },
+        system: REFLECT_SYSTEM,
+        messages: [
+          { role: "user", content: JSON.stringify(input, null, 2) },
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.stop_reason === "refusal") return null;
+    const textBlock = (data.content ?? []).find(
+      (b: { type: string }) => b.type === "text"
+    );
+    if (!textBlock?.text) return null;
+    return (JSON.parse(textBlock.text) as { reflection: string }).reflection;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Context assembly ───────────────────────────────────────────────────────
 
 export interface InsightInput {

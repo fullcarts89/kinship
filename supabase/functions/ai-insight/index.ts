@@ -49,6 +49,23 @@ const EXTRACT_SCHEMA = {
   additionalProperties: false,
 };
 
+const REFLECT_SYSTEM = `You write one short, warm reflection paragraph closing a "season" of intentional friendship-tending in Kinship, a calm garden app. You receive what actually happened: people tended, memories kept, moments shared.
+
+Rules (inviolable):
+- Report only what HAPPENED. Never name what didn't happen, never compare against intentions, never imply falling short.
+- If little happened, say less — one true warm sentence beats manufactured positivity.
+- Ground it in specifics (names, a memory detail) when available.
+- 2-4 sentences, second person ("you"), warm but not saccharine. No emoji.`;
+
+const REFLECT_SCHEMA = {
+  type: "object",
+  properties: {
+    reflection: { type: "string", description: "2-4 warm sentences" },
+  },
+  required: ["reflection"],
+  additionalProperties: false,
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -88,6 +105,45 @@ Deno.serve(async (req: Request) => {
       const extraction =
         textBlock && "text" in textBlock ? JSON.parse(textBlock.text) : null;
       return new Response(JSON.stringify({ extraction }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Mode: season_reflection — close a tending season warmly
+    if (body.mode === "season_reflection") {
+      const client = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+      const response = await client.messages.create({
+        model: MODEL,
+        max_tokens: 16000,
+        output_config: {
+          effort: "low",
+          format: { type: "json_schema", schema: REFLECT_SCHEMA },
+        },
+        system: REFLECT_SYSTEM,
+        messages: [
+          {
+            role: "user",
+            content: JSON.stringify(
+              {
+                seasonName: body.seasonName,
+                people: body.people,
+                sampleMemories: body.sampleMemories,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      });
+      const textBlock =
+        response.stop_reason === "refusal"
+          ? null
+          : response.content.find((b: { type: string }) => b.type === "text");
+      const reflection =
+        textBlock && "text" in textBlock
+          ? JSON.parse(textBlock.text).reflection
+          : null;
+      return new Response(JSON.stringify({ reflection }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
