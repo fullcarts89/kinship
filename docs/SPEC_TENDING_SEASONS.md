@@ -163,7 +163,7 @@ Each phase ships independently; nothing in 3–4 blocks on 2.
 
 1. **Growth interplay:** should keeping a promise or honoring a rhythm grant growth points? Current lean: **no** — growth stays earned by memories/reflections only, so the new mechanics can't be gamed and the garden stays honest.
 2. **Season length:** fixed ~92 days vs. user-pickable (1/2/3 months)? Lean: fixed for v1 — fewer decisions, true to "seasons."
-3. **Free vs. paid:** Seasons + AI-written retrospectives are the strongest paid-tier candidates identified so far. Decide before Phase 3 ships whether this is the premium wedge.
+3. **Free vs. paid:** DECIDED (2026-06-12) — Seasons ships free for now and is reserved as the likely paid tier later; the app overall may become a cheap subscription. Build with no paywall, but keep Seasons cleanly separable.
 4. **Rhythm nudge channel:** in-app only for v1, or notifications from day one? Lean: in-app + digest first, notifications in a fast-follow once tone is validated.
 
 ---

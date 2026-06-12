@@ -16,7 +16,7 @@ Kinship is a mobile app that helps people nurture their closest relationships th
 - Not a CRM or contact manager
 - Not gamified — no points, streaks, or leaderboards shown to the user
 - Not guilt-driven — never gap-shaming, never urgency, never "you haven't talked to Sarah in 14 days"
-- Not subscription-based — the app is completely free
+- Free at launch; a low-cost subscription is under consideration (Seasons and AI features are the likely premium wedge) — no copy may promise "free forever"
 
 **What Kinship IS:**
 - A gentle space to notice and appreciate the people who matter
