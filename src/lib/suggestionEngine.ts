@@ -40,10 +40,11 @@
  * - Birthday suggestions can be slightly more direct (socially expected)
  */
 
-import type { Person, Memory, Interaction, PersonPromise } from "@/types/database";
+import type { Person, Memory, Interaction, PersonPromise, SeasonCommitment } from "@/types/database";
 import { getGrowthInfo } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
 import { getVitalityInfo } from "@/lib/vitalityEngine";
+import { isRhythmOpen } from "@/lib/seasonEngine";
 import type { VitalityLevel } from "@/lib/vitalityEngine";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ import type { VitalityLevel } from "@/lib/vitalityEngine";
 export type SuggestionType =
   | "birthday_upcoming"
   | "promise_follow_through"
+  | "season_rhythm"
   | "memory_resurface"
   | "drift_reconnect"
   | "post_event_capture"
@@ -671,13 +673,47 @@ function generatePromiseSuggestions(
   return suggestions;
 }
 
+/**
+ * Generate suggestions for tended people whose rhythm window is open
+ * (priority 85). Pure invitation; a window that closes unmet simply
+ * reopens — there is no missed state to speak of, so none is spoken of.
+ */
+function generateSeasonRhythmSuggestions(
+  commitments: SeasonCommitment[] | undefined,
+  persons: Person[],
+  interactions: Interaction[],
+  recentlyContactedIds: Set<string>
+): IntelligentSuggestion[] {
+  if (!commitments || commitments.length === 0) return [];
+  const personsById = new Map(persons.map((p) => [p.id, p]));
+  const suggestions: IntelligentSuggestion[] = [];
+  for (const commitment of commitments) {
+    if (recentlyContactedIds.has(commitment.person_id)) continue;
+    if (!isRhythmOpen(commitment, interactions)) continue;
+    const person = personsById.get(commitment.person_id);
+    if (!person) continue;
+    const firstName = person.name.split(" ")[0];
+    suggestions.push({
+      id: `suggestion-rhythm-${commitment.id}`,
+      type: "season_rhythm",
+      personId: person.id,
+      personName: person.name,
+      reason: `A good moment in your season with ${firstName}`,
+      priority: 85,
+      metadata: {},
+    });
+  }
+  return suggestions;
+}
+
 export function generateSuggestions(
   persons: Person[],
   memories: Memory[],
   interactions: Interaction[],
   calendarMatches?: CalendarMatch[],
   limit: number = 5,
-  promises?: PersonPromise[]
+  promises?: PersonPromise[],
+  seasonCommitments?: SeasonCommitment[]
 ): IntelligentSuggestion[] {
   // INTL-02/03: Build 24-hour recency exclusion set
   const recentlyContactedIds = getRecentlyContactedPersonIds(
@@ -691,6 +727,12 @@ export function generateSuggestions(
   // Promise suggestions are also exempt — keeping your word isn't gated
   // by having recently talked
   const promiseSuggestions = generatePromiseSuggestions(promises, persons);
+  const rhythmSuggestions = generateSeasonRhythmSuggestions(
+    seasonCommitments,
+    persons,
+    interactions,
+    recentlyContactedIds
+  );
   const memoryResurfaceSuggestions = generateMemoryResurfaceSuggestions(
     persons,
     memories,
@@ -718,6 +760,7 @@ export function generateSuggestions(
   const coveredPersonIds = new Set<string>();
   for (const s of birthdaySuggestions) coveredPersonIds.add(s.personId);
   for (const s of promiseSuggestions) coveredPersonIds.add(s.personId);
+  for (const s of rhythmSuggestions) coveredPersonIds.add(s.personId);
   for (const s of memoryResurfaceSuggestions) coveredPersonIds.add(s.personId);
   for (const s of driftSuggestions) coveredPersonIds.add(s.personId);
   for (const s of calendarSuggestions) coveredPersonIds.add(s.personId);
@@ -734,6 +777,7 @@ export function generateSuggestions(
   const allSuggestions: IntelligentSuggestion[] = [
     ...birthdaySuggestions,
     ...promiseSuggestions,
+    ...rhythmSuggestions,
     ...memoryResurfaceSuggestions,
     ...driftSuggestions,
     ...calendarSuggestions,

@@ -598,6 +598,7 @@ function SectionLabel({
 const SUGGESTION_ICON: Record<SuggestionType, string> = {
   birthday_upcoming: "\uD83C\uDF82",    // 🎂
   promise_follow_through: "\uD83E\uDD1D", // 🤝
+  season_rhythm: "\uD83C\uDF31",
   memory_resurface: "\uD83D\uDCAD",     // 💭
   drift_reconnect: "\uD83C\uDF3F",      // 🌿
   post_event_capture: "\uD83D\uDCF8",   // 📸

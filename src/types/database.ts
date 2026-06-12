@@ -91,6 +91,29 @@ export interface PersonPromise {
   resolved_at: string | null;
 }
 
+/** A bounded period of intentional tending — up to 5 people, ~3 months. */
+export interface Season {
+  id: string;
+  user_id: string;
+  name: string;
+  starts_at: string;
+  ends_at: string;
+  status: "active" | "completed";
+  created_at: string;
+}
+
+export type TendingRhythm = "often" | "regularly" | "now_and_then";
+
+/** One tended person within a season, with a soft cadence. */
+export interface SeasonCommitment {
+  id: string;
+  season_id: string;
+  user_id: string;
+  person_id: string;
+  rhythm: TendingRhythm;
+  created_at: string;
+}
+
 export interface Suggestion {
   id: string;
   user_id: string;
@@ -115,6 +138,10 @@ export type InteractionInsert = Omit<Interaction, "id" | "created_at" | "note" |
   emotion?: Emotion | null;
 };
 export type SuggestionInsert = Omit<Suggestion, "id" | "created_at">;
+export type SeasonInsert = Omit<Season, "id" | "created_at" | "status"> & {
+  status?: Season["status"];
+};
+export type SeasonCommitmentInsert = Omit<SeasonCommitment, "id" | "created_at">;
 export type PersonPromiseInsert = Omit<PersonPromise, "id" | "created_at" | "resolved_at" | "due_hint" | "status"> & {
   due_hint?: string | null;
   status?: PersonPromise["status"];
@@ -127,6 +154,8 @@ export type PersonUpdate = Partial<Omit<Person, "id" | "user_id" | "created_at">
 export type MemoryUpdate = Partial<Omit<Memory, "id" | "user_id" | "created_at">>;
 export type InteractionUpdate = Partial<Omit<Interaction, "id" | "user_id" | "created_at">>;
 export type SuggestionUpdate = Partial<Omit<Suggestion, "id" | "user_id" | "created_at">>;
+export type SeasonUpdate = Partial<Omit<Season, "id" | "user_id" | "created_at">>;
+export type SeasonCommitmentUpdate = Partial<Pick<SeasonCommitment, "rhythm">>;
 export type PersonPromiseUpdate = Partial<Omit<PersonPromise, "id" | "user_id" | "person_id" | "created_at">>;
 
 // ─── Database Schema (Supabase GenericSchema) ───────────────────────────────
@@ -168,6 +197,18 @@ export interface Database {
         Row: PersonPromise;
         Insert: PersonPromiseInsert;
         Update: PersonPromiseUpdate;
+        Relationships: [];
+      };
+      seasons: {
+        Row: Season;
+        Insert: SeasonInsert;
+        Update: SeasonUpdate;
+        Relationships: [];
+      };
+      season_commitments: {
+        Row: SeasonCommitment;
+        Insert: SeasonCommitmentInsert;
+        Update: SeasonCommitmentUpdate;
         Relationships: [];
       };
     };

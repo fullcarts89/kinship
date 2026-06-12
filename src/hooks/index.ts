@@ -37,6 +37,7 @@ export {
   useCreatePromise,
   useResolvePromise,
 } from "./usePromises";
+export { useActiveSeason } from "./useSeason";
 
 // ─── Orientation Hooks ───────────────────────────────────────────────────
 

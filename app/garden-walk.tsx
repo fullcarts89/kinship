@@ -42,6 +42,7 @@ import type { SuggestionType } from "@/lib/suggestionEngine";
 const suggestionIcons: Record<SuggestionType, string> = {
   birthday_upcoming: "\ud83c\udf82",
   promise_follow_through: "\ud83e\udd1d",
+  season_rhythm: "\ud83c\udf31",
   memory_resurface: "\ud83d\udcad",
   drift_reconnect: "\ud83c\udf3f",
   post_event_capture: "\ud83d\udcf8",
