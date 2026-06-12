@@ -38,6 +38,7 @@ import { TextInput as RNTextInput } from "react-native";
 import { clearLocalPeople } from "@/hooks/usePersons";
 import { clearLocalMemories } from "@/hooks/useMemories";
 import { clearLocalInteractions } from "@/hooks/useInteractions";
+import { clearLocalPromises } from "@/hooks/usePromises";
 import { deleteAllPersons } from "@/services/personService";
 import { exportGardenData } from "@/lib/exportService";
 import { clearAllCollections } from "@/lib/localStore";
@@ -508,6 +509,7 @@ export default function PrivacyScreen() {
     clearLocalPeople();
     clearLocalMemories();
     clearLocalInteractions();
+    clearLocalPromises();
     clearAllCollections();
     resetGrowthState();
     try {

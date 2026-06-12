@@ -87,6 +87,8 @@ import type { InteractionType, Emotion, IconComponent } from "@/types";
 import { buildInviteMessage } from "@/lib/appLinks";
 import { getNextBestAction } from "@/lib/nextActionEngine";
 import { useAIInsight } from "@/hooks/useAIInsight";
+import { usePersonPromises, useResolvePromise } from "@/hooks/usePromises";
+import { showGrowthToast } from "@/components/ui/GrowthToast";
 import type { GrowthInfo } from "@/lib/growthEngine";
 import type { VitalityInfo } from "@/lib/vitalityEngine";
 
@@ -389,6 +391,19 @@ function ContextTab({
   onPersonChanged: () => void;
 }) {
   const { updatePerson } = useUpdatePerson();
+  const { promises: openPromises, refetch: refetchPromises } = usePersonPromises(person.id);
+  const { resolvePromise, isResolving } = useResolvePromise();
+  // One promise at a time — the oldest held the longest
+  const promise = openPromises.length > 0 ? openPromises[0] : null;
+
+  const handleResolvePromise = async (status: "kept" | "released") => {
+    if (!promise) return;
+    await resolvePromise(promise.id, status);
+    if (status === "kept") {
+      showGrowthToast("Promise kept", "\uD83C\uDF3F");
+    }
+    refetchPromises();
+  };
 
   const handleRemoveNote = (index: number) => {
     Alert.alert("Remove this note?", undefined, [
@@ -415,7 +430,7 @@ function ContextTab({
   const heuristicAction = getNextBestAction({ person, memories, interactions, growthInfo, vitalityInfo });
   // AI signal boosting: when configured, notes/memories produce a more
   // specific opening; otherwise the heuristic engine carries the card.
-  const { insight } = useAIInsight(person, memories, interactions);
+  const { insight } = useAIInsight(person, memories, interactions, openPromises);
   const action = insight
     ? {
         ...heuristicAction,
@@ -549,6 +564,91 @@ function ContextTab({
           >
             Press and hold a note to remove it
           </Text>
+        </View>
+      )}
+
+      {/* Open promise — the user's own words, held for them */}
+      {promise && (
+        <View
+          style={{
+            backgroundColor: white,
+            borderRadius: 20,
+            padding: 20,
+            borderWidth: 1.5,
+            borderColor: sageLight,
+            marginBottom: 20,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 11,
+              color: warmGray,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              marginBottom: 8,
+            }}
+          >
+            {"\uD83E\uDD1D"} You wanted to
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.serif,
+              fontSize: 17,
+              color: nearBlack,
+              lineHeight: 24,
+              marginBottom: promise.due_hint ? 4 : 14,
+            }}
+          >
+            {promise.text}
+          </Text>
+          {promise.due_hint && (
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 13,
+                color: warmGray,
+                marginBottom: 14,
+              }}
+            >
+              {promise.due_hint}
+            </Text>
+          )}
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <PressableScale
+              haptic
+              disabled={isResolving}
+              onPress={() => handleResolvePromise("kept")}
+              style={{
+                flex: 1,
+                backgroundColor: sage,
+                borderRadius: 12,
+                paddingVertical: 11,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 14, color: white }}>
+                Kept it
+              </Text>
+            </PressableScale>
+            <PressableScale
+              disabled={isResolving}
+              onPress={() => handleResolvePromise("released")}
+              style={{
+                flex: 1,
+                backgroundColor: white,
+                borderWidth: 1.5,
+                borderColor: borderColor,
+                borderRadius: 12,
+                paddingVertical: 11,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: warmGray }}>
+                Let it go
+              </Text>
+            </PressableScale>
+          </View>
         </View>
       )}
 

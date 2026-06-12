@@ -17,6 +17,7 @@ import {
   type CalendarMatch,
 } from "@/lib/suggestionEngine";
 import { getRecentCalendarMatches } from "@/lib/calendarEngine";
+import { useOpenPromises } from "@/hooks/usePromises";
 import type { Person, Memory, Interaction } from "@/types/database";
 
 // ─── useSuggestions ──────────────────────────────────────────────────────────
@@ -36,6 +37,7 @@ export function useSuggestions(
   limit: number = 3
 ): IntelligentSuggestion[] {
   const [calendarMatches, setCalendarMatches] = useState<CalendarMatch[]>([]);
+  const { promises } = useOpenPromises();
 
   // Fetch calendar matches when persons change
   useEffect(() => {
@@ -62,7 +64,7 @@ export function useSuggestions(
   // Generate and memoize suggestions
   return useMemo(
     () =>
-      generateSuggestions(persons, memories, interactions, calendarMatches, limit),
-    [persons, memories, interactions, calendarMatches, limit]
+      generateSuggestions(persons, memories, interactions, calendarMatches, limit, promises),
+    [persons, memories, interactions, calendarMatches, limit, promises]
   );
 }

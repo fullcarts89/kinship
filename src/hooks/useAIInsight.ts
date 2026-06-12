@@ -12,26 +12,27 @@ import {
   isAIConfigured,
   type PersonInsight,
 } from "@/lib/aiInsightService";
-import type { Person, Memory, Interaction } from "@/types/database";
+import type { Person, Memory, Interaction, PersonPromise } from "@/types/database";
 
 export function useAIInsight(
   person: Person | null,
   memories: Memory[],
-  interactions: Interaction[]
+  interactions: Interaction[],
+  promises: PersonPromise[] = []
 ): { insight: PersonInsight | null; isLoading: boolean } {
   const [insight, setInsight] = useState<PersonInsight | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Re-run when the underlying signal changes (note added, memory saved).
   const signalKey = person
-    ? `${person.id}:${person.notes?.length ?? 0}:${memories.length}:${interactions.length}`
+    ? `${person.id}:${person.notes?.length ?? 0}:${memories.length}:${interactions.length}:${promises.length}`
     : "";
 
   useEffect(() => {
     if (!person || !isAIConfigured()) return;
     let cancelled = false;
     setIsLoading(true);
-    generatePersonInsight({ person, memories, interactions })
+    generatePersonInsight({ person, memories, interactions, promises })
       .then((result) => {
         if (!cancelled) setInsight(result);
       })

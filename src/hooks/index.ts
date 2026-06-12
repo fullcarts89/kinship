@@ -31,6 +31,12 @@ export { usePersonVitality, useAllVitalities } from "./useVitality";
 // ─── Suggestion Hooks ─────────────────────────────────────────────────────
 
 export { useSuggestions } from "./useSuggestions";
+export {
+  useOpenPromises,
+  usePersonPromises,
+  useCreatePromise,
+  useResolvePromise,
+} from "./usePromises";
 
 // ─── Orientation Hooks ───────────────────────────────────────────────────
 

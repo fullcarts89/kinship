@@ -79,6 +79,11 @@ const BANNED_PATTERNS: RegExp[] = [
   /dying/i,
   /neglect/i,
   /overdue/i,
+  /you promised/i,
+  /still haven'?t/i,
+  /missed/i,
+  /behind/i,
+  /commitment/i,
 ];
 
 /**

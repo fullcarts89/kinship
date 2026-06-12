@@ -40,7 +40,7 @@
  * - Birthday suggestions can be slightly more direct (socially expected)
  */
 
-import type { Person, Memory, Interaction } from "@/types/database";
+import type { Person, Memory, Interaction, PersonPromise } from "@/types/database";
 import { getGrowthInfo } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
 import { getVitalityInfo } from "@/lib/vitalityEngine";
@@ -50,6 +50,7 @@ import type { VitalityLevel } from "@/lib/vitalityEngine";
 
 export type SuggestionType =
   | "birthday_upcoming"
+  | "promise_follow_through"
   | "memory_resurface"
   | "drift_reconnect"
   | "post_event_capture"
@@ -66,6 +67,7 @@ export interface IntelligentSuggestion {
     memoryId?: string;
     birthdayDate?: string;
     calendarEventName?: string;
+    promiseId?: string;
   };
 }
 
@@ -626,12 +628,56 @@ function generateGeneralSuggestions(
  * 5. Dedupes by personId (keeps highest-priority suggestion per person)
  * 6. Returns top N
  */
+/**
+ * Generate suggestions from open promises (priority 95 — above
+ * everything except imminent birthdays). Phrased as the user's own
+ * words; never references elapsed time. ISO due hints gate eligibility
+ * until the date passes; free-text hints don't gate.
+ */
+function generatePromiseSuggestions(
+  promises: PersonPromise[] | undefined,
+  persons: Person[]
+): IntelligentSuggestion[] {
+  if (!promises || promises.length === 0) return [];
+  const personsById = new Map(persons.map((p) => [p.id, p]));
+  const today = new Date().toISOString().slice(0, 10);
+  const suggestions: IntelligentSuggestion[] = [];
+  const seenPersons = new Set<string>();
+
+  // Oldest first — the longest-held promise surfaces first
+  const open = promises
+    .filter((p) => p.status === "open")
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+  for (const promise of open) {
+    if (seenPersons.has(promise.person_id)) continue;
+    const person = personsById.get(promise.person_id);
+    if (!person) continue;
+    // ISO due hints gate until the date arrives
+    if (promise.due_hint && /^\d{4}-\d{2}-\d{2}/.test(promise.due_hint)) {
+      if (promise.due_hint.slice(0, 10) > today) continue;
+    }
+    seenPersons.add(promise.person_id);
+    suggestions.push({
+      id: `suggestion-promise-${promise.id}`,
+      type: "promise_follow_through",
+      personId: person.id,
+      personName: person.name,
+      reason: `You wanted to: ${promise.text}`,
+      priority: 95,
+      metadata: { promiseId: promise.id },
+    });
+  }
+  return suggestions;
+}
+
 export function generateSuggestions(
   persons: Person[],
   memories: Memory[],
   interactions: Interaction[],
   calendarMatches?: CalendarMatch[],
-  limit: number = 5
+  limit: number = 5,
+  promises?: PersonPromise[]
 ): IntelligentSuggestion[] {
   // INTL-02/03: Build 24-hour recency exclusion set
   const recentlyContactedIds = getRecentlyContactedPersonIds(
@@ -642,6 +688,9 @@ export function generateSuggestions(
   // 1. Generate all suggestion types
   // Birthday suggestions are NOT subject to recency exclusion
   const birthdaySuggestions = generateBirthdaySuggestions(persons);
+  // Promise suggestions are also exempt — keeping your word isn't gated
+  // by having recently talked
+  const promiseSuggestions = generatePromiseSuggestions(promises, persons);
   const memoryResurfaceSuggestions = generateMemoryResurfaceSuggestions(
     persons,
     memories,
@@ -668,6 +717,7 @@ export function generateSuggestions(
   // so general suggestions don't duplicate them
   const coveredPersonIds = new Set<string>();
   for (const s of birthdaySuggestions) coveredPersonIds.add(s.personId);
+  for (const s of promiseSuggestions) coveredPersonIds.add(s.personId);
   for (const s of memoryResurfaceSuggestions) coveredPersonIds.add(s.personId);
   for (const s of driftSuggestions) coveredPersonIds.add(s.personId);
   for (const s of calendarSuggestions) coveredPersonIds.add(s.personId);
@@ -683,6 +733,7 @@ export function generateSuggestions(
   // 2. Flatten into a single array
   const allSuggestions: IntelligentSuggestion[] = [
     ...birthdaySuggestions,
+    ...promiseSuggestions,
     ...memoryResurfaceSuggestions,
     ...driftSuggestions,
     ...calendarSuggestions,

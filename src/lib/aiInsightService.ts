@@ -25,7 +25,7 @@
 
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { loadCollection, saveCollection } from "@/lib/localStore";
-import type { Person, Memory, Interaction } from "@/types/database";
+import type { Person, Memory, Interaction, PersonPromise } from "@/types/database";
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
@@ -87,15 +87,106 @@ const INSIGHT_SCHEMA = {
   additionalProperties: false,
 };
 
+// ─── Promise extraction (Phase 2 of Tending Seasons spec) ──────────────────
+
+export interface PromiseExtraction {
+  is_promise: boolean;
+  promise_text: string | null;
+  due_hint: string | null;
+}
+
+const EXTRACT_SYSTEM = `You detect whether a short personal note contains a commitment the WRITER made to the person the note is about. Only first-person commitments by the writer count ("I said I'd...", "need to send her...", "told him I'd..."). Things the OTHER person promised do not count. Plans that are facts, not the writer's obligations ("her wedding is in June"), do not count.
+
+If a commitment exists: rewrite it as a short imperative ("Send Tom the book link"), and extract a due hint ONLY if one is stated — as an ISO date (YYYY-MM-DD) when derivable from today's date, otherwise the stated phrase ("after the wedding"). Be conservative: when unsure, is_promise is false.`;
+
+const EXTRACT_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    is_promise: { type: "boolean" as const },
+    promise_text: {
+      type: ["string", "null"] as const,
+      description: "Short imperative form, or null",
+    },
+    due_hint: {
+      type: ["string", "null"] as const,
+      description: "ISO date or stated phrase, or null",
+    },
+  },
+  required: ["is_promise", "promise_text", "due_hint"],
+  additionalProperties: false,
+};
+
+/**
+ * Classify a saved note for a commitment. Returns null when AI isn't
+ * configured or the call fails — callers simply skip the suggestion.
+ * The result only ever powers a "hold onto it?" prompt; nothing is
+ * auto-created.
+ */
+export async function extractPromiseFromText(
+  text: string,
+  personName: string
+): Promise<PromiseExtraction | null> {
+  if (!isAIConfigured()) return null;
+  const payload = {
+    text: text.slice(0, 500),
+    person_name: personName,
+    today: new Date().toISOString().slice(0, 10),
+  };
+  try {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.functions.invoke("ai-insight", {
+        body: { mode: "extract_promise", ...payload },
+      });
+      if (error || !data?.extraction) return null;
+      return data.extraction as PromiseExtraction;
+    }
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": DEV_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 16000,
+        output_config: {
+          effort: "low",
+          format: { type: "json_schema", schema: EXTRACT_SCHEMA },
+        },
+        system: EXTRACT_SYSTEM,
+        messages: [
+          {
+            role: "user",
+            content: `Note about ${payload.person_name} (today is ${payload.today}):\n"${payload.text}"`,
+          },
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.stop_reason === "refusal") return null;
+    const textBlock = (data.content ?? []).find(
+      (b: { type: string }) => b.type === "text"
+    );
+    if (!textBlock?.text) return null;
+    return JSON.parse(textBlock.text) as PromiseExtraction;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Context assembly ───────────────────────────────────────────────────────
 
 export interface InsightInput {
   person: Person;
   memories: Memory[];
   interactions: Interaction[];
+  /** Open promises — the conversation starter can build on them. */
+  promises?: PersonPromise[];
 }
 
-function buildContext({ person, memories, interactions }: InsightInput) {
+function buildContext({ person, memories, interactions, promises }: InsightInput) {
   const recentMemories = [...memories]
     .sort((a, b) => (b.occurred_at || b.created_at).localeCompare(a.occurred_at || a.created_at))
     .slice(0, 5)
@@ -125,6 +216,10 @@ function buildContext({ person, memories, interactions }: InsightInput) {
     })),
     recent_memories: recentMemories,
     recent_interactions: recentInteractions,
+    open_promises: (promises ?? [])
+      .filter((p) => p.status === "open")
+      .slice(0, 3)
+      .map((p) => ({ text: p.text, due_hint: p.due_hint })),
   };
 }
 

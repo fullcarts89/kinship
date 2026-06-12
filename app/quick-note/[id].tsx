@@ -23,14 +23,19 @@ import { X, PenLine } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { colors, fonts, radii, shadows } from "@design/tokens";
 import { PressableScale } from "@/components/ui";
-import { usePerson, useUpdatePerson } from "@/hooks";
+import { usePerson, useUpdatePerson, useCreatePromise } from "@/hooks";
+import { extractPromiseFromText, isAIConfigured } from "@/lib/aiInsightService";
+import { Alert } from "react-native";
 
 export default function QuickNoteScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { person } = usePerson(id);
   const { updatePerson, isUpdating } = useUpdatePerson();
+  const { createPromise, isCreating } = useCreatePromise();
   const [note, setNote] = useState("");
+  const [isPromise, setIsPromise] = useState(false);
+  const isSaving = isUpdating || isCreating;
 
   const firstName = person?.name.split(" ")[0] ?? "them";
 
@@ -43,18 +48,60 @@ export default function QuickNoteScreen() {
     const trimmed = note.trim();
     if (!trimmed || !person) return;
     try {
-      await updatePerson(person.id, {
-        notes: [
-          ...(person.notes ?? []),
-          { text: trimmed, created_at: new Date().toISOString() },
-        ],
-      });
+      if (isPromise) {
+        await createPromise({
+          person_id: person.id,
+          text: trimmed,
+          source: "manual",
+        });
+      } else {
+        await updatePerson(person.id, {
+          notes: [
+            ...(person.notes ?? []),
+            { text: trimmed, created_at: new Date().toISOString() },
+          ],
+        });
+        // AI signal: a note may contain a commitment worth holding onto.
+        // Proposal only — nothing is ever auto-created; slow or failed
+        // extraction just skips the prompt.
+        if (isAIConfigured()) {
+          const extraction = await Promise.race([
+            extractPromiseFromText(trimmed, person.name),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
+          ]);
+          if (extraction?.is_promise && extraction.promise_text) {
+            const promiseText = extraction.promise_text;
+            const dueHint = extraction.due_hint;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            Alert.alert(
+              "Sounds like a promise",
+              `"${promiseText}" — hold onto it?`,
+              [
+                { text: "Just a note", style: "cancel", onPress: handleClose },
+                {
+                  text: "Hold onto it",
+                  onPress: async () => {
+                    await createPromise({
+                      person_id: person.id,
+                      text: promiseText,
+                      due_hint: dueHint,
+                      source: "ai_suggested",
+                    });
+                    handleClose();
+                  },
+                },
+              ]
+            );
+            return;
+          }
+        }
+      }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     } catch {
       // Saved locally at worst — never trap the user in a quick flow.
     }
     handleClose();
-  }, [note, person, updatePerson, handleClose]);
+  }, [note, person, isPromise, updatePerson, createPromise, handleClose]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -146,6 +193,31 @@ export default function QuickNoteScreen() {
                 minHeight: 130,
               }}
             />
+            <PressableScale
+              onPress={() => setIsPromise((v) => !v)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                alignSelf: "flex-start",
+                backgroundColor: isPromise ? colors.sage : colors.white,
+                borderWidth: 1.5,
+                borderColor: isPromise ? colors.sage : colors.border,
+                borderRadius: 100,
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                marginTop: 12,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sansMedium,
+                  fontSize: 13,
+                  color: isPromise ? colors.white : colors.warmGray,
+                }}
+              >
+                {"\uD83E\uDD1D"} This is a promise I made
+              </Text>
+            </PressableScale>
             <Text
               style={{
                 fontFamily: fonts.sans,
@@ -155,14 +227,15 @@ export default function QuickNoteScreen() {
                 lineHeight: 18,
               }}
             >
-              Saved to {firstName}'s profile — details, plans, little things
-              worth holding onto.
+              {isPromise
+                ? `Held for you — it'll resurface gently when it can help.`
+                : `Saved to ${firstName}'s profile — details, plans, little things worth holding onto.`}
             </Text>
           </Animated.View>
 
           <PressableScale
             haptic
-            disabled={!note.trim() || isUpdating}
+            disabled={!note.trim() || isSaving}
             onPress={handleSave}
             style={{
               backgroundColor: note.trim() ? colors.sage : colors.sageLight,
@@ -178,7 +251,7 @@ export default function QuickNoteScreen() {
                 color: colors.white,
               }}
             >
-              {isUpdating ? "Saving..." : "Save note"}
+              {isSaving ? "Saving..." : isPromise ? "Hold onto it" : "Save note"}
             </Text>
           </PressableScale>
         </View>

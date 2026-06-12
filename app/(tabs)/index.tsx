@@ -49,7 +49,7 @@ import { colors, fonts } from "@design/tokens";
 import { Skeleton, ErrorState, FadeIn, PressableScale } from "@/components/ui";
 import { OrientationOverlay } from "@/components/OrientationOverlay";
 import type { HighlightRect } from "@/components/OrientationOverlay";
-import { usePersons, useMemories, useAllInteractions, useAllVitalities } from "@/hooks";
+import { usePersons, useMemories, useAllInteractions, useAllVitalities, useOpenPromises } from "@/hooks";
 import { useBootstrapGrowth } from "@/hooks/useGrowth";
 import VitalPlant from "@/components/VitalPlant";
 import LivingPlant from "@/components/LivingPlant";
@@ -597,6 +597,7 @@ function SectionLabel({
 
 const SUGGESTION_ICON: Record<SuggestionType, string> = {
   birthday_upcoming: "\uD83C\uDF82",    // 🎂
+  promise_follow_through: "\uD83E\uDD1D", // 🤝
   memory_resurface: "\uD83D\uDCAD",     // 💭
   drift_reconnect: "\uD83C\uDF3F",      // 🌿
   post_event_capture: "\uD83D\uDCF8",   // 📸
@@ -745,6 +746,7 @@ export default function GardenScreen() {
     isLoading: interactionsLoading,
     refetch: refetchInteractions,
   } = useAllInteractions();
+  const { promises: openPromises } = useOpenPromises();
 
   // Bootstrap growth store from existing data on first load
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
@@ -875,8 +877,8 @@ export default function GardenScreen() {
 
   // Dynamic suggestions from the suggestion engine (ranked, deduped, max 3)
   const suggestions = useMemo(
-    () => generateSuggestions(persons, memories, allInteractions, calendarMatches, 3),
-    [persons, memories, allInteractions, calendarMatches]
+    () => generateSuggestions(persons, memories, allInteractions, calendarMatches, 3, openPromises),
+    [persons, memories, allInteractions, calendarMatches, openPromises]
   );
 
   // ── Actions ───────────────────────────────────────────────────────────

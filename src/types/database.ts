@@ -74,6 +74,23 @@ export interface Interaction {
   created_at: string;
 }
 
+/**
+ * PersonPromise — a one-shot commitment the user made TO a person
+ * ("Send Tom the book link"). Their own words held for them; resolves
+ * once as kept or released. Never counted, never overdue.
+ */
+export interface PersonPromise {
+  id: string;
+  user_id: string;
+  person_id: string;
+  text: string;
+  due_hint: string | null;
+  status: "open" | "kept" | "released";
+  source: "manual" | "ai_suggested" | "post_reach_out";
+  created_at: string;
+  resolved_at: string | null;
+}
+
 export interface Suggestion {
   id: string;
   user_id: string;
@@ -98,6 +115,10 @@ export type InteractionInsert = Omit<Interaction, "id" | "created_at" | "note" |
   emotion?: Emotion | null;
 };
 export type SuggestionInsert = Omit<Suggestion, "id" | "created_at">;
+export type PersonPromiseInsert = Omit<PersonPromise, "id" | "created_at" | "resolved_at" | "due_hint" | "status"> & {
+  due_hint?: string | null;
+  status?: PersonPromise["status"];
+};
 
 // ─── Update Types (all fields optional except id) ────────────────────────────
 
@@ -106,6 +127,7 @@ export type PersonUpdate = Partial<Omit<Person, "id" | "user_id" | "created_at">
 export type MemoryUpdate = Partial<Omit<Memory, "id" | "user_id" | "created_at">>;
 export type InteractionUpdate = Partial<Omit<Interaction, "id" | "user_id" | "created_at">>;
 export type SuggestionUpdate = Partial<Omit<Suggestion, "id" | "user_id" | "created_at">>;
+export type PersonPromiseUpdate = Partial<Omit<PersonPromise, "id" | "user_id" | "person_id" | "created_at">>;
 
 // ─── Database Schema (Supabase GenericSchema) ───────────────────────────────
 
@@ -140,6 +162,12 @@ export interface Database {
         Row: Suggestion;
         Insert: SuggestionInsert;
         Update: SuggestionUpdate;
+        Relationships: [];
+      };
+      promises: {
+        Row: PersonPromise;
+        Insert: PersonPromiseInsert;
+        Update: PersonPromiseUpdate;
         Relationships: [];
       };
     };

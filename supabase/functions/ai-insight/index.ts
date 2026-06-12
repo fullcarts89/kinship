@@ -34,6 +34,21 @@ const INSIGHT_SCHEMA = {
   additionalProperties: false,
 };
 
+const EXTRACT_SYSTEM = `You detect whether a short personal note contains a commitment the WRITER made to the person the note is about. Only first-person commitments by the writer count ("I said I'd...", "need to send her...", "told him I'd..."). Things the OTHER person promised do not count. Plans that are facts, not the writer's obligations ("her wedding is in June"), do not count.
+
+If a commitment exists: rewrite it as a short imperative ("Send Tom the book link"), and extract a due hint ONLY if one is stated — as an ISO date (YYYY-MM-DD) when derivable from today's date, otherwise the stated phrase ("after the wedding"). Be conservative: when unsure, is_promise is false.`;
+
+const EXTRACT_SCHEMA = {
+  type: "object",
+  properties: {
+    is_promise: { type: "boolean" },
+    promise_text: { type: ["string", "null"], description: "Short imperative form, or null" },
+    due_hint: { type: ["string", "null"], description: "ISO date or stated phrase, or null" },
+  },
+  required: ["is_promise", "promise_text", "due_hint"],
+  additionalProperties: false,
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -46,7 +61,38 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { context } = await req.json();
+    const body = await req.json();
+
+    // Mode: extract_promise — classify a note for a held commitment
+    if (body.mode === "extract_promise") {
+      const client = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+      const response = await client.messages.create({
+        model: MODEL,
+        max_tokens: 16000,
+        output_config: {
+          effort: "low",
+          format: { type: "json_schema", schema: EXTRACT_SCHEMA },
+        },
+        system: EXTRACT_SYSTEM,
+        messages: [
+          {
+            role: "user",
+            content: `Note about ${body.person_name} (today is ${body.today}):\n"${String(body.text).slice(0, 500)}"`,
+          },
+        ],
+      });
+      const textBlock =
+        response.stop_reason === "refusal"
+          ? null
+          : response.content.find((b: { type: string }) => b.type === "text");
+      const extraction =
+        textBlock && "text" in textBlock ? JSON.parse(textBlock.text) : null;
+      return new Response(JSON.stringify({ extraction }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { context } = body;
     if (!context) {
       return new Response(JSON.stringify({ error: "missing context" }), {
         status: 400,
