@@ -90,8 +90,9 @@ const PLANT_COLORS = [sage, "#5E9EA0", lavender, peach, gold, colors.sky];
 
 // ─── Season Routes ──────────────────────────────────────────────────────────
 // The season setup screen doubles as the mid-season edit for v1
-// (SPEC_TENDING_SEASONS §3.3). These screens ship with the season flow;
-// typed routes will pick them up once the route files exist — cast until then.
+// (SPEC_TENDING_SEASONS §3.3). The route files exist, but the generated
+// typed-routes union (.expo/types) only refreshes when the dev server runs —
+// cast until it regenerates.
 const SEASON_SETUP_ROUTE = "/season/new" as never;
 const SEASON_RETROSPECTIVE_ROUTE = "/season/retrospective" as never;
 

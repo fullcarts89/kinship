@@ -60,8 +60,9 @@ const PLANT_COLORS = [
 
 /**
  * Season setup screen — doubles as the mid-season edit for v1
- * (SPEC_TENDING_SEASONS §3.3). Ships with the season flow; typed routes
- * will pick it up once the route file exists — cast until then.
+ * (SPEC_TENDING_SEASONS §3.3). The route file exists, but the generated
+ * typed-routes union (.expo/types) only refreshes when the dev server
+ * runs — cast until it regenerates.
  */
 const SEASON_SETUP_ROUTE = "/season/new" as never;
 
