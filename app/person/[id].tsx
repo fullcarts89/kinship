@@ -86,6 +86,7 @@ import type { Interaction, Memory, Person } from "@/types/database";
 import type { InteractionType, Emotion, IconComponent } from "@/types";
 import { buildInviteMessage } from "@/lib/appLinks";
 import { getNextBestAction } from "@/lib/nextActionEngine";
+import { useAIInsight } from "@/hooks/useAIInsight";
 import type { GrowthInfo } from "@/lib/growthEngine";
 import type { VitalityInfo } from "@/lib/vitalityEngine";
 
@@ -411,7 +412,22 @@ function ContextTab({
     contextBriefs.push(`${interactions.length} recorded ${interactions.length === 1 ? "interaction" : "interactions"}`);
   contextBriefs.push(`${relationLabel} relationship`);
 
-  const action = getNextBestAction({ person, memories, interactions, growthInfo, vitalityInfo });
+  const heuristicAction = getNextBestAction({ person, memories, interactions, growthInfo, vitalityInfo });
+  // AI signal boosting: when configured, notes/memories produce a more
+  // specific opening; otherwise the heuristic engine carries the card.
+  const { insight } = useAIInsight(person, memories, interactions);
+  const action = insight
+    ? {
+        ...heuristicAction,
+        headline: insight.headline,
+        body: insight.body,
+        actionLabel: heuristicAction.actionLabel ?? "Reach out",
+        actionType:
+          heuristicAction.actionType === "none"
+            ? ("reach_out" as const)
+            : heuristicAction.actionType,
+      }
+    : heuristicAction;
 
   return (
     <View style={{ paddingHorizontal: 24 }}>
@@ -557,7 +573,7 @@ function ContextTab({
             marginBottom: 10,
           }}
         >
-          Suggested next step
+          {insight ? "Suggested next step ✨" : "Suggested next step"}
         </Text>
         <Text
           style={{
@@ -582,6 +598,29 @@ function ContextTab({
           >
             {action.body}
           </Text>
+        )}
+        {insight?.conversation_starter && (
+          <View
+            style={{
+              backgroundColor: "rgba(255,255,255,0.55)",
+              borderRadius: 12,
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              marginBottom: 14,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 13,
+                fontStyle: "italic",
+                color: nearBlack,
+                lineHeight: 19,
+              }}
+            >
+              {"\u201C"}{insight.conversation_starter}{"\u201D"}
+            </Text>
+          </View>
         )}
         {action.actionLabel && (
           <PressableScale

@@ -4,8 +4,12 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@design/*": ["./design/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@design/*": [
+        "./design/*"
+      ]
     }
   },
   "include": [
@@ -14,5 +18,9 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase/functions"
   ]
 }
