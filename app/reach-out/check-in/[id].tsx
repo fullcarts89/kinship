@@ -20,7 +20,8 @@ import {
 } from "react-native";
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { usePerson, useCreateInteraction } from "@/hooks";
+import Animated, { FadeInUp } from "react-native-reanimated";
+import { usePerson, useCreateInteraction, useCreatePromise } from "@/hooks";
 import {
   emotionList,
   emotionEmojis,
@@ -57,6 +58,7 @@ export default function CheckInScreen() {
   // ─── Hooks (before any early returns) ───────────────────────────────────
   const { person, isLoading } = usePerson(id ?? "");
   const { createInteraction } = useCreateInteraction();
+  const { createPromise, isCreating } = useCreatePromise();
 
   // ─── Local state ────────────────────────────────────────────────────────
   const [selectedEmotion, setSelectedEmotion] =
@@ -64,6 +66,11 @@ export default function CheckInScreen() {
   const [note, setNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+
+  // Quiet promise capture on the saved bridge (SPEC_TENDING_SEASONS §2.3)
+  const [showPromiseInput, setShowPromiseInput] = useState(false);
+  const [promiseText, setPromiseText] = useState("");
+  const canHoldPromise = promiseText.trim().length > 0 && !isCreating;
 
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -172,16 +179,35 @@ export default function CheckInScreen() {
     }
   };
 
+  const handleHoldPromise = async () => {
+    const trimmed = promiseText.trim();
+    if (!trimmed || isCreating) return;
+    try {
+      await createPromise({
+        person_id: person.id,
+        text: trimmed,
+        source: "post_reach_out",
+      });
+    } catch {
+      // Best-effort — never trap the user in this flow
+    }
+    // Continue exactly as if "Done" was pressed
+    navigateBack();
+  };
+
   // ─── Saved — brief, skippable bridge to memory capture ─────────────────
 
   if (isSaved) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
+        <KeyboardAvoidingView
+          style={{ flex: 1, backgroundColor: colors.cream }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
         <View
           style={{
             flex: 1,
-            backgroundColor: colors.cream,
             paddingTop: insets.top + 32,
             paddingBottom: insets.bottom + 24,
             paddingHorizontal: 24,
@@ -267,7 +293,82 @@ export default function CheckInScreen() {
               Done
             </Text>
           </Pressable>
+
+          {/* Promise capture — quiet third option (SPEC_TENDING_SEASONS §2.3) */}
+          {!showPromiseInput ? (
+            <Pressable
+              onPress={() => setShowPromiseInput(true)}
+              style={{ padding: 12 }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sansMedium,
+                  fontSize: 14,
+                  color: colors.warmGray,
+                }}
+              >
+                Did you promise them anything?
+              </Text>
+            </Pressable>
+          ) : (
+            <Animated.View
+              entering={FadeInUp.duration(250)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 12,
+                width: "100%",
+                maxWidth: 360,
+              }}
+            >
+              <TextInput
+                style={{
+                  flex: 1,
+                  backgroundColor: colors.white,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  fontFamily: fonts.sans,
+                  fontSize: 15,
+                  color: colors.nearBlack,
+                }}
+                placeholder="Send them that book link..."
+                placeholderTextColor={colors.warmGray}
+                value={promiseText}
+                onChangeText={setPromiseText}
+                autoFocus
+                maxLength={200}
+                returnKeyType="done"
+                onSubmitEditing={handleHoldPromise}
+              />
+              <Pressable
+                onPress={handleHoldPromise}
+                disabled={!canHoldPromise}
+                style={{
+                  backgroundColor: colors.sage,
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  opacity: canHoldPromise ? 1 : 0.5,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 14,
+                    color: colors.white,
+                  }}
+                >
+                  Hold onto it
+                </Text>
+              </Pressable>
+            </Animated.View>
+          )}
         </View>
+        </KeyboardAvoidingView>
       </>
     );
   }

@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +19,7 @@ import Animated, {
   withRepeat,
   withSequence,
   Easing,
+  FadeInUp,
 } from "react-native-reanimated";
 import {
   MessageCircle,
@@ -29,6 +38,7 @@ import {
   usePersonMemories,
   usePersonInteractions,
   useCreateInteraction,
+  useCreatePromise,
 } from "@/hooks";
 import { PlantBridgeIllustration } from "@/components/illustrations";
 import { MemoryCarousel } from "@/components/MemoryCarousel";
@@ -376,6 +386,12 @@ function SavedMomentScreen({
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(16);
 
+  // Quiet promise capture (SPEC_TENDING_SEASONS §2.3) — never blocks the flow
+  const { createPromise, isCreating } = useCreatePromise();
+  const [showPromiseInput, setShowPromiseInput] = useState(false);
+  const [promiseText, setPromiseText] = useState("");
+  const canHoldPromise = promiseText.trim().length > 0 && !isCreating;
+
   useEffect(() => {
     const enterConfig = { duration: 400, easing: Easing.out(Easing.cubic) };
     opacity.value = withTiming(1, enterConfig);
@@ -387,7 +403,26 @@ function SavedMomentScreen({
     transform: [{ translateY: translateY.value }],
   }));
 
+  const handleHoldPromise = async () => {
+    const trimmed = promiseText.trim();
+    if (!trimmed || isCreating) return;
+    try {
+      await createPromise({
+        person_id: person.id,
+        text: trimmed,
+        source: "post_reach_out",
+      });
+    } catch {
+      // Best-effort — never trap the user in this flow
+    }
+    onDone();
+  };
+
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
     <Animated.View
       style={[
         {
@@ -482,7 +517,80 @@ function SavedMomentScreen({
           Done
         </Text>
       </Pressable>
+
+      {/* Promise capture — quiet third option (SPEC_TENDING_SEASONS §2.3) */}
+      {!showPromiseInput ? (
+        <Pressable
+          onPress={() => setShowPromiseInput(true)}
+          style={{ alignItems: "center", padding: 12, marginTop: 4 }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.sansMedium,
+              fontSize: 14,
+              color: warmGray,
+            }}
+          >
+            Did you promise them anything?
+          </Text>
+        </Pressable>
+      ) : (
+        <Animated.View
+          entering={FadeInUp.duration(250)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 12,
+          }}
+        >
+          <TextInput
+            style={{
+              flex: 1,
+              backgroundColor: white,
+              borderWidth: 1,
+              borderColor: borderColor,
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              fontFamily: fonts.sans,
+              fontSize: 15,
+              color: nearBlack,
+            }}
+            placeholder="Send them that book link..."
+            placeholderTextColor={warmGray}
+            value={promiseText}
+            onChangeText={setPromiseText}
+            autoFocus
+            maxLength={200}
+            returnKeyType="done"
+            onSubmitEditing={handleHoldPromise}
+          />
+          <Pressable
+            onPress={handleHoldPromise}
+            disabled={!canHoldPromise}
+            style={{
+              backgroundColor: sage,
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              opacity: canHoldPromise ? 1 : 0.5,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 14,
+                color: white,
+              }}
+            >
+              Hold onto it
+            </Text>
+          </Pressable>
+        </Animated.View>
+      )}
     </Animated.View>
+    </KeyboardAvoidingView>
   );
 }
 
