@@ -16,7 +16,15 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kinship.app",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSContactsUsageDescription": "Allow Kinship to access your contacts to help you add people to your garden.",
+        "NSCalendarsUsageDescription": "Allow Kinship to check your calendar so it can gently suggest capturing memories after events with people in your garden.",
+        "NSPhotoLibraryUsageDescription": "Allow Kinship to access your photos to attach them to memories in your garden.",
+        "NSPhotoLibraryAddUsageDescription": "Allow Kinship to save memory cards you share to your photo library.",
+        "NSCameraUsageDescription": "Allow Kinship to use your camera to take photos for your memories."
+      }
     },
     "android": {
       "adaptiveIcon": {

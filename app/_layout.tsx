@@ -18,6 +18,7 @@ import {
   setupNotificationHandler,
   addNotificationResponseListener,
 } from "@/lib/notificationService";
+import { hydrateAIPreferences } from "@/lib/aiPreferences";
 import "../global.css";
 
 // Prevent splash screen from auto-hiding until fonts are loaded
@@ -51,6 +52,11 @@ export default function RootLayout() {
   useEffect(() => {
     onLayoutRootView();
   }, [onLayoutRootView]);
+
+  // ── Restore the AI opt-out before any insight call can fire ──────────
+  useEffect(() => {
+    hydrateAIPreferences();
+  }, []);
 
   // ── Notification setup ───────────────────────────────────────────────
   useEffect(() => {

@@ -29,6 +29,7 @@ import {
   Check,
   AlertCircle,
   ChevronRight,
+  Sparkles,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import {
@@ -46,6 +47,7 @@ import { clearAllCollections } from "@/lib/localStore";
 import { resetGrowthState } from "@/lib/growthEngine";
 import { useAuth } from "@/providers";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { isAIEnabled, setAIEnabled } from "@/lib/aiPreferences";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 
@@ -281,6 +283,43 @@ function FormField({
   );
 }
 
+function SoftToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      hitSlop={8}
+      style={{
+        width: 50,
+        height: 29,
+        borderRadius: 100,
+        backgroundColor: on ? sage : "#DDD8D2",
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          position: "absolute",
+          top: 3,
+          left: on ? 24 : 3,
+          width: 23,
+          height: 23,
+          borderRadius: 12,
+          backgroundColor: white,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.16,
+          shadowRadius: 6,
+          elevation: 2,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {on && <Leaf size={10} strokeWidth={2.5} color={sage} />}
+      </View>
+    </Pressable>
+  );
+}
+
 // ─── Screens ────────────────────────────────────────────────────────────────
 
 function PrivacyDataScreen({
@@ -294,6 +333,17 @@ function PrivacyDataScreen({
   onBack: () => void;
   insets: Insets;
 }) {
+  // AI is on by default; this lets the user stop any data from reaching
+  // Anthropic's API. Hydrated synchronously from the already-loaded prefs.
+  const [aiOn, setAiOn] = useState(isAIEnabled());
+  const toggleAi = useCallback(() => {
+    setAiOn((prev) => {
+      const next = !prev;
+      setAIEnabled(next);
+      return next;
+    });
+  }, []);
+
   return (
     <View style={{ flex: 1, backgroundColor: settingsBg }}>
       <NavBar left={<BackBtn onPress={onBack} />} title="Privacy & Data" insets={insets} />
@@ -303,6 +353,21 @@ function PrivacyDataScreen({
           <SettingsRow icon={Shield} label="Privacy Policy" onPress={() => router.push("/settings/privacy-policy")} />
           <SettingsRow icon={AlertCircle} label="Terms of Service" onPress={() => router.push("/settings/terms")} last />
         </View>
+      </View>
+      <View style={{ marginHorizontal: 14, marginTop: 14 }}>
+        <SectionLabel label="Personalization" />
+        <View style={{ backgroundColor: white, borderRadius: 18, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 13, paddingVertical: 13, paddingHorizontal: 18 }}>
+            <View style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: sagePale, alignItems: "center", justifyContent: "center" }}>
+              <Sparkles size={15} strokeWidth={1.75} color={sageDark} />
+            </View>
+            <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 14, color: nearBlack }}>AI Personalization</Text>
+            <SoftToggle on={aiOn} onToggle={toggleAi} />
+          </View>
+        </View>
+        <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: warmGray, lineHeight: 18, marginTop: 8, marginHorizontal: 4 }}>
+          {"When on, Kinship sends the notes and memories for a person to Anthropic's API to craft warm suggestions, detect promises you've made, and write season reflections. Turn it off to keep everything on-device — the app falls back to its built-in suggestions and nothing is sent to Anthropic."}
+        </Text>
       </View>
       <View style={{ marginHorizontal: 14, marginTop: 14 }}>
         <SectionLabel label="Data removal" />

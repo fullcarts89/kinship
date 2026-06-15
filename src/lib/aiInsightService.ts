@@ -25,6 +25,7 @@
 
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { loadCollection, saveCollection } from "@/lib/localStore";
+import { isAIEnabled } from "@/lib/aiPreferences";
 import type { Person, Memory, Interaction, PersonPromise } from "@/types/database";
 
 // ─── Configuration ──────────────────────────────────────────────────────────
@@ -32,7 +33,14 @@ import type { Person, Memory, Interaction, PersonPromise } from "@/types/databas
 const DEV_API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? "";
 const MODEL = process.env.EXPO_PUBLIC_AI_MODEL ?? "claude-opus-4-8";
 
+/**
+ * True only when AI has a transport AND the user hasn't opted out. Every
+ * AI entry point checks this, so flipping the opt-out off (Settings →
+ * Privacy & Data) stops all data from ever reaching Anthropic's API and
+ * the heuristic fallbacks take over.
+ */
 export function isAIConfigured(): boolean {
+  if (!isAIEnabled()) return false;
   return isSupabaseConfigured || DEV_API_KEY.length > 0;
 }
 
