@@ -1,24 +1,46 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
   Pressable,
+  Image,
   TextInput as RNTextInput,
   Dimensions,
   ImageBackground,
   ScrollView,
-  Animated as RNAnimated,
   PanResponder,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Camera, ChevronRight } from "lucide-react-native";
+import { Camera, ChevronLeft, ChevronRight } from "lucide-react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  Easing,
+  FadeIn,
+  FadeOut,
+  FadeInUp,
+  SlideInRight,
+  SlideOutLeft,
+  SlideInLeft,
+  SlideOutRight,
+} from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
-import { Button } from "@/components/ui";
+import { Button, PressableScale } from "@/components/ui";
+import { usePersons, useCreateMemory } from "@/hooks";
+import { recordMemoryGrowth } from "@/lib/growthEngine";
+import { markOnboardingComplete } from "@/lib/onboardingStatus";
+import { pickPhoto } from "@/lib/photoPicker";
 import {
   GardenGrowthIllustration,
   SeedIllustration,
+  SingleSproutIllustration,
   SuccessIllustration,
 } from "@/components/illustrations";
 import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
@@ -64,9 +86,127 @@ const slides: Slide[] = [
   },
 ];
 
+// Warm full-bleed photos for the carousel (restored from the original design).
+const slideImages = [
+  "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=900&q=80",
+  "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?w=900&q=80",
+  "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=900&q=80",
+];
+
 // ─── Onboarding Screens Enum ────────────────────────────────────────────────
 
 type OnboardingScreen = "carousel" | "addPerson" | "dreamPreview" | "addMemory" | "dashboard";
+
+/** Flow order — used to decide whether a step change moves forward or back. */
+const SCREEN_ORDER: Record<OnboardingScreen, number> = {
+  carousel: 0,
+  addPerson: 1,
+  dreamPreview: 2,
+  addMemory: 3,
+  dashboard: 4,
+};
+
+const STEP_DURATION = 350;
+const stepEasing = Easing.out(Easing.cubic);
+
+/**
+ * Direction-aware slide pair for step transitions: forward steps slide in
+ * from the right (old screen exits left), backward steps mirror that.
+ */
+function stepTransition(direction: "forward" | "backward") {
+  if (direction === "backward") {
+    return {
+      entering: SlideInLeft.duration(STEP_DURATION).easing(stepEasing),
+      exiting: SlideOutRight.duration(STEP_DURATION).easing(stepEasing),
+    };
+  }
+  return {
+    entering: SlideInRight.duration(STEP_DURATION).easing(stepEasing),
+    exiting: SlideOutLeft.duration(STEP_DURATION).easing(stepEasing),
+  };
+}
+
+// ─── Shared Animation Helpers ───────────────────────────────────────────────
+
+/**
+ * Gentle settle-in (soft overshoot) followed by a continuous, calm sway —
+ * borrowed from the plant-rest stage on the loading screen.
+ */
+function SettleSwayIllustration({
+  children,
+  settleDuration = 700,
+  swayDeg = 2.5,
+  swayDuration = 2500,
+}: {
+  children: React.ReactNode;
+  settleDuration?: number;
+  swayDeg?: number;
+  swayDuration?: number;
+}) {
+  const scale = useSharedValue(0.6);
+  const sway = useSharedValue(0);
+
+  useEffect(() => {
+    scale.value = withTiming(1, {
+      duration: settleDuration,
+      easing: Easing.out(Easing.back(1.7)),
+    });
+    sway.value = withDelay(
+      settleDuration,
+      withRepeat(
+        withSequence(
+          withTiming(swayDeg, {
+            duration: swayDuration / 2,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(-swayDeg, {
+            duration: swayDuration / 2,
+            easing: Easing.inOut(Easing.ease),
+          })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { rotate: `${sway.value}deg` }],
+  }));
+
+  return <Animated.View style={animStyle}>{children}</Animated.View>;
+}
+
+// ─── Back Button ────────────────────────────────────────────────────────────
+
+function StepBackButton({ onPress, topInset }: { onPress: () => void; topInset: number }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={12}
+      accessibilityLabel="Go back"
+      style={{
+        position: "absolute",
+        top: topInset + 10,
+        left: 20,
+        zIndex: 10,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: white,
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: nearBlack,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 2,
+      }}
+    >
+      <ChevronLeft size={20} color={warmGray} />
+    </Pressable>
+  );
+}
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -74,55 +214,133 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const [screen, setScreen] = useState<OnboardingScreen>("carousel");
   const [personName, setPersonName] = useState("");
+  const personIdRef = useRef<string | null>(null);
+  const { createPerson } = usePersons();
+  const { createMemory } = useCreateMemory();
 
-  const handleFinish = useCallback(() => {
+  // Plant the first person for real — onboarding used to be visual-only,
+  // so the name the user typed never reached their garden.
+  const handlePersonNext = useCallback(async () => {
+    setScreen("dreamPreview");
+    const name = personName.trim();
+    if (!name || personIdRef.current) return;
+    try {
+      const person = await createPerson({
+        name,
+        relationship_type: "friend",
+        photo_url: null,
+      });
+      personIdRef.current = person.id;
+    } catch {
+      // Planting failed — the user can re-add from the garden tab.
+    }
+  }, [personName, createPerson]);
+
+  const handleMemorySave = useCallback(
+    async (content: string, photoUri: string | null) => {
+      setScreen("dashboard");
+      const personId = personIdRef.current;
+      const trimmed = content.trim();
+      if (!personId || (!trimmed && !photoUri)) return;
+      try {
+        const memory = await createMemory({
+          person_id: personId,
+          content: trimmed,
+          emotion: null,
+          photo_url: photoUri,
+        });
+        recordMemoryGrowth(personId, memory);
+      } catch {
+        // Memory save failed — the celebration still plays; the user
+        // can capture it again from the Tend sheet.
+      }
+    },
+    [createMemory]
+  );
+
+  const handleFinish = useCallback(async () => {
+    await markOnboardingComplete();
     router.replace("/(tabs)");
   }, []);
 
+  // Track the previous step so transitions know which way to slide.
+  const prevIndexRef = useRef(SCREEN_ORDER[screen]);
+  const screenIndex = SCREEN_ORDER[screen];
+  const direction = screenIndex >= prevIndexRef.current ? "forward" : "backward";
+  useEffect(() => {
+    prevIndexRef.current = screenIndex;
+  }, [screenIndex]);
+
+  let content: React.ReactNode = null;
   switch (screen) {
     case "carousel":
-      return (
+      content = (
         <CarouselScreen
           insets={insets}
           onNext={() => setScreen("addPerson")}
         />
       );
+      break;
     case "addPerson":
-      return (
+      content = (
         <AddFirstPersonScreen
           insets={insets}
           name={personName}
           onNameChange={setPersonName}
-          onNext={() => setScreen("dreamPreview")}
+          onNext={handlePersonNext}
+          onBack={() => setScreen("carousel")}
           onSkip={() => setScreen("dashboard")}
         />
       );
+      break;
     case "dreamPreview":
-      return (
+      content = (
         <DreamPreviewScreen
           insets={insets}
           personName={personName || "them"}
           onNext={() => setScreen("addMemory")}
+          onBack={() => setScreen("addPerson")}
         />
       );
+      break;
     case "addMemory":
-      return (
+      content = (
         <AddMemoryScreen
           insets={insets}
           personName={personName || "them"}
-          onNext={() => setScreen("dashboard")}
+          onSave={handleMemorySave}
+          onBack={() => setScreen("dreamPreview")}
           onSkip={() => setScreen("dashboard")}
         />
       );
+      break;
     case "dashboard":
-      return (
+      content = (
         <DashboardEntryScreen
           insets={insets}
           personName={personName || "Someone"}
           onFinish={handleFinish}
         />
       );
+      break;
   }
+
+  const { entering, exiting } = stepTransition(direction);
+
+  return (
+    // Cream backdrop stays put behind both screens so nothing flashes white
+    // while one slides out and the other slides in.
+    <View style={{ flex: 1, backgroundColor: cream }}>
+      <Animated.View
+        key={screen}
+        entering={entering}
+        exiting={exiting}
+        style={{ flex: 1 }}
+      >
+        {content}
+      </Animated.View>
+    </View>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -134,9 +352,36 @@ interface CarouselScreenProps {
   onNext: () => void;
 }
 
+/** One full-bleed slide photo that cross-fades in/out as the slide changes. */
+function CarouselSlideImage({ uri, visible }: { uri: string; visible: boolean }) {
+  const opacity = useSharedValue(visible ? 1 : 0);
+
+  useEffect(() => {
+    opacity.value = withTiming(visible ? 1 : 0, {
+      duration: 600,
+      easing: Easing.inOut(Easing.ease),
+    });
+  }, [visible]);
+
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+        fadeStyle,
+      ]}
+    >
+      <ImageBackground source={{ uri }} style={{ flex: 1 }} resizeMode="cover" />
+    </Animated.View>
+  );
+}
+
 function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const scrollX = useRef(new RNAnimated.Value(0)).current;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -145,17 +390,17 @@ function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
         Math.abs(gestureState.dx) > 10,
       onPanResponderRelease: (_, gestureState) => {
         if (Math.abs(gestureState.dx) > 50) {
-          if (gestureState.dx < 0 && currentSlide < slides.length - 1) {
-            setCurrentSlide((prev) => prev + 1);
-          } else if (gestureState.dx > 0 && currentSlide > 0) {
-            setCurrentSlide((prev) => prev - 1);
+          if (gestureState.dx < 0) {
+            setCurrentSlide((prev) => Math.min(prev + 1, slides.length - 1));
+          } else if (gestureState.dx > 0) {
+            setCurrentSlide((prev) => Math.max(prev - 1, 0));
           }
         }
       },
     })
   ).current;
 
-  // Gradient placeholder backgrounds for slides (since we can't use Unsplash reliably)
+  // Warm gradient base — shown behind each photo while it loads.
   const slideColors: [string, string][] = [
     ["#6B8E7B", "#3A5B4A"],
     ["#8B7E6A", "#5A4D3A"],
@@ -166,56 +411,67 @@ function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
     <View style={{ flex: 1, backgroundColor: cream }} {...panResponder.panHandlers}>
       <LinearGradient
         colors={slideColors[currentSlide]}
-        style={{ flex: 1 }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-      >
-        {/* Dark overlay on bottom */}
-        <LinearGradient
-          colors={["transparent", "rgba(28,25,23,0.5)", "rgba(28,25,23,0.85)"]}
-          locations={[0, 0.3, 1]}
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: "70%",
-          }}
-        />
+      />
 
-        {/* Content at bottom */}
+      {/* Full-bleed photos, cross-fading between slides */}
+      {slideImages.map((uri, i) => (
+        <CarouselSlideImage key={uri} uri={uri} visible={i === currentSlide} />
+      ))}
+
+      {/* Dark overlay on bottom for text legibility */}
+      <LinearGradient
+        colors={["transparent", "rgba(28,25,23,0.5)", "rgba(28,25,23,0.85)"]}
+        locations={[0, 0.3, 1]}
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "70%",
+        }}
+      />
+
+      {/* Content at bottom */}
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "flex-end",
+          paddingHorizontal: 32,
+          paddingBottom: Math.max(insets.bottom, 20) + 28,
+        }}
+      >
+        {/* Page Indicator Dots */}
         <View
           style={{
-            flex: 1,
-            justifyContent: "flex-end",
-            paddingHorizontal: 32,
-            paddingBottom: Math.max(insets.bottom, 20) + 28,
+            flexDirection: "row",
+            justifyContent: "center",
+            gap: 8,
+            marginBottom: 32,
           }}
         >
-          {/* Page Indicator Dots */}
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "center",
-              gap: 8,
-              marginBottom: 32,
-            }}
-          >
-            {slides.map((_, i) => (
-              <Pressable key={i} onPress={() => setCurrentSlide(i)}>
-                <View
-                  style={{
-                    width: i === currentSlide ? 32 : 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor:
-                      i === currentSlide ? white : "rgba(255,255,255,0.4)",
-                  }}
-                />
-              </Pressable>
-            ))}
-          </View>
+          {slides.map((_, i) => (
+            <Pressable key={i} onPress={() => setCurrentSlide(i)}>
+              <View
+                style={{
+                  width: i === currentSlide ? 32 : 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor:
+                    i === currentSlide ? white : "rgba(255,255,255,0.4)",
+                }}
+              />
+            </Pressable>
+          ))}
+        </View>
 
+        {/* Text slides up + fades in on every slide change */}
+        <Animated.View
+          key={currentSlide}
+          entering={FadeInUp.duration(500).easing(Easing.out(Easing.cubic))}
+        >
           {/* Headline */}
           <Text
             style={{
@@ -245,8 +501,9 @@ function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
 
           {/* CTA Button - Only on last slide */}
           {slides[currentSlide].showCTA && (
-            <Pressable
+            <PressableScale
               onPress={onNext}
+              pressedScale={0.97}
               style={{
                 backgroundColor: sage,
                 borderRadius: 16,
@@ -268,10 +525,10 @@ function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
               >
                 Begin
               </Text>
-            </Pressable>
+            </PressableScale>
           )}
-        </View>
-      </LinearGradient>
+        </Animated.View>
+      </View>
     </View>
   );
 }
@@ -285,6 +542,7 @@ interface AddFirstPersonProps {
   name: string;
   onNameChange: (name: string) => void;
   onNext: () => void;
+  onBack: () => void;
   onSkip: () => void;
 }
 
@@ -293,6 +551,7 @@ function AddFirstPersonScreen({
   name,
   onNameChange,
   onNext,
+  onBack,
   onSkip,
 }: AddFirstPersonProps) {
   return (
@@ -304,10 +563,13 @@ function AddFirstPersonScreen({
         paddingBottom: insets.bottom,
       }}
     >
+      <StepBackButton onPress={onBack} topInset={insets.top} />
       <View style={{ flex: 1, paddingHorizontal: 24 }}>
-        {/* Illustration */}
+        {/* Illustration — settles in with a soft overshoot, then sways gently */}
         <View style={{ alignItems: "center", marginTop: 40, marginBottom: 8 }}>
-          <SeedIllustration size={140} />
+          <SettleSwayIllustration settleDuration={700} swayDeg={2.5} swayDuration={2500}>
+            <SeedIllustration size={140} />
+          </SettleSwayIllustration>
         </View>
 
         {/* Title */}
@@ -370,8 +632,10 @@ function AddFirstPersonScreen({
 
         {/* CTA */}
         <View style={{ paddingBottom: 20 }}>
-          <Pressable
+          <PressableScale
             onPress={onNext}
+            pressedScale={0.97}
+            haptic
             style={{
               backgroundColor: sage,
               borderRadius: 16,
@@ -393,9 +657,9 @@ function AddFirstPersonScreen({
             >
               Continue
             </Text>
-          </Pressable>
+          </PressableScale>
 
-          <Pressable onPress={onSkip} style={{ alignItems: "center", marginTop: 18 }}>
+          <PressableScale onPress={onSkip} pressedScale={0.96} style={{ alignItems: "center", marginTop: 18 }}>
             <Text
               style={{
                 fontFamily: fonts.sansMedium,
@@ -406,7 +670,7 @@ function AddFirstPersonScreen({
             >
               Skip
             </Text>
-          </Pressable>
+          </PressableScale>
         </View>
       </View>
     </View>
@@ -420,12 +684,19 @@ function AddFirstPersonScreen({
 interface AddMemoryScreenProps {
   insets: { top: number; bottom: number };
   personName: string;
-  onNext: () => void;
+  onSave: (content: string, photoUri: string | null) => void;
+  onBack: () => void;
   onSkip: () => void;
 }
 
-function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreenProps) {
+function AddMemoryScreen({ insets, personName, onSave, onBack, onSkip }: AddMemoryScreenProps) {
   const [memoryText, setMemoryText] = useState("");
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+
+  const handlePickPhoto = useCallback(async () => {
+    const uri = await pickPhoto();
+    if (uri) setPhotoUri(uri);
+  }, []);
 
   return (
     <View
@@ -436,6 +707,7 @@ function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreen
         paddingBottom: insets.bottom,
       }}
     >
+      <StepBackButton onPress={onBack} topInset={insets.top} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 24, flexGrow: 1 }}
@@ -467,7 +739,17 @@ function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreen
         </View>
 
         {/* Photo Picker Area */}
-        <Pressable
+        {photoUri ? (
+          <PressableScale onPress={handlePickPhoto} style={{ marginBottom: 24 }}>
+            <Image
+              source={{ uri: photoUri }}
+              style={{ width: "100%", height: 220, borderRadius: 24 }}
+              resizeMode="cover"
+            />
+          </PressableScale>
+        ) : (
+        <PressableScale
+          onPress={handlePickPhoto}
           style={{
             backgroundColor: sagePale,
             borderWidth: 2,
@@ -520,7 +802,8 @@ function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreen
           >
             Or write about your memory below
           </Text>
-        </Pressable>
+        </PressableScale>
+        )}
 
         {/* Text Field */}
         <RNTextInput
@@ -550,8 +833,10 @@ function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreen
 
         {/* CTA */}
         <View style={{ paddingBottom: 20 }}>
-          <Pressable
-            onPress={onNext}
+          <PressableScale
+            onPress={() => onSave(memoryText, photoUri)}
+            pressedScale={0.97}
+            haptic
             style={{
               backgroundColor: sage,
               borderRadius: 16,
@@ -573,9 +858,9 @@ function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreen
             >
               Add Memory
             </Text>
-          </Pressable>
+          </PressableScale>
 
-          <Pressable onPress={onSkip} style={{ alignItems: "center", marginTop: 18 }}>
+          <PressableScale onPress={onSkip} pressedScale={0.96} style={{ alignItems: "center", marginTop: 18 }}>
             <Text
               style={{
                 fontFamily: fonts.sansMedium,
@@ -586,7 +871,7 @@ function AddMemoryScreen({ insets, personName, onNext, onSkip }: AddMemoryScreen
             >
               Skip
             </Text>
-          </Pressable>
+          </PressableScale>
         </View>
       </ScrollView>
     </View>
@@ -601,12 +886,103 @@ interface DreamPreviewScreenProps {
   insets: { top: number; bottom: number };
   personName: string;
   onNext: () => void;
+  onBack: () => void;
 }
 
-function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenProps) {
+/** Final grow stage: bloom settles in with a spring, then sways gently. */
+function BloomSettle({ size }: { size: number }) {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.7);
+  const sway = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withTiming(1, { duration: 300 });
+    scale.value = withSpring(1, { damping: 10, stiffness: 120 });
+    sway.value = withDelay(
+      900,
+      withRepeat(
+        withSequence(
+          withTiming(2, { duration: 1250, easing: Easing.inOut(Easing.ease) }),
+          withTiming(-2, { duration: 1250, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }, { rotate: `${sway.value}deg` }],
+  }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <GrowthPlantIllustration stage="blooming" size={size} />
+    </Animated.View>
+  );
+}
+
+/**
+ * Plant grows in over ~1.8s: seed → sprout → bloom, coarse stage steps
+ * like loading.tsx, with cross-fades between stages.
+ */
+function GrowingBloomIllustration({ size }: { size: number }) {
+  const [growStage, setGrowStage] = useState(0);
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setGrowStage(1), 600),
+      setTimeout(() => setGrowStage(2), 1200),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const stageWrap = {
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  };
+
+  return (
+    <View style={{ width: size, height: size }}>
+      {growStage === 0 && (
+        <Animated.View
+          style={stageWrap}
+          entering={FadeIn.duration(250)}
+          exiting={FadeOut.duration(250)}
+        >
+          <SeedIllustration size={size * 0.7} />
+        </Animated.View>
+      )}
+      {growStage === 1 && (
+        <Animated.View
+          style={stageWrap}
+          entering={FadeIn.duration(250)}
+          exiting={FadeOut.duration(250)}
+        >
+          <SingleSproutIllustration size={size * 0.8} />
+        </Animated.View>
+      )}
+      {growStage === 2 && (
+        <View style={stageWrap}>
+          <BloomSettle size={size} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+function DreamPreviewScreen({ insets, personName, onNext, onBack }: DreamPreviewScreenProps) {
   const displayName = personName === "them" ? "someone you love" : personName;
   const firstName = personName === "them" ? "them" : personName.split(" ")[0];
 
+  // Decorative preview only — rendered at reduced opacity with a caption
+  // so it never reads as tappable.
   const sampleMemories = [
     { emoji: "☕", text: `That long coffee catch-up with ${firstName}` },
     { emoji: "🎉", text: `Celebrating ${firstName}'s big news` },
@@ -622,14 +998,15 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
         paddingBottom: insets.bottom,
       }}
     >
+      <StepBackButton onPress={onBack} topInset={insets.top} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Plant illustration — Blooming stage represents the future state */}
+        {/* Plant illustration — grows seed → sprout → bloom into the future state */}
         <View style={{ alignItems: "center", marginTop: 40, marginBottom: 8 }}>
-          <GrowthPlantIllustration stage="blooming" size={120} />
+          <GrowingBloomIllustration size={120} />
         </View>
 
         {/* Stage label */}
@@ -684,9 +1061,9 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
             marginBottom: 12,
           }}
         >
-          Moments you might capture
+          A glimpse of what's ahead
         </Text>
-        <View style={{ gap: 10, marginBottom: 32 }}>
+        <View style={{ gap: 10, marginBottom: 32, opacity: 0.65 }}>
           {sampleMemories.map((m, i) => (
             <View
               key={i}
@@ -700,6 +1077,7 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
                 gap: 12,
                 borderWidth: 1,
                 borderColor: borderColor,
+                borderStyle: "dashed",
               }}
             >
               <Text style={{ fontSize: 20 }}>{m.emoji}</Text>
@@ -752,8 +1130,9 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
           paddingBottom: Math.max(insets.bottom, 16) + 8,
         }}
       >
-        <Pressable
+        <PressableScale
           onPress={onNext}
+          pressedScale={0.97}
           style={{
             backgroundColor: sage,
             borderRadius: 16,
@@ -775,7 +1154,7 @@ function DreamPreviewScreen({ insets, personName, onNext }: DreamPreviewScreenPr
           >
             Add your first memory with {firstName}
           </Text>
-        </Pressable>
+        </PressableScale>
       </View>
     </View>
   );
@@ -868,27 +1247,31 @@ function DashboardEntryScreen({
             marginBottom: 28,
           }}
         >
-          {/* Illustration */}
+          {/* Illustration — gentle scale-in, then a calm sway loop */}
           <View style={{ alignItems: "center", marginBottom: 24 }}>
-            <GardenGrowthIllustration size={110} />
+            <SettleSwayIllustration settleDuration={650} swayDeg={2} swayDuration={2800}>
+              <GardenGrowthIllustration size={110} />
+            </SettleSwayIllustration>
           </View>
 
           {/* Title */}
-          <Text
-            style={{
-              fontFamily: fonts.serif,
-              fontSize: 24,
-              color: nearBlack,
-              textAlign: "center",
-              lineHeight: 31,
-              marginBottom: 24,
-            }}
-          >
-            Help your garden grow
-          </Text>
+          <Animated.View entering={FadeInUp.duration(450).delay(200)}>
+            <Text
+              style={{
+                fontFamily: fonts.serif,
+                fontSize: 24,
+                color: nearBlack,
+                textAlign: "center",
+                lineHeight: 31,
+                marginBottom: 24,
+              }}
+            >
+              Help your garden grow
+            </Text>
+          </Animated.View>
 
           {/* Suggestion Items */}
-          <View style={{ gap: 12 }}>
+          <Animated.View entering={FadeInUp.duration(450).delay(350)} style={{ gap: 12 }}>
             {suggestions.map((item, i) => (
               <Pressable
                 key={i}
@@ -919,10 +1302,11 @@ function DashboardEntryScreen({
                 <ChevronRight size={20} color={warmGray} style={{ opacity: 0.5 }} />
               </Pressable>
             ))}
-          </View>
+          </Animated.View>
         </LinearGradient>
 
         {/* Your Garden Section */}
+        <Animated.View entering={FadeInUp.duration(450).delay(500)}>
         <Text
           style={{
             fontFamily: fonts.sansSemiBold,
@@ -1013,6 +1397,7 @@ function DashboardEntryScreen({
             Your memories will appear here
           </Text>
         </View>
+        </Animated.View>
       </ScrollView>
 
       {/* Bottom CTA */}
@@ -1025,8 +1410,10 @@ function DashboardEntryScreen({
           backgroundColor: cream,
         }}
       >
-        <Pressable
+        <PressableScale
           onPress={onFinish}
+          pressedScale={0.97}
+          haptic
           style={{
             backgroundColor: sage,
             borderRadius: 16,
@@ -1048,7 +1435,7 @@ function DashboardEntryScreen({
           >
             Enter your garden
           </Text>
-        </Pressable>
+        </PressableScale>
       </View>
     </View>
   );

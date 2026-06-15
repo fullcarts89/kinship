@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs } from "expo-router";
 import { View, Pressable, Modal, Text } from "react-native";
 import {
@@ -10,11 +10,84 @@ import {
   MessageCircle,
   UserPlus,
   BookUser,
+  PenLine,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withSequence,
+  withRepeat,
+  withDelay,
+  Easing,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  type SharedValue,
+} from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
+
+// ─── Tend FAB ────────────────────────────────────────────────────────────────
+// The center FAB quietly "breathes" (scale 1 → 1.05 → 1, one breath every ~6s)
+// to invite the primary action, and dips to 0.94 with a spring when pressed.
+// The press pulse is driven by the tab's tabPress listener via a shared value
+// so tab behavior stays untouched.
+
+const FAB_PRESS_SPRING = { damping: 18, stiffness: 280, mass: 0.7 };
+
+function TendFabIcon({ pressScale }: { pressScale: SharedValue<number> }) {
+  const breathe = useSharedValue(1);
+
+  useEffect(() => {
+    // One gentle breath per ~6s cycle: rest 4s, swell 1s, release 1s.
+    breathe.value = withRepeat(
+      withSequence(
+        withDelay(
+          4000,
+          withTiming(1.05, {
+            duration: 1000,
+            easing: Easing.inOut(Easing.sin),
+          })
+        ),
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      false
+    );
+  }, [breathe]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: breathe.value * pressScale.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          backgroundColor: colors.sage,
+          alignItems: "center",
+          justifyContent: "center",
+          marginTop: -16,
+          shadowColor: colors.nearBlack,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 4,
+        },
+        animatedStyle,
+      ]}
+    >
+      <Sprout color={colors.white} size={26} strokeWidth={2.5} />
+    </Animated.View>
+  );
+}
 
 /**
  * Tab Layout
@@ -40,6 +113,7 @@ import { colors, fonts } from "@design/tokens";
 export default function TabLayout() {
   const [showTendSheet, setShowTendSheet] = useState(false);
   const insets = useSafeAreaInsets();
+  const fabPressScale = useSharedValue(1);
 
   const closeTendSheet = () => setShowTendSheet(false);
 
@@ -51,6 +125,11 @@ export default function TabLayout() {
   const handleReachOut = () => {
     closeTendSheet();
     router.push("/select-person?intent=reach-out");
+  };
+
+  const handleQuickNote = () => {
+    closeTendSheet();
+    router.push("/select-person?intent=quick-note");
   };
 
   const handleAddSomeone = () => {
@@ -109,31 +188,17 @@ export default function TabLayout() {
           listeners={{
             tabPress: (e) => {
               e.preventDefault();
+              // Quick spring dip for press feedback, then open the sheet
+              fabPressScale.value = withSequence(
+                withSpring(0.94, FAB_PRESS_SPRING),
+                withSpring(1, FAB_PRESS_SPRING)
+              );
               setShowTendSheet(true);
             },
           }}
           options={{
             title: "",
-            tabBarIcon: () => (
-              <View
-                style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 26,
-                  backgroundColor: colors.sage,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginTop: -16,
-                  shadowColor: colors.nearBlack,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.15,
-                  shadowRadius: 8,
-                  elevation: 4,
-                }}
-              >
-                <Sprout color={colors.white} size={26} strokeWidth={2.5} />
-              </View>
-            ),
+            tabBarIcon: () => <TendFabIcon pressScale={fabPressScale} />,
           }}
         />
         <Tabs.Screen
@@ -146,38 +211,41 @@ export default function TabLayout() {
           }}
         />
         {/* Hide activity tab - merged into person profile timeline */}
-        <Tabs.Screen
-          name="activity"
-          options={{
-            href: null,
-          }}
-        />
       </Tabs>
 
       {/* ── "Tend your garden" bottom sheet ────────────────────────────── */}
       <Modal
         visible={showTendSheet}
         transparent
-        animationType="slide"
+        animationType="none"
         statusBarTranslucent
         onRequestClose={closeTendSheet}
       >
         <View style={{ flex: 1, justifyContent: "flex-end" }}>
-          {/* Dimmed overlay — tap to dismiss */}
-          <Pressable
-            onPress={closeTendSheet}
+          {/* Dimmed overlay — fades in, tap to dismiss */}
+          <Animated.View
+            entering={FadeIn.duration(220)}
+            exiting={FadeOut.duration(180)}
             style={{
               position: "absolute",
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: "rgba(28,24,20,0.44)",
             }}
-          />
+          >
+            <Pressable
+              onPress={closeTendSheet}
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(28,24,20,0.44)",
+              }}
+            />
+          </Animated.View>
 
-          {/* Sheet content */}
-          <View
+          {/* Sheet content — springs up from below */}
+          <Animated.View
+            entering={SlideInDown.springify().damping(17).stiffness(190).mass(0.9)}
             style={{
               backgroundColor: colors.white,
               borderTopLeftRadius: 24,
@@ -272,7 +340,7 @@ export default function TabLayout() {
                       marginBottom: 2,
                     }}
                   >
-                    Capture a moment
+                    Capture a memory
                   </Text>
                   <Text
                     style={{
@@ -286,6 +354,58 @@ export default function TabLayout() {
                   </Text>
                 </View>
               </LinearGradient>
+            </Pressable>
+
+            {/* Action A2: Quick note (SECONDARY — bordered) */}
+            <Pressable
+              onPress={handleQuickNote}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 18,
+                paddingHorizontal: 20,
+                borderRadius: 18,
+                backgroundColor: colors.white,
+                borderWidth: 1.5,
+                borderColor: colors.sageLight,
+                marginBottom: 12,
+              }}
+            >
+              <View
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 12,
+                  backgroundColor: colors.sagePale,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 14,
+                }}
+              >
+                <PenLine color={colors.sage} size={22} strokeWidth={1.8} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 16,
+                    color: colors.nearBlack,
+                    marginBottom: 2,
+                  }}
+                >
+                  Quick note
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.sans,
+                    fontSize: 13,
+                    color: colors.warmGray,
+                    lineHeight: 18,
+                  }}
+                >
+                  Jot down a detail before it slips away
+                </Text>
+              </View>
             </Pressable>
 
             {/* Action B: Reach out (SECONDARY — bordered) */}
@@ -454,7 +574,7 @@ export default function TabLayout() {
                 </Text>
               </View>
             </Pressable>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>

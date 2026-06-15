@@ -40,16 +40,19 @@
  * - Birthday suggestions can be slightly more direct (socially expected)
  */
 
-import type { Person, Memory, Interaction } from "@/types/database";
+import type { Person, Memory, Interaction, PersonPromise, SeasonCommitment } from "@/types/database";
 import { getGrowthInfo } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
 import { getVitalityInfo } from "@/lib/vitalityEngine";
+import { isRhythmOpen } from "@/lib/seasonEngine";
 import type { VitalityLevel } from "@/lib/vitalityEngine";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type SuggestionType =
   | "birthday_upcoming"
+  | "promise_follow_through"
+  | "season_rhythm"
   | "memory_resurface"
   | "drift_reconnect"
   | "post_event_capture"
@@ -66,6 +69,7 @@ export interface IntelligentSuggestion {
     memoryId?: string;
     birthdayDate?: string;
     calendarEventName?: string;
+    promiseId?: string;
   };
 }
 
@@ -181,6 +185,26 @@ function getRecentlyContactedPersonIds(
     const interactionTime = new Date(interaction.created_at).getTime();
     if (interactionTime >= cutoff) {
       recentIds.add(interaction.person_id);
+    }
+  }
+
+  return recentIds;
+}
+
+/**
+ * Person IDs with a memory captured inside the window. Used to avoid
+ * suggesting post-event capture for moments the user already kept.
+ */
+function getRecentlyCapturedPersonIds(
+  memories: Memory[],
+  hoursWindow: number
+): Set<string> {
+  const cutoff = Date.now() - hoursWindow * 60 * 60 * 1000;
+  const recentIds = new Set<string>();
+
+  for (const memory of memories) {
+    if (new Date(memory.created_at).getTime() >= cutoff) {
+      recentIds.add(memory.person_id);
     }
   }
 
@@ -494,7 +518,7 @@ function generateDriftSuggestions(
  */
 function generateCalendarSuggestions(
   calendarMatches: CalendarMatch[] | undefined,
-  recentlyContactedIds: Set<string>
+  recentlyCapturedIds: Set<string>
 ): IntelligentSuggestion[] {
   if (!calendarMatches || calendarMatches.length === 0) return [];
 
@@ -505,8 +529,10 @@ function generateCalendarSuggestions(
 
   for (const match of calendarMatches) {
     if (seenPersons.has(match.personId)) continue;
-    // INTL-02/03: Skip persons contacted recently
-    if (recentlyContactedIds.has(match.personId)) continue;
+    // Skip only when a memory was already captured for this person —
+    // a logged reach-out must NOT suppress this suggestion, because
+    // having just seen the person is exactly when capture converts.
+    if (recentlyCapturedIds.has(match.personId)) continue;
     seenPersons.add(match.personId);
 
     // Include the event name for context — helps the user recall the moment
@@ -521,7 +547,10 @@ function generateCalendarSuggestions(
       personId: match.personId,
       personName: match.personName,
       reason: `Capture a memory from "${eventSnippet}" with ${match.personName}`,
-      priority: 70,
+      // A real event that just happened is the highest-conversion
+      // suggestion the app can make — above everything except an
+      // imminent birthday.
+      priority: 90,
       metadata: {
         calendarEventName: match.eventTitle,
       },
@@ -601,12 +630,90 @@ function generateGeneralSuggestions(
  * 5. Dedupes by personId (keeps highest-priority suggestion per person)
  * 6. Returns top N
  */
+/**
+ * Generate suggestions from open promises (priority 95 — above
+ * everything except imminent birthdays). Phrased as the user's own
+ * words; never references elapsed time. ISO due hints gate eligibility
+ * until the date passes; free-text hints don't gate.
+ */
+function generatePromiseSuggestions(
+  promises: PersonPromise[] | undefined,
+  persons: Person[]
+): IntelligentSuggestion[] {
+  if (!promises || promises.length === 0) return [];
+  const personsById = new Map(persons.map((p) => [p.id, p]));
+  const today = new Date().toISOString().slice(0, 10);
+  const suggestions: IntelligentSuggestion[] = [];
+  const seenPersons = new Set<string>();
+
+  // Oldest first — the longest-held promise surfaces first
+  const open = promises
+    .filter((p) => p.status === "open")
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+  for (const promise of open) {
+    if (seenPersons.has(promise.person_id)) continue;
+    const person = personsById.get(promise.person_id);
+    if (!person) continue;
+    // ISO due hints gate until the date arrives
+    if (promise.due_hint && /^\d{4}-\d{2}-\d{2}/.test(promise.due_hint)) {
+      if (promise.due_hint.slice(0, 10) > today) continue;
+    }
+    seenPersons.add(promise.person_id);
+    suggestions.push({
+      id: `suggestion-promise-${promise.id}`,
+      type: "promise_follow_through",
+      personId: person.id,
+      personName: person.name,
+      reason: `You wanted to: ${promise.text}`,
+      priority: 95,
+      metadata: { promiseId: promise.id },
+    });
+  }
+  return suggestions;
+}
+
+/**
+ * Generate suggestions for tended people whose rhythm window is open
+ * (priority 85). Pure invitation; a window that closes unmet simply
+ * reopens — there is no missed state to speak of, so none is spoken of.
+ */
+function generateSeasonRhythmSuggestions(
+  commitments: SeasonCommitment[] | undefined,
+  persons: Person[],
+  interactions: Interaction[],
+  recentlyContactedIds: Set<string>
+): IntelligentSuggestion[] {
+  if (!commitments || commitments.length === 0) return [];
+  const personsById = new Map(persons.map((p) => [p.id, p]));
+  const suggestions: IntelligentSuggestion[] = [];
+  for (const commitment of commitments) {
+    if (recentlyContactedIds.has(commitment.person_id)) continue;
+    if (!isRhythmOpen(commitment, interactions)) continue;
+    const person = personsById.get(commitment.person_id);
+    if (!person) continue;
+    const firstName = person.name.split(" ")[0];
+    suggestions.push({
+      id: `suggestion-rhythm-${commitment.id}`,
+      type: "season_rhythm",
+      personId: person.id,
+      personName: person.name,
+      reason: `A good moment in your season with ${firstName}`,
+      priority: 85,
+      metadata: {},
+    });
+  }
+  return suggestions;
+}
+
 export function generateSuggestions(
   persons: Person[],
   memories: Memory[],
   interactions: Interaction[],
   calendarMatches?: CalendarMatch[],
-  limit: number = 5
+  limit: number = 5,
+  promises?: PersonPromise[],
+  seasonCommitments?: SeasonCommitment[]
 ): IntelligentSuggestion[] {
   // INTL-02/03: Build 24-hour recency exclusion set
   const recentlyContactedIds = getRecentlyContactedPersonIds(
@@ -617,6 +724,15 @@ export function generateSuggestions(
   // 1. Generate all suggestion types
   // Birthday suggestions are NOT subject to recency exclusion
   const birthdaySuggestions = generateBirthdaySuggestions(persons);
+  // Promise suggestions are also exempt — keeping your word isn't gated
+  // by having recently talked
+  const promiseSuggestions = generatePromiseSuggestions(promises, persons);
+  const rhythmSuggestions = generateSeasonRhythmSuggestions(
+    seasonCommitments,
+    persons,
+    interactions,
+    recentlyContactedIds
+  );
   const memoryResurfaceSuggestions = generateMemoryResurfaceSuggestions(
     persons,
     memories,
@@ -628,15 +744,23 @@ export function generateSuggestions(
     interactions,
     recentlyContactedIds
   );
+  // Post-event capture is gated on recent *memories*, not reach-outs —
+  // people you just saw are the ones you most want to capture with.
+  const recentlyCapturedIds = getRecentlyCapturedPersonIds(
+    memories,
+    RECENCY_EXCLUSION_HOURS
+  );
   const calendarSuggestions = generateCalendarSuggestions(
     calendarMatches,
-    recentlyContactedIds
+    recentlyCapturedIds
   );
 
   // Collect personIds already covered by higher-priority types
   // so general suggestions don't duplicate them
   const coveredPersonIds = new Set<string>();
   for (const s of birthdaySuggestions) coveredPersonIds.add(s.personId);
+  for (const s of promiseSuggestions) coveredPersonIds.add(s.personId);
+  for (const s of rhythmSuggestions) coveredPersonIds.add(s.personId);
   for (const s of memoryResurfaceSuggestions) coveredPersonIds.add(s.personId);
   for (const s of driftSuggestions) coveredPersonIds.add(s.personId);
   for (const s of calendarSuggestions) coveredPersonIds.add(s.personId);
@@ -652,6 +776,8 @@ export function generateSuggestions(
   // 2. Flatten into a single array
   const allSuggestions: IntelligentSuggestion[] = [
     ...birthdaySuggestions,
+    ...promiseSuggestions,
+    ...rhythmSuggestions,
     ...memoryResurfaceSuggestions,
     ...driftSuggestions,
     ...calendarSuggestions,

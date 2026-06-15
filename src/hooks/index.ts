@@ -11,12 +11,13 @@ export { useTheme } from "@/providers/ThemeProvider";
 
 // ─── Data Hooks ─────────────────────────────────────────────────────────────
 
-export { usePersons, usePerson } from "./usePersons";
-export { useMemories, usePersonMemories, useCreateMemory, useMemory } from "./useMemories";
+export { usePersons, usePerson, useUpdatePerson, useDeletePerson } from "./usePersons";
+export { useMemories, usePersonMemories, useCreateMemory, useMemory, useUpdateMemory, useDeleteMemory } from "./useMemories";
 export {
   usePersonInteractions,
   useAllInteractions,
   useCreateInteraction,
+  useDeleteInteraction,
 } from "./useInteractions";
 
 // ─── Growth Hooks ──────────────────────────────────────────────────────────
@@ -30,6 +31,13 @@ export { usePersonVitality, useAllVitalities } from "./useVitality";
 // ─── Suggestion Hooks ─────────────────────────────────────────────────────
 
 export { useSuggestions } from "./useSuggestions";
+export {
+  useOpenPromises,
+  usePersonPromises,
+  useCreatePromise,
+  useResolvePromise,
+} from "./usePromises";
+export { useActiveSeason } from "./useSeason";
 
 // ─── Orientation Hooks ───────────────────────────────────────────────────
 

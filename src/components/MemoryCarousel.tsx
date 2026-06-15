@@ -14,7 +14,6 @@ import {
   Text,
   FlatList,
   Dimensions,
-  Image,
   type ViewStyle,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
@@ -22,6 +21,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { fonts } from "@design/tokens";
+import { FadeInImage } from "@/components/ui";
 import { emotionEmojis, formatEmotionLabel, formatMemoryDate, getMemoryDate } from "@/lib/formatters";
 import type { Memory } from "@/types/database";
 
@@ -75,7 +75,7 @@ function MemoryCard({ memory }: { memory: Memory }) {
       >
         {/* Background photo if available */}
         {hasPhoto && (
-          <Image
+          <FadeInImage
             source={{ uri: memory.photo_url! }}
             style={{
               position: "absolute",

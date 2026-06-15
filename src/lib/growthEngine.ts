@@ -122,13 +122,17 @@ function notifyListeners() {
 
 // ─── Pure Functions ─────────────────────────────────────────────────────────
 
+/** Get a date's "YYYY-MM-DD" key in local timezone. */
+function dateKeyOf(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /** Get today's date as "YYYY-MM-DD" in local timezone. */
 function todayKey(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return dateKeyOf(new Date());
 }
 
 /** Derive growth stage from total accumulated points. */
@@ -312,7 +316,8 @@ export function recordReflectionGrowth(
  * computes points for each, and populates the store.
  *
  * Rules:
- * - No daily cap applied retroactively (historical data)
+ * - No daily cap applied retroactively to point totals (historical data),
+ *   but events created today rebuild today's daily-cap usage
  * - Bare interactions (no note AND no emotion) get +0 (reach-outs)
  * - Interactions with note or emotion get +1 (reflections)
  * - Growth never regresses — if already bootstrapped with higher
@@ -327,6 +332,8 @@ export function bootstrapGrowthFromData(
   if (_isBootstrapped) return;
   _isBootstrapped = true;
 
+  const today = todayKey();
+
   // Accumulate points per person from memories
   const pointsByPerson = new Map<string, number>();
 
@@ -337,6 +344,10 @@ export function bootstrapGrowthFromData(
       content: memory.content,
     });
     pointsByPerson.set(personId, (pointsByPerson.get(personId) ?? 0) + pts);
+    // Rebuild today's usage so the daily cap survives an app restart
+    if (dateKeyOf(new Date(memory.created_at)) === today) {
+      recordDailyUsage(personId, pts);
+    }
   }
 
   // Accumulate points per person from reflections
@@ -350,6 +361,9 @@ export function bootstrapGrowthFromData(
         personId,
         (pointsByPerson.get(personId) ?? 0) + POINTS_REFLECTION
       );
+      if (dateKeyOf(new Date(interaction.created_at)) === today) {
+        recordDailyUsage(personId, POINTS_REFLECTION);
+      }
     }
   }
 
@@ -359,6 +373,18 @@ export function bootstrapGrowthFromData(
     _growthPoints.set(personId, Math.max(existing, points));
   }
 
+  notifyListeners();
+}
+
+/**
+ * Reset all growth state (used by the delete-account flow).
+ * Allows a fresh bootstrap on the next data load.
+ */
+export function resetGrowthState(): void {
+  _growthPoints.clear();
+  _dailyPoints.clear();
+  _recentTransitions.clear();
+  _isBootstrapped = false;
   notifyListeners();
 }
 

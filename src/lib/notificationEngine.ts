@@ -13,9 +13,11 @@
  *
  * CADENCE LIMITS:
  * - Garden Walk:             1x per week (scheduled)
+ * - Weekly Digest:           1x per week (scheduled)
  * - Memory Resurface:        max 2 per month (triggered by meaningful memory anniversary)
- * - Contextual Nudge:        as relevant, max 1 per day (birthday, calendar event)
- * - Post-Reach-Out Check-In: handled in-app, not a push notification
+ * - Contextual Nudge:        as relevant, max 1 per day (birthday, calendar event,
+ *                            post-reach-out capture prompt — always framed around
+ *                            the moment itself, never the absence)
  *
  * BANNED PATTERNS:
  * - Timer-based:         "It's been X days since..."
@@ -31,10 +33,13 @@
  * - Does not reference wilting, dying, or neglect
  */
 
+import { loadCollection, saveCollection } from "@/lib/localStore";
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type NotificationType =
   | "garden_walk"
+  | "weekly_digest"
   | "memory_resurface"
   | "contextual_nudge";
 
@@ -74,6 +79,11 @@ const BANNED_PATTERNS: RegExp[] = [
   /dying/i,
   /neglect/i,
   /overdue/i,
+  /you promised/i,
+  /still haven'?t/i,
+  /missed/i,
+  /behind/i,
+  /commitment/i,
 ];
 
 /**
@@ -97,9 +107,23 @@ export const NOTIFICATION_COPY = {
     body: "A few moments from your garden this week \uD83C\uDF3F",
   },
 
+  weekly_digest: {
+    title: "Your week in the garden is ready",
+    body: "A quiet look back at the moments you tended \uD83C\uDF31",
+  },
+
   memory_resurface: (personName: string, preview: string) => ({
     title: "A moment worth revisiting",
     body: `With ${personName}: "${preview.slice(0, 60)}..."`,
+  }),
+
+  /**
+   * Post-reach-out capture prompt \u2014 frames the invitation around the
+   * moment itself, never the absence or an obligation.
+   */
+  memory_capture_prompt: (personName: string) => ({
+    title: `Your time with ${personName}`,
+    body: `Did anything from your time with ${personName} feel worth keeping?`,
   }),
 
   birthday: (personName: string, when: "today" | "tomorrow" | string) => ({
@@ -125,8 +149,36 @@ let _gardenWalkPrefs: GardenWalkPreferences = {
 /**
  * Log of sent notifications used for cadence enforcement.
  * Entries older than 31 days are pruned on each `canSendNotification` call.
+ * Persisted on-device so cadence limits survive app restarts.
  */
 let _notificationLog: { type: NotificationType; sentAt: Date }[] = [];
+
+let _logHydration: Promise<void> | null = null;
+
+/** Hydrate the cadence log from disk exactly once per app launch. */
+export function hydrateNotificationLog(): Promise<void> {
+  if (!_logHydration) {
+    _logHydration = loadCollection<{ type: NotificationType; sentAt: string }>(
+      "notification-log"
+    ).then((stored) => {
+      _notificationLog = [
+        ...stored.map((e) => ({ type: e.type, sentAt: new Date(e.sentAt) })),
+        ..._notificationLog,
+      ];
+    });
+  }
+  return _logHydration;
+}
+
+function persistNotificationLog(): void {
+  saveCollection(
+    "notification-log",
+    _notificationLog.map((e) => ({
+      type: e.type,
+      sentAt: e.sentAt.toISOString(),
+    }))
+  );
+}
 
 // ─── Garden Walk Preferences ────────────────────────────────────────────────
 
@@ -198,6 +250,7 @@ function pruneLog(): void {
  *
  * Cadence rules:
  * - garden_walk:       max 1 per 7-day rolling window
+ * - weekly_digest:     max 1 per 7-day rolling window
  * - memory_resurface:  max 2 per 30-day rolling window
  * - contextual_nudge:  max 1 per calendar day
  */
@@ -207,13 +260,13 @@ export function canSendNotification(type: NotificationType): boolean {
   const now = new Date();
 
   switch (type) {
-    case "garden_walk": {
+    case "garden_walk":
+    case "weekly_digest": {
       const sevenDaysAgo = new Date(now);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const recentCount = _notificationLog.filter(
         (e) =>
-          e.type === "garden_walk" &&
-          e.sentAt.getTime() >= sevenDaysAgo.getTime()
+          e.type === type && e.sentAt.getTime() >= sevenDaysAgo.getTime()
       ).length;
       return recentCount < 1;
     }
@@ -251,6 +304,7 @@ export function canSendNotification(type: NotificationType): boolean {
  */
 export function logNotificationSent(type: NotificationType): void {
   _notificationLog.push({ type, sentAt: new Date() });
+  persistNotificationLog();
 }
 
 // ─── Notification Factory Functions ─────────────────────────────────────────

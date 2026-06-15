@@ -243,9 +243,8 @@ export function OrientationOverlay({
         pointerEvents="auto"
       >
         <Pressable
-          onPress={() => {
-            /* Block taps outside highlight */
-          }}
+          onPress={onPrimary}
+          accessibilityLabel="Continue orientation"
           style={{ flex: 1 }}
         >
           <Svg

@@ -30,12 +30,17 @@ import {
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { takePhotoWithCamera } from "@/lib/photoPicker";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
+  FadeIn,
+  FadeInUp,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
+  withSpring,
+  withSequence,
   Easing,
 } from "react-native-reanimated";
 import {
@@ -48,7 +53,11 @@ import {
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import { usePersons, useCreateMemory } from "@/hooks";
-import { GardenRevealIllustration } from "@/components/illustrations";
+import { PressableScale } from "@/components/ui";
+import {
+  GardenRevealIllustration,
+  SeedIllustration,
+} from "@/components/illustrations";
 import {
   recordMemoryGrowth,
   getTransitionToastMessage,
@@ -81,6 +90,55 @@ function classifyCapture(
   if (content.length >= 140) return "meaningful";
   if (emotion !== null) return "meaningful";
   return "simple";
+}
+
+// ─── Reflection Prompt ──────────────────────────────────────────────────────
+// A gentle, optional nudge that appears once the entry has some substance.
+// Purely inspirational — never required, never blocks saving.
+
+const REFLECTION_QUESTIONS = [
+  "What made this moment different?",
+  "What did they do that you want to remember?",
+  "What did it feel like right afterward?",
+  "What do you want to remember about this in a year?",
+  "What did they say that stuck with you?",
+] as const;
+
+const EMOTION_QUESTION_INDEX: Partial<Record<Emotion, number>> = {
+  grateful: 1,
+  loved: 1,
+  joyful: 2,
+  connected: 2,
+  nostalgic: 3,
+  peaceful: 3,
+  curious: 4,
+  inspired: 4,
+  proud: 4,
+  hopeful: 4,
+};
+
+function getReflectionQuestion(
+  emotion: Emotion | null,
+  personId: string | null,
+  contentLength: number
+): string {
+  // Emotion-specific question when one is selected
+  if (emotion) {
+    const idx = EMOTION_QUESTION_INDEX[emotion];
+    if (idx !== undefined) return REFLECTION_QUESTIONS[idx];
+  }
+  // Otherwise pick deterministically — person id hash keeps it stable
+  // across renders; content-length bucket as a last resort.
+  if (personId) {
+    let hash = 0;
+    for (let i = 0; i < personId.length; i++) {
+      hash = (hash * 31 + personId.charCodeAt(i)) | 0;
+    }
+    return REFLECTION_QUESTIONS[Math.abs(hash) % REFLECTION_QUESTIONS.length];
+  }
+  return REFLECTION_QUESTIONS[
+    Math.floor(contentLength / 80) % REFLECTION_QUESTIONS.length
+  ];
 }
 
 // ─── Person Selector Modal ──────────────────────────────────────────────────
@@ -447,7 +505,7 @@ function S1_Capture({
               lineHeight: 34,
             }}
           >
-            Capture a moment
+            Capture a memory
           </Text>
 
           {/* ── Person Selector ────────────────────────────── */}
@@ -564,6 +622,29 @@ function S1_Capture({
               lineHeight: 24,
             }}
           />
+
+          {/* ── Reflection Prompt — gentle, optional ───────── */}
+          {content.length > 40 && (
+            <Animated.Text
+              entering={FadeIn.duration(500)}
+              style={{
+                fontFamily: fonts.sans,
+                fontStyle: "italic",
+                fontSize: 13,
+                color: warmGray,
+                lineHeight: 18,
+                marginTop: -6,
+                marginBottom: 16,
+                paddingHorizontal: 4,
+              }}
+            >
+              {getReflectionQuestion(
+                selectedEmotion,
+                person?.id ?? null,
+                content.length
+              )}
+            </Animated.Text>
+          )}
 
           {/* ── Photo / Voice Row ─────────────────────────── */}
           <View
@@ -690,7 +771,7 @@ function S1_Capture({
             {emotionList.map((emotion) => {
               const isSelected = selectedEmotion === emotion;
               return (
-                <Pressable
+                <PressableScale
                   key={emotion}
                   onPress={() =>
                     onSelectEmotion(isSelected ? null : emotion)
@@ -712,15 +793,16 @@ function S1_Capture({
                   >
                     {formatEmotionLabel(emotion)}
                   </Text>
-                </Pressable>
+                </PressableScale>
               );
             })}
           </View>
 
           {/* ── Save Button ───────────────────────────────── */}
-          <Pressable
+          <PressableScale
             onPress={onSave}
             disabled={!canSave || isSaving}
+            haptic={true}
             style={{
               borderRadius: 16,
               overflow: "hidden",
@@ -752,7 +834,7 @@ function S1_Capture({
                 {isSaving ? "Saving..." : "Save to garden"}
               </Text>
             </LinearGradient>
-          </Pressable>
+          </PressableScale>
         </ScrollView>
       </KeyboardAvoidingView>
     </>
@@ -768,39 +850,54 @@ function S2_Saved({
   personName: string;
   onBackToGarden: () => void;
 }) {
-  // Garden illustration grows from center
-  const gardenScale = useSharedValue(0.3);
+  // Planting sequence:
+  //   1. A small seed drops from above and lands with a tiny squash (0–610ms)
+  //   2. The seed fades out as the garden grows in its place (620–1100ms)
+  //   3. Text and CTA stagger in beneath (950–1500ms)
+  const seedTranslateY = useSharedValue(-60);
+  const seedScale = useSharedValue(1);
+  const seedOpacity = useSharedValue(0);
+  const gardenScale = useSharedValue(0.7);
   const gardenOpacity = useSharedValue(0);
-  const contentOpacity = useSharedValue(0);
-  const contentTranslateY = useSharedValue(20);
 
   useEffect(() => {
-    // Illustration grows
-    gardenScale.value = withTiming(1, {
-      duration: 800,
-      easing: Easing.out(Easing.back(1.5)),
+    // 1. Seed drops in — accelerating, like gravity
+    seedOpacity.value = withTiming(1, { duration: 120 });
+    seedTranslateY.value = withTiming(0, {
+      duration: 450,
+      easing: Easing.in(Easing.quad),
     });
-    gardenOpacity.value = withTiming(1, { duration: 500 });
 
-    // Content fades in after illustration
-    contentOpacity.value = withDelay(
-      500,
-      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
+    // ...lands with a quick squash
+    seedScale.value = withDelay(
+      450,
+      withSequence(
+        withTiming(0.82, { duration: 80 }),
+        withTiming(1.05, { duration: 80 }),
+        withTiming(1, { duration: 70 })
+      )
     );
-    contentTranslateY.value = withDelay(
-      500,
-      withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) })
+
+    // 2. Seed fades away as the garden grows from where it landed
+    seedOpacity.value = withDelay(650, withTiming(0, { duration: 280 }));
+    gardenOpacity.value = withDelay(620, withTiming(1, { duration: 320 }));
+    gardenScale.value = withDelay(
+      620,
+      withSpring(1, { damping: 12, stiffness: 140 })
     );
   }, []);
+
+  const seedStyle = useAnimatedStyle(() => ({
+    opacity: seedOpacity.value,
+    transform: [
+      { translateY: seedTranslateY.value },
+      { scale: seedScale.value },
+    ],
+  }));
 
   const gardenStyle = useAnimatedStyle(() => ({
     transform: [{ scale: gardenScale.value }],
     opacity: gardenOpacity.value,
-  }));
-
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-    transform: [{ translateY: contentTranslateY.value }],
   }));
 
   return (
@@ -812,17 +909,23 @@ function S2_Saved({
         paddingHorizontal: 32,
       }}
     >
-      {/* Garden illustration with grow animation */}
-      <Animated.View style={[{ alignItems: "center" }, gardenStyle]}>
-        <GardenRevealIllustration size={200} />
-      </Animated.View>
+      {/* Seed drop + garden grow */}
+      <View style={{ alignItems: "center", justifyContent: "center" }}>
+        <Animated.View style={[{ alignItems: "center" }, gardenStyle]}>
+          <GardenRevealIllustration size={200} />
+        </Animated.View>
+        <Animated.View
+          pointerEvents="none"
+          style={[{ position: "absolute" }, seedStyle]}
+        >
+          <SeedIllustration size={36} />
+        </Animated.View>
+      </View>
 
-      {/* Text content */}
+      {/* Text content — staggers in after the garden grows */}
       <Animated.View
-        style={[
-          { alignItems: "center", marginTop: 28, width: "100%" },
-          contentStyle,
-        ]}
+        entering={FadeInUp.delay(950).duration(400)}
+        style={{ alignItems: "center", marginTop: 28, width: "100%" }}
       >
         <Text
           style={{
@@ -848,9 +951,14 @@ function S2_Saved({
         >
           with {personName}
         </Text>
+      </Animated.View>
 
-        {/* CTA */}
-        <Pressable
+      {/* CTA — last to arrive */}
+      <Animated.View
+        entering={FadeInUp.delay(1100).duration(400)}
+        style={{ width: "100%" }}
+      >
+        <PressableScale
           onPress={onBackToGarden}
           style={{ width: "100%", borderRadius: 16, overflow: "hidden" }}
         >
@@ -879,7 +987,7 @@ function S2_Saved({
               Back to garden
             </Text>
           </LinearGradient>
-        </Pressable>
+        </PressableScale>
       </Animated.View>
     </View>
   );
@@ -924,6 +1032,21 @@ export default function AddMemoryScreen() {
   // in its own process and shows ALL albums/folders regardless of the
   // app's photo-library permission status.
   const pickImage = useCallback(async () => {
+    if (Platform.OS !== "web") {
+      const choice = await new Promise<"camera" | "library" | null>((resolve) => {
+        Alert.alert("Add a photo", undefined, [
+          { text: "Take photo", onPress: () => resolve("camera") },
+          { text: "Choose from library", onPress: () => resolve("library") },
+          { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
+        ]);
+      });
+      if (choice === null) return;
+      if (choice === "camera") {
+        const uri = await takePhotoWithCamera();
+        if (uri) setPhotoUri(uri);
+        return;
+      }
+    }
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images", "livePhotos"],

@@ -98,3 +98,19 @@ export async function deletePerson(id: string): Promise<void> {
 
   if (error) throw new Error(error.message || "Database operation failed");
 }
+
+/**
+ * Delete ALL of the user's persons. Memories and interactions cascade
+ * via their foreign keys. Used by the delete-account flow.
+ */
+export async function deleteAllPersons(): Promise<void> {
+  if (!supabase) throw new Error("Supabase not configured");
+
+  const userId = await getAuthUserId();
+  const { error } = await supabase
+    .from("persons")
+    .delete()
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message || "Database operation failed");
+}

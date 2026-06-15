@@ -31,6 +31,8 @@ import {
   getOverlayOpacity,
   type VitalityLevel,
 } from "@/lib/vitalityEngine";
+import { usePersonGrowth } from "@/hooks/useGrowth";
+import { GrowthCelebration } from "@/components/GrowthCelebration";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +47,12 @@ interface VitalPlantProps {
   staggerDelay?: number;
   /** Optional index for varied sway timing */
   index?: number;
+  /**
+   * Optional person ID. When provided, the plant plays a brief
+   * celebratory pulse right after that person crosses a growth stage —
+   * a quiet visual response, never a banner or a number.
+   */
+  personId?: string;
 }
 
 // ─── Vitality opacity based on level ────────────────────────────────────────
@@ -70,6 +78,7 @@ export default function VitalPlant({
   size,
   staggerDelay = 0,
   index = 0,
+  personId,
 }: VitalPlantProps) {
   const level = getVitalityLevel(vitalityScore);
   const { amplitude, duration } = getSwayParams(level);
@@ -102,8 +111,22 @@ export default function VitalPlant({
     );
   }, [amplitude, swayDuration, staggerDelay, index]);
 
+  // ─── Stage-transition pulse ────────────────────────────────────────────
+  // Hook runs unconditionally (rules of hooks); an empty ID is inert.
+  const { justTransitioned } = usePersonGrowth(personId ?? "");
+  const pulse = useSharedValue(1);
+
+  useEffect(() => {
+    if (personId && justTransitioned) {
+      pulse.value = withSequence(
+        withTiming(1.07, { duration: 350, easing: Easing.out(Easing.cubic) }),
+        withTiming(1, { duration: 500, easing: Easing.inOut(Easing.cubic) })
+      );
+    }
+  }, [justTransitioned, personId]);
+
   const swayStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${sway.value}deg` }],
+    transform: [{ rotate: `${sway.value}deg` }, { scale: pulse.value }],
   }));
 
   return (
@@ -134,6 +157,11 @@ export default function VitalPlant({
           }}
         />
       )}
+
+      {/* Stage-transition celebration: glow ring + drifting leaves */}
+      {personId ? (
+        <GrowthCelebration trigger={justTransitioned} size={size} />
+      ) : null}
     </Animated.View>
   );
 }

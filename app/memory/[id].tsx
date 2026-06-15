@@ -6,21 +6,36 @@
  *
  * Presented as a modal via memory/_layout.tsx (presentation: "modal").
  */
-import React from "react";
+import React, { useRef, useCallback } from "react";
 import {
   View,
   Text,
   ScrollView,
-  Image,
   Pressable,
   ActivityIndicator,
   Share,
+  Alert,
 } from "react-native";
-import { useLocalSearchParams, router, Stack } from "expo-router";
+import {
+  useLocalSearchParams,
+  router,
+  Stack,
+  useFocusEffect,
+} from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft, Share2 } from "lucide-react-native";
-import { useMemory, usePerson } from "@/hooks";
+import Animated, { FadeInUp } from "react-native-reanimated";
+import { ChevronLeft, Pencil, Send, Share2 } from "lucide-react-native";
+import { PressableScale, FadeInImage } from "@/components/ui";
+import {
+  useMemory,
+  usePerson,
+  useCreateInteraction,
+  useDeleteMemory,
+} from "@/hooks";
+import { MemoryShareCard } from "@/components/MemoryShareCard";
+import { shareViewAsImage } from "@/lib/shareImage";
+import { buildShareFooter } from "@/lib/appLinks";
 import {
   emotionEmojis,
   formatEmotionLabel,
@@ -32,8 +47,20 @@ import { colors, fonts } from "@design/tokens";
 export default function MemoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { memory, isLoading } = useMemory(id ?? "");
+  const { memory, isLoading, refetch } = useMemory(id ?? "");
   const { person } = usePerson(memory?.person_id ?? "");
+  const { createInteraction } = useCreateInteraction();
+  const { deleteMemory, isDeleting } = useDeleteMemory();
+  const cardRef = useRef<View>(null);
+
+  // Refresh when returning from the edit screen so changes show right away
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  const firstName = person?.name.split(" ")[0];
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -43,15 +70,56 @@ export default function MemoryDetailScreen() {
     }
   };
 
+  const handleEdit = () => {
+    if (!id) return;
+    router.push(`/memory/edit/${id}`);
+  };
+
+  const handleRemove = () => {
+    if (!id || isDeleting) return;
+    Alert.alert(
+      "Remove this memory?",
+      "It will be gone from your garden. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            await deleteMemory(id);
+            handleBack();
+          },
+        },
+      ]
+    );
+  };
+
   const handleShare = async () => {
     if (!memory) return;
+    const { success } = await shareViewAsImage(cardRef, "Share this memory");
+    if (success) return;
+
+    // Image capture failed — fall back to plain text share
     const personLine = person ? `A memory with ${person.name}` : "A memory";
     const dateLine = formatMemoryDate(getMemoryDate(memory));
-    const message = `${personLine}\n\n${memory.content}\n\n${dateLine}\n\nShared from Kinship 🌱`;
+    const message = `${personLine}\n\n${memory.content}\n\n${dateLine}\n\n${buildShareFooter()}`;
     try {
       await Share.share({ message });
     } catch {
       // user dismissed share sheet — no-op
+    }
+  };
+
+  const handleSendToPerson = async () => {
+    if (!memory || !person || !firstName) return;
+    const { success } = await shareViewAsImage(cardRef, `Send to ${firstName}`);
+    if (success) {
+      // Sharing a memory with its subject is a reach-out — log it
+      await createInteraction({
+        person_id: person.id,
+        type: "message",
+        note: "Shared this memory with them",
+      });
     }
   };
 
@@ -88,9 +156,21 @@ export default function MemoryDetailScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={{ flex: 1, backgroundColor: colors.cream }}>
+        {/* Offscreen share card — captured by shareViewAsImage */}
+        <View
+          style={{ position: "absolute", left: -9999, top: 0 }}
+          pointerEvents="none"
+        >
+          <MemoryShareCard
+            ref={cardRef}
+            memory={memory}
+            personName={person?.name ?? "someone you love"}
+          />
+        </View>
+
         {/* Photo Header */}
         {memory.photo_url ? (
-          <Image
+          <FadeInImage
             source={{ uri: memory.photo_url }}
             style={{ height: 220, width: "100%" }}
             resizeMode="cover"
@@ -121,90 +201,170 @@ export default function MemoryDetailScreen() {
         </Pressable>
 
         {/* Share Button Overlay */}
-        <Pressable
-          onPress={handleShare}
-          style={{
-            position: "absolute",
-            top: insets.top + 12,
-            right: 16,
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: "rgba(255,255,255,0.9)",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Share2 color={colors.nearBlack} size={18} />
-        </Pressable>
+        <View style={{ position: "absolute", top: insets.top + 12, right: 16 }}>
+          <PressableScale
+            onPress={handleShare}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: "rgba(255,255,255,0.9)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Share2 color={colors.nearBlack} size={18} />
+          </PressableScale>
+        </View>
+
+        {/* Edit Button Overlay */}
+        <View style={{ position: "absolute", top: insets.top + 12, right: 62 }}>
+          <PressableScale
+            onPress={handleEdit}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: "rgba(255,255,255,0.9)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Pencil color={colors.nearBlack} size={17} />
+          </PressableScale>
+        </View>
 
         {/* Content Area */}
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 24, paddingBottom: insets.bottom + 40 }}
         >
-          {/* Person Name */}
-          {person && (
-            <Text
-              style={{
-                fontFamily: fonts.sansMedium,
-                fontSize: 14,
-                color: colors.warmGray,
-                marginBottom: 8,
-              }}
-            >
-              A memory with {person.name}
-            </Text>
-          )}
-
-          {/* Emotion Chip */}
-          {memory.emotion && (
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 6,
-                marginBottom: 12,
-              }}
-            >
-              <Text style={{ fontSize: 18 }}>
-                {emotionEmojis[memory.emotion] ?? ""}
-              </Text>
+          {/* Meta — person, emotion, date. Entering runs on mount only,
+              so refetches won't replay the animation. */}
+          <Animated.View entering={FadeInUp.duration(280)}>
+            {/* Person Name */}
+            {person && (
               <Text
                 style={{
                   fontFamily: fonts.sansMedium,
                   fontSize: 14,
                   color: colors.warmGray,
+                  marginBottom: 8,
                 }}
               >
-                {formatEmotionLabel(memory.emotion as any)}
+                A memory with {person.name}
               </Text>
-            </View>
-          )}
+            )}
 
-          {/* Date */}
-          <Text
-            style={{
-              fontFamily: fonts.sans,
-              fontSize: 13,
-              color: colors.warmGray,
-              marginBottom: 16,
-            }}
-          >
-            {formatMemoryDate(getMemoryDate(memory))}
-          </Text>
+            {/* Emotion Chip */}
+            {memory.emotion && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>
+                  {emotionEmojis[memory.emotion] ?? ""}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMedium,
+                    fontSize: 14,
+                    color: colors.warmGray,
+                  }}
+                >
+                  {formatEmotionLabel(memory.emotion as any)}
+                </Text>
+              </View>
+            )}
+
+            {/* Date */}
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 13,
+                color: colors.warmGray,
+                marginBottom: 16,
+              }}
+            >
+              {formatMemoryDate(getMemoryDate(memory))}
+            </Text>
+          </Animated.View>
 
           {/* Full Content — no truncation */}
-          <Text
-            style={{
-              fontFamily: fonts.sans,
-              fontSize: 16,
-              color: colors.nearBlack,
-              lineHeight: 24,
-            }}
+          <Animated.View entering={FadeInUp.delay(60).duration(280)}>
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 16,
+                color: colors.nearBlack,
+                lineHeight: 24,
+              }}
+            >
+              {memory.content}
+            </Text>
+          </Animated.View>
+
+          {/* Send to {firstName} — share the card with the memory's subject */}
+          {person && firstName && (
+            <Animated.View entering={FadeInUp.delay(120).duration(280)}>
+              <PressableScale
+                onPress={handleSendToPerson}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginTop: 32,
+                  backgroundColor: colors.sage,
+                  borderRadius: 100,
+                  paddingVertical: 14,
+                  paddingHorizontal: 24,
+                }}
+              >
+                <Send color={colors.white} size={16} />
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMedium,
+                    fontSize: 15,
+                    color: colors.white,
+                  }}
+                >
+                  Send to {firstName}
+                </Text>
+              </PressableScale>
+            </Animated.View>
+          )}
+
+          {/* Remove this memory — quiet, warm danger action */}
+          <Animated.View
+            entering={FadeInUp.delay(180).duration(280)}
+            style={{ alignItems: "center", marginTop: 28 }}
           >
-            {memory.content}
-          </Text>
+            <PressableScale
+              onPress={handleRemove}
+              disabled={isDeleting}
+              hitSlop={8}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                opacity: isDeleting ? 0.5 : 1,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sansMedium,
+                  fontSize: 13,
+                  color: colors.error,
+                }}
+              >
+                {isDeleting ? "Removing..." : "Remove this memory"}
+              </Text>
+            </PressableScale>
+          </Animated.View>
         </ScrollView>
       </View>
     </>

@@ -28,13 +28,22 @@ import {
   useMemories,
   useAllInteractions,
   useSuggestions,
+  usePersonGrowth,
+  useActiveSeason,
 } from "@/hooks";
+import { PressableScale } from "@/components/ui";
+import VitalPlant from "@/components/VitalPlant";
+import LivingPlant from "@/components/LivingPlant";
+import { getVitalityInfo } from "@/lib/vitalityEngine";
+import type { Person, Memory, Interaction } from "@/types/database";
 import type { SuggestionType } from "@/lib/suggestionEngine";
 
 // ─── Suggestion Type Icons ──────────────────────────────────────────────────
 
 const suggestionIcons: Record<SuggestionType, string> = {
   birthday_upcoming: "\ud83c\udf82",
+  promise_follow_through: "\ud83e\udd1d",
+  season_rhythm: "\ud83c\udf31",
   memory_resurface: "\ud83d\udcad",
   drift_reconnect: "\ud83c\udf3f",
   post_event_capture: "\ud83d\udcf8",
@@ -72,6 +81,71 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+// ─── Stroll Row ─────────────────────────────────────────────────────────────
+
+/** One plant on the walk — the literal "stroll past your garden". */
+function WalkPlantRow({
+  person,
+  memories,
+  interactions,
+  index,
+}: {
+  person: Person;
+  memories: Memory[];
+  interactions: Interaction[];
+  index: number;
+}) {
+  const growth = usePersonGrowth(person.id);
+  const vitality = getVitalityInfo(
+    memories.filter((m) => m.person_id === person.id),
+    interactions.filter((i) => i.person_id === person.id)
+  );
+
+  return (
+    <Animated.View entering={FadeInUp.delay(150 + index * 80).duration(350)}>
+      <PressableScale
+        onPress={() => router.push(`/person/${person.id}`)}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: colors.white,
+          borderRadius: radii.lg,
+          padding: spacing.md,
+          marginBottom: spacing.sm + 2,
+          ...shadows.soft,
+        }}
+      >
+        <VitalPlant vitalityScore={vitality.score} size={52} personId={person.id}>
+          <LivingPlant stage={growth.stage} size={52} />
+        </VitalPlant>
+        <View style={{ flex: 1, marginLeft: spacing.md }}>
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 16,
+              color: colors.nearBlack,
+            }}
+            numberOfLines={1}
+          >
+            {person.name}
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.sans,
+              fontSize: 13,
+              color: colors.warmGray,
+              marginTop: 2,
+            }}
+          >
+            {growth.label}
+          </Text>
+        </View>
+        <ChevronRight size={18} color={colors.warmGray} />
+      </PressableScale>
+    </Animated.View>
+  );
+}
+
 // ─── Close Handler ──────────────────────────────────────────────────────────
 
 function handleClose() {
@@ -92,6 +166,24 @@ export default function GardenWalkScreen() {
   const { memories, isLoading: memoriesLoading } = useMemories();
   const { interactions, isLoading: interactionsLoading } =
     useAllInteractions();
+  const { season, commitments } = useActiveSeason();
+
+  // ─── Season bed first: tended people (in commitment order), then the rest ─
+  const { tendedPersons, otherPersons } = useMemo(() => {
+    if (!season || commitments.length === 0) {
+      return { tendedPersons: [] as Person[], otherPersons: persons };
+    }
+    const tended: Person[] = [];
+    for (const c of commitments) {
+      const p = persons.find((pp) => pp.id === c.person_id);
+      if (p) tended.push(p);
+    }
+    const tendedIds = new Set(tended.map((p) => p.id));
+    return {
+      tendedPersons: tended,
+      otherPersons: persons.filter((p) => !tendedIds.has(p.id)),
+    };
+  }, [season, commitments, persons]);
 
   // ─── Generate suggestions (WALK-02: uses contextual intelligence + calendar) ─
   const suggestionsFromEngine = useSuggestions(persons, memories, interactions, 5);
@@ -123,7 +215,7 @@ export default function GardenWalkScreen() {
   }, [memoryResurface, memories]);
 
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
-  const isEmpty = !isLoading && allSuggestions.length === 0;
+  const isEmpty = !isLoading && allSuggestions.length === 0 && persons.length === 0;
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -171,6 +263,77 @@ export default function GardenWalkScreen() {
             Your garden this week
           </Text>
         </Animated.View>
+
+        {/* ─── The stroll: every plant in the garden ──────────────────── */}
+        {!isLoading && persons.length > 0 && (
+          <View style={{ marginBottom: spacing["2xl"] }}>
+            <Animated.View entering={FadeInUp.duration(400).delay(80)}>
+              <Text
+                style={{
+                  fontFamily: fonts.sansSemiBold,
+                  fontSize: 13,
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                  color: colors.warmGray,
+                  marginBottom: spacing.md,
+                }}
+              >
+                Stroll past your plants
+              </Text>
+            </Animated.View>
+            {tendedPersons.length > 0 && (
+              <Animated.View entering={FadeInUp.duration(400).delay(100)}>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 11,
+                    letterSpacing: 1,
+                    textTransform: "uppercase",
+                    color: colors.sage,
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  Your season
+                </Text>
+              </Animated.View>
+            )}
+            {tendedPersons.map((person, index) => (
+              <WalkPlantRow
+                key={person.id}
+                person={person}
+                memories={memories}
+                interactions={interactions}
+                index={index}
+              />
+            ))}
+            {tendedPersons.length > 0 && otherPersons.length > 0 && (
+              <Animated.View entering={FadeInUp.duration(400).delay(120)}>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 11,
+                    letterSpacing: 1,
+                    textTransform: "uppercase",
+                    color: colors.warmGray,
+                    marginTop: spacing.sm,
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  The rest of your garden
+                </Text>
+              </Animated.View>
+            )}
+            {otherPersons.map((person, index) => (
+              <WalkPlantRow
+                key={person.id}
+                person={person}
+                memories={memories}
+                interactions={interactions}
+                index={tendedPersons.length + index}
+              />
+            ))}
+          </View>
+        )}
 
         {/* ─── Loading state ────────────────────────────────────────────── */}
         {isLoading && (

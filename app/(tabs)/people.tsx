@@ -26,6 +26,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   FadeInUp,
+  LinearTransition,
 } from "react-native-reanimated";
 import {
   Plus,
@@ -35,10 +36,11 @@ import {
   BookUser,
 } from "lucide-react-native";
 import { colors, fonts, shadows } from "@design/tokens";
-import { Skeleton, ErrorState, EmptyState, FadeIn } from "@/components/ui";
-import { usePersons, useMemories, useAllInteractions, useBootstrapGrowth, useAllVitalities } from "@/hooks";
+import { Skeleton, ErrorState, EmptyState, FadeIn, PressableScale } from "@/components/ui";
+import { usePersons, useMemories, useAllInteractions, useBootstrapGrowth, useAllVitalities, useActiveSeason } from "@/hooks";
 import VitalPlant from "@/components/VitalPlant";
-import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
+import LivingPlant from "@/components/LivingPlant";
+import { getVitalityLevel, getSwayParams } from "@/lib/vitalityEngine";
 import { relationshipLabels } from "@/lib/formatters";
 import { getGrowthInfo, type GrowthStage } from "@/lib/growthEngine";
 import type { Person, Memory } from "@/types/database";
@@ -55,6 +57,14 @@ const PLANT_COLORS = [
   colors.gold,
   colors.sky,
 ];
+
+/**
+ * Season setup screen — doubles as the mid-season edit for v1
+ * (SPEC_TENDING_SEASONS §3.3). The route file exists, but the generated
+ * typed-routes union (.expo/types) only refreshes when the dev server
+ * runs — cast until it regenerates.
+ */
+const SEASON_SETUP_ROUTE = "/season/new" as never;
 
 /** Relationship type → accent color */
 const RELATIONSHIP_COLORS: Record<string, string> = {
@@ -182,9 +192,11 @@ const CanopyPlantCard = React.memo(function CanopyPlantCard({
   const personColor = PLANT_COLORS[index % PLANT_COLORS.length];
   const growth = getGrowthInfo(person.id);
   const emoji = STAGE_EMOJI[growth.stage];
+  // Leaf sway amplitude tracks vitality — vibrant plants move more.
+  const leafAmplitude = getSwayParams(getVitalityLevel(vitalityScore)).amplitude;
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => router.push(`/person/${person.id}`)}
       style={{ alignItems: "center", marginRight: 14, width: 78 }}
     >
@@ -207,8 +219,9 @@ const CanopyPlantCard = React.memo(function CanopyPlantCard({
           size={40}
           index={index}
           staggerDelay={0}
+          personId={person.id}
         >
-          <GrowthPlantIllustration stage={growth.stage} size={40} />
+          <LivingPlant stage={growth.stage} size={40} amplitude={leafAmplitude} />
         </VitalPlant>
       </View>
 
@@ -239,7 +252,7 @@ const CanopyPlantCard = React.memo(function CanopyPlantCard({
       >
         {emoji} {growth.label}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 });
 
@@ -262,15 +275,15 @@ const PersonRow = React.memo(function PersonRow({
   const growth = getGrowthInfo(person.id);
   const emoji = STAGE_EMOJI[growth.stage];
   const contextLine = getContextLine(memoryCount, person.name);
-
-  // Pressed state: translateY -2px with enhanced shadow
-  const [pressed, setPressed] = useState(false);
+  // Leaf sway amplitude tracks vitality — vibrant plants move more.
+  const leafAmplitude = getSwayParams(getVitalityLevel(vitalityScore)).amplitude;
 
   return (
-    <Animated.View entering={FadeInUp.delay(index * 60).duration(400)}>
-      <Pressable
-        onPressIn={() => setPressed(true)}
-        onPressOut={() => setPressed(false)}
+    <Animated.View
+      entering={FadeInUp.delay(Math.min(index, 10) * 40).duration(300)}
+      layout={LinearTransition.duration(250)}
+    >
+      <PressableScale
         onPress={() => router.push(`/person/${person.id}`)}
         style={{
           flexDirection: "row",
@@ -283,8 +296,7 @@ const PersonRow = React.memo(function PersonRow({
           borderRadius: 16,
           borderWidth: 1,
           borderColor: colors.border,
-          transform: [{ translateY: pressed ? -2 : 0 }],
-          ...(pressed ? shadows.card : shadows.soft),
+          ...shadows.soft,
         }}
       >
         {/* Avatar / Illustration container */}
@@ -309,8 +321,13 @@ const PersonRow = React.memo(function PersonRow({
               borderRadius: 14,
             }}
           />
-          <VitalPlant vitalityScore={vitalityScore} size={24} index={index}>
-            <GrowthPlantIllustration stage={growth.stage} size={24} />
+          <VitalPlant
+            vitalityScore={vitalityScore}
+            size={24}
+            index={index}
+            personId={person.id}
+          >
+            <LivingPlant stage={growth.stage} size={24} amplitude={leafAmplitude} />
           </VitalPlant>
         </View>
 
@@ -374,7 +391,7 @@ const PersonRow = React.memo(function PersonRow({
           size={16}
           style={{ opacity: 0.35, marginLeft: 8 }}
         />
-      </Pressable>
+      </PressableScale>
     </Animated.View>
   );
 });
@@ -408,6 +425,9 @@ export default function YourGardenScreen() {
 
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
   const error = personsError || memoriesError;
+
+  // Active season — only used for the quiet header affordance label.
+  const { season, isLoading: seasonLoading } = useActiveSeason();
 
   // Bootstrap growth points from existing data (runs once)
   useBootstrapGrowth(memories, allInteractions, isLoading);
@@ -520,39 +540,61 @@ export default function YourGardenScreen() {
             </Text>
           </View>
 
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            {/* Import from contacts */}
-            <Pressable
-              onPress={() => router.push("/import-contacts")}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: colors.white,
-                borderWidth: 1.5,
-                borderColor: colors.sageLight,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <BookUser color={colors.sage} size={18} strokeWidth={2} />
-            </Pressable>
+          <View style={{ alignItems: "flex-end" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              {/* Import from contacts */}
+              <Pressable
+                onPress={() => router.push("/import-contacts")}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: colors.white,
+                  borderWidth: 1.5,
+                  borderColor: colors.sageLight,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <BookUser color={colors.sage} size={18} strokeWidth={2} />
+              </Pressable>
 
-            {/* Add person manually */}
-            <Pressable
-              onPress={() => router.push("/(tabs)/add")}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: colors.sage,
-                alignItems: "center",
-                justifyContent: "center",
-                ...shadows.soft,
-              }}
-            >
-              <Plus color={colors.white} size={20} strokeWidth={2.5} />
-            </Pressable>
+              {/* Add person manually */}
+              <Pressable
+                onPress={() => router.push("/(tabs)/add")}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: colors.sage,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  ...shadows.soft,
+                }}
+              >
+                <Plus color={colors.white} size={20} strokeWidth={2.5} />
+              </Pressable>
+            </View>
+
+            {/* Quiet season affordance — setup screen doubles as edit
+                (SPEC_TENDING_SEASONS §3.3) */}
+            {!seasonLoading && persons.length > 0 && (
+              <Pressable
+                onPress={() => router.push(SEASON_SETUP_ROUTE)}
+                hitSlop={8}
+                style={{ marginTop: 10, paddingVertical: 2 }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMedium,
+                    fontSize: 13,
+                    color: season ? colors.sage : colors.warmGray,
+                  }}
+                >
+                  {season ? "Your season" : "Begin a season"}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
 

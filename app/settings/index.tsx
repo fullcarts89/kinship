@@ -183,7 +183,7 @@ export default function SettingsScreen() {
 
         {/* Account section */}
         <View style={{ marginHorizontal: 14, marginBottom: 14 }}>
-          <SectionLabel label="Account" />
+          <SectionLabel label="You" />
           <View
             style={{
               backgroundColor: colors.white,

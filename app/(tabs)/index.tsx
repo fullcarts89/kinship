@@ -30,7 +30,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bell, Settings } from "lucide-react-native";
+import { Bell, ChevronRight, Leaf, Pencil, Settings, Sprout } from "lucide-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -40,19 +40,26 @@ import Animated, {
   withSequence,
   Easing,
   FadeInUp,
+  LinearTransition,
+  interpolate,
+  runOnJS,
 } from "react-native-reanimated";
+import Svg, { Path } from "react-native-svg";
 import { colors, fonts } from "@design/tokens";
-import { Skeleton, ErrorState, FadeIn } from "@/components/ui";
+import { Skeleton, ErrorState, FadeIn, PressableScale } from "@/components/ui";
 import { OrientationOverlay } from "@/components/OrientationOverlay";
 import type { HighlightRect } from "@/components/OrientationOverlay";
-import { usePersons, useMemories, useAllInteractions, useAllVitalities } from "@/hooks";
+import { usePersons, useMemories, useAllInteractions, useAllVitalities, useOpenPromises, useActiveSeason } from "@/hooks";
 import { useBootstrapGrowth } from "@/hooks/useGrowth";
 import VitalPlant from "@/components/VitalPlant";
-import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
+import LivingPlant from "@/components/LivingPlant";
+import { getVitalityLevel, getSwayParams } from "@/lib/vitalityEngine";
 import { useOrientation, ORIENTATION_STEP_SCREEN } from "@/hooks/useOrientation";
 import { getGrowthInfo } from "@/lib/growthEngine";
 import type { GrowthStage } from "@/lib/growthEngine";
 import { formatRelativeDate, formatMemoryDate, getMemoryDate, emotionEmojis } from "@/lib/formatters";
+import { selectSpotlightMemory } from "@/lib/spotlightEngine";
+import { scheduleAmbientNotifications } from "@/lib/notificationService";
 import { generateSuggestions } from "@/lib/suggestionEngine";
 import type { IntelligentSuggestion, SuggestionType } from "@/lib/suggestionEngine";
 import { getRecentCalendarMatches } from "@/lib/calendarEngine";
@@ -80,6 +87,14 @@ const borderClr = colors.border;
 
 /** Per-person accent colors, cycled for visual variety */
 const PLANT_COLORS = [sage, "#5E9EA0", lavender, peach, gold, colors.sky];
+
+// ─── Season Routes ──────────────────────────────────────────────────────────
+// The season setup screen doubles as the mid-season edit for v1
+// (SPEC_TENDING_SEASONS §3.3). The route files exist, but the generated
+// typed-routes union (.expo/types) only refreshes when the dev server runs —
+// cast until it regenerates.
+const SEASON_SETUP_ROUTE = "/season/new" as never;
+const SEASON_RETROSPECTIVE_ROUTE = "/season/retrospective" as never;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -111,24 +126,32 @@ function SwayingPlant({
   index,
   vitalityScore,
   onPress,
+  scale = 1,
 }: {
   person: Person;
   index: number;
   vitalityScore: number;
   onPress: () => void;
+  /** Visual scale — the season strip renders the same plant ~25% larger. */
+  scale?: number;
 }) {
   const stage = getGrowthInfo(person.id).stage;
+  // Leaf sway amplitude tracks vitality — vibrant plants move more.
+  const leafAmplitude = getSwayParams(getVitalityLevel(vitalityScore)).amplitude;
+  const box = Math.round(68 * scale);
+  const plant = Math.round(44 * scale);
+  const slot = Math.round(72 * scale);
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
-      style={{ alignItems: "center", marginRight: 18, width: 72 }}
+      style={{ alignItems: "center", marginRight: 18, width: slot }}
     >
       <View
         style={{
-          width: 68,
-          height: 68,
-          borderRadius: 20,
+          width: box,
+          height: box,
+          borderRadius: Math.round(20 * scale),
           backgroundColor: sagePale,
           alignItems: "center",
           justifyContent: "center",
@@ -138,27 +161,108 @@ function SwayingPlant({
       >
         <VitalPlant
           vitalityScore={vitalityScore}
-          size={44}
+          size={plant}
           index={index}
           staggerDelay={0}
+          personId={person.id}
         >
-          <GrowthPlantIllustration stage={stage} size={44} />
+          <LivingPlant stage={stage} size={plant} amplitude={leafAmplitude} />
         </VitalPlant>
       </View>
       <Text
         style={{
           fontFamily: fonts.sansMedium,
-          fontSize: 12,
+          fontSize: scale > 1 ? 13 : 12,
           color: nearBlack,
           textAlign: "center",
           marginTop: 8,
-          maxWidth: 72,
+          maxWidth: slot,
         }}
         numberOfLines={1}
       >
         {person.name.split(" ")[0]}
       </Text>
-    </Pressable>
+    </PressableScale>
+  );
+}
+
+// ─── Drifting Leaf (ambient life) ───────────────────────────────────────────
+
+/**
+ * A single tiny leaf that occasionally (every 18–30s) drifts diagonally
+ * down across the garden carousel with a slow rotation, then fades out.
+ * Purely ambient — pointerEvents none, never more than one leaf at a time.
+ */
+const LEAF_DRIFT_DURATION = 7000;
+
+function DriftingLeaf() {
+  const progress = useSharedValue(0);
+  const startX = useSharedValue(40);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const schedule = () => {
+      if (cancelled) return;
+      // Long random pause between leaves: 18–30 seconds
+      const delay = 8000 + Math.random() * 8000;
+      timer = setTimeout(() => {
+        if (cancelled) return;
+        startX.value = 16 + Math.random() * 220; // randomize entry point
+        progress.value = 0;
+        progress.value = withTiming(
+          1,
+          { duration: LEAF_DRIFT_DURATION, easing: Easing.inOut(Easing.sin) },
+          (finished) => {
+            if (finished) runOnJS(schedule)();
+          }
+        );
+      }, delay);
+    };
+
+    schedule();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  const leafStyle = useAnimatedStyle(() => {
+    const p = progress.value;
+    return {
+      opacity: interpolate(p, [0, 0.15, 0.7, 1], [0, 0.9, 0.7, 0]),
+      transform: [
+        { translateX: startX.value + p * 60 },
+        { translateY: p * 180 },
+        { rotate: `${p * 140}deg` },
+      ],
+    };
+  });
+
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: "hidden",
+      }}
+    >
+      <Animated.View
+        style={[{ position: "absolute", top: 0, left: 0 }, leafStyle]}
+      >
+        <Svg width={10} height={10} viewBox="0 0 10 10">
+          <Path
+            d="M1 5 C2.5 1.5 7 0.5 9 2 C8.5 6.5 4.5 9 1.2 8 C0.5 7 0.5 6 1 5"
+            fill={sageLight}
+          />
+        </Svg>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -168,10 +272,12 @@ function GardenSummaryCard({
   personCount,
   memoryCount,
   interactionCount,
+  onViewWeek,
 }: {
   personCount: number;
   memoryCount: number;
   interactionCount: number;
+  onViewWeek: () => void;
 }) {
   const stats = [
     { value: personCount, label: personCount === 1 ? "seed planted" : "seeds planted" },
@@ -180,9 +286,9 @@ function GardenSummaryCard({
   ];
 
   return (
-    <View
+    <PressableScale
+      onPress={onViewWeek}
       style={{
-        flexDirection: "row",
         backgroundColor: white,
         borderRadius: 16,
         borderWidth: 1,
@@ -197,42 +303,69 @@ function GardenSummaryCard({
         elevation: 1,
       }}
     >
-      {stats.map((stat, i) => (
-        <View
-          key={i}
+      <View style={{ flexDirection: "row" }}>
+        {stats.map((stat, i) => (
+          <View
+            key={i}
+            style={{
+              flex: 1,
+              alignItems: "center",
+              borderRightWidth: i < stats.length - 1 ? 1 : 0,
+              borderRightColor: borderClr,
+              paddingHorizontal: 4,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 20,
+                color: sage,
+                lineHeight: 24,
+              }}
+            >
+              {stat.value}
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 11,
+                color: warmGray,
+                textAlign: "center",
+                marginTop: 2,
+                lineHeight: 14,
+              }}
+            >
+              {stat.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* View your week — opens the Weekly Garden Digest */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
+          marginTop: 12,
+          paddingTop: 10,
+          borderTopWidth: 1,
+          borderTopColor: borderClr,
+        }}
+      >
+        <Text
           style={{
-            flex: 1,
-            alignItems: "center",
-            borderRightWidth: i < stats.length - 1 ? 1 : 0,
-            borderRightColor: borderClr,
-            paddingHorizontal: 4,
+            fontFamily: fonts.sansMedium,
+            fontSize: 13,
+            color: sage,
           }}
         >
-          <Text
-            style={{
-              fontFamily: fonts.sansSemiBold,
-              fontSize: 20,
-              color: sage,
-              lineHeight: 24,
-            }}
-          >
-            {stat.value}
-          </Text>
-          <Text
-            style={{
-              fontFamily: fonts.sans,
-              fontSize: 11,
-              color: warmGray,
-              textAlign: "center",
-              marginTop: 2,
-              lineHeight: 14,
-            }}
-          >
-            {stat.label}
-          </Text>
-        </View>
-      ))}
-    </View>
+          View your week
+        </Text>
+        <ChevronRight color={sage} size={14} strokeWidth={2.5} />
+      </View>
+    </PressableScale>
   );
 }
 
@@ -323,9 +456,12 @@ function PlantASeedFAB({ onPress }: { onPress: () => void }) {
 function MemorySpotlight({
   memory,
   person,
+  reason,
 }: {
   memory: Memory;
   person: Person | undefined;
+  /** Warm caption for why this memory surfaced today, e.g. "One year ago today" */
+  reason?: string | null;
 }) {
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(10);
@@ -402,6 +538,18 @@ function MemorySpotlight({
           >
             {memory.content}
           </Text>
+          {reason && (
+            <Text
+              style={{
+                fontFamily: fonts.sansMedium,
+                fontSize: 12,
+                color: gold,
+                marginBottom: 6,
+              }}
+            >
+              {reason}
+            </Text>
+          )}
           <View
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
@@ -463,6 +611,8 @@ function SectionLabel({
 
 const SUGGESTION_ICON: Record<SuggestionType, string> = {
   birthday_upcoming: "\uD83C\uDF82",    // 🎂
+  promise_follow_through: "\uD83E\uDD1D", // 🤝
+  season_rhythm: "\uD83C\uDF31",
   memory_resurface: "\uD83D\uDCAD",     // 💭
   drift_reconnect: "\uD83C\uDF3F",      // 🌿
   post_event_capture: "\uD83D\uDCF8",   // 📸
@@ -503,8 +653,11 @@ function DynamicSuggestionCard({
   const icon = SUGGESTION_ICON[suggestion.type] ?? "\uD83D\uDC8C";
 
   return (
-    <Animated.View entering={FadeInUp.delay(index * 100).duration(400)}>
-      <Pressable
+    <Animated.View
+      entering={FadeInUp.delay(index * 100).duration(400)}
+      layout={LinearTransition.duration(250)}
+    >
+      <PressableScale
         onPress={() => handleSuggestionPress(suggestion)}
         style={{
           backgroundColor: white,
@@ -551,7 +704,7 @@ function DynamicSuggestionCard({
             {suggestion.reason}
           </Text>
         </View>
-      </Pressable>
+      </PressableScale>
     </Animated.View>
   );
 }
@@ -608,6 +761,14 @@ export default function GardenScreen() {
     isLoading: interactionsLoading,
     refetch: refetchInteractions,
   } = useAllInteractions();
+  const { promises: openPromises } = useOpenPromises();
+  const {
+    season,
+    commitments,
+    endedSeason,
+    isLoading: seasonLoading,
+    refetch: refetchSeason,
+  } = useActiveSeason();
 
   // Bootstrap growth store from existing data on first load
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
@@ -699,23 +860,33 @@ export default function GardenScreen() {
 
   const greeting = useMemo(() => getGreeting(), []);
 
+  // Tended people for the season strip, in commitment order.
+  // Identical plants to the garden — being tended confers attention,
+  // never judgment (SPEC_TENDING_SEASONS §3.5).
+  const tendedPersons = useMemo(() => {
+    if (!season) return [] as Person[];
+    return commitments
+      .map((c) => personsMap.get(c.person_id))
+      .filter((p): p is Person => p !== undefined);
+  }, [season, commitments, personsMap]);
+
   const gardenPhrase = useMemo(
     () => getGardenPhrase(persons.length, memories.length),
     [persons.length, memories.length]
   );
 
-  // Spotlight memory: rotates daily, only shows memories 7+ days old (INTL-04)
-  const spotlightMemory = useMemo(() => {
-    if (memories.length === 0) return null;
-    const now = Date.now();
-    const MIN_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-    const eligible = memories.filter(
-      (m) => now - new Date(m.occurred_at || m.created_at).getTime() >= MIN_AGE_MS
-    );
-    if (eligible.length === 0) return null;
-    const dayIdx = Math.floor(now / 86400000);
-    return eligible[dayIdx % eligible.length];
-  }, [memories]);
+  // Spotlight memory: weighted daily pick (anniversaries, photos, emotions),
+  // only shows memories 7+ days old (INTL-04). Deterministic per day.
+  const spotlight = useMemo(() => selectSpotlightMemory(memories), [memories]);
+
+  // Ambient notification scheduling — fire-and-forget once per mount,
+  // after persons + memories have loaded. No-ops without permission.
+  const ambientScheduled = useRef(false);
+  useEffect(() => {
+    if (personsLoading || memoriesLoading || ambientScheduled.current) return;
+    ambientScheduled.current = true;
+    scheduleAmbientNotifications(memories, persons).catch(() => {});
+  }, [personsLoading, memoriesLoading, memories, persons]);
 
   // Calendar matches for post-event suggestions (Tier 2)
   const [calendarMatches, setCalendarMatches] = useState<CalendarMatch[]>([]);
@@ -738,16 +909,16 @@ export default function GardenScreen() {
 
   // Dynamic suggestions from the suggestion engine (ranked, deduped, max 3)
   const suggestions = useMemo(
-    () => generateSuggestions(persons, memories, allInteractions, calendarMatches, 3),
-    [persons, memories, allInteractions, calendarMatches]
+    () => generateSuggestions(persons, memories, allInteractions, calendarMatches, 3, openPromises),
+    [persons, memories, allInteractions, calendarMatches, openPromises]
   );
 
   // ── Actions ───────────────────────────────────────────────────────────
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchPersons(), refetchMemories(), refetchInteractions()]);
+    await Promise.all([refetchPersons(), refetchMemories(), refetchInteractions(), refetchSeason()]);
     setRefreshing(false);
-  }, [refetchPersons, refetchMemories, refetchInteractions]);
+  }, [refetchPersons, refetchMemories, refetchInteractions, refetchSeason]);
 
   const handleRetry = useCallback(() => {
     refetchPersons();
@@ -755,13 +926,15 @@ export default function GardenScreen() {
     refetchInteractions();
   }, [refetchPersons, refetchMemories, refetchInteractions]);
 
-  // Refetch data whenever this tab gains focus (e.g. after adding a person)
+  // Refetch data whenever this tab gains focus (e.g. after adding a person,
+  // or returning from season setup / retrospective)
   useFocusEffect(
     useCallback(() => {
       refetchPersons();
       refetchMemories();
       refetchInteractions();
-    }, [refetchPersons, refetchMemories, refetchInteractions])
+      refetchSeason();
+    }, [refetchPersons, refetchMemories, refetchInteractions, refetchSeason])
   );
 
   const hasPeople = persons.length > 0;
@@ -891,6 +1064,125 @@ export default function GardenScreen() {
               </View>
             </Animated.View>
 
+            {/* ─── Your Season (Tending Seasons §3.3) ───────────── */}
+            {/* No status markers, counts, or completion states — ever
+                (SPEC_TENDING_SEASONS §3.5). Just the tended plants. */}
+            {!seasonLoading && season && tendedPersons.length > 0 && (
+              <Animated.View
+                entering={FadeInUp.delay(50).duration(400)}
+                style={{ marginBottom: 24 }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 11,
+                    letterSpacing: 1,
+                    textTransform: "uppercase",
+                    color: sage,
+                    marginBottom: 12,
+                  }}
+                >
+                  {season.name} — Your season
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  scrollEnabled={!showOrientation}
+                  contentContainerStyle={{
+                    paddingLeft: 4,
+                    paddingRight: 8,
+                    paddingBottom: 4,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  {tendedPersons.map((p, i) => (
+                    <SwayingPlant
+                      key={p.id}
+                      person={p}
+                      index={i}
+                      scale={1.25}
+                      vitalityScore={vitalities[p.id]?.score ?? 1.0}
+                      onPress={() => router.push(`/person/${p.id}`)}
+                    />
+                  ))}
+                  {/* Quiet edit affordance — setup screen doubles as edit */}
+                  <Pressable
+                    onPress={() => router.push(SEASON_SETUP_ROUTE)}
+                    hitSlop={8}
+                    style={{
+                      width: 44,
+                      height: 85, // matches the scaled plant container
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Pencil color={warmGray} size={16} strokeWidth={1.8} />
+                  </Pressable>
+                </ScrollView>
+              </Animated.View>
+            )}
+
+            {/* ─── Season's End (in place of the strip) ─────────── */}
+            {!seasonLoading && endedSeason && (
+              <Animated.View entering={FadeInUp.delay(50).duration(400)}>
+                <PressableScale
+                  onPress={() => router.push(SEASON_RETROSPECTIVE_ROUTE)}
+                  style={{
+                    backgroundColor: white,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: borderClr,
+                    padding: 16,
+                    marginBottom: 24,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                    shadowColor: nearBlack,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: gold + "1A",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Leaf color={gold} size={20} strokeWidth={1.8} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontFamily: fonts.sansMedium,
+                        fontSize: 14,
+                        color: nearBlack,
+                        marginBottom: 2,
+                      }}
+                    >
+                      Your {endedSeason.name} has come to a close
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: fonts.sans,
+                        fontSize: 13,
+                        color: warmGray,
+                        lineHeight: 18,
+                      }}
+                    >
+                      Take a look back at what grew
+                    </Text>
+                  </View>
+                  <ChevronRight color={warmGray} size={18} strokeWidth={2} />
+                </PressableScale>
+              </Animated.View>
+            )}
+
             {/* ─── Your Living Garden ───────────────────────────── */}
             {hasPeople ? (
               <Animated.View entering={FadeInUp.delay(100).duration(400)}>
@@ -904,43 +1196,50 @@ export default function GardenScreen() {
                   personCount={persons.length}
                   memoryCount={memories.length}
                   interactionCount={allInteractions.length}
+                  onViewWeek={() => router.push("/activity")}
                 />
 
-                {/* Garden illustration hero — orientation Step 1 target */}
-                <View
-                  ref={gardenHeroRef}
-                  style={{ alignItems: "center", marginBottom: 12 }}
-                >
-                  <GardenRevealIllustration size={180} />
-                </View>
+                {/* Garden hero + carousel, with ambient drifting leaf */}
+                <View>
+                  {/* Garden illustration hero — orientation Step 1 target */}
+                  <View
+                    ref={gardenHeroRef}
+                    style={{ alignItems: "center", marginBottom: 12 }}
+                  >
+                    <GardenRevealIllustration size={180} />
+                  </View>
 
-                {/* Interactive plant avatars — each plant = a person */}
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  scrollEnabled={!showOrientation}
-                  contentContainerStyle={{
-                    paddingRight: 8,
-                    paddingBottom: 4,
-                    paddingLeft: 4,
-                  }}
-                  style={{ marginBottom: 6 }}
-                >
-                  {persons.map((p, i) => (
-                    <View
-                      key={p.id}
-                      ref={i === 0 ? firstPlantRef : undefined}
-                      collapsable={false}
-                    >
-                      <SwayingPlant
-                        person={p}
-                        index={i}
-                        vitalityScore={vitalities[p.id]?.score ?? 1.0}
-                        onPress={() => router.push(`/person/${p.id}`)}
-                      />
-                    </View>
-                  ))}
-                </ScrollView>
+                  {/* Interactive plant avatars — each plant = a person */}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    scrollEnabled={!showOrientation}
+                    contentContainerStyle={{
+                      paddingRight: 8,
+                      paddingBottom: 4,
+                      paddingLeft: 4,
+                    }}
+                    style={{ marginBottom: 6 }}
+                  >
+                    {persons.map((p, i) => (
+                      <View
+                        key={p.id}
+                        ref={i === 0 ? firstPlantRef : undefined}
+                        collapsable={false}
+                      >
+                        <SwayingPlant
+                          person={p}
+                          index={i}
+                          vitalityScore={vitalities[p.id]?.score ?? 1.0}
+                          onPress={() => router.push(`/person/${p.id}`)}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
+
+                  {/* Ambient life — one occasional drifting leaf */}
+                  <DriftingLeaf />
+                </View>
 
                 {/* Swipe hint */}
                 <Text
@@ -1031,12 +1330,13 @@ export default function GardenScreen() {
             )}
 
             {/* ─── A Moment Worth Revisiting ──────────────────── */}
-            {spotlightMemory && (
+            {spotlight && (
               <Animated.View entering={FadeInUp.delay(200).duration(400)}>
                 <SectionLabel text="A moment worth revisiting" />
                 <MemorySpotlight
-                  memory={spotlightMemory}
-                  person={personsMap.get(spotlightMemory.person_id)}
+                  memory={spotlight.memory}
+                  person={personsMap.get(spotlight.memory.person_id)}
+                  reason={spotlight.reason}
                 />
               </Animated.View>
             )}
@@ -1057,29 +1357,6 @@ export default function GardenScreen() {
                         index={i}
                       />
                     ))}
-                    {/* Preview Garden Walk link */}
-                    <Pressable
-                      onPress={() => router.push("/garden-walk")}
-                      style={{
-                        alignSelf: "center",
-                        paddingVertical: 10,
-                        paddingHorizontal: 16,
-                        marginTop: 4,
-                        marginBottom: 8,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontFamily: fonts.sans,
-                          fontSize: 13,
-                          color: sage,
-                          textDecorationLine: "underline",
-                          textDecorationColor: sage + "66",
-                        }}
-                      >
-                        Preview Garden Walk
-                      </Text>
-                    </Pressable>
                   </>
                 ) : (
                   <View
@@ -1108,6 +1385,126 @@ export default function GardenScreen() {
                     </Text>
                   </View>
                 )}
+
+                {/* ─── Take a Garden Walk ─────────────────────── */}
+                <PressableScale
+                  onPress={() => router.push("/garden-walk")}
+                  style={{
+                    backgroundColor: white,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: borderClr,
+                    padding: 16,
+                    marginTop: 4,
+                    marginBottom: 12,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                    shadowColor: nearBlack,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: sagePale,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Leaf color={sage} size={20} strokeWidth={1.8} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontFamily: fonts.sansMedium,
+                        fontSize: 14,
+                        color: nearBlack,
+                        marginBottom: 2,
+                      }}
+                    >
+                      Take a garden walk
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: fonts.sans,
+                        fontSize: 13,
+                        color: warmGray,
+                        lineHeight: 18,
+                      }}
+                    >
+                      A quiet stroll through your week, whenever you're ready
+                    </Text>
+                  </View>
+                  <ChevronRight color={warmGray} size={18} strokeWidth={2} />
+                </PressableScale>
+
+                {/* ─── Begin a Tending Season ─────────────── */}
+                {!seasonLoading &&
+                  !season &&
+                  !endedSeason &&
+                  persons.length >= 2 && (
+                    <PressableScale
+                      onPress={() => router.push(SEASON_SETUP_ROUTE)}
+                      style={{
+                        backgroundColor: white,
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: borderClr,
+                        padding: 16,
+                        marginBottom: 12,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 14,
+                        shadowColor: nearBlack,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.04,
+                        shadowRadius: 8,
+                        elevation: 2,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: sagePale,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Sprout color={sage} size={20} strokeWidth={1.8} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontFamily: fonts.sansMedium,
+                            fontSize: 14,
+                            color: nearBlack,
+                            marginBottom: 2,
+                          }}
+                        >
+                          Begin a tending season
+                        </Text>
+                        <Text
+                          style={{
+                            fontFamily: fonts.sans,
+                            fontSize: 13,
+                            color: warmGray,
+                            lineHeight: 18,
+                          }}
+                        >
+                          Choose a few people to intentionally invest in
+                        </Text>
+                      </View>
+                      <ChevronRight color={warmGray} size={18} strokeWidth={2} />
+                    </PressableScale>
+                  )}
               </Animated.View>
             )}
 

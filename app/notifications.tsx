@@ -1,13 +1,19 @@
 /**
- * Notification System — 9-Screen Flow
+ * Notifications — Garden Reflections
  *
- * Four paired flows (lock screen → detail) plus an in-app notification archive.
+ * Default (production) view: the Garden Reflections archive. Since there is
+ * no real notification history yet, it shows a calm empty state explaining
+ * that gentle notifications will appear here as the garden grows.
+ *
+ * Development only: a 9-screen design demo (four paired lock screen → detail
+ * flows plus a populated archive concept) remains in this file, reachable via
+ * a "Preview designs" link that is rendered only when __DEV__ is true.
  *
  * § 1-2 · Memory Resurfacing — past moment resurfaces on lock screen → full-bleed memory view
  * § 3-4 · Memory Capture — gentle prompt after shared moment → photo save sheet
  * § 5-6 · Identity Reinforcement — affirms who you're becoming → garden reflection
  * § 7-8 · Opportunity Suggestion — relational opening → person suggestion card
- * § 9   · Garden Reflections — in-app notification archive (default entry)
+ * § 9   · Garden Reflections — in-app notification archive (populated demo)
  *
  * Tone philosophy: never gap-shaming, never urgency, never guilt. Always optional,
  * always gentle, always framed as the memory itself — not the absence.
@@ -42,6 +48,7 @@ import {
   SproutSmallIllustration,
   PlantGrowthLeavesIllustration,
   PlantRingIllustration,
+  RestingPlantIllustration,
 } from "@/components/illustrations";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -1699,18 +1706,163 @@ function S9_NotificationCenter({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// DEFAULT — Garden Reflections (production view, calm empty state)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function GardenReflectionsHome({
+  onBack,
+  onPreviewDesigns,
+  insets,
+}: {
+  onBack: () => void;
+  /** Dev-only: opens the design demo flow. Undefined in production builds. */
+  onPreviewDesigns?: () => void;
+  insets: Insets;
+}) {
+  return (
+    <View style={{ flex: 1, backgroundColor: "#F8F3E8" }}>
+      {/* Header */}
+      <View
+        style={{
+          paddingTop: insets.top + 16,
+          paddingHorizontal: 22,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 14,
+          }}
+        >
+          <Pressable onPress={onBack} hitSlop={12}>
+            <ArrowLeft size={18} strokeWidth={2} color={warmGray} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: fonts.serif,
+                fontSize: 24,
+                color: nearBlack,
+                lineHeight: 26,
+              }}
+            >
+              Garden Reflections
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 13,
+                color: warmGray,
+                marginTop: 2,
+              }}
+            >
+              Moments worth revisiting.
+            </Text>
+          </View>
+          <LinearGradient
+            colors={[sage, sageDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 11,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Leaf size={16} strokeWidth={2} color={white} />
+          </LinearGradient>
+        </View>
+      </View>
+
+      {/* Calm empty state — no notification history yet */}
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 40,
+          paddingBottom: insets.bottom + 32,
+        }}
+      >
+        <FadeIn delay={100} duration={500}>
+          <View style={{ alignItems: "center" }}>
+            <RestingPlantIllustration size={180} />
+            <Text
+              style={{
+                fontFamily: fonts.serif,
+                fontSize: 22,
+                color: nearBlack,
+                textAlign: "center",
+                lineHeight: 28,
+                marginTop: 24,
+                marginBottom: 8,
+              }}
+            >
+              No reflections yet
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 14,
+                color: warmGray,
+                textAlign: "center",
+                lineHeight: 22,
+                maxWidth: 280,
+              }}
+            >
+              As your garden grows, gentle notifications will appear here —
+              moments worth revisiting, never reminders.
+            </Text>
+            {onPreviewDesigns && (
+              <View style={{ marginTop: 24 }}>
+                <TxtLink label="Preview designs" onPress={onPreviewDesigns} />
+              </View>
+            )}
+          </View>
+        </FadeIn>
+      </View>
+    </View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN — Notification System Router
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
-  // Default to Screen 9 (Garden Reflections) when entering from the app
-  const [step, setStep] = useState(8);
+  // -1 = real Garden Reflections view (default entry).
+  // 0-8 = design demo screens, reachable only in development builds
+  //       via the "Preview designs" link.
+  const [step, setStep] = useState(-1);
 
   const screenInsets: Insets = {
     top: insets.top,
     bottom: insets.bottom,
   };
+
+  const exitScreen = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)/profile");
+    }
+  };
+
+  // Production builds always show the real view — the demo is unreachable.
+  if (!__DEV__ || step === -1) {
+    return (
+      <GardenReflectionsHome
+        insets={screenInsets}
+        onBack={exitScreen}
+        onPreviewDesigns={__DEV__ ? () => setStep(0) : undefined}
+      />
+    );
+  }
 
   switch (step) {
     case 0:
@@ -1776,13 +1928,8 @@ export default function NotificationsScreen() {
       return (
         <S9_NotificationCenter
           insets={screenInsets}
-          onBack={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace("/(tabs)/profile");
-            }
-          }}
+          // Back from the demo archive returns to the real view
+          onBack={() => setStep(-1)}
           onOpenMemory={() => setStep(1)}
           onOpenIdentity={() => setStep(5)}
           onOpenOpportunity={() => setStep(7)}

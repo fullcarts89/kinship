@@ -18,6 +18,7 @@ import {
   subscribeToGrowth,
   bootstrapGrowthFromData,
   hasRecentTransition,
+  clearRecentTransition,
 } from "@/lib/growthEngine";
 import type { GrowthStage, GrowthInfo } from "@/lib/growthEngine";
 import type { Memory, Interaction } from "@/types/database";
@@ -35,6 +36,9 @@ export interface PersonGrowth extends GrowthInfo {
  * Reactive hook for a single person's growth info.
  * Re-renders whenever the module-level growth store changes.
  */
+/** How long the "just transitioned" flag stays set before auto-clearing. */
+const TRANSITION_DISPLAY_MS = 3000;
+
 export function usePersonGrowth(personId: string): PersonGrowth {
   const [, rerender] = useState(0);
 
@@ -46,9 +50,22 @@ export function usePersonGrowth(personId: string): PersonGrowth {
   }, [personId]);
 
   const info = getGrowthInfo(personId);
+  const justTransitioned = hasRecentTransition(personId);
+
+  // Auto-clear the transition flag once the celebration window has passed,
+  // so plants don't stay marked "just transitioned" for the app's lifetime.
+  useEffect(() => {
+    if (!justTransitioned) return;
+    const timer = setTimeout(
+      () => clearRecentTransition(personId),
+      TRANSITION_DISPLAY_MS
+    );
+    return () => clearTimeout(timer);
+  }, [justTransitioned, personId]);
+
   return {
     ...info,
-    justTransitioned: hasRecentTransition(personId),
+    justTransitioned,
   };
 }
 
@@ -68,7 +85,7 @@ export function useBootstrapGrowth(
     if (!isLoading) {
       bootstrapGrowthFromData(memories, interactions);
     }
-  }, [isLoading]);
+  }, [isLoading, memories, interactions]);
 }
 
 // Re-export types for convenience

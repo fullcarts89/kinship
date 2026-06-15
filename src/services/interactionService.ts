@@ -83,3 +83,16 @@ export async function createInteraction(
   if (error) throw new Error(error.message || "Database operation failed");
   return data as Interaction;
 }
+
+export async function deleteInteraction(id: string): Promise<void> {
+  if (!supabase) throw new Error("Supabase not configured");
+
+  const userId = await getAuthUserId();
+  const { error } = await supabase
+    .from("interactions")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message || "Database operation failed");
+}

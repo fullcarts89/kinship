@@ -20,12 +20,22 @@ import {
 } from "react-native";
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { usePerson, useCreateInteraction } from "@/hooks";
+import Animated, { FadeInUp } from "react-native-reanimated";
+import { usePerson, useCreateInteraction, useCreatePromise } from "@/hooks";
+import {
+  emotionList,
+  emotionEmojis,
+  formatEmotionLabel,
+} from "@/lib/formatters";
 import {
   recordReflectionGrowth,
   getTransitionToastMessage,
 } from "@/lib/growthEngine";
 import { showGrowthToast } from "@/components/ui/GrowthToast";
+import {
+  requestNotificationPermissions,
+  schedulePostReachOutCapturePrompt,
+} from "@/lib/notificationService";
 import { RestingPlantIllustration } from "@/components/illustrations";
 import { Skeleton } from "@/components/ui";
 import { colors, fonts } from "@design/tokens";
@@ -33,19 +43,11 @@ import type { Emotion } from "@/types";
 
 // ─── Emoji → Emotion Mapping ──────────────────────────────────────────────
 
-interface ReactionOption {
-  emoji: string;
-  emotion: Emotion;
-  label: string;
-}
-
-const REACTIONS: ReactionOption[] = [
-  { emoji: "\uD83D\uDE0A", emotion: "connected", label: "Connected" },
-  { emoji: "\u2764\uFE0F", emotion: "loved", label: "Loved" },
-  { emoji: "\uD83C\uDF31", emotion: "hopeful", label: "Hopeful" },
-  { emoji: "\u2728", emotion: "inspired", label: "Inspired" },
-  { emoji: "\uD83E\uDD17", emotion: "grateful", label: "Grateful" },
-];
+/**
+ * Canonical emotion options \u2014 sourced from the app-wide taxonomy in
+ * src/lib/formatters.ts so emoji and labels stay consistent everywhere.
+ */
+const REACTIONS: Emotion[] = emotionList;
 
 // ─── Screen ───────────────────────────────────────────────────────────────
 
@@ -56,12 +58,19 @@ export default function CheckInScreen() {
   // ─── Hooks (before any early returns) ───────────────────────────────────
   const { person, isLoading } = usePerson(id ?? "");
   const { createInteraction } = useCreateInteraction();
+  const { createPromise, isCreating } = useCreatePromise();
 
   // ─── Local state ────────────────────────────────────────────────────────
-  const [selectedReaction, setSelectedReaction] =
-    useState<ReactionOption | null>(null);
+  const [selectedEmotion, setSelectedEmotion] =
+    useState<Emotion | null>(null);
   const [note, setNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Quiet promise capture on the saved bridge (SPEC_TENDING_SEASONS §2.3)
+  const [showPromiseInput, setShowPromiseInput] = useState(false);
+  const [promiseText, setPromiseText] = useState("");
+  const canHoldPromise = promiseText.trim().length > 0 && !isCreating;
 
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -105,17 +114,19 @@ export default function CheckInScreen() {
     if (isSaving) return;
     setIsSaving(true);
 
-    const hasReaction = selectedReaction !== null;
+    const hasReaction = selectedEmotion !== null;
     const hasNote = note.trim().length > 0;
+    let saved = false;
 
     try {
       // Create a check_in interaction
       const created = await createInteraction({
         person_id: person.id,
         type: "check_in",
-        emotion: selectedReaction?.emotion ?? null,
+        emotion: selectedEmotion,
         note: note.trim() || null,
       });
+      saved = created != null;
 
       // Only award growth if save succeeded AND user provided input
       if (created && (hasReaction || hasNote)) {
@@ -130,7 +141,30 @@ export default function CheckInScreen() {
       // Silent fail — the interaction is best-effort
     }
 
-    navigateBack();
+    if (!saved) {
+      navigateBack();
+      return;
+    }
+
+    // Gentle delayed nudge (~3h) to capture a memory while it's fresh.
+    // Asking for permission here is intentional — it's the most
+    // contextual moment. Fire-and-forget; the service caps cadence.
+    const firstName = person.name.split(" ")[0];
+    requestNotificationPermissions()
+      .then((granted) => {
+        if (granted) {
+          return schedulePostReachOutCapturePrompt(person.id, firstName);
+        }
+      })
+      .catch(() => {});
+
+    // Brief, skippable choice — capture now, or be done
+    setIsSaving(false);
+    setIsSaved(true);
+  };
+
+  const handleCaptureMoment = () => {
+    router.replace(`/memory/add?personId=${person.id}`);
   };
 
   const handleSkip = () => {
@@ -144,6 +178,200 @@ export default function CheckInScreen() {
       router.replace("/(tabs)/people");
     }
   };
+
+  const handleHoldPromise = async () => {
+    const trimmed = promiseText.trim();
+    if (!trimmed || isCreating) return;
+    try {
+      await createPromise({
+        person_id: person.id,
+        text: trimmed,
+        source: "post_reach_out",
+      });
+    } catch {
+      // Best-effort — never trap the user in this flow
+    }
+    // Continue exactly as if "Done" was pressed
+    navigateBack();
+  };
+
+  // ─── Saved — brief, skippable bridge to memory capture ─────────────────
+
+  if (isSaved) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <KeyboardAvoidingView
+          style={{ flex: 1, backgroundColor: colors.cream }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+        <View
+          style={{
+            flex: 1,
+            paddingTop: insets.top + 32,
+            paddingBottom: insets.bottom + 24,
+            paddingHorizontal: 24,
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <View style={{ marginBottom: 28 }}>
+              <RestingPlantIllustration size={140} />
+            </View>
+            <Text
+              style={{
+                fontFamily: fonts.serif,
+                fontSize: 28,
+                color: colors.nearBlack,
+                textAlign: "center",
+                lineHeight: 36,
+                marginBottom: 12,
+                maxWidth: 300,
+              }}
+            >
+              Tucked away
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 15,
+                color: colors.warmGray,
+                textAlign: "center",
+                lineHeight: 22,
+                maxWidth: 300,
+              }}
+            >
+              If a moment with {person.name} feels worth keeping, now's a
+              lovely time.
+            </Text>
+          </View>
+
+          {/* Capture a moment — primary */}
+          <Pressable
+            onPress={handleCaptureMoment}
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              backgroundColor: colors.sage,
+              borderRadius: 16,
+              paddingVertical: 18,
+              alignItems: "center",
+              marginBottom: 14,
+              shadowColor: colors.sage,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 16,
+              elevation: 4,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 17,
+                color: colors.white,
+              }}
+            >
+              Capture a memory from this
+            </Text>
+          </Pressable>
+
+          {/* Done — secondary */}
+          <Pressable onPress={navigateBack} style={{ padding: 12 }}>
+            <Text
+              style={{
+                fontFamily: fonts.sansMedium,
+                fontSize: 15,
+                color: colors.warmGray,
+              }}
+            >
+              Done
+            </Text>
+          </Pressable>
+
+          {/* Promise capture — quiet third option (SPEC_TENDING_SEASONS §2.3) */}
+          {!showPromiseInput ? (
+            <Pressable
+              onPress={() => setShowPromiseInput(true)}
+              style={{ padding: 12 }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sansMedium,
+                  fontSize: 14,
+                  color: colors.warmGray,
+                }}
+              >
+                Did you promise them anything?
+              </Text>
+            </Pressable>
+          ) : (
+            <Animated.View
+              entering={FadeInUp.duration(250)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 12,
+                width: "100%",
+                maxWidth: 360,
+              }}
+            >
+              <TextInput
+                style={{
+                  flex: 1,
+                  backgroundColor: colors.white,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  fontFamily: fonts.sans,
+                  fontSize: 15,
+                  color: colors.nearBlack,
+                }}
+                placeholder="Send them that book link..."
+                placeholderTextColor={colors.warmGray}
+                value={promiseText}
+                onChangeText={setPromiseText}
+                autoFocus
+                maxLength={200}
+                returnKeyType="done"
+                onSubmitEditing={handleHoldPromise}
+              />
+              <Pressable
+                onPress={handleHoldPromise}
+                disabled={!canHoldPromise}
+                style={{
+                  backgroundColor: colors.sage,
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  opacity: canHoldPromise ? 1 : 0.5,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 14,
+                    color: colors.white,
+                  }}
+                >
+                  Hold onto it
+                </Text>
+              </Pressable>
+            </Animated.View>
+          )}
+        </View>
+        </KeyboardAvoidingView>
+      </>
+    );
+  }
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -190,21 +418,21 @@ export default function CheckInScreen() {
           <View
             style={{
               flexDirection: "row",
+              flexWrap: "wrap",
               justifyContent: "center",
               gap: 12,
               marginBottom: 28,
+              maxWidth: 360,
             }}
           >
-            {REACTIONS.map((reaction) => {
-              const isSelected =
-                selectedReaction?.emotion === reaction.emotion;
+            {REACTIONS.map((emotion) => {
+              const isSelected = selectedEmotion === emotion;
               return (
                 <Pressable
-                  key={reaction.emotion}
+                  key={emotion}
+                  accessibilityLabel={formatEmotionLabel(emotion)}
                   onPress={() =>
-                    setSelectedReaction(
-                      isSelected ? null : reaction
-                    )
+                    setSelectedEmotion(isSelected ? null : emotion)
                   }
                   style={{
                     width: 56,
@@ -221,7 +449,9 @@ export default function CheckInScreen() {
                       : colors.white,
                   }}
                 >
-                  <Text style={{ fontSize: 24 }}>{reaction.emoji}</Text>
+                  <Text style={{ fontSize: 24 }}>
+                    {emotionEmojis[emotion]}
+                  </Text>
                 </Pressable>
               );
             })}

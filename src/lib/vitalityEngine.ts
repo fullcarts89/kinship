@@ -86,7 +86,7 @@ export function getDaysSinceLastActivity(
  * Convenience: compute full VitalityInfo for a person's activity history.
  */
 export function getVitalityInfo(
-  memories: { created_at: string }[],
+  memories: { occurred_at?: string; created_at: string }[],
   interactions: { created_at: string }[]
 ): VitalityInfo {
   const days = getDaysSinceLastActivity(memories, interactions);
@@ -107,13 +107,13 @@ export function getSwayParams(level: VitalityLevel): {
 } {
   switch (level) {
     case "vibrant":
-      return { amplitude: 3, duration: 1500 };
+      return { amplitude: 5.5, duration: 1400 };
     case "healthy":
-      return { amplitude: 2, duration: 1750 };
+      return { amplitude: 4, duration: 1600 };
     case "resting":
-      return { amplitude: 1, duration: 2250 };
+      return { amplitude: 2.5, duration: 2100 };
     case "dormant":
-      return { amplitude: 0.5, duration: 2750 };
+      return { amplitude: 1.5, duration: 2600 };
   }
 }
 

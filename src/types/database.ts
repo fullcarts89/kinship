@@ -24,6 +24,12 @@ export interface User {
   created_at: string;
 }
 
+/** A quick fact worth remembering about a person (not an event). */
+export interface PersonNote {
+  text: string;
+  created_at: string;
+}
+
 export interface Person {
   id: string;
   user_id: string;
@@ -33,6 +39,8 @@ export interface Person {
   birthday?: string; // ISO date string, e.g. "1990-03-15" — year optional
   phone?: string | null;   // From device contacts import
   email?: string | null;   // From device contacts import
+  interests?: string[] | null; // Tag chips from the add/edit flow
+  notes?: PersonNote[] | null; // Quick notes — profile facts, not history
   created_at: string;
 }
 
@@ -66,6 +74,46 @@ export interface Interaction {
   created_at: string;
 }
 
+/**
+ * PersonPromise — a one-shot commitment the user made TO a person
+ * ("Send Tom the book link"). Their own words held for them; resolves
+ * once as kept or released. Never counted, never overdue.
+ */
+export interface PersonPromise {
+  id: string;
+  user_id: string;
+  person_id: string;
+  text: string;
+  due_hint: string | null;
+  status: "open" | "kept" | "released";
+  source: "manual" | "ai_suggested" | "post_reach_out";
+  created_at: string;
+  resolved_at: string | null;
+}
+
+/** A bounded period of intentional tending — up to 5 people, ~3 months. */
+export interface Season {
+  id: string;
+  user_id: string;
+  name: string;
+  starts_at: string;
+  ends_at: string;
+  status: "active" | "completed";
+  created_at: string;
+}
+
+export type TendingRhythm = "often" | "regularly" | "now_and_then";
+
+/** One tended person within a season, with a soft cadence. */
+export interface SeasonCommitment {
+  id: string;
+  season_id: string;
+  user_id: string;
+  person_id: string;
+  rhythm: TendingRhythm;
+  created_at: string;
+}
+
 export interface Suggestion {
   id: string;
   user_id: string;
@@ -90,6 +138,14 @@ export type InteractionInsert = Omit<Interaction, "id" | "created_at" | "note" |
   emotion?: Emotion | null;
 };
 export type SuggestionInsert = Omit<Suggestion, "id" | "created_at">;
+export type SeasonInsert = Omit<Season, "id" | "created_at" | "status"> & {
+  status?: Season["status"];
+};
+export type SeasonCommitmentInsert = Omit<SeasonCommitment, "id" | "created_at">;
+export type PersonPromiseInsert = Omit<PersonPromise, "id" | "created_at" | "resolved_at" | "due_hint" | "status"> & {
+  due_hint?: string | null;
+  status?: PersonPromise["status"];
+};
 
 // ─── Update Types (all fields optional except id) ────────────────────────────
 
@@ -98,6 +154,9 @@ export type PersonUpdate = Partial<Omit<Person, "id" | "user_id" | "created_at">
 export type MemoryUpdate = Partial<Omit<Memory, "id" | "user_id" | "created_at">>;
 export type InteractionUpdate = Partial<Omit<Interaction, "id" | "user_id" | "created_at">>;
 export type SuggestionUpdate = Partial<Omit<Suggestion, "id" | "user_id" | "created_at">>;
+export type SeasonUpdate = Partial<Omit<Season, "id" | "user_id" | "created_at">>;
+export type SeasonCommitmentUpdate = Partial<Pick<SeasonCommitment, "rhythm">>;
+export type PersonPromiseUpdate = Partial<Omit<PersonPromise, "id" | "user_id" | "person_id" | "created_at">>;
 
 // ─── Database Schema (Supabase GenericSchema) ───────────────────────────────
 
@@ -132,6 +191,24 @@ export interface Database {
         Row: Suggestion;
         Insert: SuggestionInsert;
         Update: SuggestionUpdate;
+        Relationships: [];
+      };
+      promises: {
+        Row: PersonPromise;
+        Insert: PersonPromiseInsert;
+        Update: PersonPromiseUpdate;
+        Relationships: [];
+      };
+      seasons: {
+        Row: Season;
+        Insert: SeasonInsert;
+        Update: SeasonUpdate;
+        Relationships: [];
+      };
+      season_commitments: {
+        Row: SeasonCommitment;
+        Insert: SeasonCommitmentInsert;
+        Update: SeasonCommitmentUpdate;
         Relationships: [];
       };
     };

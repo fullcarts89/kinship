@@ -17,8 +17,13 @@ import * as ImagePicker from "expo-image-picker";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedScrollHandler,
   withTiming,
   Easing,
+  interpolate,
+  Extrapolation,
+  FadeInUp,
+  LinearTransition,
 } from "react-native-reanimated";
 import {
   ChevronLeft,
@@ -35,6 +40,7 @@ import {
   MoreHorizontal,
   Check,
   Mail,
+  Pencil,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import {
@@ -42,16 +48,19 @@ import {
   ErrorState,
   EmptyState,
   FadeIn,
+  PressableScale,
 } from "@/components/ui";
 import {
   usePerson,
   usePersonMemories,
   usePersonInteractions,
   usePersonVitality,
+  useDeleteInteraction,
+  useUpdatePerson,
 } from "@/hooks";
 import { usePersonPhoto } from "@/hooks/usePersonPhoto";
 import VitalPlant from "@/components/VitalPlant";
-import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
+import { LivingPlant } from "@/components/LivingPlant";
 import {
   formatRelativeDate,
   formatEmotionLabel,
@@ -75,25 +84,29 @@ import {
 import type { TextureInfo } from "@/lib/textureEngine";
 import type { Interaction, Memory, Person } from "@/types/database";
 import type { InteractionType, Emotion, IconComponent } from "@/types";
+import { buildInviteMessage } from "@/lib/appLinks";
 import { getNextBestAction } from "@/lib/nextActionEngine";
+import { useAIInsight } from "@/hooks/useAIInsight";
+import { usePersonPromises, useResolvePromise } from "@/hooks/usePromises";
+import { showGrowthToast } from "@/components/ui/GrowthToast";
 import type { GrowthInfo } from "@/lib/growthEngine";
 import type { VitalityInfo } from "@/lib/vitalityEngine";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────
 
-const sage = "#7A9E7E";
-const sageDark = "#4A7055";
-const sagePale = "#EBF3EB";
-const sageLight = "#C8DEC9";
-const gold = "#D4A853";
-const goldLight = "#F0DBA0";
-const cream = "#FDF7ED";
-const nearBlack = "#1C1917";
-const warmGray = "#78716C";
-const white = "#FFFFFF";
-const borderColor = "#E8E4DD";
-const lavender = "#C5B8E8";
-const sky = "#B8D4E8";
+const sage = colors.sage;
+const sageDark = colors.moss;
+const sagePale = colors.sagePale;
+const sageLight = colors.sageLight;
+const gold = colors.gold;
+const goldLight = colors.goldLight;
+const cream = colors.cream;
+const nearBlack = colors.nearBlack;
+const warmGray = colors.warmGray;
+const white = colors.white;
+const borderColor = colors.border;
+const lavender = colors.lavender;
+const sky = colors.sky;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -138,49 +151,21 @@ function QuickAction({
   bgColor: string;
   onPress: () => void;
 }) {
-  const scale = useSharedValue(1);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withTiming(0.92, {
-      duration: 80,
-      easing: Easing.out(Easing.ease),
-    });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withTiming(1, {
-      duration: 150,
-      easing: Easing.out(Easing.ease),
-    });
-  };
-
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={{ alignItems: "center" }}
-    >
-      <Animated.View
-        style={[
-          {
-            width: 48,
-            height: 48,
-            borderRadius: 15,
-            backgroundColor: bgColor + "38",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 6,
-          },
-          animStyle,
-        ]}
+    <PressableScale onPress={onPress} style={{ alignItems: "center" }}>
+      <View
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 15,
+          backgroundColor: bgColor + "38",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 6,
+        }}
       >
         <Icon color={bgColor} size={22} />
-      </Animated.View>
+      </View>
       <Text
         style={{
           fontFamily: fonts.sans,
@@ -191,7 +176,7 @@ function QuickAction({
       >
         {label}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -396,13 +381,44 @@ function ContextTab({
   interactions,
   growthInfo,
   vitalityInfo,
+  onPersonChanged,
 }: {
   person: Person;
   memories: Memory[];
   interactions: Interaction[];
   growthInfo: GrowthInfo;
   vitalityInfo: VitalityInfo;
+  onPersonChanged: () => void;
 }) {
+  const { updatePerson } = useUpdatePerson();
+  const { promises: openPromises, refetch: refetchPromises } = usePersonPromises(person.id);
+  const { resolvePromise, isResolving } = useResolvePromise();
+  // One promise at a time — the oldest held the longest
+  const promise = openPromises.length > 0 ? openPromises[0] : null;
+
+  const handleResolvePromise = async (status: "kept" | "released") => {
+    if (!promise) return;
+    await resolvePromise(promise.id, status);
+    if (status === "kept") {
+      showGrowthToast("Promise kept", "\uD83C\uDF3F");
+    }
+    refetchPromises();
+  };
+
+  const handleRemoveNote = (index: number) => {
+    Alert.alert("Remove this note?", undefined, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          const notes = (person.notes ?? []).filter((_, i) => i !== index);
+          await updatePerson(person.id, { notes });
+          onPersonChanged();
+        },
+      },
+    ]);
+  };
   const relationLabel = relationshipLabels[person.relationship_type] ?? person.relationship_type;
   const contextBriefs: string[] = [];
   if (memories.length > 0)
@@ -411,7 +427,22 @@ function ContextTab({
     contextBriefs.push(`${interactions.length} recorded ${interactions.length === 1 ? "interaction" : "interactions"}`);
   contextBriefs.push(`${relationLabel} relationship`);
 
-  const action = getNextBestAction({ person, memories, interactions, growthInfo, vitalityInfo });
+  const heuristicAction = getNextBestAction({ person, memories, interactions, growthInfo, vitalityInfo });
+  // AI signal boosting: when configured, notes/memories produce a more
+  // specific opening; otherwise the heuristic engine carries the card.
+  const { insight } = useAIInsight(person, memories, interactions, openPromises);
+  const action = insight
+    ? {
+        ...heuristicAction,
+        headline: insight.headline,
+        body: insight.body,
+        actionLabel: heuristicAction.actionLabel ?? "Reach out",
+        actionType:
+          heuristicAction.actionType === "none"
+            ? ("reach_out" as const)
+            : heuristicAction.actionType,
+      }
+    : heuristicAction;
 
   return (
     <View style={{ paddingHorizontal: 24 }}>
@@ -465,6 +496,162 @@ function ContextTab({
         ))}
       </View>
 
+      {/* Notes — quick profile facts from the Quick note flow */}
+      {(person.notes?.length ?? 0) > 0 && (
+        <View
+          style={{
+            backgroundColor: white,
+            borderRadius: 20,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: borderColor,
+            marginBottom: 20,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+            <Text style={{ fontSize: 15, marginRight: 8 }}>{"\uD83D\uDCDD"}</Text>
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 15,
+                color: nearBlack,
+              }}
+            >
+              Notes
+            </Text>
+          </View>
+          {(person.notes ?? []).map((n, i) => (
+            <Pressable
+              key={`${n.created_at}-${i}`}
+              onLongPress={() => handleRemoveNote(i)}
+              delayLongPress={400}
+              style={{
+                paddingVertical: 8,
+                borderTopWidth: i === 0 ? 0 : 1,
+                borderTopColor: borderColor,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 14,
+                  color: nearBlack,
+                  lineHeight: 20,
+                }}
+              >
+                {n.text}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 11,
+                  color: warmGray,
+                  marginTop: 3,
+                }}
+              >
+                {formatMemoryDate(n.created_at)}
+              </Text>
+            </Pressable>
+          ))}
+          <Text
+            style={{
+              fontFamily: fonts.sans,
+              fontSize: 11,
+              color: warmGray,
+              textAlign: "center",
+              marginTop: 10,
+            }}
+          >
+            Press and hold a note to remove it
+          </Text>
+        </View>
+      )}
+
+      {/* Open promise — the user's own words, held for them */}
+      {promise && (
+        <View
+          style={{
+            backgroundColor: white,
+            borderRadius: 20,
+            padding: 20,
+            borderWidth: 1.5,
+            borderColor: sageLight,
+            marginBottom: 20,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.sansSemiBold,
+              fontSize: 11,
+              color: warmGray,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              marginBottom: 8,
+            }}
+          >
+            {"\uD83E\uDD1D"} You wanted to
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.serif,
+              fontSize: 17,
+              color: nearBlack,
+              lineHeight: 24,
+              marginBottom: promise.due_hint ? 4 : 14,
+            }}
+          >
+            {promise.text}
+          </Text>
+          {promise.due_hint && (
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 13,
+                color: warmGray,
+                marginBottom: 14,
+              }}
+            >
+              {promise.due_hint}
+            </Text>
+          )}
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <PressableScale
+              haptic
+              disabled={isResolving}
+              onPress={() => handleResolvePromise("kept")}
+              style={{
+                flex: 1,
+                backgroundColor: sage,
+                borderRadius: 12,
+                paddingVertical: 11,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 14, color: white }}>
+                Kept it
+              </Text>
+            </PressableScale>
+            <PressableScale
+              disabled={isResolving}
+              onPress={() => handleResolvePromise("released")}
+              style={{
+                flex: 1,
+                backgroundColor: white,
+                borderWidth: 1.5,
+                borderColor: borderColor,
+                borderRadius: 12,
+                paddingVertical: 11,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 14, color: warmGray }}>
+                Let it go
+              </Text>
+            </PressableScale>
+          </View>
+        </View>
+      )}
+
       {/* Next Best Action Card */}
       <LinearGradient
         colors={[goldLight, "#F4B89E66"]}
@@ -486,7 +673,7 @@ function ContextTab({
             marginBottom: 10,
           }}
         >
-          Suggested next step
+          {insight ? "Suggested next step ✨" : "Suggested next step"}
         </Text>
         <Text
           style={{
@@ -512,8 +699,31 @@ function ContextTab({
             {action.body}
           </Text>
         )}
+        {insight?.conversation_starter && (
+          <View
+            style={{
+              backgroundColor: "rgba(255,255,255,0.55)",
+              borderRadius: 12,
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              marginBottom: 14,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sans,
+                fontSize: 13,
+                fontStyle: "italic",
+                color: nearBlack,
+                lineHeight: 19,
+              }}
+            >
+              {"\u201C"}{insight.conversation_starter}{"\u201D"}
+            </Text>
+          </View>
+        )}
         {action.actionLabel && (
-          <Pressable
+          <PressableScale
             onPress={() => {
               if (action.actionType === "add_memory") {
                 router.push(`/memory/add?personId=${person.id}`);
@@ -538,7 +748,7 @@ function ContextTab({
             >
               {action.actionLabel}
             </Text>
-          </Pressable>
+          </PressableScale>
         )}
       </LinearGradient>
     </View>
@@ -561,14 +771,46 @@ const emotionEmojis: Record<Emotion, string> = {
   loved: "\uD83D\uDC9B",
 };
 
-function TimelineTab({ interactions }: { interactions: Interaction[] }) {
+function TimelineTab({
+  interactions,
+  firstName,
+  onInteractionsChanged,
+}: {
+  interactions: Interaction[];
+  firstName: string;
+  onInteractionsChanged: () => void;
+}) {
+  const { deleteInteraction, isDeleting } = useDeleteInteraction();
+
+  const handleLongPress = useCallback(
+    (interaction: Interaction) => {
+      if (isDeleting) return;
+      Alert.alert(
+        "Remove this check-in?",
+        `It will be removed from ${firstName}'s history.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: async () => {
+              await deleteInteraction(interaction.id);
+              onInteractionsChanged();
+            },
+          },
+        ]
+      );
+    },
+    [deleteInteraction, isDeleting, firstName, onInteractionsChanged]
+  );
+
   if (interactions.length === 0) {
     return (
       <View style={{ paddingHorizontal: 24 }}>
         <EmptyState
           icon={Calendar}
           title="Your story together"
-          message="When you reflect or connect, those moments will show up here."
+          message="When you reflect or connect, those check-ins will show up here."
           className="py-xl"
         />
       </View>
@@ -595,8 +837,15 @@ function TimelineTab({ interactions }: { interactions: Interaction[] }) {
         const hasEmotion = !!interaction.emotion;
 
         return (
-          <FadeIn key={interaction.id} delay={index * 40}>
-            <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 16 }}>
+          <Animated.View
+            key={interaction.id}
+            entering={FadeInUp.delay(Math.min(index, 8) * 40).duration(300)}
+            layout={LinearTransition.duration(250)}
+          >
+            <Pressable
+              onLongPress={() => handleLongPress(interaction)}
+              style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 16 }}
+            >
               {/* Icon circle + connector line */}
               <View style={{ alignItems: "center", marginRight: 14 }}>
                 <View
@@ -670,10 +919,23 @@ function TimelineTab({ interactions }: { interactions: Interaction[] }) {
                   {formatRelativeDate(interaction.created_at)}
                 </Text>
               </View>
-            </View>
-          </FadeIn>
+            </Pressable>
+          </Animated.View>
         );
       })}
+
+      {/* Removal hint — subtle caption below the list */}
+      <Text
+        style={{
+          fontFamily: fonts.sans,
+          fontSize: 11,
+          color: warmGray,
+          textAlign: "center",
+          marginTop: 4,
+        }}
+      >
+        Press and hold a check-in to remove it
+      </Text>
     </View>
   );
 }
@@ -716,22 +978,54 @@ function MemoriesTab({ memories, personId }: { memories: Memory[]; personId: str
 
   return (
     <View style={{ paddingHorizontal: 24 }}>
+      {/* Always-visible capture CTA — creating a memory from a profile
+          should take exactly one obvious tap */}
+      <PressableScale
+        haptic
+        onPress={() => router.push(`/memory/add?personId=${personId}`)}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: sage,
+          borderRadius: 16,
+          paddingVertical: 14,
+          marginBottom: 16,
+          gap: 8,
+        }}
+      >
+        <Camera size={18} color={white} strokeWidth={2} />
+        <Text
+          style={{
+            fontFamily: fonts.sansSemiBold,
+            fontSize: 15,
+            color: white,
+          }}
+        >
+          Capture a memory
+        </Text>
+      </PressableScale>
+
       {sorted.map((memory, index) => {
         const emoji = memory.emotion ? emotionEmoji[memory.emotion] ?? "\uD83C\uDF3F" : "\uD83C\uDF3F";
         return (
-          <Pressable
+          <Animated.View
             key={memory.id}
-            onPress={() => router.push(`/memory/${memory.id}`)}
-            style={{
-              flexDirection: "row",
-              backgroundColor: white,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: borderColor,
-              overflow: "hidden",
-              marginBottom: 10,
-            }}
+            entering={FadeInUp.delay(Math.min(index, 8) * 40).duration(300)}
+            layout={LinearTransition.duration(250)}
           >
+            <PressableScale
+              onPress={() => router.push(`/memory/${memory.id}`)}
+              style={{
+                flexDirection: "row",
+                backgroundColor: white,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: borderColor,
+                overflow: "hidden",
+                marginBottom: 10,
+              }}
+            >
             {/* Timeline dot + line */}
             <View style={{ width: 44, alignItems: "center", paddingTop: 18 }}>
               <View
@@ -806,7 +1100,8 @@ function MemoriesTab({ memories, personId }: { memories: Memory[]; personId: str
                 resizeMode="cover"
               />
             )}
-          </Pressable>
+            </PressableScale>
+          </Animated.View>
         );
       })}
     </View>
@@ -882,14 +1177,26 @@ export default function PersonDetailScreen() {
     transform: [{ scale: plantExitScale.value }],
   }));
 
-  // Refetch data + reset plant when screen regains focus (after returning from modal)
+  // ─── Header parallax — subtle scroll-linked translate + fade ─────────────
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+  const headerParallaxStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -scrollY.value * 0.4 }],
+    opacity: interpolate(scrollY.value, [0, 120], [1, 0.6], Extrapolation.CLAMP),
+  }));
+
+  // Refetch data + reset plant when screen regains focus (after returning
+  // from a modal or the edit screen)
   useFocusEffect(
     useCallback(() => {
+      refetchPerson();
       refetchMemories();
       refetchInteractions();
       plantExitScale.value = withTiming(1, { duration: 300 });
       plantExitOpacity.value = withTiming(0.85, { duration: 300 });
-    }, [refetchMemories, refetchInteractions])
+    }, [refetchPerson, refetchMemories, refetchInteractions])
   );
 
   // ─── Orientation Steps 3–4 ────────────────────────────────────────────────
@@ -1083,10 +1390,7 @@ export default function PersonDetailScreen() {
   const handlePlantASeed = async () => {
     if (!person) return;
     const firstName = person.name.split(" ")[0];
-    const message =
-      `Hey ${firstName}! I've been thinking about you and added you to my Kinship garden 🌱\n\n` +
-      `Kinship helps me stay close with the people who matter most — by capturing moments, noticing what matters, and tending to the relationships I care about.\n\n` +
-      `Download it here: https://kinship.app`;
+    const message = buildInviteMessage(firstName);
     try {
       await Share.share({ message });
     } catch {
@@ -1098,13 +1402,16 @@ export default function PersonDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView
+      <Animated.ScrollView
         style={{ flex: 1, backgroundColor: cream }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!showOrientation}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
       >
-        {/* Header Background */}
+        {/* Header Background — translates up at ~0.4x scroll and fades subtly */}
+        <Animated.View style={headerParallaxStyle}>
         <LinearGradient
           colors={[sagePale, cream]}
           style={{
@@ -1139,8 +1446,9 @@ export default function PersonDetailScreen() {
               <VitalPlant
                 vitalityScore={vitality.score}
                 size={100}
+                personId={person.id}
               >
-                <GrowthPlantIllustration stage={growthStage} size={100} />
+                <LivingPlant stage={growthStage} size={100} />
               </VitalPlant>
             </Animated.View>
           </View>
@@ -1211,20 +1519,44 @@ export default function PersonDetailScreen() {
             </Pressable>
           </View>
         </LinearGradient>
+        </Animated.View>
 
         <FadeIn>
           {/* Person Info */}
           <View style={{ alignItems: "center", paddingHorizontal: 24, marginBottom: 20 }}>
-            <Text
+            <View
               style={{
-                fontFamily: fonts.serif,
-                fontSize: 28,
-                color: nearBlack,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
                 marginBottom: 10,
               }}
             >
-              {person.name}
-            </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.serif,
+                  fontSize: 28,
+                  color: nearBlack,
+                }}
+              >
+                {person.name}
+              </Text>
+              <PressableScale
+                onPress={() => router.push(`/person/edit/${person.id}`)}
+                hitSlop={10}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: sagePale,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Pencil color={sage} size={14} strokeWidth={1.8} />
+              </PressableScale>
+            </View>
 
             {/* Status Badges — growth stage + relationship + last interaction */}
             <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
@@ -1365,6 +1697,49 @@ export default function PersonDetailScreen() {
             )}
           </View>
 
+          {/* What they love — interest chips */}
+          {person.interests && person.interests.length > 0 && (
+            <View style={{ paddingHorizontal: 24, marginBottom: 16 }}>
+              <Text
+                style={{
+                  fontFamily: fonts.sansSemiBold,
+                  fontSize: 11,
+                  color: warmGray,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  marginBottom: 8,
+                }}
+              >
+                What they love
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {person.interests.map((interest) => (
+                  <View
+                    key={interest}
+                    style={{
+                      backgroundColor: sagePale,
+                      borderWidth: 1,
+                      borderColor: sageLight,
+                      borderRadius: 16,
+                      paddingVertical: 5,
+                      paddingHorizontal: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: fonts.sansMedium,
+                        fontSize: 12,
+                        color: sageDark,
+                      }}
+                    >
+                      {interest}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
           {/* Contact Info */}
           {(person.phone || person.email) && (
             <View style={{ paddingHorizontal: 24, marginBottom: 16, gap: 10 }}>
@@ -1472,14 +1847,21 @@ export default function PersonDetailScreen() {
               interactions={interactions}
               growthInfo={growth}
               vitalityInfo={vitality}
+              onPersonChanged={refetchPerson}
             />
           )}
-          {activeTab === "timeline" && <TimelineTab interactions={interactions} />}
+          {activeTab === "timeline" && (
+            <TimelineTab
+              interactions={interactions}
+              firstName={person.name.split(" ")[0]}
+              onInteractionsChanged={refetchInteractions}
+            />
+          )}
           {activeTab === "memories" && (
             <MemoriesTab memories={memories} personId={person.id} />
           )}
         </FadeIn>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Photo Picker Modal */}
       <PhotoPickerModal

@@ -8,24 +8,30 @@
  * Tone: calm reflection, never a productivity dashboard.
  * "Look how much you've grown your garden this week."
  */
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
-  Pressable,
   Image,
+  Alert,
+  Pressable,
 } from "react-native";
+import { ChevronLeft } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInUp } from "react-native-reanimated";
+import { PressableScale, Skeleton } from "@/components/ui";
 import { colors, fonts } from "@design/tokens";
-import { usePersons, useMemories, useAllInteractions } from "@/hooks";
+import { usePersons, useMemories, useAllInteractions, useActiveSeason } from "@/hooks";
 import { formatRelativeDate, formatMemoryDate, getMemoryDate, emotionEmojis, relationshipLabels } from "@/lib/formatters";
 import { getGrowthInfo } from "@/lib/growthEngine";
+import { daysUntilRhythmOpens } from "@/lib/seasonEngine";
+import { simpleHash } from "@/lib/suggestionEngine";
+import { shareViewAsImage } from "@/lib/shareImage";
 import GrowthPlantIllustration from "@/components/GrowthPlantIllustration";
-import { SmallGardenIllustration } from "@/components/illustrations";
+import { SmallGardenIllustration, FlourishingGardenIllustration } from "@/components/illustrations";
 import type { Memory, Interaction } from "@/types/database";
 import { useCallback } from "react";
 
@@ -59,13 +65,29 @@ function getWeekSummaryPhrase(memCount: number, interactionCount: number): strin
   return "A quiet week of tending";
 }
 
+type SeasonName = "spring" | "summer" | "autumn" | "winter";
+
+/**
+ * Current meteorological season and its start date.
+ * Spring: Mar–May, Summer: Jun–Aug, Autumn: Sep–Nov, Winter: Dec–Feb.
+ */
+function getSeasonInfo(now: Date): { name: SeasonName; start: Date } {
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  if (month >= 2 && month <= 4) return { name: "spring", start: new Date(year, 2, 1) };
+  if (month >= 5 && month <= 7) return { name: "summer", start: new Date(year, 5, 1) };
+  if (month >= 8 && month <= 10) return { name: "autumn", start: new Date(year, 8, 1) };
+  // Winter starts Dec 1 — of last year if we're in Jan or Feb
+  return { name: "winter", start: new Date(month === 11 ? year : year - 1, 11, 1) };
+}
+
 // ─── Memory Card ────────────────────────────────────────────────────────────
 
 function DigestMemoryCard({ memory, personName }: { memory: Memory; personName: string }) {
   const emoji = memory.emotion ? emotionEmojis[memory.emotion] ?? "🌿" : "🌿";
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => router.push(`/memory/${memory.id}`)}
       style={{
         backgroundColor: white,
@@ -116,7 +138,7 @@ function DigestMemoryCard({ memory, personName }: { memory: Memory; personName: 
           </Text>
         </View>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -144,7 +166,7 @@ function InteractionRow({
   const emoji = INTERACTION_EMOJI[interaction.type] ?? "💌";
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => router.push(`/person/${interaction.person_id}`)}
       style={{
         flexDirection: "row",
@@ -187,7 +209,7 @@ function InteractionRow({
       <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: warmGray }}>
         {formatRelativeDate(interaction.created_at)}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -205,7 +227,7 @@ function TendedPlantRow({
   const growth = getGrowthInfo(personId);
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => router.push(`/person/${personId}`)}
       style={{
         flexDirection: "row",
@@ -241,7 +263,7 @@ function TendedPlantRow({
         </Text>
       </View>
       <Text style={{ fontSize: 16 }}>🌱</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -282,7 +304,7 @@ function EmptyWeekState() {
       >
         Capture a memory or reach out to someone to see your week here.
       </Text>
-      <Pressable
+      <PressableScale
         onPress={() => router.push("/memory/add")}
         style={{
           backgroundColor: sage,
@@ -303,9 +325,9 @@ function EmptyWeekState() {
             color: white,
           }}
         >
-          Capture a moment
+          Capture a memory
         </Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }
@@ -315,8 +337,9 @@ function EmptyWeekState() {
 export default function ActivityScreen() {
   const insets = useSafeAreaInsets();
   const { persons } = usePersons();
-  const { memories, refetch: refetchMemories } = useMemories();
-  const { interactions, refetch: refetchInteractions } = useAllInteractions();
+  const { memories, isLoading: memoriesLoading, refetch: refetchMemories } = useMemories();
+  const { interactions, isLoading: interactionsLoading, refetch: refetchInteractions } = useAllInteractions();
+  const { season: activeSeason, commitments } = useActiveSeason();
 
   useFocusEffect(
     useCallback(() => {
@@ -324,6 +347,14 @@ export default function ActivityScreen() {
       refetchInteractions();
     }, [refetchMemories, refetchInteractions])
   );
+
+  // Show skeletons only for the first load — focus refetches flip isLoading
+  // again, and we don't want the digest to flash back to placeholders.
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  useEffect(() => {
+    if (!memoriesLoading && !interactionsLoading) setHasLoadedOnce(true);
+  }, [memoriesLoading, interactionsLoading]);
+  const showSkeletons = !hasLoadedOnce && (memoriesLoading || interactionsLoading);
 
   const personsMap = useMemo(
     () => new Map(persons.map((p) => [p.id, p])),
@@ -357,6 +388,88 @@ export default function ActivityScreen() {
   const totalWeekActivity = weekMemories.length + weekInteractions.length;
   const summaryPhrase = getWeekSummaryPhrase(weekMemories.length, weekInteractions.length);
 
+  // ── Season opening — tended people's first names, nothing more ──
+  const seasonFirstNames = useMemo(() => {
+    if (!activeSeason) return [];
+    return commitments
+      .map((c) => personsMap.get(c.person_id)?.name.split(" ")[0])
+      .filter((n): n is string => !!n);
+  }, [activeSeason, commitments, personsMap]);
+
+  // Gentle look ahead. When a season is active, prefer the tended person
+  // whose rhythm opens soonest — still just an invitation, never a metric.
+  // Otherwise rotate through the garden by week number so the invitation
+  // is stable for the week but changes with the seasons of time.
+  const nextWeekPerson = useMemo(() => {
+    if (activeSeason && commitments.length > 0) {
+      let soonest = null;
+      let soonestDays = Infinity;
+      for (const commitment of commitments) {
+        const person = personsMap.get(commitment.person_id);
+        if (!person) continue;
+        const days = daysUntilRhythmOpens(commitment, interactions);
+        if (days < soonestDays) {
+          soonestDays = days;
+          soonest = person;
+        }
+      }
+      if (soonest) return soonest;
+    }
+    if (persons.length === 0) return null;
+    const sorted = [...persons].sort((a, b) => a.id.localeCompare(b.id));
+    const weekNumber = Math.floor(Date.now() / ONE_WEEK_MS);
+    return sorted[simpleHash(String(weekNumber)) % sorted.length];
+  }, [persons, activeSeason, commitments, personsMap, interactions]);
+
+  // ── Season recap ──
+  const season = useMemo(() => getSeasonInfo(new Date()), []);
+
+  const seasonStats = useMemo(() => {
+    const startMs = season.start.getTime();
+    const seasonMemories = memories.filter(
+      (m) => new Date(getMemoryDate(m)).getTime() >= startMs
+    );
+    const seasonInteractions = interactions.filter(
+      (i) => new Date(i.created_at).getTime() >= startMs
+    );
+    const seedsPlanted = persons.filter(
+      (p) => new Date(p.created_at).getTime() >= startMs
+    ).length;
+    const connected = new Set<string>();
+    seasonMemories.forEach((m) => connected.add(m.person_id));
+    seasonInteractions.forEach((i) => connected.add(i.person_id));
+    // Up to 2 excerpts — prefer memories with an emotion or a photo
+    const score = (m: Memory) => (m.emotion ? 2 : 0) + (m.photo_url ? 1 : 0);
+    const excerpts = [...seasonMemories]
+      .sort(
+        (a, b) =>
+          score(b) - score(a) ||
+          new Date(getMemoryDate(b)).getTime() - new Date(getMemoryDate(a)).getTime()
+      )
+      .slice(0, 2);
+    return {
+      seedsPlanted,
+      momentsKept: seasonMemories.length,
+      peopleConnected: connected.size,
+      excerpts,
+    };
+  }, [memories, interactions, persons, season]);
+
+  const hasSeasonActivity =
+    seasonStats.seedsPlanted + seasonStats.momentsKept + seasonStats.peopleConnected > 0;
+
+  const seasonCardRef = useRef<View>(null);
+
+  const handleShareSeason = useCallback(async () => {
+    const result = await shareViewAsImage(seasonCardRef, "Share your season");
+    if (!result.success && result.error) {
+      Alert.alert(
+        "Couldn't share just yet",
+        "Your season is safe and sound here — sharing didn't work this time."
+      );
+    }
+  }, []);
+
   const today = new Date();
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - 6);
@@ -373,6 +486,26 @@ export default function ActivityScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingHorizontal: 24 }}>
+          {/* Back */}
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace("/(tabs)");
+            }}
+            hitSlop={12}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: white,
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 16,
+            }}
+          >
+            <ChevronLeft size={20} color={warmGray} />
+          </Pressable>
+
           {/* Header */}
           <Animated.View entering={FadeInUp.duration(400)} style={{ marginBottom: 24 }}>
             <Text
@@ -422,12 +555,56 @@ export default function ActivityScreen() {
             )}
           </Animated.View>
 
-          {totalWeekActivity === 0 ? (
+          {/* Season opening — who you're tending this season, names only */}
+          {activeSeason && seasonFirstNames.length > 0 && (
+            <Animated.View entering={FadeInUp.delay(30).duration(400)} style={{ marginBottom: 28 }}>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 12,
+                  color: warmGray,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  marginBottom: 10,
+                }}
+              >
+                {activeSeason.name}
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {seasonFirstNames.map((name, i) => (
+                  <View
+                    key={`${name}-${i}`}
+                    style={{
+                      backgroundColor: sagePale,
+                      borderWidth: 1,
+                      borderColor: sageLight,
+                      borderRadius: 999,
+                      paddingVertical: 6,
+                      paddingHorizontal: 14,
+                    }}
+                  >
+                    <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: sageDark }}>
+                      {name}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </Animated.View>
+          )}
+
+          {showSkeletons ? (
+            /* First load — skeleton blocks roughly matching the stat cards */
+            <View style={{ gap: 14 }}>
+              <Skeleton width="100%" height={94} borderRadius={16} />
+              <Skeleton width="100%" height={94} borderRadius={16} />
+              <Skeleton width="60%" height={22} borderRadius={8} />
+            </View>
+          ) : totalWeekActivity === 0 ? (
             <EmptyWeekState />
           ) : (
             <>
               {/* Week at a Glance */}
-              <Animated.View entering={FadeInUp.delay(80).duration(400)} style={{ marginBottom: 28 }}>
+              <Animated.View entering={FadeInUp.delay(60).duration(400)} style={{ marginBottom: 28 }}>
                 <View
                   style={{
                     flexDirection: "row",
@@ -481,7 +658,7 @@ export default function ActivityScreen() {
 
               {/* Plants tended this week */}
               {tendedPersons.length > 0 && (
-                <Animated.View entering={FadeInUp.delay(160).duration(400)} style={{ marginBottom: 28 }}>
+                <Animated.View entering={FadeInUp.delay(120).duration(400)} style={{ marginBottom: 28 }}>
                   <Text
                     style={{
                       fontFamily: fonts.serif,
@@ -515,7 +692,7 @@ export default function ActivityScreen() {
 
               {/* Memories this week */}
               {weekMemories.length > 0 && (
-                <Animated.View entering={FadeInUp.delay(240).duration(400)} style={{ marginBottom: 28 }}>
+                <Animated.View entering={FadeInUp.delay(180).duration(400)} style={{ marginBottom: 28 }}>
                   <Text
                     style={{
                       fontFamily: fonts.serif,
@@ -551,7 +728,7 @@ export default function ActivityScreen() {
 
               {/* Interactions this week */}
               {weekInteractions.length > 0 && (
-                <Animated.View entering={FadeInUp.delay(320).duration(400)} style={{ marginBottom: 28 }}>
+                <Animated.View entering={FadeInUp.delay(240).duration(400)} style={{ marginBottom: 28 }}>
                   <Text
                     style={{
                       fontFamily: fonts.serif,
@@ -586,7 +763,7 @@ export default function ActivityScreen() {
               )}
 
               {/* Warm closing line */}
-              <Animated.View entering={FadeInUp.delay(400).duration(400)}>
+              <Animated.View entering={FadeInUp.delay(300).duration(400)}>
                 <View
                   style={{
                     backgroundColor: sagePale,
@@ -609,9 +786,226 @@ export default function ActivityScreen() {
                   >
                     Every moment you capture is a small act of love. Your garden noticed. 🌿
                   </Text>
+                  {nextWeekPerson && (
+                    <Text
+                      style={{
+                        fontFamily: fonts.sans,
+                        fontSize: 13,
+                        color: sageDark,
+                        textAlign: "center",
+                        lineHeight: 20,
+                        marginTop: 8,
+                        opacity: 0.85,
+                      }}
+                    >
+                      Next week, your garden might enjoy a quiet moment with {nextWeekPerson.name}.
+                    </Text>
+                  )}
                 </View>
               </Animated.View>
             </>
+          )}
+
+          {/* Season recap — shareable */}
+          {!showSkeletons && hasSeasonActivity && (
+            <Animated.View
+              entering={FadeInUp.delay(360).duration(400)}
+              style={{ marginTop: 32 }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.serif,
+                  fontSize: 20,
+                  color: nearBlack,
+                  marginBottom: 4,
+                }}
+              >
+                Your {season.name} so far
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 13,
+                  color: warmGray,
+                  marginBottom: 14,
+                }}
+              >
+                Since {season.start.toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+              </Text>
+
+              {/* Capture-ready card */}
+              <View
+                ref={seasonCardRef}
+                collapsable={false}
+                style={{
+                  backgroundColor: cream,
+                  borderRadius: 24,
+                  borderWidth: 1,
+                  borderColor: borderClr,
+                  overflow: "hidden",
+                  padding: 24,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.serif,
+                    fontSize: 24,
+                    color: nearBlack,
+                    lineHeight: 30,
+                  }}
+                >
+                  Your {season.name}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.serif,
+                    fontSize: 24,
+                    color: sage,
+                    lineHeight: 30,
+                    marginBottom: 18,
+                  }}
+                >
+                  in the garden
+                </Text>
+
+                {/* Season stats */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    backgroundColor: white,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: borderClr,
+                    paddingVertical: 14,
+                    marginBottom: 18,
+                  }}
+                >
+                  {[
+                    { value: seasonStats.seedsPlanted, label: seasonStats.seedsPlanted === 1 ? "seed\nplanted" : "seeds\nplanted" },
+                    { value: seasonStats.momentsKept, label: seasonStats.momentsKept === 1 ? "moment\nkept" : "moments\nkept" },
+                    { value: seasonStats.peopleConnected, label: seasonStats.peopleConnected === 1 ? "person\nconnected" : "people\nconnected" },
+                  ].map((stat, i, arr) => (
+                    <View
+                      key={i}
+                      style={{
+                        flex: 1,
+                        alignItems: "center",
+                        borderRightWidth: i < arr.length - 1 ? 1 : 0,
+                        borderRightColor: borderClr,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: fonts.sansSemiBold,
+                          fontSize: 24,
+                          color: sage,
+                          lineHeight: 28,
+                        }}
+                      >
+                        {stat.value}
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: fonts.sans,
+                          fontSize: 11,
+                          color: warmGray,
+                          textAlign: "center",
+                          marginTop: 4,
+                          lineHeight: 15,
+                        }}
+                      >
+                        {stat.label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* A couple of moments worth keeping */}
+                {seasonStats.excerpts.map((memory) => {
+                  const person = personsMap.get(memory.person_id);
+                  const quote =
+                    memory.content.length > 110
+                      ? `${memory.content.slice(0, 107).trimEnd()}…`
+                      : memory.content;
+                  return (
+                    <View key={memory.id} style={{ marginBottom: 14 }}>
+                      <Text
+                        style={{
+                          fontFamily: fonts.serif,
+                          fontSize: 16,
+                          lineHeight: 24,
+                          color: nearBlack,
+                        }}
+                      >
+                        “{quote}”
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: fonts.sans,
+                          fontSize: 12,
+                          color: warmGray,
+                          marginTop: 4,
+                        }}
+                      >
+                        {memory.emotion ? `${emotionEmojis[memory.emotion] ?? "🌿"} ` : ""}with {person?.name ?? "someone dear"}
+                      </Text>
+                    </View>
+                  );
+                })}
+
+                {/* Footer */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    borderTopWidth: 1,
+                    borderTopColor: borderClr,
+                    paddingTop: 14,
+                    marginTop: 4,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 12,
+                      color: warmGray,
+                    }}
+                  >
+                    Kept in Kinship 🌱
+                  </Text>
+                  <FlourishingGardenIllustration size={56} />
+                </View>
+              </View>
+
+              {/* Share action — outside the captured card */}
+              <View style={{ alignItems: "center", marginTop: 14 }}>
+                <PressableScale
+                  onPress={handleShareSeason}
+                  style={{
+                    backgroundColor: sage,
+                    borderRadius: 14,
+                    paddingVertical: 12,
+                    paddingHorizontal: 24,
+                    shadowColor: sage,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 12,
+                    elevation: 4,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansSemiBold,
+                      fontSize: 14,
+                      color: white,
+                    }}
+                  >
+                    Share this season
+                  </Text>
+                </PressableScale>
+              </View>
+            </Animated.View>
           )}
         </View>
       </ScrollView>

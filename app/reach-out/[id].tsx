@@ -1,5 +1,13 @@
-import React, { useEffect, useMemo } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +19,7 @@ import Animated, {
   withRepeat,
   withSequence,
   Easing,
+  FadeInUp,
 } from "react-native-reanimated";
 import {
   MessageCircle,
@@ -29,10 +38,15 @@ import {
   usePersonMemories,
   usePersonInteractions,
   useCreateInteraction,
+  useCreatePromise,
 } from "@/hooks";
 import { PlantBridgeIllustration } from "@/components/illustrations";
 import { MemoryCarousel } from "@/components/MemoryCarousel";
 import { getReachOutActions } from "@/lib/reachOutActionEngine";
+import {
+  requestNotificationPermissions,
+  schedulePostReachOutCapturePrompt,
+} from "@/lib/notificationService";
 import type { Person, Interaction } from "@/types/database";
 import type { InteractionType } from "@/types";
 
@@ -357,6 +371,229 @@ function BridgeScreen({
   );
 }
 
+// ─── Saved Moment (post-save bridge to memory capture) ─────────────────────
+
+function SavedMomentScreen({
+  person,
+  onCaptureMoment,
+  onDone,
+}: {
+  person: Person;
+  onCaptureMoment: () => void;
+  onDone: () => void;
+}) {
+  // Gentle entrance — same idiom as BridgeScreen
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(16);
+
+  // Quiet promise capture (SPEC_TENDING_SEASONS §2.3) — never blocks the flow
+  const { createPromise, isCreating } = useCreatePromise();
+  const [showPromiseInput, setShowPromiseInput] = useState(false);
+  const [promiseText, setPromiseText] = useState("");
+  const canHoldPromise = promiseText.trim().length > 0 && !isCreating;
+
+  useEffect(() => {
+    const enterConfig = { duration: 400, easing: Easing.out(Easing.cubic) };
+    opacity.value = withTiming(1, enterConfig);
+    translateY.value = withTiming(0, enterConfig);
+  }, []);
+
+  const entranceStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const handleHoldPromise = async () => {
+    const trimmed = promiseText.trim();
+    if (!trimmed || isCreating) return;
+    try {
+      await createPromise({
+        person_id: person.id,
+        text: trimmed,
+        source: "post_reach_out",
+      });
+    } catch {
+      // Best-effort — never trap the user in this flow
+    }
+    onDone();
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+    <Animated.View
+      style={[
+        {
+          flex: 1,
+          paddingHorizontal: 20,
+          paddingBottom: 32,
+          paddingTop: 24,
+        },
+        entranceStyle,
+      ]}
+    >
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <PlantBridgeIllustration size={64} />
+        <Text
+          style={{
+            fontFamily: fonts.serif,
+            fontSize: 22,
+            color: nearBlack,
+            lineHeight: 29,
+            textAlign: "center",
+            paddingHorizontal: 16,
+            marginTop: 20,
+          }}
+        >
+          You reached out to {person.name}
+        </Text>
+        <Text
+          style={{
+            fontFamily: fonts.sans,
+            fontSize: 14,
+            color: warmGray,
+            textAlign: "center",
+            lineHeight: 20,
+            paddingHorizontal: 24,
+            marginTop: 10,
+          }}
+        >
+          If something from it is worth keeping, now's a lovely time.
+        </Text>
+      </View>
+
+      {/* Capture a moment — primary */}
+      <Pressable
+        onPress={onCaptureMoment}
+        style={{
+          backgroundColor: sage,
+          borderRadius: 16,
+          paddingVertical: 18,
+          paddingHorizontal: 20,
+          alignItems: "center",
+          justifyContent: "center",
+          shadowColor: sage,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.25,
+          shadowRadius: 16,
+          elevation: 4,
+          marginBottom: 10,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: fonts.sansSemiBold,
+            fontSize: 16,
+            color: white,
+          }}
+        >
+          Capture a memory from this
+        </Text>
+      </Pressable>
+
+      {/* Done — secondary */}
+      <Pressable
+        onPress={onDone}
+        style={{
+          backgroundColor: white,
+          borderWidth: 1,
+          borderColor: borderColor,
+          borderRadius: 16,
+          paddingVertical: 14,
+          paddingHorizontal: 20,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: fonts.sans,
+            fontSize: 15,
+            color: nearBlack,
+          }}
+        >
+          Done
+        </Text>
+      </Pressable>
+
+      {/* Promise capture — quiet third option (SPEC_TENDING_SEASONS §2.3) */}
+      {!showPromiseInput ? (
+        <Pressable
+          onPress={() => setShowPromiseInput(true)}
+          style={{ alignItems: "center", padding: 12, marginTop: 4 }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.sansMedium,
+              fontSize: 14,
+              color: warmGray,
+            }}
+          >
+            Did you promise them anything?
+          </Text>
+        </Pressable>
+      ) : (
+        <Animated.View
+          entering={FadeInUp.duration(250)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 12,
+          }}
+        >
+          <TextInput
+            style={{
+              flex: 1,
+              backgroundColor: white,
+              borderWidth: 1,
+              borderColor: borderColor,
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              fontFamily: fonts.sans,
+              fontSize: 15,
+              color: nearBlack,
+            }}
+            placeholder="Send them that book link..."
+            placeholderTextColor={warmGray}
+            value={promiseText}
+            onChangeText={setPromiseText}
+            autoFocus
+            maxLength={200}
+            returnKeyType="done"
+            onSubmitEditing={handleHoldPromise}
+          />
+          <Pressable
+            onPress={handleHoldPromise}
+            disabled={!canHoldPromise}
+            style={{
+              backgroundColor: sage,
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              opacity: canHoldPromise ? 1 : 0.5,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 14,
+                color: white,
+              }}
+            >
+              Hold onto it
+            </Text>
+          </Pressable>
+        </Animated.View>
+      )}
+    </Animated.View>
+    </KeyboardAvoidingView>
+  );
+}
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function ReachOutScreen() {
@@ -365,6 +602,7 @@ export default function ReachOutScreen() {
   const { person, isLoading, error, refetch } = usePerson(id ?? "");
   const { interactions } = usePersonInteractions(id ?? "");
   const { createInteraction } = useCreateInteraction();
+  const [hasLogged, setHasLogged] = useState(false);
 
   // ─── Loading ─────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -435,15 +673,45 @@ export default function ReachOutScreen() {
   // ─── Handlers ────────────────────────────────────────────────────────────
 
   const handleChannelSelected = async (channelType: InteractionType) => {
+    let saved = false;
     try {
-      await createInteraction({
+      const created = await createInteraction({
         person_id: person.id,
         type: channelType,
       });
+      saved = created != null;
     } catch {
       // Silent fail
     }
-    // Navigate directly to check-in — no intermediate screen (REACH-03)
+
+    if (!saved) {
+      // Save didn't take — fall back to the original flow (REACH-03)
+      router.replace(`/reach-out/check-in/${person.id}`);
+      return;
+    }
+
+    // Gentle delayed nudge (~3h) to capture a memory while it's fresh.
+    // Asking for permission here is intentional — it's the most
+    // contextual moment. Fire-and-forget; the service caps cadence.
+    const firstName = person.name.split(" ")[0];
+    requestNotificationPermissions()
+      .then((granted) => {
+        if (granted) {
+          return schedulePostReachOutCapturePrompt(person.id, firstName);
+        }
+      })
+      .catch(() => {});
+
+    // Brief, skippable success moment — capture now, or continue on
+    setHasLogged(true);
+  };
+
+  const handleCaptureMoment = () => {
+    router.replace(`/memory/add?personId=${person.id}`);
+  };
+
+  const handleLoggedDone = () => {
+    // Existing flow: continue to the check-in (REACH-03)
     router.replace(`/reach-out/check-in/${person.id}`);
   };
 
@@ -482,13 +750,21 @@ export default function ReachOutScreen() {
           </Pressable>
         </View>
 
-        {/* Bridge Screen */}
-        <BridgeScreen
-          person={person}
-          interactions={interactions}
-          onChannelSelected={handleChannelSelected}
-          onDismiss={handleDismiss}
-        />
+        {/* Bridge Screen / Post-save capture bridge */}
+        {hasLogged ? (
+          <SavedMomentScreen
+            person={person}
+            onCaptureMoment={handleCaptureMoment}
+            onDone={handleLoggedDone}
+          />
+        ) : (
+          <BridgeScreen
+            person={person}
+            interactions={interactions}
+            onChannelSelected={handleChannelSelected}
+            onDismiss={handleDismiss}
+          />
+        )}
       </View>
     </>
   );

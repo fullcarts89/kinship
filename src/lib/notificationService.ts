@@ -13,12 +13,16 @@
 import {
   canSendNotification,
   logNotificationSent,
+  hydrateNotificationLog,
   createGardenWalkNotification,
   createBirthdayNotification,
   createMemoryResurfaceNotification,
   getNextGardenWalkDate,
   getGardenWalkPreferences,
+  NOTIFICATION_COPY,
 } from "@/lib/notificationEngine";
+import { selectSpotlightMemory } from "@/lib/spotlightEngine";
+import type { Memory, Person } from "@/types/database";
 
 // ─── Lazy Require ────────────────────────────────────────────────────────────
 
@@ -83,6 +87,7 @@ export async function scheduleGardenWalkNotification(): Promise<void> {
   const prefs = getGardenWalkPreferences();
   if (!prefs.enabled) return;
 
+  await hydrateNotificationLog();
   if (!canSendNotification("garden_walk")) return;
 
   const notification = createGardenWalkNotification();
@@ -111,7 +116,7 @@ export async function scheduleGardenWalkNotification(): Promise<void> {
       },
     },
     trigger: {
-      type: "date" as const,
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
       date: triggerDate,
     },
   });
@@ -135,6 +140,7 @@ export async function scheduleBirthdayNotification(
   const Notifications = getNotifications();
   if (!Notifications) return;
 
+  await hydrateNotificationLog();
   if (!canSendNotification("contextual_nudge")) return;
 
   const notification = createBirthdayNotification(personId, personName, when);
@@ -170,6 +176,7 @@ export async function scheduleMemoryResurfaceNotification(
   const Notifications = getNotifications();
   if (!Notifications) return;
 
+  await hydrateNotificationLog();
   if (!canSendNotification("memory_resurface")) return;
 
   const notification = createMemoryResurfaceNotification(
@@ -194,6 +201,172 @@ export async function scheduleMemoryResurfaceNotification(
   });
 
   logNotificationSent("memory_resurface");
+}
+
+/**
+ * Check notification permission WITHOUT prompting the user.
+ * Ambient scheduling uses this so the OS permission dialog only ever
+ * appears from an in-context moment (e.g. right after a reach-out).
+ */
+export async function hasNotificationPermission(): Promise<boolean> {
+  const Notifications = getNotifications();
+  if (!Notifications) return false;
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === "granted";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Schedule the weekly Garden Digest notification ("Your week in the
+ * garden is ready") for the next Sunday evening. Max one per week.
+ */
+export async function scheduleWeeklyDigestNotification(): Promise<void> {
+  const Notifications = getNotifications();
+  if (!Notifications) return;
+
+  await hydrateNotificationLog();
+  if (!canSendNotification("weekly_digest")) return;
+
+  // Skip if one is already waiting to fire
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const alreadyScheduled = scheduled.some(
+    (n) =>
+      n.content.data &&
+      (n.content.data as Record<string, unknown>).type === "weekly_digest"
+  );
+  if (alreadyScheduled) return;
+
+  // Next Sunday at 18:00 — a reflective end-of-week moment
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(18, 0, 0, 0);
+  let daysUntil = (0 - now.getDay() + 7) % 7;
+  if (daysUntil === 0 && target.getTime() <= now.getTime()) daysUntil = 7;
+  target.setDate(target.getDate() + daysUntil);
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: NOTIFICATION_COPY.weekly_digest.title,
+      body: NOTIFICATION_COPY.weekly_digest.body,
+      data: { type: "weekly_digest" },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: target,
+    },
+  });
+
+  logNotificationSent("weekly_digest");
+}
+
+/**
+ * Schedule a gentle capture prompt a few hours after a reach-out —
+ * the moment the material for a memory is freshest. Counts against
+ * the 1-per-day contextual nudge budget.
+ */
+export async function schedulePostReachOutCapturePrompt(
+  personId: string,
+  personName: string,
+  delayHours = 3
+): Promise<void> {
+  const Notifications = getNotifications();
+  if (!Notifications) return;
+
+  await hydrateNotificationLog();
+  if (!canSendNotification("contextual_nudge")) return;
+
+  const copy = NOTIFICATION_COPY.memory_capture_prompt(personName);
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: copy.title,
+      body: copy.body,
+      data: { type: "memory_capture_prompt", personId },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: Math.round(delayHours * 3600),
+    },
+  });
+
+  logNotificationSent("contextual_nudge");
+}
+
+/**
+ * Ambient scheduling, called after Home loads data. Never prompts for
+ * permission — silently no-ops until the user has granted it elsewhere.
+ *
+ * - Keeps the weekly digest notification armed.
+ * - Schedules a memory-resurface notification for tomorrow morning when
+ *   the spotlight engine has a pick worth surfacing (anniversaries etc.).
+ */
+export async function scheduleAmbientNotifications(
+  memories: Memory[],
+  persons: Person[]
+): Promise<void> {
+  const Notifications = getNotifications();
+  if (!Notifications) return;
+  if (!(await hasNotificationPermission())) return;
+
+  try {
+    await scheduleWeeklyDigestNotification();
+  } catch {
+    // best-effort
+  }
+
+  try {
+    await hydrateNotificationLog();
+    if (!canSendNotification("memory_resurface")) return;
+
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const alreadyScheduled = scheduled.some(
+      (n) =>
+        n.content.data &&
+        (n.content.data as Record<string, unknown>).type === "memory_resurface"
+    );
+    if (alreadyScheduled) return;
+
+    // Tomorrow's pick, delivered tomorrow morning
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 30, 0, 0);
+
+    const pick = selectSpotlightMemory(memories, tomorrow);
+    // Only notify when there's a warm reason (anniversary, season) —
+    // an ordinary rotation isn't worth interrupting someone's day for.
+    if (!pick || !pick.reason) return;
+
+    const person = persons.find((p) => p.id === pick.memory.person_id);
+    if (!person) return;
+
+    const copy = NOTIFICATION_COPY.memory_resurface(
+      person.name,
+      pick.memory.content
+    );
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: copy.title,
+        body: copy.body,
+        data: {
+          type: "memory_resurface",
+          personId: person.id,
+          memoryId: pick.memory.id,
+        },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: tomorrow,
+      },
+    });
+
+    logNotificationSent("memory_resurface");
+  } catch {
+    // best-effort
+  }
 }
 
 // ─── Cancellation ────────────────────────────────────────────────────────────
@@ -223,6 +396,8 @@ export function setupNotificationHandler(): void {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: false,
       shouldSetBadge: false,
     }),
