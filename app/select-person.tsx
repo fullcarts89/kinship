@@ -252,6 +252,12 @@ export default function SelectPersonScreen() {
       case "quick-note":
         router.replace(`/quick-note/${person.id}`);
         break;
+      case "log-gift":
+        router.replace(`/gift/${person.id}`);
+        break;
+      case "remember-detail":
+        router.replace(`/detail/${person.id}`);
+        break;
       default:
         // Fallback: close the screen
         if (router.canGoBack()) {
@@ -281,7 +287,11 @@ export default function SelectPersonScreen() {
       ? "Who would you like to\nreach out to?"
       : intent === "quick-note"
         ? "Who is this about?"
-        : "Choose someone";
+        : intent === "log-gift"
+          ? "Who is the gift\nbetween you and?"
+          : intent === "remember-detail"
+            ? "Who do you want to\nremember this about?"
+            : "Choose someone";
 
   return (
     <KeyboardAvoidingView

@@ -48,6 +48,18 @@ export type InteractionType =
   | "check_in"
   | "other";
 
+/** Category for a remembered detail/fact about a person */
+export type NoteCategory =
+  | "hometown"
+  | "favorite"
+  | "family"
+  | "important_date"
+  | "preference"
+  | "other";
+
+/** Direction of a logged gift, relative to the user */
+export type GiftDirection = "given" | "received";
+
 /** Suggestion types from the intelligence engine */
 export type SuggestionType =
   | "check_in"

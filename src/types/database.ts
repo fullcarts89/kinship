@@ -14,6 +14,8 @@ import type {
   InteractionType,
   SuggestionType,
   SuggestionStatus,
+  NoteCategory,
+  GiftDirection,
 } from "./index";
 
 // ─── Table Row Types ────────────────────────────────────────────────────────
@@ -28,6 +30,12 @@ export interface User {
 export interface PersonNote {
   text: string;
   created_at: string;
+  /**
+   * Optional category for a structured "detail" (from the Remember a
+   * detail flow). Free-form quick notes leave this undefined and render
+   * under a plain "Notes" group.
+   */
+  category?: NoteCategory;
 }
 
 export interface Person {
@@ -91,6 +99,23 @@ export interface PersonPromise {
   resolved_at: string | null;
 }
 
+/**
+ * Gift — a gift the user gave to, or received from, a person
+ * ("wedding gift: stand mixer"). A structured record on the person's
+ * timeline; helps remember what was exchanged and reciprocate.
+ */
+export interface Gift {
+  id: string;
+  user_id: string;
+  person_id: string;
+  title: string;            // What the gift was
+  direction: GiftDirection; // given | received
+  occasion: string | null;  // "wedding", "birthday", etc.
+  note: string | null;
+  occurred_at: string;      // When it was given/received
+  created_at: string;       // When it was logged
+}
+
 /** A bounded period of intentional tending — up to 5 people, ~3 months. */
 export interface Season {
   id: string;
@@ -146,6 +171,11 @@ export type PersonPromiseInsert = Omit<PersonPromise, "id" | "created_at" | "res
   due_hint?: string | null;
   status?: PersonPromise["status"];
 };
+export type GiftInsert = Omit<Gift, "id" | "created_at" | "occurred_at" | "occasion" | "note"> & {
+  occurred_at?: string;
+  occasion?: string | null;
+  note?: string | null;
+};
 
 // ─── Update Types (all fields optional except id) ────────────────────────────
 
@@ -157,6 +187,7 @@ export type SuggestionUpdate = Partial<Omit<Suggestion, "id" | "user_id" | "crea
 export type SeasonUpdate = Partial<Omit<Season, "id" | "user_id" | "created_at">>;
 export type SeasonCommitmentUpdate = Partial<Pick<SeasonCommitment, "rhythm">>;
 export type PersonPromiseUpdate = Partial<Omit<PersonPromise, "id" | "user_id" | "person_id" | "created_at">>;
+export type GiftUpdate = Partial<Omit<Gift, "id" | "user_id" | "person_id" | "created_at">>;
 
 // ─── Database Schema (Supabase GenericSchema) ───────────────────────────────
 
@@ -197,6 +228,12 @@ export interface Database {
         Row: PersonPromise;
         Insert: PersonPromiseInsert;
         Update: PersonPromiseUpdate;
+        Relationships: [];
+      };
+      gifts: {
+        Row: Gift;
+        Insert: GiftInsert;
+        Update: GiftUpdate;
         Relationships: [];
       };
       seasons: {

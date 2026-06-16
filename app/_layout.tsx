@@ -164,6 +164,20 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="detail"
+          options={{
+            headerShown: false,
+            presentation: "modal",
+          }}
+        />
+        <Stack.Screen
+          name="gift"
+          options={{
+            headerShown: false,
+            presentation: "modal",
+          }}
+        />
+        <Stack.Screen
           name="season"
           options={{
             headerShown: false,

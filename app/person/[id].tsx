@@ -41,6 +41,9 @@ import {
   Check,
   Mail,
   Pencil,
+  Gift as GiftIcon,
+  ArrowUpRight,
+  ArrowDownLeft,
 } from "lucide-react-native";
 import { colors, fonts } from "@design/tokens";
 import {
@@ -83,11 +86,12 @@ import {
 } from "@/lib/textureEngine";
 import type { TextureInfo } from "@/lib/textureEngine";
 import type { Interaction, Memory, Person } from "@/types/database";
-import type { InteractionType, Emotion, IconComponent } from "@/types";
+import type { InteractionType, Emotion, IconComponent, NoteCategory } from "@/types";
 import { buildInviteMessage } from "@/lib/appLinks";
 import { getNextBestAction } from "@/lib/nextActionEngine";
 import { useAIInsight } from "@/hooks/useAIInsight";
 import { usePersonPromises, useResolvePromise } from "@/hooks/usePromises";
+import { usePersonGifts, useDeleteGift } from "@/hooks/useGifts";
 import { showGrowthToast } from "@/components/ui/GrowthToast";
 import type { GrowthInfo } from "@/lib/growthEngine";
 import type { VitalityInfo } from "@/lib/vitalityEngine";
@@ -375,6 +379,16 @@ function ProfileTabBar({
 
 // ─── Context Tab Content ────────────────────────────────────────────────────
 
+/** Friendly labels for remembered-detail categories. */
+const NOTE_CATEGORY_LABELS: Record<NoteCategory, string> = {
+  hometown: "Hometown",
+  favorite: "Favorite",
+  family: "Family",
+  important_date: "Important date",
+  preference: "Preference",
+  other: "Detail",
+};
+
 function ContextTab({
   person,
   memories,
@@ -393,6 +407,29 @@ function ContextTab({
   const { updatePerson } = useUpdatePerson();
   const { promises: openPromises, refetch: refetchPromises } = usePersonPromises(person.id);
   const { resolvePromise, isResolving } = useResolvePromise();
+  const { gifts, refetch: refetchGifts } = usePersonGifts(person.id);
+  const { deleteGift } = useDeleteGift();
+
+  const handleRemoveGift = (giftId: string) => {
+    Alert.alert("Remove this gift?", undefined, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          await deleteGift(giftId);
+          refetchGifts();
+        },
+      },
+    ]);
+  };
+
+  const firstName = person.name.split(" ")[0];
+  // Split notes into structured "details" (categorized) and free-form notes,
+  // keeping each note's original index so removal stays correct.
+  const indexedNotes = (person.notes ?? []).map((note, index) => ({ note, index }));
+  const detailNotes = indexedNotes.filter((n) => n.note.category);
+  const plainNotes = indexedNotes.filter((n) => !n.note.category);
   // One promise at a time — the oldest held the longest
   const promise = openPromises.length > 0 ? openPromises[0] : null;
 
@@ -496,8 +533,198 @@ function ContextTab({
         ))}
       </View>
 
-      {/* Notes — quick profile facts from the Quick note flow */}
-      {(person.notes?.length ?? 0) > 0 && (
+      {/* Things I know — structured details from the Remember a detail flow */}
+      {detailNotes.length > 0 && (
+        <View
+          style={{
+            backgroundColor: white,
+            borderRadius: 20,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: borderColor,
+            marginBottom: 20,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+            <Text style={{ fontSize: 15, marginRight: 8 }}>{"💡"}</Text>
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 15,
+                color: nearBlack,
+              }}
+            >
+              Things I know about {firstName}
+            </Text>
+          </View>
+          {detailNotes.map(({ note, index }, i) => (
+            <Pressable
+              key={`${note.created_at}-${index}`}
+              onLongPress={() => handleRemoveNote(index)}
+              delayLongPress={400}
+              style={{
+                paddingVertical: 8,
+                borderTopWidth: i === 0 ? 0 : 1,
+                borderTopColor: borderColor,
+              }}
+            >
+              <View
+                style={{
+                  alignSelf: "flex-start",
+                  backgroundColor: sagePale,
+                  borderRadius: 100,
+                  paddingVertical: 2,
+                  paddingHorizontal: 8,
+                  marginBottom: 5,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.sansMedium,
+                    fontSize: 11,
+                    color: sageDark,
+                  }}
+                >
+                  {NOTE_CATEGORY_LABELS[note.category ?? "other"]}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontFamily: fonts.sans,
+                  fontSize: 14,
+                  color: nearBlack,
+                  lineHeight: 20,
+                }}
+              >
+                {note.text}
+              </Text>
+            </Pressable>
+          ))}
+          <Text
+            style={{
+              fontFamily: fonts.sans,
+              fontSize: 11,
+              color: warmGray,
+              textAlign: "center",
+              marginTop: 10,
+            }}
+          >
+            Press and hold a detail to remove it
+          </Text>
+        </View>
+      )}
+
+      {/* Gifts — given and received, from the Log a gift flow */}
+      {gifts.length > 0 && (
+        <View
+          style={{
+            backgroundColor: white,
+            borderRadius: 20,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: borderColor,
+            marginBottom: 20,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+            <GiftIcon size={16} color={sage} strokeWidth={2} style={{ marginRight: 8 }} />
+            <Text
+              style={{
+                fontFamily: fonts.sansSemiBold,
+                fontSize: 15,
+                color: nearBlack,
+              }}
+            >
+              Gifts
+            </Text>
+          </View>
+          {gifts.map((gift, i) => {
+            const gave = gift.direction === "given";
+            const DirIcon = gave ? ArrowUpRight : ArrowDownLeft;
+            const meta = [gave ? "You gave" : "You received", gift.occasion]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <Pressable
+                key={gift.id}
+                onLongPress={() => handleRemoveGift(gift.id)}
+                delayLongPress={400}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  paddingVertical: 10,
+                  borderTopWidth: i === 0 ? 0 : 1,
+                  borderTopColor: borderColor,
+                }}
+              >
+                <View
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 9,
+                    backgroundColor: sagePale,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 12,
+                    marginTop: 1,
+                  }}
+                >
+                  <DirIcon size={16} color={sage} strokeWidth={2} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sansMedium,
+                      fontSize: 14,
+                      color: nearBlack,
+                      lineHeight: 20,
+                    }}
+                  >
+                    {gift.title}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: fonts.sans,
+                      fontSize: 11,
+                      color: warmGray,
+                      marginTop: 2,
+                    }}
+                  >
+                    {meta} {"·"} {formatMemoryDate(gift.occurred_at)}
+                  </Text>
+                  {gift.note ? (
+                    <Text
+                      style={{
+                        fontFamily: fonts.sans,
+                        fontSize: 13,
+                        color: warmGray,
+                        marginTop: 4,
+                        lineHeight: 19,
+                      }}
+                    >
+                      {gift.note}
+                    </Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            );
+          })}
+          <Text
+            style={{
+              fontFamily: fonts.sans,
+              fontSize: 11,
+              color: warmGray,
+              textAlign: "center",
+              marginTop: 10,
+            }}
+          >
+            Press and hold a gift to remove it
+          </Text>
+        </View>
+      )}
+
+      {/* Notes — free-form quick facts from the Quick note flow */}
+      {plainNotes.length > 0 && (
         <View
           style={{
             backgroundColor: white,
@@ -520,10 +747,10 @@ function ContextTab({
               Notes
             </Text>
           </View>
-          {(person.notes ?? []).map((n, i) => (
+          {plainNotes.map(({ note: n, index }, i) => (
             <Pressable
-              key={`${n.created_at}-${i}`}
-              onLongPress={() => handleRemoveNote(i)}
+              key={`${n.created_at}-${index}`}
+              onLongPress={() => handleRemoveNote(index)}
               delayLongPress={400}
               style={{
                 paddingVertical: 8,

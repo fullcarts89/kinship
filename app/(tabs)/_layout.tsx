@@ -11,6 +11,8 @@ import {
   UserPlus,
   BookUser,
   PenLine,
+  Gift,
+  Lightbulb,
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -130,6 +132,16 @@ export default function TabLayout() {
   const handleQuickNote = () => {
     closeTendSheet();
     router.push("/select-person?intent=quick-note");
+  };
+
+  const handleLogGift = () => {
+    closeTendSheet();
+    router.push("/select-person?intent=log-gift");
+  };
+
+  const handleRememberDetail = () => {
+    closeTendSheet();
+    router.push("/select-person?intent=remember-detail");
   };
 
   const handleAddSomeone = () => {
@@ -404,6 +416,110 @@ export default function TabLayout() {
                   }}
                 >
                   Jot down a detail before it slips away
+                </Text>
+              </View>
+            </Pressable>
+
+            {/* Action A3: Remember a detail (SECONDARY — bordered) */}
+            <Pressable
+              onPress={handleRememberDetail}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 18,
+                paddingHorizontal: 20,
+                borderRadius: 18,
+                backgroundColor: colors.white,
+                borderWidth: 1.5,
+                borderColor: colors.sageLight,
+                marginBottom: 12,
+              }}
+            >
+              <View
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 12,
+                  backgroundColor: colors.sagePale,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 14,
+                }}
+              >
+                <Lightbulb color={colors.sage} size={22} strokeWidth={1.8} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 16,
+                    color: colors.nearBlack,
+                    marginBottom: 2,
+                  }}
+                >
+                  Remember a detail
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.sans,
+                    fontSize: 13,
+                    color: colors.warmGray,
+                    lineHeight: 18,
+                  }}
+                >
+                  Hometown, favorite things, the little facts
+                </Text>
+              </View>
+            </Pressable>
+
+            {/* Action A4: Log a gift (SECONDARY — bordered) */}
+            <Pressable
+              onPress={handleLogGift}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 18,
+                paddingHorizontal: 20,
+                borderRadius: 18,
+                backgroundColor: colors.white,
+                borderWidth: 1.5,
+                borderColor: colors.sageLight,
+                marginBottom: 12,
+              }}
+            >
+              <View
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 12,
+                  backgroundColor: colors.sagePale,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 14,
+                }}
+              >
+                <Gift color={colors.sage} size={22} strokeWidth={1.8} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.sansSemiBold,
+                    fontSize: 16,
+                    color: colors.nearBlack,
+                    marginBottom: 2,
+                  }}
+                >
+                  Log a gift
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.sans,
+                    fontSize: 13,
+                    color: colors.warmGray,
+                    lineHeight: 18,
+                  }}
+                >
+                  A gift you gave or received
                 </Text>
               </View>
             </Pressable>

@@ -37,7 +37,7 @@ import {
 } from "lucide-react-native";
 import { colors, fonts, shadows } from "@design/tokens";
 import { Skeleton, ErrorState, EmptyState, FadeIn, PressableScale } from "@/components/ui";
-import { usePersons, useMemories, useAllInteractions, useBootstrapGrowth, useAllVitalities, useActiveSeason } from "@/hooks";
+import { usePersons, useMemories, useAllInteractions, useBootstrapGrowth, useAllVitalities, useActiveSeason, useGifts } from "@/hooks";
 import VitalPlant from "@/components/VitalPlant";
 import LivingPlant from "@/components/LivingPlant";
 import { getVitalityLevel, getSwayParams } from "@/lib/vitalityEngine";
@@ -423,14 +423,17 @@ export default function YourGardenScreen() {
     refetch: refetchInteractions,
   } = useAllInteractions();
 
-  const isLoading = personsLoading || memoriesLoading || interactionsLoading;
+  const { gifts, isLoading: giftsLoading } = useGifts();
+
+  const isLoading =
+    personsLoading || memoriesLoading || interactionsLoading || giftsLoading;
   const error = personsError || memoriesError;
 
   // Active season — only used for the quiet header affordance label.
   const { season, isLoading: seasonLoading } = useActiveSeason();
 
   // Bootstrap growth points from existing data (runs once)
-  useBootstrapGrowth(memories, allInteractions, isLoading);
+  useBootstrapGrowth(memories, allInteractions, isLoading, gifts, persons);
 
   // Vitality scores for all persons
   const personIds = useMemo(() => persons.map((p) => p.id), [persons]);

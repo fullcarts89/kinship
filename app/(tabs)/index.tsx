@@ -49,7 +49,7 @@ import { colors, fonts } from "@design/tokens";
 import { Skeleton, ErrorState, FadeIn, PressableScale } from "@/components/ui";
 import { OrientationOverlay } from "@/components/OrientationOverlay";
 import type { HighlightRect } from "@/components/OrientationOverlay";
-import { usePersons, useMemories, useAllInteractions, useAllVitalities, useOpenPromises, useActiveSeason } from "@/hooks";
+import { usePersons, useMemories, useAllInteractions, useAllVitalities, useOpenPromises, useActiveSeason, useGifts } from "@/hooks";
 import { useBootstrapGrowth } from "@/hooks/useGrowth";
 import VitalPlant from "@/components/VitalPlant";
 import LivingPlant from "@/components/LivingPlant";
@@ -762,6 +762,7 @@ export default function GardenScreen() {
     refetch: refetchInteractions,
   } = useAllInteractions();
   const { promises: openPromises } = useOpenPromises();
+  const { gifts, isLoading: giftsLoading } = useGifts();
   const {
     season,
     commitments,
@@ -771,8 +772,9 @@ export default function GardenScreen() {
   } = useActiveSeason();
 
   // Bootstrap growth store from existing data on first load
-  const isLoading = personsLoading || memoriesLoading || interactionsLoading;
-  useBootstrapGrowth(memories, allInteractions, isLoading);
+  const isLoading =
+    personsLoading || memoriesLoading || interactionsLoading || giftsLoading;
+  useBootstrapGrowth(memories, allInteractions, isLoading, gifts, persons);
 
   // Vitality scores for all persons (used by plant carousel)
   const personIds = useMemo(() => persons.map((p) => p.id), [persons]);

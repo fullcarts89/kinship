@@ -39,6 +39,7 @@ import { clearLocalPeople } from "@/hooks/usePersons";
 import { clearLocalMemories } from "@/hooks/useMemories";
 import { clearLocalInteractions } from "@/hooks/useInteractions";
 import { clearLocalPromises } from "@/hooks/usePromises";
+import { clearLocalGifts } from "@/hooks/useGifts";
 import { clearLocalSeasons } from "@/hooks/useSeason";
 import { deleteAllPersons } from "@/services/personService";
 import { exportGardenData } from "@/lib/exportService";
@@ -511,6 +512,7 @@ export default function PrivacyScreen() {
     clearLocalMemories();
     clearLocalInteractions();
     clearLocalPromises();
+    clearLocalGifts();
     clearLocalSeasons();
     clearAllCollections();
     resetGrowthState();

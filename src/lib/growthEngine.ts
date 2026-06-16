@@ -21,7 +21,7 @@
  * Growth never regresses even if data is re-bootstrapped.
  */
 
-import type { Memory, Interaction } from "@/types/database";
+import type { Memory, Interaction, Gift, Person } from "@/types/database";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -52,6 +52,9 @@ export interface GrowthTransition {
 const POINTS_MEANINGFUL_MEMORY = 3;
 const POINTS_SIMPLE_MEMORY = 2;
 const POINTS_REFLECTION = 1;
+/** Logging a gift is a real act of care; a remembered detail is a light touch. */
+const POINTS_GIFT = 2;
+const POINTS_DETAIL = 1;
 
 /** Max growth points awarded to a single person in one calendar day. */
 const DAILY_CAP = 4;
@@ -307,6 +310,25 @@ export function recordReflectionGrowth(
   return applyGrowth(personId, POINTS_REFLECTION);
 }
 
+/**
+ * Record growth from logging a gift (given or received).
+ * Returns a GrowthTransition if stage advanced, else null.
+ */
+export function recordGiftGrowth(personId: string): GrowthTransition | null {
+  return applyGrowth(personId, POINTS_GIFT);
+}
+
+/**
+ * Record growth from remembering a structured detail (a categorized note).
+ * Returns a GrowthTransition if stage advanced, else null.
+ *
+ * NOTE: Free-form quick notes (uncategorized) do NOT call this — only the
+ * "Remember a detail" flow does, keeping quick-note's no-growth identity.
+ */
+export function recordNoteGrowth(personId: string): GrowthTransition | null {
+  return applyGrowth(personId, POINTS_DETAIL);
+}
+
 // ─── Bootstrap ──────────────────────────────────────────────────────────────
 
 /**
@@ -320,6 +342,9 @@ export function recordReflectionGrowth(
  *   but events created today rebuild today's daily-cap usage
  * - Bare interactions (no note AND no emotion) get +0 (reach-outs)
  * - Interactions with note or emotion get +1 (reflections)
+ * - Gifts get +2 each
+ * - Categorized notes ("remembered details") get +1 each; free-form
+ *   quick notes (no category) contribute nothing
  * - Growth never regresses — if already bootstrapped with higher
  *   points, they are preserved.
  *
@@ -327,7 +352,9 @@ export function recordReflectionGrowth(
  */
 export function bootstrapGrowthFromData(
   memories: Memory[],
-  interactions: Interaction[]
+  interactions: Interaction[],
+  gifts: Gift[] = [],
+  persons: Person[] = []
 ): void {
   if (_isBootstrapped) return;
   _isBootstrapped = true;
@@ -363,6 +390,33 @@ export function bootstrapGrowthFromData(
       );
       if (dateKeyOf(new Date(interaction.created_at)) === today) {
         recordDailyUsage(personId, POINTS_REFLECTION);
+      }
+    }
+  }
+
+  // Accumulate points per person from gifts (+2 each)
+  for (const gift of gifts) {
+    const personId = gift.person_id;
+    pointsByPerson.set(
+      personId,
+      (pointsByPerson.get(personId) ?? 0) + POINTS_GIFT
+    );
+    if (dateKeyOf(new Date(gift.created_at)) === today) {
+      recordDailyUsage(personId, POINTS_GIFT);
+    }
+  }
+
+  // Accumulate points per person from remembered details (categorized notes).
+  // Free-form quick notes (no category) award nothing.
+  for (const person of persons) {
+    for (const note of person.notes ?? []) {
+      if (!note.category) continue;
+      pointsByPerson.set(
+        person.id,
+        (pointsByPerson.get(person.id) ?? 0) + POINTS_DETAIL
+      );
+      if (dateKeyOf(new Date(note.created_at)) === today) {
+        recordDailyUsage(person.id, POINTS_DETAIL);
       }
     }
   }

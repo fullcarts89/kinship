@@ -21,7 +21,7 @@ import {
   clearRecentTransition,
 } from "@/lib/growthEngine";
 import type { GrowthStage, GrowthInfo } from "@/lib/growthEngine";
-import type { Memory, Interaction } from "@/types/database";
+import type { Memory, Interaction, Gift, Person } from "@/types/database";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -72,20 +72,24 @@ export function usePersonGrowth(personId: string): PersonGrowth {
 // ─── useBootstrapGrowth ─────────────────────────────────────────────────────
 
 /**
- * Seeds the growth store from existing memories and interactions.
- * Call once from a top-level screen (home or garden tab) after
- * data finishes loading. Idempotent — safe to call multiple times.
+ * Seeds the growth store from existing data (memories, interactions, gifts,
+ * and categorized notes on persons). Call once from a top-level screen (home
+ * or garden tab) after data finishes loading. Idempotent — safe to call
+ * multiple times. Gifts and persons are optional so existing call sites that
+ * only have memories/interactions keep working.
  */
 export function useBootstrapGrowth(
   memories: Memory[],
   interactions: Interaction[],
-  isLoading: boolean
+  isLoading: boolean,
+  gifts: Gift[] = [],
+  persons: Person[] = []
 ): void {
   useEffect(() => {
     if (!isLoading) {
-      bootstrapGrowthFromData(memories, interactions);
+      bootstrapGrowthFromData(memories, interactions, gifts, persons);
     }
-  }, [isLoading, memories, interactions]);
+  }, [isLoading, memories, interactions, gifts, persons]);
 }
 
 // Re-export types for convenience

@@ -37,6 +37,12 @@ export {
   useCreatePromise,
   useResolvePromise,
 } from "./usePromises";
+export {
+  useGifts,
+  usePersonGifts,
+  useCreateGift,
+  useDeleteGift,
+} from "./useGifts";
 export { useActiveSeason } from "./useSeason";
 
 // ─── Orientation Hooks ───────────────────────────────────────────────────
