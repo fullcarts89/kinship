@@ -221,15 +221,15 @@ Each ticket is sized for one engineer or one coding agent to implement and revie
 |---|---|---|---|---|
 | PER-04 | What Kinship knows page: every item, edit, "Not this", delete, sources | PER-03 | M | Tests per §5 |
 | PER-05 | Forget person (with redact option) + merge duplicates (undo 30 days) | PER-04, SCH-10 | M | pgTAP + E2E |
-| PER-06 | Person states UI: Remembered / Paused (reversible; the only visual difference is one line) | PER-01 | S | Test: no reasons generated |
+| PER-06 | Person states UI: Remembered / Paused (set only by the user; reversible; the only visual difference is one line; AI never proposes or sets them, D13) | PER-01 | S | Test: no reasons generated; no code path sets state from extraction |
 | PER-07 | "Your story together" (history by year; no totals) | PER-01 | M | Snapshot |
-| ONB-01 | Promise screens (2) + Sign in with Apple entry | NAV-01 | S | E2E |
-| ONB-02 | AI consent screen (server-stored, versioned) | ONB-01, SCH-06 | S | Test |
+| ONB-01 | Product promise screen → privacy-context screen → Sign in with Apple (D1 order; no anonymous path) | NAV-01 | S | E2E |
+| ONB-02 | Privacy-context screen carries the D2 disclosure ("information you record about people may be processed by Kinship's AI provider…") and the single D3 AI consent choice; the choice is stored server-side and versioned right after sign-in; declining gives the non-AI experience with no re-asking | ONB-01, SCH-06 | S | Test: consent row written after sign-in; decline → gateway 403, no re-prompt |
 | ONB-03 | Contacts multi-select with suggestions (favourites, family labels, has birthday); port `contacts.ts` normalization | ONB-01 | M | Handles 2,000 contacts smoothly |
 | ONB-04 | "Already worth knowing" (birthdays within 14 days) + first Tell | ONB-03, TELL-01 | S | E2E |
 | SET-01 | v2 Settings index (from the People header) | NAV-01 | S | — |
 | SET-02 | Settings › Notifications (brief day/time, quiet hours, lock-screen level, pause) | SET-01, PUSH-05 | S | Test |
-| SET-03 | Settings › What Kinship knows (sources with one-sentence explanations, AI consent, retention "delete my original notes after understanding") | SET-01 | M | Consent off → gateway 403 within 1 min |
+| SET-03 | Settings › What Kinship knows (sources with one-sentence explanations, the D2 AI-provider disclosure, AI consent, retention "delete my original notes after understanding") | SET-01 | M | Consent off → gateway 403 within 1 min |
 | SET-04 | `export` function (all v2 tables → JSON, signed URL, 24 h) + UI | SCH-10 | M | Completeness test |
 | SET-05 | v2 account screen wired to `delete-account` (v2 tables) | SCH-10 | S | E2E |
 | SET-06 | "What we measure" page generated from the analytics schema | OBS-06 | S | — |
@@ -255,6 +255,7 @@ Each ticket is sized for one engineer or one coding agent to implement and revie
 | BETA-03 | Wrong-subject triage runbook + per-case permission flow | FB-01 | S | Drill done |
 | BETA-04 | TestFlight rings (internal, alpha, cohort 1) + flag allowlists | FLG-01 | S | — |
 | BETA-05 | Week-8 gate report template (§30 criteria) | BETA-02 | S | — |
+| BETA-06 | Late-beta pricing research (D10): interview script (unaided price after a moment; $2.99/$4.99/$7.99 reactions; annual vs monthly; continuous-subscription fit; worth paying for; cancel drivers) plus a realistic plan-choice screen behind a flag that records a choice and never charges | BETA-02 | M | Runs in beta weeks 6–8; findings in the gate report |
 | VOX-01 | Spike: `expo-speech-recognition` on-device on the device matrix; document locale/device support | — | S | Matrix documented |
 | VOX-02 | `src/platform/speech.ts`: `requiresOnDeviceRecognition`, interim results, support check, mic hidden when unsupported | VOX-01 | M | Airplane-mode test |
 | VOX-03 | Listening screen (night palette, live underline of recognized names, stop, lock line) | VOX-02, TELL-01 | M | Starts < 300 ms |

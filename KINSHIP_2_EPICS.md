@@ -430,11 +430,11 @@ There are 22 detailed epics (E00–E21) for Phases 0–5 and the first Phase 6 f
 ## E16 — Onboarding v2
 
 - **Objective:** real value in under 3 minutes (§4, T2, T7, T8).
-- **User outcome:** pick your people, see something already worth knowing, tell one thing.
+- **User outcome:** understand the promise and what happens to your data, sign in with one tap, pick your people, see something already worth knowing, tell one thing.
 - **Architecture:**
-  - Two promise screens.
-  - Sign in with Apple.
-  - AI consent screen.
+  - Order fixed by D1: product promise → privacy context (the D2 disclosure plus the single D3 AI consent choice) → Sign in with Apple → people selection → first useful moment.
+  - The consent choice is written server-side immediately after sign-in; declining leads to the reduced non-AI experience with no re-asking.
+  - No anonymous-user path (D1).
   - Contacts multi-select with suggestions (favourites, family labels, birthdays).
   - "Already worth knowing" from birthdays.
   - The first Tell.
@@ -534,6 +534,7 @@ There are 22 detailed epics (E00–E21) for Phases 0–5 and the first Phase 6 f
   - In-app feedback (useful? / report wrong / shake-to-report with redaction).
   - A metrics dashboard.
   - A wrong-subject triage runbook.
+  - Late-beta monetization research (D10): expected price, $2.99/$4.99/$7.99 reactions, annual vs monthly, cancellation drivers, via a realistic plan-choice exercise that never charges.
 - **Files likely affected:** `src/features/feedback/*`, `docs/beta/{screener,interview-guide,triage-runbook,privacy-explainer}.md`, dashboard config.
 - **Schema changes:** `extraction_feedback`, `reason_events.feedback`.
 - **AI changes:** feedback loops into eval fixtures, with consent.
@@ -544,7 +545,8 @@ There are 22 detailed epics (E00–E21) for Phases 0–5 and the first Phase 6 f
 - **Acceptance criteria:**
   - 40 activated users.
   - Interview completion ≥ 80% for the 15 interviewees.
-  - The gate report is produced at week 8.
+  - The gate report is produced at week 8, including the pricing research findings.
+  - No payment details are collected from cohort 1.
 - **Feature flag:** n/a.
 - **Rollback:** n/a.
 - **Complexity:** M.

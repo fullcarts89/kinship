@@ -1,263 +1,267 @@
-# Kinship 2.0 — Decisions Thor Must Make Before Implementation
+# Kinship 2.0 — Founder Decisions
 
-As of 30 September 2026 · Companion to `KINSHIP_2_OPERATIONALIZATION.md`
+Recommendations 30 September 2026 · **Decided by Thor, 1 October 2026** · Companion to `KINSHIP_2_OPERATIONALIZATION.md`
 
-Thirteen product decisions shape the build. Each has a recommended default so work isn't blocked by default. **Five block implementation** and should be decided in the first week: D1, D2, D3, D8 and D12. The rest can be decided before the phase that needs them.
+All thirteen decisions are now made. Where Thor's decision differs from the original recommendation, the decision below supersedes it, and the affected plan sections have been updated to match. Phase 0 is authorized; Phase 1 waits for Phase 0 review.
 
-| # | Decision | Recommendation | Blocks | Needed by |
-|---|---|---|---|---|
-| D1 | Must an account exist before first use? | Yes: Sign in with Apple (one tap) before the first Tell | **Yes** | Phase 1 (schema, gateway auth) |
-| D2 | What exactly may be sent to an AI vendor? | One capture, the roster names, ≤3 person dossiers; never phone, email, address, photos or the calendar body | **Yes** | Phase 1 (gateway) |
-| D3 | Is AI processing opt-in or on after explicit onboarding consent? | On after one explicit onboarding consent screen, stored server-side, revocable | **Yes** | Phase 1 |
-| D4 | Push budget and default proactivity | ≤ 3 pushes a week; weekly brief on; `private` lock screen by default | No | Phase 3 |
-| D5 | Does V1 include voice? | Yes, in the beta from week 3, on-device only | No | Phase 5 |
-| D6 | Does V1 include calendar access? | No; it comes first in Phase 6 | No | Phase 3 |
-| D7 | Does the Garden ship before or after loop validation? | After; sprigs (identity) ship in V1 | No | Phase 3 |
-| D8 | What does a sprig actually encode? | Identity only in V1; bounded, non-growing detail marks later | **Yes** | Phase 1 (W5) |
-| D9 | How much can AI help with message wording? | Ideas first; ≤ 2-sentence openers only on tap; never sends | No | Phase 3 |
-| D10 | Free vs paid | Free: people, Tell, memory, Today, push. Paid later: briefs, Ask, the letter, heavy voice | No | Before beta cohort 2 |
-| D11 | Application-level encryption now? | No; SQLCipher on device, RLS + at-rest on server, ZDR pursued; E2EE designed for later | No | Phase 1 |
-| D12 | Which models, and who decides a downgrade? | Start on Opus 5.5 with explicit effort; switch per capability only when evals show parity | **Yes** (budget) | Phase 1 |
-| D13 | How are deceased and estranged relationships handled? | `remembered` and `paused` states; never surfaced, never visually different except one quiet line | No | Phase 3 |
-
----
-
-## D1. Must an account exist before first use?
-
-**Options**
-1. **Account first.** Sign in with Apple, Google or email before the first Tell.
-2. **Try first, fully local.** Everything on the device; sign in later to sync. AI either off or open to anonymous devices.
-3. **Try first with Supabase anonymous sign-in.** A server user exists from launch; `linkIdentity` later converts it to a permanent account with the same `user_id`.
-
-**Tradeoffs**
-- Option 1 costs one tap and some drop-off at install, with zero migration code. The AI gateway stays closed to anonymous users, which the merged hardening branch already enforces.
-- Option 2 needs a local-to-server migration, a switch-over in analytics identity, and either no AI (so no value) or an open AI endpoint. It's the most complex option, for a funnel step nobody has measured.
-- Option 3 avoids data migration, but it reopens the AI endpoint to anonymous users. That needs a separate, lower quota, device attestation (App Attest) and abuse monitoring, and it produces orphan accounts to clean up.
-
-**Recommendation.** Option 1 for V1. Onboarding opens with two screens that explain the promise, then Sign in with Apple, then the contacts picker. If the beta shows more than 25% drop-off at sign-in, build option 3 with App Attest.
-
-**Blocks implementation:** yes. It determines the auth, gateway, sync and onboarding design.
+| # | Decision | Status | Decided |
+|---|---|---|---|
+| D1 | Account before first use | **Approved** | Sign in with Apple before the first Tell; no anonymous-user infrastructure in V1 |
+| D2 | What may be sent to the AI provider | **Approved, with a disclosure requirement** | Minimal context per capability; a plain in-product disclosure, not only in the policy |
+| D3 | AI consent | **Approved** | One explicit onboarding consent; server-side, versioned, revocable, enforced at the gateway |
+| D4 | Proactivity | **Approved as a beta hypothesis** | ≤ 3 pushes / 7 days, ≤ 2 time-sensitive, 1 weekly brief, private lock screen, back-off, global pause; all configurable |
+| D5 | Voice | **Approved** | Text first; voice ~week 3 of beta behind a flag; on-device only; never upload audio |
+| D6 | Calendar | **Approved** | After core-loop validation, unless beta evidence shows missing encounter context is the main capture problem; permission always contextual |
+| D7 | Garden | **Approved** | Not on the beta critical path; Quiet Herbarium visuals and sprigs ship first |
+| D8 | Sprig semantics | **Approved, safest option** | Identity only in V1; `sprig_marks` built but off through initial beta; CI area test stays |
+| D9 | AI writing | **Approved** | V1 gives ideas and things to mention; openers later, only on request; never sends |
+| D10 | Monetization | **Replaced** | Beta cohort 1 fully free; Kinship becomes a paid subscription; archive state never holds memories hostage; pricing tested late in beta |
+| D11 | Encryption | **Approved as recommended** | SQLCipher + SecureStore key, at-rest encryption, strong RLS, minimal service role, no content in logs; no E2EE yet |
+| D12 | Model strategy | **Approved, with governance change** | Strongest model first; per-capability downgrades only at eval parity; Thor approves during beta; a written promotion policy afterwards |
+| D13 | Deceased / estranged | **Approved** | `remembered` and `paused`; set only by the user; no proactive reasons |
 
 ---
 
-## D2. What exactly may be sent to an AI vendor?
+## D1. Account before first use — APPROVED
 
-**Options**
-1. **Minimal slice.** The capture text, roster display names and nicknames, and the active items of up to 3 candidate people.
-2. **Whole memory.** Everything about the user, for better context.
-3. **Nothing.** On-device models only.
+**Decision.** Kinship V1 requires an account before the first Tell. Sign in with Apple is the preferred path on iOS because it is the lowest-friction option.
 
-**Tradeoffs**
-- Option 2 is marginally better at resolving people, but it sends far more third-party data per call and costs more.
-- Option 3 isn't feasible on today's devices at the quality bar in §10 of the plan. Revisit it with on-device models later.
-- Option 1 covers extraction, resolution and phrasing. Its risk is contained: one conversation's worth of data per call.
+**Onboarding order:**
+1. Product promise.
+2. Product promise and privacy context (including the D2 disclosure and the D3 consent choice).
+3. Sign in with Apple.
+4. People selection.
+5. The first useful Kinship moment.
 
-**Recommendation.** Option 1, written into the privacy policy as a list:
-- **Sent:** capture text, names and relations, and selected items with dates.
-- **Never sent:** phone numbers, emails, addresses, photos, audio, the calendar body, contact lists, or other users' data.
-- **Vendor terms:** pursue zero-data-retention terms with Anthropic for the chosen models. Until they're signed, the copy says "not used to train models" and not "nothing is kept".
-- **Sensitive items** (health, death, conflict, money) are sent only to extraction, so they can be labelled. They are excluded from reason, brief and letter prompts unless the user turns on "Include sensitive details in suggestions".
+**Not built in V1:** anonymous-user infrastructure of any kind.
 
-**Blocks implementation:** yes. It defines the gateway's input schemas.
+**Revisit trigger:** if beta instrumentation shows more than about 25% abandonment specifically at the authentication step, evaluate Supabase anonymous authentication with `linkIdentity`. Don't build that path in advance.
 
 ---
 
-## D3. Is AI processing opt-in, or on after explicit onboarding consent?
+## D2. Information permitted to be sent to the AI provider — APPROVED WITH AN ADDITIONAL DISCLOSURE REQUIREMENT
 
-**Options**
-1. **On by default, opt-out in Settings.** This is 1.0's behaviour.
-2. **One explicit consent screen in onboarding.** It says plainly what is sent and to whom, with Continue or Not now; the choice is stored server-side.
-3. **Per-feature opt-in toggles.**
+**Decision.** Minimal context. Each AI request contains only what that capability needs.
 
-**Tradeoffs**
-- Option 1 is what the audit flagged: third-party data reaches a vendor without an explicit yes.
-- Option 3 fragments the product and confuses people.
-- Option 2 is honest, costs one screen, and still leaves Kinship usable with AI off (raw notes plus deterministic dates and birthdays).
+**For `relationship_extract`, a request may include:**
+- the current capture;
+- display names, nicknames and relationship references needed for entity resolution;
+- relevant structured memory for no more than about three likely people;
+- relevant dates and provenance context.
 
-**Recommendation.** Option 2. The consent is enforced by the gateway (403 without it), versioned (`consents.version`), and re-asked if the data flow changes. Choosing "Not now" leads to a real, reduced experience, not a nag.
+**Never included, unless a future capability is explicitly approved to need it:**
+- phone numbers, email addresses, postal addresses;
+- full contact lists;
+- photos, raw audio;
+- entire calendars, calendar descriptions or bodies;
+- unrelated people's dossiers;
+- analytics identities;
+- other users' information.
 
-**Blocks implementation:** yes. It sets the consent schema and gateway behaviour.
+**Disclosure requirement.** The product itself must make one fact plain, and not only in the privacy policy:
 
----
+> Information you choose to record about people in your life may be processed by Kinship's AI provider in order to understand and organize it.
 
-## D4. How proactive may Kinship be?
+This sentence (or a clearer equivalent) appears on the onboarding privacy-context screen, next to the AI consent choice, and again in Settings › What Kinship knows.
 
-**Options:** push budget of 1, 3 or 5 a week; weekly brief on or off by default; default lock-screen level.
+**Sensitive content** (health, death and grief, conflict, money) follows the restrictions already in the plan: it is sent to extraction only, so it can be labelled. It stays out of reason, brief and letter prompts unless the user turns on "Include sensitive details in suggestions".
 
-**Tradeoffs.** Too few pushes and the thesis goes untested, because people don't open apps unprompted. Too many and it becomes nagging, which the brand forbids.
-
-**Recommendation.**
-- At most 3 pushes in any 7 days: at most 2 time-sensitive, plus 1 weekly brief.
-- The brief is on by default, Sunday 6 pm, and adjustable.
-- The lock screen shows `private` by default ("Something for today").
-- Automatic back-off after ignored pushes, and a one-tap pause for everything.
-
-**Blocks implementation:** no. The values are configuration.
+**Vendor retention.** Pursue zero-data-retention terms with Anthropic. Until those terms actually apply to the model in use, Kinship must not claim that the provider retains nothing. Interim copy: "Sent to Anthropic to understand it; not used to train models."
 
 ---
 
-## D5. Does V1 include voice?
+## D3. AI consent — APPROVED
 
-**Options**
-1. **Voice at beta launch.**
-2. **Voice from beta week 3, behind a flag.**
-3. **Voice after the beta.**
+**Decision.** AI processing requires one explicit, understandable consent during onboarding.
 
-**Tradeoffs**
-- Voice is the biggest friction reducer for the target user, and the audit ranks it core. It needs a native module (`expo-speech-recognition`) and a device and locale test matrix.
-- Honest "on this phone" copy requires `requiresOnDeviceRecognition` on supported devices. On iOS 26, `SpeechAnalyzer` is on-device by design, but needs a custom module and a per-locale model download on first use.
-- Shipping voice at week 3 gives a clean text-only baseline and a measurable lift.
+**The consent is:**
+- stored server-side (`user_settings.ai_consent`), default off;
+- versioned (`consent_version`), and asked again if the data flow materially changes;
+- revocable in Settings, taking effect at the gateway within a minute;
+- enforced at the AI gateway, which rejects calls without consent (HTTP 403).
 
-**Recommendation.** Option 2, on-device only. When on-device isn't supported for a device or locale, the mic is hidden and typing stays. Audio is never saved.
+**No per-feature consent maze.**
 
-**Blocks implementation:** no.
+**If the user declines,** Kinship gives the reduced non-AI experience the plan defines: raw notes, deterministic dates, birthdays, manual people and items. It doesn't ask again.
 
 ---
 
-## D6. Does V1 include calendar access?
+## D4. Proactivity — APPROVED AS THE WORKING HYPOTHESIS
 
-**Options**
-1. **V1**, for onboarding ("you're seeing David Thursday"), briefs and post-encounter prompts.
-2. **First feature after the beta gate.**
+**Decision for the beta:**
+- At most 3 pushes in any rolling 7 days.
+- At most 2 of those are time-sensitive.
+- One weekly brief.
+- Private lock-screen copy by default.
+- Automatic back-off when pushes are ignored.
+- An easy global pause.
 
-**Tradeoffs**
-- Option 1 makes onboarding more magical and adds the encounter loop. It also adds a permission at setup, attendee-to-person resolution (never by first name), a second notification class and more privacy surface. It would test two loops at once.
-- Option 2 keeps the beta focused.
-
-**Recommendation.** Option 2. Onboarding uses contact birthdays for day-one value. Calendar briefs and the "How was dinner?" prompt are the first Phase 6 build if the beta passes.
-
-**Blocks implementation:** no. It does affect the onboarding scope in Phase 3.
+These are **configurable beta assumptions**, held in server configuration and `user_settings`. They are not immutable product constants.
 
 ---
 
-## D7. Does the Garden ship before or after loop validation?
+## D5. Voice — APPROVED
 
-**Options**
-1. **V1, with the Garden toggle and "this season's pressings".**
-2. **After validation, as "Everyone" alphabetical or by circle.**
-3. **Never.**
+**Decision.** Text launches first. Voice reaches the beta around week 3 behind `voice_capture`.
 
-**Tradeoffs.** "This season's pressings" shows who is *missing*, which is a quiet score (tension T5). The Garden has no proof value for the loop. The brand survives without it through sprigs on every person, serif moments and ochre provenance.
-
-**Recommendation.** Option 2. Season pressings appear only in the monthly letter, which shows presence and never absence.
-
-**Blocks implementation:** no.
+- On-device recognition only.
+- If on-device recognition can't be guaranteed for a device or locale, voice is hidden or disabled, and text input stays.
+- Never silently fall back to uploading raw audio.
+- Raw audio is never retained.
 
 ---
 
-## D8. What does a sprig actually encode?
+## D6. Calendar — APPROVED
 
-**Options**
-- **A. One leaf per shared moment** (design direction; capped at about 12).
-- **B. Pure identity.** The seed fixes the whole drawing; history never changes it.
-- **C. Identity plus bounded marks.** The structure comes from the seed. Each moment re-details one existing leaf. Leaf count never changes. At most one flower, for a user-confirmed milestone. No bud for upcoming events.
+**Decision.** Calendar integration is not part of the first validation loop. It is built after core-loop validation, **unless** beta evidence clearly shows that missing automatic encounter context is the primary capture problem. In that case it may be pulled forward, with Thor's approval.
 
-**Tradeoffs**
-- A makes relationships comparable at a glance, which is a health bar by another name.
-- B is safe but static.
-- C keeps the sense of "it grew with us" without a quantity, and it's enforced by a CI property test: sprig area varies less than 3% between 0 and 50 moments.
-
-**Recommendation.** Ship B's rendering in V1. Build C behind `sprig_marks` and turn it on only after beta interviews confirm people read sprigs as identity. Retire the design direction's leaf-per-moment rule.
-
-**Blocks implementation:** yes, for the sprig workstream (W5). It must be settled before generator parameters are tuned.
+Calendar permission is always requested in context (when the user turns on the feature that needs it), never at launch or from Today.
 
 ---
 
-## D9. How much can AI assist with message wording?
+## D7. Garden — APPROVED
 
-**Options**
-1. **Ideas only** ("You could mention…").
-2. **Ideas, plus ≤ 2-sentence openers on tap.**
-3. **Full drafts.**
-4. **Auto-send.**
-
-**Tradeoffs.** Options 3 and 4 violate "help you be you" and risk a friend receiving something that doesn't sound like the user. Option 1 is safe but leaves the "what do I even say" barrier for reconnects.
-
-**Recommendation.** Option 2.
-- Openers appear only on an explicit tap, and are editable.
-- They're copied to the clipboard only on "Use this", and never pre-filled into Messages.
-- They never mention Kinship. Kinship never sends anything.
-- In V1, follow-ups offer ideas only. Openers arrive with Reconnect (Next).
-
-**Blocks implementation:** no.
+**Decision.** The full Garden visualization is not on the critical path to the beta. The Quiet Herbarium visual system and each person's individual sprig ship first. The full Garden is a post-validation feature.
 
 ---
 
-## D10. What is free and what is paid?
+## D8. Sprig semantics — APPROVED WITH THE SAFEST OPTION FOR V1
 
-**Options**
-1. **Everything free during the beta; decide later.**
-2. **Price before the beta.**
-3. **Free core, with a paid tier planned now.**
+**Decision.** V1 sprigs represent **identity, not relationship activity.** The deterministic seed alone determines the visible botanical structure.
 
-**Tradeoffs.** AI cost grows with capture volume: about $0.25–0.50 per active user per month for V1, and about $0.42–0.73 with all Next features. The free tier must be sustainable. Pricing before evidence risks mis-pricing. Waiting too long builds free expectations for costly features.
+**Relationship activity must not make a person's sprig:**
+- larger, taller or fuller;
+- healthier or more colourful;
+- more elaborate in an obviously cumulative way.
 
-**Recommendation.** Option 3.
-- **Free forever:** people, Tell (text and voice), memory, provenance, Today, pushes, export and deletion.
-- **Paid tier (announced before cohort 2), about $4–6 a month:** calendar briefs, Ask Kinship, the monthly letter, share-sheet screenshot understanding, and higher quotas.
-- The beta is free, with a pricing interview at week 8.
+**Not shipped:** one leaf per memory.
 
-**Blocks implementation:** no. The quota plumbing exists already, as `ai_usage`.
+**Never visually encoded:** recency, relationship health, contact frequency, number of memories, number of interactions.
 
----
-
-## D11. Application-level encryption now?
-
-**Options**
-1. **Per-user envelope encryption of free-text columns** (audit recommendation).
-2. **Standard at-rest encryption + RLS + an encrypted device store now; end-to-end encryption designed for later.**
-3. **End-to-end encryption now.**
-
-**Tradeoffs**
-- Extraction, reasons and Ask need plaintext on the server, so option 1 protects only against someone with direct database access. It costs key management, blocks SQL search and triggers, and slows every feature.
-- Option 3 is incompatible with server-side AI today.
-
-**Recommendation.** Option 2:
-- SQLCipher local DB, with the key in SecureStore.
-- Supabase at-rest encryption and RLS.
-- Service-role access limited to named functions.
-- No content in logs or analytics.
-- Capture retention the user controls ("delete my original notes after understanding").
-- Design person and user keys so end-to-end encryption can arrive with on-device models.
-
-**Blocks implementation:** no. It is noted here because it reverses the audit's recommendation.
+**The bounded-history experiment:**
+- The bounded-history morphology (Algorithm C) is built behind `sprig_marks` and stays **off** through the initial beta.
+- It may be considered only after qualitative research shows that users read the sprig primarily as a person's identity rather than a relationship score.
+- The CI property test that prevents cumulative history from materially increasing rendered area stays in place permanently.
 
 ---
 
-## D12. Which models, and who approves a downgrade?
+## D9. AI writing — APPROVED
 
-**Options**
-1. **Opus 5.5 everywhere.**
-2. **Opus 5.5 to start; per-capability moves to Sonnet 5.5 or Haiku 4.5 when evals show parity.**
-3. **Cheapest model from the start.**
+**Principle:** Kinship helps users remember what matters. It does not conduct relationships for them.
 
-**Tradeoffs.** A wrong personal detail is the costliest failure. Option 3 saves money before we know whether quality holds. Option 1 is simplest, at roughly twice the V1 AI cost of option 2.
-
-**Recommendation.** Option 2.
-- Opus 5.5 at explicit `low` effort for extraction.
-- Batch for all nightly work.
-- Prompt caching for stable prefixes.
-- Any downgrade needs an eval report showing every §10 threshold held, and Thor's sign-off, since it trades quality for margin.
-
-**Blocks implementation:** yes, for budgeting and for the gateway's registry defaults.
+- **V1:** contextual ideas, and things the user might mention.
+- **Later (Reconnect):** a few short opener ideas, only after an explicit user request, always editable, never inserted automatically, never sent.
+- Kinship never sends a communication on the user's behalf.
 
 ---
 
-## D13. How are deceased and estranged relationships handled?
+## D10. Monetization — REPLACED WITH THIS WORKING HYPOTHESIS
 
-**Options**
-1. **Delete them.**
-2. **Mark them, and keep them quiet.**
-3. **Treat them like anyone else.**
+This supersedes the original "free forever core plus paid features" recommendation.
 
-**Tradeoffs**
-- Deleting erases memory the user may treasure.
-- Treating them like anyone else causes painful prompts: "Mom's birthday is Saturday" after a death, or a reconnect nudge toward an estranged sibling.
+### Beta
 
-**Recommendation.** Option 2, with two states:
-- **`remembered` (died).** The sprig is frozen and drawn in quiet ink. The page opens with "Remembered". No reasons are generated, except an optional, user-enabled anniversary line in the monthly letter. Birthdays stop as reasons.
-- **`paused` (estranged, or "not now").** No reasons of any kind. The person stays in People with no visual marker, and the state is visible only on their page.
+- Beta cohort 1 is completely free.
+- No payment information is required.
+- The beta exists to answer one question: **does Kinship cause meaningful moments of showing up?**
+- Onboarding is not optimized around payment.
 
-Both are reversible. Neither is ever suggested by AI: Kinship never infers a death or an estrangement. If a capture says someone died, extraction asks once: "Would you like Kinship to remember Maya quietly?"
+### Direction
 
-**Blocks implementation:** no. The state enum is included in the Phase 1 schema so it's cheap later.
+Kinship is intended to become a **paid consumer subscription**, not an indefinitely free AI product.
+
+### Public-launch pricing hypotheses (not to be hardcoded)
+
+| Plan | Monthly | Annual | Notes |
+|---|---|---|---|
+| Standard | $4.99 | ~$39.99 | Full-feature trial, initially ~14 days |
+| Founding / early adopter | $2.99 | ~$24.99 | Possibly grandfathered for early beta and founding users, if we choose to offer it |
+
+These numbers are hypotheses. The architecture should support subscriptions cleanly later, and nothing more. **No StoreKit work in Phase 0**, and no prices in code.
+
+### Subscription philosophy
+
+**Don't slice emotionally important functionality into artificial premium gates.** Never "free users get 5 friends", "paid users get 50", or "pay to remember another person".
+
+**The object of monetization is Kinship actively remembering and helping you show up.**
+
+**An active subscription includes the ongoing intelligent service:**
+- AI understanding;
+- the proactive Today;
+- reasons to connect;
+- intelligent follow-ups;
+- voice understanding;
+- relevant future AI capabilities and integrations.
+
+**The non-subscriber / archive state.** Users keep ownership of and access to their information. They can still:
+- browse existing people and memories;
+- access existing raw notes;
+- export everything;
+- delete everything.
+
+Basic manual note-taking may remain. Kinship's ongoing AI and proactive service pauses.
+
+**Kinship never holds a user's memories hostage after cancellation.** The exact archive and free behaviour is tested before public launch.
+
+### Architectural implication (for later phases, not Phase 0)
+
+- Entitlement is one server-side flag checked where the ongoing service runs: the AI gateway, the reasons engine and the push planner.
+- Read, export and delete paths never check entitlement.
+- Nothing counts people or memories for billing.
+
+### Beta monetization research
+
+Pricing is tested late in the beta, after users have experienced Kinship, and not through hypothetical "would you pay?" questions alone. Research covers:
+- the unaided expected price, asked after a meaningful Kinship moment;
+- reactions to roughly $2.99, $4.99 and $7.99 per month;
+- annual vs monthly preference;
+- whether they see Kinship as something they'd subscribe to continuously;
+- which functionality they believe is worth paying for;
+- what would make them cancel.
+
+Where practical, use realistic pricing-choice exercises: for example, a simulated plan-selection screen with real prices and a "reserve founding price" choice that isn't charged. The research plan is in `KINSHIP_2_OPERATIONALIZATION.md` §30 and ticket BETA-06.
+
+---
+
+## D11. Encryption — APPROVED AS RECOMMENDED
+
+**V1 protections:**
+- SQLCipher on the device, with the key protected in SecureStore;
+- Supabase encryption at rest;
+- strong RLS with adversarial tests;
+- minimum service-role exposure (named functions only);
+- no user content in logs or analytics;
+- user-controlled capture and source retention.
+
+**No full E2EE** while the product depends on server-side AI. The key design keeps a path open to stronger encryption as more processing moves on-device.
+
+---
+
+## D12. Model strategy — APPROVED WITH A GOVERNANCE MODIFICATION
+
+**During initial development and the first beta:**
+- Critical semantic capabilities start on the strongest appropriate model, currently Claude Opus 5.5, with effort configured explicitly.
+- Model cost is not optimized ahead of correctness.
+- A cheaper model may replace a stronger one **per capability, never globally**, and only when that capability's eval suite shows parity against the approved thresholds.
+- **Thor approves every model downgrade** during the first beta.
+
+**After the beta,** founder approval is replaced by a documented **model promotion policy.** A model change is permitted when all four hold:
+1. every hard grounding and safety threshold passes;
+2. there is no statistically meaningful degradation on critical correctness metrics;
+3. latency, cost or reliability improves meaningfully;
+4. an eval artifact is attached to the change.
+
+**High-risk capabilities.** `relationship_extract` and person/subject resolution (`person_resolve`) carry a **higher replacement threshold** than stylistic generation such as `reason_generate` phrasing. For them, "parity" means no regression at all on wrong-subject, certainty preservation, hallucinated items or person-resolution precision, measured on the full ambiguity set.
+
+---
+
+## D13. Deceased and estranged relationships — APPROVED
+
+**Two supported states:**
+- **`remembered`** (the person has died). The sprig is frozen and drawn in quiet ink. The page opens with a single "Remembered" line.
+- **`paused`** (estranged, or "not now"). The person stays in People with no visual marker; the state is visible only on their page.
+
+**Rules:**
+- **Only the user sets these states,** from the person's page. AI never infers them autonomously, and extraction never proposes them. A capture that mentions a death is labelled sensitive and handled with the usual confirmation. It does not change the person's state or prompt the user to change it.
+- **No proactive reasons** are generated for `paused` or `remembered` people. That includes birthdays. The exception is a specific memorial behaviour the user deliberately enables later.
+- Both states are reversible.
