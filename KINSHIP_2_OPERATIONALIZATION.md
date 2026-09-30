@@ -12,6 +12,7 @@ Companion documents:
 | `KINSHIP_2_TICKETS.md` | Ordered, independently reviewable tickets with dependencies |
 | `KINSHIP_2_DECISIONS.md` | 13 founder decisions, each marked blocking or not |
 | `KINSHIP_2_DELETION_PLAN.md` | Every 1.0 route, engine, component and dependency, with when it goes |
+| `KINSHIP_GO_LIVE_NOTES.md` | Things to review before going live |
 
 Sources: the product audit (Claude Doc, 30 Sep 2026), the 2.0 Design Exploration canvas (9 boards, rendered and checked on 30 Sep), the 2.0 Design Direction (Claude Doc), and the repository at `5687ed7` plus all remote branches. Also used: the live Supabase project `kddpxiiyxgvjrtpdkvio`, inspected read-only (schema, advisors, migrations, no user data), and local runs of `tsc`, `eslint`, `expo install --check`, `expo-doctor` and `npm audit`.
 
