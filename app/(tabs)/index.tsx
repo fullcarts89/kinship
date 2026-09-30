@@ -759,6 +759,7 @@ export default function GardenScreen() {
   const {
     interactions: allInteractions,
     isLoading: interactionsLoading,
+    error: interactionsError,
     refetch: refetchInteractions,
   } = useAllInteractions();
   const { promises: openPromises } = useOpenPromises();
@@ -767,12 +768,16 @@ export default function GardenScreen() {
     commitments,
     endedSeason,
     isLoading: seasonLoading,
+    error: seasonError,
     refetch: refetchSeason,
   } = useActiveSeason();
 
-  // Bootstrap growth store from existing data on first load
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
-  useBootstrapGrowth(memories, allInteractions, isLoading);
+  const error = personsError || memoriesError || interactionsError;
+
+  // Bootstrap growth store from existing data on first load — never from
+  // a failed load, or growth would stay empty once the data does arrive.
+  useBootstrapGrowth(memories, allInteractions, isLoading || !!error);
 
   // Vitality scores for all persons (used by plant carousel)
   const personIds = useMemo(() => persons.map((p) => p.id), [persons]);
@@ -850,8 +855,6 @@ export default function GardenScreen() {
     }
   };
 
-  const error = personsError || memoriesError;
-
   // ── Derived data ──────────────────────────────────────────────────────
   const personsMap = useMemo(
     () => new Map(persons.map((p) => [p.id, p])),
@@ -883,10 +886,10 @@ export default function GardenScreen() {
   // after persons + memories have loaded. No-ops without permission.
   const ambientScheduled = useRef(false);
   useEffect(() => {
-    if (personsLoading || memoriesLoading || ambientScheduled.current) return;
+    if (personsLoading || memoriesLoading || error || ambientScheduled.current) return;
     ambientScheduled.current = true;
     scheduleAmbientNotifications(memories, persons).catch(() => {});
-  }, [personsLoading, memoriesLoading, memories, persons]);
+  }, [personsLoading, memoriesLoading, error, memories, persons]);
 
   // Calendar matches for post-event suggestions (Tier 2)
   const [calendarMatches, setCalendarMatches] = useState<CalendarMatch[]>([]);
@@ -924,7 +927,8 @@ export default function GardenScreen() {
     refetchPersons();
     refetchMemories();
     refetchInteractions();
-  }, [refetchPersons, refetchMemories, refetchInteractions]);
+    refetchSeason();
+  }, [refetchPersons, refetchMemories, refetchInteractions, refetchSeason]);
 
   // Refetch data whenever this tab gains focus (e.g. after adding a person,
   // or returning from season setup / retrospective)
@@ -1445,7 +1449,9 @@ export default function GardenScreen() {
                 </PressableScale>
 
                 {/* ─── Begin a Tending Season ─────────────── */}
+                {/* Not when seasons failed to load — one may already be active */}
                 {!seasonLoading &&
+                  !seasonError &&
                   !season &&
                   !endedSeason &&
                   persons.length >= 2 && (

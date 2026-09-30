@@ -17,6 +17,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -116,34 +117,33 @@ export default function CheckInScreen() {
 
     const hasReaction = selectedEmotion !== null;
     const hasNote = note.trim().length > 0;
-    let saved = false;
 
     try {
       // Create a check_in interaction
-      const created = await createInteraction({
+      await createInteraction({
         person_id: person.id,
         type: "check_in",
         emotion: selectedEmotion,
         note: note.trim() || null,
       });
-      saved = created != null;
-
-      // Only award growth if save succeeded AND user provided input
-      if (created && (hasReaction || hasNote)) {
-        const transition = recordReflectionGrowth(person.id);
-        if (transition) {
-          transition.personName = person.name;
-          const toast = getTransitionToastMessage(transition);
-          showGrowthToast(toast.text, toast.emoji);
-        }
-      }
     } catch {
-      // Silent fail — the interaction is best-effort
+      // Nothing was saved — keep their words here to retry or skip.
+      setIsSaving(false);
+      Alert.alert(
+        "Couldn't save this check-in",
+        "Check your connection and try again, or skip it for now."
+      );
+      return;
     }
 
-    if (!saved) {
-      navigateBack();
-      return;
+    // Only award growth once the save succeeded AND the user gave input
+    if (hasReaction || hasNote) {
+      const transition = recordReflectionGrowth(person.id);
+      if (transition) {
+        transition.personName = person.name;
+        const toast = getTransitionToastMessage(transition);
+        showGrowthToast(toast.text, toast.emoji);
+      }
     }
 
     // Gentle delayed nudge (~3h) to capture a memory while it's fresh.
@@ -189,7 +189,12 @@ export default function CheckInScreen() {
         source: "post_reach_out",
       });
     } catch {
-      // Best-effort — never trap the user in this flow
+      // Keep what they typed — they can try again or tap Done.
+      Alert.alert(
+        "Couldn't hold onto that promise",
+        "Check your connection and try again."
+      );
+      return;
     }
     // Continue exactly as if "Done" was pressed
     navigateBack();

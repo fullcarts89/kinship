@@ -1,10 +1,14 @@
 /**
  * Local Store
  *
- * On-device JSON persistence for mock mode. When Supabase isn't configured,
+ * On-device JSON persistence. In demo mode (Supabase not configured),
  * locally created people, memories, and interactions live in module-level
  * arrays — this module writes those arrays to the app's document directory
- * so the garden survives app restarts.
+ * so the garden survives app restarts. It also holds small caches and
+ * device settings (AI insights, the AI opt-out, notification cadence).
+ *
+ * Files are not scoped to an account, so everything but device settings
+ * is wiped whenever the signed-in user changes (see lib/userData).
  *
  * Persistence is best-effort: read/write failures fall back to empty data
  * rather than crashing, and the in-memory arrays remain the source of truth
@@ -44,12 +48,33 @@ export function saveCollection<T>(key: string, items: readonly T[]): void {
   }
 }
 
-/** Remove all persisted local data (used by delete-account / reset flows). */
-export function clearAllCollections(): void {
+/**
+ * Collections that hold device settings rather than anyone's garden. They
+ * survive sign-out so, for example, turning AI off can't silently flip
+ * back on when someone signs in again.
+ */
+const DEVICE_COLLECTIONS = new Set(["ai-preferences", "notification-log"]);
+
+/**
+ * Remove every persisted collection except device settings — people,
+ * memories, interactions, promises, seasons, and cached AI insights.
+ * Used on sign-out and account deletion.
+ */
+export function clearUserCollections(): void {
+  let entries: (Directory | File)[];
   try {
     const dir = new Directory(Paths.document, STORE_DIR);
-    if (dir.exists) dir.delete();
+    if (!dir.exists) return;
+    entries = dir.list();
   } catch {
-    // best-effort
+    return;
+  }
+  for (const entry of entries) {
+    if (DEVICE_COLLECTIONS.has(entry.name.replace(/\.json$/, ""))) continue;
+    try {
+      entry.delete();
+    } catch {
+      // best-effort — keep going so one stuck file can't shield the rest
+    }
   }
 }

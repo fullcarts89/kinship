@@ -7,6 +7,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router } from "expo-router";
@@ -413,7 +414,12 @@ function SavedMomentScreen({
         source: "post_reach_out",
       });
     } catch {
-      // Best-effort — never trap the user in this flow
+      // Keep what they typed — they can try again or tap Done.
+      Alert.alert(
+        "Couldn't hold onto that promise",
+        "Check your connection and try again."
+      );
+      return;
     }
     onDone();
   };

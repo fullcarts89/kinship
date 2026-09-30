@@ -2,8 +2,8 @@
  * Promise Service
  *
  * Supabase CRUD for promises — one-shot commitments the user made to a
- * person. Mirrors the patterns in personService/memoryService; hooks
- * fall back to local mock persistence when these throw.
+ * person. Mirrors the patterns in personService/memoryService; failures
+ * throw so hooks can surface them.
  */
 
 import { supabase } from "@/lib/supabase";
@@ -26,6 +26,19 @@ export async function getPromises(): Promise<PersonPromise[]> {
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message || "Database operation failed");
   return data as PersonPromise[];
+}
+
+export async function countOpenPromisesForPerson(personId: string): Promise<number> {
+  if (!supabase) throw new Error("Supabase not configured");
+  const userId = await getAuthUserId();
+  const { count, error } = await supabase
+    .from("promises")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("person_id", personId)
+    .eq("status", "open");
+  if (error) throw new Error(error.message || "Database operation failed");
+  return count ?? 0;
 }
 
 export async function createPromise(

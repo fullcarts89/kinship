@@ -1,18 +1,26 @@
 /**
  * Interaction Hooks
  *
- * React hooks for interaction data. Attempts to read from Supabase first;
- * on failure, falls back to module-level mock data so the app works
- * in demo / development mode without a configured backend.
+ * React hooks for interaction data.
+ *
+ * With Supabase configured, the server is the only source of truth: a
+ * failed read surfaces as `error` and a failed write throws. Nothing is
+ * substituted for a signed-in user's history.
+ *
+ * Without Supabase (demo mode), interactions come from the bundled demo
+ * data plus anything created on this device, persisted via localStore.
  */
 
 import { useState, useEffect, useCallback } from "react";
 import * as interactionService from "@/services/interactionService";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { loadCollection, saveCollection } from "@/lib/localStore";
+import { toError } from "@/lib/utils";
 import { mockInteractions } from "@/data/mock";
 import type { Interaction, InteractionInsert } from "@/types/database";
 
-// ─── Module-level Mock Persistence ─────────────────────────────────────────
+// ─── Demo-mode Local Persistence ────────────────────────────────────────────
+// Only touched when Supabase isn't configured.
 const locallyCreatedInteractions: Interaction[] = [];
 
 /** IDs of deleted interactions — tombstones so demo data can't resurrect. */
@@ -45,7 +53,20 @@ function isDeleted(i: Interaction): boolean {
   return locallyDeletedInteractionIds.has(i.id);
 }
 
-/** Cascade helper: drop every interaction belonging to a removed person. */
+/** Demo-mode interactions: local entries shadow demo data with the same id. */
+function localInteractions(): Interaction[] {
+  const localIds = new Set(locallyCreatedInteractions.map((i) => i.id));
+  return [
+    ...locallyCreatedInteractions,
+    ...mockInteractions.filter((i) => !localIds.has(i.id)),
+  ].filter((i) => !isDeleted(i));
+}
+
+function newestFirst(a: Interaction, b: Interaction): number {
+  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+}
+
+/** Cascade helper (demo mode): drop every interaction belonging to a removed person. */
 export async function removeLocalInteractionsForPerson(personId: string): Promise<void> {
   await ensureHydrated();
   for (let i = locallyCreatedInteractions.length - 1; i >= 0; i--) {
@@ -61,7 +82,7 @@ export async function removeLocalInteractionsForPerson(personId: string): Promis
   persistDeletedInteractions();
 }
 
-/** Remove all locally created interactions (used by the delete-account flow). */
+/** Remove all locally created interactions (sign-out and delete-account flows). */
 export function clearLocalInteractions(): void {
   locallyCreatedInteractions.length = 0;
   locallyDeletedInteractionIds.clear();
@@ -79,38 +100,30 @@ export function usePersonInteractions(personId: string) {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    await ensureHydrated();
+    if (!personId) {
+      setInteractions([]);
+      setLatestInteraction(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      const [allInteractions, latest] = await Promise.all([
-        interactionService.getInteractionsForPerson(personId),
-        interactionService.getLatestInteraction(personId),
-      ]);
-      // Always merge locally created interactions so saves persist across refetches
-      const localForPerson = locallyCreatedInteractions.filter((i) => i.person_id === personId);
-      const localIds = new Set(localForPerson.map((i) => i.id));
-      const merged = [...localForPerson, ...allInteractions.filter((i) => !localIds.has(i.id))].filter(
-        (i) => !isDeleted(i)
-      );
-      const sorted = merged.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      let forPerson: Interaction[];
+      if (isSupabaseConfigured) {
+        forPerson = await interactionService.getInteractionsForPerson(personId);
+      } else {
+        await ensureHydrated();
+        forPerson = localInteractions().filter((i) => i.person_id === personId);
+      }
+      const sorted = [...forPerson].sort(newestFirst);
       setInteractions(sorted);
       setLatestInteraction(sorted[0] ?? null);
-    } catch {
-      // Mock mode — merge locally created + mock data, filtered by person
-      const localIds = new Set(locallyCreatedInteractions.map((i) => i.id));
-      const allMock = [
-        ...locallyCreatedInteractions,
-        ...mockInteractions.filter((i) => !localIds.has(i.id)),
-      ].filter((i) => i.person_id === personId && !isDeleted(i));
-      const sorted = allMock.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      setInteractions(sorted);
-      setLatestInteraction(sorted[0] ?? null);
-      setError(null);
+    } catch (err) {
+      setInteractions([]);
+      setLatestInteraction(null);
+      setError(toError(err));
     } finally {
       setIsLoading(false);
     }
@@ -129,17 +142,16 @@ export function useCreateInteraction() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  /** Log an interaction. Throws when the server can't be reached. */
   const createInteraction = useCallback(
-    async (interaction: Omit<InteractionInsert, "user_id">) => {
-      await ensureHydrated();
+    async (interaction: Omit<InteractionInsert, "user_id">): Promise<Interaction> => {
+      setIsCreating(true);
+      setError(null);
       try {
-        setIsCreating(true);
-        setError(null);
-        const created =
-          await interactionService.createInteraction(interaction);
-        return created;
-      } catch {
-        // Mock mode — Supabase not configured
+        if (isSupabaseConfigured) {
+          return await interactionService.createInteraction(interaction);
+        }
+        await ensureHydrated();
         const newInteraction: Interaction = {
           id: `i-local-${Date.now()}`,
           user_id: "u1",
@@ -152,6 +164,9 @@ export function useCreateInteraction() {
         locallyCreatedInteractions.unshift(newInteraction);
         persistInteractions();
         return newInteraction;
+      } catch (err) {
+        setError(toError(err));
+        throw err;
       } finally {
         setIsCreating(false);
       }
@@ -171,28 +186,18 @@ export function useAllInteractions() {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    await ensureHydrated();
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      const data = await interactionService.getAllInteractions();
-      // Always merge locally created interactions so saves persist across refetches
-      const localIds = new Set(locallyCreatedInteractions.map((i) => i.id));
-      setInteractions(
-        [...locallyCreatedInteractions, ...data.filter((i) => !localIds.has(i.id))].filter(
-          (i) => !isDeleted(i)
-        )
-      );
-    } catch {
-      // Mock mode — merge locally created + mock data (local shadows mock)
-      const localIds = new Set(locallyCreatedInteractions.map((i) => i.id));
-      setInteractions(
-        [
-          ...locallyCreatedInteractions,
-          ...mockInteractions.filter((i) => !localIds.has(i.id)),
-        ].filter((i) => !isDeleted(i))
-      );
-      setError(null);
+      if (isSupabaseConfigured) {
+        setInteractions(await interactionService.getAllInteractions());
+      } else {
+        await ensureHydrated();
+        setInteractions(localInteractions());
+      }
+    } catch (err) {
+      setInteractions([]);
+      setError(toError(err));
     } finally {
       setIsLoading(false);
     }
@@ -210,15 +215,15 @@ export function useAllInteractions() {
 export function useDeleteInteraction() {
   const [isDeleting, setIsDeleting] = useState(false);
 
+  /** Remove an interaction. Throws when the server can't be reached. */
   const deleteInteraction = useCallback(async (id: string): Promise<void> => {
-    await ensureHydrated();
     setIsDeleting(true);
     try {
-      try {
+      if (isSupabaseConfigured) {
         await interactionService.deleteInteraction(id);
-      } catch {
-        // Mock mode — the tombstone below is the deletion
+        return;
       }
+      await ensureHydrated();
       const idx = locallyCreatedInteractions.findIndex((i) => i.id === id);
       if (idx >= 0) locallyCreatedInteractions.splice(idx, 1);
       locallyDeletedInteractionIds.add(id);

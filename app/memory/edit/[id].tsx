@@ -24,6 +24,7 @@ import { pickPhoto } from "@/lib/photoPicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { Camera, X, RefreshCw } from "lucide-react-native";
 import { useMemory, useUpdateMemory } from "@/hooks";
+import { ErrorState } from "@/components/ui";
 import { emotionList, formatEmotionLabel } from "@/lib/formatters";
 import type { Emotion } from "@/types";
 import { colors, fonts } from "@design/tokens";
@@ -31,7 +32,7 @@ import { colors, fonts } from "@design/tokens";
 export default function EditMemoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { memory, isLoading } = useMemory(id ?? "");
+  const { memory, isLoading, error, refetch } = useMemory(id ?? "");
   const { updateMemory, isUpdating } = useUpdateMemory();
 
   // ─── Form State ─────────────────────────────────────────────────────────
@@ -104,6 +105,25 @@ export default function EditMemoryScreen() {
           }}
         >
           <ActivityIndicator color={colors.sage} size="large" />
+        </View>
+      </>
+    );
+  }
+
+  // ─── Couldn't Load ──────────────────────────────────────────────────────
+
+  if (error && !hydrated) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={{ flex: 1, backgroundColor: colors.cream, paddingTop: insets.top + 12 }}>
+          <Pressable onPress={handleBack} hitSlop={12} style={{ marginLeft: 16, width: 36, height: 36, justifyContent: "center" }}>
+            <X color={colors.nearBlack} size={20} />
+          </Pressable>
+          <ErrorState
+            message="Couldn't load this memory. Check your connection and try again."
+            onRetry={refetch}
+          />
         </View>
       </>
     );

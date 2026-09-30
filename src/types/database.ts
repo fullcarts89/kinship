@@ -216,7 +216,11 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      /** Deletes the caller's auth user; every table cascades (migration 008). */
+      delete_account: {
+        Args: never;
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;

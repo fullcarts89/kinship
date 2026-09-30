@@ -2,17 +2,22 @@
  * Promise Hooks
  *
  * React hooks for promises — one-shot commitments the user made to a
- * person. Supabase first; local mock persistence fallback, matching the
+ * person. With Supabase configured, the server is the only source of
+ * truth and failures surface (reads as `error`, writes by throwing).
+ * Without Supabase (demo mode), promises persist on-device, matching the
  * established locallyCreated pattern. Resolved promises (kept/released)
  * stay in storage as status updates — no tombstones needed.
  */
 
 import { useState, useEffect, useCallback } from "react";
 import * as promiseService from "@/services/promiseService";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { loadCollection, saveCollection } from "@/lib/localStore";
+import { toError } from "@/lib/utils";
 import type { PersonPromise, PersonPromiseInsert, PersonPromiseUpdate } from "@/types/database";
 
-// ─── Module-level Mock Persistence ─────────────────────────────────────────
+// ─── Demo-mode Local Persistence ────────────────────────────────────────────
+// Only touched when Supabase isn't configured.
 const locallyCreatedPromises: PersonPromise[] = [];
 
 let _hydration: Promise<void> | null = null;
@@ -29,7 +34,7 @@ function persistPromises(): void {
   saveCollection("promises", locallyCreatedPromises);
 }
 
-/** Remove all locally created promises (delete-account flow). */
+/** Remove all locally created promises (sign-out and delete-account flows). */
 export function clearLocalPromises(): void {
   locallyCreatedPromises.length = 0;
   persistPromises();
@@ -50,20 +55,23 @@ const MAX_OPEN_PER_PERSON = 7;
 export function useOpenPromises() {
   const [promises, setPromises] = useState<PersonPromise[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    await ensureHydrated();
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      const data = await promiseService.getPromises();
-      const localIds = new Set(locallyCreatedPromises.map((p) => p.id));
-      const merged = [
-        ...locallyCreatedPromises,
-        ...data.filter((p) => !localIds.has(p.id)),
-      ];
-      setPromises(merged.filter((p) => p.status === "open"));
-    } catch {
-      setPromises(locallyCreatedPromises.filter((p) => p.status === "open"));
+      let all: PersonPromise[];
+      if (isSupabaseConfigured) {
+        all = await promiseService.getPromises();
+      } else {
+        await ensureHydrated();
+        all = locallyCreatedPromises;
+      }
+      setPromises(all.filter((p) => p.status === "open"));
+    } catch (err) {
+      setPromises([]);
+      setError(toError(err));
     } finally {
       setIsLoading(false);
     }
@@ -73,16 +81,17 @@ export function useOpenPromises() {
     fetch();
   }, [fetch]);
 
-  return { promises, isLoading, refetch: fetch };
+  return { promises, isLoading, error, refetch: fetch };
 }
 
 // ─── usePersonPromises ──────────────────────────────────────────────────────
 
 export function usePersonPromises(personId: string) {
-  const { promises, isLoading, refetch } = useOpenPromises();
+  const { promises, isLoading, error, refetch } = useOpenPromises();
   return {
     promises: promises.filter((p) => p.person_id === personId),
     isLoading,
+    error,
     refetch,
   };
 }
@@ -92,23 +101,31 @@ export function usePersonPromises(personId: string) {
 export function useCreatePromise() {
   const [isCreating, setIsCreating] = useState(false);
 
+  /**
+   * Hold a promise. Resolves to null when the person already has the
+   * maximum number of open promises; throws when the server can't be
+   * reached.
+   */
   const createPromise = useCallback(
     async (
       promise: Omit<PersonPromiseInsert, "user_id">
     ): Promise<PersonPromise | null> => {
-      await ensureHydrated();
-      // Silent cap — oldest open promises surface first elsewhere
-      const openForPerson = locallyCreatedPromises.filter(
-        (p) => p.person_id === promise.person_id && p.status === "open"
-      );
-      if (openForPerson.length >= MAX_OPEN_PER_PERSON) return null;
-
       setIsCreating(true);
       try {
-        const created = await promiseService.createPromise(promise);
-        upsertLocal(created);
-        return created;
-      } catch {
+        if (isSupabaseConfigured) {
+          // Silent cap — oldest open promises surface first elsewhere
+          const openForPerson = await promiseService.countOpenPromisesForPerson(
+            promise.person_id
+          );
+          if (openForPerson >= MAX_OPEN_PER_PERSON) return null;
+          return await promiseService.createPromise(promise);
+        }
+
+        await ensureHydrated();
+        const openForPerson = locallyCreatedPromises.filter(
+          (p) => p.person_id === promise.person_id && p.status === "open"
+        );
+        if (openForPerson.length >= MAX_OPEN_PER_PERSON) return null;
         const newPromise: PersonPromise = {
           id: `pr-local-${Date.now()}`,
           user_id: "u1",
@@ -137,19 +154,23 @@ export function useCreatePromise() {
 export function useResolvePromise() {
   const [isResolving, setIsResolving] = useState(false);
 
-  /** Resolve as "kept" or "released". Both are terminal; neither is judged. */
+  /**
+   * Resolve as "kept" or "released". Both are terminal; neither is judged.
+   * Throws when the server can't be reached.
+   */
   const resolvePromise = useCallback(
     async (id: string, status: "kept" | "released"): Promise<void> => {
-      await ensureHydrated();
       setIsResolving(true);
       const updates: PersonPromiseUpdate = {
         status,
         resolved_at: new Date().toISOString(),
       };
       try {
-        const updated = await promiseService.updatePromise(id, updates);
-        upsertLocal(updated);
-      } catch {
+        if (isSupabaseConfigured) {
+          await promiseService.updatePromise(id, updates);
+          return;
+        }
+        await ensureHydrated();
         const existing = locallyCreatedPromises.find((p) => p.id === id);
         if (existing) upsertLocal({ ...existing, ...updates });
       } finally {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Tabs } from "expo-router";
+import { Tabs, Redirect } from "expo-router";
 import { View, Pressable, Modal, Text } from "react-native";
 import {
   Sun,
@@ -30,6 +30,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
+import { useAuth } from "@/providers";
 
 // ─── Tend FAB ────────────────────────────────────────────────────────────────
 // The center FAB quietly "breathes" (scale 1 → 1.05 → 1, one breath every ~6s)
@@ -114,6 +115,7 @@ export default function TabLayout() {
   const [showTendSheet, setShowTendSheet] = useState(false);
   const insets = useSafeAreaInsets();
   const fabPressScale = useSharedValue(1);
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const closeTendSheet = () => setShowTendSheet(false);
 
@@ -141,6 +143,13 @@ export default function TabLayout() {
     closeTendSheet();
     router.push("/import-contacts");
   };
+
+  // Signed out (or the session ended): unmount every tab so no screen keeps
+  // the previous account's garden in memory, and head to sign-in whenever
+  // the tabs are in view. Sign-out from inside the tabs relies on this.
+  if (!authLoading && !isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   return (
     <View style={{ flex: 1 }}>

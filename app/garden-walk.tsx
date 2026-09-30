@@ -31,7 +31,7 @@ import {
   usePersonGrowth,
   useActiveSeason,
 } from "@/hooks";
-import { PressableScale } from "@/components/ui";
+import { PressableScale, ErrorState } from "@/components/ui";
 import VitalPlant from "@/components/VitalPlant";
 import LivingPlant from "@/components/LivingPlant";
 import { getVitalityInfo } from "@/lib/vitalityEngine";
@@ -162,10 +162,24 @@ export default function GardenWalkScreen() {
   const insets = useSafeAreaInsets();
 
   // ─── Data hooks (all hooks before any early returns) ────────────────────
-  const { persons, isLoading: personsLoading } = usePersons();
-  const { memories, isLoading: memoriesLoading } = useMemories();
-  const { interactions, isLoading: interactionsLoading } =
-    useAllInteractions();
+  const {
+    persons,
+    isLoading: personsLoading,
+    error: personsError,
+    refetch: refetchPersons,
+  } = usePersons();
+  const {
+    memories,
+    isLoading: memoriesLoading,
+    error: memoriesError,
+    refetch: refetchMemories,
+  } = useMemories();
+  const {
+    interactions,
+    isLoading: interactionsLoading,
+    error: interactionsError,
+    refetch: refetchInteractions,
+  } = useAllInteractions();
   const { season, commitments } = useActiveSeason();
 
   // ─── Season bed first: tended people (in commitment order), then the rest ─
@@ -215,7 +229,10 @@ export default function GardenWalkScreen() {
   }, [memoryResurface, memories]);
 
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
-  const isEmpty = !isLoading && allSuggestions.length === 0 && persons.length === 0;
+  // A failed load isn't an "all tended" garden — show the error instead.
+  const loadError = personsError || memoriesError || interactionsError;
+  const isEmpty =
+    !isLoading && !loadError && allSuggestions.length === 0 && persons.length === 0;
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -359,6 +376,18 @@ export default function GardenWalkScreen() {
               </Text>
             </View>
           </Animated.View>
+        )}
+
+        {/* ─── Couldn't load ──────────────────────────────────────────── */}
+        {!isLoading && loadError && (
+          <ErrorState
+            message="Couldn't load your garden. Check your connection and try again."
+            onRetry={() => {
+              refetchPersons();
+              refetchMemories();
+              refetchInteractions();
+            }}
+          />
         )}
 
         {/* ─── Empty state (all tended / no suggestions) ─────────────── */}
@@ -602,7 +631,7 @@ export default function GardenWalkScreen() {
         )}
 
         {/* ─── Closing Text ─────────────────────────────────────────────── */}
-        {!isLoading && !isEmpty && (
+        {!isLoading && !loadError && !isEmpty && (
           <Animated.View
             entering={FadeInUp.duration(400).delay(400)}
             style={{

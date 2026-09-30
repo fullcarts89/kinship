@@ -9,6 +9,10 @@
  * When Supabase is not configured (no .env credentials), the provider
  * enters "mock mode" — isAuthenticated is true, all auth methods are
  * no-ops, and the app goes straight to tabs (preserves dev workflow).
+ *
+ * On-device data isn't scoped to an account, so whenever the signed-in
+ * user changes — sign-out, an expired session, or a different account —
+ * the previous user's local data and caches are wiped (lib/userData).
  */
 
 import React, {
@@ -22,6 +26,7 @@ import React, {
 import { Platform } from "react-native";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { clearUserData } from "@/lib/userData";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -68,10 +73,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     if (!supabase || !isSupabaseConfigured) return;
 
+    // Whose data this device currently holds (undefined until first known).
+    let currentUserId: string | null | undefined;
+
+    const applySession = (next: Session | null) => {
+      const nextUserId = next?.user?.id ?? null;
+      // Nobody signed in, or a different account took over: wipe what the
+      // previous user left on this device before anything renders.
+      if (
+        nextUserId !== currentUserId &&
+        (nextUserId === null || currentUserId != null)
+      ) {
+        clearUserData().catch(() => {});
+      }
+      currentUserId = nextUserId;
+      setSession(next);
+      setUser(next?.user ?? null);
+    };
+
     // 1. Restore persisted session from SecureStore
     supabase.auth.getSession().then(({ data: { session: restored } }) => {
-      setSession(restored);
-      setUser(restored?.user ?? null);
+      applySession(restored);
       setIsLoading(false);
     });
 
@@ -79,8 +101,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
+      applySession(newSession);
     });
 
     return () => {
@@ -232,9 +253,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return;
     }
 
+    // Offline, this fails and the session stays — callers report that
+    // rather than pretending the user is signed out.
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message || "Sign-out failed");
-    // State is updated by the onAuthStateChange listener
+    // State is updated by the onAuthStateChange listener, which also starts
+    // wiping this device's copy of the account; finish that (pending
+    // notifications included) before callers navigate away.
+    await clearUserData();
   }, []);
 
   // ─── Reset Password ───────────────────────────────────────────────────

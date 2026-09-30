@@ -1,6 +1,6 @@
 /**
  * Season Service — Supabase CRUD for Tending Seasons.
- * Hooks fall back to local mock persistence when these throw.
+ * Failures throw so hooks can surface them.
  */
 
 import { supabase } from "@/lib/supabase";
@@ -66,7 +66,11 @@ export async function createSeason(
     .from("season_commitments")
     .insert(rows as never)
     .select();
-  if (cErr) throw new Error(cErr.message || "Database operation failed");
+  if (cErr) {
+    // Don't leave an active season with no one in it behind.
+    await supabase.from("seasons").delete().eq("id", created.id).eq("user_id", userId);
+    throw new Error(cErr.message || "Database operation failed");
+  }
   return { season: created, commitments: commitmentRows as SeasonCommitment[] };
 }
 

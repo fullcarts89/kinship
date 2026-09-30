@@ -19,7 +19,7 @@ import { ChevronLeft } from "lucide-react-native";
 import { router, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInUp } from "react-native-reanimated";
-import { PressableScale, Skeleton } from "@/components/ui";
+import { PressableScale, Skeleton, ErrorState } from "@/components/ui";
 import { colors, fonts } from "@design/tokens";
 import {
   usePersons,
@@ -162,11 +162,32 @@ function NoSeasonState() {
 
 export default function SeasonRetrospectiveScreen() {
   const insets = useSafeAreaInsets();
-  const { endedSeason, commitments, completeSeason, isLoading: seasonLoading } =
-    useActiveSeason();
-  const { persons } = usePersons();
-  const { memories, isLoading: memoriesLoading } = useMemories();
-  const { interactions, isLoading: interactionsLoading } = useAllInteractions();
+  const {
+    endedSeason,
+    commitments,
+    completeSeason,
+    isLoading: seasonLoading,
+    error: seasonError,
+    refetch: refetchSeason,
+  } = useActiveSeason();
+  const {
+    persons,
+    isLoading: personsLoading,
+    error: personsError,
+    refetch: refetchPersons,
+  } = usePersons();
+  const {
+    memories,
+    isLoading: memoriesLoading,
+    error: memoriesError,
+    refetch: refetchMemories,
+  } = useMemories();
+  const {
+    interactions,
+    isLoading: interactionsLoading,
+    error: interactionsError,
+    refetch: refetchInteractions,
+  } = useAllInteractions();
 
   // Hold the season steady through completion — completeSeason refetches
   // and clears endedSeason a beat before router.replace lands, and we
@@ -175,7 +196,10 @@ export default function SeasonRetrospectiveScreen() {
   if (endedSeason) lastEndedRef.current = endedSeason;
   const season = endedSeason ?? lastEndedRef.current;
 
-  const dataLoading = seasonLoading || memoriesLoading || interactionsLoading;
+  const dataLoading =
+    seasonLoading || personsLoading || memoriesLoading || interactionsLoading;
+  // Partial data would read as "little happened" — never reflect on it.
+  const loadError = seasonError || personsError || memoriesError || interactionsError;
 
   const personsMap = useMemo(
     () => new Map(persons.map((p) => [p.id, p])),
@@ -237,7 +261,7 @@ export default function SeasonRetrospectiveScreen() {
   const reflectionRequestedRef = useRef(false);
 
   useEffect(() => {
-    if (!season || dataLoading || reflectionRequestedRef.current) return;
+    if (!season || dataLoading || loadError || reflectionRequestedRef.current) return;
     reflectionRequestedRef.current = true;
     // Nothing happened all season → say less; never name the absence.
     if (happenedStats.length === 0) {
@@ -261,7 +285,7 @@ export default function SeasonRetrospectiveScreen() {
     return () => {
       cancelled = true;
     };
-  }, [season, dataLoading, happenedStats, sampleMemories]);
+  }, [season, dataLoading, loadError, happenedStats, sampleMemories]);
 
   // ── Share card ──
   const cardRef = useRef<View>(null);
@@ -288,6 +312,10 @@ export default function SeasonRetrospectiveScreen() {
       router.replace(SEASON_NEW_HREF);
     } catch {
       setClosing(null);
+      Alert.alert(
+        "Couldn't close this season",
+        "Check your connection and try again."
+      );
     }
   }, [closing, completeSeason]);
 
@@ -300,6 +328,10 @@ export default function SeasonRetrospectiveScreen() {
       router.replace("/(tabs)");
     } catch {
       setClosing(null);
+      Alert.alert(
+        "Couldn't close this season",
+        "Check your connection and try again."
+      );
     }
   }, [closing, completeSeason]);
 
@@ -343,6 +375,16 @@ export default function SeasonRetrospectiveScreen() {
               <Skeleton width="100%" height={120} borderRadius={16} />
               <Skeleton width="100%" height={94} borderRadius={16} />
             </View>
+          ) : loadError && !closing ? (
+            <ErrorState
+              message="Couldn't load your season. Check your connection and try again."
+              onRetry={() => {
+                refetchSeason();
+                refetchPersons();
+                refetchMemories();
+                refetchInteractions();
+              }}
+            />
           ) : !season ? (
             <NoSeasonState />
           ) : (

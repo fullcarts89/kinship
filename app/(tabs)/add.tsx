@@ -1799,12 +1799,21 @@ export default function AddPersonScreen() {
       });
 
       if ((memoryText.trim() || photoUri) && newPerson) {
-        await createMemory({
-          person_id: newPerson.id,
-          content: memoryText.trim() || "A moment shared together",
-          emotion: memoryEmotion,
-          photo_url: photoUri ?? null,
-        });
+        try {
+          await createMemory({
+            person_id: newPerson.id,
+            content: memoryText.trim() || "A moment shared together",
+            emotion: memoryEmotion,
+            photo_url: photoUri ?? null,
+          });
+        } catch {
+          // They're planted either way — retrying the whole flow would
+          // plant them twice, so say what didn't keep and carry on.
+          Alert.alert(
+            "Couldn't save the memory",
+            `${newPerson.name} is in your garden. Capture the memory from their profile once you're back online.`
+          );
+        }
       }
 
       // Advance to celebration screen

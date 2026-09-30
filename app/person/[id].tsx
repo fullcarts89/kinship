@@ -398,7 +398,15 @@ function ContextTab({
 
   const handleResolvePromise = async (status: "kept" | "released") => {
     if (!promise) return;
-    await resolvePromise(promise.id, status);
+    try {
+      await resolvePromise(promise.id, status);
+    } catch {
+      Alert.alert(
+        "Couldn't update that promise",
+        "Check your connection and try again."
+      );
+      return;
+    }
     if (status === "kept") {
       showGrowthToast("Promise kept", "\uD83C\uDF3F");
     }
@@ -413,7 +421,15 @@ function ContextTab({
         style: "destructive",
         onPress: async () => {
           const notes = (person.notes ?? []).filter((_, i) => i !== index);
-          await updatePerson(person.id, { notes });
+          try {
+            await updatePerson(person.id, { notes });
+          } catch {
+            Alert.alert(
+              "Couldn't remove that note",
+              "Check your connection and try again."
+            );
+            return;
+          }
           onPersonChanged();
         },
       },
@@ -794,7 +810,15 @@ function TimelineTab({
             text: "Remove",
             style: "destructive",
             onPress: async () => {
-              await deleteInteraction(interaction.id);
+              try {
+                await deleteInteraction(interaction.id);
+              } catch {
+                Alert.alert(
+                  "Couldn't remove that check-in",
+                  "Check your connection and try again."
+                );
+                return;
+              }
               onInteractionsChanged();
             },
           },
@@ -1155,17 +1179,21 @@ export default function PersonDetailScreen() {
   const {
     memories,
     isLoading: memoriesLoading,
+    error: memoriesError,
     refetch: refetchMemories,
   } = usePersonMemories(id ?? "");
   const {
     interactions,
     latestInteraction,
     isLoading: interactionsLoading,
+    error: interactionsError,
     refetch: refetchInteractions,
   } = usePersonInteractions(id ?? "");
   const { photoUri, setPhoto, removePhoto } = usePersonPhoto(id ?? "");
 
   const isLoading = personLoading || memoriesLoading || interactionsLoading;
+  // Any part missing would render as an empty history — show the error instead.
+  const loadError = personError || memoriesError || interactionsError;
 
   // ─── Plant exit hint animation ──────────────────────────────────────────
   // All hooks MUST be called before any early returns (React rules of hooks)
@@ -1311,7 +1339,7 @@ export default function PersonDetailScreen() {
   }
 
   // ─── Error ───────────────────────────────────────────────────────────────
-  if (personError || !person) {
+  if (loadError || !person) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
@@ -1333,8 +1361,16 @@ export default function PersonDetailScreen() {
             </Pressable>
           </View>
           <ErrorState
-            message={personError ? "Couldn't load this person." : "Person not found."}
-            onRetry={refetchPerson}
+            message={
+              loadError
+                ? "Couldn't load this person. Check your connection and try again."
+                : "Person not found."
+            }
+            onRetry={() => {
+              refetchPerson();
+              refetchMemories();
+              refetchInteractions();
+            }}
           />
         </View>
       </>

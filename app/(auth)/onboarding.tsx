@@ -9,6 +9,7 @@ import {
   ImageBackground,
   ScrollView,
   PanResponder,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -232,7 +233,11 @@ export default function OnboardingScreen() {
       });
       personIdRef.current = person.id;
     } catch {
-      // Planting failed — the user can re-add from the garden tab.
+      // Don't let the rest of onboarding imply they were planted.
+      Alert.alert(
+        `Couldn't add ${name} just yet`,
+        "Check your connection — you can plant them from your garden anytime."
+      );
     }
   }, [personName, createPerson]);
 
@@ -241,7 +246,14 @@ export default function OnboardingScreen() {
       setScreen("dashboard");
       const personId = personIdRef.current;
       const trimmed = content.trim();
-      if (!personId || (!trimmed && !photoUri)) return;
+      if (!trimmed && !photoUri) return;
+      if (!personId) {
+        Alert.alert(
+          "That memory wasn't saved",
+          "It needs someone in your garden to belong to — capture it again once they're planted."
+        );
+        return;
+      }
       try {
         const memory = await createMemory({
           person_id: personId,
@@ -251,8 +263,11 @@ export default function OnboardingScreen() {
         });
         recordMemoryGrowth(personId, memory);
       } catch {
-        // Memory save failed — the celebration still plays; the user
-        // can capture it again from the Tend sheet.
+        // The celebration still plays, but say the memory didn't keep.
+        Alert.alert(
+          "Couldn't save that memory",
+          "Check your connection — you can capture it again from the Tend sheet."
+        );
       }
     },
     [createMemory]

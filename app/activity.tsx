@@ -22,7 +22,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInUp } from "react-native-reanimated";
-import { PressableScale, Skeleton } from "@/components/ui";
+import { PressableScale, Skeleton, ErrorState } from "@/components/ui";
 import { colors, fonts } from "@design/tokens";
 import { usePersons, useMemories, useAllInteractions, useActiveSeason } from "@/hooks";
 import { formatRelativeDate, formatMemoryDate, getMemoryDate, emotionEmojis, relationshipLabels } from "@/lib/formatters";
@@ -336,9 +336,21 @@ function EmptyWeekState() {
 
 export default function ActivityScreen() {
   const insets = useSafeAreaInsets();
-  const { persons } = usePersons();
-  const { memories, isLoading: memoriesLoading, refetch: refetchMemories } = useMemories();
-  const { interactions, isLoading: interactionsLoading, refetch: refetchInteractions } = useAllInteractions();
+  const { persons, error: personsError, refetch: refetchPersons } = usePersons();
+  const {
+    memories,
+    isLoading: memoriesLoading,
+    error: memoriesError,
+    refetch: refetchMemories,
+  } = useMemories();
+  const {
+    interactions,
+    isLoading: interactionsLoading,
+    error: interactionsError,
+    refetch: refetchInteractions,
+  } = useAllInteractions();
+  // A failed load isn't a quiet week — show the error instead.
+  const loadError = personsError || memoriesError || interactionsError;
   const { season: activeSeason, commitments } = useActiveSeason();
 
   useFocusEffect(
@@ -599,6 +611,15 @@ export default function ActivityScreen() {
               <Skeleton width="100%" height={94} borderRadius={16} />
               <Skeleton width="60%" height={22} borderRadius={8} />
             </View>
+          ) : loadError ? (
+            <ErrorState
+              message="Couldn't load your week. Check your connection and try again."
+              onRetry={() => {
+                refetchPersons();
+                refetchMemories();
+                refetchInteractions();
+              }}
+            />
           ) : totalWeekActivity === 0 ? (
             <EmptyWeekState />
           ) : (

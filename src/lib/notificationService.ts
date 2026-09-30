@@ -381,6 +381,19 @@ export async function cancelAllNotifications(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
+/**
+ * Cancel everything scheduled and clear delivered notifications from the
+ * notification center. Their copy names people and quotes memories, so
+ * none of it should reach whoever signs in next.
+ */
+export async function clearAllNotifications(): Promise<void> {
+  const Notifications = getNotifications();
+  if (!Notifications) return;
+
+  await Notifications.cancelAllScheduledNotificationsAsync();
+  await Notifications.dismissAllNotificationsAsync();
+}
+
 // ─── Handler Setup ───────────────────────────────────────────────────────────
 
 /**

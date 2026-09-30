@@ -1,8 +1,13 @@
 /**
  * Privacy & Data — Settings route
  *
- * Thin wrapper that opens the account flow directly at the Privacy & Data screen (step 14).
- * This lets Settings hub → "Privacy & Data" row navigate here directly.
+ * Export, the AI opt-out, legal links, and account deletion. Deletion is
+ * real: with an account it deletes the auth user on the server (every
+ * table cascades), and only then wipes this device and signs out. If the
+ * server call fails, nothing is removed and the user is told so.
+ *
+ * Open with `?start=delete` to land directly on the deletion flow (the
+ * Account screen does this).
  */
 import React, { useState, useCallback } from "react";
 import {
@@ -10,18 +15,13 @@ import {
   Text,
   Pressable,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ArrowLeft,
-  Lock,
-  Eye,
-  EyeOff,
   Trash2,
   Download,
   Shield,
@@ -35,16 +35,9 @@ import { colors, fonts } from "@design/tokens";
 import {
   FadingGardenIllustration,
 } from "@/components/illustrations";
-import { TextInput as RNTextInput } from "react-native";
-import { clearLocalPeople } from "@/hooks/usePersons";
-import { clearLocalMemories } from "@/hooks/useMemories";
-import { clearLocalInteractions } from "@/hooks/useInteractions";
-import { clearLocalPromises } from "@/hooks/usePromises";
-import { clearLocalSeasons } from "@/hooks/useSeason";
-import { deleteAllPersons } from "@/services/personService";
+import { deleteAccount } from "@/services/accountService";
 import { exportGardenData } from "@/lib/exportService";
-import { clearAllCollections } from "@/lib/localStore";
-import { resetGrowthState } from "@/lib/growthEngine";
+import { clearUserData } from "@/lib/userData";
 import { useAuth } from "@/providers";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { isAIEnabled, setAIEnabled } from "@/lib/aiPreferences";
@@ -65,7 +58,6 @@ const dangerLight = colors.errorLight;
 const settingsBg = "#F5F0EC";
 const fieldBorder = "#F0EBE3";
 const chevronMuted = "#D4CFC8";
-const placeholderColor = "#C4BBB0";
 
 type Insets = { top: number; bottom: number };
 
@@ -241,48 +233,6 @@ function SectionLabel({ label }: { label: string }) {
   );
 }
 
-function FormField({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  type = "text",
-  icon: FieldIcon,
-}: {
-  label: string;
-  value?: string;
-  onChangeText?: (t: string) => void;
-  placeholder?: string;
-  type?: "text" | "password";
-  icon?: any;
-}) {
-  const [showPwd, setShowPwd] = useState(false);
-  return (
-    <View style={{ marginBottom: 14 }}>
-      <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 11, color: warmGray, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 7 }}>{label}</Text>
-      <View style={{ position: "relative" }}>
-        <View style={{ backgroundColor: white, borderWidth: 1.5, borderColor: fieldBorder, borderRadius: 14, padding: 13, paddingRight: type === "password" ? 44 : 14, flexDirection: "row", alignItems: "center", gap: 9 }}>
-          {FieldIcon && <FieldIcon size={15} strokeWidth={1.75} color={warmGray} />}
-          <RNTextInput
-            value={value}
-            onChangeText={onChangeText}
-            placeholder={placeholder}
-            placeholderTextColor={placeholderColor}
-            secureTextEntry={type === "password" && !showPwd}
-            autoCapitalize="none"
-            style={{ flex: 1, fontFamily: fonts.sans, fontSize: 15, color: nearBlack, padding: 0 }}
-          />
-        </View>
-        {type === "password" && (
-          <Pressable onPress={() => setShowPwd((s) => !s)} hitSlop={8} style={{ position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center" }}>
-            {showPwd ? <EyeOff size={16} strokeWidth={1.75} color={warmGray} /> : <Eye size={16} strokeWidth={1.75} color={warmGray} />}
-          </Pressable>
-        )}
-      </View>
-    </View>
-  );
-}
-
 function SoftToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   return (
     <Pressable
@@ -435,25 +385,29 @@ function ExportDataScreen({
 
 function DeleteStep1Screen({
   onContinue,
+  onExport,
   onCancel,
   insets,
 }: {
   onContinue: () => void;
+  onExport: () => void;
   onCancel: () => void;
   insets: Insets;
 }) {
   const items = ["Your relationships & contact notes", "All memories you've captured", "Account details & preferences"];
+  // Demo mode has no account on a server — only this device's garden.
+  const removedFrom = isSupabaseConfigured ? "our servers and this device" : "this device";
   return (
     <View style={{ flex: 1, backgroundColor: cream }}>
       <NavBar right={<CancelBtn onPress={onCancel} />} title="" insets={insets} />
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 28 }}>
         <Text style={{ fontFamily: fonts.serif, fontSize: 26, color: nearBlack, marginBottom: 10, lineHeight: 32 }}>Delete your account?</Text>
         <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: warmGray, lineHeight: 23, marginBottom: 20 }}>
-          This permanently removes your garden, relationships, and all associated memories from our servers.
+          This permanently removes your garden, relationships, and all associated memories from {removedFrom}.
         </Text>
         <View style={{ backgroundColor: white, borderRadius: 16, padding: 14, paddingHorizontal: 16, borderWidth: 1, borderColor: fieldBorder, marginBottom: 24 }}>
           <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: nearBlack, marginBottom: 6 }}>Want a copy of your data first?</Text>
-          <Pressable style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Pressable onPress={onExport} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Download size={14} strokeWidth={1.75} color={sage} />
             <Text style={{ fontFamily: fonts.sansMedium, fontSize: 13, color: sage }}>Download your data first</Text>
           </Pressable>
@@ -476,17 +430,18 @@ function DeleteStep1Screen({
 function DeleteStep2Screen({
   onDelete,
   onCancel,
+  isDeleting,
   insets,
 }: {
   onDelete: () => void;
   onCancel: () => void;
+  isDeleting: boolean;
   insets: Insets;
 }) {
   const [checked, setChecked] = useState(false);
-  const [password, setPassword] = useState("");
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: cream }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <NavBar right={<CancelBtn onPress={onCancel} />} title="" insets={insets} />
+    <View style={{ flex: 1, backgroundColor: cream }}>
+      <NavBar right={isDeleting ? undefined : <CancelBtn onPress={onCancel} />} title="" insets={insets} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 28 }} showsVerticalScrollIndicator={false}>
         <Text style={{ fontFamily: fonts.serif, fontSize: 26, color: nearBlack, marginBottom: 10, lineHeight: 32 }}>This can't be undone.</Text>
         <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: warmGray, lineHeight: 23, marginBottom: 28 }}>
@@ -500,19 +455,16 @@ function DeleteStep2Screen({
             I understand this is permanent and my garden cannot be recovered.
           </Text>
         </Pressable>
-        <FormField label="Confirm your password" value={password} onChangeText={setPassword} placeholder="Enter your password" type="password" icon={Lock} />
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 10, paddingHorizontal: 14, backgroundColor: "#F9F5F0", borderRadius: 12, borderWidth: 1, borderColor: fieldBorder, marginTop: 4 }}>
-          <Shield size={13} strokeWidth={1.75} color={warmGray} style={{ marginTop: 2 }} />
-          <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 12, color: warmGray, lineHeight: 20 }}>
-            Apple and Google users may be asked to verify their account.
-          </Text>
-        </View>
       </ScrollView>
       <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 44, gap: 10 }}>
-        <WarmDangerBtn label="Delete my account" onPress={onDelete} disabled={!checked} />
-        <OutlineBtn label="Cancel" onPress={onCancel} />
+        <WarmDangerBtn
+          label={isDeleting ? "Deleting your account…" : "Delete my account"}
+          onPress={onDelete}
+          disabled={!checked || isDeleting}
+        />
+        {!isDeleting && <OutlineBtn label="Cancel" onPress={onCancel} />}
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -539,7 +491,10 @@ function DeleteConfirmedScreen({ onDone, insets }: { onDone: () => void; insets:
 
 export default function PrivacyScreen() {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState(0);
+  const { start } = useLocalSearchParams<{ start?: string }>();
+  const startedAtDelete = start === "delete";
+  const [step, setStep] = useState(startedAtDelete ? 2 : 0);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { signOut } = useAuth();
 
   const screenInsets: Insets = { top: insets.top, bottom: insets.bottom };
@@ -553,8 +508,8 @@ export default function PrivacyScreen() {
   }, []);
 
   const handleExport = useCallback(async () => {
-    // exportService merges Supabase data (when configured) with everything
-    // created on-device, writes the JSON, and opens the share sheet.
+    // exportService gathers the account's server data (or, in demo mode,
+    // this device's garden), writes the JSON, and opens the share sheet.
     const result = await exportGardenData();
     if (!result.success) {
       Alert.alert("Export failed", result.error ?? "Something went wrong");
@@ -562,30 +517,42 @@ export default function PrivacyScreen() {
   }, []);
 
   const handleDelete = useCallback(async () => {
-    // Remove server data first (memories/interactions cascade from persons),
-    // then wipe everything stored on this device.
+    if (isDeleting) return;
+    setIsDeleting(true);
     if (isSupabaseConfigured) {
       try {
-        await deleteAllPersons();
-      } catch {
-        // Offline or auth failure — local data is still removed below;
-        // server rows remain protected by RLS until the next attempt.
+        // Deletes the auth user; every table cascades from it. Nothing
+        // else happens unless this succeeds.
+        await deleteAccount();
+      } catch (err) {
+        setIsDeleting(false);
+        const detail = err instanceof Error ? err.message : String(err);
+        Alert.alert(
+          "Your account wasn't deleted",
+          `Nothing was removed. Check your connection and try again.\n\n${detail}`
+        );
+        return;
       }
     }
-    clearLocalPeople();
-    clearLocalMemories();
-    clearLocalInteractions();
-    clearLocalPromises();
-    clearLocalSeasons();
-    clearAllCollections();
-    resetGrowthState();
-    try {
-      await signOut();
-    } catch {
-      // Sign-out failure shouldn't trap the user in the delete flow.
+    // The account is gone — wipe this device's copy and end the session.
+    await clearUserData();
+    if (isSupabaseConfigured) {
+      try {
+        await signOut();
+      } catch {
+        // Offline right after deleting: the account is already gone and
+        // this device is wiped; the orphaned session can't be refreshed.
+      }
     }
+    setIsDeleting(false);
     setStep(4);
-  }, [signOut]);
+  }, [isDeleting, signOut]);
+
+  // Opened straight into deletion (from Account)? Cancel returns there.
+  const cancelDelete = useCallback(() => {
+    if (startedAtDelete) goBack();
+    else setStep(0);
+  }, [startedAtDelete, goBack]);
 
   const handleDeleteDone = useCallback(() => {
     // Entry redirect decides: login when Supabase is configured, tabs in mock mode.
@@ -598,9 +565,9 @@ export default function PrivacyScreen() {
     case 1:
       return <ExportDataScreen insets={screenInsets} onDownload={handleExport} onCancel={() => setStep(0)} />;
     case 2:
-      return <DeleteStep1Screen insets={screenInsets} onContinue={() => setStep(3)} onCancel={() => setStep(0)} />;
+      return <DeleteStep1Screen insets={screenInsets} onContinue={() => setStep(3)} onExport={handleExport} onCancel={cancelDelete} />;
     case 3:
-      return <DeleteStep2Screen insets={screenInsets} onDelete={handleDelete} onCancel={() => setStep(2)} />;
+      return <DeleteStep2Screen insets={screenInsets} onDelete={handleDelete} onCancel={() => setStep(2)} isDeleting={isDeleting} />;
     case 4:
       return <DeleteConfirmedScreen insets={screenInsets} onDone={handleDeleteDone} />;
     default:

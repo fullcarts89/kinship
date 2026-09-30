@@ -318,15 +318,30 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 let _cache: CachedInsight[] | null = null;
 
+/** Bumped on every clear so in-flight requests can't repopulate the cache. */
+let _cacheGeneration = 0;
+
 async function loadCache(): Promise<CachedInsight[]> {
   if (_cache === null) {
-    _cache = await loadCollection<CachedInsight>(CACHE_KEY);
+    const stored = await loadCollection<CachedInsight>(CACHE_KEY);
+    // A clear may have landed while we were reading from disk.
+    if (_cache === null) _cache = stored;
   }
   return _cache;
 }
 
 function persistCache(): void {
   if (_cache) saveCollection(CACHE_KEY, _cache.slice(0, 100));
+}
+
+/**
+ * Forget every cached insight, in memory and on disk. Insights are drawn
+ * from one account's private notes, so they go when that account signs out.
+ */
+export function clearAIInsightCache(): void {
+  _cacheGeneration += 1;
+  _cache = [];
+  saveCollection(CACHE_KEY, []);
 }
 
 // ─── Transport ──────────────────────────────────────────────────────────────
@@ -416,6 +431,7 @@ export async function generatePersonInsight(
   const context = buildContext(input);
   const digest = digestOf(context);
 
+  const generation = _cacheGeneration;
   const cache = await loadCache();
   const cached = cache.find((c) => c.person_id === input.person.id);
   if (
@@ -431,6 +447,8 @@ export async function generatePersonInsight(
       ? await callViaEdgeFunction(context)
       : await callDirect(context);
     if (!insight) return null;
+    // Signed out while the request was in flight — don't keep it.
+    if (generation !== _cacheGeneration) return null;
 
     _cache = [
       {

@@ -16,7 +16,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { View, Text, ScrollView, Switch } from "react-native";
+import { View, Text, ScrollView, Switch, Alert } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -32,7 +32,7 @@ import Animated, {
 import { Check, ChevronLeft, X, Sprout } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { colors, fonts, radii, shadows } from "@design/tokens";
-import { PressableScale } from "@/components/ui";
+import { PressableScale, ErrorState } from "@/components/ui";
 import { usePersons, usePersonGrowth } from "@/hooks";
 import { useActiveSeason, type BeginSeasonEntry } from "@/hooks/useSeason";
 import {
@@ -734,7 +734,12 @@ function PlantedMoment({ selectedPersons }: { selectedPersons: Person[] }) {
 
 export default function NewSeasonScreen() {
   const insets = useSafeAreaInsets();
-  const { persons } = usePersons();
+  const {
+    persons,
+    isLoading: personsLoading,
+    error: personsError,
+    refetch: refetchPersons,
+  } = usePersons();
   const { beginSeason } = useActiveSeason();
 
   const [step, setStep] = useState<SeasonStep>("who");
@@ -807,6 +812,11 @@ export default function NewSeasonScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setStep("planted");
+    } catch {
+      Alert.alert(
+        "Couldn't begin your season",
+        "Nothing was planted. Check your connection and try again."
+      );
     } finally {
       setIsPlanting(false);
     }
@@ -822,18 +832,23 @@ export default function NewSeasonScreen() {
   let content: React.ReactNode = null;
   switch (step) {
     case "who":
-      content =
-        persons.length === 0 ? (
-          <EmptyGarden bottomInset={insets.bottom} />
-        ) : (
-          <WhoStep
-            persons={persons}
-            selectedIds={selectedIds}
-            onToggle={handleTogglePerson}
-            onContinue={() => setStep("rhythm")}
-            bottomInset={insets.bottom}
-          />
-        );
+      // Loading or failed isn't the same as an empty garden.
+      content = personsLoading ? null : personsError ? (
+        <ErrorState
+          message="Couldn't load your garden. Check your connection and try again."
+          onRetry={refetchPersons}
+        />
+      ) : persons.length === 0 ? (
+        <EmptyGarden bottomInset={insets.bottom} />
+      ) : (
+        <WhoStep
+          persons={persons}
+          selectedIds={selectedIds}
+          onToggle={handleTogglePerson}
+          onContinue={() => setStep("rhythm")}
+          bottomInset={insets.bottom}
+        />
+      );
       break;
     case "rhythm":
       content = (

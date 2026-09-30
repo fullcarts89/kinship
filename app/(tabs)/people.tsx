@@ -420,17 +420,19 @@ export default function YourGardenScreen() {
   const {
     interactions: allInteractions,
     isLoading: interactionsLoading,
+    error: interactionsError,
     refetch: refetchInteractions,
   } = useAllInteractions();
 
   const isLoading = personsLoading || memoriesLoading || interactionsLoading;
-  const error = personsError || memoriesError;
+  const error = personsError || memoriesError || interactionsError;
 
   // Active season — only used for the quiet header affordance label.
-  const { season, isLoading: seasonLoading } = useActiveSeason();
+  const { season, isLoading: seasonLoading, error: seasonError } = useActiveSeason();
 
-  // Bootstrap growth points from existing data (runs once)
-  useBootstrapGrowth(memories, allInteractions, isLoading);
+  // Bootstrap growth points from existing data (runs once) — never from a
+  // failed load, or growth would stay empty once the data does arrive.
+  useBootstrapGrowth(memories, allInteractions, isLoading || !!error);
 
   // Vitality scores for all persons
   const personIds = useMemo(() => persons.map((p) => p.id), [persons]);
@@ -577,8 +579,9 @@ export default function YourGardenScreen() {
             </View>
 
             {/* Quiet season affordance — setup screen doubles as edit
-                (SPEC_TENDING_SEASONS §3.3) */}
-            {!seasonLoading && persons.length > 0 && (
+                (SPEC_TENDING_SEASONS §3.3). Hidden when seasons failed to
+                load, so it can't invite a second active season. */}
+            {!seasonLoading && !seasonError && persons.length > 0 && (
               <Pressable
                 onPress={() => router.push(SEASON_SETUP_ROUTE)}
                 hitSlop={8}

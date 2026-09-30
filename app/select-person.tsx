@@ -27,7 +27,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp } from "react-native-reanimated";
-import { PressableScale } from "@/components/ui";
+import { PressableScale, ErrorState } from "@/components/ui";
 import {
   X,
   ChevronRight,
@@ -242,7 +242,9 @@ function EmptyGarden({ onAddSomeone }: { onAddSomeone: () => void }) {
 export default function SelectPersonScreen() {
   const insets = useSafeAreaInsets();
   const { intent } = useLocalSearchParams<{ intent?: string }>();
-  const { persons } = usePersons();
+  const { persons, isLoading, error, refetch } = usePersons();
+  // Only a successful load can say how many people are in the garden.
+  const isLoaded = !isLoading && !error;
 
   const handleSelectPerson = (person: Person) => {
     switch (intent) {
@@ -340,14 +342,21 @@ export default function SelectPersonScreen() {
             lineHeight: 20,
           }}
         >
-          {persons.length === 1
-            ? "1 person in your garden"
-            : `${persons.length} people in your garden`}
+          {!isLoaded
+            ? " "
+            : persons.length === 1
+              ? "1 person in your garden"
+              : `${persons.length} people in your garden`}
         </Text>
       </View>
 
       {/* Person list or empty state */}
-      {persons.length === 0 ? (
+      {isLoading ? null : error ? (
+        <ErrorState
+          message="Couldn't load your garden. Check your connection and try again."
+          onRetry={refetch}
+        />
+      ) : persons.length === 0 ? (
         <EmptyGarden onAddSomeone={handleAddSomeone} />
       ) : (
         <ScrollView

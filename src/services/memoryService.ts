@@ -46,6 +46,21 @@ export async function getMemoriesForPerson(
   return data as Memory[];
 }
 
+export async function getMemoryById(id: string): Promise<Memory | null> {
+  if (!supabase) throw new Error("Supabase not configured");
+
+  const userId = await getAuthUserId();
+  const { data, error } = await supabase
+    .from("memories")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message || "Database operation failed");
+  return data as Memory | null;
+}
+
 export async function getRecentMemories(limit = 5): Promise<Memory[]> {
   if (!supabase) throw new Error("Supabase not configured");
 

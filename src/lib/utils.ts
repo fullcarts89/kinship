@@ -11,3 +11,8 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
+
+/** Normalize anything thrown into an Error so hooks can expose it as state. */
+export function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}

@@ -55,12 +55,13 @@ export default function QuickNoteScreen() {
           source: "manual",
         });
       } else {
-        await updatePerson(person.id, {
+        const updated = await updatePerson(person.id, {
           notes: [
             ...(person.notes ?? []),
             { text: trimmed, created_at: new Date().toISOString() },
           ],
         });
+        if (!updated) throw new Error("Person not found");
         // AI signal: a note may contain a commitment worth holding onto.
         // Proposal only — nothing is ever auto-created; slow or failed
         // extraction just skips the prompt.
@@ -81,12 +82,19 @@ export default function QuickNoteScreen() {
                 {
                   text: "Hold onto it",
                   onPress: async () => {
-                    await createPromise({
-                      person_id: person.id,
-                      text: promiseText,
-                      due_hint: dueHint,
-                      source: "ai_suggested",
-                    });
+                    try {
+                      await createPromise({
+                        person_id: person.id,
+                        text: promiseText,
+                        due_hint: dueHint,
+                        source: "ai_suggested",
+                      });
+                    } catch {
+                      Alert.alert(
+                        "Couldn't hold onto that promise",
+                        "Your note is saved. Check your connection and try again."
+                      );
+                    }
                     handleClose();
                   },
                 },
@@ -98,7 +106,12 @@ export default function QuickNoteScreen() {
       }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     } catch {
-      // Saved locally at worst — never trap the user in a quick flow.
+      // Nothing was saved — stay open so the note isn't lost.
+      Alert.alert(
+        isPromise ? "Couldn't hold onto that promise" : "Couldn't save your note",
+        "Check your connection and try again."
+      );
+      return;
     }
     handleClose();
   }, [note, person, isPromise, updatePerson, createPromise, handleClose]);

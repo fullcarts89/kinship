@@ -12,7 +12,7 @@
  */
 
 import React, { useMemo, useCallback } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -34,6 +34,7 @@ import {
   FlourishingGardenIllustration,
 } from "@/components/illustrations";
 import { getGardenWalkPreferences } from "@/lib/notificationEngine";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 // ─── Design tokens (local) ──────────────────────────────────────────────────
 
@@ -464,9 +465,17 @@ export default function ProfileScreen() {
               try {
                 await signOut();
               } catch {
-                // Proceed to login even if signOut fails
+                // Still signed in (usually offline) — say so rather than
+                // showing the sign-in screen over a live session.
+                Alert.alert(
+                  "Couldn't sign out",
+                  "Check your connection and try again."
+                );
+                return;
               }
-              router.replace("/(auth)/login");
+              // With an account, the tab layout sends us to sign-in once
+              // the session ends. Demo mode has no session to end.
+              if (!isSupabaseConfigured) router.replace("/(auth)/login");
             }}
           />
         </View>

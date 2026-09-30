@@ -4,9 +4,11 @@
  * Gathers all garden data (persons, memories, interactions, preferences)
  * and exports it as a JSON file via the native share sheet.
  *
- * When Supabase is configured, exports the user's server data. Otherwise
- * exports the locally persisted garden (people, memories, and interactions
- * the user actually created on this device) — never the bundled demo data.
+ * When Supabase is configured, exports the signed-in account's server data
+ * and fails if it can't be fetched — never a partial or on-device copy.
+ * Otherwise (demo mode) exports the locally persisted garden (people,
+ * memories, and interactions the user actually created on this device) —
+ * never the bundled demo data.
  */
 
 import { File, Paths } from "expo-file-system";
@@ -17,6 +19,7 @@ import { getMemories } from "@/services/memoryService";
 import { getAllInteractions } from "@/services/interactionService";
 import { getGardenWalkPreferences } from "@/lib/notificationEngine";
 import { loadCollection } from "@/lib/localStore";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import type { Person, Memory, Interaction } from "@/types/database";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -28,37 +31,13 @@ export interface ExportResult {
 
 // ─── Export ─────────────────────────────────────────────────────────────────
 
+const EXPORT_FILE_NAME = "kinship-export.json";
+
 export async function exportGardenData(): Promise<ExportResult> {
   try {
-    // Fetch live data; fall back to the locally persisted garden when
-    // Supabase is unavailable. Local data is merged in either way so
-    // nothing the user created on-device is left out of their export.
-    const [localPersons, localMemories, localInteractions] = await Promise.all([
-      loadCollection<Person>("people"),
-      loadCollection<Memory>("memories"),
-      loadCollection<Interaction>("interactions"),
-    ]);
-
-    let persons: Person[];
-    try {
-      persons = mergeById(localPersons, await getPersons());
-    } catch {
-      persons = localPersons;
-    }
-
-    let memories: Memory[];
-    try {
-      memories = mergeById(localMemories, await getMemories());
-    } catch {
-      memories = localMemories;
-    }
-
-    let interactions: Interaction[];
-    try {
-      interactions = mergeById(localInteractions, await getAllInteractions());
-    } catch {
-      interactions = localInteractions;
-    }
+    const { persons, memories, interactions } = isSupabaseConfigured
+      ? await loadAccountGarden()
+      : await loadDeviceGarden();
 
     const gardenWalk = getGardenWalkPreferences();
 
@@ -74,7 +53,7 @@ export async function exportGardenData(): Promise<ExportResult> {
     };
 
     const json = JSON.stringify(exportPayload, null, 2);
-    const file = new File(Paths.cache, "kinship-export.json");
+    const file = new File(Paths.cache, EXPORT_FILE_NAME);
     file.write(json);
 
     await Sharing.shareAsync(file.uri, {
@@ -91,7 +70,38 @@ export async function exportGardenData(): Promise<ExportResult> {
   }
 }
 
-function mergeById<T extends { id: string }>(local: T[], remote: T[]): T[] {
-  const localIds = new Set(local.map((item) => item.id));
-  return [...local, ...remote.filter((item) => !localIds.has(item.id))];
+/** Delete the last export written to the cache (sign-out cleanup). */
+export function deleteExportFile(): void {
+  try {
+    const file = new File(Paths.cache, EXPORT_FILE_NAME);
+    if (file.exists) file.delete();
+  } catch {
+    // best-effort
+  }
+}
+
+interface GardenData {
+  persons: Person[];
+  memories: Memory[];
+  interactions: Interaction[];
+}
+
+/** Signed in: the account's server data. Throws if it can't be fetched. */
+async function loadAccountGarden(): Promise<GardenData> {
+  const [persons, memories, interactions] = await Promise.all([
+    getPersons(),
+    getMemories(),
+    getAllInteractions(),
+  ]);
+  return { persons, memories, interactions };
+}
+
+/** Demo mode: what was created on this device. */
+async function loadDeviceGarden(): Promise<GardenData> {
+  const [persons, memories, interactions] = await Promise.all([
+    loadCollection<Person>("people"),
+    loadCollection<Memory>("memories"),
+    loadCollection<Interaction>("interactions"),
+  ]);
+  return { persons, memories, interactions };
 }
