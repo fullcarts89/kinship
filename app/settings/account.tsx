@@ -493,7 +493,7 @@ function NoAccountScreen({
 
 export default function AccountScreen() {
   const insets = useSafeAreaInsets();
-  const { user, signOut, isAuthenticated } = useAuth();
+  const { user, signOut, isAuthenticated, isLoading } = useAuth();
   const [confirmingLogOut, setConfirmingLogOut] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -562,6 +562,11 @@ export default function AccountScreen() {
         onCancel={() => setConfirmingLogOut(false)}
       />
     );
+  }
+
+  // Still restoring the session — don't claim anything yet.
+  if (isLoading) {
+    return <View style={{ flex: 1, backgroundColor: settingsBg }} />;
   }
 
   if (!isAuthenticated || !user) {
