@@ -59,7 +59,13 @@ function daysFromAnniversary(memDate: Date, today: Date): number {
     memDate.getMonth(),
     memDate.getDate()
   );
-  const diff = Math.abs(thisYear.getTime() - today.getTime());
+  // Compare calendar days: `today` carries a time of day, `thisYear` is midnight.
+  const todayMidnight = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
+  const diff = Math.abs(thisYear.getTime() - todayMidnight.getTime());
   const wrapped = Math.min(diff, 365 * DAY_MS - diff); // handle year boundary
   return Math.round(wrapped / DAY_MS);
 }
