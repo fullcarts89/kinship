@@ -1,0 +1,69 @@
+# Kinship CI (OBS-02, OBS-04). Every push and pull request runs the app
+# checks, the edge-function tests and the database tests. Make the "CI"
+# checks required on main in branch protection.
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App (tsc, eslint, jest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npx eslint .
+      - name: Unit tests
+        run: npm test -- --ci
+      - name: Production dependency audit (high/critical, report only)
+        # Known: image-size via metro until the next Expo SDK (see
+        # KINSHIP_PHASE_0_REPORT.md). Report, don't block.
+        run: npm audit --omit=dev --audit-level=high || true
+
+  edge-functions:
+    name: Edge functions (deno check, deno test)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck
+        run: deno check --config supabase/functions/deno.json supabase/functions/ai-insight/index.ts supabase/functions/delete-account/index.ts
+      - name: Tests
+        working-directory: supabase/functions
+        run: deno test
+
+  database:
+    name: Database (migrations + pgTAP)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Postgres 16, pgTAP and pg_prove
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-16 postgresql-16-pgtap libtap-parser-sourcehandler-pgtap-perl
+      - name: Apply every migration and run the pgTAP suites
+        env:
+          PGBIN: /usr/lib/postgresql/16/bin
+        run: supabase/tests/run-db-tests.sh
