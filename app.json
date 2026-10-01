@@ -22,7 +22,6 @@
         "NSContactsUsageDescription": "Allow Kinship to access your contacts to help you add people to your garden.",
         "NSCalendarsUsageDescription": "Allow Kinship to check your calendar so it can gently suggest capturing memories after events with people in your garden.",
         "NSPhotoLibraryUsageDescription": "Allow Kinship to access your photos to attach them to memories in your garden.",
-        "NSPhotoLibraryAddUsageDescription": "Allow Kinship to save memory cards you share to your photo library.",
         "NSCameraUsageDescription": "Allow Kinship to use your camera to take photos for your memories."
       }
     },
@@ -34,9 +33,13 @@
       "package": "com.kinship.app",
       "permissions": [
         "android.permission.READ_CONTACTS",
+        "android.permission.READ_CALENDAR"
+      ],
+      "blockedPermissions": [
         "android.permission.WRITE_CONTACTS",
-        "android.permission.READ_CALENDAR",
-        "android.permission.WRITE_CALENDAR"
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -47,13 +50,19 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       "expo-asset",
       [
         "expo-image-picker",
         {
           "photosPermission": "Allow Kinship to access your photos to attach them to memories in your garden.",
-          "cameraPermission": "Allow Kinship to use your camera to take photos for your memories."
+          "cameraPermission": "Allow Kinship to use your camera to take photos for your memories.",
+          "microphonePermission": false
         }
       ],
       [
@@ -65,7 +74,8 @@
       [
         "expo-calendar",
         {
-          "calendarPermission": "Allow Kinship to check your calendar so it can gently suggest capturing memories after events with people in your garden."
+          "calendarPermission": "Allow Kinship to check your calendar so it can gently suggest capturing memories after events with people in your garden.",
+          "remindersPermission": false
         }
       ],
       "expo-web-browser",
