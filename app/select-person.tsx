@@ -8,7 +8,7 @@
  * selection. Currently supports:
  *   - "reach-out" → /reach-out/[id]
  *
- * Extensible: add new intent values here without touching TendGardenSheet.
+ * Extensible: add new intent values here.
  *
  * Pattern follows PersonSelectorModal from app/memory/add.tsx with
  * full-screen modal presentation instead of inline modal.
