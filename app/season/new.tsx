@@ -6,17 +6,16 @@
  * onboarding, with direction-aware slide transitions):
  *   1. who    — multi-select up to MAX_TENDED_PEOPLE from the garden
  *   2. rhythm — per person, three human-labeled rhythm chips
- *   3. plant  — confirmation bed + opt-in calendar echo, then a
- *               quiet success moment
+ *   3. plant  — confirmation bed, then a quiet success moment
  *
  * Brand rules honored here (docs/SPEC_TENDING_SEASONS.md §3.3, §3.5):
  * numeric cadences are NEVER rendered — only RHYTHM_LABELS and
- * RHYTHM_DESCRIPTIONS; calendar echoes are off by default; nothing
- * here is framed as an obligation.
+ * RHYTHM_DESCRIPTIONS; nothing here is framed as an obligation. Kinship
+ * never writes to the user's calendar (P0-08).
  */
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { View, Text, ScrollView, Switch, Alert } from "react-native";
+import { View, Text, ScrollView, Alert } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -41,9 +40,8 @@ import {
   RHYTHM_DESCRIPTIONS,
   seasonNameFor,
 } from "@/lib/seasonEngine";
-import { writeSeasonEchoes } from "@/lib/seasonCalendar";
 import LivingPlant from "@/components/LivingPlant";
-import type { Person, SeasonCommitment, TendingRhythm } from "@/types/database";
+import type { Person, TendingRhythm } from "@/types/database";
 
 // ─── Local token aliases ────────────────────────────────────────────────────
 
@@ -554,15 +552,11 @@ function RhythmStep({
 
 function PlantStep({
   selectedPersons,
-  echoToCalendar,
-  onToggleEcho,
   onConfirm,
   isPlanting,
   bottomInset,
 }: {
   selectedPersons: Person[];
-  echoToCalendar: boolean;
-  onToggleEcho: (value: boolean) => void;
   onConfirm: () => void;
   isPlanting: boolean;
   bottomInset: number;
@@ -620,48 +614,6 @@ function PlantStep({
           ))}
         </Animated.View>
 
-        {/* Opt-in calendar echo — off by default, never a time block */}
-        <View
-          style={{
-            backgroundColor: white,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: borderClr,
-            paddingVertical: 14,
-            paddingHorizontal: 16,
-            flexDirection: "row",
-            alignItems: "center",
-          }}
-        >
-          <View style={{ flex: 1, marginRight: 12 }}>
-            <Text
-              style={{
-                fontFamily: fonts.sansMedium,
-                fontSize: 15,
-                color: nearBlack,
-                marginBottom: 3,
-              }}
-            >
-              Echo to my calendar
-            </Text>
-            <Text
-              style={{
-                fontFamily: fonts.sans,
-                fontSize: 12,
-                lineHeight: 17,
-                color: warmGray,
-              }}
-            >
-              One gentle all-day note per rhythm — never a time block
-            </Text>
-          </View>
-          <Switch
-            value={echoToCalendar}
-            onValueChange={onToggleEcho}
-            trackColor={{ false: borderClr, true: sageLight }}
-            thumbColor={echoToCalendar ? sage : white}
-          />
-        </View>
       </ScrollView>
 
       <View style={{ paddingHorizontal: 24, paddingBottom: bottomInset + 16 }}>
@@ -740,7 +692,6 @@ export default function NewSeasonScreen() {
   const [step, setStep] = useState<SeasonStep>("who");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [rhythms, setRhythms] = useState<Record<string, TendingRhythm>>({});
-  const [echoToCalendar, setEchoToCalendar] = useState(false);
   const [isPlanting, setIsPlanting] = useState(false);
 
   const selectedPersons = selectedIds
@@ -790,21 +741,6 @@ export default function NewSeasonScreen() {
       const season = await beginSeason(entries);
       if (!season) return;
 
-      // Opt-in calendar echoes — fire and forget; commitments are built
-      // locally from the entries since writeSeasonEchoes only reads
-      // person_id/rhythm and the season's dates.
-      if (echoToCalendar) {
-        const commitments: SeasonCommitment[] = entries.map((e, i) => ({
-          id: `echo-${season.id}-${i}`,
-          season_id: season.id,
-          user_id: season.user_id,
-          person_id: e.person_id,
-          rhythm: e.rhythm,
-          created_at: season.created_at,
-        }));
-        writeSeasonEchoes(season, commitments, persons).catch(() => {});
-      }
-
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setStep("planted");
     } catch {
@@ -812,7 +748,7 @@ export default function NewSeasonScreen() {
     } finally {
       setIsPlanting(false);
     }
-  }, [isPlanting, selectedIds, rhythms, beginSeason, echoToCalendar, persons]);
+  }, [isPlanting, selectedIds, rhythms, beginSeason]);
 
   // Let the success moment breathe, then return home.
   useEffect(() => {
@@ -852,8 +788,6 @@ export default function NewSeasonScreen() {
       content = (
         <PlantStep
           selectedPersons={selectedPersons}
-          echoToCalendar={echoToCalendar}
-          onToggleEcho={setEchoToCalendar}
           onConfirm={handleConfirm}
           isPlanting={isPlanting}
           bottomInset={insets.bottom}
