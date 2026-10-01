@@ -1179,7 +1179,7 @@ function S6_IdentityReflection({
             maxWidth: 280,
           }}
         >
-          You've shared meaningful moments recently.
+          You&apos;ve shared meaningful moments recently.
         </Text>
         <Text
           style={{

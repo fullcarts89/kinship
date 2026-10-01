@@ -929,7 +929,7 @@ function OverviewScreen({
                 lineHeight: 19,
               }}
             >
-              A gentle heads-up when someone's birthday is coming up.
+              A gentle heads-up when someone&apos;s birthday is coming up.
             </Text>
           </View>
         </View>
@@ -1090,7 +1090,7 @@ function CategoryDetailScreen({
               lineHeight: 21,
             }}
           >
-            These reflections arrive quietly, like a letter you didn't know you
+            These reflections arrive quietly, like a letter you didn&apos;t know you
             needed.
           </Text>
         </View>
@@ -1149,7 +1149,7 @@ function CategoryDetailScreen({
                 marginBottom: 3,
               }}
             >
-              You're always in control.
+              You&apos;re always in control.
             </Text>
             <Text
               style={{
@@ -1360,7 +1360,7 @@ function PausedScreen({
               maxWidth: 270,
             }}
           >
-            Kinship will remain here, quietly, whenever you're ready.
+            Kinship will remain here, quietly, whenever you&apos;re ready.
           </Text>
         </View>
 
@@ -1599,7 +1599,7 @@ function PermissionScreen({
             maxWidth: 280,
           }}
         >
-          This helps memories bloom again. You'll only receive what feels
+          This helps memories bloom again. You&apos;ll only receive what feels
           meaningful — never urgent.
         </Text>
 

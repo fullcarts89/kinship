@@ -13,7 +13,7 @@ export default function NotFoundScreen() {
           Page not found
         </Text>
         <Text className="font-sans text-base text-warm-gray text-center mb-xl">
-          This screen doesn't exist in your garden yet.
+          This screen doesn&apos;t exist in your garden yet.
         </Text>
         <Link href="/(tabs)" className="mt-lg">
           <Text className="font-sans text-base text-sage font-semibold">

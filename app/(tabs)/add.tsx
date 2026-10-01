@@ -829,7 +829,7 @@ function StepFirstMemory({
             lineHeight: 20,
           }}
         >
-          One moment you'd want to remember
+          One moment you&apos;d want to remember
         </Text>
       </View>
 

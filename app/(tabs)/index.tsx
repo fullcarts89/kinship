@@ -1438,7 +1438,7 @@ export default function GardenScreen() {
                         lineHeight: 18,
                       }}
                     >
-                      A quiet stroll through your week, whenever you're ready
+                      A quiet stroll through your week, whenever you&apos;re ready
                     </Text>
                   </View>
                   <ChevronRight color={warmGray} size={18} strokeWidth={2} />

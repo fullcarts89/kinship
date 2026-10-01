@@ -713,7 +713,7 @@ export default function EditPersonScreen() {
               marginTop: 4,
             }}
           >
-            Their plant and the memories you've kept will go with them.
+            Their plant and the memories you&apos;ve kept will go with them.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

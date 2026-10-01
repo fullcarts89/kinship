@@ -588,7 +588,7 @@ function PlantStep({
             marginBottom: 24,
           }}
         >
-          These are the people you'll be tending for the coming months.
+          These are the people you&apos;ll be tending for the coming months.
         </Text>
 
         {/* The bed: chosen plants in a row */}

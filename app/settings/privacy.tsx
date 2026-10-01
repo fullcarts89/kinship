@@ -449,7 +449,7 @@ function DeleteStep2Screen({
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: cream }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <NavBar right={<CancelBtn onPress={onCancel} />} title="" insets={insets} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 28 }} showsVerticalScrollIndicator={false}>
-        <Text style={{ fontFamily: fonts.serif, fontSize: 26, color: nearBlack, marginBottom: 10, lineHeight: 32 }}>This can't be undone.</Text>
+        <Text style={{ fontFamily: fonts.serif, fontSize: 26, color: nearBlack, marginBottom: 10, lineHeight: 32 }}>This can&apos;t be undone.</Text>
         <Text style={{ fontFamily: fonts.sans, fontSize: 14, color: warmGray, lineHeight: 23, marginBottom: 28 }}>
           Please confirm you understand what this means before continuing.
         </Text>

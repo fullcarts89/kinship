@@ -158,7 +158,7 @@ export default function ContactPicker({
             marginBottom: 8,
           }}
         >
-          Kinship can't see your contacts
+          Kinship can&apos;t see your contacts
         </Text>
         <Text
           style={{

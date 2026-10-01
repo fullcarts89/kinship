@@ -113,7 +113,7 @@ export default function PrivacyPolicyScreen() {
               lineHeight: 22,
             }}
           >
-            Kinship ("we", "our", or "the app") is a personal relationship-nurturing app. Your privacy matters deeply to us. This policy explains what data we collect, how we use it, and the control you have.
+            Kinship (&quot;we&quot;, &quot;our&quot;, or &quot;the app&quot;) is a personal relationship-nurturing app. Your privacy matters deeply to us. This policy explains what data we collect, how we use it, and the control you have.
           </Text>
         </Animated.View>
 

@@ -247,7 +247,7 @@ export default function CheckInScreen() {
                 maxWidth: 300,
               }}
             >
-              If a moment with {person.name} feels worth keeping, now's a
+              If a moment with {person.name} feels worth keeping, now&apos;s a
               lovely time.
             </Text>
           </View>
@@ -411,7 +411,7 @@ export default function CheckInScreen() {
               maxWidth: 300,
             }}
           >
-            How'd it go with {person.name}?
+            How&apos;d it go with {person.name}?
           </Text>
 
           {/* Emoji Reaction Row */}

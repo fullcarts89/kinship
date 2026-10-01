@@ -1035,7 +1035,7 @@ function DreamPreviewScreen({ insets, personName, onNext, onBack }: DreamPreview
             marginBottom: 10,
           }}
         >
-          This is {displayName}'s plant in a few months
+          This is {displayName}&apos;s plant in a few months
         </Text>
         <Text
           style={{
@@ -1047,7 +1047,7 @@ function DreamPreviewScreen({ insets, personName, onNext, onBack }: DreamPreview
             marginBottom: 32,
           }}
         >
-          Every memory you capture helps it grow. Here's what your garden story could look like.
+          Every memory you capture helps it grow. Here&apos;s what your garden story could look like.
         </Text>
 
         {/* Sample memories preview */}
@@ -1061,7 +1061,7 @@ function DreamPreviewScreen({ insets, personName, onNext, onBack }: DreamPreview
             marginBottom: 12,
           }}
         >
-          A glimpse of what's ahead
+          A glimpse of what&apos;s ahead
         </Text>
         <View style={{ gap: 10, marginBottom: 32, opacity: 0.65 }}>
           {sampleMemories.map((m, i) => (
@@ -1117,8 +1117,8 @@ function DreamPreviewScreen({ insets, personName, onNext, onBack }: DreamPreview
               textAlign: "center",
             }}
           >
-            You'll be the friend {firstName === "them" ? "they" : firstName} thinks of when someone asks{" "}
-            <Text style={{ fontFamily: fonts.sansSemiBold }}>"who always shows up?"</Text>
+            You&apos;ll be the friend {firstName === "them" ? "they" : firstName} thinks of when someone asks{" "}
+            <Text style={{ fontFamily: fonts.sansSemiBold }}>&quot;who always shows up?&quot;</Text>
           </Text>
         </View>
       </ScrollView>
