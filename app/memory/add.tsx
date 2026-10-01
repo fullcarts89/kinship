@@ -30,6 +30,7 @@ import {
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { keepPickedPhoto } from "@/lib/photoStorage";
 import { takePhotoWithCamera } from "@/lib/photoPicker";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
@@ -1058,7 +1059,9 @@ export default function AddMemoryScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
+        const kept = await keepPickedPhoto(result.assets[0].uri);
+        if (kept) setPhotoUri(kept);
+        else Alert.alert("Couldn't add that photo", "Please try another one.");
       }
     } catch {
       Alert.alert(

@@ -22,6 +22,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { keepPickedPhoto } from "@/lib/photoStorage";
 import { ChevronLeft, Camera } from "lucide-react-native";
 import { colors, fonts, shadows } from "@design/tokens";
 import { Skeleton, ErrorState } from "@/components/ui";
@@ -146,7 +147,9 @@ export default function EditPersonScreen() {
           ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (!result.canceled && result.assets[0]) {
-        setPhotoUrl(result.assets[0].uri);
+        const kept = await keepPickedPhoto(result.assets[0].uri);
+        if (kept) setPhotoUrl(kept);
+        else Alert.alert("Couldn't add that photo", "Please try another one.");
       }
     } catch {
       // Picker dismissed or permission issue — nothing to do

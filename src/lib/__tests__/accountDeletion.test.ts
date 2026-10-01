@@ -2,6 +2,7 @@
 // server confirms it; any failure leaves everything in place and says so.
 import { deleteAccount } from "@/lib/accountDeletion";
 import { clearAllLocalUserData } from "@/lib/localDataReset";
+import { removeAllPhotos } from "@/lib/photoStorage";
 
 const mockInvoke = jest.fn();
 const mockSignOut = jest.fn(() => Promise.resolve({ error: null }));
@@ -14,11 +15,13 @@ jest.mock("@/lib/supabase", () => ({
   },
 }));
 jest.mock("@/lib/localDataReset", () => ({ clearAllLocalUserData: jest.fn() }));
+jest.mock("@/lib/photoStorage", () => ({ removeAllPhotos: jest.fn() }));
 
 beforeEach(() => {
   mockInvoke.mockReset();
   mockSignOut.mockClear();
   (clearAllLocalUserData as jest.Mock).mockClear();
+  (removeAllPhotos as jest.Mock).mockClear();
 });
 
 it("asks the server to delete, with explicit confirmation", async () => {
@@ -31,6 +34,7 @@ it("wipes the device and ends the session only after the server confirms", async
   mockInvoke.mockResolvedValue({ data: { deleted: true }, error: null });
   await expect(deleteAccount()).resolves.toEqual({ ok: true });
   expect(clearAllLocalUserData).toHaveBeenCalledTimes(1);
+  expect(removeAllPhotos).toHaveBeenCalledTimes(1);
   expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" });
 });
 
@@ -43,6 +47,7 @@ it.each([
   const result = await deleteAccount();
   expect(result.ok).toBe(false);
   expect(clearAllLocalUserData).not.toHaveBeenCalled();
+  expect(removeAllPhotos).not.toHaveBeenCalled();
   expect(mockSignOut).not.toHaveBeenCalled();
 });
 

@@ -10,6 +10,7 @@
 
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { clearAllLocalUserData } from "@/lib/localDataReset";
+import { removeAllPhotos } from "@/lib/photoStorage";
 
 export type DeleteAccountResult = { ok: true } | { ok: false; error: string };
 
@@ -27,11 +28,13 @@ export async function deleteAccount(): Promise<DeleteAccountResult> {
       return { ok: false, error: FAILED };
     }
     await clearAllLocalUserData();
+    removeAllPhotos();
     // The account no longer exists, so only the local session can be ended.
     await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
     return { ok: true };
   }
   // No backend (dev/demo build): everything lives on this device.
   await clearAllLocalUserData();
+  removeAllPhotos();
   return { ok: true };
 }

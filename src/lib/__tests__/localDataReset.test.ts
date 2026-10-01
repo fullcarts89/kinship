@@ -8,44 +8,9 @@ import { saveCollection, loadCollection } from "@/lib/localStore";
 import { usePersonPhoto } from "@/hooks/usePersonPhoto";
 import { renderHook, settle } from "@/test-utils/renderHook";
 
-// In-memory stand-in for the device's file system.
-const mockFiles = new Map<string, string>();
-jest.mock("expo-file-system", () => {
-  const join = (parts: unknown[]) =>
-    parts.map((p) => (typeof p === "object" && p && "uri" in p ? (p as { uri: string }).uri : String(p))).join("/");
-  class File {
-    uri: string;
-    constructor(...parts: unknown[]) {
-      this.uri = join(parts);
-    }
-    get exists() {
-      return mockFiles.has(this.uri);
-    }
-    write(text: string) {
-      mockFiles.set(this.uri, text);
-    }
-    text() {
-      return Promise.resolve(mockFiles.get(this.uri) ?? "");
-    }
-    delete() {
-      mockFiles.delete(this.uri);
-    }
-  }
-  class Directory {
-    uri: string;
-    constructor(...parts: unknown[]) {
-      this.uri = join(parts);
-    }
-    get exists() {
-      return [...mockFiles.keys()].some((k) => k.startsWith(this.uri + "/"));
-    }
-    create() {}
-    delete() {
-      for (const k of [...mockFiles.keys()]) if (k.startsWith(this.uri + "/")) mockFiles.delete(k);
-    }
-  }
-  return { File, Directory, Paths: { document: { uri: "doc" }, cache: { uri: "cache" } } };
-});
+jest.mock("expo-file-system", () => require("@/test-utils/memoryFileSystem"));
+// eslint-disable-next-line import/first
+import { files as mockFiles } from "@/test-utils/memoryFileSystem";
 
 const mockCancelAll = jest.fn(() => Promise.resolve());
 jest.mock("expo-notifications", () => ({
@@ -63,7 +28,7 @@ it("removes the on-device store, including cached AI insights and the notificati
   saveCollection("ai-insights", [{ headline: "Ask Maya about her surgery" }]);
   saveCollection("notification-log", [{ type: "memory_resurface" }]);
   await clearAllLocalUserData();
-  expect(mockFiles.size).toBe(0);
+  expect([...mockFiles.keys()].filter((k) => !k.startsWith("doc/photos/"))).toEqual([]);
   await expect(loadCollection("ai-insights")).resolves.toEqual([]);
 });
 
@@ -111,11 +76,24 @@ describe("claimDeviceFor (survives restarts: the owner is stored on the device)"
   it("wipes another account's data before a different account uses the device", async () => {
     await claimDeviceFor("user-a");
     saveCollection("ai-insights", [{ headline: "for A" }]);
+    mockFiles.set("doc/photos/user-a/1.jpg", "A's photo");
+    mockFiles.set("doc/photos/user-b/2.jpg", "B's photo");
     // e.g. A's session expired while the app was closed; B signs in later
     await claimDeviceFor("user-b");
     await expect(loadCollection("ai-insights")).resolves.toEqual([]);
     expect(mockCancelAll).toHaveBeenCalled();
     await expect(loadCollection("device-owner")).resolves.toEqual(["user-b"]);
+    expect(mockFiles.has("doc/photos/user-a/1.jpg")).toBe(false);
+    expect(mockFiles.has("doc/photos/user-b/2.jpg")).toBe(true);
+  });
+
+  it("plain sign-out wipes data but keeps the account's own photos (device-only in 1.0)", async () => {
+    await claimDeviceFor("user-a");
+    mockFiles.set("doc/photos/user-a/1.jpg", "A's photo");
+    await clearAllLocalUserData();
+    expect(mockFiles.has("doc/photos/user-a/1.jpg")).toBe(true);
+    await claimDeviceFor("user-a"); // A signs back in
+    expect(mockFiles.has("doc/photos/user-a/1.jpg")).toBe(true);
   });
 
   it("wipes data of unknown ownership (older builds left it unlabelled)", async () => {

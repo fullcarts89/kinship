@@ -8,8 +8,10 @@
  * phone starts empty.
  *
  * Kept on purpose: device-level flags that hold no personal data
- * (onboarding / orientation seen). The auth session itself is removed by
- * Supabase's signOut.
+ * (onboarding / orientation seen), and the account's photos, which exist
+ * only on this phone in 1.0 (see photoStorage.ts). They are deleted when a
+ * different account claims the device or the account is deleted. The auth
+ * session itself is removed by Supabase's signOut.
  */
 
 import { clearLocalPeople } from "@/hooks/usePersons";
@@ -25,6 +27,7 @@ import { resetAIInsightCache } from "@/lib/aiInsightService";
 import { resetNotificationLog } from "@/lib/notificationEngine";
 import { cancelAllNotifications } from "@/lib/notificationService";
 import { removeExportFile } from "@/lib/exportService";
+import { removePhotosExcept } from "@/lib/photoStorage";
 
 export async function clearAllLocalUserData(): Promise<void> {
   clearLocalPeople();
@@ -59,5 +62,6 @@ export async function claimDeviceFor(userId: string): Promise<void> {
   const [owner] = await loadCollection<string>(OWNER_KEY);
   if (owner === userId) return;
   await clearAllLocalUserData();
+  removePhotosExcept(userId);
   saveCollection(OWNER_KEY, [userId]);
 }

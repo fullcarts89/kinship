@@ -13,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { keepPickedPhoto } from "@/lib/photoStorage";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -1371,7 +1372,9 @@ export default function PersonDetailScreen() {
           ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (!result.canceled && result.assets[0]) {
-        setPhoto(result.assets[0].uri);
+        const kept = await keepPickedPhoto(result.assets[0].uri);
+        if (kept) setPhoto(kept);
+        else Alert.alert("Couldn't add that photo", "Please try another one.");
       }
     } catch {
       // Permission denied or picker failed — nothing we can do

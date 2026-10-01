@@ -106,7 +106,7 @@ export default function AccountScreen() {
           </Text>
         </Pressable>
         <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: warmGray, marginTop: -8, paddingHorizontal: 6 }}>
-          Signing out removes your Kinship data from this phone. It stays safe in your account.
+          Signing out removes your Kinship data from this phone; it stays safe in your account. Photos you added are kept only on this phone for now, so they stay until someone else signs in here.
         </Text>
 
         <Pressable
