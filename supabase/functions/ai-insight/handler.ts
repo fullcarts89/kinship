@@ -3,14 +3,18 @@
 //
 // Guard rails, in the order they run:
 //   1. The caller must be a signed-in, non-anonymous user.          → 401
-//   2. The body is size-capped and validated per mode; only validated
+//   2. The caller must have given AI consent (founder decision D3),
+//      at or above the consent version currently required.        → 403
+//   3. The body is size-capped and validated per mode; only validated
 //      fields ever reach a prompt.                                  → 400
-//   3. Per-user daily quota (consume_ai_call).                       → 429
-//   4. Anything else is logged here; the client gets a generic code. → 500
+//   4. Per-user daily quota (consume_ai_call).                       → 429
+//   5. Anything else is logged here; the client gets a generic code. → 500
 
 /** A verified caller. Null from authenticate() means "not allowed in". */
 export interface Caller {
   userId: string;
+  /** True only if the caller has consented to AI at `requiredVersion` or later. */
+  hasConsent(requiredVersion: number): Promise<boolean>;
   /** Spends one call from today's quota; false once it's used up. */
   consume(dailyLimit: number): Promise<boolean>;
 }
@@ -44,6 +48,8 @@ export interface HandlerDeps {
   /** One structured-output model call. Null when the model declines. */
   generate(request: ModelRequest): Promise<unknown>;
   dailyLimit: number;
+  /** Lowest AI-consent version the caller must have agreed to. */
+  consentVersion: number;
   allowedOrigins: string[];
 }
 
@@ -147,6 +153,11 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
         return json({ error: "unauthorized" }, 401, cors);
       }
       userId = caller.userId;
+
+      // No AI processing without the user's explicit, current consent.
+      if (!(await caller.hasConsent(deps.consentVersion))) {
+        return json({ error: "consent_required" }, 403, cors);
+      }
 
       // Validate before spending quota: a malformed request costs nothing.
       const request = parseRequest(record(await readJson(req), "body"));

@@ -39,11 +39,17 @@ interface Harness {
 function harness(opts: {
   caller?: "user" | "none" | "throws";
   limit?: number;
+  consent?: { granted: boolean; version: number } | "throws";
 } = {}): Harness {
   const h: Harness = { deps: undefined as unknown as HandlerDeps, quotaCalls: 0, modelCalls: [], logs: [] };
   let spent = 0;
   const caller: Caller = {
     userId: "u1",
+    hasConsent(requiredVersion: number) {
+      const c = opts.consent ?? { granted: true, version: 1 };
+      if (c === "throws") return Promise.reject(new Error("db down"));
+      return Promise.resolve(c.granted && c.version >= requiredVersion);
+    },
     consume(dailyLimit: number) {
       h.quotaCalls++;
       if (spent >= dailyLimit) return Promise.resolve(false);
@@ -61,6 +67,7 @@ function harness(opts: {
       return Promise.resolve({ headline: "Ask Maya how she's feeling", reason: "r", kind: "check_in" });
     },
     dailyLimit: opts.limit ?? 50,
+    consentVersion: 1,
     allowedOrigins: [],
   };
   return h;
@@ -232,4 +239,41 @@ Deno.test("browser origins are not allowed by default", async () => {
     Origin: "https://evil.example",
   }));
   assertEquals(res.headers.get("Access-Control-Allow-Origin"), null);
+});
+
+// ── Consent (P0-07, D3) ────────────────────────────────────────────────────
+
+Deno.test("no AI consent → 403 consent_required; no quota, no model call", async () => {
+  const h = harness({ consent: { granted: false, version: 1 } });
+  const res = await createHandler(h.deps)(post(validInsightBody));
+  assertEquals(res.status, 403);
+  assertEquals(await res.json(), { error: "consent_required" });
+  assertEquals(h.quotaCalls, 0);
+  assertEquals(h.modelCalls.length, 0);
+});
+
+Deno.test("revoked consent (granted earlier, now off) → 403", async () => {
+  const h = harness({ consent: { granted: false, version: 3 } });
+  const res = await createHandler(h.deps)(post(validInsightBody));
+  assertEquals(res.status, 403);
+});
+
+Deno.test("consent to an older version than required → 403", async () => {
+  const h = harness({ consent: { granted: true, version: 1 } });
+  const res = await createHandler({ ...h.deps, consentVersion: 2 })(post(validInsightBody));
+  assertEquals(res.status, 403);
+  assertEquals(h.modelCalls.length, 0);
+});
+
+Deno.test("consent lookup failure fails closed (500), never calls the model", async () => {
+  const h = harness({ consent: "throws" });
+  const res = await withLogs(h.logs, () => createHandler(h.deps)(post(validInsightBody)));
+  assertEquals(res.status, 500);
+  assertEquals(h.modelCalls.length, 0);
+});
+
+Deno.test("consent is checked before input validation reveals anything", async () => {
+  const h = harness({ consent: { granted: false, version: 1 } });
+  const res = await createHandler(h.deps)(post("{not json"));
+  assertEquals(res.status, 403);
 });

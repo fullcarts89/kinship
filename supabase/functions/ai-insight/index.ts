@@ -8,7 +8,8 @@
 //
 // Deploy:  supabase functions deploy ai-insight   (keep JWT verification on)
 // Secrets: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-// Optional: AI_MODEL, AI_DAILY_LIMIT (default 50), AI_ALLOWED_ORIGINS
+// Optional: AI_MODEL, AI_DAILY_LIMIT (default 50), AI_CONSENT_VERSION
+//           (default 1), AI_ALLOWED_ORIGINS
 
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -32,6 +33,8 @@ Deno.serve(
     generate,
     /** Model calls each signed-in user may make per UTC day. */
     dailyLimit: positiveInt(Deno.env.get("AI_DAILY_LIMIT"), 50),
+    /** Raise when what is sent to the AI provider changes materially. */
+    consentVersion: positiveInt(Deno.env.get("AI_CONSENT_VERSION"), 1),
     /**
      * The native app makes no CORS requests, so by default no browser origin
      * is allowed. A web build would list its origin(s) here, comma-separated.
@@ -60,6 +63,15 @@ async function authenticate(token: string): Promise<Caller | null> {
   if (!userId) return null;
   return {
     userId,
+    async hasConsent(requiredVersion: number) {
+      const { data, error } = await db
+        .from("user_settings")
+        .select("ai_consent, ai_consent_version")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) throw new Error(`consent check failed: ${error.message}`);
+      return data?.ai_consent === true && (data.ai_consent_version ?? 0) >= requiredVersion;
+    },
     async consume(dailyLimit: number) {
       const { data: allowed, error } = await db.rpc("consume_ai_call", {
         daily_limit: dailyLimit,

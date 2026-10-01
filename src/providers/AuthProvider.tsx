@@ -22,6 +22,7 @@ import React, {
 import { Platform } from "react-native";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { hydrateAIPreferences, resetAIPreferences } from "@/lib/aiPreferences";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -73,14 +74,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setSession(restored);
       setUser(restored?.user ?? null);
       setIsLoading(false);
+      // AI consent is per account and lives on the server (D3).
+      hydrateAIPreferences(true);
     });
 
     // 2. Listen for auth state changes (sign-in, sign-out, token refresh)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
+      // Never let one account's AI consent apply to another.
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        resetAIPreferences();
+        if (newSession?.user) hydrateAIPreferences(true);
+      }
     });
 
     return () => {

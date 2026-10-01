@@ -333,16 +333,25 @@ function PrivacyDataScreen({
   onBack: () => void;
   insets: Insets;
 }) {
-  // AI is on by default; this lets the user stop any data from reaching
-  // Anthropic's API. Hydrated synchronously from the already-loaded prefs.
+  // AI is off until the user consents (D3). The choice is saved on the
+  // server; the toggle only moves once the server has recorded it.
   const [aiOn, setAiOn] = useState(isAIEnabled());
-  const toggleAi = useCallback(() => {
-    setAiOn((prev) => {
-      const next = !prev;
-      setAIEnabled(next);
-      return next;
-    });
-  }, []);
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const toggleAi = useCallback(async () => {
+    if (aiSaving) return;
+    const next = !aiOn;
+    setAiSaving(true);
+    setAiError(null);
+    try {
+      await setAIEnabled(next);
+      setAiOn(next);
+    } catch {
+      setAiError("Couldn't save your choice. Check your connection and try again.");
+    } finally {
+      setAiSaving(false);
+    }
+  }, [aiOn, aiSaving]);
 
   return (
     <View style={{ flex: 1, backgroundColor: settingsBg }}>
@@ -366,8 +375,13 @@ function PrivacyDataScreen({
           </View>
         </View>
         <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: warmGray, lineHeight: 18, marginTop: 8, marginHorizontal: 4 }}>
-          {"When on, Kinship sends the notes and memories for a person to Anthropic's API to craft warm suggestions, detect promises you've made, and write season reflections. Turn it off to keep everything on-device — the app falls back to its built-in suggestions and nothing is sent to Anthropic."}
+          {"Information you choose to record about people in your life may be processed by Kinship's AI provider, Anthropic, to understand and organize it: suggestions, promises you've made, and season reflections. It's off until you turn it on, it isn't used to train models, and you can turn it off at any time. When it's off, nothing is sent and Kinship uses its built-in suggestions."}
         </Text>
+        {aiError ? (
+          <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: dangerRed, lineHeight: 18, marginTop: 6, marginHorizontal: 4 }}>
+            {aiError}
+          </Text>
+        ) : null}
       </View>
       <View style={{ marginHorizontal: 14, marginTop: 14 }}>
         <SectionLabel label="Data removal" />

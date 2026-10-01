@@ -160,6 +160,18 @@ export type PersonPromiseUpdate = Partial<Omit<PersonPromise, "id" | "user_id" |
 
 // ─── Database Schema (Supabase GenericSchema) ───────────────────────────────
 
+/** Per-user settings held on the server (user_settings). */
+export type UserSettings = {
+  user_id: string;
+  /** Explicit consent to AI processing (founder decision D3). Default false. */
+  ai_consent: boolean;
+  /** The consent version the user agreed to; null until they first agree. */
+  ai_consent_version: number | null;
+  ai_consent_updated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -209,6 +221,11 @@ export interface Database {
         Row: SeasonCommitment;
         Insert: SeasonCommitmentInsert;
         Update: SeasonCommitmentUpdate;
+        Relationships: [];
+      };      user_settings: {
+        Row: UserSettings;
+        Insert: Partial<UserSettings>;
+        Update: Partial<UserSettings>;
         Relationships: [];
       };
     };
