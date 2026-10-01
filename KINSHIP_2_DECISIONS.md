@@ -123,6 +123,12 @@ Calendar permission is always requested in context (when the user turns on the f
 
 **Decision.** The full Garden visualization is not on the critical path to the beta. The Quiet Herbarium visual system and each person's individual sprig ship first. The full Garden is a post-validation feature.
 
+**Addendum (1 October 2026).** The shape of that post-validation visualization is reopened, not settled. When the work begins, the team prototypes and compares the Herbarium Garden, a Relationship Landscape of communities and life chapters, and a Hybrid (sprigs within Landscape regions), then stops at a design checkpoint (`KINSHIP_RELATIONSHIP_LANDSCAPE_EXPLORATION.md`) before building any of them.
+
+- **The rule for any Landscape:** position means membership or belonging, never closeness, importance, recency or health.
+- The full brief is in `KINSHIP_2_OPERATIONALIZATION.md` §34.
+- Nothing about this changes Phase 0 or the V1 critical path.
+
 ---
 
 ## D8. Sprig semantics — APPROVED WITH THE SAFEST OPTION FOR V1

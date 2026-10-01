@@ -289,8 +289,9 @@ Each ticket is sized for one engineer or one coding agent to implement and revie
 | RCN-01 | Rhythm computation into `person_insights` (≥ 3 confirmed contacts) | Gate | S |
 | RCN-02 | Curated world-event calendar (sports seasons, holidays, school starts) + reconnect candidates | RCN-01 | M |
 | RCN-03 | `reconnect_assist` openers on tap + eval | RCN-02 | M |
-| GDN-01 | Garden view "Everyone" (alphabetical / circles) with sway | Gate, SPR-05 | M |
-| GDN-02 | Turn on `sprig_marks` after interview evidence | GDN-01 | S |
+| GDN-00 | Visualization design checkpoint: prototype Herbarium Garden, Relationship Landscape and Hybrid; mockups, accessibility design, 8/25/60/100-person stress tests, multi-chapter handling, life-chapter model, AI chapter suggestions, research plan, recommendation → `KINSHIP_RELATIONSHIP_LANDSCAPE_EXPLORATION.md` (Operationalization §34). **Stop for review; no production code** | Gate | L |
+| GDN-01 | Build the visualization chosen at GDN-00 review (scope written after the checkpoint) | GDN-00 approved, SPR-05 | — |
+| GDN-02 | Turn on `sprig_marks` after interview evidence that sprigs read as identity, not score | GDN-01 | S |
 | NAT-01 | App Intent "Tell Kinship" + Action Button via config plugin + App Group handoff | Gate | L |
 | NAT-02 | Share Extension (text + on-device OCR; image not stored) | NAT-01 | L |
 | ASK-01 | `retrieval_answer` + Ask field in People search | Gate | M |

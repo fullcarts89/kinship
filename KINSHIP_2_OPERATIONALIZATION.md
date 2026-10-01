@@ -53,6 +53,7 @@ Sources: the product audit (Claude Doc, 30 Sep 2026), the 2.0 Design Exploration
 31. [Cost model](#31-cost-model)
 32. [Parallel workstreams](#32-parallel-workstreams)
 33. [Final test](#33-final-test)
+34. [Post-validation visualization: Garden, Landscape or Hybrid](#34-post-validation-visualization-garden-landscape-or-hybrid)
 
 Epics, tickets, founder decisions and the deletion plan live in their own files (listed above).
 
@@ -88,7 +89,7 @@ These are the places where the audit, the design direction and the repository pu
 | T2 | **Try-before-account vs backend identity** | "Start on-device, sign in later" | "Account created only when sync is chosen" | The AI gateway must authenticate users; the hardening branch explicitly rejects anonymous users; all memory is server-extracted | Anonymous local state means migrating it to an account later, plus key handling, a switch-over in analytics identity, and an AI endpoint anonymous users can reach. That is weeks of work for a funnel step we haven't measured. **V1 requires Sign in with Apple (one tap) before the first Tell**, after a promise screen and a privacy-context screen. Revisit with Supabase anonymous sign-in plus `linkIdentity` (same `user_id`, no data migration) only if the beta shows more than ~25% abandonment at authentication. **Approved as D1**; no anonymous-user infrastructure in V1. |
 | T3 | **On-device speech** | "On-device speech-to-text; never upload audio" | "Transcribed on this phone. The audio is never saved." Starts in <300 ms, works offline | Expo SDK 54 needs a dev build for any speech module (already configured in `eas.json`) | Details in §21. `expo-speech-recognition` wraps `SFSpeechRecognizer`. It can *require* on-device recognition (`requiresOnDeviceRecognition`) on supported locales, but device and locale support must be checked at runtime (`supportsOnDeviceRecognition`). iOS 26's `SpeechAnalyzer`/`SpeechTranscriber` is on-device only by design, but needs a custom native module and a one-time model download per locale. **V1 copy may only say "on this phone" when `requiresOnDeviceRecognition` is on.** When on-device isn't available, typing is offered instead; there is no silent server fallback. |
 | T4 | **"Sorted by recent relevance"** | No ranking | People "sorted by recent relevance, never by neglect" | 1.0 sorts the Garden by growth points | Any relevance order means someone is at the bottom. **Default People is search-first, then alphabetical**, with optional user-named circles later. Relevance belongs to Today only, where it's about a moment, not a person. |
-| T5 | **Garden in V1** | "Optional visualisation"; no sizes | Garden toggle shows "the season's pressings: people you shared moments with this season" | 0 lines of sprig code exist | "This season's people" shows who is missing. **The Garden view ships after loop validation (Phase 6)** as "Everyone", alphabetical or by circle. Season pressings move to the monthly letter, where only presence is shown. The sprig itself (identity) ships in V1 on People rows and the relationship page. |
+| T5 | **Garden in V1** | "Optional visualisation"; no sizes | Garden toggle shows "the season's pressings: people you shared moments with this season" | 0 lines of sprig code exist | "This season's people" shows who is missing. **No Garden view before loop validation.** After validation the visualization question is reopened (Garden vs Relationship Landscape vs Hybrid; §34) rather than shipping a pre-decided Garden. Season pressings move to the monthly letter, where only presence is shown. The sprig itself (identity) ships in V1 on People rows and the relationship page. |
 | T6 | **Night-mode prompt** | Ask after contact, when input is at hand | "After 8 pm Today leads with 'Anything worth remembering?'" | — | A nightly question is a daily nag. **Ask only after a signal:** a hand-off that day, a planned encounter, or a capture that mentions "tonight". |
 | T7 | **Onboarding "a meeting it found"** | Calendar permission only in context | Onboarding step 2 shows "You're seeing David on Thursday" | Calendar is out of V1 (§16) | V1 onboarding uses contact birthdays only ("Maya's birthday is Saturday"). Calendar is offered later, when briefs launch. |
 | T8 | **"Contacts are read on this phone. Nothing leaves it until you choose."** | Never upload address books | Board 1 lock line | Picked people sync to Supabase | Accurate copy: "Kinship reads contacts on this phone. Only the people you pick are saved." |
@@ -175,7 +176,7 @@ Everything else serves that, or waits.
 | Voice | **Important** | Largest friction reducer for the target user. Ships to the cohort in beta week 3 behind a flag, which also gives a clean text-vs-voice comparison |
 | "A year ago today" | **Important (cheap)** | `spotlightEngine.ts` logic ports directly; a secondary Today line |
 | Post-hand-off capture ("Anything worth remembering?") | **Important** | Same Tell screen; triggered by the return check |
-| Full Garden view | Later (Phase 6) | Absence risk (T5); not needed to test the loop |
+| Full Garden view, or Relationship Landscape | Later (Phase 6), after a design checkpoint (§34) | Absence and ranking risks (T5); not needed to test the loop |
 | Calendar briefs / post-encounter prompt | Next | Adds a permission and entity resolution; valuable but separable |
 | Reconnect with openers | Next | Needs rhythm data and a reason corpus |
 | Siri / Action Button / widget / share extension | Next–Later | Native targets; test burden |
@@ -219,7 +220,7 @@ Every table has these columns: `id uuid` (client-generated for offline creates),
 | `birthday date`, `birthday_year_known bool` | From contacts or captures |
 | `state` | `active` · `remembered` (died) · `paused` (estranged / do-not-surface) · `archived` |
 | `sprig_seed bigint` | Fixed at creation from `id`; never recomputed |
-| `circle text` | Optional user-named group, later |
+| ~~`circle text`~~ | Withdrawn: future chapters/circles are many-to-many (§34); V1 adds no group column |
 | `contact_ref` | Opaque device contact id; the address book itself is never uploaded |
 
 **captures:** the raw thing the user told Kinship
@@ -820,7 +821,7 @@ The product is shrinking from 32 screens to about 14. **Don't reskin 1.0.** Buil
 | `app/settings/_layout.tsx` | 21 | Replace | — | — |
 | `app/_layout.tsx` | 191 | Adapt | Fonts, providers (Auth, DB, Flags, Analytics, Sentry), shell switch | — |
 | `app/+not-found.tsx` | 26 | Keep (restyle) | — | — |
-| **New** | — | — | `(v2)/brief/[id]` (Next), `(v2)/letter/[month]` (Next), `(v2)/ask` (Next), `(v2)/garden` (Phase 6), `(v2)/_lab` (hidden) | — |
+| **New** | — | — | `(v2)/brief/[id]` (Next), `(v2)/letter/[month]` (Next), `(v2)/ask` (Next), `(v2)/people` visualization (Phase 6; Garden, Landscape or Hybrid chosen at the §34 checkpoint), `(v2)/_lab` (hidden) | — |
 
 The full component, engine and dependency list is in `KINSHIP_2_DELETION_PLAN.md`.
 
@@ -953,7 +954,7 @@ The flag service is first-party: a `feature_flags` table (key, default, rollout 
 | `weekly_brief` | Tier 2 push | yes | on |
 | `voice_capture` | Mic in Tell | — | off → on at beta wk 3 |
 | `sprig_marks` | Algorithm C marks | — | off |
-| `garden_view` | Garden toggle | — | off |
+| `garden_view` | Post-validation People visualization (Garden, Landscape or Hybrid; the concept is chosen at the §34 checkpoint) | — | off |
 | `calendar_briefs` | Calendar permission + briefs + post-encounter prompt | yes | off |
 | `reconnect` | Reconnect candidates + openers | yes | off |
 | `ask_kinship` | `retrieval_answer` | yes | off |
@@ -1079,7 +1080,7 @@ Phase 6                                                                         
 | **3: Core loop complete** | 6–9 | Onboarding v2 (contacts multi-select + birthdays + consent + notification ask); relationship page + What Kinship knows + Source view; all V1 candidate types; Today; Today/People nav; server push (planner/sender/receipts), weekly brief, lock-screen levels; hand-off for 5 channels + return check; settings; export; real deletion; delete 1.0 shell code behind flag default | Internal use 7 days, 0 wrong-subject; E2E green |
 | **4: Alpha** | 9–10 | 8–12 users | Guardrails green 2 weeks |
 | **5: Beta** | 10–18 | 30–50 users, 8 weeks; voice at week 3; weekly interviews | §30 gate |
-| **6: Next, by evidence** | 18+ | Ordered by what the beta shows: calendar briefs + post-encounter → reconnect → Share/Siri → Garden view + sprig marks → Ask → monthly letter | Each behind its flag, same ring rollout |
+| **6: Next, by evidence** | 18+ | Ordered by what the beta shows: calendar briefs + post-encounter → reconnect → Share/Siri → visualization design checkpoint (§34: Garden vs Landscape vs Hybrid), then the chosen view + sprig marks → Ask → monthly letter | Each behind its flag, same ring rollout |
 
 **Why this order:**
 - The schema has to come before Tell, because capture without structured memory recreates 1.0.
@@ -1240,6 +1241,94 @@ Batch is 50% off, and cache reads are about 0.05–0.1× input. Supabase and sto
 | **Will it feel unmistakably Quiet Herbarium without the garden becoming a relationship score?** | **Yes.** | Serif moments, ochre tokens with footnote provenance, and a sprig on every person ship in V1. The sprig is identity-only (Algorithm C, marks off until tested). There is no relevance sort, no season-presence Garden in V1, and a CI property test guarantees sprig size doesn't grow with history. |
 
 The target is not Kinship 1.0 with AI and prettier plants. The plan deletes 16 of 1.0's 40 route files outright and replaces most of the rest, replaces its data model, and ships a product whose best day is a sentence, a door out, and a friend who felt remembered.
+
+---
+
+## 34. Post-validation visualization: Garden, Landscape or Hybrid
+
+*Added 1 October 2026 at Thor's direction. This is a future product and design note. It changes nothing in Phase 0 or on the V1 critical path, and no production code for it is written before the design checkpoint below.*
+
+**The Garden decision is reopened, not settled.** When the roadmap reaches post-validation visualization work, the team does **not** build the previously proposed Garden view by default. It stops, prototypes three concepts, and brings a design checkpoint for review.
+
+**Unchanged:** The Quiet Herbarium remains the approved design language. It defines typography, restraint, botanical identity, sprigs, Today, relationship pages, provenance, Tell and the overall emotional tone.
+
+**Working hypothesis:** Quiet Herbarium is the design language. Relationship Landscape may become the way users see their wider social world.
+
+| Surface | Question it answers |
+|---|---|
+| Today | What matters right now? |
+| Relationship page | What matters about this person? |
+| **Relationship Landscape** (candidate) | **How do the people in my life fit together?** Where they come from, and the chapters and communities we share. |
+
+### The semantic rule (non-negotiable)
+
+If a Landscape is ever built, **position means membership or belonging, never strength.** Distance must not represent closeness, importance, recency or relationship health. The visualization must not become another hidden relationship score.
+
+### Design rules any Landscape concept must satisfy
+
+1. **Equal visual weight.** Nobody becomes larger, brighter, fuller, more central or more prominent because the user talks to them more, logs more, has known them longer, saw them recently, or is "closer" to them. Sprigs vary only by the approved identity-only system (D8).
+2. **Regions are communities or life chapters**, such as Family, Stanford, Austin years, Alameda, Work, Running friends, Parenting years or Neighbours. They should feel like chapters or habitats in a life, not CRM segments; emotionally meaningful categories beat administrative ones.
+3. **Placement inside a region carries no meaning.** Coordinates are layout-driven. No "closest" person at the centre and nobody pushed outward as a relationship quietens; nothing lets a user infer *centre = important, edge = neglected*.
+4. **No decay.** Nothing drifts, fades, wilts or moves because of silence. States (active, paused, remembered, archived) are never moralized visually.
+5. **People can belong to several chapters** without duplicating the person record. Options to explore include subtle connections, overlapping memberships, filtering by chapter, the same identity shown in several chapter views, and bridges between regions. No one is forced into a single folder.
+6. **Accessible equivalent.** Everything the Landscape shows is reachable through a conventional interface: People › List | Landscape. The List stays fully functional with VoiceOver, keyboard and accessibility navigation, Dynamic Type and search. The Landscape is an alternate view, never the only way in.
+
+### Life chapters, not only friend groups
+
+Explore the more emotional reading in particular: **a map of the user's life through the people who were part of each chapter.** For example, College (Maya, Sarah, Chris), Boston years (David, Priya), Austin (Ben, Chris, Josh), Bay Area (Sam, Rebecca). Someone who spans chapters, like Chris, may draw a subtle connection between them: "these are the people who have travelled through my life with me". Evaluate whether this is more meaningful than Family / Friends / Work.
+
+### Concepts to prototype and compare
+
+| Concept | Framing |
+|---|---|
+| **A: Herbarium Garden** | A botanical collection of people: everyone in my life, expressed through their sprigs |
+| **B: Relationship Landscape** | A botanical or topographic view of communities and life chapters: the people who make up the different parts of my life |
+| **C: Hybrid (currently the most interesting)** | Each person keeps their Herbarium sprig, arranged within Landscape regions. Region shape is visual only, exact distance is meaningless, and nothing moves or scales with activity |
+
+### AI's role
+
+AI may **propose** likely circles or chapters from the user's own data ("These people seem connected to your Austin years"; "Maya and Chris both appear often in college memories"). It never silently defines anyone's social structure.
+
+- Users can accept, rename, merge, split, remove and manually create chapters.
+- AI never infers sensitive groupings (religion, sexuality, politics, health) as chapters.
+- Suggestions follow D2 (minimal context) and D3 (consent).
+
+### Research questions for the checkpoint
+
+- **Meaning:** "What do you think this picture is telling you?"
+  - Failing answers: who I'm closest to, who I should talk to, who I'm neglecting, my best friends, stronger vs weaker relationships.
+  - Passing answers: different groups or chapters of my life, how my friends know each other, where these people came into my life.
+- **Emotional value:** "Does seeing your relationships this way tell you something the People list doesn't?" The view must earn its existence.
+- **Accessibility:** VoiceOver, Dynamic Type, Reduce Motion, colour blindness, people who prefer lists.
+- **Scale:** 8, 25, 60 and 100+ people; the layout stays comprehensible.
+- **Complex relationships:** a deceased parent, an estranged sibling, a former partner, someone in several groups, a friend present across several chapters, a large family. Nothing may accidentally communicate judgment.
+
+### Information architecture hypothesis
+
+After core-loop validation, test whether People becomes **List | Landscape** rather than List | Garden. Navigation doesn't change before validation.
+
+### Data-model implication (protects the option; no code now)
+
+Chapters and circles, if built, are **many-to-many** (`chapters` plus `chapter_memberships`, user-created or AI-proposed and user-accepted). Nothing in V1 may add a single-valued group column to `people`; the earlier `people.circle` idea in §5 is withdrawn for that reason.
+
+### The checkpoint deliverable
+
+When the roadmap reaches this work, stop before building and produce `KINSHIP_RELATIONSHIP_LANDSCAPE_EXPLORATION.md` with:
+
+1. The user job this visualization serves.
+2. The Herbarium Garden concept.
+3. The Relationship Landscape concept.
+4. The Hybrid concept.
+5. High-fidelity mockups.
+6. Accessibility design.
+7. Stress tests at 8, 25, 60 and 100 people.
+8. Multi-group relationship handling.
+9. The life-chapter model.
+10. AI-assisted group suggestions.
+11. A user research plan.
+12. A recommendation.
+
+None of the three concepts is implemented until that checkpoint is reviewed.
 
 ---
 

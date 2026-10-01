@@ -583,7 +583,7 @@ There are 22 detailed epics (E00–E21) for Phases 0–5 and the first Phase 6 f
 | Epic | Objective | Key constraint | Flag |
 |---|---|---|---|
 | E22 Reconnect | A real reason plus a quiet stretch → Today/brief card; openers on tap | Never gap-only; never a push; rhythm needs ≥ 3 confirmed contacts | `reconnect` |
-| E23 Garden view + sprig marks | "Everyone", alphabetical or by circle; turn on Algorithm C marks | No season-presence view; the area-variance test stays in CI | `garden_view`, `sprig_marks` |
+| E23 People visualization (Garden, Landscape or Hybrid) + sprig marks | **Design checkpoint first:** prototype and compare Herbarium Garden, Relationship Landscape and Hybrid; deliver `KINSHIP_RELATIONSHIP_LANDSCAPE_EXPLORATION.md` (Operationalization §34) for review; only then build the chosen view and consider turning on Algorithm C marks | Position = membership, never strength; equal visual weight; no decay; multi-chapter membership; a fully equivalent accessible List; no season-presence view; the area-variance test stays in CI; AI may only propose chapters | `garden_view`, `sprig_marks` |
 | E24 Native capture (Siri App Intent + Action Button, then Share Extension) | Capture from anywhere | App Group handoff; the share extension doesn't store images by default | `native_siri`, `native_share` |
 | E25 Ask Kinship | Cited answers from the user's own memory | Not a chat; `not_found` is preferred to guessing | `ask_kinship` |
 | E26 Monthly letter | Five true sentences, skipped in thin months | No numbers; presence only | `monthly_letter` |
