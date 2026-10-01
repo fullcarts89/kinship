@@ -112,10 +112,15 @@ export const NOTIFICATION_COPY = {
     body: "A quiet look back at the moments you tended \uD83C\uDF31",
   },
 
-  memory_resurface: (personName: string, preview: string) => ({
+  /**
+   * Lock screens are visible to anyone nearby, so this never carries the
+   * memory's words or who it's with (P0-09). The app shows the memory
+   * once opened.
+   */
+  memory_resurface: {
     title: "A moment worth revisiting",
-    body: `With ${personName}: "${preview.slice(0, 60)}..."`,
-  }),
+    body: "A memory from your garden is waiting for you \uD83C\uDF3F",
+  },
 
   /**
    * Post-reach-out capture prompt \u2014 frames the invitation around the
@@ -345,15 +350,13 @@ export function createGardenWalkNotification(): KinshipNotification {
  * Create a Memory Resurface notification.
  *
  * Triggered when a meaningful memory's anniversary date approaches.
- * The preview is truncated to 60 characters inside `NOTIFICATION_COPY`.
+ * The copy is generic; the ids only travel in the notification's data.
  */
 export function createMemoryResurfaceNotification(
   personId: string,
-  personName: string,
-  memoryId: string,
-  memoryPreview: string
+  memoryId: string
 ): KinshipNotification {
-  const copy = NOTIFICATION_COPY.memory_resurface(personName, memoryPreview);
+  const copy = NOTIFICATION_COPY.memory_resurface;
 
   // Defensive: verify generated copy passes validation
   if (__DEV__ && !validateNotificationCopy(copy.body)) {
