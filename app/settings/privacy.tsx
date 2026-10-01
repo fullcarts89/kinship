@@ -15,13 +15,10 @@ import {
   Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ArrowLeft,
-  Lock,
-  Eye,
-  EyeOff,
   Trash2,
   Download,
   Shield,
@@ -35,18 +32,8 @@ import { colors, fonts } from "@design/tokens";
 import {
   FadingGardenIllustration,
 } from "@/components/illustrations";
-import { TextInput as RNTextInput } from "react-native";
-import { clearLocalPeople } from "@/hooks/usePersons";
-import { clearLocalMemories } from "@/hooks/useMemories";
-import { clearLocalInteractions } from "@/hooks/useInteractions";
-import { clearLocalPromises } from "@/hooks/usePromises";
-import { clearLocalSeasons } from "@/hooks/useSeason";
-import { deleteAllPersons } from "@/services/personService";
 import { exportGardenData } from "@/lib/exportService";
-import { clearAllCollections } from "@/lib/localStore";
-import { resetGrowthState } from "@/lib/growthEngine";
-import { useAuth } from "@/providers";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { deleteAccount } from "@/lib/accountDeletion";
 import { isAIEnabled, setAIEnabled } from "@/lib/aiPreferences";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
@@ -65,7 +52,6 @@ const dangerLight = colors.errorLight;
 const settingsBg = "#F5F0EC";
 const fieldBorder = "#F0EBE3";
 const chevronMuted = "#D4CFC8";
-const placeholderColor = "#C4BBB0";
 
 type Insets = { top: number; bottom: number };
 
@@ -238,48 +224,6 @@ function SectionLabel({ label }: { label: string }) {
     <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 11, color: warmGray, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8, marginLeft: 4 }}>
       {label}
     </Text>
-  );
-}
-
-function FormField({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  type = "text",
-  icon: FieldIcon,
-}: {
-  label: string;
-  value?: string;
-  onChangeText?: (t: string) => void;
-  placeholder?: string;
-  type?: "text" | "password";
-  icon?: any;
-}) {
-  const [showPwd, setShowPwd] = useState(false);
-  return (
-    <View style={{ marginBottom: 14 }}>
-      <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 11, color: warmGray, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 7 }}>{label}</Text>
-      <View style={{ position: "relative" }}>
-        <View style={{ backgroundColor: white, borderWidth: 1.5, borderColor: fieldBorder, borderRadius: 14, padding: 13, paddingRight: type === "password" ? 44 : 14, flexDirection: "row", alignItems: "center", gap: 9 }}>
-          {FieldIcon && <FieldIcon size={15} strokeWidth={1.75} color={warmGray} />}
-          <RNTextInput
-            value={value}
-            onChangeText={onChangeText}
-            placeholder={placeholder}
-            placeholderTextColor={placeholderColor}
-            secureTextEntry={type === "password" && !showPwd}
-            autoCapitalize="none"
-            style={{ flex: 1, fontFamily: fonts.sans, fontSize: 15, color: nearBlack, padding: 0 }}
-          />
-        </View>
-        {type === "password" && (
-          <Pressable onPress={() => setShowPwd((s) => !s)} hitSlop={8} style={{ position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center" }}>
-            {showPwd ? <EyeOff size={16} strokeWidth={1.75} color={warmGray} /> : <Eye size={16} strokeWidth={1.75} color={warmGray} />}
-          </Pressable>
-        )}
-      </View>
-    </View>
   );
 }
 
@@ -491,13 +435,16 @@ function DeleteStep2Screen({
   onDelete,
   onCancel,
   insets,
+  deleting,
+  error,
 }: {
   onDelete: () => void;
   onCancel: () => void;
   insets: Insets;
+  deleting: boolean;
+  error: string | null;
 }) {
   const [checked, setChecked] = useState(false);
-  const [password, setPassword] = useState("");
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: cream }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <NavBar right={<CancelBtn onPress={onCancel} />} title="" insets={insets} />
@@ -514,16 +461,20 @@ function DeleteStep2Screen({
             I understand this is permanent and my garden cannot be recovered.
           </Text>
         </Pressable>
-        <FormField label="Confirm your password" value={password} onChangeText={setPassword} placeholder="Enter your password" type="password" icon={Lock} />
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 10, paddingHorizontal: 14, backgroundColor: "#F9F5F0", borderRadius: 12, borderWidth: 1, borderColor: fieldBorder, marginTop: 4 }}>
           <Shield size={13} strokeWidth={1.75} color={warmGray} style={{ marginTop: 2 }} />
           <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 12, color: warmGray, lineHeight: 20 }}>
-            Apple and Google users may be asked to verify their account.
+            This removes everything Kinship holds for you: your people, memories, notes, promises, settings and your sign-in.
           </Text>
         </View>
+        {error ? (
+          <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: dangerRed, lineHeight: 20, marginTop: 14 }}>
+            {error}
+          </Text>
+        ) : null}
       </ScrollView>
       <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 44, gap: 10 }}>
-        <WarmDangerBtn label="Delete my account" onPress={onDelete} disabled={!checked} />
+        <WarmDangerBtn label={deleting ? "Deleting…" : "Delete my account"} onPress={onDelete} disabled={!checked || deleting} />
         <OutlineBtn label="Cancel" onPress={onCancel} />
       </View>
     </KeyboardAvoidingView>
@@ -553,8 +504,9 @@ function DeleteConfirmedScreen({ onDone, insets }: { onDone: () => void; insets:
 
 export default function PrivacyScreen() {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState(0);
-  const { signOut } = useAuth();
+  // Account › Delete account opens straight at the deletion steps.
+  const { step: initialStep } = useLocalSearchParams<{ step?: string }>();
+  const [step, setStep] = useState(initialStep === "delete" ? 2 : 0);
 
   const screenInsets: Insets = { top: insets.top, bottom: insets.bottom };
 
@@ -575,31 +527,23 @@ export default function PrivacyScreen() {
     }
   }, []);
 
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const handleDelete = useCallback(async () => {
-    // Remove server data first (memories/interactions cascade from persons),
-    // then wipe everything stored on this device.
-    if (isSupabaseConfigured) {
-      try {
-        await deleteAllPersons();
-      } catch {
-        // Offline or auth failure — local data is still removed below;
-        // server rows remain protected by RLS until the next attempt.
-      }
-    }
-    clearLocalPeople();
-    clearLocalMemories();
-    clearLocalInteractions();
-    clearLocalPromises();
-    clearLocalSeasons();
-    clearAllCollections();
-    resetGrowthState();
-    try {
-      await signOut();
-    } catch {
-      // Sign-out failure shouldn't trap the user in the delete flow.
+    // The server deletes files, every row and the sign-in identity, and
+    // confirms. Only then is the device wiped and the user signed out; on
+    // failure nothing is removed and the user is told.
+    setDeleting(true);
+    setDeleteError(null);
+    const result = await deleteAccount();
+    setDeleting(false);
+    if (!result.ok) {
+      setDeleteError(result.error);
+      return;
     }
     setStep(4);
-  }, [signOut]);
+  }, []);
 
   const handleDeleteDone = useCallback(() => {
     // Entry redirect decides: login when Supabase is configured, tabs in mock mode.
@@ -614,7 +558,7 @@ export default function PrivacyScreen() {
     case 2:
       return <DeleteStep1Screen insets={screenInsets} onContinue={() => setStep(3)} onCancel={() => setStep(0)} />;
     case 3:
-      return <DeleteStep2Screen insets={screenInsets} onDelete={handleDelete} onCancel={() => setStep(2)} />;
+      return <DeleteStep2Screen insets={screenInsets} onDelete={handleDelete} onCancel={() => setStep(2)} deleting={deleting} error={deleteError} />;
     case 4:
       return <DeleteConfirmedScreen insets={screenInsets} onDone={handleDeleteDone} />;
     default:
