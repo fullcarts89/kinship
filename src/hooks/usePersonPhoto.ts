@@ -16,6 +16,11 @@ import { useState, useCallback, useEffect } from "react";
 
 const personPhotos = new Map<string, string>();
 
+/** Forget every session photo (sign-out, account deletion). */
+export function clearSessionPhotos(): void {
+  personPhotos.clear();
+}
+
 // ─── Hook ───────────────────────────────────────────────────────────────────
 
 export function usePersonPhoto(personId: string) {

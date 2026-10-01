@@ -105,6 +105,9 @@ export default function AccountScreen() {
             {signingOut ? "Signing out…" : "Sign out"}
           </Text>
         </Pressable>
+        <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: warmGray, marginTop: -8, paddingHorizontal: 6 }}>
+          Signing out removes your Kinship data from this phone. It stays safe in your account.
+        </Text>
 
         <Pressable
           onPress={() => router.push({ pathname: "/settings/privacy", params: { step: "delete" } })}

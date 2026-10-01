@@ -26,12 +26,12 @@ export async function deleteAccount(): Promise<DeleteAccountResult> {
     } catch {
       return { ok: false, error: FAILED };
     }
-    clearAllLocalUserData();
+    await clearAllLocalUserData();
     // The account no longer exists, so only the local session can be ended.
     await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
     return { ok: true };
   }
   // No backend (dev/demo build): everything lives on this device.
-  clearAllLocalUserData();
+  await clearAllLocalUserData();
   return { ok: true };
 }

@@ -170,6 +170,12 @@ export function hydrateNotificationLog(): Promise<void> {
   return _logHydration;
 }
 
+/** Forget the in-memory cadence log (sign-out; the file goes with the store). */
+export function resetNotificationLog(): void {
+  _notificationLog = [];
+  _logHydration = null;
+}
+
 function persistNotificationLog(): void {
   saveCollection(
     "notification-log",

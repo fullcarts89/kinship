@@ -356,6 +356,11 @@ async function loadCache(): Promise<CachedInsight[]> {
   return _cache;
 }
 
+/** Forget cached insights in memory (sign-out; the file goes with the store). */
+export function resetAIInsightCache(): void {
+  _cache = null;
+}
+
 function persistCache(): void {
   if (_cache) saveCollection(CACHE_KEY, _cache.slice(0, 100));
 }
