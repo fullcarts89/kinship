@@ -1,0 +1,51 @@
+# Supabase project settings
+
+Project: `kddpxiiyxgvjrtpdkvio`. These are the settings that live outside the
+migrations and edge-function code. They have to be set in the Supabase
+Dashboard. Keep this file current whenever one changes.
+
+## Required settings
+
+| Setting | Where | Required value | State (2026-10-01) |
+|---|---|---|---|
+| Leaked-password protection (P0-14) | Authentication → Sign In / Providers → Email → "Prevent use of leaked passwords" | On | **Off — founder action** (no API in this toolchain can change it) |
+| `ANTHROPIC_API_KEY` | Edge Functions → Secrets | Anthropic key for the ai-insight gateway | **Missing — founder action.** Until it is set, every consented AI call returns 500 `internal_error`, and the app falls back to its non-AI copy. |
+| `AI_DAILY_LIMIT` | Edge Functions → Secrets | Calls per user per UTC day (default 50 when unset) | Unset (default 50) |
+| `AI_CONSENT_VERSION` | Edge Functions → Secrets | Must equal `AI_CONSENT_VERSION` in `src/lib/aiPreferences.ts` (1) | Unset (default 1) |
+| `AI_ALLOWED_ORIGINS` | Edge Functions → Secrets | Comma-separated browser origins; empty for the native app | Unset (no browser origins) |
+| JWT verification | Edge Functions → ai-insight, delete-account | On | On (both) |
+
+## Recommended (decision for the founder)
+
+| Setting | Where | Recommendation | State |
+|---|---|---|---|
+| Email confirmation | Authentication → Sign In / Providers → Email → "Confirm email" | On, so an account can't be opened with someone else's address | Off |
+| Auth DB connections | Settings → Database → Auth pool | Percentage-based (performance advisor, INFO) | Absolute (10) |
+
+## Advisor state after Phase 0 (2026-10-01)
+
+Security:
+- `auth_leaked_password_protection` (WARN): clears when the setting above is turned on.
+- `authenticated_security_definer_function_executable` (WARN) on
+  `public.consume_ai_call`: **accepted by design.** The gateway calls it
+  with the user's own token, so it must be executable by `authenticated`.
+  It only ever counts the caller's own usage (`auth.uid()`), and the usage
+  table itself can't be written by users. Proven in
+  `supabase/tests/database/10_ai_usage.sql`.
+
+Performance (INFO only): two unindexed foreign keys on `season_commitments`,
+and six unused indexes. Both are left alone: the 2.0 schema replaces these
+tables.
+
+## Applied migrations
+
+`20260615161700` … `20260615161830` (baseline, renamed to timestamps in
+P0-11), `20261001090000_ai_usage`, `20261001100000_user_settings_ai_consent`,
+`20261001110000_rls_hardening`, `20261001120000_delete_user_account`.
+
+## Deployed edge functions
+
+| Function | Version | Notes |
+|---|---|---|
+| `ai-insight` | 2 | Auth, consent (403), validation, quota (429). It still carries its own copy of `verifiedUserId`; it moves to `_shared/auth.ts` on the next deploy. |
+| `delete-account` | 1 | Service role is used only after verifying the caller's own token. |
