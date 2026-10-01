@@ -135,13 +135,6 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
-          name="notifications"
-          options={{
-            headerShown: false,
-            presentation: "card",
-          }}
-        />
-        <Stack.Screen
           name="loading"
           options={{
             headerShown: false,

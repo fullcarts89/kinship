@@ -30,7 +30,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bell, ChevronRight, Leaf, Pencil, Settings, Sprout } from "lucide-react-native";
+import { ChevronRight, Leaf, Pencil, Settings, Sprout } from "lucide-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -1033,20 +1033,6 @@ export default function GardenScreen() {
               <View
                 style={{ flexDirection: "row", gap: 10, paddingTop: 4 }}
               >
-                {/* Notifications */}
-                <Pressable
-                  onPress={() => router.push("/notifications")}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor: sagePale,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Bell size={16} strokeWidth={2} color={sage} />
-                </Pressable>
                 {/* Settings */}
                 <Pressable
                   onPress={() => router.push("/settings")}
