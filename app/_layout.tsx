@@ -19,6 +19,10 @@ import {
   addNotificationResponseListener,
 } from "@/lib/notificationService";
 import "../global.css";
+import { startCrashReporting } from "@/platform/crashReporting";
+
+// Scrubbed crash reporting; a no-op unless EXPO_PUBLIC_SENTRY_DSN is set.
+startCrashReporting();
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();
