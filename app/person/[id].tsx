@@ -8,7 +8,6 @@ import {
   Modal,
   Platform,
   Alert,
-  Share,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router, useFocusEffect } from "expo-router";
@@ -84,7 +83,6 @@ import {
 import type { TextureInfo } from "@/lib/textureEngine";
 import type { Interaction, Memory, Person } from "@/types/database";
 import type { InteractionType, Emotion, IconComponent } from "@/types";
-import { buildInviteMessage } from "@/lib/appLinks";
 import { getNextBestAction } from "@/lib/nextActionEngine";
 import { useAIInsight } from "@/hooks/useAIInsight";
 import { usePersonPromises, useResolvePromise } from "@/hooks/usePromises";
@@ -1402,17 +1400,6 @@ export default function PersonDetailScreen() {
     }, 80);
   };
 
-  const handlePlantASeed = async () => {
-    if (!person) return;
-    const firstName = person.name.split(" ")[0];
-    const message = buildInviteMessage(firstName);
-    try {
-      await Share.share({ message });
-    } catch {
-      // user dismissed — no-op
-    }
-  };
-
   // ─── Content ─────────────────────────────────────────────────────────────
   return (
     <>
@@ -1843,12 +1830,6 @@ export default function PersonDetailScreen() {
                 onPress={() => router.push(`/memory/add?personId=${person.id}`)}
               />
             </View>
-            <QuickAction
-              icon={Share2}
-              label="Invite"
-              bgColor={lavender}
-              onPress={handlePlantASeed}
-            />
           </View>
 
           {/* Tab Navigation */}
