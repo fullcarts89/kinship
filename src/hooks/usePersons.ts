@@ -1,20 +1,21 @@
 /**
  * Person Hooks
  *
- * React hooks for person data. Attempts to read from Supabase first;
- * on failure, falls back to module-level mock data so the app works
- * in demo / development mode without a configured backend.
+ * React hooks for person data. Signed in, they read and write the server
+ * only and surface failures (see src/lib/dataMode.ts). In demo mode (no
+ * backend) people live on the device alongside the bundled demo garden.
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import * as personService from "@/services/personService";
 import { loadCollection, saveCollection } from "@/lib/localStore";
+import { isDemoMode, toError } from "@/lib/dataMode";
 import { mockPeople } from "@/data/mock";
 import { removeLocalMemoriesForPerson } from "@/hooks/useMemories";
 import { removeLocalInteractionsForPerson } from "@/hooks/useInteractions";
 import type { Person, PersonInsert, PersonUpdate } from "@/types/database";
 
-// ─── Module-level Mock Persistence ─────────────────────────────────────────
+// ─── Demo-mode Persistence ─────────────────────────────────────────────────
 const locallyCreatedPeople: Person[] = [];
 
 /** IDs of removed people — tombstones so demo data can't resurrect. */
@@ -78,20 +79,21 @@ export function usePersons() {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    if (!isDemoMode) {
+      try {
+        setPersons(await personService.getPersons());
+      } catch (err) {
+        setError(toError(err));
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
     await ensureHydrated();
     try {
-      setIsLoading(true);
-      setError(null);
-      const data = await personService.getPersons();
-      // Always merge locally created people so saves persist across refetches
-      const localIds = new Set(locallyCreatedPeople.map((p) => p.id));
-      setPersons(
-        [...locallyCreatedPeople, ...data.filter((p) => !localIds.has(p.id))].filter(
-          (p) => !isPersonDeleted(p.id)
-        )
-      );
-    } catch {
-      // Mock mode — merge locally created + mock data (local shadows mock)
+      // Demo mode — merge locally created + demo data (local shadows demo)
       const localIds = new Set(locallyCreatedPeople.map((p) => p.id));
       setPersons(
         [
@@ -99,7 +101,6 @@ export function usePersons() {
           ...mockPeople.filter((p) => !localIds.has(p.id)),
         ].filter((p) => !isPersonDeleted(p.id))
       );
-      setError(null);
     } finally {
       setIsLoading(false);
     }
@@ -111,30 +112,28 @@ export function usePersons() {
 
   const createPerson = useCallback(
     async (person: Omit<PersonInsert, "user_id">): Promise<Person> => {
-      await ensureHydrated();
-      try {
+      if (!isDemoMode) {
+        // Failures reach the caller; nothing is saved on the device.
         const created = await personService.createPerson(person);
-        locallyCreatedPeople.unshift(created);
         setPersons((prev) => [created, ...prev]);
         return created;
-      } catch {
-        // Mock mode — Supabase not configured or auth failed
-        const newPerson: Person = {
-          id: `p-local-${Date.now()}`,
-          user_id: "u1",
-          name: person.name,
-          photo_url: person.photo_url ?? null,
-          relationship_type: person.relationship_type,
-          birthday: person.birthday,
-          phone: person.phone ?? null,
-          email: person.email ?? null,
-          created_at: new Date().toISOString(),
-        };
-        locallyCreatedPeople.unshift(newPerson);
-        persistPeople();
-        setPersons((prev) => [newPerson, ...prev]);
-        return newPerson;
       }
+      await ensureHydrated();
+      const newPerson: Person = {
+        id: `p-local-${Date.now()}`,
+        user_id: "demo",
+        name: person.name,
+        photo_url: person.photo_url ?? null,
+        relationship_type: person.relationship_type,
+        birthday: person.birthday,
+        phone: person.phone ?? null,
+        email: person.email ?? null,
+        created_at: new Date().toISOString(),
+      };
+      locallyCreatedPeople.unshift(newPerson);
+      persistPeople();
+      setPersons((prev) => [newPerson, ...prev]);
+      return newPerson;
     },
     []
   );
@@ -149,14 +148,11 @@ export function useUpdatePerson() {
 
   const updatePerson = useCallback(
     async (id: string, updates: PersonUpdate): Promise<Person | null> => {
-      await ensureHydrated();
       setIsUpdating(true);
       try {
-        const updated = await personService.updatePerson(id, updates);
-        upsertLocalPerson(updated);
-        return updated;
-      } catch {
-        // Mock mode — apply the update to the local copy, shadowing
+        if (!isDemoMode) return await personService.updatePerson(id, updates);
+        await ensureHydrated();
+        // Demo mode — apply the update to the local copy, shadowing
         // demo data when the person came from mock.
         const existing =
           locallyCreatedPeople.find((p) => p.id === id) ??
@@ -182,18 +178,17 @@ export function useDeletePerson() {
 
   /**
    * Remove a person from the garden, along with their memories and
-   * interactions. Works in both Supabase mode (rows cascade via FK)
-   * and mock mode (local tombstones).
+   * interactions. Signed in, the server deletes them (rows cascade via
+   * FK) and a failure reaches the caller; in demo mode, local tombstones.
    */
   const deletePerson = useCallback(async (id: string): Promise<void> => {
-    await ensureHydrated();
     setIsDeleting(true);
     try {
-      try {
+      if (!isDemoMode) {
         await personService.deletePerson(id);
-      } catch {
-        // Mock mode — the tombstone below is the deletion
+        return;
       }
+      await ensureHydrated();
       const idx = locallyCreatedPeople.findIndex((p) => p.id === id);
       if (idx >= 0) locallyCreatedPeople.splice(idx, 1);
       locallyDeletedPersonIds.add(id);
@@ -218,14 +213,22 @@ export function usePerson(id: string) {
   const cancelledRef = useRef(false);
 
   const fetch = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    if (!isDemoMode) {
+      try {
+        const data = await personService.getPersonById(id);
+        if (!cancelledRef.current) setPerson(data);
+      } catch (err) {
+        if (!cancelledRef.current) setError(toError(err));
+      } finally {
+        if (!cancelledRef.current) setIsLoading(false);
+      }
+      return;
+    }
     await ensureHydrated();
     try {
-      setIsLoading(true);
-      setError(null);
-      const data = await personService.getPersonById(id);
-      if (!cancelledRef.current) setPerson(data);
-    } catch {
-      // Mock fallback — check locally created people, then mock data
+      // Demo mode — check locally created people, then demo data
       if (!cancelledRef.current) {
         const local = isPersonDeleted(id)
           ? null

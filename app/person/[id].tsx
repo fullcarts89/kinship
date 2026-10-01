@@ -398,7 +398,12 @@ function ContextTab({
 
   const handleResolvePromise = async (status: "kept" | "released") => {
     if (!promise) return;
-    await resolvePromise(promise.id, status);
+    try {
+      await resolvePromise(promise.id, status);
+    } catch {
+      Alert.alert("Couldn't update that promise", "Check your connection and try again.");
+      return;
+    }
     if (status === "kept") {
       showGrowthToast("Promise kept", "\uD83C\uDF3F");
     }
@@ -413,7 +418,12 @@ function ContextTab({
         style: "destructive",
         onPress: async () => {
           const notes = (person.notes ?? []).filter((_, i) => i !== index);
-          await updatePerson(person.id, { notes });
+          try {
+            await updatePerson(person.id, { notes });
+          } catch {
+            Alert.alert("Couldn't remove that note", "Check your connection and try again.");
+            return;
+          }
           onPersonChanged();
         },
       },
@@ -794,7 +804,12 @@ function TimelineTab({
             text: "Remove",
             style: "destructive",
             onPress: async () => {
-              await deleteInteraction(interaction.id);
+              try {
+                await deleteInteraction(interaction.id);
+              } catch {
+                Alert.alert("Couldn't remove that", "Check your connection and try again.");
+                return;
+              }
               onInteractionsChanged();
             },
           },

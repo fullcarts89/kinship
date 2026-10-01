@@ -16,7 +16,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { View, Text, ScrollView, Switch } from "react-native";
+import { View, Text, ScrollView, Switch, Alert } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -807,6 +807,8 @@ export default function NewSeasonScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setStep("planted");
+    } catch {
+      Alert.alert("Couldn't start your season just now", "Check your connection and try again.");
     } finally {
       setIsPlanting(false);
     }
