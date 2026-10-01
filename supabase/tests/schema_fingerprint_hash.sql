@@ -1,7 +1,6 @@
--- A normalized, order-stable description of Kinship's public schema.
--- Run it against production (read-only) and against a database built from
--- the migrations; the outputs must be identical (P0-11).
-SELECT line FROM (
+-- md5 of schema_fingerprint.sql's output (same as `md5sum` of the local
+-- fingerprint). Run against production to compare without copying output.
+SELECT count(*) AS lines, md5(string_agg(line, E'\n' ORDER BY line COLLATE "C") || E'\n') AS hash FROM (
   SELECT 'column ' || c.relname || '.' || a.attname || ' ' || format_type(a.atttypid, a.atttypmod)
          || CASE WHEN a.attnotnull THEN ' not null' ELSE '' END
          || coalesce(' default ' || pg_get_expr(d.adbin, d.adrelid), '') AS line
@@ -39,4 +38,4 @@ SELECT line FROM (
          || ' tags=' || coalesce(array_to_string(evttags, ','), '')
   FROM pg_event_trigger WHERE evtfoid::regproc::text LIKE 'rls_auto_enable'
      OR evtfoid::regproc::text LIKE 'public.%'
-) x ORDER BY line COLLATE "C";
+) x;

@@ -32,19 +32,23 @@ import type { Person, Memory, Interaction, PersonPromise } from "@/types/databas
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const DEV_API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? "";
+// Development builds only. In a release build `__DEV__` is false, so the
+// minifier drops this branch and the key never lands in the bundle, and
+// every AI call goes through the authenticated, quota-limited edge function.
+const DEV_API_KEY = __DEV__ ? (process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? "") : "";
 const MODEL = process.env.EXPO_PUBLIC_AI_MODEL ?? "claude-opus-4-8";
 /** Same output cap as the edge function, so the dev path matches it. */
 const MAX_TOKENS = 2048;
 
 // Payload ceilings the ai-insight edge function enforces; it rejects
 // anything larger (400), so trim to fit before sending. Keep in sync with
-// LIMITS in supabase/functions/ai-insight/index.ts.
+// LIMITS in supabase/functions/ai-insight/handler.ts.
 const MAX_SHORT_TEXT = 100; // names, interests, due hints
 const MAX_NOTE_TEXT = 280; // a note, memory, or promise
 const MAX_EXTRACT_TEXT = 500; // the note checked for a promise
 const MAX_NOTES = 20;
 const MAX_INTERESTS = 20;
+const MAX_SAMPLE_MEMORIES = 5;
 
 /**
  * True only when AI has a transport AND the user hasn't opted out. Every
@@ -228,7 +232,11 @@ export async function generateSeasonReflection(
   if (!isAIConfigured()) return null;
   const payload: SeasonReflectionInput = {
     ...input,
+    seasonName: input.seasonName.slice(0, MAX_SHORT_TEXT),
     people: input.people.map((p) => ({ ...p, name: p.name.slice(0, MAX_SHORT_TEXT) })),
+    sampleMemories: input.sampleMemories
+      .slice(0, MAX_SAMPLE_MEMORIES)
+      .map((m) => m.slice(0, MAX_NOTE_TEXT)),
   };
   try {
     if (isSupabaseConfigured && supabase) {

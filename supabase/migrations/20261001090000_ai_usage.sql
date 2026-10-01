@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Kinship — AI usage quota
 -- ============================================================================
--- Per-user daily call counter for the ai-insight edge function, which
+-- Per-user daily call counter for the ai-insight edge function (originally migration 008), which
 -- proxies to the Anthropic API. Before every model call the function runs
 -- consume_ai_call() with the caller's own JWT and answers 429 once the
 -- day's limit (its AI_DAILY_LIMIT secret) is spent. Days roll over at
@@ -25,7 +25,7 @@ ALTER TABLE ai_usage ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own ai usage" ON ai_usage;
 CREATE POLICY "Users can view own ai usage"
-  ON ai_usage FOR SELECT USING (auth.uid() = user_id);
+  ON ai_usage FOR SELECT TO authenticated USING ((select auth.uid()) = user_id);
 
 -- No write policies and no write grants: a user must not be able to reset
 -- their own counter through the REST API.

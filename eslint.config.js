@@ -7,4 +7,12 @@ module.exports = defineConfig([
   {
     ignores: ["dist/*", "node_modules/*", ".expo/*"],
   },
+  {
+    // Supabase Edge Functions run on Deno, which resolves `npm:`, `jsr:` and
+    // URL specifiers itself; `deno check` type-checks these files instead.
+    files: ["supabase/functions/**/*.ts"],
+    rules: {
+      "import/no-unresolved": ["error", { ignore: ["^npm:", "^jsr:", "^https?:"] }],
+    },
+  },
 ]);

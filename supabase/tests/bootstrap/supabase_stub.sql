@@ -62,7 +62,12 @@ LANGUAGE sql STABLE AS $$
   SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role'
 $$;
 
-GRANT EXECUTE ON FUNCTION auth.uid(), auth.role() TO anon, authenticated, service_role;
+CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb
+LANGUAGE sql STABLE AS $$
+  SELECT coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
+$$;
+
+GRANT EXECUTE ON FUNCTION auth.uid(), auth.role(), auth.jwt() TO anon, authenticated, service_role;
 
 -- Supabase grants the API roles access to public objects by default; RLS
 -- policies are what restrict rows. Mirror that so tests see real behaviour.
@@ -82,11 +87,11 @@ RETURNS uuid LANGUAGE sql AS $$
   SELECT p_id;
 $$;
 
-CREATE OR REPLACE FUNCTION tests.as_user(p_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION tests.as_user(p_id uuid, p_anonymous boolean DEFAULT false) RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
   PERFORM set_config('request.jwt.claims',
-    json_build_object('sub', p_id, 'role', 'authenticated')::text, true);
+    json_build_object('sub', p_id, 'role', 'authenticated', 'is_anonymous', p_anonymous)::text, true);
   PERFORM set_config('request.jwt.claim.sub', p_id::text, true);
   EXECUTE 'SET LOCAL ROLE authenticated';
 END $$;
