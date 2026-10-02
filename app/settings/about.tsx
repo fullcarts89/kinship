@@ -14,7 +14,6 @@ import {
   Text,
   Pressable,
   ScrollView,
-  Linking,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -88,12 +87,6 @@ export default function AboutScreen() {
     } else {
       router.replace("/settings");
     }
-  };
-
-  const openLink = (url: string) => {
-    Linking.openURL(url).catch(() => {
-      // Silent — link failed to open
-    });
   };
 
   return (
@@ -259,15 +252,12 @@ export default function AboutScreen() {
               label="Privacy Policy"
               onPress={() => router.push("/settings/privacy-policy")}
             />
+            {/* Open-source licences return as an in-app screen before launch;
+                there is no kinshipgarden.app website to link to yet. */}
             <LinkRow
               label="Terms of Service"
-              onPress={() => router.push("/settings/terms")}
-            />
-            <LinkRow
-              label="Open-Source Licenses"
-              external
               last
-              onPress={() => openLink("https://kinshipgarden.app/licenses")}
+              onPress={() => router.push("/settings/terms")}
             />
           </View>
         </Animated.View>

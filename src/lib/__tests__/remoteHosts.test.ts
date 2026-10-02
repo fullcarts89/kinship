@@ -6,7 +6,6 @@
 import { execSync } from "child_process";
 
 const ALLOWED_HOSTS = new Set([
-  "kinshipgarden.app", // About → open-source licences link
   "us.i.posthog.com", // analytics sink, off unless enabled (F0-D4)
   "eu.i.posthog.com", // named in a posthogSink doc comment only
   "api.anthropic.com", // DEV-ONLY direct AI path; release builds use the gateway

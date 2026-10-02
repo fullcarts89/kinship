@@ -686,5 +686,5 @@ Closeout commits: `86a6080`…`HEAD` on `claude/gifted-pasteur-e2q0qu`. The devi
   - the `consume_ai_call` advisor warning (by design).
 - **AI quality (Checkpoint C):** the model wrote "Ben **ran** the Chicago marathon this past Sunday" for a race still two days away. On the device later, it correctly said "this Sunday". A confident wrong personal detail is the failure mode the Checkpoint C evals must cover.
 - **Cosmetic:** the Apple and Google buttons on the sign-in screen are misaligned. 2.0 replaces this screen.
-- **Open, founder decision before the merge:** the privacy policy, terms and About screen give contact addresses at `kinshipgarden.app`, which isn't registered. Options: register the domain, or switch the addresses to `@zenroost.com`.
+- **Contact addresses (resolved 2 Oct 2026):** the founder registered `kinshipgarden.app` (Cloudflare). Cloudflare Email Routing forwards `privacy@` and `hello@` (the addresses in the privacy policy and terms) to the founder's inbox; MX, SPF and DKIM are live. The About screen's licences link pointed at a page that doesn't exist, so it was removed until an in-app licences screen is built (before launch). **Before App Store submission:** host the privacy policy and a support page on the web; Apple requires public URLs.
 - **Founder setting:** Sentry IP storage off (H finding 1).
