@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.kinship.app",
+      "bundleIdentifier": "com.zenroost.kinship",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -30,7 +30,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FDF7ED"
       },
-      "package": "com.kinship.app",
+      "package": "com.zenroost.kinship",
       "permissions": [
         "android.permission.READ_CONTACTS",
         "android.permission.READ_CALENDAR"
