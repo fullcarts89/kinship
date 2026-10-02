@@ -16,6 +16,7 @@
 
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { loadCollection, saveCollection } from "@/lib/localStore";
+import { track } from "@/platform/analytics";
 import type { UserSettings } from "@/types/database";
 
 /**
@@ -82,6 +83,7 @@ export async function setAIEnabled(enabled: boolean): Promise<void> {
     await saveCollection(LOCAL_STORE_KEY, [{ enabled }]);
   }
   _prefs = { enabled };
+  track("consent_changed", { scope: "ai_processing", granted: enabled });
 }
 
 async function loadConsent(): Promise<boolean> {

@@ -11,6 +11,7 @@
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { clearAllLocalUserData } from "@/lib/localDataReset";
 import { removeAllPhotos } from "@/lib/photoStorage";
+import { track } from "@/platform/analytics";
 
 export type DeleteAccountResult = { ok: true } | { ok: false; error: string };
 
@@ -31,6 +32,7 @@ export async function deleteAccount(): Promise<DeleteAccountResult> {
     removeAllPhotos();
     // The account no longer exists, so only the local session can be ended.
     await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+    track("deletion_completed", { scope: "account" });
     return { ok: true };
   }
   // No backend (dev/demo build): everything lives on this device.
