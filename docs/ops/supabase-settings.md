@@ -8,8 +8,8 @@ Dashboard. Keep this file current whenever one changes.
 
 | Setting | Where | Required value | State (2026-10-01) |
 |---|---|---|---|
-| Leaked-password protection (P0-14) | Authentication → Sign In / Providers → Email → "Prevent use of leaked passwords" | On | **Off — founder action** (no API in this toolchain can change it) |
-| `ANTHROPIC_API_KEY` | Edge Functions → Secrets | Anthropic key for the ai-insight gateway | **Missing — founder action.** Until it is set, every consented AI call returns 500 `internal_error`, and the app falls back to its non-AI copy. |
+| Leaked-password protection (P0-14, F0-D3) | Authentication → Sign In / Providers → Email → "Prevent use of leaked passwords" | On | **On** (2 Oct 2026; `password123` rejected as pwned; advisor clear) |
+| `ANTHROPIC_API_KEY` | Edge Functions → Secrets | Anthropic key for the ai-insight gateway | **Set** (2 Oct 2026). Consented production call → 200. The Anthropic account needs API credit (Plans & Billing); with none, calls fail with "credit balance is too low". |
 | `AI_DAILY_LIMIT` | Edge Functions → Secrets | Calls per user per UTC day (default 50 when unset) | Unset (default 50) |
 | `AI_CONSENT_VERSION` | Edge Functions → Secrets | Must equal `AI_CONSENT_VERSION` in `src/lib/aiPreferences.ts` (1) | Unset (default 1) |
 | `AI_ALLOWED_ORIGINS` | Edge Functions → Secrets | Comma-separated browser origins; empty for the native app | Unset (no browser origins) |
@@ -19,7 +19,9 @@ Dashboard. Keep this file current whenever one changes.
 
 | Setting | Where | Recommendation | State |
 |---|---|---|---|
-| Email confirmation | Authentication → Sign In / Providers → Email → "Confirm email" | On, so an account can't be opened with someone else's address | Off |
+| Email confirmation (F0-D2) | Authentication → Sign In / Providers → Email → "Confirm email" | On | **On** (2 Oct 2026) |
+| Redirect URLs | Authentication → URL Configuration | Includes `kinship://login` (confirmation links return to the app) | **Set** |
+| Custom SMTP | Authentication → Emails → SMTP | A provider (e.g. Resend, Postmark) before beta; the built-in mailer is rate-limited and for testing only | Not set |
 | Auth DB connections | Settings → Database → Auth pool | Percentage-based (performance advisor, INFO) | Absolute (10) |
 
 ## Advisor state after Phase 0 (2026-10-01)
