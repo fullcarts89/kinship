@@ -19,28 +19,10 @@ export interface Caller {
   consume(dailyLimit: number): Promise<boolean>;
 }
 
-/** The parts of a Supabase `auth.getUser()` result this function relies on. */
-export interface GetUserResult {
-  data: { user: { id: string; is_anonymous?: boolean } | null };
-  error: { status?: number; message?: string } | null;
-}
-
-/**
- * Decides who is calling from Supabase Auth's answer. A rejected token
- * (4xx: the public anon key, an expired or revoked session) means "not
- * allowed in" → null. Auth erroring or unreachable is ours → throws, so the
- * caller gets a 500 rather than a misleading 401. Anonymous sign-ins are
- * never allowed in.
- */
-export function verifiedUserId(result: GetUserResult): string | null {
-  const status = result.error?.status ?? 0;
-  if (result.error && (status < 400 || status >= 500)) {
-    throw new Error(`auth unavailable (${status || "no status"})`);
-  }
-  const user = result.data.user;
-  if (result.error || !user || user.is_anonymous) return null;
-  return user.id;
-}
+// Caller verification is shared with delete-account (anon key, expired or
+// revoked sessions and anonymous sign-ins are refused; Auth outages are 500).
+import { bearerToken } from "../_shared/auth.ts";
+export { type GetUserResult, verifiedUserId } from "../_shared/auth.ts";
 
 export interface HandlerDeps {
   /** Resolve a bearer token to a signed-in, non-anonymous user, or null. Throws when Auth itself fails. */
@@ -147,7 +129,7 @@ export function createHandler(deps: HandlerDeps): (req: Request) => Promise<Resp
 
     let userId = "unknown";
     try {
-      const token = req.headers.get("Authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
+      const token = bearerToken(req);
       const caller = token ? await deps.authenticate(token) : null;
       if (!caller) {
         return json({ error: "unauthorized" }, 401, cors);

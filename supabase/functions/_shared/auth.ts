@@ -12,9 +12,6 @@ export interface GetUserResult {
  * means "not allowed in" → null. Auth erroring or unreachable is ours →
  * throws, so the caller gets a 500 rather than a misleading 401. Anonymous
  * sign-ins are never allowed in.
- *
- * (ai-insight carries an identical copy in its handler.ts; it moves here
- * when that function is next deployed.)
  */
 export function verifiedUserId(result: GetUserResult): string | null {
   const status = result.error?.status ?? 0;

@@ -7,7 +7,7 @@
 // Deploy: supabase functions deploy delete-account   (keep JWT verification on)
 // Needs migration 20261001120000_delete_user_account.sql.
 
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import { verifiedUserId } from "../_shared/auth.ts";
 import { createDeleteAccountHandler } from "./handler.ts";
 

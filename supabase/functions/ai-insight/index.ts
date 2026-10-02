@@ -11,8 +11,8 @@
 // Optional: AI_MODEL, AI_DAILY_LIMIT (default 50), AI_CONSENT_VERSION
 //           (default 1), AI_ALLOWED_ORIGINS
 
-import Anthropic from "npm:@anthropic-ai/sdk";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import Anthropic from "npm:@anthropic-ai/sdk@0.131.0";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
   type Caller,
   createHandler,
