@@ -27,7 +27,7 @@
 
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { loadCollection, saveCollection } from "@/lib/localStore";
-import { isAIEnabled } from "@/lib/aiPreferences";
+import { isAIEnabled, subscribeToAIConsent } from "@/lib/aiPreferences";
 import type { Person, Memory, Interaction, PersonPromise } from "@/types/database";
 
 // ─── Configuration ──────────────────────────────────────────────────────────
@@ -360,6 +360,19 @@ async function loadCache(): Promise<CachedInsight[]> {
 export function resetAIInsightCache(): void {
   _cache = null;
 }
+
+/**
+ * Withdrawing AI consent removes what the AI produced, not only future
+ * calls (D3): the cached insights are deleted from memory and the device.
+ */
+export function clearAIInsightCache(): void {
+  _cache = [];
+  saveCollection(CACHE_KEY, []);
+}
+
+subscribeToAIConsent((enabled) => {
+  if (!enabled) clearAIInsightCache();
+});
 
 function persistCache(): void {
   if (_cache) saveCollection(CACHE_KEY, _cache.slice(0, 100));

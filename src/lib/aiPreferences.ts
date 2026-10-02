@@ -35,6 +35,25 @@ export interface AIPreferences {
 
 let _prefs: AIPreferences = { enabled: false };
 let _hydration: Promise<void> | null = null;
+const _listeners = new Set<(enabled: boolean) => void>();
+
+/** Updates the in-memory consent and tells subscribers when it changes. */
+function setPrefs(next: AIPreferences): void {
+  const changed = next.enabled !== _prefs.enabled;
+  _prefs = next;
+  if (changed) _listeners.forEach((fn) => fn(next.enabled));
+}
+
+/**
+ * Called whenever consent turns on or off (toggle, sign-out, account switch),
+ * so screens stop showing AI output and AI caches are cleared on revoke.
+ */
+export function subscribeToAIConsent(listener: (enabled: boolean) => void): () => void {
+  _listeners.add(listener);
+  return () => {
+    _listeners.delete(listener);
+  };
+}
 
 /**
  * Load consent for the current account. Safe to call repeatedly; pass
@@ -45,11 +64,11 @@ export function hydrateAIPreferences(force = false): Promise<void> {
   if (!_hydration) {
     _hydration = loadConsent()
       .then((enabled) => {
-        _prefs = { enabled };
+        setPrefs({ enabled });
       })
       .catch(() => {
         // Can't confirm consent → behave as if it wasn't given.
-        _prefs = { enabled: false };
+        setPrefs({ enabled: false });
       });
   }
   return _hydration;
@@ -57,7 +76,7 @@ export function hydrateAIPreferences(force = false): Promise<void> {
 
 /** Forget the in-memory consent (sign-out, account switch). */
 export function resetAIPreferences(): void {
-  _prefs = { enabled: false };
+  setPrefs({ enabled: false });
   _hydration = null;
 }
 
@@ -82,7 +101,7 @@ export async function setAIEnabled(enabled: boolean): Promise<void> {
   } else {
     await saveCollection(LOCAL_STORE_KEY, [{ enabled }]);
   }
-  _prefs = { enabled };
+  setPrefs({ enabled });
   track("consent_changed", { scope: "ai_processing", granted: enabled });
 }
 
