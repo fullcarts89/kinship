@@ -14,7 +14,6 @@ import {
   Text,
   Pressable,
   ScrollView,
-  Linking,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,6 +25,7 @@ import {
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
 import { SmallGardenIllustration } from "@/components/illustrations";
+import { isCrashReportingEnabled, sendPrivacyTestCrash } from "@/platform/crashReporting";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 
@@ -87,12 +87,6 @@ export default function AboutScreen() {
     } else {
       router.replace("/settings");
     }
-  };
-
-  const openLink = (url: string) => {
-    Linking.openURL(url).catch(() => {
-      // Silent — link failed to open
-    });
   };
 
   return (
@@ -258,15 +252,12 @@ export default function AboutScreen() {
               label="Privacy Policy"
               onPress={() => router.push("/settings/privacy-policy")}
             />
+            {/* Open-source licences return as an in-app screen before launch;
+                there is no kinshipgarden.app website to link to yet. */}
             <LinkRow
               label="Terms of Service"
-              onPress={() => router.push("/settings/terms")}
-            />
-            <LinkRow
-              label="Open-Source Licenses"
-              external
               last
-              onPress={() => openLink("https://kinshipgarden.app/licenses")}
+              onPress={() => router.push("/settings/terms")}
             />
           </View>
         </Animated.View>
@@ -345,6 +336,19 @@ export default function AboutScreen() {
             {"\uD83C\uDF3F"} Tend gently, grow deeply.
           </Text>
         </Animated.View>
+
+        {/* Dev builds only: F0-D5 Sentry privacy check (docs/ops/device-test-plan.md H) */}
+        {__DEV__ && isCrashReportingEnabled() ? (
+          <Pressable
+            onPress={sendPrivacyTestCrash}
+            accessibilityRole="button"
+            style={{ alignSelf: "center", marginTop: 24, padding: 12 }}
+          >
+            <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.warmGray }}>
+              Send Sentry privacy test crash (dev only)
+            </Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </View>
   );

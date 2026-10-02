@@ -169,9 +169,7 @@ export async function scheduleBirthdayNotification(
  */
 export async function scheduleMemoryResurfaceNotification(
   personId: string,
-  personName: string,
-  memoryId: string,
-  preview: string
+  memoryId: string
 ): Promise<void> {
   const Notifications = getNotifications();
   if (!Notifications) return;
@@ -179,12 +177,7 @@ export async function scheduleMemoryResurfaceNotification(
   await hydrateNotificationLog();
   if (!canSendNotification("memory_resurface")) return;
 
-  const notification = createMemoryResurfaceNotification(
-    personId,
-    personName,
-    memoryId,
-    preview
-  );
+  const notification = createMemoryResurfaceNotification(personId, memoryId);
 
   await Notifications.scheduleNotificationAsync({
     content: {
@@ -342,10 +335,7 @@ export async function scheduleAmbientNotifications(
     const person = persons.find((p) => p.id === pick.memory.person_id);
     if (!person) return;
 
-    const copy = NOTIFICATION_COPY.memory_resurface(
-      person.name,
-      pick.memory.content
-    );
+    const copy = NOTIFICATION_COPY.memory_resurface;
 
     await Notifications.scheduleNotificationAsync({
       content: {

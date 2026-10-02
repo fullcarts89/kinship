@@ -26,7 +26,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { ChevronLeft, Pencil, Send, Share2 } from "lucide-react-native";
-import { PressableScale, FadeInImage } from "@/components/ui";
+import { PressableScale, FadeInImage, ErrorState } from "@/components/ui";
 import {
   useMemory,
   usePerson,
@@ -47,7 +47,7 @@ import { colors, fonts } from "@design/tokens";
 export default function MemoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { memory, isLoading, refetch } = useMemory(id ?? "");
+  const { memory, isLoading, error, refetch } = useMemory(id ?? "");
   const { person } = usePerson(memory?.person_id ?? "");
   const { createInteraction } = useCreateInteraction();
   const { deleteMemory, isDeleting } = useDeleteMemory();
@@ -86,7 +86,12 @@ export default function MemoryDetailScreen() {
           text: "Remove",
           style: "destructive",
           onPress: async () => {
-            await deleteMemory(id);
+            try {
+              await deleteMemory(id);
+            } catch {
+              Alert.alert("Couldn't remove this memory", "Check your connection and try again.");
+              return;
+            }
             handleBack();
           },
         },
@@ -114,12 +119,13 @@ export default function MemoryDetailScreen() {
     if (!memory || !person || !firstName) return;
     const { success } = await shareViewAsImage(cardRef, `Send to ${firstName}`);
     if (success) {
-      // Sharing a memory with its subject is a reach-out — log it
+      // Sharing a memory with its subject is a reach-out — log it.
+      // The share already happened, so a failed log isn't worth a dialog.
       await createInteraction({
         person_id: person.id,
         type: "message",
         note: "Shared this memory with them",
-      });
+      }).catch(() => {});
     }
   };
 
@@ -138,6 +144,22 @@ export default function MemoryDetailScreen() {
           }}
         >
           <ActivityIndicator color={colors.sage} size="large" />
+        </View>
+      </>
+    );
+  }
+
+  // ─── Couldn't load ──────────────────────────────────────────────────────────
+
+  if (error) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={{ flex: 1, backgroundColor: colors.cream, paddingTop: insets.top + 8 }}>
+          <Pressable onPress={handleBack} hitSlop={12} style={{ marginLeft: 16, width: 36, height: 36 }}>
+            <ChevronLeft color={colors.nearBlack} size={20} />
+          </Pressable>
+          <ErrorState message="Couldn't load this memory." onRetry={refetch} />
         </View>
       </>
     );

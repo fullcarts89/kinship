@@ -8,7 +8,9 @@
  * Two transports, checked in order:
  *   1. Supabase Edge Function `ai-insight` (production) — the Anthropic
  *      API key lives server-side in the function's secrets; the app
- *      never sees it.
+ *      never sees it. It serves signed-in users only, within a daily
+ *      per-user quota and payload limits; a refused call (401/429/400)
+ *      returns null like any other failure.
  *   2. EXPO_PUBLIC_ANTHROPIC_API_KEY (DEV ONLY) — calls the Claude API
  *      directly from the device. Anything in an
  *      EXPO_PUBLIC_ env var is embedded in the app bundle, so this path
@@ -25,13 +27,28 @@
 
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { loadCollection, saveCollection } from "@/lib/localStore";
-import { isAIEnabled } from "@/lib/aiPreferences";
+import { isAIEnabled, subscribeToAIConsent } from "@/lib/aiPreferences";
 import type { Person, Memory, Interaction, PersonPromise } from "@/types/database";
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const DEV_API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? "";
+// Development builds only. In a release build `__DEV__` is false, so the
+// minifier drops this branch and the key never lands in the bundle, and
+// every AI call goes through the authenticated, quota-limited edge function.
+const DEV_API_KEY = __DEV__ ? (process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? "") : "";
 const MODEL = process.env.EXPO_PUBLIC_AI_MODEL ?? "claude-opus-4-8";
+/** Same output cap as the edge function, so the dev path matches it. */
+const MAX_TOKENS = 2048;
+
+// Payload ceilings the ai-insight edge function enforces; it rejects
+// anything larger (400), so trim to fit before sending. Keep in sync with
+// LIMITS in supabase/functions/ai-insight/handler.ts.
+const MAX_SHORT_TEXT = 100; // names, interests, due hints
+const MAX_NOTE_TEXT = 280; // a note, memory, or promise
+const MAX_EXTRACT_TEXT = 500; // the note checked for a promise
+const MAX_NOTES = 20;
+const MAX_INTERESTS = 20;
+const MAX_SAMPLE_MEMORIES = 5;
 
 /**
  * True only when AI has a transport AND the user hasn't opted out. Every
@@ -136,8 +153,8 @@ export async function extractPromiseFromText(
 ): Promise<PromiseExtraction | null> {
   if (!isAIConfigured()) return null;
   const payload = {
-    text: text.slice(0, 500),
-    person_name: personName,
+    text: text.slice(0, MAX_EXTRACT_TEXT),
+    person_name: personName.slice(0, MAX_SHORT_TEXT),
     today: new Date().toISOString().slice(0, 10),
   };
   try {
@@ -157,7 +174,7 @@ export async function extractPromiseFromText(
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 16000,
+        max_tokens: MAX_TOKENS,
         output_config: {
           effort: "low",
           format: { type: "json_schema", schema: EXTRACT_SCHEMA },
@@ -213,10 +230,18 @@ export async function generateSeasonReflection(
   input: SeasonReflectionInput
 ): Promise<string | null> {
   if (!isAIConfigured()) return null;
+  const payload: SeasonReflectionInput = {
+    ...input,
+    seasonName: input.seasonName.slice(0, MAX_SHORT_TEXT),
+    people: input.people.map((p) => ({ ...p, name: p.name.slice(0, MAX_SHORT_TEXT) })),
+    sampleMemories: input.sampleMemories
+      .slice(0, MAX_SAMPLE_MEMORIES)
+      .map((m) => m.slice(0, MAX_NOTE_TEXT)),
+  };
   try {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.functions.invoke("ai-insight", {
-        body: { mode: "season_reflection", ...input },
+        body: { mode: "season_reflection", ...payload },
       });
       if (error || !data?.reflection) return null;
       return data.reflection as string;
@@ -230,14 +255,14 @@ export async function generateSeasonReflection(
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 16000,
+        max_tokens: MAX_TOKENS,
         output_config: {
           effort: "low",
           format: { type: "json_schema", schema: REFLECT_SCHEMA },
         },
         system: REFLECT_SYSTEM,
         messages: [
-          { role: "user", content: JSON.stringify(input, null, 2) },
+          { role: "user", content: JSON.stringify(payload, null, 2) },
         ],
       }),
     });
@@ -269,7 +294,7 @@ function buildContext({ person, memories, interactions, promises }: InsightInput
     .sort((a, b) => (b.occurred_at || b.created_at).localeCompare(a.occurred_at || a.created_at))
     .slice(0, 5)
     .map((m) => ({
-      content: m.content.slice(0, 280),
+      content: m.content.slice(0, MAX_NOTE_TEXT),
       emotion: m.emotion,
       when: (m.occurred_at || m.created_at).slice(0, 10),
     }));
@@ -285,11 +310,14 @@ function buildContext({ person, memories, interactions, promises }: InsightInput
 
   return {
     today: new Date().toISOString().slice(0, 10),
-    name: person.name,
+    name: person.name.slice(0, MAX_SHORT_TEXT),
     relationship: person.relationship_type,
-    interests: person.interests ?? [],
-    notes: (person.notes ?? []).map((n) => ({
-      text: n.text.slice(0, 280),
+    interests: (person.interests ?? [])
+      .slice(0, MAX_INTERESTS)
+      .map((i) => i.slice(0, MAX_SHORT_TEXT)),
+    // Notes are appended as they're written, so these are the newest.
+    notes: (person.notes ?? []).slice(-MAX_NOTES).map((n) => ({
+      text: n.text.slice(0, MAX_NOTE_TEXT),
       when: n.created_at.slice(0, 10),
     })),
     recent_memories: recentMemories,
@@ -297,7 +325,10 @@ function buildContext({ person, memories, interactions, promises }: InsightInput
     open_promises: (promises ?? [])
       .filter((p) => p.status === "open")
       .slice(0, 3)
-      .map((p) => ({ text: p.text, due_hint: p.due_hint })),
+      .map((p) => ({
+        text: p.text.slice(0, MAX_NOTE_TEXT),
+        due_hint: p.due_hint?.slice(0, MAX_SHORT_TEXT) ?? null,
+      })),
   };
 }
 
@@ -324,6 +355,24 @@ async function loadCache(): Promise<CachedInsight[]> {
   }
   return _cache;
 }
+
+/** Forget cached insights in memory (sign-out; the file goes with the store). */
+export function resetAIInsightCache(): void {
+  _cache = null;
+}
+
+/**
+ * Withdrawing AI consent removes what the AI produced, not only future
+ * calls (D3): the cached insights are deleted from memory and the device.
+ */
+export function clearAIInsightCache(): void {
+  _cache = [];
+  saveCollection(CACHE_KEY, []);
+}
+
+subscribeToAIConsent((enabled) => {
+  if (!enabled) clearAIInsightCache();
+});
 
 function persistCache(): void {
   if (_cache) saveCollection(CACHE_KEY, _cache.slice(0, 100));
@@ -363,7 +412,7 @@ async function callDirect(
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 16000,
+      max_tokens: MAX_TOKENS,
       output_config: {
         effort: "low", // short, simple generation — keep mobile latency tight
         format: { type: "json_schema", schema: INSIGHT_SCHEMA },

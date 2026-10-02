@@ -1,18 +1,19 @@
 /**
  * Memory Hooks
  *
- * React hooks for memory data. Attempts to read from Supabase first;
- * on failure, falls back to module-level mock data so the app works
- * in demo / development mode without a configured backend.
+ * React hooks for memory data. Signed in, they read and write the server
+ * only and surface failures (see src/lib/dataMode.ts). In demo mode (no
+ * backend) memories live on the device alongside the bundled demo garden.
  */
 
 import { useState, useEffect, useCallback } from "react";
 import * as memoryService from "@/services/memoryService";
 import { loadCollection, saveCollection } from "@/lib/localStore";
+import { isDemoMode, toError } from "@/lib/dataMode";
 import { mockMemories } from "@/data/mock";
 import type { Memory, MemoryInsert, MemoryUpdate } from "@/types/database";
 
-// ─── Module-level Mock Persistence ─────────────────────────────────────────
+// ─── Demo-mode Persistence ─────────────────────────────────────────────────
 const locallyCreatedMemories: Memory[] = [];
 
 /** IDs of deleted memories — tombstones so demo data can't resurrect. */
@@ -90,33 +91,31 @@ export function clearLocalMemories(): void {
 
 // ─── useMemories (all) ─────────────────────────────────────────────────────
 
+/** Demo mode: locally created + demo memories (local shadows demo). */
+function demoMemories(): Memory[] {
+  const localIds = new Set(locallyCreatedMemories.map((m) => m.id));
+  return [...locallyCreatedMemories, ...mockMemories.filter((m) => !localIds.has(m.id))].filter(
+    (m) => !isDeleted(m)
+  );
+}
+
 export function useMemories() {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    await ensureHydrated();
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      const data = await memoryService.getMemories();
-      // Always merge locally created memories so saves persist across refetches
-      const localIds = new Set(locallyCreatedMemories.map((m) => m.id));
-      setMemories(
-        [...locallyCreatedMemories, ...data.filter((m) => !localIds.has(m.id))].filter(
-          (m) => !isDeleted(m)
-        )
-      );
-    } catch {
-      // Mock mode — merge locally created + mock data (local shadows mock)
-      const localIds = new Set(locallyCreatedMemories.map((m) => m.id));
-      setMemories(
-        [...locallyCreatedMemories, ...mockMemories.filter((m) => !localIds.has(m.id))].filter(
-          (m) => !isDeleted(m)
-        )
-      );
-      setError(null);
+      if (isDemoMode) {
+        await ensureHydrated();
+        setMemories(demoMemories());
+      } else {
+        setMemories(await memoryService.getMemories());
+      }
+    } catch (err) {
+      setError(toError(err));
     } finally {
       setIsLoading(false);
     }
@@ -137,28 +136,17 @@ export function usePersonMemories(personId: string) {
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    await ensureHydrated();
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      const data = await memoryService.getMemoriesForPerson(personId);
-      // Always merge locally created memories so saves persist across refetches
-      const localForPerson = locallyCreatedMemories.filter((m) => m.person_id === personId);
-      const localIds = new Set(localForPerson.map((m) => m.id));
-      setMemories(
-        [...localForPerson, ...data.filter((m) => !localIds.has(m.id))].filter(
-          (m) => !isDeleted(m)
-        )
-      );
-    } catch {
-      // Mock mode — merge and filter by person (local shadows mock)
-      const localIds = new Set(locallyCreatedMemories.map((m) => m.id));
-      setMemories(
-        [...locallyCreatedMemories, ...mockMemories.filter((m) => !localIds.has(m.id))].filter(
-          (m) => m.person_id === personId && !isDeleted(m)
-        )
-      );
-      setError(null);
+      if (isDemoMode) {
+        await ensureHydrated();
+        setMemories(demoMemories().filter((m) => m.person_id === personId));
+      } else {
+        setMemories(await memoryService.getMemoriesForPerson(personId));
+      }
+    } catch (err) {
+      setError(toError(err));
     } finally {
       setIsLoading(false);
     }
@@ -177,19 +165,17 @@ export function useCreateMemory() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  /** Signed in, a failed save rejects; nothing is kept on the device. */
   const createMemory = useCallback(
     async (memory: Omit<MemoryInsert, "user_id">): Promise<Memory> => {
-      await ensureHydrated();
+      setIsCreating(true);
+      setError(null);
       try {
-        setIsCreating(true);
-        setError(null);
-        const created = await memoryService.createMemory(memory);
-        return created;
-      } catch {
-        // Mock mode — Supabase not configured
+        if (!isDemoMode) return await memoryService.createMemory(memory);
+        await ensureHydrated();
         const newMemory: Memory = {
           id: `m-local-${Date.now()}`,
-          user_id: "u1",
+          user_id: "demo",
           person_id: memory.person_id,
           content: memory.content,
           emotion: memory.emotion ?? null,
@@ -200,6 +186,9 @@ export function useCreateMemory() {
         locallyCreatedMemories.unshift(newMemory);
         persistMemories();
         return newMemory;
+      } catch (err) {
+        setError(toError(err));
+        throw err;
       } finally {
         setIsCreating(false);
       }
@@ -215,20 +204,20 @@ export function useCreateMemory() {
 export function useMemory(id: string) {
   const [memory, setMemory] = useState<Memory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
-    await ensureHydrated();
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      // Placeholder for future Supabase lookup
-      throw new Error("mock mode");
-    } catch {
-      // Mock mode — search locally created + mock data
-      const found =
-        [...locallyCreatedMemories, ...mockMemories].find(
-          (m) => m.id === id && !isDeleted(m)
-        ) ?? null;
-      setMemory(found);
+      if (isDemoMode) {
+        await ensureHydrated();
+        setMemory(demoMemories().find((m) => m.id === id) ?? null);
+      } else {
+        setMemory(await memoryService.getMemoryById(id));
+      }
+    } catch (err) {
+      setError(toError(err));
     } finally {
       setIsLoading(false);
     }
@@ -238,7 +227,7 @@ export function useMemory(id: string) {
     fetch();
   }, [fetch]);
 
-  return { memory, isLoading, refetch: fetch };
+  return { memory, isLoading, error, refetch: fetch };
 }
 
 // ─── useUpdateMemory ────────────────────────────────────────────────────────
@@ -248,14 +237,11 @@ export function useUpdateMemory() {
 
   const updateMemory = useCallback(
     async (id: string, updates: MemoryUpdate): Promise<Memory | null> => {
-      await ensureHydrated();
       setIsUpdating(true);
       try {
-        const updated = await memoryService.updateMemory(id, updates);
-        upsertLocalMemory(updated);
-        return updated;
-      } catch {
-        // Mock mode — apply the update locally, shadowing demo data
+        if (!isDemoMode) return await memoryService.updateMemory(id, updates);
+        await ensureHydrated();
+        // Demo mode — apply the update locally, shadowing demo data
         const existing =
           locallyCreatedMemories.find((m) => m.id === id) ??
           mockMemories.find((m) => m.id === id);
@@ -278,15 +264,15 @@ export function useUpdateMemory() {
 export function useDeleteMemory() {
   const [isDeleting, setIsDeleting] = useState(false);
 
+  /** Signed in, a failed delete rejects and the memory stays. */
   const deleteMemory = useCallback(async (id: string): Promise<void> => {
-    await ensureHydrated();
     setIsDeleting(true);
     try {
-      try {
+      if (!isDemoMode) {
         await memoryService.deleteMemory(id);
-      } catch {
-        // Mock mode — the tombstone below is the deletion
+        return;
       }
+      await ensureHydrated();
       removeLocalMemory(id);
     } finally {
       setIsDeleting(false);

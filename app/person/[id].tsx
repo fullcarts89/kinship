@@ -8,12 +8,12 @@ import {
   Modal,
   Platform,
   Alert,
-  Share,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, Stack, router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { keepPickedPhoto } from "@/lib/photoStorage";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -84,7 +84,6 @@ import {
 import type { TextureInfo } from "@/lib/textureEngine";
 import type { Interaction, Memory, Person } from "@/types/database";
 import type { InteractionType, Emotion, IconComponent } from "@/types";
-import { buildInviteMessage } from "@/lib/appLinks";
 import { getNextBestAction } from "@/lib/nextActionEngine";
 import { useAIInsight } from "@/hooks/useAIInsight";
 import { usePersonPromises, useResolvePromise } from "@/hooks/usePromises";
@@ -398,7 +397,12 @@ function ContextTab({
 
   const handleResolvePromise = async (status: "kept" | "released") => {
     if (!promise) return;
-    await resolvePromise(promise.id, status);
+    try {
+      await resolvePromise(promise.id, status);
+    } catch {
+      Alert.alert("Couldn't update that promise", "Check your connection and try again.");
+      return;
+    }
     if (status === "kept") {
       showGrowthToast("Promise kept", "\uD83C\uDF3F");
     }
@@ -413,7 +417,12 @@ function ContextTab({
         style: "destructive",
         onPress: async () => {
           const notes = (person.notes ?? []).filter((_, i) => i !== index);
-          await updatePerson(person.id, { notes });
+          try {
+            await updatePerson(person.id, { notes });
+          } catch {
+            Alert.alert("Couldn't remove that note", "Check your connection and try again.");
+            return;
+          }
           onPersonChanged();
         },
       },
@@ -794,7 +803,12 @@ function TimelineTab({
             text: "Remove",
             style: "destructive",
             onPress: async () => {
-              await deleteInteraction(interaction.id);
+              try {
+                await deleteInteraction(interaction.id);
+              } catch {
+                Alert.alert("Couldn't remove that", "Check your connection and try again.");
+                return;
+              }
               onInteractionsChanged();
             },
           },
@@ -1358,7 +1372,9 @@ export default function PersonDetailScreen() {
           ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (!result.canceled && result.assets[0]) {
-        setPhoto(result.assets[0].uri);
+        const kept = await keepPickedPhoto(result.assets[0].uri);
+        if (kept) setPhoto(kept);
+        else Alert.alert("Couldn't add that photo", "Please try another one.");
       }
     } catch {
       // Permission denied or picker failed — nothing we can do
@@ -1385,17 +1401,6 @@ export default function PersonDetailScreen() {
     setTimeout(() => {
       router.push(`/reach-out/${person!.id}`);
     }, 80);
-  };
-
-  const handlePlantASeed = async () => {
-    if (!person) return;
-    const firstName = person.name.split(" ")[0];
-    const message = buildInviteMessage(firstName);
-    try {
-      await Share.share({ message });
-    } catch {
-      // user dismissed — no-op
-    }
   };
 
   // ─── Content ─────────────────────────────────────────────────────────────
@@ -1828,12 +1833,6 @@ export default function PersonDetailScreen() {
                 onPress={() => router.push(`/memory/add?personId=${person.id}`)}
               />
             </View>
-            <QuickAction
-              icon={Share2}
-              label="Invite"
-              bgColor={lavender}
-              onPress={handlePlantASeed}
-            />
           </View>
 
           {/* Tab Navigation */}

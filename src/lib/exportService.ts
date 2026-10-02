@@ -17,6 +17,8 @@ import { getMemories } from "@/services/memoryService";
 import { getAllInteractions } from "@/services/interactionService";
 import { getGardenWalkPreferences } from "@/lib/notificationEngine";
 import { loadCollection } from "@/lib/localStore";
+
+const EXPORT_FILE_NAME = "kinship-export.json";
 import type { Person, Memory, Interaction } from "@/types/database";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -74,7 +76,7 @@ export async function exportGardenData(): Promise<ExportResult> {
     };
 
     const json = JSON.stringify(exportPayload, null, 2);
-    const file = new File(Paths.cache, "kinship-export.json");
+    const file = new File(Paths.cache, EXPORT_FILE_NAME);
     file.write(json);
 
     await Sharing.shareAsync(file.uri, {
@@ -88,6 +90,16 @@ export async function exportGardenData(): Promise<ExportResult> {
     const message =
       err instanceof Error ? err.message : "Unknown export error";
     return { success: false, error: message };
+  }
+}
+
+/** Deletes the last export file, which holds a full copy of the garden. */
+export function removeExportFile(): void {
+  try {
+    const file = new File(Paths.cache, EXPORT_FILE_NAME);
+    if (file.exists) file.delete();
+  } catch {
+    // best-effort
   }
 }
 

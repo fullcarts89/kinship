@@ -9,22 +9,25 @@
       "distribution": "internal",
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_SENTRY_DSN": "https://5b8f839512cd7473429c416c9780ab8b@o4512185268371456.ingest.us.sentry.io/4512185274531840"
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SENTRY_DSN": "https://5b8f839512cd7473429c416c9780ab8b@o4512185268371456.ingest.us.sentry.io/4512185274531840"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SENTRY_DSN": "https://5b8f839512cd7473429c416c9780ab8b@o4512185268371456.ingest.us.sentry.io/4512185274531840"
+      }
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "appleId": "",
-        "ascAppId": "",
-        "appleTeamId": ""
-      }
-    }
+    "production": {}
   }
 }

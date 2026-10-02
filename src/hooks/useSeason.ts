@@ -1,17 +1,20 @@
 /**
  * Season Hooks
  *
- * Active-season state for Tending Seasons. Supabase first; local mock
- * persistence fallback. One active season at a time, app-enforced.
+ * Active-season state for Tending Seasons. Signed in, the server is the
+ * only store and failures surface (see src/lib/dataMode.ts); in demo mode
+ * (no backend) seasons live on the device. One active season at a time,
+ * app-enforced.
  */
 
 import { useState, useEffect, useCallback } from "react";
 import * as seasonService from "@/services/seasonService";
 import { loadCollection, saveCollection } from "@/lib/localStore";
+import { isDemoMode, toError } from "@/lib/dataMode";
 import { SEASON_LENGTH_DAYS, seasonNameFor, MAX_TENDED_PEOPLE } from "@/lib/seasonEngine";
 import type { Season, SeasonCommitment, TendingRhythm } from "@/types/database";
 
-// ─── Module-level Mock Persistence ─────────────────────────────────────────
+// ─── Demo-mode Persistence ─────────────────────────────────────────────────
 
 const localSeasons: Season[] = [];
 const localCommitments: SeasonCommitment[] = [];
@@ -54,17 +57,14 @@ export function useActiveSeason() {
   const [commitments, setCommitments] = useState<SeasonCommitment[]>([]);
   const [endedSeason, setEndedSeason] = useState<Season | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const refetch = useCallback(async () => {
-    await ensureHydrated();
     setIsLoading(true);
+    setError(null);
     try {
-      let seasons: Season[];
-      try {
-        seasons = await seasonService.getSeasons();
-      } catch {
-        seasons = [...localSeasons];
-      }
+      if (isDemoMode) await ensureHydrated();
+      const seasons = isDemoMode ? [...localSeasons] : await seasonService.getSeasons();
       const active = seasons.find((s) => s.status === "active") ?? null;
       if (!active) {
         setSeason(null);
@@ -72,20 +72,18 @@ export function useActiveSeason() {
         setEndedSeason(null);
         return;
       }
+      const cs = isDemoMode
+        ? localCommitments.filter((c) => c.season_id === active.id)
+        : await seasonService.getCommitments(active.id);
       // A season past its end date surfaces as "ended" (retrospective
       // pending) rather than active — but stays untouched until the
       // user closes it themselves.
       const ended = Date.now() >= new Date(active.ends_at).getTime();
       setSeason(ended ? null : active);
       setEndedSeason(ended ? active : null);
-
-      let cs: SeasonCommitment[];
-      try {
-        cs = await seasonService.getCommitments(active.id);
-      } catch {
-        cs = localCommitments.filter((c) => c.season_id === active.id);
-      }
       setCommitments(cs);
+    } catch (err) {
+      setError(toError(err));
     } finally {
       setIsLoading(false);
     }
@@ -95,9 +93,9 @@ export function useActiveSeason() {
     refetch();
   }, [refetch]);
 
+  /** Signed in, a failed save rejects; nothing is kept on the device. */
   const beginSeason = useCallback(
     async (entries: BeginSeasonEntry[]): Promise<Season | null> => {
-      await ensureHydrated();
       const capped = entries.slice(0, MAX_TENDED_PEOPLE);
       if (capped.length === 0) return null;
       const now = new Date();
@@ -107,38 +105,35 @@ export function useActiveSeason() {
         starts_at: now.toISOString(),
         ends_at: ends.toISOString(),
       };
-      try {
-        const { season: created, commitments: cs } = await seasonService.createSeason(
+      if (!isDemoMode) {
+        const { season: created } = await seasonService.createSeason(
           seasonInsert,
           capped.map((e) => ({ person_id: e.person_id, rhythm: e.rhythm }))
         );
-        localSeasons.push(created);
-        localCommitments.push(...cs);
-        persist();
-        await refetch();
-        return created;
-      } catch {
-        const created: Season = {
-          id: `s-local-${Date.now()}`,
-          user_id: "u1",
-          ...seasonInsert,
-          status: "active",
-          created_at: now.toISOString(),
-        };
-        const cs: SeasonCommitment[] = capped.map((e, i) => ({
-          id: `sc-local-${Date.now()}-${i}`,
-          season_id: created.id,
-          user_id: "u1",
-          person_id: e.person_id,
-          rhythm: e.rhythm,
-          created_at: now.toISOString(),
-        }));
-        localSeasons.push(created);
-        localCommitments.push(...cs);
-        persist();
         await refetch();
         return created;
       }
+      await ensureHydrated();
+      const created: Season = {
+        id: `s-local-${Date.now()}`,
+        user_id: "demo",
+        ...seasonInsert,
+        status: "active",
+        created_at: now.toISOString(),
+      };
+      const cs: SeasonCommitment[] = capped.map((e, i) => ({
+        id: `sc-local-${Date.now()}-${i}`,
+        season_id: created.id,
+        user_id: "demo",
+        person_id: e.person_id,
+        rhythm: e.rhythm,
+        created_at: now.toISOString(),
+      }));
+      localSeasons.push(created);
+      localCommitments.push(...cs);
+      persist();
+      await refetch();
+      return created;
     },
     [refetch]
   );
@@ -146,15 +141,14 @@ export function useActiveSeason() {
   /** Mark a season completed (called from the retrospective). */
   const completeSeason = useCallback(
     async (seasonId: string): Promise<void> => {
-      await ensureHydrated();
-      try {
+      if (!isDemoMode) {
         await seasonService.updateSeason(seasonId, { status: "completed" });
-      } catch {
-        // mock mode
+      } else {
+        await ensureHydrated();
+        const idx = localSeasons.findIndex((s) => s.id === seasonId);
+        if (idx >= 0) localSeasons[idx] = { ...localSeasons[idx], status: "completed" };
+        persist();
       }
-      const idx = localSeasons.findIndex((s) => s.id === seasonId);
-      if (idx >= 0) localSeasons[idx] = { ...localSeasons[idx], status: "completed" };
-      persist();
       await refetch();
     },
     [refetch]
@@ -163,18 +157,14 @@ export function useActiveSeason() {
   /** Replace the tended set / rhythms mid-season. */
   const updateCommitments = useCallback(
     async (seasonId: string, entries: BeginSeasonEntry[]): Promise<void> => {
-      await ensureHydrated();
       const capped = entries.slice(0, MAX_TENDED_PEOPLE);
-      try {
-        const cs = await seasonService.replaceCommitments(
+      if (!isDemoMode) {
+        await seasonService.replaceCommitments(
           seasonId,
           capped.map((e) => ({ person_id: e.person_id, rhythm: e.rhythm }))
         );
-        for (let i = localCommitments.length - 1; i >= 0; i--) {
-          if (localCommitments[i].season_id === seasonId) localCommitments.splice(i, 1);
-        }
-        localCommitments.push(...cs);
-      } catch {
+      } else {
+        await ensureHydrated();
         for (let i = localCommitments.length - 1; i >= 0; i--) {
           if (localCommitments[i].season_id === seasonId) localCommitments.splice(i, 1);
         }
@@ -182,14 +172,14 @@ export function useActiveSeason() {
           ...capped.map((e, i) => ({
             id: `sc-local-${Date.now()}-${i}`,
             season_id: seasonId,
-            user_id: "u1",
+            user_id: "demo",
             person_id: e.person_id,
             rhythm: e.rhythm,
             created_at: new Date().toISOString(),
           }))
         );
+        persist();
       }
-      persist();
       await refetch();
     },
     [refetch]
@@ -201,6 +191,7 @@ export function useActiveSeason() {
     /** A season whose end date passed — retrospective pending. */
     endedSeason,
     isLoading,
+    error,
     refetch,
     beginSeason,
     completeSeason,

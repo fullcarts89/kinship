@@ -3,12 +3,13 @@
  *
  * Shared camera-or-library chooser for every place a photo can be
  * attached. Presents a small native choice, requests the right
- * permission, and returns the picked image URI (or null if the user
- * cancelled / permission was denied).
+ * permission, and returns a permanent copy of the picked image (or null if
+ * the user cancelled, permission was denied, or it couldn't be kept).
  */
 
 import { Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { keepPickedPhoto } from "@/lib/photoStorage";
 
 const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   mediaTypes: ["images"],
@@ -18,7 +19,7 @@ const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
 async function fromLibrary(): Promise<string | null> {
   try {
     const result = await ImagePicker.launchImageLibraryAsync(PICKER_OPTIONS);
-    if (!result.canceled && result.assets[0]) return result.assets[0].uri;
+    if (!result.canceled && result.assets[0]) return keepPickedPhoto(result.assets[0].uri);
   } catch {
     // picker unavailable
   }
@@ -40,7 +41,7 @@ async function fromCamera(): Promise<string | null> {
       return null;
     }
     const result = await ImagePicker.launchCameraAsync(PICKER_OPTIONS);
-    if (!result.canceled && result.assets[0]) return result.assets[0].uri;
+    if (!result.canceled && result.assets[0]) return keepPickedPhoto(result.assets[0].uri);
   } catch {
     // camera unavailable (e.g. simulator/web)
   }

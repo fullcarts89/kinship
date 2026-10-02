@@ -6,7 +6,8 @@
  * say — the caller keeps showing the heuristic suggestion.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
+import { isAIEnabled, subscribeToAIConsent } from "@/lib/aiPreferences";
 import {
   generatePersonInsight,
   isAIConfigured,
@@ -28,7 +29,16 @@ export function useAIInsight(
     ? `${person.id}:${person.notes?.length ?? 0}:${memories.length}:${interactions.length}:${promises.length}`
     : "";
 
+  // Follow consent live: switching AI off elsewhere (Settings, sign-out)
+  // removes the AI suggestion from screens that are already open.
+  const aiEnabled = useSyncExternalStore(subscribeToAIConsent, isAIEnabled);
+
   useEffect(() => {
+    if (!aiEnabled) {
+      setInsight(null);
+      setIsLoading(false);
+      return;
+    }
     if (!person || !isAIConfigured()) return;
     let cancelled = false;
     setIsLoading(true);
@@ -43,7 +53,7 @@ export function useAIInsight(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signalKey]);
+  }, [signalKey, aiEnabled]);
 
   return { insight, isLoading };
 }

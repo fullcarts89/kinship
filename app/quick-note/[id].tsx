@@ -81,12 +81,17 @@ export default function QuickNoteScreen() {
                 {
                   text: "Hold onto it",
                   onPress: async () => {
-                    await createPromise({
-                      person_id: person.id,
-                      text: promiseText,
-                      due_hint: dueHint,
-                      source: "ai_suggested",
-                    });
+                    try {
+                      await createPromise({
+                        person_id: person.id,
+                        text: promiseText,
+                        due_hint: dueHint,
+                        source: "ai_suggested",
+                      });
+                    } catch {
+                      // The note itself is saved; only the promise wasn't.
+                      Alert.alert("Couldn't hold onto that promise", "Check your connection and try again.");
+                    }
                     handleClose();
                   },
                 },
@@ -98,7 +103,9 @@ export default function QuickNoteScreen() {
       }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     } catch {
-      // Saved locally at worst — never trap the user in a quick flow.
+      // Keep the note on screen so it isn't lost; the user can retry.
+      Alert.alert("Couldn't save that just now", "Check your connection and try again.");
+      return;
     }
     handleClose();
   }, [note, person, isPromise, updatePerson, createPromise, handleClose]);

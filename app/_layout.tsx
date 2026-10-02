@@ -18,8 +18,14 @@ import {
   setupNotificationHandler,
   addNotificationResponseListener,
 } from "@/lib/notificationService";
-import { hydrateAIPreferences } from "@/lib/aiPreferences";
 import "../global.css";
+import { startCrashReporting } from "@/platform/crashReporting";
+import { startAnalytics } from "@/platform/analyticsSetup";
+
+// Scrubbed crash reporting; a no-op unless EXPO_PUBLIC_SENTRY_DSN is set.
+startCrashReporting();
+// Content-free product analytics; off unless EXPO_PUBLIC_ANALYTICS_ENABLED=true.
+startAnalytics();
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();
@@ -52,11 +58,6 @@ export default function RootLayout() {
   useEffect(() => {
     onLayoutRootView();
   }, [onLayoutRootView]);
-
-  // ── Restore the AI opt-out before any insight call can fire ──────────
-  useEffect(() => {
-    hydrateAIPreferences();
-  }, []);
 
   // ── Notification setup ───────────────────────────────────────────────
   useEffect(() => {
@@ -135,13 +136,6 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="settings"
-          options={{
-            headerShown: false,
-            presentation: "card",
-          }}
-        />
-        <Stack.Screen
-          name="notifications"
           options={{
             headerShown: false,
             presentation: "card",

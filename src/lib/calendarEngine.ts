@@ -205,10 +205,12 @@ export async function getRecentCalendarMatches(
   const ExpoCalendar = getExpoCalendar();
   if (!ExpoCalendar) return [];
 
-  // ── 2. Ensure permission ─────────────────────────────────────────────
+  // ── 2. Check permission — never prompt from here (P0-08). The system
+  // dialog appears only when the user turns on Garden Walk calendar
+  // matching (garden-walk-setup); until then this quietly returns nothing.
   try {
     if (_permissionStatus !== "granted") {
-      const status = await requestCalendarPermission();
+      const status = await checkCalendarPermission();
       if (status !== "granted") return [];
     }
   } catch {

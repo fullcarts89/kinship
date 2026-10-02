@@ -357,7 +357,7 @@ export default function GardenWalkSetupScreen() {
                   paddingHorizontal: 8,
                 }}
               >
-                If you'd like, Kinship can check your calendar{"\n"}to suggest
+                If you&apos;d like, Kinship can check your calendar{"\n"}to suggest
                 capturing memories after events{"\n"}with people in your garden.
               </Text>
               <Pressable

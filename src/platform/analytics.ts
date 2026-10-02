@@ -1,0 +1,116 @@
+/**
+ * Analytics without surveillance (OBS-06, plan §23)
+ *
+ * `track(event, props)` accepts only the events in AnalyticsEvents, and
+ * every prop is a closed union, a boolean or a bounded bucket. There is no
+ * way to pass a name, a note, a message or any other free text without
+ * changing this schema, which is reviewed for privacy. The same schema is
+ * meant for the server-side sink (OBS-07).
+ *
+ * Nothing is sent yet: the provider (PostHog with IP capture, autocapture
+ * and replay off, or a first-party Supabase table) is a founder decision.
+ * Until a sink is installed with setAnalyticsSink, events go nowhere.
+ */
+
+export type CaptureSource =
+  | "text"
+  | "voice"
+  | "share"
+  | "screenshot"
+  | "siri"
+  | "widget"
+  | "post_handoff"
+  | "post_encounter"
+  | "photo"
+  | "onboarding";
+export type CharsBucket = "0-50" | "51-200" | "201+";
+export type LatencyBucket = "<1s" | "1-3s" | "3-10s" | "10s+";
+export type ScoreBucket = "low" | "mid" | "high";
+export type MinutesBucket = "<15" | "15-60" | "1-6h" | "6h+";
+export type ExtractionTier = "auto" | "light" | "clarify";
+export type ReasonType =
+  | "birthday"
+  | "follow_up"
+  | "promise"
+  | "anniversary"
+  | "check_in"
+  | "season"
+  | "other";
+export type Channel = "text" | "call" | "facetime" | "whatsapp" | "email" | "in_person" | "other";
+export type PushTier = "quiet" | "normal" | "important";
+export type SettingKey =
+  | "ai_consent"
+  | "notifications"
+  | "garden_walk"
+  | "calendar_matching"
+  | "quiet_hours"
+  | "appearance";
+export type ConsentScope = "ai_processing" | "analytics" | "notifications";
+/** Small counts only; anything larger is reported as 10. */
+export type SmallCount = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
+export interface AnalyticsEvents {
+  capture_started: { source: CaptureSource };
+  capture_completed: { source: CaptureSource; chars_bucket: CharsBucket; offline: boolean };
+  extraction_completed: {
+    items_n: SmallCount;
+    tier: ExtractionTier;
+    latency_ms_bucket: LatencyBucket;
+    model_id: "primary" | "fallback";
+  };
+  extraction_corrected: {
+    correction: "person" | "date" | "kind" | "relation" | "removed";
+    item_kind: "fact" | "plan" | "promise" | "moment" | "preference";
+  };
+  clarification_answered: { type: "person" | "date" | "kind" };
+  clarification_dismissed: { type: "person" | "date" | "kind" };
+  undo_capture: Record<string, never>;
+  reason_surfaced: { reason_type: ReasonType; surface: "today" | "push" | "brief"; score_bucket: ScoreBucket };
+  reason_dismissed: { reason_type: ReasonType; mode: "not_now" | "not_helpful" };
+  handoff_opened: { reason_type?: ReasonType; channel: Channel };
+  return_check_answered: { answer: "yes" | "not_yet"; minutes_since_handoff_bucket: MinutesBucket };
+  reason_marked_done: { reason_type: ReasonType };
+  reason_feedback: { useful: "yes" | "no" };
+  incorrect_report: { what: "person" | "fact" | "date" };
+  brief_viewed: { lines_n: SmallCount };
+  push_sent: { tier: PushTier };
+  push_opened: { tier: PushTier };
+  settings_changed: { key: SettingKey };
+  deletion_completed: { scope: "item" | "capture" | "person" | "account" };
+  consent_changed: { scope: ConsentScope; granted: boolean };
+}
+
+export type AnalyticsEventName = keyof AnalyticsEvents;
+
+export interface AnalyticsSink {
+  send(event: AnalyticsEventName, props: Record<string, string | number | boolean>): void;
+}
+
+const noopSink: AnalyticsSink = { send: () => {} };
+let sink: AnalyticsSink = noopSink;
+
+/** Installs the provider once it's chosen; pass nothing to stop sending. */
+export function setAnalyticsSink(next?: AnalyticsSink): void {
+  sink = next ?? noopSink;
+}
+
+export function track<E extends AnalyticsEventName>(
+  event: E,
+  ...[props]: AnalyticsEvents[E] extends Record<string, never> ? [] : [AnalyticsEvents[E]]
+): void {
+  try {
+    sink.send(event, { ...(props ?? {}) } as Record<string, string | number | boolean>);
+  } catch {
+    // Analytics never breaks the app.
+  }
+}
+
+/** Buckets a character count without sending the count itself. */
+export function charsBucket(n: number): CharsBucket {
+  return n <= 50 ? "0-50" : n <= 200 ? "51-200" : "201+";
+}
+
+/** Clamps a count into SmallCount. */
+export function smallCount(n: number): SmallCount {
+  return Math.max(0, Math.min(10, Math.floor(n))) as SmallCount;
+}

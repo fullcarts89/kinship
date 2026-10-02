@@ -20,10 +20,17 @@ import React, {
   useMemo,
 } from "react";
 import { Platform } from "react-native";
-import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { hydrateAIPreferences } from "@/lib/aiPreferences";
+import { claimDeviceFor, clearAllLocalUserData } from "@/lib/localDataReset";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+
+export type EmailSignUpResult = "signed_in" | "check_email";
+
+/** Where the confirmation email's link sends people: back into the app. */
+export const EMAIL_CONFIRM_REDIRECT = "kinship://login";
 
 interface AuthState {
   user: SupabaseUser | null;
@@ -36,7 +43,11 @@ interface AuthActions {
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  /**
+   * "signed_in" when a session was created right away; "check_email" when
+   * the account needs its email confirmed first (F0-D2).
+   */
+  signUpWithEmail: (email: string, password: string) => Promise<EmailSignUpResult>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
@@ -68,19 +79,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     if (!supabase || !isSupabaseConfigured) return;
 
+    // Auth events are applied one at a time, each only after this device
+    // has been cleared of any other account's data (P0-03).
+    let queue: Promise<void> = Promise.resolve();
+    const apply = (next: Session | null, event: AuthChangeEvent | "RESTORED") => {
+      queue = queue
+        .then(async () => {
+          if (event === "SIGNED_OUT") await clearAllLocalUserData();
+          else if (next?.user) await claimDeviceFor(next.user.id);
+        })
+        .catch(() => {
+          // The wipe is best-effort per item; never block auth on it.
+        })
+        .then(() => {
+          setSession(next);
+          setUser(next?.user ?? null);
+          if (event === "RESTORED") setIsLoading(false);
+          // AI consent is per account (D3): re-read it for whoever is signed in.
+          if (event !== "TOKEN_REFRESHED") hydrateAIPreferences(true);
+        });
+    };
+
     // 1. Restore persisted session from SecureStore
     supabase.auth.getSession().then(({ data: { session: restored } }) => {
-      setSession(restored);
-      setUser(restored?.user ?? null);
-      setIsLoading(false);
+      apply(restored, "RESTORED");
     });
 
-    // 2. Listen for auth state changes (sign-in, sign-out, token refresh)
+    // 2. Listen for auth state changes (sign-in, sign-out, token refresh).
+    // A sign-out here may also come from elsewhere: a revoked or expired
+    // session, or another device signing out everywhere.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      apply(newSession, event);
     });
 
     return () => {
@@ -195,7 +226,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         password,
       });
 
-      if (error) throw new Error(error.message || "Sign-in failed");
+      if (error) {
+        if ((error as { code?: string }).code === "email_not_confirmed") {
+          throw new Error(
+            "Please confirm your email first — open the link we sent you, then sign in."
+          );
+        }
+        throw new Error(error.message || "Sign-in failed");
+      }
     },
     []
   );
@@ -203,21 +241,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // ─── Email Sign-Up ─────────────────────────────────────────────────────
 
   const signUpWithEmail = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string): Promise<EmailSignUpResult> => {
       if (!supabase) throw new Error("Supabase not configured");
 
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: EMAIL_CONFIRM_REDIRECT },
+      });
 
       if (error) throw new Error(error.message || "Sign-up failed");
+      if (data.session) return "signed_in";
 
-      // Supabase returns no error but also no session when the email already exists
-      // (security measure to prevent email enumeration). Detect this and give a
-      // helpful message instead of silently failing.
-      if (!data.session) {
-        throw new Error(
-          "This email may already be registered. Try signing in instead."
-        );
-      }
+      // No session: with email confirmation on (F0-D2) a new account gets a
+      // confirmation email. Supabase also answers an already-registered
+      // address without a session (to prevent email enumeration); that user
+      // comes back with no identities.
+      if ((data.user?.identities?.length ?? 0) > 0) return "check_email";
+      throw new Error("This email may already be registered. Try signing in instead.");
     },
     []
   );
@@ -225,6 +266,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // ─── Sign Out ──────────────────────────────────────────────────────────
 
   const signOut = useCallback(async () => {
+    // Wipe this device first, so even a failed server sign-out never leaves
+    // the account's data behind (P0-03).
+    await clearAllLocalUserData();
+
     if (!supabase) {
       // Mock mode: clear local state
       setUser(null);

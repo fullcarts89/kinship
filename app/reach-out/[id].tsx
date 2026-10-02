@@ -215,7 +215,7 @@ function BridgeScreen({
                 letterSpacing: 0.2,
               }}
             >
-              Moments you've shared
+              Moments you&apos;ve shared
             </Text>
             <MemoryCarousel memories={recentMemories} />
           </Animated.View>
@@ -460,7 +460,7 @@ function SavedMomentScreen({
             marginTop: 10,
           }}
         >
-          If something from it is worth keeping, now's a lovely time.
+          If something from it is worth keeping, now&apos;s a lovely time.
         </Text>
       </View>
 

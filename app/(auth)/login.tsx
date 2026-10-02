@@ -261,7 +261,15 @@ export default function LoginScreen() {
     setIsBusy(true);
     try {
       if (isSignUp) {
-        await signUpWithEmail(trimmedEmail, trimmedPassword);
+        const result = await signUpWithEmail(trimmedEmail, trimmedPassword);
+        if (result === "check_email") {
+          Alert.alert(
+            "Confirm your email",
+            `We sent a link to ${trimmedEmail}. Open it, then come back and sign in.`
+          );
+          setIsSignUp(false);
+          return;
+        }
       } else {
         await signInWithEmail(trimmedEmail, trimmedPassword);
       }

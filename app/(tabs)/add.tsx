@@ -31,6 +31,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { keepPickedPhoto } from "@/lib/photoStorage";
 import { takePhotoWithCamera } from "@/lib/photoPicker";
 import Animated, {
   useSharedValue,
@@ -828,7 +829,7 @@ function StepFirstMemory({
             lineHeight: 20,
           }}
         >
-          One moment you'd want to remember
+          One moment you&apos;d want to remember
         </Text>
       </View>
 
@@ -1653,7 +1654,9 @@ export default function AddPersonScreen() {
           ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
+        const kept = await keepPickedPhoto(result.assets[0].uri);
+        if (kept) setPhotoUri(kept);
+        else Alert.alert("Couldn't add that photo", "Please try another one.");
       }
     } catch {
       Alert.alert(
@@ -1693,7 +1696,9 @@ export default function AddPersonScreen() {
           ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (!result.canceled && result.assets[0]) {
-        setProfilePhotoUri(result.assets[0].uri);
+        const kept = await keepPickedPhoto(result.assets[0].uri);
+        if (kept) setProfilePhotoUri(kept);
+        else Alert.alert("Couldn't add that photo", "Please try another one.");
       }
     } catch {
       Alert.alert(
