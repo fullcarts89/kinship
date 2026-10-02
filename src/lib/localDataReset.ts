@@ -28,6 +28,7 @@ import { resetNotificationLog } from "@/lib/notificationEngine";
 import { cancelAllNotifications } from "@/lib/notificationService";
 import { removeExportFile } from "@/lib/exportService";
 import { removePhotosExcept } from "@/lib/photoStorage";
+import { resetAnalyticsInstallId } from "@/platform/posthogSink";
 
 export async function clearAllLocalUserData(): Promise<void> {
   clearLocalPeople();
@@ -42,6 +43,7 @@ export async function clearAllLocalUserData(): Promise<void> {
   resetAIInsightCache();
   resetNotificationLog();
   removeExportFile();
+  resetAnalyticsInstallId(); // the stored id goes with the on-device store
   try {
     await cancelAllNotifications();
   } catch {

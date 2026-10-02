@@ -20,9 +20,12 @@ import {
 } from "@/lib/notificationService";
 import "../global.css";
 import { startCrashReporting } from "@/platform/crashReporting";
+import { startAnalytics } from "@/platform/analyticsSetup";
 
 // Scrubbed crash reporting; a no-op unless EXPO_PUBLIC_SENTRY_DSN is set.
 startCrashReporting();
+// Content-free product analytics; off unless EXPO_PUBLIC_ANALYTICS_ENABLED=true.
+startAnalytics();
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();

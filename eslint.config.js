@@ -24,6 +24,32 @@ module.exports = defineConfig([
               importNames: ["createEventAsync"],
               message: "Kinship never writes to the user's calendar (P0-08).",
             },
+            ...["posthog-react-native", "posthog-js", "posthog-node"].map((name) => ({
+              name,
+              message: "Use track() from @/platform/analytics; the SDK collects device data (F0-D4).",
+            })),
+            {
+              name: "@/platform/posthogSink",
+              importNames: ["createPostHogSink"],
+              message: "Only src/platform/analyticsSetup.ts installs the analytics sink (F0-D4).",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The one place allowed to install the PostHog sink.
+    files: ["src/platform/analyticsSetup.ts", "src/platform/__tests__/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            ...["posthog-react-native", "posthog-js", "posthog-node"].map((name) => ({
+              name,
+              message: "Use track() from @/platform/analytics (F0-D4).",
+            })),
           ],
         },
       ],
