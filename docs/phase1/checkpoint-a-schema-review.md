@@ -104,3 +104,11 @@ The 1.0 app only reads settings and changes consent through that function, so it
 **Decision (founder, on recommendation):** keep what was applied rather than roll back, since it's additive, empty and switched off. The review proceeds on the live state, and changes become new migrations. The cycle fix (`20261002220000`) is the first such change; it deploys when merged to `main`.
 
 **Lesson recorded:** check a project's Git-integration settings before pushing migration files.
+
+## 8. Merged and verified (2 Oct 2026)
+
+- The amendments merged in [fullcarts89/kinship#8](https://github.com/fullcarts89/kinship/pull/8) as merge commit `5dd1aac`, with CI green.
+- The Supabase preview branch, now separate from production, built all 18 migrations from scratch.
+- The integration then deployed the two pending migrations to production.
+- Production and the repository have identical schema fingerprints (`7c84be27…`).
+- Checkpoint A is closed. Checkpoint B starts from `main`.

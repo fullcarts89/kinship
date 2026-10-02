@@ -56,8 +56,13 @@ P0-11), `20261001090000_ai_usage`, `20261001100000_user_settings_ai_consent`,
 Kinship 2.0 (Checkpoint A), applied 2 Oct 2026 21:01 UTC by the GitHub
 integration (early; see the review doc): `20261002210000_v2_foundation`,
 `20261002210100_v2_captures_memory`, `20261002210200_v2_reasons_connections`,
-`20261002210300_v2_platform`. Pending, deploys on merge to `main`:
+`20261002210300_v2_platform`. Then, through the reviewed path (merge of
+fullcarts89/kinship#8 to `main`, 2 Oct 2026 21:26 UTC):
 `20261002220000_v2_supersede_cycles`, `20261002230000_v2_review_amendments`.
+**Parity after that merge:** 18 migrations in both. The schema fingerprint
+(`supabase/tests/schema_fingerprint_hash.sql`) is identical in production and
+in a fresh build of the repository: md5 `7c84be27985576c12b93e2611a4a541d`.
+The security advisor lists only the two accepted SECURITY DEFINER warnings.
 
 **OPS-1 (operational invariant, CA-9):** migrations reach production only
 through a reviewed PR merged to `main`. The GitHub integration's production
