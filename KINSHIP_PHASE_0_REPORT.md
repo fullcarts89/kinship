@@ -2,7 +2,7 @@
 
 Branch `claude/gifted-pasteur-e2q0qu` · commits `8c294ec` → `cc13a5d` (base `24d2179`) · 2 Oct 2026
 
-**Status (2 Oct 2026, closeout):** the code is complete and the founder decisions F0-D1–F0-D10 are recorded. **§17 is the current exit-gate record** and supersedes §10, §13 and §14, which describe the state before closeout. The physical-device pass is complete except session revocation (F), which is in progress. Phase 0 is not merged, and Phase 1 has not started.
+**Status (2 Oct 2026, closeout):** the code is complete and the founder decisions F0-D1–F0-D10 are recorded. **§17 is the current exit-gate record** and supersedes §10, §13 and §14, which describe the state before closeout. Every exit gate in §17 has passed except the merge itself (F0-D9), which is in review as a pull request. Phase 1 has not started.
 
 ---
 
@@ -638,10 +638,10 @@ Closeout commits: `86a6080`…`HEAD` on `claude/gifted-pasteur-e2q0qu`. The devi
 | Email confirmation (F0-D2) | ✅ end to end | Supabase sends confirmation mail through custom SMTP (Resend, `Kinship <hello@zenroost.com>`; zenroost.com DKIM/SPF/DMARC verified). On the device, account B's confirmation email arrived, the link returned to the app, and B signed in (D). |
 | PostHog per privacy rules (F0-D4) | ✅ configured; analytics **off** | Project "Kinship beta" (US) is configured and read back via API (`docs/ops/analytics.md`). PostHog organization AI features and AI training are off. Retention is at the plan default (not configurable on this plan; events are content-free). Code: direct capture-API sink with no SDK, exact-payload tests, lint guard. `EXPO_PUBLIC_ANALYTICS_ENABLED` is unset, so nothing is sent until one build's live events are reviewed. |
 | Sentry configured, real event inspected (F0-D5) | ✅ (one setting to confirm) | See H below. Org `kinship-iy`, project `kinship`, DSN in `eas.json`. Source-map upload is enabled (the `SENTRY_AUTH_TOKEN` EAS secret is set; `SENTRY_DISABLE_AUTO_UPLOAD` removed). The first EAS build after this commit proves the upload. |
-| Physical-device pass | ✅ A–E, G, H; ⏳ F | See 17.2. |
+| Physical-device pass | ✅ A–H | See 17.2. |
 | Required CI checks protect `main` (F0-D8) | ✅ ruleset active | Ruleset `protect-main`: PR required; checks `App (tsc, eslint, jest)`, `Edge functions (deno check, deno test)`, `Database (migrations + pgTAP)`; no bypass. `main` reports `protected: true`. Enforcement is observed on the Phase 0 PR. |
 | Branch disposition (F0-D10) | ✅ decided | `docs/ops/branch-disposition.md`. The founder approved archiving and closing `tender-mendel`. Tags and deletions happen after the merge. |
-| Phase 0 merged, CI green on `main`, prod = merged repo (F0-D9) | ⏳ After F | `main` (`5687ed7`) is an ancestor of this branch. |
+| Phase 0 merged, CI green on `main`, prod = merged repo (F0-D9) | ⏳ PR open | `main` (`5687ed7`) is an ancestor of this branch. |
 
 ### 17.2 Physical-device results
 
@@ -652,7 +652,7 @@ Closeout commits: `86a6080`…`HEAD` on `claude/gifted-pasteur-e2q0qu`. The devi
 | C. AI consent | ✅ after a fix | C1–C4 pass. **Found on the device:** after AI was turned off, a screen that was already open and the on-device insight cache still showed the earlier AI suggestion. **Fixed in `12014ea`:** revoking consent clears the cache, and open screens drop the suggestion immediately. Tests fail without the fix. Re-checked on the device by the founder. |
 | D. Sign-out isolation | ✅ | After A signed out and B (email account) signed in: B's garden is empty, and none of A's people, memories, photos or suggestions are reachable. |
 | E. Same-account sign-out | ✅ | A's photo is gone after B claimed the device (F0-D1). A's own photo is kept across a plain sign-out and sign-in as A. |
-| F. Session revocation | ⏳ In progress | At 19:31:55 UTC, while the app was backgrounded, A's only session was deleted on the server (`auth.sessions` and `auth.refresh_tokens` = 0). The app should sign out and wipe when its access token (issued ~19:31 UTC, 1 h lifetime) next needs a refresh. |
+| F. Session revocation | ✅ | At 19:31:55 UTC, with the app in the background, A's only session was deleted on the server (`auth.sessions` and `auth.refresh_tokens` = 0). The already-issued access token stayed valid until its 1 h expiry, as JWTs do. At 20:45:45 UTC, on the first foreground after expiry, the auth log shows the app's refresh rejected (`400 refresh_token_not_found`), and the app went to the sign-in screen with none of A's data visible (the `SIGNED_OUT` wipe). Revocation latency is bounded by the access-token lifetime; shortening it is a 2.0 option if needed. |
 | G. Account deletion | ✅ | Disposable account C (`9c85105f…`) was deleted from Settings at 19:16:15 UTC. SQL afterwards: 0 rows in all 8 user tables, `auth.users`, `auth.identities`, `auth.sessions` and `auth.refresh_tokens`. Signing in as C fails with the generic "Invalid login credentials", which is the same message as a wrong password, so it reveals nothing about whether an account exists. |
 | H. Sentry | ✅ | Event KINSHIP-1 from the dev-only privacy test crash, read field by field (detail below). |
 
