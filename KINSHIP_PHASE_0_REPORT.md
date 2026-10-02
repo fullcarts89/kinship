@@ -2,7 +2,7 @@
 
 Branch `claude/gifted-pasteur-e2q0qu` · commits `8c294ec` → `cc13a5d` (base `24d2179`) · 2 Oct 2026
 
-**Status (2 Oct 2026, closeout in progress):** the code is complete and the founder decisions F0-D1–F0-D10 are recorded. **The Phase 0 exit gate has NOT passed yet**: §17 lists what's open, and every open item needs a founder action. Phase 0 is not merged, and Phase 1 has not started.
+**Status (2 Oct 2026, closeout):** the code is complete and the founder decisions F0-D1–F0-D10 are recorded. **§17 is the current exit-gate record** and supersedes §10, §13 and §14, which describe the state before closeout. The physical-device pass is complete except session revocation (F), which is in progress. Phase 0 is not merged, and Phase 1 has not started.
 
 ---
 
@@ -623,24 +623,68 @@ None block Phase 1; the season tables are replaced in 2.0.
 
 ## 17. Closeout (F0-D1–F0-D10): exit-gate status
 
-Closeout commits: `d3b42c8`…`86a6080` (and this report update).
+Closeout commits: `86a6080`…`HEAD` on `claude/gifted-pasteur-e2q0qu`. The device pass ran on 2 Oct 2026, on an iPhone 15 Pro Max (iOS 26.6.2), using an EAS development build (bundle `com.zenroost.kinship`) against production Supabase. The procedure is in `docs/ops/device-test-plan.md`.
+
+### 17.1 Gates
 
 | Gate | Status | Evidence |
 |---|---|---|
-| Anthropic key set | ✅ | Set as `ANTHROPIC_API_KEY` after two fixes on the founder side: the secret had been saved under another name, and the account then needed API credit. |
-| Consented production AI call → 200 | ✅ | 06:40 UTC, throwaway account: consented call → 200 in 3.8 s, a grounded insight for the "Ben runs Chicago Sunday" note. Revoking consent → 403. `ai_usage` incremented (3 calls). No log lines were written for successful calls. The account was then deleted through `delete-account`. **Quality finding for Checkpoint C:** the model wrote "Ben **ran** the Chicago marathon this past Sunday" although the race was still two days away. A confident wrong personal detail, so the plans-vs-dated-events evals must cover it before 2.0 extraction is trusted. |
-| Deployed `ai-insight` = repository source | ✅ | Deployed v4 from commit `d3b42c8`: shared auth module, pinned `@anthropic-ai/sdk@0.131.0` and `@supabase/supabase-js@2.117.2`. `get_edge_function` returns exactly the repo's `index.ts`, `handler.ts` and `_shared/auth.ts`; ezbr `f8be0932…`. (Platform version 3 appeared between my v2 and this v4; v4 supersedes it.) |
-| Auth, consent and quota probes on v4 | ✅ | No header → 401; anon key → 401; forged JWT → 401; before consent → 403; bad input → 400 (no model call); after revoking → 403; GET → 405; `ai_usage` = 1 after one consented call. |
-| No user content in logs | ✅ | The failure line contains only the user id and the SDK error. The test note ("Ben… Chicago… four hours") appears nowhere. |
-| Account deletion still works | ✅ | Three throwaway probe accounts were deleted through `delete-account` (200; `auth_user` true; `ai_usage` and `user_settings` rows removed). |
-| Leaked-password protection | ✅ | Sign-up with `password123` → 422 `weak_password` (`pwned`). The security advisor no longer lists `auth_leaked_password_protection`. |
-| Email confirmation | ✅ on (end-to-end check on device) | After the founder saved "Confirm email", Supabase rejects undeliverable sign-up addresses (`email_address_invalid`) because it now sends confirmation mail. Earlier, a new account was auto-confirmed with a session. The app handles the no-session result (`72d1927`) and the redirect `kinship://login` is allowlisted. The full mail → link → app → sign-in flow is checked in the device pass (`docs/ops/device-test-plan.md`). **Note:** Supabase's built-in mailer is heavily rate-limited and not meant for production; a custom SMTP provider is advisable before beta sign-ups. |
-| PostHog configured per privacy rules | ✅ project configured; ⚠️ 2 org settings + review pending | Project "Kinship beta" (US): IP anonymization, autocapture/replay/heatmaps/console/performance/web-vitals/surveys off (read back via API; see docs/ops/analytics.md). Open: PostHog AI processing off, data retention. Code (was): | `ac28b42`: direct capture-API sink with no SDK (the SDK sends the device name); exact-payload tests; lint guard; global switch off by default; `docs/ops/analytics.md`. **Founder:** create the project with the listed settings and provide the key. Analytics stays off until the payload is reviewed in PostHog's live events. |
-| Sentry configured + real event inspected | ❌ **Founder action** | Needs the project, DSN, org/project slugs and auth token, then the device crash (`docs/ops/device-test-plan.md` H) |
-| Physical-device pass, isolation, session revocation | ❌ **Founder action** | Procedure and result table: `docs/ops/device-test-plan.md` |
-| Required CI checks protect `main` | ✅ ruleset active (to be proven at merge) | `main` reports `protected: true` via the GitHub API. Ruleset `protect-main`: no bypass list; PR required; the three checks required. Enforcement is observed when the Phase 0 PR is opened. Was: | GitHub → Settings → Branches → `main` rule: require a PR and these status checks: `App (tsc, eslint, jest)`, `Edge functions (deno check, deno test)`, `Database (migrations + pgTAP)`. Also turn on "Do not allow bypassing". |
-| CI green | ✅ | Runs 1–5 succeeded; run 6 was in progress when written |
-| Branch disposition | ✅ recorded | `docs/ops/branch-disposition.md`. Deletions wait for the merge; `tender-mendel` (a superseded parallel attempt at P0-02/03/05) awaits your confirmation. |
-| Phase 0 merged, CI green on `main`, prod = merged repo | ⏳ After the gates above | `main` (`5687ed7`) is an ancestor of this branch, so the merge will be conflict-free. |
+| Anthropic key set (F0-D6) | ✅ | Set as `ANTHROPIC_API_KEY` after two fixes on the founder side: the secret had been saved under another name, and the account then needed API credit. |
+| Consented production AI call → 200 | ✅ | Server probe at 06:40 UTC, then on the device (C3, 18:14:43 UTC): consented → 200; revoked → 403; `ai_usage` incremented. |
+| Deployed `ai-insight` = repository source (F0-D6) | ✅ | Deployed v4 from commit `d3b42c8`: shared `_shared/auth.ts`, pinned `@anthropic-ai/sdk@0.131.0` and `@supabase/supabase-js@2.117.2`. `get_edge_function` returns exactly the repo files; ezbr `f8be0932…`. |
+| Auth, consent and quota probes on v4 | ✅ | No header → 401; anon key → 401; forged JWT → 401; before consent → 403; bad input → 400 (no model call); after revoking → 403; GET → 405. |
+| No user content in logs | ✅ | Failure lines carry only the user id and the SDK error. |
+| Leaked-password protection (F0-D3) | ✅ | `password123` → 422 `weak_password` (`pwned`). The advisor no longer lists it. |
+| Email confirmation (F0-D2) | ✅ end to end | Supabase sends confirmation mail through custom SMTP (Resend, `Kinship <hello@zenroost.com>`; zenroost.com DKIM/SPF/DMARC verified). On the device, account B's confirmation email arrived, the link returned to the app, and B signed in (D). |
+| PostHog per privacy rules (F0-D4) | ✅ configured; analytics **off** | Project "Kinship beta" (US) is configured and read back via API (`docs/ops/analytics.md`). PostHog organization AI features and AI training are off. Retention is at the plan default (not configurable on this plan; events are content-free). Code: direct capture-API sink with no SDK, exact-payload tests, lint guard. `EXPO_PUBLIC_ANALYTICS_ENABLED` is unset, so nothing is sent until one build's live events are reviewed. |
+| Sentry configured, real event inspected (F0-D5) | ✅ (one setting to confirm) | See H below. Org `kinship-iy`, project `kinship`, DSN in `eas.json`. Source-map upload is enabled (the `SENTRY_AUTH_TOKEN` EAS secret is set; `SENTRY_DISABLE_AUTO_UPLOAD` removed). The first EAS build after this commit proves the upload. |
+| Physical-device pass | ✅ A–E, G, H; ⏳ F | See 17.2. |
+| Required CI checks protect `main` (F0-D8) | ✅ ruleset active | Ruleset `protect-main`: PR required; checks `App (tsc, eslint, jest)`, `Edge functions (deno check, deno test)`, `Database (migrations + pgTAP)`; no bypass. `main` reports `protected: true`. Enforcement is observed on the Phase 0 PR. |
+| Branch disposition (F0-D10) | ✅ decided | `docs/ops/branch-disposition.md`. The founder approved archiving and closing `tender-mendel`. Tags and deletions happen after the merge. |
+| Phase 0 merged, CI green on `main`, prod = merged repo (F0-D9) | ⏳ After F | `main` (`5687ed7`) is an ancestor of this branch. |
 
-The accepted `image-size` advisory (F0-D7) and the `consume_ai_call` advisor warning do not block the gate.
+### 17.2 Physical-device results
+
+| Part | Result | Notes |
+|---|---|---|
+| A. Normal use | ✅ | Apple sign-in as A (`86cb2383…`). Person, memory and photo created; all present after a force-quit. The photo is stored in `Documents/photos/<uid>/`. |
+| B. Offline | ✅ | **First attempt invalid:** Airplane Mode left Wi-Fi on, so the "offline" save reached the server. Redone with Wi-Fi also off: load and save show errors, nothing appears that wasn't saved, no demo garden; data returns once back online. B3 (relaunch while offline) can't be run on a dev build, which needs the Metro server to start. Proven by unit tests (P0-02). |
+| C. AI consent | ✅ after a fix | C1–C4 pass. **Found on the device:** after AI was turned off, a screen that was already open and the on-device insight cache still showed the earlier AI suggestion. **Fixed in `12014ea`:** revoking consent clears the cache, and open screens drop the suggestion immediately. Tests fail without the fix. Re-checked on the device by the founder. |
+| D. Sign-out isolation | ✅ | After A signed out and B (email account) signed in: B's garden is empty, and none of A's people, memories, photos or suggestions are reachable. |
+| E. Same-account sign-out | ✅ | A's photo is gone after B claimed the device (F0-D1). A's own photo is kept across a plain sign-out and sign-in as A. |
+| F. Session revocation | ⏳ In progress | At 19:31:55 UTC, while the app was backgrounded, A's only session was deleted on the server (`auth.sessions` and `auth.refresh_tokens` = 0). The app should sign out and wipe when its access token (issued ~19:31 UTC, 1 h lifetime) next needs a refresh. |
+| G. Account deletion | ✅ | Disposable account C (`9c85105f…`) was deleted from Settings at 19:16:15 UTC. SQL afterwards: 0 rows in all 8 user tables, `auth.users`, `auth.identities`, `auth.sessions` and `auth.refresh_tokens`. Signing in as C fails with the generic "Invalid login credentials", which is the same message as a wrong password, so it reveals nothing about whether an account exists. |
+| H. Sentry | ✅ | Event KINSHIP-1 from the dev-only privacy test crash, read field by field (detail below). |
+
+**H detail (Sentry event KINSHIP-1):**
+
+- **Message:** "Kinship privacy test crash: saving [redacted] for [email]". It was redacted on the device.
+- **User:** Users = 0. No id or email.
+- **Device:** model and OS only; no device name.
+- **Breadcrumbs:** all 78 are the exception plus HTTP requests with method, status and path only (no query strings or bodies). Auth URLs show `[Filtered]` by Sentry's server-side scrubbing. No console or UI breadcrumbs.
+- **Stack paths:** `/Users/thoroxnard/kinship/…`, the build machine's checkout path in a dev build. Not user data.
+- **Two findings:**
+  1. **Sentry inferred "Geography: United States" from the request IP.** Founder action: turn on "Prevent Storing of IP Addresses" and the data scrubbers (organization and project, Security & Privacy). Re-check on the next test crash.
+  2. **Unsplash requests:** the breadcrumbs showed the onboarding carousel loading three photos from `images.unsplash.com`, which sent each new user's IP to a third party before sign-in. **Fixed in `3d955c7`:** the photos are bundled, and a test pins the app's hard-coded hosts to a reviewed allowlist.
+
+### 17.3 Fixes and changes made during the closeout
+
+| Commit | Change | Why |
+|---|---|---|
+| `76edeaa`, `29dfbff` | Added `expo-dev-client`; removed empty submit placeholders | Needed for the first EAS dev build |
+| `53cb06d` | Bundle identifier `com.zenroost.kinship` (was `com.kinship.app`) | `com.kinship.app` isn't available to the Zenroost, LLC team. The App Store name is unaffected. The Supabase Apple provider client ID was updated to match. |
+| `709b5d3` | Restored an honest reminders usage description | The device build crashed at launch with `MissingCalendarPListValueException`: expo-calendar requires the reminders keys even though Kinship never uses reminders. The P0-10 permission tests now allowlist these keys with fixed wording. |
+| `12014ea` | Consent revocation clears AI output | C, above |
+| `3d955c7` | Bundled onboarding photos | H, above |
+| this commit | Source-map upload enabled | F0-D5 |
+
+### 17.4 Accepted, deferred and open items
+
+- **Accepted (F0-D7 terms):**
+  - the `image-size` advisory;
+  - **a new `node-forge` high advisory** (no patch available; Expo CLI / `expo-updates` build tooling only; not in the app). Accepted by the founder on 2 Oct 2026.
+  - the `consume_ai_call` advisor warning (by design).
+- **AI quality (Checkpoint C):** the model wrote "Ben **ran** the Chicago marathon this past Sunday" for a race still two days away. On the device later, it correctly said "this Sunday". A confident wrong personal detail is the failure mode the Checkpoint C evals must cover.
+- **Cosmetic:** the Apple and Google buttons on the sign-in screen are misaligned. 2.0 replaces this screen.
+- **Open, founder decision before the merge:** the privacy policy, terms and About screen give contact addresses at `kinshipgarden.app`, which isn't registered. Options: register the domain, or switch the addresses to `@zenroost.com`.
+- **Founder setting:** Sentry IP storage off (H finding 1).
