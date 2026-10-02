@@ -10,6 +10,7 @@ Dashboard. Keep this file current whenever one changes.
 |---|---|---|---|
 | Leaked-password protection (P0-14, F0-D3) | Authentication → Sign In / Providers → Email → "Prevent use of leaked passwords" | On | **On** (2 Oct 2026; `password123` rejected as pwned; advisor clear) |
 | `ANTHROPIC_API_KEY` | Edge Functions → Secrets | Anthropic key for the ai-insight gateway | **Set** (2 Oct 2026). Consented production call → 200. The Anthropic account needs API credit (Plans & Billing); with none, calls fail with "credit balance is too low". |
+| Session lifetime (low-friction sign-in) | Authentication → Sessions | **Time-box user sessions: off (never). Inactivity timeout: off (never). Single session per user: off.** The 1 h access-token (JWT) expiry stays at its default; the app renews it silently with the refresh token, so users stay signed in indefinitely. Turning on a time-box or inactivity timeout would force periodic re-sign-in. | Expected at defaults (all off). The founder confirms on the Sessions page. Device test F showed the app signs out only when the server session is gone. |
 | `AI_DAILY_LIMIT` | Edge Functions → Secrets | Calls per user per UTC day (default 50 when unset) | Unset (default 50) |
 | `AI_CONSENT_VERSION` | Edge Functions → Secrets | Must equal `AI_CONSENT_VERSION` in `src/lib/aiPreferences.ts` (1) | Unset (default 1) |
 | `AI_ALLOWED_ORIGINS` | Edge Functions → Secrets | Comma-separated browser origins; empty for the native app | Unset (no browser origins) |
@@ -50,5 +51,5 @@ P0-11), `20261001090000_ai_usage`, `20261001100000_user_settings_ai_consent`,
 
 | Function | Version | Notes |
 |---|---|---|
-| `ai-insight` | 2 | Auth, consent (403), validation, quota (429). It still carries its own copy of `verifiedUserId`; it moves to `_shared/auth.ts` on the next deploy. |
+| `ai-insight` | 4 | Auth, consent (403), validation, quota (429). Deployed from `d3b42c8`; identical to the repo (shared `_shared/auth.ts`, pinned SDKs). |
 | `delete-account` | 1 | Service role is used only after verifying the caller's own token. |
