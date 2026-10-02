@@ -17,10 +17,25 @@ jest.mock("expo-notifications", () => ({
   cancelAllScheduledNotificationsAsync: () => mockCancelAll(),
 }));
 jest.mock("@/lib/supabase", () => ({ isSupabaseConfigured: false, supabase: null }));
+const mockWipeStores = jest.fn(() => Promise.resolve(0));
+jest.mock("@/store/session", () => ({ wipeAllStores: () => mockWipeStores() }));
 
 beforeEach(() => {
   mockFiles.clear();
   mockCancelAll.mockClear();
+  mockWipeStores.mockClear();
+});
+
+it("deletes every Kinship 2.0 encrypted store and key on sign-out", async () => {
+  await clearAllLocalUserData();
+  expect(mockWipeStores).toHaveBeenCalledTimes(1);
+});
+
+it("still finishes the wipe if no 2.0 store can be reached", async () => {
+  mockWipeStores.mockRejectedValueOnce(new Error("no native module"));
+  saveCollection("people", [{ id: "p1", name: "Maya" }]);
+  await expect(clearAllLocalUserData()).resolves.toBeUndefined();
+  await expect(loadCollection("people")).resolves.toEqual([]);
 });
 
 it("removes the on-device store, including cached AI insights and the notification log", async () => {

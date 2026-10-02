@@ -93,6 +93,12 @@
           "project": "kinship",
           "url": "https://sentry.io/"
         }
+      ],
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
       ]
     ],
     "experiments": {
