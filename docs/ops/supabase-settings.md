@@ -52,4 +52,4 @@ P0-11), `20261001090000_ai_usage`, `20261001100000_user_settings_ai_consent`,
 | Function | Version | Notes |
 |---|---|---|
 | `ai-insight` | 4 | Auth, consent (403), validation, quota (429). Deployed from `d3b42c8`; identical to the repo (shared `_shared/auth.ts`, pinned SDKs). |
-| `delete-account` | 1 | Service role is used only after verifying the caller's own token. |
+| `delete-account` | 5 (platform) | Service role is used only after verifying the caller's own token. Redeployed from `main` (`7c57259`) on 2 Oct 2026; ezbr `c77ab4b0…`. |

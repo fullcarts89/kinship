@@ -2,7 +2,7 @@
 
 Branch `claude/gifted-pasteur-e2q0qu` · commits `8c294ec` → `cc13a5d` (base `24d2179`) · 2 Oct 2026
 
-**Status (2 Oct 2026, closeout):** the code is complete and the founder decisions F0-D1–F0-D10 are recorded. **§17 is the current exit-gate record** and supersedes §10, §13 and §14, which describe the state before closeout. Every exit gate in §17 has passed except the merge itself (F0-D9), which is in review as a pull request. Phase 1 has not started.
+**Status (2 Oct 2026, closeout):** the code is complete and the founder decisions F0-D1–F0-D10 are recorded. **§17 is the current exit-gate record** and supersedes §10, §13 and §14, which describe the state before closeout. **Every exit gate in §17 has passed, and Phase 0 is merged to `main`** ([fullcarts89/kinship#7](https://github.com/fullcarts89/kinship/pull/7), `7c57259`), with production matching the merged repository. Phase 1 may start (Checkpoint A first).
 
 ---
 
@@ -641,7 +641,7 @@ Closeout commits: `86a6080`…`HEAD` on `claude/gifted-pasteur-e2q0qu`. The devi
 | Physical-device pass | ✅ A–H | See 17.2. |
 | Required CI checks protect `main` (F0-D8) | ✅ ruleset active | Ruleset `protect-main`: PR required; checks `App (tsc, eslint, jest)`, `Edge functions (deno check, deno test)`, `Database (migrations + pgTAP)`; no bypass. `main` reports `protected: true`. Enforcement is observed on the Phase 0 PR. |
 | Branch disposition (F0-D10) | ✅ decided | `docs/ops/branch-disposition.md`. The founder approved archiving and closing `tender-mendel`. Tags and deletions happen after the merge. |
-| Phase 0 merged, CI green on `main`, prod = merged repo (F0-D9) | ⏳ PR open | `main` (`5687ed7`) is an ancestor of this branch. |
+| Phase 0 merged, CI green on `main`, prod = merged repo (F0-D9) | ✅ | [fullcarts89/kinship#7](https://github.com/fullcarts89/kinship/pull/7) merged at 20:50 UTC on 2 Oct as merge commit `7c57259`. Its tree is identical to the PR head `ad5af54`, and every Phase 0 commit is on `main`. The ruleset was enforced: the PR could merge only once the three required checks had passed. CI on `main` at `7c57259`: all three checks green. **Parity:** production migrations = the 12 files in `supabase/migrations`. `ai-insight` = repo (unchanged since `d3b42c8`; ezbr `f8be0932…`). `delete-account` had drifted (deployed before `d3b42c8` pinned its `supabase-js` version and updated a comment; same behaviour) and was redeployed from `main` (ezbr `c77ab4b0…`). Probed after the redeploy: anon key → 401, GET → 405. The security advisor lists only the accepted `consume_ai_call` warning. |
 
 ### 17.2 Physical-device results
 
