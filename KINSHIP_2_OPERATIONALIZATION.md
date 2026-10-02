@@ -1361,6 +1361,45 @@ Kinship may eventually notice natural openings for connection by combining relat
 
 ---
 
+## 36. Post-validation distribution hypothesis: a ChatGPT app ("Help me reach out")
+
+*Added 2 October 2026 at Thor's direction. This is a future distribution experiment. It is not part of Phase 0, Phase 1, the vertical slice or V1, and no code is written for it before the beta shows the core loop retains people.*
+
+**Source:** a reel (2 Oct 2026) about a Greg Isenberg post. It claims ChatGPT now recommends apps in the middle of conversations, that common questions have no app to recommend ("empty slots"), and that early builders get free distribution. The suggested playbook is to build small apps for tasks people already search for, write descriptions in users' own phrasing, ship several and double down on what gets picked up. The post's claims ("1.2B weekly users", "2,000% growth", "free for a few months") are marketing and unverified; check them against OpenAI's current documentation before acting.
+
+**Why it might fit.** People already ask ChatGPT the questions Kinship exists for:
+
+- "what should I text my friend after her surgery?";
+- "gift ideas for my sister who just ran a marathon";
+- "how do I reconnect with an old friend?".
+
+A small helper in Kinship's voice (specific, warm, never guilt) would reach people at the moment they are trying to show up for someone.
+
+**Why it stays outside the core product:**
+
+- **Trust.** Relationship memory must not flow through a third-party assistant by default (D2/D3). A ChatGPT app adds OpenAI as a processor under its own terms.
+- **Conversion distance.** ChatGPT → App Store → onboarding is a long path. It only pays off once the core loop retains users.
+- **Focus.** It is distribution, not product progress (see Phase 1's first milestone).
+
+**Shape of the probe, if pursued:**
+
+1. **One stateless app: "Help me reach out".** The user describes a situation, and it returns a few message starters in Kinship's voice.
+   - It stores nothing.
+   - It has no Kinship account linking.
+   - It never asks for or keeps names beyond the single request.
+2. **Description written in users' own phrasing**, taken from real intents ("what to say to a friend who…").
+3. **One clear handoff:** "Want Kinship to remember this for next time?" → App Store.
+4. **Measure** recommendation impressions, uses, click-through and installs attributed via a campaign link. Run it for a fixed window and decide on evidence.
+5. **Only if it converts:** consider a consented "save to Kinship" capture channel as a separate privacy decision (new processor disclosure, consent versioning, D12 governance for any model behaviour).
+
+**Entry criteria:**
+
+- beta retention validated;
+- the AI evals (Checkpoint C) cover the message-writing capability;
+- founder approval of the privacy posture for the probe.
+
+---
+
 ## Sources
 
 - Product audit: "Kinship: Product, Codebase & AI Opportunity Audit" (Claude Doc, 30 Sep 2026), read in full including the quick-wins table and hard questions.
