@@ -2,7 +2,7 @@
 -- hard deletes, and every synced row follows the shared row rules
 -- (server timestamps, immutable owner, optimistic versioning, fixed sprig seed).
 BEGIN;
-SELECT plan(29);
+SELECT plan(31);
 
 \set A '''aaaaaaaa-7777-7777-7777-777777777777'''
 SELECT tests.create_user(:A);
@@ -11,7 +11,7 @@ SELECT tests.create_user(:A);
 SELECT has_table('public', t, t || ' exists')
 FROM unnest(ARRAY['people', 'related_people', 'person_identities', 'captures', 'memory_items',
                   'memory_item_sources', 'memory_item_history', 'reasons', 'reason_evidence',
-                  'reason_events', 'connections', 'consents', 'devices', 'notification_log',
+                  'reason_events', 'contact_events', 'consents', 'devices', 'notification_log',
                   'feature_flags', 'user_flag_overrides']) t;
 
 SELECT is(
@@ -22,7 +22,7 @@ SELECT is(
 SELECT is(
   (SELECT array_agg(t ORDER BY t) FROM unnest(ARRAY['people', 'related_people', 'person_identities',
      'captures', 'memory_items', 'memory_item_sources', 'memory_item_history', 'reasons',
-     'reason_evidence', 'reason_events', 'connections', 'consents', 'devices', 'notification_log',
+     'reason_evidence', 'reason_events', 'contact_events', 'consents', 'devices', 'notification_log',
      'feature_flags', 'user_flag_overrides']) t
    WHERE has_table_privilege('authenticated', 'public.' || t, 'DELETE')),
   NULL, 'signed-in users can hard-delete no 2.0 table (deletion is a tombstone)');
@@ -30,7 +30,7 @@ SELECT is(
 SELECT is(
   (SELECT array_agg(t ORDER BY t) FROM unnest(ARRAY['people', 'related_people', 'person_identities',
      'captures', 'memory_items', 'memory_item_sources', 'memory_item_history', 'reasons',
-     'reason_evidence', 'reason_events', 'connections', 'consents', 'devices', 'notification_log',
+     'reason_evidence', 'reason_events', 'contact_events', 'consents', 'devices', 'notification_log',
      'feature_flags', 'user_flag_overrides']) t
    WHERE has_table_privilege('anon', 'public.' || t, 'SELECT')
       OR has_table_privilege('anon', 'public.' || t, 'INSERT')),
@@ -52,18 +52,22 @@ SELECT is((SELECT sprig_seed FROM public.people),
   ('x' || substr(md5('00000000-0000-0000-0000-0000000007a1'), 1, 15))::bit(60)::bigint,
   'sprig_seed is derived from the id, not the client');
 
--- A write based on the current version succeeds and bumps it.
-UPDATE public.people SET display_name = 'Benjamin', version = 1;
-SELECT is((SELECT version FROM public.people), 2, 'a write based on the current version bumps it');
--- A write that leaves version out also succeeds (last write wins).
-UPDATE public.people SET relationship_label = 'running buddy';
-SELECT is((SELECT version FROM public.people), 3, 'a write without a version still bumps it');
+-- An app update states the version it writes: the version it read + 1.
+UPDATE public.people SET display_name = 'Benjamin', version = 2;
+SELECT is((SELECT version FROM public.people), 2, 'an update based on the version read is accepted');
+-- Leaving the version out is not a silent overwrite: it is rejected.
+SELECT throws_ok($$ UPDATE public.people SET relationship_label = 'running buddy' $$,
+  '40001', NULL, 'an app update without a version is rejected (no last-write-wins)');
 -- A stale write is rejected.
+UPDATE public.people SET display_name = 'Benjamin', version = 3;
 SELECT throws_ok($$ UPDATE public.people SET display_name = 'stale', version = 2 $$,
-  '40001', NULL, 'a write based on a stale version is rejected (40001)');
-SELECT throws_ok(format($$ UPDATE public.people SET user_id = %L $$, gen_random_uuid()),
+  '40001', NULL, 'an update based on a stale version is rejected (40001)');
+SELECT throws_ok($$ UPDATE public.people SET display_name = 'skip', version = 9 $$,
+  '40001', NULL, 'an update claiming a version from the future is rejected');
+SELECT is((SELECT display_name FROM public.people), 'Benjamin', 'rejected updates changed nothing');
+SELECT throws_ok(format($$ UPDATE public.people SET user_id = %L, version = 4 $$, gen_random_uuid()),
   '42501', NULL, 'user_id can never change');
-UPDATE public.people SET sprig_seed = 1, created_at = '2000-01-01';
+UPDATE public.people SET sprig_seed = 1, created_at = '2000-01-01', version = 4;
 SELECT ok((SELECT sprig_seed <> 1 AND created_at > '2001-01-01' FROM public.people),
   'sprig_seed and created_at are immutable');
 SELECT tests.reset_role();

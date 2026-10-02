@@ -57,7 +57,11 @@ Kinship 2.0 (Checkpoint A), applied 2 Oct 2026 21:01 UTC by the GitHub
 integration (early; see the review doc): `20261002210000_v2_foundation`,
 `20261002210100_v2_captures_memory`, `20261002210200_v2_reasons_connections`,
 `20261002210300_v2_platform`. Pending, deploys on merge to `main`:
-`20261002220000_v2_supersede_cycles`.
+`20261002220000_v2_supersede_cycles`, `20261002230000_v2_review_amendments`.
+
+**OPS-1 (operational invariant, CA-9):** migrations reach production only
+through a reviewed PR merged to `main`. The GitHub integration's production
+branch stays `main`; nobody applies schema changes by hand.
 
 ## Deployed edge functions
 

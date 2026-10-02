@@ -26,7 +26,7 @@ INSERT INTO public.memory_items (id, kind, person_id, subject_type, subject_rela
           'health', 'user', 'user_authored');
 INSERT INTO public.memory_item_sources (memory_item_id, capture_id, source_kind, span_start, span_end)
   VALUES ('00000000-0000-0000-0000-0000000008a4', '00000000-0000-0000-0000-0000000008a3', 'capture', 0, 35);
-INSERT INTO public.connections (person_id, channel, source)
+INSERT INTO public.contact_events (person_id, channel, source)
   VALUES ('00000000-0000-0000-0000-0000000008a1', 'call', 'manual');
 INSERT INTO public.devices (platform, push_token) VALUES ('ios', 'token-a');
 SELECT tests.reset_role();
@@ -50,7 +50,7 @@ SELECT is(
   + (SELECT count(*)::int FROM public.memory_items) + (SELECT count(*)::int FROM public.memory_item_sources)
   + (SELECT count(*)::int FROM public.memory_item_history) + (SELECT count(*)::int FROM public.reasons)
   + (SELECT count(*)::int FROM public.reason_evidence) + (SELECT count(*)::int FROM public.reason_events)
-  + (SELECT count(*)::int FROM public.connections) + (SELECT count(*)::int FROM public.consents)
+  + (SELECT count(*)::int FROM public.contact_events) + (SELECT count(*)::int FROM public.consents)
   + (SELECT count(*)::int FROM public.devices) + (SELECT count(*)::int FROM public.notification_log)
   + (SELECT count(*)::int FROM public.user_flag_overrides),
   0, 'B sees no 2.0 row of A in any table');
@@ -61,7 +61,7 @@ UPDATE public.people SET display_name = 'pwned';
 UPDATE public.captures SET retention = 'delete_after_extraction';
 UPDATE public.memory_items SET statement = 'pwned';
 UPDATE public.memory_item_sources SET deleted_at = now();
-UPDATE public.connections SET channel = 'other';
+UPDATE public.contact_events SET channel = 'other';
 UPDATE public.devices SET push_token = 'stolen';
 SELECT tests.reset_role();
 SELECT is((SELECT display_name FROM public.people WHERE user_id = :A), 'Sarah', 'person unchanged');
@@ -70,7 +70,7 @@ SELECT is((SELECT statement FROM public.memory_items WHERE user_id = :A),
   'Sarah''s sister has surgery Thursday', 'memory item unchanged');
 SELECT is((SELECT count(*)::int FROM public.memory_item_sources WHERE user_id = :A AND deleted_at IS NULL),
   1, 'source unchanged');
-SELECT is((SELECT channel FROM public.connections WHERE user_id = :A), 'call', 'connection unchanged');
+SELECT is((SELECT channel FROM public.contact_events WHERE user_id = :A), 'call', 'connection unchanged');
 SELECT is((SELECT push_token FROM public.devices WHERE user_id = :A), 'token-a', 'device unchanged');
 
 -- ── B can't forge rows owned by A ───────────────────────────────────────
@@ -96,7 +96,7 @@ SELECT throws_ok($$ INSERT INTO public.memory_items (kind, person_id, statement,
 SELECT throws_ok($$ INSERT INTO public.captures (source, raw_text, context_person_id)
   VALUES ('text', 'x', '00000000-0000-0000-0000-0000000008a1') $$,
   '23503', NULL, 'B cannot point a capture at A''s person');
-SELECT throws_ok($$ INSERT INTO public.connections (person_id, channel, source)
+SELECT throws_ok($$ INSERT INTO public.contact_events (person_id, channel, source)
   VALUES ('00000000-0000-0000-0000-0000000008a1', 'call', 'manual') $$,
   '23503', NULL, 'B cannot log contact with A''s person');
 SELECT throws_ok($$ INSERT INTO public.reason_events (reason_id, event)
@@ -114,11 +114,11 @@ SELECT throws_ok($$ INSERT INTO public.memory_items (kind, person_id, subject_ty
   VALUES ('fact', '00000000-0000-0000-0000-0000000009b1', 'related', '00000000-0000-0000-0000-0000000008a2',
           'x', '{"category": "other"}', 'user') $$,
   '23503', NULL, 'B cannot use A''s related person as a subject');
-SELECT throws_ok($$ UPDATE public.memory_items SET supersedes_id = '00000000-0000-0000-0000-0000000008a4'
+SELECT throws_ok($$ UPDATE public.memory_items SET supersedes_id = '00000000-0000-0000-0000-0000000008a4', version = version + 1
   WHERE id = '00000000-0000-0000-0000-0000000009b2' $$,
   '23503', NULL, 'B cannot supersede A''s memory');
 -- Re-parenting B's own memory under A's person fails the same way.
-SELECT throws_ok($$ UPDATE public.memory_items SET person_id = '00000000-0000-0000-0000-0000000008a1'
+SELECT throws_ok($$ UPDATE public.memory_items SET person_id = '00000000-0000-0000-0000-0000000008a1', version = version + 1
   WHERE id = '00000000-0000-0000-0000-0000000009b2' $$,
   '23503', NULL, 'B cannot move a memory under A''s person');
 -- A push token already live for A can't be registered by B.

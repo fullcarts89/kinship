@@ -423,3 +423,57 @@ Phase 1 runs in checkpoints, each stopping for review where noted.
   Then **stop** and write `KINSHIP_PHASE_1_VERTICAL_SLICE_REPORT.md` for founder review.
 
 The first milestone is not "all planned screens exist". It is: *a user tells Kinship one meaningful thing, Kinship remembers it correctly, brings it back at the right moment, and helps the user show up.*
+
+---
+
+# Checkpoint A review decisions (2 Oct 2026)
+
+Thor approved Checkpoint A (`docs/phase1/checkpoint-a-schema-review.md`) with these amendments. All are implemented as **forward** migrations (`20261002230000_v2_review_amendments.sql`) and tests, because the first 2.0 migrations already reached production.
+
+## CA-1. `connections` → `contact_events`
+The table holds confirmed instances of human contact, not relationships between entities. The broader name could collide with future Landscape, group or social-graph concepts.
+
+## CA-2. Event detail `goal` → `event_goal`
+The field is approved ("His goal was under four hours" belongs to the race). The name keeps it distinct from the future user-directed Intentions concept (§35).
+
+## CA-3. Optimistic versioning is required for client updates
+- Inserts start at version 1.
+- Every app update must carry the version it read. On the wire it carries the version it writes (read + 1). A missing or stale version fails with 40001 rather than overwriting newer state.
+- Screens never manage this. The Checkpoint B repository carries versions automatically.
+- Server-side functions, jobs and trigger cascades own their concurrency and simply bump the version. "Version omitted = last write wins" is not a generic update path.
+
+## CA-4. Provenance offsets
+- Spans are Unicode **code points**, end-exclusive, into captured text stored in **NFC** (database CHECK).
+- There is one implementation for the app and the gateway: `supabase/functions/_shared/spans.ts`.
+- The gateway derives offsets by locating the model's exact evidence text. It never trusts model-supplied indexes. Missing or ambiguous evidence means no span, and so no item.
+- Shared test vectors (emoji, accents, CJK, curly punctuation, multiline) are asserted in Postgres, Deno and Jest.
+
+## CA-5. Birthday provenance
+- Birthdays may live on `people` and stay exempt from `reason_evidence`, but not from provenance. `people.birthday_source` is `contacts` · `capture` (with `birthday_capture_id`) · `user_edit`.
+- A birthday cannot exist without a source.
+- An app edit becomes `user_edit`.
+- Deleting the source capture removes a capture-sourced birthday.
+- A birthday reason requires a birthday with a known source.
+
+## CA-6. Sync: overlap window plus reconciliation
+- Checkpoint B uses the overlap-window pull with `(id, version)` de-duplication.
+- It also runs a periodic wider reconciliation pull, so correctness doesn't depend on every transaction committing inside the overlap window.
+- A client offline longer than tombstone retention (30 days) does a full resync.
+
+## CA-7. Remaining §3 deviations approved
+Approved:
+- the normalized `reason_evidence`;
+- the capture and user time-zone fields;
+- the expanded reason-type vocabulary;
+- gateway-only extracted writes;
+- the consent ledger with SECURITY DEFINER `set_ai_consent`.
+
+The last is approved provided every SECURITY DEFINER function pins a safe `search_path`, derives identity from `auth.uid()`, and is not executable by `anon` or `PUBLIC`. These are proven by `54_v2_amendments.test.sql`, which covers every such function, not just this one.
+
+## CA-8. Feature flags
+All 2.0 flags stay **off** by default. Internal and developer overrides (`user_flag_overrides`) may be enabled as each capability is built and tested.
+
+## CA-9. Production migration incident: keep, and restrict deployment to `main`
+- The additive migrations applied early stay; they are not rolled back.
+- **Operational invariant (OPS-1):** the Supabase GitHub integration's production branch is `main` and only `main`. Every schema change reaches production through a reviewed, CI-protected PR merged to `main`, and never from a working branch or by hand.
+- Before pushing migration files from any new environment or integration, check where that integration deploys.

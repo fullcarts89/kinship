@@ -17,7 +17,7 @@ END $$;
 
 -- ── Typed detail per kind ───────────────────────────────────────────────
 SELECT ok(public.memory_detail_ok('event',
-  '{"date": "2026-10-11", "date_precision": "day", "event_type": "race", "followup_policy": "after", "goal": "under four hours"}'),
+  '{"date": "2026-10-11", "date_precision": "day", "event_type": "race", "followup_policy": "after", "event_goal": "under four hours"}'),
   'event: Ben runs Chicago Sunday, goal under four hours');
 SELECT ok(NOT public.memory_detail_ok('event', '{"date_precision": "day", "event_type": "race"}'),
   'event: followup_policy is required');
@@ -52,8 +52,9 @@ SELECT ok(NOT public.memory_detail_ok('rhythm', '{}'), 'rhythm is not a stored k
 
 -- ── Subject semantics and uncertainty ───────────────────────────────────
 SELECT tests.as_user(:A);
+INSERT INTO public.people (id, display_name, birthday, birthday_source) VALUES
+  ('00000000-0000-0000-0000-000000001301', 'Sarah', '1990-03-14', 'contacts');
 INSERT INTO public.people (id, display_name) VALUES
-  ('00000000-0000-0000-0000-000000001301', 'Sarah'),
   ('00000000-0000-0000-0000-000000001302', 'Mike');
 INSERT INTO public.related_people (id, person_id, relation)
   VALUES ('00000000-0000-0000-0000-000000001303', '00000000-0000-0000-0000-000000001301', 'sister');
@@ -99,7 +100,7 @@ SELECT lives_ok($$ SELECT pg_temp.at_commit($s$
 SELECT ok((SELECT status = 'superseded' AND valid_to IS NOT NULL AND deleted_at IS NULL
            FROM public.memory_items WHERE id = '00000000-0000-0000-0000-000000001306'),
   'the older fact is superseded, dated, and kept as history');
-SELECT throws_ok($$ UPDATE public.memory_items SET supersedes_id = '00000000-0000-0000-0000-000000001307'
+SELECT throws_ok($$ UPDATE public.memory_items SET supersedes_id = '00000000-0000-0000-0000-000000001307', version = version + 1
   WHERE id = '00000000-0000-0000-0000-000000001306' $$,
   '23514', NULL, 'superseding cannot form a loop (the old fact cannot supersede its replacement)');
 SELECT tests.reset_role();
@@ -128,7 +129,7 @@ SELECT throws_ok(format($$ SELECT pg_temp.at_commit($s$
 SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$
   INSERT INTO public.reasons (user_id, person_id, type, window_start, window_end, dedupe_key)
   VALUES (%L, '00000000-0000-0000-0000-000000001301', 'birthday', now(), now() + interval '1 day', 'bday') $s$) $$, :A),
-  'a birthday reason needs no memory evidence');
+  'a birthday reason needs no memory evidence (its provenance is people.birthday_source)');
 SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$
   INSERT INTO public.reasons (id, user_id, person_id, type, window_start, window_end, dedupe_key)
   VALUES ('00000000-0000-0000-0000-000000001310', %1$L, '00000000-0000-0000-0000-000000001301', 'hard_time',
@@ -143,11 +144,11 @@ INSERT INTO public.reason_events (reason_id, event, surface) VALUES ('00000000-0
 INSERT INTO public.reason_events (reason_id, event, channel) VALUES ('00000000-0000-0000-0000-000000001310', 'acted', 'text');
 SELECT is((SELECT state FROM public.reasons WHERE id = '00000000-0000-0000-0000-000000001310'), 'acted',
   'opening a channel marks the reason acted, not done');
-SELECT throws_ok($$ INSERT INTO public.connections (person_id, channel, source)
+SELECT throws_ok($$ INSERT INTO public.contact_events (person_id, channel, source)
   VALUES ('00000000-0000-0000-0000-000000001301', 'text', 'return_check') $$,
   '23514', NULL, 'a return-check contact must name its reason');
 INSERT INTO public.reason_events (reason_id, event) VALUES ('00000000-0000-0000-0000-000000001310', 'return_yes');
-INSERT INTO public.connections (person_id, channel, source, reason_id)
+INSERT INTO public.contact_events (person_id, channel, source, reason_id)
   VALUES ('00000000-0000-0000-0000-000000001301', 'text', 'return_check', '00000000-0000-0000-0000-000000001310');
 SELECT is((SELECT state FROM public.reasons WHERE id = '00000000-0000-0000-0000-000000001310'), 'done',
   'only the return check''s yes makes it done');
@@ -163,19 +164,20 @@ INSERT INTO public.reasons (id, user_id, person_id, type, window_start, window_e
 INSERT INTO public.reason_evidence (reason_id, memory_item_id, user_id)
   VALUES ('00000000-0000-0000-0000-000000001311', '00000000-0000-0000-0000-000000001307', :A);
 SELECT tests.as_user(:A);
-UPDATE public.memory_items SET status = 'retracted', deleted_at = now()
+UPDATE public.memory_items SET status = 'retracted', deleted_at = now(), version = version + 1
   WHERE id = '00000000-0000-0000-0000-000000001307';
 SELECT is((SELECT state FROM public.reasons WHERE id = '00000000-0000-0000-0000-000000001311'), 'suppressed',
   '"Not this" on the evidence suppresses the reason');
 
 -- D13: pausing a person silences them; no new reasons while paused.
-INSERT INTO public.people (id, display_name) VALUES ('00000000-0000-0000-0000-000000001312', 'Dad');
+INSERT INTO public.people (id, display_name, birthday, birthday_source)
+  VALUES ('00000000-0000-0000-0000-000000001312', 'Dad', '1958-06-02', 'user_edit');
 SELECT tests.reset_role();
 INSERT INTO public.reasons (id, user_id, person_id, type, window_start, window_end, dedupe_key)
   VALUES ('00000000-0000-0000-0000-000000001313', :A, '00000000-0000-0000-0000-000000001312', 'birthday',
           now(), now() + interval '1 day', 'dad-bday');
 SELECT tests.as_user(:A);
-UPDATE public.people SET state = 'remembered' WHERE id = '00000000-0000-0000-0000-000000001312';
+UPDATE public.people SET state = 'remembered', version = version + 1 WHERE id = '00000000-0000-0000-0000-000000001312';
 SELECT tests.reset_role();
 SELECT is((SELECT state FROM public.reasons WHERE id = '00000000-0000-0000-0000-000000001313'), 'suppressed',
   'marking a person remembered suppresses their open reasons (even birthdays)');
@@ -197,7 +199,7 @@ SELECT lives_ok($$ SELECT pg_temp.at_commit($s$
   INSERT INTO public.memory_item_sources (memory_item_id, capture_id, source_kind, span_start, span_end) VALUES
     ('00000000-0000-0000-0000-000000001315', '00000000-0000-0000-0000-000000001314', 'capture', 0, 29),
     ('00000000-0000-0000-0000-000000001316', '00000000-0000-0000-0000-000000001314', 'capture', 0, 29);
-  UPDATE public.people SET deleted_at = now() WHERE id = '00000000-0000-0000-0000-000000001301';
+  UPDATE public.people SET deleted_at = now(), version = version + 1 WHERE id = '00000000-0000-0000-0000-000000001301';
   $s$) $$, 'deleting Sarah passes the commit checks');
 SELECT ok((SELECT bool_and(deleted_at IS NOT NULL) FROM public.memory_items
            WHERE person_id = '00000000-0000-0000-0000-000000001301'), 'all of Sarah''s memories are deleted');
@@ -208,7 +210,7 @@ SELECT ok((SELECT deleted_at IS NOT NULL FROM public.captures WHERE id = '000000
 SELECT ok((SELECT deleted_at IS NULL FROM public.captures WHERE id = '00000000-0000-0000-0000-000000001314')
       AND (SELECT deleted_at IS NULL FROM public.memory_items WHERE id = '00000000-0000-0000-0000-000000001316'),
   'a mixed capture and Mike''s memory from it remain');
-SELECT ok((SELECT bool_and(deleted_at IS NOT NULL) FROM public.connections
+SELECT ok((SELECT bool_and(deleted_at IS NOT NULL) FROM public.contact_events
            WHERE person_id = '00000000-0000-0000-0000-000000001301'), 'contacts logged with Sarah are deleted');
 SELECT tests.reset_role();
 

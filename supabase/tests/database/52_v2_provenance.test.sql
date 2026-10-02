@@ -34,7 +34,7 @@ SELECT lives_ok($$ SELECT pg_temp.at_commit($s$
   VALUES ('00000000-0000-0000-0000-000000001203', 'event', '00000000-0000-0000-0000-000000001201',
           'Ben runs the Chicago Marathon on Sunday',
           '{"date": "2026-10-11", "date_precision": "day", "event_type": "race",
-            "followup_policy": "after", "goal": "under four hours"}', 'user', 'user_authored');
+            "followup_policy": "after", "event_goal": "under four hours"}', 'user', 'user_authored');
   INSERT INTO public.memory_item_sources (memory_item_id, capture_id, source_kind, span_start, span_end)
   VALUES ('00000000-0000-0000-0000-000000001203', '00000000-0000-0000-0000-000000001202', 'capture', 0, 23);
   $s$) $$, 'an item written with its source passes the commit check');
@@ -58,12 +58,12 @@ SELECT throws_ok($$ INSERT INTO public.memory_item_sources (memory_item_id, sour
 
 -- ── The last live source can't be removed from a live item ─────────────
 SELECT throws_ok($$ SELECT pg_temp.at_commit($s$
-  UPDATE public.memory_item_sources SET deleted_at = now()
+  UPDATE public.memory_item_sources SET deleted_at = now(), version = version + 1
   WHERE memory_item_id = '00000000-0000-0000-0000-000000001203' $s$) $$,
   '23514', NULL, 'removing an item''s only source is rejected at commit');
 
 -- ── Captured text is never rewritten ────────────────────────────────────
-SELECT throws_ok($$ UPDATE public.captures SET raw_text = 'Ben runs Boston Sunday.'
+SELECT throws_ok($$ UPDATE public.captures SET raw_text = 'Ben runs Boston Sunday.', version = version + 1
   WHERE id = '00000000-0000-0000-0000-000000001202' $$,
   '42501', NULL, 'captured text cannot be rewritten');
 
@@ -90,7 +90,7 @@ SELECT lives_ok($$ SELECT pg_temp.at_commit($s$
   VALUES ('00000000-0000-0000-0000-000000001204', '00000000-0000-0000-0000-000000001202', 'capture', 25, 56);
   INSERT INTO public.memory_item_sources (memory_item_id, source_kind)
   VALUES ('00000000-0000-0000-0000-000000001203', 'user_edit');
-  UPDATE public.memory_items SET user_state = 'edited', statement = 'Ben runs the Chicago Marathon on Sunday, Oct 11'
+  UPDATE public.memory_items SET version = version + 1, user_state = 'edited', statement = 'Ben runs the Chicago Marathon on Sunday, Oct 11'
   WHERE id = '00000000-0000-0000-0000-000000001203';
   $s$) $$, 'a second item and a user edit are recorded');
 
@@ -98,17 +98,17 @@ SELECT is((SELECT count(*)::int FROM public.memory_item_history WHERE memory_ite
   1, 'the edit kept the previous version for Undo');
 
 -- Purge the capture text (retention "delete after extraction").
-UPDATE public.captures SET raw_text = NULL WHERE id = '00000000-0000-0000-0000-000000001202';
+UPDATE public.captures SET raw_text = NULL, version = version + 1 WHERE id = '00000000-0000-0000-0000-000000001202';
 SELECT ok((SELECT raw_text IS NULL AND raw_text_purged_at IS NOT NULL FROM public.captures),
   'capture text can be purged');
 SELECT is((SELECT quote FROM public.memory_item_sources WHERE memory_item_id = '00000000-0000-0000-0000-000000001204'),
   'He''s hoping to break four hours', 'quotes survive the purge, so the Source view still works');
-SELECT throws_ok($$ UPDATE public.captures SET raw_text = 'restored' $$,
+SELECT throws_ok($$ UPDATE public.captures SET raw_text = 'restored', version = version + 1 $$,
   '42501', NULL, 'purged text cannot be put back');
 
 -- Delete the capture.
 SELECT lives_ok($$ SELECT pg_temp.at_commit($s$
-  UPDATE public.captures SET deleted_at = now() WHERE id = '00000000-0000-0000-0000-000000001202' $s$) $$,
+  UPDATE public.captures SET deleted_at = now(), version = version + 1 WHERE id = '00000000-0000-0000-0000-000000001202' $s$) $$,
   'deleting the capture passes the commit check');
 SELECT ok((SELECT deleted_at IS NOT NULL FROM public.memory_items WHERE id = '00000000-0000-0000-0000-000000001204'),
   'an item whose only source was the capture is deleted with it');

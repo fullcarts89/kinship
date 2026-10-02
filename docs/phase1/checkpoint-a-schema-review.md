@@ -1,6 +1,6 @@
 # Phase 1 · Checkpoint A: schema and domain model, for review
 
-**Status:** written and tested. **Stopped for founder/architecture review** (Phase 1 execution model, A).
+**Status:** **approved by the founder on 2 Oct 2026, with amendments CA-1–CA-9** (`KINSHIP_2_DECISIONS.md`). The amendments are implemented in `20261002230000_v2_review_amendments.sql` and `54_v2_amendments.test.sql`. Where this document still says `connections` or `goal`, read `contact_events` and `event_goal`; where it says "leaving `version` out = last write wins", that path is now rejected (CA-3).
 
 **What's been applied:** the first four migrations reached production early through the Supabase GitHub integration (§7). They are empty and unused.
 

@@ -31,7 +31,7 @@ BEGIN
     VALUES (r, u, p, 'event_followup', now(), now() + interval '1 day', 'followup:' || i);
   INSERT INTO public.reason_evidence (reason_id, memory_item_id, user_id) VALUES (r, i, u);
   INSERT INTO public.reason_events (user_id, reason_id, event) VALUES (u, r, 'shown');
-  INSERT INTO public.connections (user_id, person_id, channel, source, reason_id)
+  INSERT INTO public.contact_events (user_id, person_id, channel, source, reason_id)
     VALUES (u, p, 'text', 'return_check', r);
   INSERT INTO public.consents (user_id, scope, granted, version) VALUES (u, 'ai_processing', true, 1);
   INSERT INTO public.devices (id, user_id, platform, push_token) VALUES (d, u, 'ios', 'tok-' || u);
@@ -77,7 +77,7 @@ SELECT tests.as_service();
 SELECT is(
   (public.delete_user_account(:A) -> 'tables')::jsonb,
   '{"ai_usage": 1, "interactions": 1, "memories": 1, "persons": 1, "promises": 1, "season_commitments": 1,
-    "seasons": 1, "user_settings": 1, "captures": 1, "connections": 1, "consents": 1, "devices": 1,
+    "seasons": 1, "user_settings": 1, "captures": 1, "contact_events": 1, "consents": 1, "devices": 1,
     "memory_item_history": 1, "memory_item_sources": 1, "memory_items": 1, "notification_log": 1,
     "people": 1, "person_identities": 1, "reason_events": 1, "reason_evidence": 1, "reasons": 1,
     "related_people": 1, "user_flag_overrides": 1}'::jsonb,
