@@ -31,7 +31,7 @@ export function expoPlatform(): DevicePlatform {
         throw new EncryptionCheckFailed("the key does not open this file");
       }
       await db.execAsync("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
-      return wrap(db);
+      return wrapKeyedConnection(db);
     },
     async deleteFile(fileName) {
       try {
@@ -58,26 +58,50 @@ export function expoPlatform(): DevicePlatform {
   };
 }
 
-type ExpoDb = Awaited<ReturnType<typeof import("expo-sqlite").openDatabaseAsync>>;
+type ExpoDb = Pick<
+  Awaited<ReturnType<typeof import("expo-sqlite").openDatabaseAsync>>,
+  "runAsync" | "getAllAsync" | "getFirstAsync" | "execAsync" | "closeAsync"
+>;
 
-function wrap(db: ExpoDb): SqlDb {
-  const exec = (target: Pick<ExpoDb, "runAsync" | "getAllAsync" | "getFirstAsync">): SqlExecutor => ({
+/**
+ * Wraps one keyed connection. Transactions run on THAT connection with
+ * explicit BEGIN/COMMIT: expo-sqlite's withExclusiveTransactionAsync opens a
+ * second connection, which never receives the SQLCipher key (and is rightly
+ * refused). Writes are queued so no statement lands inside another caller's
+ * open transaction.
+ */
+export function wrapKeyedConnection(db: ExpoDb): SqlDb {
+  let queue: Promise<unknown> = Promise.resolve();
+  const serial = <T>(task: () => Promise<T>): Promise<T> => {
+    const p = queue.then(task, task);
+    queue = p.catch(() => undefined);
+    return p;
+  };
+  const direct: SqlExecutor = {
     async run(sql, params: SqlValue[] = []) {
-      await target.runAsync(sql, params);
+      await db.runAsync(sql, params);
     },
-    all: <T>(sql: string, params: SqlValue[] = []) => target.getAllAsync<T>(sql, params),
-    get: <T>(sql: string, params: SqlValue[] = []) => target.getFirstAsync<T>(sql, params),
-  });
+    all: <T>(sql: string, params: SqlValue[] = []) => db.getAllAsync<T>(sql, params),
+    get: <T>(sql: string, params: SqlValue[] = []) => db.getFirstAsync<T>(sql, params),
+  };
   return {
-    ...exec(db),
-    exec: (sql) => db.execAsync(sql),
-    async transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
-      let result!: T;
-      await db.withExclusiveTransactionAsync(async (txn) => {
-        result = await fn(exec(txn));
+    run: (sql, params) => serial(() => direct.run(sql, params)),
+    all: <T>(sql: string, params?: SqlValue[]) => serial(() => direct.all<T>(sql, params)),
+    get: <T>(sql: string, params?: SqlValue[]) => serial(() => direct.get<T>(sql, params)),
+    exec: (sql) => serial(() => db.execAsync(sql)),
+    transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
+      return serial(async () => {
+        await db.execAsync("BEGIN IMMEDIATE;");
+        try {
+          const result = await fn(direct);
+          await db.execAsync("COMMIT;");
+          return result;
+        } catch (err) {
+          await db.execAsync("ROLLBACK;").catch(() => undefined);
+          throw err;
+        }
       });
-      return result;
     },
-    close: () => db.closeAsync(),
+    close: () => serial(() => db.closeAsync()),
   };
 }

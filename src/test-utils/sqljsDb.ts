@@ -57,14 +57,23 @@ export async function openSqlJsDb(name?: string): Promise<SqlDb & { persist(): v
     },
   };
 
+  // Same semantics as the device wrapper (wrapKeyedConnection): every
+  // statement and transaction is queued on one connection, so code that
+  // touches the outer db from inside a transaction deadlocks here too.
+  const serial = <T>(task: () => Promise<T>): Promise<T> => {
+    const p = queue.then(task, task);
+    queue = p.catch(() => undefined);
+    return p;
+  };
   const db: SqlDb & { persist(): void } = {
-    ...exec,
-    async exec(sql) {
+    run: (sql, params) => serial(() => exec.run(sql, params)),
+    all: <T>(sql: string, params?: SqlValue[]) => serial(() => exec.all<T>(sql, params)),
+    get: <T>(sql: string, params?: SqlValue[]) => serial(() => exec.get<T>(sql, params)),
+    exec: (sql) => serial(async () => {
       raw.exec(sql);
-    },
+    }),
     transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
-      // Serialise transactions like expo-sqlite's exclusive transactions.
-      const run = async (): Promise<T> => {
+      return serial(async () => {
         if (inTx) throw new Error("nested transaction");
         inTx = true;
         raw.run("BEGIN");
@@ -78,15 +87,12 @@ export async function openSqlJsDb(name?: string): Promise<SqlDb & { persist(): v
         } finally {
           inTx = false;
         }
-      };
-      const p = queue.then(run, run);
-      queue = p.catch(() => undefined);
-      return p;
+      });
     },
-    async close() {
+    close: () => serial(async () => {
       if (name) memoryFiles.set(name, raw.export());
       raw.close();
-    },
+    }),
     persist() {
       if (name) memoryFiles.set(name, raw.export());
     },
