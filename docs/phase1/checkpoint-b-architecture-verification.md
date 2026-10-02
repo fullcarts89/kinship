@@ -74,3 +74,12 @@ device: one SQLCipher file per user (kinship-<uid>.db), key in SecureStore
 ## 5. Schema change in this checkpoint
 
 `20261003090000_v2_write_memory_item.sql` adds one function and changes no table. Provenance is checked at commit, but each REST request is its own transaction, so an item and its first source need one call. It is SECURITY INVOKER, not callable by anon, insert-only and idempotent. It deploys only when the Checkpoint B PR is merged to `main` (OPS-1).
+
+## 6. Merged and verified (2 Oct 2026)
+
+- Merged as [fullcarts89/kinship#9](https://github.com/fullcarts89/kinship/pull/9) (merge commit `7c60ffe`), with CI green on `main`.
+- The integration deployed `write_memory_item` at 22:16 UTC.
+- Production has 19 migrations, and its schema fingerprint is identical to a fresh build of `main` (`da13bfe7…`).
+- **Still open:**
+  - the SQLCipher check on a physical device (§4);
+  - the conflict-policy confirmation (§3).
