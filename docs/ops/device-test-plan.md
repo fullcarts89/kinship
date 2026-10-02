@@ -84,3 +84,45 @@ Run on a real iPhone, using an EAS development build pointed at production Supab
 |---|---|---|---|
 | H1 | Trigger the test crash (a dev-only button, added when the DSN is set) after typing a note mentioning a person | — | |
 | H2 | In Sentry, open the event and read every field: message, breadcrumbs, contexts, tags, user | None of: note text, contact or person names, email, device name, AI input or output, relationship data | |
+
+---
+
+# Checkpoint B: encrypted store (2.0) on a real iPhone
+
+A focused pass on the 2.0 local store. It is not a repeat of A–H above. Use an EAS development build made from `main` after the Checkpoint B closeout PR. The screen is **Settings → About → "2.0 store check (dev only)"**, which only exists in development builds. Buttons are numbered; each logs a line with PASS/FAIL or the values it saw.
+
+## B1. Encryption actually exists
+
+| # | Step | Expected | Result |
+|---|---|---|---|
+| B1.1 | Sign in, open the store check, tap **1 Status** | `SQLCipher 4.x…` (not "NOT ACTIVE"); the file header is NOT `SQLite format 3` | |
+| B1.2 | Tap **2 Write a check note**, then **1 Status** | check notes 1, pending writes ≥ 1 | |
+| B1.3 | Force-quit Kinship, relaunch, reopen the store check, tap **1 Status** | The same check note is still there (it was read back through the key) | |
+| B1.4 | Tap **3 Open without key** | PASS: refused ("file is not a database") | |
+| B1.5 | Tap **4 Open with wrong key** | PASS: refused | |
+
+## B2. Offline durability and exactly-once sync
+
+| # | Step | Expected | Result |
+|---|---|---|---|
+| B2.1 | Airplane mode on **and Wi-Fi off**. Tap **2 Write a check note** | Saved locally instantly | |
+| B2.2 | Force-quit, relaunch (still offline), tap **1 Status** | The note is there; pending writes ≥ 1 | |
+| B2.3 | Tap **5 Sync now** while offline | `"offline":true`, nothing lost | |
+| B2.4 | Network back on. Tap **5 Sync now**, then **6 Server copies** | Sync reports pushes; **exactly 1** server copy of the note | |
+| B2.5 | Tap **5 Sync now** again, then **6** | Still exactly 1 (retries never duplicate) | |
+
+## B3. Missing key fails safely
+
+| # | Step | Expected | Result |
+|---|---|---|---|
+| B3.1 | Tap **7 Simulate lost key** | PASS: a new empty store; nothing of the old file was read | |
+| B3.2 | Tap **5 Sync now**, then **1 Status** | The note comes back from the server (rebuilt from the source of truth) | |
+
+## B4. Account switch smoke test (the new store only)
+
+| # | Step | Expected | Result |
+|---|---|---|---|
+| B4.1 | As account A, tap **1 Status**; note the first 8 characters of A's user id (shown at the top) | — | |
+| B4.2 | Sign out. Sign in as account B. Open the store check, tap **1 Status** | files: only B's (not A's id); check notes 0 | |
+| B4.3 | Type A's full user id (from Supabase → Authentication → Users) into the field, tap **9 Check** | PASS: no key for that account on this device | |
+| B4.4 | Clean up: as each account, tap **8 Remove check notes**, then **5 Sync now** | — | |

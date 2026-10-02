@@ -64,6 +64,11 @@ fullcarts89/kinship#8 to `main`, 2 Oct 2026 21:26 UTC):
 in a fresh build of the repository: md5 `7c84be27985576c12b93e2611a4a541d`.
 The security advisor lists only the two accepted SECURITY DEFINER warnings.
 
+Checkpoint B (fullcarts89/kinship#9, merged 2 Oct 2026 22:15 UTC, deployed by
+the integration at 22:16): `20261003090000_v2_write_memory_item` (SECURITY
+INVOKER). **Parity:** 19 migrations in both; fingerprint md5
+`da13bfe7f04a062ab521af626e60581a` in production and in a fresh build.
+
 **OPS-1 (operational invariant, CA-9):** migrations reach production only
 through a reviewed PR merged to `main`. The GitHub integration's production
 branch stays `main`; nobody applies schema changes by hand.
