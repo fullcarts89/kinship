@@ -68,18 +68,26 @@ Wired in 1.0 today: `consent_changed` (AI consent) and `deletion_completed` (acc
 
 ## PostHog project configuration
 
-These are set in the PostHog UI by the founder and recorded here when done:
+**Project:** "Kinship beta" (id 641171) in organization "Kinship", **US cloud**. The app's host is `https://us.i.posthog.com`.
 
-| Setting | Where | Required value | State |
+Applied 2 Oct 2026 through the PostHog API with a short-lived personal key, which was then deleted. Every value was read back from the API after the change. All of these were **on** by default, except IP anonymization and autocapture opt-out, which were off.
+
+| Setting | API field | Value | State |
 |---|---|---|---|
-| Region | Project creation | EU or US cloud; set `EXPO_PUBLIC_POSTHOG_HOST` to match (`https://eu.i.posthog.com` / `https://us.i.posthog.com`) | ☐ |
-| Discard client IP data | Project settings → General → IP data capture | **On** (PostHog then never stores the sender's IP) | ☐ |
-| Autocapture | Project settings → Autocapture | Off (the sink can't send autocapture events; keep it off anyway) | ☐ |
-| Session replay | Project settings → Session replay | Off (no replay code ships) | ☐ |
-| Heatmaps / web vitals / surveys | Project settings | Off | ☐ |
-| Person profiles | Project settings | "Identified only" (the sink never identifies) | ☐ |
-| Data retention | Organization → Billing / data retention | Shortest plan option (1 year on the free plan); revisit before launch | ☐ |
-| Project API key | Project settings | Into `EXPO_PUBLIC_POSTHOG_KEY` (EAS env; a public ingestion key, safe in the app) | ☐ |
+| Discard / anonymize client IPs | `anonymize_ips` | `true` | ✅ read back |
+| Autocapture | `autocapture_opt_out` | `true` (off) | ✅ |
+| Exception autocapture | `autocapture_exceptions_opt_in` | `false` | ✅ (Sentry handles errors) |
+| Web vitals | `autocapture_web_vitals_opt_in` | `false` | ✅ |
+| Console-log capture | `capture_console_log_opt_in` | `false` | ✅ |
+| Performance / network capture | `capture_performance_opt_in` | `false` | ✅ |
+| Dead clicks | `capture_dead_clicks` | `false` | ✅ |
+| Heatmaps | `heatmaps_opt_in` | `false` | ✅ |
+| Session replay | `session_recording_opt_in` | `false` | ✅ |
+| Surveys | `surveys_opt_in` | `false` | ✅ |
+| Person profiles | Not set at project level; every event sends `$process_person_profile: false` | — | ✅ by payload |
+| PostHog AI (sends analytics data to third-party LLMs) | Organization `is_ai_data_processing_approved` | Should be **false** | ❌ Still **true**. Founder: turn it off in Settings → Organization (the key had no organization write scope). |
+| Data retention | Organization / billing | Shortest available | ❌ Founder: billing page |
+| Project API key | — | Goes into `EXPO_PUBLIC_POSTHOG_KEY` as an EAS environment variable; a public ingestion key | Known; not committed |
 
 ## Turning it on and off
 
