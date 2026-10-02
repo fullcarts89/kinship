@@ -75,7 +75,7 @@ Run on a real iPhone, using an EAS development build pointed at production Supab
 |---|---|---|---|
 | G1 | Create a disposable account C with a person and a memory | — | |
 | G2 | Settings → Privacy & Data → Delete account | "Deleting…", then signed out and the device cleared | |
-| G3 | Try to sign in as C | Fails | |
+| G3 | Try to sign in as C | Fails with the generic "Invalid login credentials" (deliberately the same message as a wrong password, so the screen never reveals whether an account exists) | |
 | G4 | (Claude verifies) the server has 0 rows and no auth identity for C | Confirmed via SQL | |
 
 ## H. Sentry

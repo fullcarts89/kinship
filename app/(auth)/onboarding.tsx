@@ -7,6 +7,7 @@ import {
   TextInput as RNTextInput,
   Dimensions,
   ImageBackground,
+  type ImageSourcePropType,
   ScrollView,
   PanResponder,
 } from "react-native";
@@ -87,10 +88,12 @@ const slides: Slide[] = [
 ];
 
 // Warm full-bleed photos for the carousel (restored from the original design).
-const slideImages = [
-  "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=900&q=80",
-  "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?w=900&q=80",
-  "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=900&q=80",
+// Bundled, not hot-linked: loading them from Unsplash sent every new user's IP
+// to a third party before sign-in, and left the carousel blank offline.
+const slideImages: ImageSourcePropType[] = [
+  require("../../assets/images/onboarding/1529156069898-49953e39b3ac.jpg"),
+  require("../../assets/images/onboarding/1502086223501-7ea6ecd79368.jpg"),
+  require("../../assets/images/onboarding/1516589178581-6cd7833ae3b2.jpg"),
 ];
 
 // ─── Onboarding Screens Enum ────────────────────────────────────────────────
@@ -353,7 +356,7 @@ interface CarouselScreenProps {
 }
 
 /** One full-bleed slide photo that cross-fades in/out as the slide changes. */
-function CarouselSlideImage({ uri, visible }: { uri: string; visible: boolean }) {
+function CarouselSlideImage({ source, visible }: { source: ImageSourcePropType; visible: boolean }) {
   const opacity = useSharedValue(visible ? 1 : 0);
 
   useEffect(() => {
@@ -375,7 +378,7 @@ function CarouselSlideImage({ uri, visible }: { uri: string; visible: boolean })
         fadeStyle,
       ]}
     >
-      <ImageBackground source={{ uri }} style={{ flex: 1 }} resizeMode="cover" />
+      <ImageBackground source={source} style={{ flex: 1 }} resizeMode="cover" />
     </Animated.View>
   );
 }
@@ -417,8 +420,8 @@ function CarouselScreen({ insets, onNext }: CarouselScreenProps) {
       />
 
       {/* Full-bleed photos, cross-fading between slides */}
-      {slideImages.map((uri, i) => (
-        <CarouselSlideImage key={uri} uri={uri} visible={i === currentSlide} />
+      {slideImages.map((source, i) => (
+        <CarouselSlideImage key={i} source={source} visible={i === currentSlide} />
       ))}
 
       {/* Dark overlay on bottom for text legibility */}
