@@ -1332,6 +1332,35 @@ None of the three concepts is implemented until that checkpoint is reviewed.
 
 ---
 
+## 35. Post-validation product hypotheses: Intentions and the Opportunity Engine
+
+*Added 2 October 2026 at Thor's direction. These are future product hypotheses. They are not part of Phase 1, the vertical slice or V1, and must not inflate them. Like the Relationship Landscape (§34), they are explored only after the core loop is validated.*
+
+### Intentions (user-directed relationship focus)
+
+Users may explicitly say what they want, for example:
+
+- make more space for Chris;
+- reconnect with Maya;
+- keep the Austin group connected;
+- invest in our new parent friends;
+- actually take the Tahoe trip with David.
+
+These are **user-authored intentions, not Kinship judgments**.
+
+- **No** progress bars, streaks or goal-completion scores.
+- An intention should eventually change **relevance** (which reasons surface, and when), not generate guilt-driven reminders.
+
+### Opportunity Engine
+
+Kinship may eventually notice natural openings for connection by combining relationship memory, the user's intentions, shared context, relevant external events and timing.
+
+*Example:* the user wants to keep the Austin crew connected, and Kinship knows they watched Texas football together. Texas plays Michigan on Saturday, so Kinship might offer: "Texas plays Michigan Saturday. Good excuse to wake up the old game-day thread?"
+
+**Principle:** Kinship never searches the world at random for reasons to message people. External context is retrieved **only after** Kinship has a grounded hypothesis about what matters to this user and this relationship.
+
+---
+
 ## Sources
 
 - Product audit: "Kinship: Product, Codebase & AI Opportunity Audit" (Claude Doc, 30 Sep 2026), read in full including the quick-wins table and hard questions.

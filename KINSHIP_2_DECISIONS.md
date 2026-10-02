@@ -271,3 +271,155 @@ Where practical, use realistic pricing-choice exercises: for example, a simulate
 - **Only the user sets these states,** from the person's page. AI never infers them autonomously, and extraction never proposes them. A capture that mentions a death is labelled sensitive and handled with the usual confirmation. It does not change the person's state or prompt the user to change it.
 - **No proactive reasons** are generated for `paused` or `remembered` people. That includes birthdays. The exception is a specific memorial behaviour the user deliberately enables later.
 - Both states are reversible.
+
+---
+
+# Phase 0 closeout decisions (2 Oct 2026)
+
+Thor reviewed `KINSHIP_PHASE_0_REPORT.md` and approved the Phase 0 implementation, subject to the decisions and release gates below. **Phase 1 is authorized only after every Phase 0 exit gate passes**, and then only in checkpoints A–D followed by the vertical slice. See the Phase 1 execution model at the end of this section.
+
+## F0-D1. Photo handling on sign-out — APPROVED (transitional)
+
+The P0-15 behaviour stays:
+- An ordinary sign-out may keep that same account's local photos.
+- Another account claiming the device removes the prior account's photos.
+- Account deletion removes them.
+- No other signed-in account may ever see them.
+
+**Why:** Kinship 1.0 has no server copy of photos, so deleting them on sign-out could destroy memories permanently.
+
+This is **intentional transitional 1.0 behaviour, not a product principle.** Revisit it when 2.0 private Storage holds durable synced copies, and remove the special case if they make it unnecessary.
+
+## F0-D2. Email confirmation — APPROVED: ON
+
+If email/password stays a sign-in method, email ownership must be verified. Sign in with Apple remains the preferred path on iOS.
+
+Verify:
+- the confirmation flow;
+- that unconfirmed accounts can't sign in;
+- that Apple and Google sign-in are unaffected;
+- that account deletion still works.
+
+If a conflict appears, surface it before working around it.
+
+## F0-D3. Leaked-password protection — APPROVED: ON
+
+Then refresh the security advisors, confirm the warning is gone, and record it.
+
+## F0-D4. Analytics provider — APPROVED: PostHog for the beta
+
+PostHog is used only through the typed `track()` abstraction:
+
+product code → `track()` → analytics abstraction → PostHog sink
+
+Privacy requirements:
+- autocapture off;
+- session replay off;
+- IP capture disabled or anonymized as strongly as supported;
+- none of the following, ever: names, emails, phone numbers, note text, relationship content, free-form values, contact names, memory statements, AI prompts or outputs.
+
+No screen or feature code may call PostHog directly; a lint or structural guard enforces this.
+
+Document the events, their properties, the privacy and retention configuration, and how to disable the sink globally. **Do not enable product analytics until the configuration has been reviewed for accidental personal data.**
+
+## F0-D5. Sentry — APPROVED
+
+Configure Sentry and keep the Phase 0 scrubber:
+- PII off;
+- screenshots off;
+- tracing off unless separately approved;
+- user-authored messages redacted;
+- no relationship content;
+- breadcrumbs limited to the approved safe classes.
+
+Setup:
+- Set `EXPO_PUBLIC_SENTRY_DSN`, the organization and project config, and `SENTRY_AUTH_TOKEN` as a secret.
+- Enable source-map upload, and remove `SENTRY_DISABLE_AUTO_UPLOAD`, only once the configuration is valid.
+
+Then force a crash on a device. **Inspect the real event by hand.** Arrival alone is not completion: confirm it has no note text, contact names, email, device-owner name, AI input or output, or relationship data, and record the result.
+
+## F0-D6. Anthropic production key and source parity — APPROVED
+
+Set `ANTHROPIC_API_KEY`.
+
+Then:
+1. Deploy the exact repository version of `ai-insight`, using the shared auth module. Never hand-edit the deployed function.
+2. Re-run the auth, consent and quota probes.
+3. Make one legitimate consented call and confirm it returns 200.
+4. Confirm no user content is in the logs.
+5. Confirm quota accounting increments.
+
+**Invariant for Phase 1: what's deployed can be reproduced from `main`.** If production ever differs from the repo, stop and reconcile.
+
+## F0-D7. Remaining npm advisory — ACCEPTED TEMPORARILY
+
+The high-severity `image-size` advisory in Metro/Expo build tooling is accepted until the next appropriate Expo SDK upgrade:
+- it is not in the shipped runtime;
+- the fix requires a breaking dependency path.
+
+Keep it documented and keep CI's audit report-only for this item. Do **not** extend this exception to future unrelated high or critical runtime advisories.
+
+## F0-D8. CI protection — APPROVED
+
+Make the Phase 0 CI checks required for merging to `main`: TypeScript, lint, Jest, Deno check and tests, and pgTAP. Document the exact required checks. No agent should be able to merge around them casually.
+
+## F0-D9. Phase 0 merge — APPROVED after the final gates pass
+
+1. Bring the branch current with `main`.
+2. Resolve any conflicts carefully.
+3. Run the full CI again and review the final diff.
+4. Merge into `main`.
+5. Verify CI on `main`.
+6. Verify that production schema and functions match the merged repository.
+
+Phase 1 branches from the hardened `main`.
+
+## F0-D10. Stale branches — APPROVED to close after final verification
+
+Approved for closing, after confirming no unique work the 2.0 plan still needs:
+- `fervent-lovelace-szugz6`
+- `hormozi-value-research-s592G`
+- `review-kinship-history-P53d6`
+- `brave-cori-514h7d`
+- `wonderful-planck-inpeu9` (its AI hardening must already be in merged history)
+
+`tender-mendel` is reviewed separately and is not deleted just because it isn't on the list. `inspiring-ritchie` may be cleaned up if it has no unique commits. Keep a disposition record: `docs/ops/branch-disposition.md`.
+
+## Phase 1 execution model (authorized only after the Phase 0 exit gate)
+
+Phase 1 runs in checkpoints, each stopping for review where noted.
+
+- **A — Schema and domain model.**
+  - Produce the exact proposed migration and schema diff for the 2.0 domain: people, captures, related people, memory items and their sources, reasons, reason events, interactions, user settings, consents, devices, notification log, feature flags, AI usage.
+  - Validate: provenance, ownership, RLS, tombstones, `updated_at`, optimistic versioning, subject/person semantics, uncertainty, sensitivity, superseding, deletion, future sync.
+  - Write schema and RLS tests.
+  - **Stop for founder/architecture review before applying the major 2.0 schema to production.** The planning document alone is not approval of the final SQL.
+- **B — Local repository and sync.**
+  - Layering: screens → view-models/hooks → repositories → encrypted local store and outbox → sync engine → Supabase. UI code never merges local and remote data.
+  - Prove: per-user isolation, offline capture, idempotent writes, incremental pulls, tombstone propagation, conflict handling, sign-out cleanup, account switching, no demo identities.
+  - Produce an architecture verification summary before any broad UI migration.
+- **C — AI gateway and evaluation harness.**
+  - Narrow capabilities, not one giant prompt.
+  - Before relying on `relationship_extract`, evals must cover: wrong person, relatives, pronouns, tentative vs stated, reported information, plans vs dated events, promises, dates, sensitive information, hallucinated names, prompt injection, merging and superseding.
+  - *Silence beats a wrong personal detail.* Below threshold: ask more, save less, surface less. Never lower thresholds to look finished.
+  - Model changes follow D12.
+- **D — Quiet Herbarium foundations.**
+  - Tokens, typography, Moment, Row, Token, Tell, Sheet, Pill, and a basic Sprig.
+  - The sprig is **identity only**: no growth, recency, vitality, fading, health or ranking; `sprig_marks` stays off.
+  - No Garden, no Landscape.
+- **First vertical slice.** "Ben runs Chicago Sunday. He's hoping to break four hours." The slice runs end to end:
+  1. Raw capture.
+  2. Correct person and date.
+  3. Goal retained.
+  4. Provenance on every memory item.
+  5. Correction and source view.
+  6. A future reason candidate.
+  7. Today shows "Ben ran Chicago yesterday", with "His goal was under four hours".
+  8. Handoff to the real channel. Opening the channel alone does **not** count as contact; the return check confirms it.
+  9. New context flows back into Tell.
+
+  Not part of the slice: Garden, Landscape, voice, calendar, Siri, widget, share extension, reconnect, Ask Kinship, monthly reflection, payments.
+
+  Then **stop** and write `KINSHIP_PHASE_1_VERTICAL_SLICE_REPORT.md` for founder review.
+
+The first milestone is not "all planned screens exist". It is: *a user tells Kinship one meaningful thing, Kinship remembers it correctly, brings it back at the right moment, and helps the user show up.*
