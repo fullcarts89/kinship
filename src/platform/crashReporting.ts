@@ -31,3 +31,19 @@ export function startCrashReporting(): void {
 export function isCrashReportingEnabled(): boolean {
   return started;
 }
+
+/**
+ * Device privacy check for F0-D5 (dev builds only). Throws an unhandled
+ * error whose message and console breadcrumb deliberately contain a note,
+ * a name and an email, so the event that reaches Sentry can be inspected
+ * to confirm the scrubber removed them.
+ */
+export function sendPrivacyTestCrash(): void {
+  if (!__DEV__ || !started) return;
+  console.log('Saving note for Maya: "her biopsy came back and she is scared"');
+  setTimeout(() => {
+    throw new Error(
+      'Kinship privacy test crash: saving "Maya\'s biopsy came back" for thor@example.com'
+    );
+  }, 0);
+}

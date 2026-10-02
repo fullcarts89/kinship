@@ -86,7 +86,14 @@
           "defaultChannel": "default"
         }
       ],
-      "@sentry/react-native"
+      [
+        "@sentry/react-native",
+        {
+          "organization": "kinship-iy",
+          "project": "kinship",
+          "url": "https://sentry.io/"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

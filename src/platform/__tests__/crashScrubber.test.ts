@@ -83,3 +83,19 @@ it("drops console, UI and custom breadcrumbs at capture time", () => {
 it("caps messages at 200 characters", () => {
   expect(redactText("x".repeat(500))).toHaveLength(200);
 });
+
+it("the dev privacy test crash arrives with nothing private left", () => {
+  const scrubbed = scrubEvent({
+    exception: {
+      values: [
+        {
+          type: "Error",
+          value: 'Kinship privacy test crash: saving "Maya\'s biopsy came back" for thor@example.com',
+        },
+      ],
+    },
+    breadcrumbs: [{ category: "console", message: 'Saving note for Maya: "her biopsy came back and she is scared"' }],
+  });
+  expect(scrubbed.exception!.values![0].value).toBe("Kinship privacy test crash: saving [redacted] for [email]");
+  expect(scrubbed.breadcrumbs).toEqual([]);
+});

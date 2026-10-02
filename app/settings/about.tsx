@@ -26,6 +26,7 @@ import {
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { colors, fonts } from "@design/tokens";
 import { SmallGardenIllustration } from "@/components/illustrations";
+import { isCrashReportingEnabled, sendPrivacyTestCrash } from "@/platform/crashReporting";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 
@@ -345,6 +346,19 @@ export default function AboutScreen() {
             {"\uD83C\uDF3F"} Tend gently, grow deeply.
           </Text>
         </Animated.View>
+
+        {/* Dev builds only: F0-D5 Sentry privacy check (docs/ops/device-test-plan.md H) */}
+        {__DEV__ && isCrashReportingEnabled() ? (
+          <Pressable
+            onPress={sendPrivacyTestCrash}
+            accessibilityRole="button"
+            style={{ alignSelf: "center", marginTop: 24, padding: 12 }}
+          >
+            <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.warmGray }}>
+              Send Sentry privacy test crash (dev only)
+            </Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </View>
   );
