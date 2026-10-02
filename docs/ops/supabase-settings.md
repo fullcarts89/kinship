@@ -24,6 +24,7 @@ Dashboard. Keep this file current whenever one changes.
 | Redirect URLs | Authentication → URL Configuration | Includes `kinship://login` (confirmation links return to the app) | **Set** |
 | Sign in with Apple | Authentication → Sign In / Providers → Apple | Enabled; Client IDs = `com.zenroost.kinship`; no OAuth secret (native ID-token flow only) | **Set** (2 Oct 2026) |
 | Custom SMTP | Authentication → Emails → SMTP | Resend: `smtp.resend.com:465`, user `resend`, password = Resend API key (sending-only, zenroost.com); sender `Kinship <hello@zenroost.com>`; 60 s per-user interval | **Set** (2 Oct 2026). Domain zenroost.com verified in Resend: DKIM `resend._domainkey`, SPF via CNAMEs `send`/`rsend` → `*.forge.rmta.net`, DMARC `p=none`. The existing Google Workspace MX/SPF are unchanged. End-to-end delivery is proven by the device test's email sign-up. |
+| GitHub integration: production branch | Project Settings → Integrations → GitHub | **`main`**. Merging a reviewed PR to `main` is what deploys new migrations; no other branch may be production. | **`main`** (set by the founder 2 Oct 2026, 21:08 UTC). It had been `claude/gifted-pasteur-e2q0qu`, which let a push of the Checkpoint A migrations apply them to production before review (see `docs/phase1/checkpoint-a-schema-review.md` §7). |
 | Auth DB connections | Settings → Database → Auth pool | Percentage-based (performance advisor, INFO) | Absolute (10) |
 
 ## Advisor state after Phase 0 (2026-10-01)
@@ -37,6 +38,11 @@ Security:
   table itself can't be written by users. Proven in
   `supabase/tests/database/10_ai_usage.sql`.
 
+- `authenticated_security_definer_function_executable` (WARN) on
+  `public.set_ai_consent` (since Checkpoint A): **accepted by design.** It
+  writes the caller's own consent and the append-only consent ledger, which
+  users can't write directly. It acts only on `auth.uid()`.
+
 Performance (INFO only): two unindexed foreign keys on `season_commitments`,
 and six unused indexes. Both are left alone: the 2.0 schema replaces these
 tables.
@@ -46,6 +52,12 @@ tables.
 `20260615161700` … `20260615161830` (baseline, renamed to timestamps in
 P0-11), `20261001090000_ai_usage`, `20261001100000_user_settings_ai_consent`,
 `20261001110000_rls_hardening`, `20261001120000_delete_user_account`.
+
+Kinship 2.0 (Checkpoint A), applied 2 Oct 2026 21:01 UTC by the GitHub
+integration (early; see the review doc): `20261002210000_v2_foundation`,
+`20261002210100_v2_captures_memory`, `20261002210200_v2_reasons_connections`,
+`20261002210300_v2_platform`. Pending, deploys on merge to `main`:
+`20261002220000_v2_supersede_cycles`.
 
 ## Deployed edge functions
 

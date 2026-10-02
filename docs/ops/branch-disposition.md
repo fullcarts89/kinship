@@ -19,3 +19,10 @@ Deletion happens only after Phase 0 is merged and CI is green on `main`.
 | `claude/review-kinship-history-P53d6` | 6 (incl. the Hormozi commit): push wiring, data export, memory `occurred_at`, `STATE.md` notes (Mar 2026) | No. These are 1.0 features that later work re-implemented differently (`occurred_at` and export exist on `main`). | Only on this branch | **Close**, with an `archive/` tag first |
 | `claude/tender-mendel-j53wd7` | 2: an earlier, parallel attempt at P0-02/03/05 (demo-data removal, account-scoped local data, real deletion; 30 Sep 2026) | Superseded. Phase 0 implements the same design (wipe only on a definite SIGNED_OUT, persistent device owner, real server deletion) with tests and production proof. Nothing to port. | Only on this branch | **Founder decision:** recommend close with an `archive/` tag. Not deleted until confirmed (per F0-D10). |
 | `claude/gifted-pasteur-e2q0qu` | Phase 0 | Yes | Becomes `main` | Delete after the merge (standard branch cleanup) |
+
+## Outcome (2 Oct 2026)
+
+Done by the founder after the Phase 0 merge (`7c57259`), and verified with `git ls-remote`:
+
+- Tags `archive/fervent-lovelace-szugz6` (`20a2133`), `archive/hormozi-value-research-s592G` (`c8824cd`), `archive/review-kinship-history-P53d6` (`b7f0a10`) and `archive/tender-mendel-j53wd7` (`f4e740e`) point at the exact former branch tips.
+- The seven branches were deleted. The remote now has only `main` and `claude/gifted-pasteur-e2q0qu`, which is kept as Phase 1's working branch (it was reset onto `main` after the merge).
