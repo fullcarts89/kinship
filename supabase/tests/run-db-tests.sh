@@ -34,7 +34,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-"${RUNAS[@]}" "$PGBIN/initdb" -D "$DATA" -U postgres --auth=trust >/dev/null
+"${RUNAS[@]}" "$PGBIN/initdb" -D "$DATA" -U postgres --auth=trust -E UTF8 --locale=C >/dev/null
 "${RUNAS[@]}" "$PGBIN/pg_ctl" -D "$DATA" -o "-p $PORT -k /tmp -c listen_addresses=''" -l "$DATA/log" -w start >/dev/null
 
 PSQL=(env PGOPTIONS=--client-min-messages=warning psql -h /tmp -p "$PORT" -U postgres -v ON_ERROR_STOP=1 -q -X)

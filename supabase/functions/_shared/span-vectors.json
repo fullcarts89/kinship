@@ -1,0 +1,10 @@
+{
+  "comment": "Shared span test vectors: the same strings and code-point spans are asserted in Postgres (supabase/tests/database/54_v2_amendments.test.sql), Deno (spans.test.ts) and Jest (src/lib/__tests__/spans.test.ts).",
+  "cases": [
+    { "name": "emoji", "text": "Ben 🏃‍♂️ ran Chicago 🎉 in 3:58!", "quote": "ran Chicago 🎉", "start": 9, "end": 22, "codePoints": 31, "utf16": 33 },
+    { "name": "accents", "text": "Zoë's café in São Paulo opens Friday.", "quote": "São Paulo", "start": 14, "end": 23, "codePoints": 37, "utf16": 37 },
+    { "name": "cjk", "text": "陈伟下周日跑芝加哥马拉松，目标四小时内。", "quote": "芝加哥马拉松", "start": 6, "end": 12, "codePoints": 20, "utf16": 20 },
+    { "name": "curly", "text": "Ben said “I’ll break four hours” — fingers crossed.", "quote": "“I’ll break four hours”", "start": 9, "end": 32, "codePoints": 51, "utf16": 51 },
+    { "name": "multiline", "text": "Dinner notes:\nBen runs Chicago Sunday.\r\nHe's nervous.", "quote": "Ben runs Chicago Sunday.", "start": 14, "end": 38, "codePoints": 53, "utf16": 53 }
+  ]
+}

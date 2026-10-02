@@ -1,7 +1,7 @@
 -- P0-07: AI consent is server-side, defaults to off, versioned, revocable,
 -- and only ever written by its owner.
 BEGIN;
-SELECT plan(14);
+SELECT plan(15);
 
 SELECT tests.create_user('aaaaaaaa-0000-0000-0000-000000000001');
 SELECT tests.create_user('bbbbbbbb-0000-0000-0000-000000000002');
@@ -34,8 +34,10 @@ SELECT tests.reset_role();
 -- Another user can neither see nor change the first user's consent.
 SELECT tests.as_user('bbbbbbbb-0000-0000-0000-000000000002');
 SELECT is((SELECT count(*)::int FROM public.user_settings), 0, 'other users see nothing');
-UPDATE public.user_settings SET ai_consent = true
-  WHERE user_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+SELECT throws_ok(
+  $$ UPDATE public.user_settings SET ai_consent = true
+     WHERE user_id = 'aaaaaaaa-0000-0000-0000-000000000001' $$,
+  '42501', NULL, 'consent columns cannot be written directly (only through set_ai_consent)');
 SELECT throws_ok(
   $$ INSERT INTO public.user_settings (user_id, ai_consent)
      VALUES ('aaaaaaaa-0000-0000-0000-000000000001', true) $$,
