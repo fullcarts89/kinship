@@ -75,7 +75,7 @@
         "expo-calendar",
         {
           "calendarPermission": "Allow Kinship to check your calendar so it can gently suggest capturing memories after events with people in your garden.",
-          "remindersPermission": false
+          "remindersPermission": "Kinship doesn't read or change your reminders. iOS requires this description because Kinship's calendar support also covers reminders."
         }
       ],
       "expo-web-browser",

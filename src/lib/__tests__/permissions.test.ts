@@ -11,6 +11,11 @@ const IOS_USAGE_ALLOWLIST = [
   "NSCameraUsageDescription", // photos for memories
   "NSContactsUsageDescription", // import people (read only)
   "NSPhotoLibraryUsageDescription", // attach photos (read only)
+  // Never requested. expo-calendar refuses to load without these (it checks
+  // them on startup and crashes development builds), so they say plainly
+  // that Kinship doesn't use reminders. Found by the Phase 0 device test.
+  "NSRemindersFullAccessUsageDescription",
+  "NSRemindersUsageDescription",
 ].sort();
 
 const ANDROID_ALLOWLIST = [
@@ -46,9 +51,27 @@ it("iOS declares only the allowed usage descriptions", () => {
   expect(usage.sort()).toEqual(IOS_USAGE_ALLOWLIST);
 });
 
+it("the reminders descriptions say Kinship doesn't use reminders", () => {
+  for (const key of ["NSRemindersFullAccessUsageDescription", "NSRemindersUsageDescription"]) {
+    expect(String(config.ios.infoPlist[key])).toMatch(/^Kinship doesn't read or change your reminders/);
+  }
+});
+
+it("every calendar and reminders key expo-calendar checks at startup is present", () => {
+  // expo-calendar's iOS module checks these when it loads (iOS 17+ and older).
+  for (const key of [
+    "NSCalendarsFullAccessUsageDescription",
+    "NSCalendarsUsageDescription",
+    "NSRemindersFullAccessUsageDescription",
+    "NSRemindersUsageDescription",
+  ]) {
+    expect(config.ios.infoPlist[key]).toBeTruthy();
+  }
+});
+
 it("no iOS usage description is a generic plugin default", () => {
   for (const key of IOS_USAGE_ALLOWLIST) {
-    expect(String(config.ios.infoPlist[key])).toMatch(/^Allow Kinship to /);
+    expect(String(config.ios.infoPlist[key])).toMatch(/^(Allow Kinship to |Kinship doesn't )/);
   }
 });
 
@@ -61,4 +84,27 @@ it("Android requests only the allowed permissions", () => {
 
 it("Android blocks write and microphone permissions any library might add", () => {
   expect(config.android.blockedPermissions).toEqual(expect.arrayContaining(MUST_BE_BLOCKED));
+});
+
+it("the camera only takes still photos, so no microphone description is needed", () => {
+  // expo-image-picker requires NSMicrophoneUsageDescription when the CAMERA
+  // records video or Live Photos. Kinship's only camera path is photoPicker.
+  const fs = jest.requireActual<typeof import("fs")>("fs");
+  const src = fs.readFileSync(`${ROOT}/src/lib/photoPicker.ts`, "utf8");
+  expect(src).toMatch(/mediaTypes:\s*\["images"\]/);
+  const cameraCalls = execSync(`grep -rln "launchCameraAsync" app src --include=*.ts --include=*.tsx || true`, {
+    cwd: ROOT,
+    encoding: "utf8",
+  })
+    .split("\n")
+    .filter((f) => f && !f.includes("__tests__"));
+  expect(cameraCalls).toEqual(["src/lib/photoPicker.ts"]);
+});
+
+it("secure storage never asks for Face ID, so no Face ID description is needed", () => {
+  const out = execSync(`grep -rn "requireAuthentication" app src --include=*.ts --include=*.tsx || true`, {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  expect(out.split("\n").filter((l) => l && !l.includes("__tests__"))).toEqual([]);
 });
