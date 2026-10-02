@@ -21,7 +21,8 @@ Dashboard. Keep this file current whenever one changes.
 |---|---|---|---|
 | Email confirmation (F0-D2) | Authentication → Sign In / Providers → Email → "Confirm email" | On | **On** (2 Oct 2026) |
 | Redirect URLs | Authentication → URL Configuration | Includes `kinship://login` (confirmation links return to the app) | **Set** |
-| Custom SMTP | Authentication → Emails → SMTP | A provider (e.g. Resend, Postmark) before beta; the built-in mailer is rate-limited and for testing only | Not set |
+| Sign in with Apple | Authentication → Sign In / Providers → Apple | Enabled; Client IDs = `com.zenroost.kinship`; no OAuth secret (native ID-token flow only) | **Set** (3 Oct 2026) |
+| Custom SMTP | Authentication → Emails → SMTP | Resend: `smtp.resend.com:465`, user `resend`, password = Resend API key (sending-only, zenroost.com); sender `Kinship <hello@zenroost.com>`; 60 s per-user interval | **Set** (3 Oct 2026). Domain zenroost.com verified in Resend: DKIM `resend._domainkey`, SPF via CNAMEs `send`/`rsend` → `*.forge.rmta.net`, DMARC `p=none`. The existing Google Workspace MX/SPF are unchanged. End-to-end delivery is proven by the device test's email sign-up. |
 | Auth DB connections | Settings → Database → Auth pool | Percentage-based (performance advisor, INFO) | Absolute (10) |
 
 ## Advisor state after Phase 0 (2026-10-01)
