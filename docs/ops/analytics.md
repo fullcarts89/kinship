@@ -70,7 +70,7 @@ Wired in 1.0 today: `consent_changed` (AI consent) and `deletion_completed` (acc
 
 **Project:** "Kinship beta" (id 641171) in organization "Kinship", **US cloud**. The app's host is `https://us.i.posthog.com`.
 
-Applied 2 Oct 2026 through the PostHog API with a short-lived personal key, which was then deleted. Every value was read back from the API after the change. All of these were **on** by default, except IP anonymization and autocapture opt-out, which were off.
+Applied 2 Oct 2026 through the PostHog API with a short-lived personal key. The founder deleted it on 3 Oct, and it now returns 401. Every value was read back from the API after the change. All of these were **on** by default, except IP anonymization and autocapture opt-out, which were off.
 
 | Setting | API field | Value | State |
 |---|---|---|---|
@@ -85,8 +85,11 @@ Applied 2 Oct 2026 through the PostHog API with a short-lived personal key, whic
 | Session replay | `session_recording_opt_in` | `false` | ✅ |
 | Surveys | `surveys_opt_in` | `false` | ✅ |
 | Person profiles | Not set at project level; every event sends `$process_person_profile: false` | — | ✅ by payload |
-| PostHog AI (sends analytics data to third-party LLMs) | Organization `is_ai_data_processing_approved` | Should be **false** | ❌ Still **true**. Founder: turn it off in Settings → Organization (the key had no organization write scope). |
-| Data retention | Organization / billing | Shortest available | ❌ Founder: billing page |
+| PostHog features using third-party AI services | Organization → General | **Off** | ✅ founder, 3 Oct 2026 |
+| AI training on anonymized data | Organization → General | **Off** | ✅ founder, 3 Oct 2026 |
+| PostHog Desktop beta terms (extra processors) | Organization → General | Not accepted | ✅ |
+| IP data capture default (new projects) | Organization → General | On | ✅ founder, 3 Oct 2026 |
+| Data retention | Billing | Shortest available | Plan default: not configurable on the current plan (no retention option in Billing). Acceptable because events are content-free; revisit before launch. |
 | Project API key | — | Goes into `EXPO_PUBLIC_POSTHOG_KEY` as an EAS environment variable; a public ingestion key | Known; not committed |
 
 ## Turning it on and off
