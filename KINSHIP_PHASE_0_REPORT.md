@@ -62,7 +62,7 @@ Phase 0 made Kinship 1.0 trustworthy enough to build 2.0 on.
 | RLS | ✅ live | pgTAP `30_rls_isolation` (37; fails 11 checks without the migration); live cross-user probes |
 | Toolchain advisories | ⚠️ partly | Production dependencies went from 2 critical + 11 high to 0 critical + 1 high. That high (`image-size` in Metro) needs an Expo SDK upgrade (§9). |
 | CI green | ✅ | GitHub Actions runs 1–3 succeeded; the latest is [run 36943869502](https://github.com/fullcarts89/kinship/actions/runs/36943869502) at `cc13a5d` |
-| Scrubbed crash reporting | ✅ code / ⏳ live | `crashScrubber.test.ts` (6). It stays off until you set a Sentry DSN. |
+| Scrubbed crash reporting | ✅ | `crashScrubber.test.ts` (6), plus the live Sentry event inspected in §17 (H). |
 
 ---
 
