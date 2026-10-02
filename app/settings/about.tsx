@@ -349,6 +349,18 @@ export default function AboutScreen() {
             </Text>
           </Pressable>
         ) : null}
+        {/* Dev builds only: Checkpoint B encrypted-store check (docs/ops/device-test-plan.md) */}
+        {__DEV__ ? (
+          <Pressable
+            onPress={() => router.push("/settings/store-check")}
+            accessibilityRole="button"
+            style={{ alignSelf: "center", marginTop: 8, padding: 12 }}
+          >
+            <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.warmGray }}>
+              2.0 store check (dev only)
+            </Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </View>
   );

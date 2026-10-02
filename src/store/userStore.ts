@@ -240,8 +240,42 @@ export class UserStore {
     }));
   }
 
-  async resolveConflict(id: number): Promise<void> {
-    await this.db.run("UPDATE conflicts SET resolved_at = ? WHERE id = ?", [this.now(), id]);
+  /**
+   * The user's choice for an unresolved conflict (founder decision, Checkpoint B):
+   *   keep_current: the value already on the server stays;
+   *   use_mine:     the competing value is written as a normal, versioned edit.
+   * Either way the conflict, and any other open conflict on the same fields
+   * of the same row, is closed, so there is exactly one final state.
+   */
+  async resolveConflict(id: number, choice: "keep_current" | "use_mine"): Promise<void> {
+    const conflict = (await this.conflicts()).find((c) => c.id === id);
+    if (!conflict) throw new StoreWriteError("that choice was already made");
+    if (choice === "use_mine") {
+      if (conflict.reason !== "concurrent_edit") {
+        throw new StoreWriteError("this change can't be applied; only keeping the current value is possible");
+      }
+      const current = await this.get(conflict.tbl, conflict.row_id);
+      if (!current) throw new StoreWriteError("that item no longer exists");
+      await this.update(conflict.tbl, conflict.row_id, conflict.local_patch);
+    }
+    const fields = new Set(Object.keys(conflict.local_patch));
+    const now = this.now();
+    await this.db.transaction(async (tx) => {
+      for (const other of await this.conflictsFor(tx, conflict.tbl, conflict.row_id)) {
+        if (other.id === id || Object.keys(other.local_patch).some((f) => fields.has(f))) {
+          await tx.run("UPDATE conflicts SET resolved_at = ? WHERE id = ?", [now, other.id]);
+        }
+      }
+    });
+    this.notify();
+  }
+
+  private async conflictsFor(tx: SqlExecutor, table: MirroredTable, rowId: string): Promise<{ id: number; local_patch: Data }[]> {
+    const rows = await tx.all<{ id: number; local_patch: string }>(
+      "SELECT id, local_patch FROM conflicts WHERE tbl = ? AND row_id = ? AND resolved_at IS NULL",
+      [table, rowId],
+    );
+    return rows.map((r) => ({ id: r.id, local_patch: JSON.parse(r.local_patch) as Data }));
   }
 
   private assertWritable(table: MirroredTable, fields: Data, op: "insert" | "update"): void {
