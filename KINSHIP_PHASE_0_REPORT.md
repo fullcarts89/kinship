@@ -2,7 +2,7 @@
 
 Branch `claude/gifted-pasteur-e2q0qu` · commits `8c294ec` → `cc13a5d` (base `24d2179`) · 2 Oct 2026
 
-Phase 0 is complete except for the items marked **Founder action**. Phase 1 has not started.
+**Status (2 Oct 2026, closeout in progress):** the code is complete and the founder decisions F0-D1–F0-D10 are recorded. **The Phase 0 exit gate has NOT passed yet**: §17 lists what's open, and every open item needs a founder action. Phase 0 is not merged, and Phase 1 has not started.
 
 ---
 
@@ -618,4 +618,29 @@ This report is committed on top.
 
 None block Phase 1; the season tables are replaced in 2.0.
 
-Phase 0 stops here. Phase 1 has not been started.
+
+---
+
+## 17. Closeout (F0-D1–F0-D10): exit-gate status
+
+Closeout commits: `d3b42c8`…`86a6080` (and this report update).
+
+| Gate | Status | Evidence |
+|---|---|---|
+| Anthropic key set | ❌ **Open** | Probes at 02:40, 02:41 and 02:45 UTC: the consented call returns 500. The function log shows the SDK found no credentials. The secret was saved as `kinship-production`; it must be named exactly `ANTHROPIC_API_KEY`. |
+| Consented production AI call → 200 | ❌ Blocked by the key | — |
+| Deployed `ai-insight` = repository source | ✅ | Deployed v4 from commit `d3b42c8`: shared auth module, pinned `@anthropic-ai/sdk@0.131.0` and `@supabase/supabase-js@2.117.2`. `get_edge_function` returns exactly the repo's `index.ts`, `handler.ts` and `_shared/auth.ts`; ezbr `f8be0932…`. (Platform version 3 appeared between my v2 and this v4; v4 supersedes it.) |
+| Auth, consent and quota probes on v4 | ✅ | No header → 401; anon key → 401; forged JWT → 401; before consent → 403; bad input → 400 (no model call); after revoking → 403; GET → 405; `ai_usage` = 1 after one consented call. |
+| No user content in logs | ✅ | The failure line contains only the user id and the SDK error. The test note ("Ben… Chicago… four hours") appears nowhere. |
+| Account deletion still works | ✅ | Three throwaway probe accounts were deleted through `delete-account` (200; `auth_user` true; `ai_usage` and `user_settings` rows removed). |
+| Leaked-password protection | ❌ **Founder action** | Dashboard only |
+| Email confirmation | ⚠️ Code ready, setting off | Turning it on would have shown every new email sign-up a false "already registered" error. Fixed in `72d1927` (4 tests): new accounts get "Confirm your email" and the link returns to `kinship://login`. **Founder:** turn on "Confirm email" and add `kinship://login` to the redirect URLs. |
+| PostHog configured per privacy rules | ⚠️ Code ready, off | `ac28b42`: direct capture-API sink with no SDK (the SDK sends the device name); exact-payload tests; lint guard; global switch off by default; `docs/ops/analytics.md`. **Founder:** create the project with the listed settings and provide the key. Analytics stays off until the payload is reviewed in PostHog's live events. |
+| Sentry configured + real event inspected | ❌ **Founder action** | Needs the project, DSN, org/project slugs and auth token, then the device crash (`docs/ops/device-test-plan.md` H) |
+| Physical-device pass, isolation, session revocation | ❌ **Founder action** | Procedure and result table: `docs/ops/device-test-plan.md` |
+| Required CI checks protect `main` | ❌ **Founder action** | GitHub → Settings → Branches → `main` rule: require a PR and these status checks: `App (tsc, eslint, jest)`, `Edge functions (deno check, deno test)`, `Database (migrations + pgTAP)`. Also turn on "Do not allow bypassing". |
+| CI green | ✅ | Runs 1–5 succeeded; run 6 was in progress when written |
+| Branch disposition | ✅ recorded | `docs/ops/branch-disposition.md`. Deletions wait for the merge; `tender-mendel` (a superseded parallel attempt at P0-02/03/05) awaits your confirmation. |
+| Phase 0 merged, CI green on `main`, prod = merged repo | ⏳ After the gates above | `main` (`5687ed7`) is an ancestor of this branch, so the merge will be conflict-free. |
+
+The accepted `image-size` advisory (F0-D7) and the `consume_ai_call` advisor warning do not block the gate.
