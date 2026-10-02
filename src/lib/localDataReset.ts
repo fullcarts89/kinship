@@ -29,6 +29,7 @@ import { cancelAllNotifications } from "@/lib/notificationService";
 import { removeExportFile } from "@/lib/exportService";
 import { removePhotosExcept } from "@/lib/photoStorage";
 import { resetAnalyticsInstallId } from "@/platform/posthogSink";
+import { wipeAllStores } from "@/store/session";
 
 export async function clearAllLocalUserData(): Promise<void> {
   clearLocalPeople();
@@ -48,6 +49,12 @@ export async function clearAllLocalUserData(): Promise<void> {
     await cancelAllNotifications();
   } catch {
     // Nothing scheduled, or notifications unavailable on this device.
+  }
+  try {
+    // Kinship 2.0's encrypted per-user stores and their keys (plan §11).
+    await wipeAllStores();
+  } catch {
+    // No 2.0 store was ever opened on this device.
   }
 }
 
