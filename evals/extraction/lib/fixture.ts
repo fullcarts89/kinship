@@ -45,6 +45,12 @@ export interface ExpectedItem {
   date_end?: string | null;
   precision?: string;
   date_type?: "explicit" | "relative";
+  /**
+   * C-4: true when another ordinary reading of the date words is plausible,
+   * so the item must be flagged, shown for confirmation and keep the user's
+   * words as a hint; false when the date is clear and must not be flagged.
+   */
+  date_confirm?: boolean;
   /** "new" | "merge:m1" | "supersede:m1" | "resolves:m1", or any of a list. */
   action?: string | string[];
   statement_includes?: string[];

@@ -79,6 +79,8 @@ export function grade(runs: FixtureRun[]): Metric[] {
     personAsk: new Tally("person_ask", "Asks when two people fit"),
     dateExplicit: new Tally("date_explicit", "Explicit dates exactly right"),
     dateRelative: new Tally("date_relative", "Relative dates right"),
+    dateConfirm: new Tally("date_ambiguous_confirmed", "Ambiguous dates flagged, confirmed and hinted (C-4)"),
+    dateClear: new Tally("date_clear_unflagged", "Clear dates resolved without a flag (informational)"),
     planEvent: new Tally("plan_event", "Plan vs event classified correctly"),
     sensRecall: new Tally("sensitivity_recall", "Sensitive items labelled sensitive"),
     sensLabel: new Tally("sensitivity_label", "Sensitive items given the exact label"),
@@ -163,6 +165,17 @@ export function grade(runs: FixtureRun[]): Metric[] {
         const t = exp.date_type === "explicit" ? m.dateExplicit : m.dateRelative;
         t.see(ok, id, `"${exp.evidence}": ${JSON.stringify(d)}, want ${JSON.stringify({ date: exp.date, end: exp.date_end, precision: exp.precision })}`);
         if (exp.date === null && d.date !== null && isSaved) m.halluc.bad(id, `"${exp.evidence}": invented date ${d.date}`);
+      }
+
+      if (exp.date_confirm !== undefined) {
+        const flagged = got.flags.includes("date_ambiguous");
+        const hinted = ["date_hint", "due_hint", "when_hint"].some((k) => typeof got.detail[k] === "string" && got.detail[k] !== "");
+        if (exp.date_confirm) {
+          m.dateConfirm.see(flagged && got.tier !== "auto" && hinted, id,
+            `"${exp.evidence}": flagged ${flagged}, tier ${got.tier}, hint ${hinted} (rule ${got.date_rule})`);
+        } else {
+          m.dateClear.see(!flagged, id, `"${exp.evidence}": flagged ambiguous (rule ${got.date_rule})`);
+        }
       }
 
       if (kinds.length === 1 && (kinds[0] === "plan" || kinds[0] === "event")) {

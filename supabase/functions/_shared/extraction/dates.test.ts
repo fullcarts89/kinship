@@ -21,6 +21,9 @@ const CHI = "America/Chicago";
 const FRI = "2026-10-09T15:00:00Z";
 // Monday 28 Dec 2026, noon UTC.
 const DEC28 = "2026-12-28T12:00:00Z";
+// Saturday 10 Oct 2026, 11:00 am and Sunday 11 Oct 2026, noon, in Chicago.
+const SAT = "2026-10-10T16:00:00Z";
+const SUN = "2026-10-11T17:00:00Z";
 
 const vectors: Vector[] = [
   // The vertical slice: "Ben runs Chicago Sunday", written Thursday night.
@@ -33,13 +36,14 @@ const vectors: Vector[] = [
   { expr: "this coming Thursday", at: THU, tz: CHI, dir: "future", date: "2026-10-15", precision: "day" },
   // "next Friday" said on a Thursday: next week's Friday, flagged.
   { expr: "next Friday", at: THU, tz: CHI, dir: "future", date: "2026-10-16", precision: "day", ambiguous: true },
-  { expr: "next Tuesday", at: THU, tz: CHI, dir: "future", date: "2026-10-13", precision: "day", ambiguous: false },
-  { expr: "last Friday", at: THU, tz: CHI, dir: "past", date: "2026-10-02", precision: "day", ambiguous: false },
+  // C-4: "next/last <weekday>" is always confirmed, even where readings agree.
+  { expr: "next Tuesday", at: THU, tz: CHI, dir: "future", date: "2026-10-13", precision: "day", ambiguous: true },
+  { expr: "last Friday", at: THU, tz: CHI, dir: "past", date: "2026-10-02", precision: "day", ambiguous: true },
   { expr: "last Tuesday", at: THU, tz: CHI, dir: "past", date: "2026-09-29", precision: "day", ambiguous: true },
   { expr: "this past Tuesday", at: THU, tz: CHI, dir: "past", date: "2026-09-29", precision: "day", ambiguous: true },
   { expr: "Tues", at: THU, tz: CHI, dir: "future", date: "2026-10-13", precision: "day" },
   // Said on a Friday.
-  { expr: "next Friday", at: FRI, tz: CHI, dir: "future", date: "2026-10-16", precision: "day", ambiguous: false },
+  { expr: "next Friday", at: FRI, tz: CHI, dir: "future", date: "2026-10-16", precision: "day", ambiguous: true },
   { expr: "Friday", at: FRI, tz: CHI, dir: "future", date: "2026-10-09", precision: "day", ambiguous: true },
   { expr: "Friday", at: FRI, tz: CHI, dir: "past", date: "2026-10-09", precision: "day", ambiguous: true },
   { expr: "Sunday", at: FRI, tz: CHI, dir: "future", date: "2026-10-11", precision: "day" },
@@ -54,7 +58,17 @@ const vectors: Vector[] = [
   { expr: "in 3 days", at: THU, tz: CHI, date: "2026-10-11", precision: "day" },
   { expr: "two days ago", at: THU, tz: CHI, date: "2026-10-06", precision: "day" },
   // Weekends and weeks.
-  { expr: "this weekend", at: THU, tz: CHI, dir: "future", date: "2026-10-10", end: "2026-10-11", precision: "day" },
+  { expr: "this weekend", at: THU, tz: CHI, dir: "future", date: "2026-10-10", end: "2026-10-11", precision: "day", ambiguous: false },
+  // C-4 boundaries: said during a weekend.
+  { expr: "this weekend", at: SAT, tz: CHI, dir: "future", date: "2026-10-10", end: "2026-10-11", precision: "day", ambiguous: true },
+  { expr: "this weekend", at: SUN, tz: CHI, dir: "past", date: "2026-10-10", end: "2026-10-11", precision: "day", ambiguous: false },
+  { expr: "next weekend", at: SAT, tz: CHI, dir: "future", date: "2026-10-17", end: "2026-10-18", precision: "day", ambiguous: true },
+  { expr: "next Friday", at: SAT, tz: CHI, dir: "future", date: "2026-10-16", precision: "day", ambiguous: true },
+  // C-4: clearly unambiguous expressions resolve without a flag.
+  { expr: "October 19", at: THU, tz: CHI, dir: "future", date: "2026-10-19", precision: "day", ambiguous: false },
+  { expr: "tomorrow", at: THU, tz: CHI, dir: "future", date: "2026-10-09", precision: "day", ambiguous: false },
+  { expr: "Sunday, October 11", at: THU, tz: CHI, dir: "future", date: "2026-10-11", precision: "day", ambiguous: false },
+  { expr: "Saturday, October 11", at: THU, tz: CHI, dir: "future", date: "2026-10-11", precision: "day", ambiguous: true },
   { expr: "next weekend", at: THU, tz: CHI, dir: "future", date: "2026-10-17", end: "2026-10-18", precision: "day", ambiguous: true },
   { expr: "next week", at: THU, tz: CHI, date: "2026-10-12", end: "2026-10-18", precision: "week" },
   { expr: "last week", at: THU, tz: CHI, date: "2026-09-28", end: "2026-10-04", precision: "week" },

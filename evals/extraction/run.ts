@@ -9,6 +9,7 @@
 //
 // Options: --sets core,ambiguity,…  --ids a,b  --limit N  --concurrency N
 //          --repeat N  --out evals/results  --tag label
+//          --smoke   only the locked smoke set (smoke.json), with a per-fixture report
 
 import { parseArgs } from "jsr:@std/cli@1/parse-args";
 import { anthropicCaller, type StructuredResult } from "../../supabase/functions/_shared/ai/model.ts";
@@ -19,11 +20,13 @@ import type { ModelProposal } from "../../supabase/functions/_shared/extraction/
 import { type Fixture, loadFixtures, loadRosters, oracleProposal, SETS, toInput } from "./lib/fixture.ts";
 import { type FixtureRun, grade } from "./lib/grade.ts";
 import { callStats, judge, markdown, type Threshold } from "./lib/report.ts";
+import { perFixtureMarkdown, type SmokeCase, verdicts } from "./lib/perfixture.ts";
 
 const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
 
 const args = parseArgs(Deno.args, {
   string: ["mode", "model", "effort", "sets", "ids", "limit", "concurrency", "repeat", "out", "replay", "tag"],
+  boolean: ["smoke"],
   default: { mode: "oracle", sets: SETS.join(","), concurrency: "4", repeat: "1", out: `${DIR}/../results` },
 });
 
@@ -37,6 +40,16 @@ let fixtures = await loadFixtures(DIR, args.sets.split(","));
 if (args.ids) {
   const ids = new Set(args.ids.split(","));
   fixtures = fixtures.filter((f) => ids.has(f.id));
+}
+// The smoke set is locked in smoke.json before any run; the list is never
+// chosen after seeing model output.
+let smokeCases: SmokeCase[] = [];
+if (args.smoke) {
+  smokeCases = (JSON.parse(await Deno.readTextFile(`${DIR}/smoke.json`)) as { cases: SmokeCase[] }).cases;
+  const byId = new Map(fixtures.map((f) => [f.id, f]));
+  const missing = smokeCases.filter((c) => !byId.has(c.id)).map((c) => c.id);
+  if (missing.length) throw new Error(`smoke.json names unknown fixtures: ${missing.join(", ")}`);
+  fixtures = smokeCases.map((c) => byId.get(c.id)!);
 }
 if (args.limit) fixtures = fixtures.slice(0, Number(args.limit));
 const repeat = Math.max(1, Number(args.repeat));
@@ -87,7 +100,7 @@ const thresholds = JSON.parse(await Deno.readTextFile(`${DIR}/thresholds.json`))
 const results = judge(grade(runs), thresholds);
 const stats = mode === "oracle" ? null : callStats(runs, model);
 const counts = Object.fromEntries(SETS.map((s) => [s, fixtures.filter((f) => f.set === s).length]));
-const label = mode === "oracle" ? "oracle" : `${model}${effort ? `-${effort}` : ""}`;
+const label = `${mode === "oracle" ? "oracle" : `${model}${effort ? `-${effort}` : ""}`}${args.smoke ? "-smoke" : ""}`;
 const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 const meta = {
   Mode: mode,
@@ -96,8 +109,11 @@ const meta = {
   "Eval version": EXTRACTION_EVAL_VERSION,
   Fixtures: `${fixtures.length} (${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ")})${repeat > 1 ? ` × ${repeat} repeats` : ""}`,
   Run: stamp,
+  Commit: Deno.env.get("EVAL_COMMIT") ?? Deno.env.get("GITHUB_SHA") ?? "local",
 };
-const md = markdown(`relationship_extract eval — ${label}${args.tag ? ` (${args.tag})` : ""}`, results, stats, meta);
+let md = markdown(`relationship_extract eval — ${label}${args.tag ? ` (${args.tag})` : ""}`, results, stats, meta);
+const perFixture = args.smoke ? verdicts(runs, results, smokeCases) : null;
+if (perFixture) md += "\n\n" + perFixtureMarkdown(runs, perFixture, smokeCases);
 console.log(md);
 
 if (mode !== "replay" || args.tag) {
@@ -108,6 +124,7 @@ if (mode !== "replay" || args.tag) {
     meta: { ...meta, model, effort, mode },
     metrics: results.map(({ failures, ...r }) => ({ ...r, failures: failures.slice(0, 200) })),
     stats,
+    verdicts: perFixture,
     runs: runs.map((r) => ({ id: r.fixture.id, call: r.call, proposal: r.proposal, outcome: r.outcome })),
   }, null, 1));
   console.error(`wrote ${base}.md and .json`);

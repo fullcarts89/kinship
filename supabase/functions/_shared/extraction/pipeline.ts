@@ -583,12 +583,14 @@ function buildDetail(
       break;
     case "moment":
       set("date", dayDate);
+      set("date_hint", hint); // the user's words, so a flagged date can be shown and fixed (C-4)
       set("place", grounded(d.place));
       break;
     case "milestone":
       set("milestone_type", grounded(d.milestone_type, 100) ?? "other");
       set("anniversary", false);
       set("date", dayDate);
+      set("date_hint", hint);
       break;
     case "tradition": {
       if (!RECURRENCES.includes(d.recurrence as never)) return { drop: "bad_kind_subject" };

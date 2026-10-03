@@ -12,8 +12,13 @@
 //   * A bare weekday is the next one (future) or the last one (past). When
 //     it is today's weekday it resolves to today, flagged ambiguous.
 //   * "next <weekday>" is that weekday in next week (weeks start Monday).
-//     When that differs from the very next one ("next Friday" said on a
-//     Wednesday), it is flagged ambiguous. "last <weekday>" mirrors this.
+//     It is always flagged ambiguous: readers split between "the coming
+//     one", "next week's" and "the one after the coming one", and on some
+//     days those differ ("next Friday" said on a Wednesday or a Friday).
+//     "last <weekday>" mirrors this. (Founder decision C-4, 4 Oct 2026: a
+//     convention may pick the date, but never decides it silently.)
+//   * "next weekend" is always flagged; "this weekend" / "the weekend" is
+//     flagged when said on a Saturday or Sunday (this one, or the next?).
 //   * A month and day without a year is the next (future) or most recent
 //     (past) occurrence, so "January 3" said on Dec 28 is next year.
 //   * Seasons are meteorological and flip in the southern hemisphere.
@@ -355,14 +360,15 @@ function weekdayRule(mod: string, target: number, today: CivilDate, past: boolea
   const mondayThis = addDays(today, -wd);
   switch (mod) {
     case "next": {
+      // Always confirmed (C-4); the rule name says whether the readings differ here.
       const nextWeek = addDays(mondayThis, 7 + target);
       const soonest = addDays(today, ahead === 0 ? 7 : ahead);
-      return day(nextWeek, "next_weekday", cmp(nextWeek, soonest) !== 0);
+      return day(nextWeek, cmp(nextWeek, soonest) !== 0 ? "next_weekday_split" : "next_weekday", true);
     }
     case "last": {
       const lastWeek = addDays(mondayThis, -7 + target);
       const latest = addDays(today, -(behind === 0 ? 7 : behind));
-      return day(lastWeek, "last_weekday", cmp(lastWeek, latest) !== 0);
+      return day(lastWeek, cmp(lastWeek, latest) !== 0 ? "last_weekday_split" : "last_weekday", true);
     }
     case "this coming":
     case "the coming":
@@ -381,9 +387,10 @@ function weekendRule(mod: string, today: CivilDate, past: boolean): DateResoluti
   const mondayThis = addDays(today, -wd);
   const satThis = addDays(mondayThis, 5);
   if (mod === "next") {
-    // Next week's weekend; ambiguous on a weekday (people often mean the coming one).
+    // Next week's weekend. Always confirmed (C-4): on a weekday people often
+    // mean the coming one; on a weekend, this one may be nearly over.
     const sat = addDays(satThis, 7);
-    return range(sat, addDays(sat, 1), "day", "next_weekend", wd < 5);
+    return range(sat, addDays(sat, 1), "day", "next_weekend", true);
   }
   if (mod === "last") {
     const sat = wd >= 5 ? addDays(satThis, -7) : addDays(satThis, -7);
@@ -393,7 +400,8 @@ function weekendRule(mod: string, today: CivilDate, past: boolean): DateResoluti
     const sat = addDays(satThis, -7);
     return range(sat, addDays(sat, 1), "day", "weekend_past");
   }
-  return range(satThis, addDays(satThis, 1), "day", "this_weekend");
+  // Said during a weekend, "this weekend" may mean the one in progress or the next.
+  return range(satThis, addDays(satThis, 1), "day", "this_weekend", wd >= 5 && !past);
 }
 
 function weekOf(c: CivilDate, offsetWeeks: number, rule: string): DateResolution {

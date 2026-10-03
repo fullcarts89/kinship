@@ -1,6 +1,9 @@
 # Kinship AI evals (plan §10). Calling a model costs money, so this never
 # runs on its own:
 #   * Actions → "AI evals" → Run workflow: one model/effort of your choice.
+#   * Label a pull request `run-evals-smoke`: the locked live smoke set
+#     (evals/extraction/smoke.json, 29 fixtures) on Opus 5.5 at low effort
+#     only, about $1. The founder authorises each paid stage separately.
 #   * Label a pull request `run-evals`: the model comparison (Opus 5.5 at
 #     low and medium effort, Sonnet 5.5, Haiku 4.5), about $25 at list prices.
 # Needs the ANTHROPIC_API_KEY repository secret. Results are kept as a
@@ -90,5 +93,38 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: eval-${{ matrix.model }}-${{ matrix.effort }}-${{ github.run_id }}
+          path: evals/results/
+          retention-days: 90
+
+  smoke:
+    name: relationship_extract smoke (claude-opus-5-5, low)
+    if: github.event_name == 'pull_request' && github.event.label.name == 'run-evals-smoke'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The branch head itself, so the run is reproducible from a commit.
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EVAL_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          deno run -A --config evals/deno.json evals/extraction/run.ts --mode live --smoke \
+            --model claude-opus-5-5 --effort low \
+            --concurrency 4 --out evals/results | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Print the results JSON (fixtures are synthetic; no user data)
+        if: always()
+        run: |
+          for f in evals/results/*.json; do echo "::group::$f"; cat "$f"; echo; echo "::endgroup::"; done
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-smoke-claude-opus-5-5-low-${{ github.run_id }}
           path: evals/results/
           retention-days: 90

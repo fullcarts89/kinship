@@ -53,6 +53,7 @@ export interface CallStats {
   meanInput: number;
   meanOutput: number;
   meanCacheRead: number;
+  totals: { input: number; output: number; cacheRead: number; cacheWrite: number };
   costPerCall: number;
   totalCost: number;
 }
@@ -74,6 +75,12 @@ export function callStats(runs: FixtureRun[], model: string): CallStats {
     meanInput: Math.round(sum((r) => r.call!.usage.input) / n),
     meanOutput: Math.round(sum((r) => r.call!.usage.output) / n),
     meanCacheRead: Math.round(sum((r) => r.call!.usage.cacheRead) / n),
+    totals: {
+      input: sum((r) => r.call!.usage.input),
+      output: sum((r) => r.call!.usage.output),
+      cacheRead: sum((r) => r.call!.usage.cacheRead),
+      cacheWrite: sum((r) => r.call!.usage.cacheWrite),
+    },
     costPerCall: total / n,
     totalCost: total,
   };
@@ -91,6 +98,7 @@ export function markdown(title: string, results: MetricResult[], stats: CallStat
     out.push(`- Calls: ${stats.calls} · outcomes ${JSON.stringify(stats.outcomes)}`);
     out.push(`- Latency (successful calls): p50 ${stats.p50 ?? "—"} ms · p95 ${stats.p95 ?? "—"} ms`);
     out.push(`- Tokens per call (mean): input ${stats.meanInput} · cached input read ${stats.meanCacheRead} · output ${stats.meanOutput}`);
+    out.push(`- Tokens in total: input ${stats.totals.input} · output ${stats.totals.output} · cache read ${stats.totals.cacheRead} · cache write ${stats.totals.cacheWrite}`);
     out.push(`- Cost: $${stats.costPerCall.toFixed(4)} per call · $${stats.totalCost.toFixed(2)} total (list prices)`);
   }
   const failing = results.filter((r) => r.failures.length > 0);

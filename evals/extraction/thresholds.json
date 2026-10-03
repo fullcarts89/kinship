@@ -10,6 +10,7 @@
   "person_ask": { "min": 0.95 },
   "date_explicit": { "min": 0.97 },
   "date_relative": { "min": 0.93 },
+  "date_ambiguous_confirmed": { "min": 1.0 },
   "plan_event": { "min": 0.92 },
   "sensitivity_recall": { "min": 0.95 },
   "sensitive_not_auto": { "min": 1.0 },
