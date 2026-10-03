@@ -113,10 +113,15 @@ export async function simulateLostKey(userId: string): Promise<ProbeResult> {
     : { passed: false, detail: `${n} rows were still readable after the key was removed` };
 }
 
+// One engine per open store, so a double tap shares the run in progress
+// instead of starting two (as the real app will).
+let engine: { store: unknown; engine: SyncEngine } | null = null;
+
 export async function syncNow(userId: string): Promise<SyncReport> {
   if (!supabase) throw new Error("Supabase is not configured");
   const store = await storeForUser(userId);
-  return new SyncEngine(store, new SupabaseRemote(supabase)).sync();
+  if (engine?.store !== store) engine = { store, engine: new SyncEngine(store, new SupabaseRemote(supabase)) };
+  return engine.engine.sync();
 }
 
 /** How many copies of a check capture the server holds (must be exactly 1). */

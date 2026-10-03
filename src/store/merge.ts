@@ -16,7 +16,19 @@ export interface MergeResult {
   conflicting: Record<string, unknown>;
 }
 
+// An ISO timestamp with a time part ("…T…Z", "…T…+00:00", with or without
+// fractional seconds). Dates without a time ("2026-10-11") are compared as text.
+const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}(:?\d{2})?)$/;
+
+/**
+ * Value equality as the server sees it. Timestamps are compared as instants:
+ * the device writes "…Z" and Postgres returns "…+00:00" for the same moment
+ * (device check B2 found the textual comparison caused a needless re-push).
+ */
 export function sameValue(a: unknown, b: unknown): boolean {
+  if (typeof a === "string" && typeof b === "string" && TIMESTAMP.test(a) && TIMESTAMP.test(b)) {
+    return Date.parse(a) === Date.parse(b);
+  }
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 

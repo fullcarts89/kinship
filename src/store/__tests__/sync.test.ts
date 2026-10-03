@@ -290,3 +290,32 @@ describe("settings", () => {
     expect(await d.store.pendingOps()).toHaveLength(0);
   });
 });
+
+describe("timestamps (device check B2)", () => {
+  it("doesn't re-push when the server returns the same instant in another format", async () => {
+    const server = new FakeServer();
+    const d = await device(server);
+    const remote = new FakeRemote(server, A);
+    // Postgres returns "+00:00" where the device sent "Z".
+    const pgStyle = (row: Record<string, unknown>) => ({
+      ...row,
+      occurred_at: typeof row.occurred_at === "string"
+        ? new Date(row.occurred_at).toISOString().replace("Z", "+00:00") : row.occurred_at,
+    });
+    const engine = new SyncEngine(d.store, {
+      insert: async (t, k, f) => pgStyle(await remote.insert(t, k, f)) as never,
+      update: async (t, k, v, f) => pgStyle(await remote.update(t, k, v, f)) as never,
+      changedSince: remote.changedSince.bind(remote),
+      manifest: remote.manifest.bind(remote),
+      fetchByKeys: remote.fetchByKeys.bind(remote),
+      insertMemoryItem: remote.insertMemoryItem.bind(remote),
+    });
+    const c = await d.store.create("captures", {
+      source: "text", raw_text: "Ben runs Chicago Sunday.", status: "skipped", occurred_at: "2026-10-05T12:00:00.000Z",
+    });
+    const report = await engine.sync();
+    expect(report.pushed).toBe(1);
+    expect(server.table("captures").get(c.id as string)?.version).toBe(1);
+    expect(server.calls.filter((x) => x.startsWith("update captures"))).toEqual([]);
+  });
+});
