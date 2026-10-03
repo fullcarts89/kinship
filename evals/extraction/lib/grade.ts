@@ -8,7 +8,7 @@
 import { locateEvidence, sliceCodePoints } from "../../../supabase/functions/_shared/spans.ts";
 import type { ExtractionInput, ExtractionOutcome, PlannedItem } from "../../../supabase/functions/_shared/extraction/types.ts";
 import type { StructuredResult } from "../../../supabase/functions/_shared/ai/model.ts";
-import type { ExpectedItem, Fixture } from "./fixture.ts";
+import { type ExpectedItem, type Fixture, fixtureKey } from "./fixture.ts";
 
 export interface FixtureRun {
   fixture: Fixture;
@@ -103,6 +103,7 @@ export function grade(runs: FixtureRun[]): Metric[] {
     m.modelOk.see(run.outcome !== null, id, `model outcome ${run.call?.outcome ?? "none"}`);
     if (!run.outcome) continue;
     const note = run.input.capture.raw_text;
+    const input = run.input;
     const items = run.outcome.items;
     const savedItems = items.filter(saved);
     const known = new Set(
@@ -110,7 +111,7 @@ export function grade(runs: FixtureRun[]): Metric[] {
         .concat(run.input.related.map((r) => r.name ?? ""))
         .flatMap((n) => fold(n).split(/\s+/)).filter(Boolean),
     );
-    const keyOf = (i: PlannedItem) => i.person_key ?? (i.new_person_name ? `new:${i.new_person_name}` : "unknown");
+    const keyOf = (i: PlannedItem) => fixtureKey(i.person_id, i.new_person_name);
 
     // ── Match expected items to predictions by overlapping evidence ──
     const used = new Set<PlannedItem>();
@@ -224,7 +225,8 @@ export function grade(runs: FixtureRun[]): Metric[] {
         const t = run.input.dossier.find((d) => d.id === it.action.target_id);
         if (!t) m.crossSubject.bad(id, `"${it.statement}": target ${it.action.target_id} not in dossier`);
         else {
-          if (t.person_key !== it.person_key || t.subject_type !== it.subject_type) {
+          if (t.person_key !== it.person_key || t.subject_type !== it.subject_type ||
+              (it.subject_type === "related" && (input.related.find((r) => r.key === t.related_key)?.id ?? null) !== (it.related?.id ?? null))) {
             m.crossSubject.bad(id, `"${it.statement}": ${it.action.type} onto ${t.key} (${t.person_key}/${t.subject_type})`);
           }
           if (t.user_state === "edited" || t.user_state === "user_authored") {
@@ -234,7 +236,7 @@ export function grade(runs: FixtureRun[]): Metric[] {
       }
       for (const rule of f.expect.must_not ?? []) {
         const hit = (!rule.statement_matches || new RegExp(rule.statement_matches, "i").test(it.statement)) &&
-          (!rule.person || it.person_key === rule.person) && (!rule.kind || it.kind === rule.kind) &&
+          (!rule.person || keyOf(it) === rule.person) && (!rule.kind || it.kind === rule.kind) &&
           (!rule.certainty || it.certainty === rule.certainty) && (!rule.subject || it.subject_type === rule.subject);
         if (hit) m.mustNot.bad(id, `"${it.statement}": ${rule.why}`);
       }
@@ -260,7 +262,7 @@ export function grade(runs: FixtureRun[]): Metric[] {
       const violated = (f.expect.must_not ?? []).some((rule) =>
         savedItems.some((it) =>
           (!rule.statement_matches || new RegExp(rule.statement_matches, "i").test(it.statement)) &&
-          (!rule.person || it.person_key === rule.person) && (!rule.kind || it.kind === rule.kind)
+          (!rule.person || keyOf(it) === rule.person) && (!rule.kind || it.kind === rule.kind)
         )
       );
       const forbidden = (f.expect.forbidden_evidence ?? []).map((t) => {

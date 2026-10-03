@@ -128,7 +128,7 @@ export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Resp
       }
 
       const { people, related } = await caller.loadPeople();
-      const items = await caller.loadItems(dossierPeople(capture, people));
+      const items = await caller.loadItems(dossierPeople(capture, people, related));
       const input = buildInput(capture, people, related, items);
       const run = await runExtraction(input, cap, deps.model);
       const version = `${cap.promptVersion}+${cap.model}`;

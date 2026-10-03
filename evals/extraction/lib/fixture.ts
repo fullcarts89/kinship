@@ -13,6 +13,13 @@ import type {
   SubjectType,
 } from "../../../supabase/functions/_shared/extraction/types.ts";
 import type { Direction } from "../../../supabase/functions/_shared/extraction/dates.ts";
+import {
+  buildInput,
+  type CaptureRow,
+  type ItemRow,
+  type PersonRow,
+  type RelatedRow,
+} from "../../../supabase/functions/_shared/extraction/context.ts";
 
 export const SETS = ["core", "ambiguity", "dates", "sensitive", "adversarial", "merge"] as const;
 export type SetName = (typeof SETS)[number];
@@ -122,34 +129,51 @@ export async function loadFixtures(dir: string, sets: readonly string[]): Promis
   return out;
 }
 
+/**
+ * The model's input, built by the gateway's own context code (buildInput)
+ * from rows shaped like the database's, so the eval exercises the same
+ * minimal-context selection as production. Fixture keys become ids
+ * ("p3" → "id-p3"); buildInput assigns its own prompt keys.
+ */
 export function toInput(f: Fixture, rosters: Record<string, RosterDef>): ExtractionInput {
   const r = rosters[f.roster];
   if (!r) throw new Error(`${f.id}: unknown roster ${f.roster}`);
-  return {
-    capture: {
-      id: `cap-${f.id}`,
-      raw_text: f.note.normalize("NFC"),
-      occurred_at: f.at,
-      time_zone: f.tz,
-      context_person_key: f.context ?? null,
-    },
-    roster: r.people.map((p) => ({
-      key: p.key,
-      id: `id-${p.key}`,
-      display_name: p.name,
-      full_name: p.full ?? null,
-      nicknames: p.nick ?? [],
-      relationship_label: p.label ?? null,
-    })),
-    related: r.related.map((x) => ({ key: x.key, id: `id-${x.key}`, person_key: x.person, relation: x.relation, name: x.name ?? null })),
-    dossier: (f.dossier ?? []).map((d) => ({
-      ...d,
-      id: `id-${d.key}`,
-      related_key: d.related_key ?? null,
-      status: d.status ?? "active",
-      user_state: d.user_state ?? "unreviewed",
-    })),
+  const capture: CaptureRow = {
+    id: `cap-${f.id}`,
+    raw_text: f.note.normalize("NFC"),
+    occurred_at: f.at,
+    time_zone: f.tz,
+    context_person_id: f.context ? `id-${f.context}` : null,
   };
+  const people: PersonRow[] = r.people.map((p, i) => ({
+    id: `id-${p.key}`,
+    display_name: p.name,
+    full_name: p.full ?? null,
+    nicknames: p.nick ?? [],
+    relationship_label: p.label ?? null,
+    state: "active",
+    updated_at: `2026-09-${String(28 - (i % 28)).padStart(2, "0")}T00:00:00Z`,
+  }));
+  const related: RelatedRow[] = r.related.map((x) => ({ id: `id-${x.key}`, person_id: `id-${x.person}`, relation: x.relation, name: x.name ?? null }));
+  const items: ItemRow[] = (f.dossier ?? []).map((d) => ({
+    id: `id-${d.key}`,
+    person_id: `id-${d.person_key}`,
+    kind: d.kind,
+    subject_type: d.subject_type,
+    subject_related_id: d.related_key ? `id-${d.related_key}` : null,
+    statement: d.statement,
+    certainty: d.certainty,
+    status: d.status ?? "active",
+    user_state: d.user_state ?? "unreviewed",
+    detail: d.detail,
+  }));
+  return buildInput(capture, people, related, items);
+}
+
+/** Fixture person key ("p3") of a planned item, or "new:<name>" / "unknown". */
+export function fixtureKey(personId: string | null, newName: string | null): string {
+  if (personId) return personId.replace(/^id-/, "");
+  return newName ? `new:${newName}` : "unknown";
 }
 
 /**
@@ -157,8 +181,10 @@ export function toInput(f: Fixture, rosters: Record<string, RosterDef>): Extract
  * on it checks the fixtures and the deterministic code agree (a fixture
  * error found here costs nothing; one found in a paid run costs a run).
  */
-export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>): ModelProposal {
+export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>, input: ExtractionInput): ModelProposal {
   const people = rosters[f.roster].people;
+  const promptKey = (fixtureKey: string) => input.roster.find((p) => p.id === `id-${fixtureKey}`)?.key ?? "unknown";
+  const dossierKey = (fixtureKey: string) => input.dossier.find((d) => d.id === `id-${fixtureKey}`)?.key ?? fixtureKey;
   const items: ProposedItem[] = f.expect.items.map((e) => {
     const kind = Array.isArray(e.kind) ? e.kind[0] : e.kind;
     const isNew = e.person.startsWith("new:");
@@ -167,7 +193,7 @@ export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>): 
     const [act, target] = (e.proposed_action ?? (Array.isArray(e.action) ? e.action[0] : e.action) ?? "new").split(":");
     return {
       kind,
-      person: isNew ? "new" : e.person,
+      person: isNew ? "new" : promptKey(e.person),
       person_mention: mention,
       subject: e.subject ?? (kind === "promise" ? "user" : "person"),
       related_relation: e.relation ?? null,
@@ -194,7 +220,7 @@ export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>): 
         aspect: kind === "context" ? "other" : null,
         time_of_day: null,
       },
-      existing: { action: act as Action, target: target ?? null },
+      existing: { action: act as Action, target: target ? dossierKey(target) : null },
     };
   });
   return { items, needs_clarification: null };

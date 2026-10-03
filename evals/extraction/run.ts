@@ -45,7 +45,7 @@ let runs: FixtureRun[] = [];
 if (mode === "oracle") {
   for (const f of fixtures) {
     const input = toInput(f, rosters);
-    const proposal = oracleProposal(f, rosters);
+    const proposal = oracleProposal(f, rosters, input);
     runs.push({ fixture: f, input, outcome: planExtraction(input, proposal), call: null, proposal });
   }
 } else if (mode === "replay") {
