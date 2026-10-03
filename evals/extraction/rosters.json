@@ -1,0 +1,39 @@
+{
+  "main": {
+    "people": [
+      { "key": "p1", "name": "Ben", "full": "Ben Ortiz", "label": "college roommate" },
+      { "key": "p2", "name": "Sarah", "full": "Sarah Kim", "label": "friend from work" },
+      { "key": "p3", "name": "Mike", "full": "Mike Chen", "label": "old teammate" },
+      { "key": "p4", "name": "Anna", "full": "Anna Rossi", "label": "neighbor" },
+      { "key": "p5", "name": "David", "full": "David Park", "label": "friend" },
+      { "key": "p6", "name": "Mom", "full": "Linda Hart", "label": "mother" },
+      { "key": "p7", "name": "Josh", "full": "Josh Patel", "label": "climbing buddy" },
+      { "key": "p8", "name": "Tom", "full": "Tom Becker", "label": "coworker" },
+      { "key": "p9", "name": "Sam", "full": "Sam Lee", "label": "college friend" },
+      { "key": "p10", "name": "Sam", "full": "Samantha Diaz", "nick": ["Sammy"], "label": "cousin" },
+      { "key": "p11", "name": "Priya", "full": "Priya Nair", "label": "best friend" },
+      { "key": "p12", "name": "José", "full": "José García", "label": "running club" },
+      { "key": "p13", "name": "Zoë", "full": "Zoë Martin", "label": "book club" },
+      { "key": "p14", "name": "Kenji", "full": "Kenji Watanabe", "label": "former manager" },
+      { "key": "p15", "name": "李明", "nick": ["Ming"], "label": "language exchange partner" },
+      { "key": "p16", "name": "Chris", "full": "Chris Novak", "label": "neighbor" },
+      { "key": "p17", "name": "Chris", "full": "Christine Abbott", "nick": ["Chrissy"], "label": "aunt" },
+      { "key": "p18", "name": "Grandma", "full": "Rose Hart", "label": "grandmother" },
+      { "key": "p19", "name": "Emma", "full": "Emma Wilson", "label": "friend" },
+      { "key": "p20", "name": "Dan", "full": "Daniel Brooks", "nick": ["Danny"], "label": "old friend" }
+    ],
+    "related": [
+      { "key": "r1", "person": "p2", "relation": "sister" },
+      { "key": "r2", "person": "p2", "relation": "husband", "name": "Jae" },
+      { "key": "r3", "person": "p5", "relation": "son", "name": "Leo" },
+      { "key": "r4", "person": "p4", "relation": "mom" },
+      { "key": "r5", "person": "p7", "relation": "wife", "name": "Nadia" }
+    ]
+  },
+  "solo": {
+    "people": [
+      { "key": "p1", "name": "Ben", "full": "Ben Ortiz", "label": "college roommate" }
+    ],
+    "related": []
+  }
+}

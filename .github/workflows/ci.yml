@@ -48,10 +48,12 @@ jobs:
         with:
           deno-version: v2.x
       - name: Typecheck
-        run: deno check --config supabase/functions/deno.json supabase/functions/ai-insight/index.ts supabase/functions/delete-account/index.ts
+        run: deno check --config supabase/functions/deno.json supabase/functions/ai-insight/index.ts supabase/functions/delete-account/index.ts supabase/functions/ai-gateway/index.ts
       - name: Tests
         working-directory: supabase/functions
         run: deno test
+      - name: Extraction eval fixtures agree with the pipeline (oracle, no model, free)
+        run: deno run -A --config evals/deno.json evals/extraction/run.ts --mode oracle --out /tmp/eval-results
 
   database:
     name: Database (migrations + pgTAP)
