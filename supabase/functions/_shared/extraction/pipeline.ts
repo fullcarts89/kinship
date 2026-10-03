@@ -57,6 +57,9 @@ import { ASPECTS, CERTAINTIES, EVENT_TYPES, FACT_CATEGORIES, FIRMNESS, KINDS, RE
 export const MAX_ITEMS = 8;
 export const AUTO_SAVE_CONFIDENCE = 0.85;
 export const DROP_BELOW_CONFIDENCE = 0.6;
+/** Floor for items held because code confirms the person or subject is ambiguous. */
+export const HOLD_FLOOR_CONFIDENCE = 0.3;
+const WHO_AMBIGUITY: Flag[] = ["person_ambiguous", "pronoun_multiple", "subject_check"];
 export const THREAD_FOLLOWUP_DAYS = 42;
 const QUOTE_MAX = 200;
 
@@ -229,8 +232,8 @@ function planItem(ctx: Context, raw: ProposedItem): ItemResult {
     if (knownRelated.flag) flags.add(knownRelated.flag);
     related = knownRelated.related;
   } else if (subject === "related") {
-    const relation = (raw.related_relation ?? "").trim();
-    if (!relation || !ctx.inNote(relation)) return { drop: "invented_relation" };
+    const relation = noteRelation(ctx, (raw.related_relation ?? "").trim());
+    if (!relation) return { drop: "invented_relation" };
     const name = raw.related_name && ctx.inNote(raw.related_name) ? raw.related_name.trim() : null;
     const existing = who.person_key
       ? ctx.input.related.filter((r) =>
@@ -253,7 +256,7 @@ function planItem(ctx: Context, raw: ProposedItem): ItemResult {
   }
 
   // ── Certainty: wording can only lower it ──
-  const cap = capCertainty(raw.certainty, wordingCertainty(sentence));
+  const cap = capCertainty(raw.certainty, wordingCertainty(certaintyText(text, spans, raw)));
   const certainty = cap.certainty;
   if (cap.lowered) flags.add("certainty_lowered");
   if (certainty === "reported") flags.add("reported");
@@ -299,7 +302,11 @@ function planItem(ctx: Context, raw: ProposedItem): ItemResult {
   if (flags.has("certainty_lowered") || flags.has("sensitivity_raised") || flags.has("person_disagreement")) {
     confidence = Math.min(confidence, 0.84);
   }
-  if (confidence < DROP_BELOW_CONFIDENCE) return { drop: "low_confidence" };
+  // A model unsure *who* an item is about ("Sam" with two Sams) is right to
+  // be unsure: when code independently finds the same ambiguity, the item is
+  // held for one question (never saved) instead of silently dropped.
+  const heldForWho = WHO_AMBIGUITY.some((f) => flags.has(f));
+  if (confidence < (heldForWho ? HOLD_FLOOR_CONFIDENCE : DROP_BELOW_CONFIDENCE)) return { drop: "low_confidence" };
   if (confidence < AUTO_SAVE_CONFIDENCE) flags.add("mid_confidence");
 
   const tier = tierFor(flags);
@@ -344,6 +351,56 @@ function wellFormed(raw: ProposedItem): boolean {
     !!raw.existing && typeof raw.existing === "object";
 }
 
+/**
+ * The relation word as the note says it. The model may normalise ("mother"
+ * for the note's "mom"); a synonym is accepted only when exactly one word in
+ * the note has the same canonical relation, and that word is what's stored.
+ */
+function noteRelation(ctx: Context, relation: string): string | null {
+  if (!relation) return null;
+  if (ctx.inNote(relation)) return relation;
+  const key = kinshipReference(relation); // only real relation words take a synonym
+  if (!key) return null;
+  const matches = [...new Set(wordsOf(ctx.text).filter((w) => relationKey(w) === key))];
+  return matches.length === 1 ? matches[0] : null;
+}
+
+/**
+ * The words whose hedges bind this item: the main sentence, every quoted
+ * sentence, and a short sentence right after the main one ("Ben got the
+ * job. I think."). A quoted sentence that carries an event's goal hedges the
+ * goal, not the event ("He's hoping to break four hours" leaves the race firm).
+ */
+function certaintyText(text: string, spans: PlannedSpan[], raw: ProposedItem): string {
+  const parts = [sentenceAroundSpan(text, spans[0])];
+  const goal = raw.kind === "event" && typeof raw.detail?.event_goal === "string" && raw.detail.event_goal.trim()
+    ? fold(raw.detail.event_goal.trim())
+    : null;
+  for (const sp of spans.slice(1)) {
+    const sentence = sentenceAroundSpan(text, sp);
+    if (goal && fold(sentence).includes(goal)) continue;
+    parts.push(sentence);
+  }
+  const next = sentenceAfter(text, spans[0]);
+  if (next && wordsOf(next).length <= 4) parts.push(next);
+  return parts.join(" ");
+}
+
+/** The sentence that follows the one holding `span`, or null. */
+function sentenceAfter(text: string, span: PlannedSpan): string | null {
+  const boundary = /[.!?\n]/;
+  let b = Array.from(text).slice(0, span.end).join("").length;
+  if (!(b > 0 && boundary.test(text[b - 1]))) {
+    while (b < text.length && !boundary.test(text[b])) b++;
+    b++;
+  }
+  while (b < text.length && boundary.test(text[b])) b++;
+  const rest = text.slice(b);
+  const m = rest.match(/^[^.!?\n]*[.!?\n]?/);
+  const next = m ? m[0].trim() : "";
+  return next ? next : null;
+}
+
 function toPlannedSpan(text: string, span: Span): PlannedSpan {
   const chars = Array.from(text);
   const quote = chars.slice(span.start, span.end).join("");
@@ -364,7 +421,9 @@ function clauseAroundSpan(text: string, span: PlannedSpan): string {
   const boundary = /[.!?\n,;:—–()]/;
   let a = from;
   while (a > 0 && !boundary.test(text[a - 1]) && !/\bbut $/i.test(text.slice(Math.max(0, a - 4), a))) a--;
-  let b = to;
+  // A quote ending in its own punctuation ends its clause there (the next
+  // sentence, e.g. an injected instruction, is not part of this item).
+  let b = to > from && boundary.test(text[to - 1]) ? to - 1 : to;
   while (b < text.length && !boundary.test(text[b]) && !/^ but\b/i.test(text.slice(b, b + 4))) b++;
   // The quote itself always counts, even if it spans a boundary.
   return text.slice(Math.min(a, from), Math.max(b, to));

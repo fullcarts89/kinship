@@ -16,7 +16,7 @@ export function nameKey(text: string): string {
 
 // ─── Certainty ──────────────────────────────────────────────────────────────
 
-const TENTATIVE = /\b(may|might|maybe|possibly|perhaps|probably|could|thinking (about|of)|considering|weighing|toying with|hoping|hopes to|wants to|wanna|plans? to maybe|not sure|unsure|undecided|on the fence|i guess|potentially|likely|unlikely|rumou?red?|if)\b/;
+const TENTATIVE = /\b(may|might|maybe|possibly|perhaps|probably|could|thinking (about|of)|considering|weighing|toying with|hoping|hopes to|wants to|wanna|plans? to maybe|not sure|unsure|undecided|on the fence|i guess|i think|i believe|i suspect|potentially|likely|unlikely|rumou?red?|if)\b/;
 const REPORTED = /\b(i heard|heard that|apparently|supposedly|according to|someone said|i was told|rumou?r has it)\b/;
 const WISHED = /\b(sometime|some time|someday|some day|one day|one of these days|we should|we'd love to|would love to|would be fun to|been meaning to|eventually)\b/;
 
@@ -214,7 +214,9 @@ export function sentenceAround(text: string, from: number, to: number): string {
   const boundary = /[.!?\n]/;
   let a = from;
   while (a > 0 && !boundary.test(text[a - 1])) a--;
-  let b = to;
+  // A quote that ends with its own full stop ("Ben runs Chicago Sunday.")
+  // ends its sentence there; never read on into the next one.
+  let b = to > from && boundary.test(text[to - 1]) ? to - 1 : to;
   while (b < text.length && !boundary.test(text[b])) b++;
   return text.slice(a, Math.min(text.length, b + 1));
 }
