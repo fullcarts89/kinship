@@ -1,7 +1,7 @@
 // ai-gateway guard rails (Checkpoint C), with fake auth, data, model and
 // writes. Run: deno test supabase/functions
 import type { StructuredRequest, StructuredResult } from "../_shared/ai/model.ts";
-import { type CallLog, createGateway, type GatewayCaller, type GatewayDeps, type ServiceOps, type WriteItem } from "./handler.ts";
+import { type CallLog, createGateway, type GatewayCaller, type GatewayDeps, type PendingReview, type ServiceOps, type WriteItem } from "./handler.ts";
 
 function eq<T>(actual: T, expected: T, msg = ""): void {
   const a = JSON.stringify(actual);
@@ -29,7 +29,7 @@ const BEN_PROPOSAL = {
 interface World {
   deps: GatewayDeps;
   modelCalls: StructuredRequest[];
-  writes: { needsReview: boolean; items: WriteItem[]; version: string }[];
+  writes: { needsReview: boolean; items: WriteItem[]; version: string; review: PendingReview | null }[];
   releases: string[];
   logs: CallLog[];
   quota: number;
@@ -44,6 +44,9 @@ function world(opts: {
   model?: Partial<StructuredResult> & { output?: unknown };
   writeThrows?: boolean;
   logThrows?: boolean;
+  note?: string;
+  people?: { id: string; display_name: string; full_name: string | null; nicknames: string[]; relationship_label: string | null; state: string }[];
+  review?: PendingReview | null;
 } = {}): World {
   const w: World = { modelCalls: [], writes: [], releases: [], logs: [], quota: 0, deps: undefined as unknown as GatewayDeps };
   const caller: GatewayCaller = {
@@ -56,13 +59,14 @@ function world(opts: {
     flagEnabled: (key) => Promise.resolve(key === "ai_extraction" && (opts.flag ?? true)),
     loadCapture: (id) =>
       Promise.resolve(opts.capture === false || id !== CAPTURE ? null : {
-        id, raw_text: NOTE, occurred_at: "2026-10-09T02:14:00Z", time_zone: "America/Chicago", context_person_id: null,
+        id, raw_text: opts.note ?? NOTE, occurred_at: "2026-10-09T02:14:00Z", time_zone: "America/Chicago", context_person_id: null,
       }),
     loadPeople: () => Promise.resolve({
-      people: [{ id: "person-ben", display_name: "Ben", full_name: "Ben Ortiz", nicknames: [], relationship_label: "college roommate", state: "active" }],
+      people: opts.people ?? [{ id: "person-ben", display_name: "Ben", full_name: "Ben Ortiz", nicknames: [], relationship_label: "college roommate", state: "active" }],
       related: [],
     }),
     loadItems: () => Promise.resolve([]),
+    loadReview: () => Promise.resolve(opts.review ?? null),
   };
   const service: ServiceOps = {
     claim: () => Promise.resolve(opts.claim ?? "claimed"),
@@ -70,9 +74,9 @@ function world(opts: {
       w.releases.push(status);
       return Promise.resolve();
     },
-    write: (_u, _c, version, needsReview, items) => {
+    write: (_u, _c, version, needsReview, items, review) => {
       if (opts.writeThrows) return Promise.reject(new Error("write failed (23503)"));
-      w.writes.push({ needsReview, items, version });
+      w.writes.push({ needsReview, items, version, review });
       return Promise.resolve(items.map((_, i) => ({ id: `item-${i}`, action: "new" })));
     },
     log: (row) => {
@@ -131,7 +135,7 @@ Deno.test("refuses before spending anything: auth, consent, body, flag, ownershi
 
 Deno.test("one extraction per capture: a retry after success costs nothing", async () => {
   let w = world({ claim: "done" });
-  eq(await call(w, post(extract)), { status: 200, body: { status: "done" } });
+  eq(await call(w, post(extract)), { status: 200, body: { status: "done", held: [], clarification: null } });
   eq([w.modelCalls.length, w.quota], [0, 0]);
   w = world({ claim: "busy" });
   eq((await call(w, post(extract))).status, 409);
@@ -203,4 +207,36 @@ Deno.test("a failed write releases the capture and leaks nothing", async () => {
 Deno.test("a broken usage log never fails the user's request", async () => {
   const w = world({ logThrows: true });
   eq((await call(w, post(extract))).status, 200);
+});
+
+// C-2: a held item and its question are stored with the extraction, and a
+// reopened app gets them back without a second model run.
+Deno.test("held items are stored with the extraction and returned on reopen without a model call", async () => {
+  const SAMS = [
+    { id: "person-sam-lee", display_name: "Sam", full_name: "Sam Lee", nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-sam-diaz", display_name: "Sam", full_name: "Samantha Diaz", nicknames: [], relationship_label: null, state: "active" },
+  ];
+  const samProposal = {
+    items: [{
+      ...BEN_PROPOSAL.items[0], kind: "fact", person: "p1", person_mention: "Sam", statement: "Sam got the job",
+      evidence: ["Sam got the job!"], confidence: 0.4, date_text: null,
+      detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "work" },
+    }],
+    needs_clarification: { about: "person", mention: "Sam" },
+  };
+  let w = world({ note: "Sam got the job!", people: SAMS, model: { output: samProposal } });
+  const first = await call(w, post(extract));
+  eq(first.status, 200);
+  eq(first.body.tier, "clarify");
+  eq(w.writes.length, 1);
+  eq(w.writes[0].items, [], "nothing becomes memory");
+  eq(w.writes[0].needsReview, true);
+  eq(w.writes[0].review?.items.map((i) => i.statement), ["Sam got the job"]);
+  eq(w.writes[0].review?.clarification?.about, "person");
+
+  w = world({ claim: "done", review: w.writes[0].review });
+  const again = await call(w, post(extract));
+  eq(again.body.held.map((i: { statement: string }) => i.statement), ["Sam got the job"]);
+  eq(again.body.clarification.about, "person");
+  eq([w.modelCalls.length, w.quota], [0, 0], "no second model run, no quota");
 });

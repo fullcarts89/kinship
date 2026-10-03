@@ -27,6 +27,9 @@ BEGIN
   INSERT INTO public.memory_item_sources (user_id, memory_item_id, capture_id, source_kind, span_start, span_end)
     VALUES (u, i, c, 'capture', 0, 23);
   UPDATE public.memory_items SET statement = 'Ben runs the Chicago Marathon Sunday' WHERE id = i;
+  INSERT INTO public.capture_reviews (capture_id, user_id, extraction_version, items)
+    VALUES (c, u, 'relationship_extract/v1+claude-opus-5-5',
+            '[{"kind": "event", "person_id": null, "statement": "Ben runs Chicago Sunday", "spans": [{"start": 0, "end": 23}]}]');
   INSERT INTO public.reasons (id, user_id, person_id, type, window_start, window_end, dedupe_key)
     VALUES (r, u, p, 'event_followup', now(), now() + interval '1 day', 'followup:' || i);
   INSERT INTO public.reason_evidence (reason_id, memory_item_id, user_id) VALUES (r, i, u);
@@ -60,7 +63,7 @@ SELECT is(
   (SELECT count(*)::int FROM information_schema.columns c
    JOIN information_schema.tables t USING (table_schema, table_name)
    WHERE c.table_schema = 'public' AND c.column_name = 'user_id' AND t.table_type = 'BASE TABLE'),
-  23, 'all 23 user-owned tables are seeded by this test');
+  24, 'all 24 user-owned tables are seeded by this test');
 
 -- Users and anon can't call it.
 SELECT tests.as_user(:A);
@@ -80,7 +83,7 @@ SELECT is(
     "seasons": 1, "user_settings": 1, "captures": 1, "contact_events": 1, "consents": 1, "devices": 1,
     "memory_item_history": 1, "memory_item_sources": 1, "memory_items": 1, "notification_log": 1,
     "people": 1, "person_identities": 1, "reason_events": 1, "reason_evidence": 1, "reasons": 1,
-    "related_people": 1, "user_flag_overrides": 1}'::jsonb,
+    "related_people": 1, "user_flag_overrides": 1, "capture_reviews": 1}'::jsonb,
   'returns what it removed from every table');
 SELECT tests.reset_role();
 

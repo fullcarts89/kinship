@@ -33,6 +33,14 @@ export interface GatewayCaller {
   loadCapture(id: string): Promise<CaptureRow | null>;
   loadPeople(): Promise<{ people: PersonRow[]; related: RelatedRow[] }>;
   loadItems(personIds: string[]): Promise<ItemRow[]>;
+  /** Under the caller's RLS: the held items and question still waiting on this capture (C-2). */
+  loadReview(captureId: string): Promise<PendingReview | null>;
+}
+
+/** What waits for the user's answer; never memory until they answer (C-2). */
+export interface PendingReview {
+  items: ReturnType<typeof present>[];
+  clarification: ExtractionOutcome["clarification"];
 }
 
 export interface WriteItem {
@@ -72,7 +80,15 @@ export interface CallLog {
 export interface ServiceOps {
   claim(userId: string, captureId: string): Promise<"claimed" | "done" | "busy" | "missing">;
   release(userId: string, captureId: string, status: "failed" | "pending"): Promise<void>;
-  write(userId: string, captureId: string, version: string, needsReview: boolean, items: WriteItem[]): Promise<{ id: string; action: string }[]>;
+  /** Saved items, plus the held items and question when something waits on the user, in one transaction. */
+  write(
+    userId: string,
+    captureId: string,
+    version: string,
+    needsReview: boolean,
+    items: WriteItem[],
+    review: PendingReview | null,
+  ): Promise<{ id: string; action: string }[]>;
   log(row: CallLog): Promise<void>;
 }
 
@@ -117,7 +133,11 @@ export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Resp
 
       const claim = await deps.service.claim(caller.userId, captureId);
       if (claim === "missing") return json({ error: "not_found" }, 404, cors);
-      if (claim === "done") return json({ status: "done" }, 200, cors);
+      if (claim === "done") {
+        // Reopened after a restart: the stored question, never a second model run.
+        const review = await caller.loadReview(captureId);
+        return json({ status: "done", held: review?.items ?? [], clarification: review?.clarification ?? null }, 200, cors);
+      }
       if (claim === "busy") return json({ error: "in_progress" }, 409, cors);
       claimed = { userId: caller.userId, captureId };
 
@@ -145,12 +165,14 @@ export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Resp
       const outcome = run.outcome;
       const toSave = outcome.items.filter((i) => (i.tier === "auto" || i.tier === "confirm") && i.person_id);
       const held = outcome.items.filter((i) => !toSave.includes(i));
+      const review: PendingReview | null = held.length ? { items: held.map(present), clarification: outcome.clarification } : null;
       const written = await deps.service.write(
         caller.userId,
         captureId,
         version,
-        outcome.tier !== "auto" && outcome.tier !== "nothing",
+        review !== null || (outcome.tier !== "auto" && outcome.tier !== "nothing"),
         toSave.map(toWriteItem),
+        review,
       );
       claimed = null;
       await safeLog(deps, logRow(cap, run.call, outcome));

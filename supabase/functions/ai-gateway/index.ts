@@ -15,7 +15,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.1
 import { verifiedUserId } from "../_shared/auth.ts";
 import { anthropicCaller } from "../_shared/ai/model.ts";
 import type { CaptureRow, ItemRow, PersonRow, RelatedRow } from "../_shared/extraction/context.ts";
-import { createGateway, type GatewayCaller, type ServiceOps } from "./handler.ts";
+import { createGateway, type GatewayCaller, type PendingReview, type ServiceOps } from "./handler.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -89,6 +89,11 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
       if (error) throw new Error("dossier read failed");
       return data as ItemRow[];
     },
+    async loadReview(captureId) {
+      const { data, error } = await db.from("capture_reviews").select("items, clarification").eq("capture_id", captureId).maybeSingle();
+      if (error) throw new Error("review read failed");
+      return (data as PendingReview | null) ?? null;
+    },
   };
 }
 
@@ -103,13 +108,14 @@ function serviceOps(db: SupabaseClient): ServiceOps {
       const { error } = await db.rpc("release_capture_extraction", { p_user_id: userId, p_capture_id: captureId, p_status: status });
       if (error) throw new Error("release failed");
     },
-    async write(userId, captureId, version, needsReview, items) {
-      const { data, error } = await db.rpc("write_extraction", {
+    async write(userId, captureId, version, needsReview, items, review) {
+      const { data, error } = await db.rpc("write_extraction_with_review", {
         p_user_id: userId,
         p_capture_id: captureId,
         p_extraction_version: version,
         p_needs_review: needsReview,
         p_items: items,
+        p_review: review,
       });
       if (error) throw new Error(`write failed (${error.code ?? "?"})`);
       return data;
