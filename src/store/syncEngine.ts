@@ -16,7 +16,7 @@
 // full resync when the last good sync is older than tombstone retention
 //             (30 days), the local copy of synced rows is rebuilt from scratch.
 
-import { threeWayMerge } from "./merge";
+import { sameValue, threeWayMerge } from "./merge";
 import { RemoteError, type Remote, type Row } from "./remote";
 import { getMeta, setMeta } from "./schema";
 import { PULL_ORDER, TOMBSTONE_RETENTION_MS, spec, writableFields, type MirroredTable } from "./tables";
@@ -380,7 +380,7 @@ async function recordConflict(
 function differingFields(sent: Data, row: Data, updatable: Data): Data {
   const out: Data = {};
   for (const k of Object.keys(updatable)) {
-    if (JSON.stringify(sent[k] ?? null) !== JSON.stringify(row[k] ?? null)) out[k] = sent[k];
+    if (!sameValue(sent[k], row[k])) out[k] = sent[k];
   }
   return out;
 }
