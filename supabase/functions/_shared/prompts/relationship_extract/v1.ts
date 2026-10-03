@@ -52,7 +52,7 @@ statement — one short line in the third person ("Ben runs Chicago Sunday"). Us
 
 date_text — if the item has a time, copy the exact date words from the note ("Sunday", "next Friday", "February 18", "this winter"), otherwise null. Never write a calendar date yourself. date_direction says whether it already happened (past), is coming (future), or is unclear.
 
-detail — fill only what the note supports, else null. Event: event_type; event_goal (the person's own aim, in the note's words, e.g. "break four hours"); time_of_day. Fact: category; attribute and value in the note's words. Plan: firmness (idea, intended, scheduled). Thread: topic in the note's words. Moment: place. Milestone: milestone_type. Tradition: recurrence and anchor. Context: aspect.
+detail — fill only what the note supports; use an empty string for anything that doesn't apply. Event: event_type; event_goal (the person's own aim, in the note's words, e.g. "break four hours"); time_of_day. Fact: category; attribute and value in the note's words. Plan: firmness (idea, intended, scheduled). Thread: topic in the note's words. Moment: place. Milestone: milestone_type. Tradition: recurrence and anchor. Context: aspect.
 
 existing — compare with the person's existing memories (keys like "m4"):
 - merge: the same thing again (same subject, same event or fact).
@@ -67,6 +67,10 @@ Return no items for small talk or notes with nothing durable about a person. Set
 const nullable = (schema: Record<string, unknown>) => ({ anyOf: [schema, { type: "null" }] });
 const str = { type: "string" };
 const en = (values: readonly string[]) => ({ type: "string", enum: [...values] });
+// Detail fields are plain strings, "" for "doesn't apply" (normalised to null
+// before the pipeline). Structured outputs allow at most 16 parameters with
+// union types per request; nullable detail fields alone would exceed that.
+const enOrEmpty = (values: readonly string[]) => en([...values, ""]);
 
 export const SCHEMA = {
   type: "object",
@@ -92,19 +96,19 @@ export const SCHEMA = {
           detail: {
             type: "object",
             properties: {
-              event_type: nullable(en(EVENT_TYPES)),
-              event_goal: nullable(str),
-              category: nullable(en(FACT_CATEGORIES)),
-              attribute: nullable(str),
-              value: nullable(str),
-              firmness: nullable(en(FIRMNESS)),
-              topic: nullable(str),
-              place: nullable(str),
-              milestone_type: nullable(str),
-              recurrence: nullable(en(RECURRENCES)),
-              anchor: nullable(str),
-              aspect: nullable(en(ASPECTS)),
-              time_of_day: nullable(str),
+              event_type: enOrEmpty(EVENT_TYPES),
+              event_goal: str,
+              category: enOrEmpty(FACT_CATEGORIES),
+              attribute: str,
+              value: str,
+              firmness: enOrEmpty(FIRMNESS),
+              topic: str,
+              place: str,
+              milestone_type: str,
+              recurrence: enOrEmpty(RECURRENCES),
+              anchor: str,
+              aspect: enOrEmpty(ASPECTS),
+              time_of_day: str,
             },
             required: [
               "event_type", "event_goal", "category", "attribute", "value", "firmness", "topic",

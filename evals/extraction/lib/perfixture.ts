@@ -103,7 +103,7 @@ export function perFixtureMarkdown(runs: FixtureRun[], v: FixtureVerdict[], case
     out.push(`- **Note:** ${run.fixture.note}`);
     if (c) out.push(`- **Expected:** ${c.why}`);
     const p = run.proposal as ModelProposal | null;
-    if (!p) out.push(`- **Model:** no usable proposal (${run.call?.outcome ?? "none"})`);
+    if (!p) out.push(`- **Model:** no usable proposal (${run.call?.outcome ?? "none"}${run.call?.errorDetail ? `: ${run.call.errorDetail}` : ""})`);
     else {
       out.push(`- **Model proposed** (${p.items.length} item${p.items.length === 1 ? "" : "s"}${p.needs_clarification ? `, clarification ${p.needs_clarification.about}` : ""}):`);
       for (const it of p.items) out.push(`  - ${proposedLine(it, run)}`);

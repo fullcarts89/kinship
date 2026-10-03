@@ -23,6 +23,11 @@ export interface StructuredResult {
   latencyMs: number;
   /** HTTP status or error class; never content. */
   errorKind: string | null;
+  /**
+   * The API's own error message (e.g. "Schema is too complex…"), for the eval
+   * harness. The gateway never logs it.
+   */
+  errorDetail?: string;
 }
 
 export type ModelCaller = (req: StructuredRequest) => Promise<StructuredResult>;
@@ -65,7 +70,9 @@ export function anthropicCaller(apiKey: string | undefined, opts: { maxRetries?:
       const latencyMs = Math.round(performance.now() - started);
       if (err instanceof Anthropic.APIConnectionTimeoutError) return { outcome: "timeout", output: null, usage, latencyMs, errorKind: "timeout" };
       if (err instanceof Anthropic.RateLimitError) return { outcome: "rate_limited", output: null, usage, latencyMs, errorKind: "429" };
-      if (err instanceof Anthropic.APIError) return { outcome: "api_error", output: null, usage, latencyMs, errorKind: String(err.status ?? "api") };
+      if (err instanceof Anthropic.APIError) {
+        return { outcome: "api_error", output: null, usage, latencyMs, errorKind: String(err.status ?? "api"), errorDetail: String(err.message).slice(0, 300) };
+      }
       return { outcome: "api_error", output: null, usage, latencyMs, errorKind: "unknown" };
     }
   };

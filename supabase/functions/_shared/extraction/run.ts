@@ -44,5 +44,13 @@ function asProposal(v: unknown): ModelProposal | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
   if (!Array.isArray(o.items)) return null;
-  return { items: o.items as ModelProposal["items"], needs_clarification: (o.needs_clarification ?? null) as ModelProposal["needs_clarification"] };
+  // The schema uses "" for a detail that doesn't apply; the pipeline expects null.
+  const items = o.items.map((it) => {
+    if (!it || typeof it !== "object") return it;
+    const detail = (it as Record<string, unknown>).detail;
+    if (!detail || typeof detail !== "object") return it;
+    const d = Object.fromEntries(Object.entries(detail as Record<string, unknown>).map(([k, v]) => [k, v === "" ? null : v]));
+    return { ...(it as Record<string, unknown>), detail: d };
+  });
+  return { items: items as ModelProposal["items"], needs_clarification: (o.needs_clarification ?? null) as ModelProposal["needs_clarification"] };
 }
