@@ -15,7 +15,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.1
 import { verifiedUserId } from "../_shared/auth.ts";
 import { anthropicCaller } from "../_shared/ai/model.ts";
 import type { CaptureRow, ItemRow, PersonRow, RelatedRow } from "../_shared/extraction/context.ts";
-import { createGateway, type GatewayCaller, type PendingReview, type ServiceOps } from "./handler.ts";
+import { createGateway, type GatewayCaller, ServiceError, type ServiceOps, type StoredReview } from "./handler.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -90,9 +90,14 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
       return data as ItemRow[];
     },
     async loadReview(captureId) {
-      const { data, error } = await db.from("capture_reviews").select("items, clarification").eq("capture_id", captureId).maybeSingle();
+      const { data, error } = await db.from("capture_reviews").select("items, clarification, created_at").eq("capture_id", captureId).maybeSingle();
       if (error) throw new Error("review read failed");
-      return (data as PendingReview | null) ?? null;
+      return (data as StoredReview | null) ?? null;
+    },
+    async closeReview(captureId) {
+      const { data, error } = await db.rpc("close_capture_review", { p_capture_id: captureId });
+      if (error) throw new Error("close failed");
+      return data === true;
     },
   };
 }
@@ -123,6 +128,17 @@ function serviceOps(db: SupabaseClient): ServiceOps {
     async log(row) {
       const { error } = await db.from("ai_calls").insert(row);
       if (error) throw new Error("log failed");
+    },
+    async resolve(userId, captureId, reviewCreatedAt, items, newPeople) {
+      const { data, error } = await db.rpc("resolve_capture_review", {
+        p_user_id: userId,
+        p_capture_id: captureId,
+        p_review_created_at: reviewCreatedAt,
+        p_items: items,
+        p_new_people: newPeople,
+      });
+      if (error) throw new ServiceError(error.code ?? "unknown");
+      return data;
     },
   };
 }

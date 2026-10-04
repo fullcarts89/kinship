@@ -16,11 +16,20 @@
 //   8. model → deterministic pipeline → one atomic write
 //   9. content-free usage log, whatever happened
 // A refused note is kept raw, quietly. Other model failures: 503, retry later.
+//
+// The held items' review (C-2, Checkpoint D1) has two more actions, neither
+// of which calls the model:
+//   resolve_review  the user's answer, applied to the stored interpretation
+//                   and checked again (resolve.ts), written in one
+//                   transaction; consent and the flag still apply, because
+//                   the answer turns an AI reading into memory
+//   close_review    "not now" for everything held: only the signed-in owner
 
 import { bearerToken } from "../_shared/auth.ts";
 import type { ModelCaller, StructuredResult } from "../_shared/ai/model.ts";
 import { type Capability, CAPABILITIES } from "../_shared/ai/registry.ts";
 import { buildInput, type CaptureRow, dossierPeople, type ItemRow, type PersonRow, type RelatedRow } from "../_shared/extraction/context.ts";
+import { type HeldAnswer, type HeldItem, resolveHeld, type ResolvedItem } from "../_shared/extraction/resolve.ts";
 import { runExtraction } from "../_shared/extraction/run.ts";
 import type { DropReason, ExtractionOutcome, PlannedItem } from "../_shared/extraction/types.ts";
 
@@ -34,13 +43,29 @@ export interface GatewayCaller {
   loadPeople(): Promise<{ people: PersonRow[]; related: RelatedRow[] }>;
   loadItems(personIds: string[]): Promise<ItemRow[]>;
   /** Under the caller's RLS: the held items and question still waiting on this capture (C-2). */
-  loadReview(captureId: string): Promise<PendingReview | null>;
+  loadReview(captureId: string): Promise<StoredReview | null>;
+  /** As the user: dismiss what's held ("not now"); false when nothing was waiting. */
+  closeReview(captureId: string): Promise<boolean>;
 }
 
 /** What waits for the user's answer; never memory until they answer (C-2). */
 export interface PendingReview {
   items: ReturnType<typeof present>[];
   clarification: ExtractionOutcome["clarification"];
+}
+
+/** A pending review as stored; created_at identifies the version the user answers. */
+export interface StoredReview {
+  items: HeldItem[];
+  clarification: ExtractionOutcome["clarification"];
+  created_at: string;
+}
+
+/** A database refusal, by SQLSTATE (never its message: messages may echo data). */
+export class ServiceError extends Error {
+  constructor(readonly code: string) {
+    super(`service error ${code}`);
+  }
 }
 
 export interface WriteItem {
@@ -90,6 +115,14 @@ export interface ServiceOps {
     review: PendingReview | null,
   ): Promise<{ id: string; action: string }[]>;
   log(row: CallLog): Promise<void>;
+  /** The answered review, written and closed in one transaction (resolve_capture_review). */
+  resolve(
+    userId: string,
+    captureId: string,
+    reviewCreatedAt: string,
+    items: ResolvedItem[],
+    newPeople: { ref: string; display_name: string }[],
+  ): Promise<{ status: "resolved" | "already_resolved"; items?: { id: string; action: string }[]; people?: Record<string, string> }>;
 }
 
 export interface GatewayDeps {
@@ -104,6 +137,7 @@ export interface GatewayDeps {
 
 const BODY_LIMIT = 4 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_ANSWERS = 8;
 
 export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Response> {
   const caps = deps.capabilities ?? CAPABILITIES;
@@ -117,16 +151,25 @@ export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Resp
       const token = bearerToken(req);
       const caller = token ? await deps.authenticate(token) : null;
       if (!caller) return json({ error: "unauthorized" }, 401, cors);
-      if (!(await caller.hasConsent(deps.consentVersion))) return json({ error: "consent_required" }, 403, cors);
 
       const body = await readBody(req);
+      const captureId = (body?.input_ref as Record<string, unknown> | undefined)?.capture_id;
+      // "Not now" needs nothing but the owner: no consent, flag or model.
+      if (body?.action === "close_review") {
+        if (typeof captureId !== "string" || !UUID.test(captureId)) return json({ error: "invalid_request" }, 400, cors);
+        const closed = await caller.closeReview(captureId);
+        return json({ status: closed ? "closed" : "nothing_waiting" }, 200, cors);
+      }
+      if (!(await caller.hasConsent(deps.consentVersion))) return json({ error: "consent_required" }, 403, cors);
       if (!body) return json({ error: "invalid_request" }, 400, cors);
-      const cap = caps[String(body.capability)];
-      const captureId = (body.input_ref as Record<string, unknown> | undefined)?.capture_id;
+      const cap = caps[String(body.capability ?? "relationship_extract")];
       if (!cap || cap.name !== "relationship_extract" || typeof captureId !== "string" || !UUID.test(captureId)) {
         return json({ error: "invalid_request" }, 400, cors);
       }
+      if (body.action !== undefined && body.action !== "resolve_review") return json({ error: "invalid_request" }, 400, cors);
+      if (body.action === undefined && body.capability === undefined) return json({ error: "invalid_request" }, 400, cors);
       if (!(await caller.flagEnabled(cap.flag))) return json({ error: "feature_disabled" }, 403, cors);
+      if (body.action === "resolve_review") return await resolveReview(deps, caller, captureId, body, cors);
 
       const capture = await caller.loadCapture(captureId);
       if (!capture) return json({ error: "not_found" }, 404, cors);
@@ -136,7 +179,12 @@ export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Resp
       if (claim === "done") {
         // Reopened after a restart: the stored question, never a second model run.
         const review = await caller.loadReview(captureId);
-        return json({ status: "done", held: review?.items ?? [], clarification: review?.clarification ?? null }, 200, cors);
+        return json({
+          status: "done",
+          held: review?.items ?? [],
+          clarification: review?.clarification ?? null,
+          review_created_at: review?.created_at ?? null,
+        }, 200, cors);
       }
       if (claim === "busy") return json({ error: "in_progress" }, 409, cors);
       claimed = { userId: caller.userId, captureId };
@@ -176,6 +224,8 @@ export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Resp
       );
       claimed = null;
       await safeLog(deps, logRow(cap, run.call, outcome));
+      // The stored review's version, so the answer can say which one it answers.
+      const stored = review ? await caller.loadReview(captureId) : null;
 
       return json({
         status: "extracted",
@@ -184,6 +234,7 @@ export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Resp
         saved: toSave.map((i, n) => ({ ...present(i), id: written[n]?.id ?? null, action: written[n]?.action ?? i.action.type })),
         held: held.map(present),
         clarification: outcome.clarification,
+        review_created_at: stored?.created_at ?? null,
       }, 200, cors);
     } catch (err) {
       if (claimed) await deps.service.release(claimed.userId, claimed.captureId, "failed").catch(() => undefined);
@@ -210,7 +261,12 @@ function toWriteItem(i: PlannedItem): WriteItem {
   };
 }
 
-/** What the "Here's what I'll remember" sheet needs (the user's own content, to the user). */
+/**
+ * What the "Here's what I'll remember" sheet needs (the user's own content,
+ * to the user). Held items are stored in this shape; confidence and the
+ * proposed action travel with them so an answer is written exactly like any
+ * extraction (the database checks the action's target again).
+ */
 function present(i: PlannedItem) {
   return {
     kind: i.kind,
@@ -222,10 +278,82 @@ function present(i: PlannedItem) {
     detail: i.detail,
     certainty: i.certainty,
     sensitivity: i.sensitivity,
+    confidence: i.confidence,
+    action: i.action,
     tier: i.tier,
     flags: i.flags,
     spans: i.spans,
   };
+}
+
+/** The user's answer to what was held: checked, written and closed, no model call. */
+async function resolveReview(
+  deps: GatewayDeps,
+  caller: GatewayCaller,
+  captureId: string,
+  body: Record<string, unknown>,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const answers = body.answers;
+  const createdAt = body.review_created_at;
+  if (!Array.isArray(answers) || answers.length > MAX_ANSWERS || typeof createdAt !== "string" || !createdAt) {
+    return json({ error: "invalid_request" }, 400, cors);
+  }
+  const capture = await caller.loadCapture(captureId);
+  if (!capture) return json({ error: "not_found" }, 404, cors);
+  const review = await caller.loadReview(captureId);
+  // Answered already (a retry after a lost reply), dismissed or expired.
+  if (!review) return json({ status: "already_resolved" }, 200, cors);
+  if (Date.parse(review.created_at) !== Date.parse(createdAt)) return json({ error: "review_changed" }, 409, cors);
+
+  const { people, related } = await caller.loadPeople();
+  const chosen = new Set<string>();
+  for (const a of answers as HeldAnswer[]) if (typeof a?.person_id === "string") chosen.add(a.person_id);
+  for (const i of review.items) if (i.person_id) chosen.add(i.person_id);
+  const existing = chosen.size ? await caller.loadItems([...chosen].filter((id) => people.some((p) => p.id === id))) : [];
+  const resolution = resolveHeld(review.items, answers as HeldAnswer[], {
+    note: capture.raw_text.normalize("NFC"),
+    people: people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state })),
+    related,
+    existing: existing.map((m) => ({
+      id: m.id, person_id: m.person_id, kind: m.kind, subject_type: m.subject_type,
+      subject_related_id: m.subject_related_id, statement: m.statement, status: m.status,
+    })),
+  });
+  if ("fail" in resolution) return json({ error: "invalid_answer", reason: resolution.fail }, 400, cors);
+
+  try {
+    const out = await deps.service.resolve(caller.userId, captureId, review.created_at, resolution.items, resolution.newPeople);
+    if (out.status === "already_resolved") return json({ status: "already_resolved" }, 200, cors);
+    const created = out.people ?? {};
+    return json({
+      status: "resolved",
+      saved: resolution.items.map((it, n) => ({
+        kind: it.kind,
+        person_id: it.person_id.startsWith("new:") ? created[it.person_id] ?? null : it.person_id,
+        subject_type: it.subject_type,
+        related: it.related,
+        statement: it.statement,
+        detail: it.detail,
+        certainty: it.certainty,
+        sensitivity: it.sensitivity,
+        spans: it.spans,
+        id: out.items?.[n]?.id ?? null,
+        action: out.items?.[n]?.action ?? it.action.type,
+      })),
+      new_people: Object.values(created),
+      skipped: resolution.skipped,
+    }, 200, cors);
+  } catch (err) {
+    if (!(err instanceof ServiceError)) throw err;
+    // The review or the note changed under the answer: show it again.
+    if (err.code === "40001") return json({ error: "review_changed" }, 409, cors);
+    if (err.code === "P0002") return json({ error: "not_found" }, 404, cors);
+    if (err.code === "55000") return json({ error: "not_waiting" }, 409, cors);
+    // A chosen person was deleted meanwhile, or a span no longer fits.
+    if (err.code === "23503" || err.code === "23514" || err.code === "22023") return json({ error: "invalid_answer" }, 409, cors);
+    throw err;
+  }
 }
 
 function logRow(cap: Capability, call: StructuredResult, outcome: ExtractionOutcome | null): CallLog {

@@ -1,7 +1,18 @@
 // ai-gateway guard rails (Checkpoint C), with fake auth, data, model and
 // writes. Run: deno test supabase/functions
 import type { StructuredRequest, StructuredResult } from "../_shared/ai/model.ts";
-import { type CallLog, createGateway, type GatewayCaller, type GatewayDeps, type PendingReview, type ServiceOps, type WriteItem } from "./handler.ts";
+import type { ResolvedItem } from "../_shared/extraction/resolve.ts";
+import {
+  type CallLog,
+  createGateway,
+  type GatewayCaller,
+  type GatewayDeps,
+  type PendingReview,
+  ServiceError,
+  type ServiceOps,
+  type StoredReview,
+  type WriteItem,
+} from "./handler.ts";
 
 function eq<T>(actual: T, expected: T, msg = ""): void {
   const a = JSON.stringify(actual);
@@ -10,6 +21,7 @@ function eq<T>(actual: T, expected: T, msg = ""): void {
 }
 
 const CAPTURE = "00000000-0000-0000-0000-000000000c01";
+const STORED_AT = "2026-10-09T02:14:05.123456+00:00";
 const NOTE = "Ben runs Chicago Sunday. He's hoping to break four hours.";
 
 const BEN_PROPOSAL = {
@@ -30,6 +42,8 @@ interface World {
   deps: GatewayDeps;
   modelCalls: StructuredRequest[];
   writes: { needsReview: boolean; items: WriteItem[]; version: string; review: PendingReview | null }[];
+  resolves: { createdAt: string; items: ResolvedItem[]; newPeople: { ref: string; display_name: string }[] }[];
+  closes: string[];
   releases: string[];
   logs: CallLog[];
   quota: number;
@@ -46,9 +60,11 @@ function world(opts: {
   logThrows?: boolean;
   note?: string;
   people?: { id: string; display_name: string; full_name: string | null; nicknames: string[]; relationship_label: string | null; state: string }[];
-  review?: PendingReview | null;
+  review?: StoredReview | null;
+  resolveResult?: Awaited<ReturnType<ServiceOps["resolve"]>> | ServiceError;
+  closes?: boolean;
 } = {}): World {
-  const w: World = { modelCalls: [], writes: [], releases: [], logs: [], quota: 0, deps: undefined as unknown as GatewayDeps };
+  const w: World = { modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, deps: undefined as unknown as GatewayDeps };
   const caller: GatewayCaller = {
     userId: "u1",
     hasConsent: () => Promise.resolve(opts.consent ?? true),
@@ -66,7 +82,11 @@ function world(opts: {
       related: [],
     }),
     loadItems: () => Promise.resolve([]),
-    loadReview: () => Promise.resolve(opts.review ?? null),
+    loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
+    closeReview: (id) => {
+      w.closes.push(id);
+      return Promise.resolve(opts.closes ?? true);
+    },
   };
   const service: ServiceOps = {
     claim: () => Promise.resolve(opts.claim ?? "claimed"),
@@ -83,6 +103,14 @@ function world(opts: {
       if (opts.logThrows) return Promise.reject(new Error("log down"));
       w.logs.push(row);
       return Promise.resolve();
+    },
+    resolve: (_u, _c, createdAt, items, newPeople) => {
+      if (opts.resolveResult instanceof ServiceError) return Promise.reject(opts.resolveResult);
+      w.resolves.push({ createdAt, items, newPeople });
+      return Promise.resolve(opts.resolveResult ?? {
+        status: "resolved", items: items.map((_, i) => ({ id: `resolved-${i}`, action: "new" })),
+        people: Object.fromEntries(newPeople.map((p, i) => [p.ref, `new-person-${i}`])),
+      });
     },
   };
   w.deps = {
@@ -135,7 +163,7 @@ Deno.test("refuses before spending anything: auth, consent, body, flag, ownershi
 
 Deno.test("one extraction per capture: a retry after success costs nothing", async () => {
   let w = world({ claim: "done" });
-  eq(await call(w, post(extract)), { status: 200, body: { status: "done", held: [], clarification: null } });
+  eq(await call(w, post(extract)), { status: 200, body: { status: "done", held: [], clarification: null, review_created_at: null } });
   eq([w.modelCalls.length, w.quota], [0, 0]);
   w = world({ claim: "busy" });
   eq((await call(w, post(extract))).status, 409);
@@ -234,9 +262,102 @@ Deno.test("held items are stored with the extraction and returned on reopen with
   eq(w.writes[0].review?.items.map((i) => i.statement), ["Sam got the job"]);
   eq(w.writes[0].review?.clarification?.about, "person");
 
-  w = world({ claim: "done", review: w.writes[0].review });
+  eq(first.body.review_created_at, STORED_AT, "the answer can say which version of the question it answers");
+  eq(w.writes[0].review?.items[0].confidence, 0.4, "held items keep their confidence…");
+  eq(w.writes[0].review?.items[0].action, { type: "new", target_id: null }, "…and the proposed action, for the write after the answer");
+
+  w = world({ claim: "done", review: { ...w.writes[0].review!, created_at: STORED_AT } as StoredReview });
   const again = await call(w, post(extract));
   eq(again.body.held.map((i: { statement: string }) => i.statement), ["Sam got the job"]);
   eq(again.body.clarification.about, "person");
+  eq(again.body.review_created_at, STORED_AT);
   eq([w.modelCalls.length, w.quota], [0, 0], "no second model run, no quota");
+});
+
+// ─── Checkpoint D1: answering what was held ─────────────────────────────────
+
+const SAM_NOTE = "Sam got the job!";
+const SAMS = [
+  { id: "person-sam-lee", display_name: "Sam", full_name: "Sam Lee", nicknames: [], relationship_label: null, state: "active" },
+  { id: "person-sam-diaz", display_name: "Sam", full_name: "Samantha Diaz", nicknames: [], relationship_label: null, state: "active" },
+];
+const HELD_SAM: StoredReview = {
+  items: [{
+    kind: "fact", person_id: null, new_person_name: null, subject_type: "person", related: null, statement: "Sam got the job",
+    detail: { category: "work" }, certainty: "stated", sensitivity: "none", confidence: 0.7, action: { type: "new", target_id: null },
+    tier: "hold", flags: ["person_ambiguous"], spans: [{ start: 0, end: 15, quote: "Sam got the job" }],
+  }],
+  clarification: { about: "person", question: "Which Sam do you mean?", options: ["Sam", "Sam", "Someone else"] },
+  created_at: STORED_AT,
+};
+const resolveBody = (answers: unknown, createdAt = STORED_AT) => ({
+  action: "resolve_review", input_ref: { capture_id: CAPTURE }, review_created_at: createdAt, answers,
+});
+
+Deno.test("an answer is checked, written and closed in one step, with no model call", async () => {
+  const w = world({ note: SAM_NOTE, people: SAMS, review: HELD_SAM });
+  const { status, body } = await call(w, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }])));
+  eq(status, 200);
+  eq(body.status, "resolved");
+  eq(body.saved.map((i: { person_id: string; statement: string; id: string }) => [i.person_id, i.statement, i.id]), [["person-sam-lee", "Sam got the job", "resolved-0"]]);
+  eq(w.resolves.length, 1);
+  eq(w.resolves[0].createdAt, STORED_AT);
+  eq(w.resolves[0].items[0].spans, [{ start: 0, end: 15, quote: "Sam got the job" }]);
+  eq([w.modelCalls.length, w.quota, w.logs.length], [0, 0, 0], "no model, no quota, nothing to log");
+});
+
+Deno.test("someone new is added only when the user says so", async () => {
+  const maya: StoredReview = {
+    ...HELD_SAM,
+    items: [{ ...HELD_SAM.items[0], new_person_name: "Maya", statement: "Maya got the job", flags: ["new_person"], spans: [{ start: 0, end: 16, quote: "Maya got the job" }] }],
+    clarification: { about: "new_person", question: "Is Maya someone new?", options: ["Add Maya", "Someone already here"] },
+  };
+  const w = world({ note: "Maya got the job!", people: SAMS, review: maya });
+  const { body } = await call(w, post(resolveBody([{ index: 0, new_person: true }])));
+  eq(w.resolves[0].newPeople, [{ ref: "new:0", display_name: "Maya" }]);
+  eq(body.saved[0].person_id, "new-person-0");
+  eq(body.new_people, ["new-person-0"]);
+});
+
+Deno.test("answers that don't fit, or that arrive late, are refused without a write", async () => {
+  let w = world({ note: SAM_NOTE, people: SAMS, review: HELD_SAM });
+  eq(await call(w, post(resolveBody([{ index: 0, person_id: "someone-elses-person" }]))), { status: 400, body: { error: "invalid_answer", reason: "unknown_person" } });
+  eq(await call(w, post(resolveBody([]))), { status: 400, body: { error: "invalid_answer", reason: "unanswered" } });
+  eq((await call(w, post(resolveBody("everything")))).status, 400);
+  eq((await call(w, post(resolveBody(Array.from({ length: 9 }, (_, i) => ({ index: i, skip: true })))))).status, 400);
+  eq(await call(w, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }], "2026-10-01T00:00:00Z"))), { status: 409, body: { error: "review_changed" } });
+  eq(w.resolves.length, 0, "nothing reached the database");
+  // Already answered (a retry after a lost reply), dismissed or expired.
+  w = world({ note: SAM_NOTE, people: SAMS, review: null });
+  eq(await call(w, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }]))), { status: 200, body: { status: "already_resolved" } });
+  // Not the caller's note (RLS shows them nothing).
+  w = world({ capture: false, people: SAMS, review: HELD_SAM });
+  eq(await call(w, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }]))), { status: 404, body: { error: "not_found" } });
+});
+
+Deno.test("the database's last word: changed review, vanished person, deleted note", async () => {
+  const cases: [string, number, string][] = [["40001", 409, "review_changed"], ["23503", 409, "invalid_answer"], ["P0002", 404, "not_found"], ["55000", 409, "not_waiting"]];
+  for (const [code, status, error] of cases) {
+    const w = world({ note: SAM_NOTE, people: SAMS, review: HELD_SAM, resolveResult: new ServiceError(code) });
+    eq(await call(w, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }]))), { status, body: { error } }, code);
+  }
+  const lost = world({ note: SAM_NOTE, people: SAMS, review: HELD_SAM, resolveResult: { status: "already_resolved" } });
+  eq((await call(lost, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }])))).body, { status: "already_resolved" });
+});
+
+Deno.test("answering needs consent and the flag; \"not now\" needs only the owner", async () => {
+  let w = world({ consent: false, note: SAM_NOTE, people: SAMS, review: HELD_SAM });
+  eq((await call(w, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }])))).status, 403);
+  w = world({ flag: false, note: SAM_NOTE, people: SAMS, review: HELD_SAM });
+  eq(await call(w, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }]))), { status: 403, body: { error: "feature_disabled" } });
+  eq(w.resolves.length, 0);
+  // Dismissing works even with AI switched off.
+  w = world({ consent: false, flag: false });
+  eq(await call(w, post({ action: "close_review", input_ref: { capture_id: CAPTURE } })), { status: 200, body: { status: "closed" } });
+  eq(w.closes, [CAPTURE]);
+  w = world({ closes: false });
+  eq(await call(w, post({ action: "close_review", input_ref: { capture_id: CAPTURE } })), { status: 200, body: { status: "nothing_waiting" } });
+  eq((await call(w, post({ action: "close_review", input_ref: { capture_id: CAPTURE } }, null))).status, 401);
+  eq((await call(w, post({ action: "close_review", input_ref: { capture_id: "nope" } }))).status, 400);
+  eq((await call(w, post({ action: "delete_everything", input_ref: { capture_id: CAPTURE } }))).status, 400);
 });
