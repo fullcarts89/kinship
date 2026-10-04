@@ -311,9 +311,9 @@ The three migrations were reviewed. They apply cleanly from scratch: a throwaway
 | | Files | Added | Deleted |
 |---|---|---|---|
 | Before the audit | 65 | 407,666 | 7 |
-| **After the audit** (code, cleanup, this document and the C closeout notes) | **64** | **about 10,200** | **about 10** |
+| **After the audit** (code, cleanup, this document and the C closeout notes; head `1525f3e`) | **63** | **10,065** | **7** |
 
-None of the remaining ~10,200 lines is raw eval output.
+None of the remaining 10,065 lines is raw eval output.
 
 ## 13. Merge gates
 
