@@ -43,6 +43,14 @@ Security:
   writes the caller's own consent and the append-only consent ledger, which
   users can't write directly. It acts only on `auth.uid()`.
 
+- `authenticated_security_definer_function_executable` (WARN) on
+  `public.close_capture_review` (since Checkpoint C): **accepted by design.**
+  The user closes or dismisses their own pending review. It acts only on
+  `auth.uid()`'s capture (another user gets `false`; pgTAP `57`), and it must
+  be a definer to settle the capture and honour delete-after-extraction.
+- `rls_enabled_no_policy` (INFO) on `public.ai_calls`: **by design.** The
+  content-free usage log is written and read only by the service role.
+
 Performance (INFO only): two unindexed foreign keys on `season_commitments`,
 and six unused indexes. Both are left alone: the 2.0 schema replaces these
 tables.
@@ -69,6 +77,14 @@ the integration at 22:16): `20261003090000_v2_write_memory_item` (SECURITY
 INVOKER). **Parity:** 19 migrations in both; fingerprint md5
 `da13bfe7f04a062ab521af626e60581a` in production and in a fresh build.
 
+Checkpoint C ([fullcarts89/kinship#13](https://github.com/fullcarts89/kinship/pull/13),
+merged 4 Oct 2026 16:21 UTC as merge commit `956c3d9`, deployed by the
+integration): `20261004090000_v2_ai_gateway`, `20261004100000_v2_capture_reviews`,
+`20261004110000_v2_temporal_detail`. **Parity:** 22 migrations in both. The
+schema fingerprint before the merge was `da13bfe7…` (= a fresh build of `main`);
+after it, `a42f9989bca2a251771c452304063717` in production and in a fresh build
+of the merged repository.
+
 **OPS-1 (operational invariant, CA-9):** migrations reach production only
 through a reviewed PR merged to `main`. The GitHub integration's production
 branch stays `main`; nobody applies schema changes by hand.
@@ -79,3 +95,4 @@ branch stays `main`; nobody applies schema changes by hand.
 |---|---|---|
 | `ai-insight` | 4 | Auth, consent (403), validation, quota (429). Deployed from `d3b42c8`; identical to the repo (shared `_shared/auth.ts`, pinned SDKs). |
 | `delete-account` | 5 (platform) | Service role is used only after verifying the caller's own token. Redeployed from `main` (`7c57259`) on 2 Oct 2026; ezbr `c77ab4b0…`. |
+| `ai-gateway` | 1 | Deployed from `main` (`956c3d9`) on 4 Oct 2026, JWT verification on. Same layout as the others (`source/` + `_shared/`), with the 14 files of its import closure. **Parity:** every deployed file is byte-identical to `main` (retrieved and compared mechanically); ezbr `6818d998…`. Probed: no auth → 401; the anon key → the handler's own 401; GET → 405. `ai_extraction` is **OFF** for everyone (default off, rollout 0%, no overrides), so the gateway answers `feature_disabled` to any signed-in user. |
