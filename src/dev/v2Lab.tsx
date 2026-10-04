@@ -10,6 +10,8 @@ import { NoteView } from "@/features/person/NoteView";
 import { PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
 import { PortraitView, type PortraitLineData } from "@/features/person/PortraitView";
 import { PeopleView } from "@/features/people/PeopleView";
+import { SettingsSheetView } from "@/features/people/SettingsSheet";
+import { ConsentSheetView } from "@/features/tell/ConsentSheet";
 import { ReviewSheet } from "@/features/tell/ReviewSheet";
 import { KeptLine, OFFLINE_LINE, TellDockView } from "@/features/tell/TellDock";
 import { buildReview, itemLine, type ReviewInput } from "@/features/tell/reviewModel";
@@ -189,7 +191,7 @@ const peopleRows = [
 export const LAB_STATES = [
   "today", "today-quiet", "today-return", "today-after", "handoff", "handoff-choose", "tell", "kept", "offline",
   "review", "keep", "sams", "sams-answering", "sarah", "maya", "changed",
-  "people", "people-add", "person", "person-empty", "correction", "correction-date", "knows", "source",
+  "consent", "settings", "people", "people-add", "person", "person-empty", "correction", "correction-date", "knows", "source",
 ] as const;
 
 export function V2Lab({ state }: { state: string }) {
@@ -254,8 +256,17 @@ export function V2Lab({ state }: { state: string }) {
       return <WithSheet view={review("Maya has surgery sometime soon.", row("review", { tier: "clarify", held: [maya] }), [])} />;
     case "changed":
       return <WithSheet view={review("Ana mentioned she might move to Lisbon.", row("review", { saved: [{ id: "m3", tier: "confirm" }], settled: true }, "changed_elsewhere"), [lisbon])} />;
+    case "consent":
+      return <Phone nav="today"><TodayLab view={today({ reasons: [], items: [] })} /><ConsentSheetView visible busy={false} onAllow={noop} onDecline={noop} /></Phone>;
+    case "settings":
+      return (
+        <Phone nav="people">
+          <PeopleView rows={peopleRows} onOpen={noop} onAdd={async () => undefined} onSettings={noop} />
+          <SettingsSheetView visible understanding onUnderstanding={noop} onSignOut={noop} onDismiss={noop} />
+        </Phone>
+      );
     case "people":
-      return <Phone nav="people"><PeopleView rows={peopleRows} onOpen={noop} onAdd={async () => undefined} /></Phone>;
+      return <Phone nav="people"><PeopleView rows={peopleRows} onOpen={noop} onAdd={async () => undefined} onSettings={noop} /></Phone>;
     case "people-add":
       return <Phone nav="people"><PeopleView rows={peopleRows} onOpen={noop} onAdd={async () => undefined} initialAdding="" /></Phone>;
     case "person":

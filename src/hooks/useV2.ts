@@ -9,7 +9,8 @@ import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
 import { buildToday, evidenceOf, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayView } from "@/features/today/todayModel";
 import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
-import { AI_CONSENT_VERSION } from "@/lib/aiPreferences";
+import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
+import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, track } from "@/platform/analytics";
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
@@ -53,7 +54,7 @@ export function useTell() {
     }
     return capture.id;
   }, [store, understanding, ai]);
-  return { keep, ai, tellOn: isOn(flags, "tell") };
+  return { keep, ai, tellOn: isOn(flags, "tell"), extractionOn: isOn(flags, "ai_extraction") };
 }
 
 // ─── The review ─────────────────────────────────────────────────────────
@@ -431,4 +432,46 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
     };
   }, [itemId]);
   return q.data ?? null;
+}
+
+// ─── The one-time understanding consent (D2, D3) ────────────────────────
+
+const CONSENT_ASKED = "ai_consent_asked";
+
+/** Whether to ask now: understanding is on for this account, not yet allowed, and never asked on this device. */
+export function useConsentAsk(): { ask: boolean; answer: (allow: boolean) => Promise<void> } {
+  const { store } = useV2Session();
+  const { extractionOn } = useTell();
+  const q = useStoreQuery(store, async (repos) => {
+    const s = await repos.settings.get();
+    const allowed = s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
+    return { allowed, asked: (await getMeta(store.db, CONSENT_ASKED)) === "1" };
+  });
+  return {
+    ask: extractionOn && q.data !== undefined && !q.data.allowed && !q.data.asked,
+    answer: async (allow: boolean) => {
+      await setAIEnabled(allow);
+      await setMeta(store.db, CONSENT_ASKED, "1");
+      store.notify();
+    },
+  };
+}
+
+/** Understanding on or off (D3: revocable in Settings, enforced at the gateway). */
+export function useUnderstandingConsent(): { allowed: boolean | null; set: (allow: boolean) => Promise<void> } {
+  const { store, understanding } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const s = await repos.settings.get();
+    return s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
+  });
+  return {
+    allowed: q.data ?? null,
+    set: async (allow: boolean) => {
+      await setAIEnabled(allow);
+      await setMeta(store.db, "ai_consent_asked", "1");
+      // Pull the server's copy so the device agrees at once.
+      understanding.run().catch(() => undefined);
+      store.notify();
+    },
+  };
 }

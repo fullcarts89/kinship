@@ -3,7 +3,7 @@
 // ranking, nothing to keep up with. Adding someone is a name and Done.
 import React, { useMemo, useState } from "react";
 import { TextInput, View } from "react-native";
-import { Plus, Search } from "lucide-react-native";
+import { Plus, Search, Settings } from "lucide-react-native";
 import { height, maxScale, radius, size, space, type } from "@/design/tokens";
 import { Body, IconButton, Pill, Row, Screen, Sheet, Sprig, Title, usePalette } from "@/ui";
 
@@ -19,12 +19,15 @@ export function PeopleView({
   onOpen,
   onAdd,
   initialAdding = null,
+  onSettings,
 }: {
   rows: PersonRowData[];
   onOpen: (personId: string) => void;
   onAdd: (name: string) => Promise<unknown>;
   /** Opens with the add sheet showing (the lab). */
   initialAdding?: string | null;
+  /** Settings, from the header. */
+  onSettings?: () => void;
 }) {
   const p = usePalette();
   const [query, setQuery] = useState("");
@@ -60,6 +63,11 @@ export function PeopleView({
         <IconButton label="Add someone" onPress={() => setAdding(query.trim())}>
           <Plus color={p.ink} size={size.iconLarge} strokeWidth={1.8} />
         </IconButton>
+        {onSettings ? (
+          <IconButton label="Settings" onPress={onSettings}>
+            <Settings color={p.inkQuiet} size={size.icon + 2} strokeWidth={1.8} />
+          </IconButton>
+        ) : null}
       </View>
 
       <View style={{ marginTop: space.xl }}>

@@ -30,10 +30,12 @@ export default function Index() {
   // No session → login
   if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
 
+  // Authenticated (or mock mode) → main app, in the shell this account uses.
+  // 2.0 has no 1.0 onboarding: it asks only what it needs, in place.
+  if (shell === null) return null;
+  if (shell === "v2") return <Redirect href="/v2" />;
+
   // First launch → onboarding
   if (!onboarded) return <Redirect href="/(auth)/onboarding" />;
-
-  // Authenticated (or mock mode) → main app, in the shell this account uses
-  if (shell === null) return null;
-  return <Redirect href={shell === "v2" ? "/v2" : "/(tabs)"} />;
+  return <Redirect href="/(tabs)" />;
 }

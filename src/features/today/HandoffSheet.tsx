@@ -34,7 +34,7 @@ export function HandoffSheet(props: HandoffSheetProps) {
           <Label>You could mention</Label>
           <View style={{ marginTop: space.s, gap: space.xs }}>
             {props.mention.map((m) => (
-              <Body key={m}>{`·  ${m}`}</Body>
+              <Body key={m}>{`•  ${m}`}</Body>
             ))}
           </View>
         </View>

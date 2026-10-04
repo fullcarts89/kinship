@@ -4,6 +4,7 @@ import React from "react";
 import { View } from "react-native";
 import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ConsentSheet } from "@/features/tell/ConsentSheet";
 import { TellDock } from "@/features/tell/TellDock";
 import { usePalette } from "@/ui";
 import { useKeyboardLift } from "@/ui/useKeyboardLift";
@@ -13,6 +14,8 @@ export default function MainLayout() {
   const insets = useSafeAreaInsets();
   const lift = useKeyboardLift();
   return (
+    <>
+    <ConsentSheet />
     <Tabs
       screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: p.paper }, animation: "none" }}
       tabBar={({ state, navigation }) => (
@@ -27,5 +30,6 @@ export default function MainLayout() {
       <Tabs.Screen name="index" options={{ title: "Today" }} />
       <Tabs.Screen name="people" options={{ title: "People" }} />
     </Tabs>
+    </>
   );
 }
