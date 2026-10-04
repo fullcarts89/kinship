@@ -417,3 +417,33 @@ Deno.test("a 'subject' question about a pronoun is a 'who?' question (amb-071, r
   });
   eq(out.items.map((i) => i.tier), ["hold"]);
 });
+
+// ─── Final cleanup: negation scope (core-046) ───────────────────────────────
+
+Deno.test("negation in a consequence clause doesn't negate the fact: 'Ben hates surprises, so no surprise party.'", () => {
+  const out = run(input("Ben hates surprises, so no surprise party."), [item({ statement: "Ben hates surprises", evidence: ["Ben hates surprises, so no surprise party."], detail: { ...item({}).detail, category: "preference" } })]);
+  eq(out.items.map((i) => i.statement), ["Ben hates surprises"]);
+});
+
+Deno.test("negation scope still protects: lost negation is dropped, kept negation saved, the plain clause kept", () => {
+  const note = "Ben didn't get the job, but he's interviewing at Stripe next week.";
+  eq(run(input("Ben didn't get the job."), [item({ statement: "Ben got the job", evidence: ["Ben didn't get the job."] })]).dropped.map((d) => d.reason), ["polarity_mismatch"]);
+  eq(run(input(note), [item({ statement: "Ben got the job", evidence: [note] })]).dropped.map((d) => d.reason), ["polarity_mismatch"], "whole-sentence quote, lost negation");
+  eq(run(input(note), [item({ statement: "Ben didn't get the job", evidence: [note] })]).items.length, 1, "negation kept");
+  eq(run(input(note), [item({ kind: "event", statement: "Ben is interviewing at Stripe next week", evidence: [note], date_text: "next week", detail: { ...item({}).detail, category: null, event_type: "interview" } })]).items.length, 1, "the plain clause is kept");
+  eq(run(input("Ben hates surprises, so no surprise party."), [item({ statement: "Ben wants a surprise party", evidence: ["Ben hates surprises, so no surprise party."] })]).dropped.map((d) => d.reason), ["polarity_mismatch"], "a statement resting on the negated clause");
+  eq(run(input("Ben doesn't hate surprises anymore, so a party is fine."), [item({ statement: "Ben hates surprises", evidence: ["Ben doesn't hate surprises anymore, so a party is fine."] })]).dropped.map((d) => d.reason), ["polarity_mismatch"]);
+  eq(run(input("Ben isn't moving after all."), [item({ statement: "Ben is moving", evidence: ["Ben isn't moving after all."] })]).dropped.map((d) => d.reason), ["polarity_mismatch"]);
+});
+
+Deno.test("positive idioms made of negative words: 'Can't wait to tell Ben'", () => {
+  const out = run(input("I got the job! Can't wait to tell Ben."), [item({ kind: "promise", subject: "user", statement: "Writer wants to tell Ben they got the job", evidence: ["Can't wait to tell Ben."], certainty: "planned" })]);
+  eq(out.dropped.filter((d) => d.reason === "polarity_mismatch").length, 0);
+  eq(run(input("Ben can't come to the party."), [item({ kind: "event", statement: "Ben is coming to the party", evidence: ["Ben can't come to the party."] })]).dropped.map((d) => d.reason), ["polarity_mismatch"], "a real can't still negates");
+});
+
+Deno.test("'sometime this summer' is a vague date, not a wish", () => {
+  const roster = [...ROSTER, { key: "p13", id: "id-p13", display_name: "Zoë", full_name: null, nicknames: [], relationship_label: null }];
+  const out = run(input("Zoë is moving to Portland sometime this summer.", { roster }), [item({ kind: "event", person: "p13", person_mention: "Zoë", statement: "Zoë is moving to Portland sometime this summer", evidence: ["Zoë is moving to Portland sometime this summer."], date_text: "this summer", detail: { ...item({}).detail, category: null, event_type: "move" } })]);
+  ok(out.items.length === 1 && out.items[0].certainty === "stated", `got ${out.items[0]?.certainty}`);
+});

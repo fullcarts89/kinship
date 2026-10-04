@@ -3,7 +3,7 @@
 
 import type { Capability } from "../ai/registry.ts";
 import type { ModelCaller, StructuredResult } from "../ai/model.ts";
-import { buildUserContent } from "../prompts/relationship_extract/v3.ts";
+import { buildUserContent } from "../prompts/relationship_extract/v4.ts";
 import { planExtraction } from "./pipeline.ts";
 import type { ExtractionInput, ExtractionOutcome, ModelProposal } from "./types.ts";
 

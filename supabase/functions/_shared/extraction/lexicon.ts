@@ -30,7 +30,8 @@ export function wordingCertainty(sentence: string): Certainty | null {
   const s = fold(sentence)
     .replace(/\b(in|on|by|until|till|since|from|through|early|late|mid|this|next|last|of)[ -]may\b/g, "$1 month")
     .replace(/\bmay (?=\d)/g, "month ")
-    .replace(/\b(sometime|some time) (?=in (january|february|march|april|may|june|july|august|september|october|november|december)\b)/g, "");
+    .replace(/\b(sometime|some time) (?=in (january|february|march|april|may|june|july|august|september|october|november|december)\b)/g, "")
+    .replace(/\b(sometime|some time) (?=(this|next) (spring|summer|autumn|fall|winter|year|month|week)\b)/g, "");
   if (/\bi think\b/.test(s) && /\b(said|says|mentioned|told)\b/.test(s)) return "reported";
   if (REPORTED.test(s)) return "reported";
   if (WISHED.test(s)) return "wished";
@@ -51,9 +52,35 @@ export function capCertainty(model: Certainty, wording: Certainty | null): { cer
 
 const NEGATION = /\b(not|no|never|didn't|didnt|doesn't|doesnt|don't|dont|isn't|isnt|wasn't|wasnt|won't|wont|can't|cant|couldn't|couldnt|hasn't|hasnt|haven't|havent|hadn't|hadnt|aren't|arent|weren't|werent|shouldn't|wouldn't|no longer|nobody|neither|nor|failed to|turned down|rejected|cancel(?:l?ed)?|called off|fell through)\b/;
 
+/** Positive idioms built from negative words ("can't wait to tell Ben"). */
+const POSITIVE_IDIOMS = /\b(?:can't|cant|cannot|can not) wait\b|\bcouldn't be (?:happier|prouder|more excited)\b|\bno doubt\b|\bnot only\b/g;
+
 /** True when the text carries a negation or a reversal word. */
 export function hasNegation(text: string): boolean {
-  return NEGATION.test(fold(text));
+  return NEGATION.test(fold(text).replace(POSITIVE_IDIOMS, " "));
+}
+
+const SCOPE_STOP = new Set([
+  "the", "and", "his", "her", "hers", "their", "they", "she", "him", "was", "were", "is", "are", "has", "have", "had", "with",
+  "for", "that", "this", "from", "about", "into", "who", "writer", "writer's", "also", "too", "now", "just", "really",
+]);
+const stem = (w: string) => (w.length > 4 ? w.replace(/(?:ing|ed|es|s)$/, "") : w);
+
+/**
+ * Negation scoped to the part of the words that carries the statement:
+ * "Ben hates surprises, so no surprise party" negates the party, not the
+ * fact. The quote is split into clauses; the clause(s) sharing the most
+ * content words with the statement decide. A tie, or no overlap at all,
+ * falls back to the whole clause (the careful reading).
+ */
+export function negatedWhereStated(clause: string, statement: string): boolean {
+  const parts = clause.split(/[,;:—–]|\s+(?:but|so|though|although|because|since|and then)\s+/i).map((x) => x.trim()).filter(Boolean);
+  if (parts.length <= 1) return hasNegation(clause);
+  const words = new Set(wordsOf(statement).filter((w) => w.length > 2 && !SCOPE_STOP.has(w)).map(stem));
+  const scores = parts.map((part) => new Set(wordsOf(part).filter((w) => w.length > 2 && !SCOPE_STOP.has(w)).map(stem).filter((w) => words.has(w))).size);
+  const best = Math.max(...scores);
+  if (best === 0) return hasNegation(clause);
+  return parts.some((part, i) => scores[i] === best && hasNegation(part));
 }
 
 // ─── Sensitivity ────────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@
 // founder's approval during beta. Change `model` only with an eval run
 // attached to the PR.
 
-import * as extract from "../prompts/relationship_extract/v3.ts";
+import * as extract from "../prompts/relationship_extract/v4.ts";
 
 export type Effort = "low" | "medium" | "high";
 
@@ -34,8 +34,8 @@ export interface Capability {
   fallbacks: boolean;
 }
 
-// v2.1: the frozen stage-2 corpus, with six documented fixture corrections (evals/extraction/MANIFEST.json).
-export const EXTRACTION_EVAL_VERSION = "extraction-v2.1";
+// v2.2: the frozen final-run corpus (v2.1 + move and negation-scope fixtures, person-vs-shared rule) (evals/extraction/MANIFEST.json).
+export const EXTRACTION_EVAL_VERSION = "extraction-v2.2";
 
 export const CAPABILITIES: Record<string, Capability> = {
   relationship_extract: {

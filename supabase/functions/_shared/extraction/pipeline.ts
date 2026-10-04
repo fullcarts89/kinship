@@ -23,6 +23,7 @@ import {
   floorSensitivity,
   fold,
   hasNegation,
+  negatedWhereStated,
   inventedRelations,
   inventedSensitiveTerms,
   userIsActor,
@@ -214,7 +215,7 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   if (inventedRelations(statement, text, ctx.knownRelations).length > 0) return { drop: "invented_relation" };
   // Negation is local: "Ben didn't get the job, but he's interviewing" has
   // one negated clause and one plain one.
-  if (hasNegation(clauseAroundSpan(text, primary)) && !hasNegation(statement)) return { drop: "polarity_mismatch" };
+  if (negatedWhereStated(clauseAroundSpan(text, primary), statement) && !hasNegation(statement)) return { drop: "polarity_mismatch" };
   if (raw.person_mention && !ctx.inNote(raw.person_mention)) return { drop: "mention_not_in_note" };
 
   // ── Kind / subject consistency ──
