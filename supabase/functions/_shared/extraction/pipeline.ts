@@ -372,10 +372,13 @@ function noteRelation(ctx: Context, relation: string): string | null {
  * goal, not the event ("He's hoping to break four hours" leaves the race firm).
  */
 function certaintyText(text: string, spans: PlannedSpan[], raw: ProposedItem): string {
-  const parts = [sentenceAroundSpan(text, spans[0])];
   const goal = raw.kind === "event" && typeof raw.detail?.event_goal === "string" && raw.detail.event_goal.trim()
     ? fold(raw.detail.event_goal.trim())
     : null;
+  // In one sentence too: "running the Berlin half in April, wants to go under
+  // two hours" leaves the race firm; the clause carrying the goal is the goal's.
+  const main = sentenceAroundSpan(text, spans[0]);
+  const parts = [goal ? main.split(/(?<=[,;—–])/).filter((c) => !fold(c).includes(goal)).join("") : main];
   for (const sp of spans.slice(1)) {
     const sentence = sentenceAroundSpan(text, sp);
     if (goal && fold(sentence).includes(goal)) continue;

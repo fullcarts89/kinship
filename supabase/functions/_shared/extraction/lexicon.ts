@@ -26,7 +26,11 @@ const WISHED = /\b(sometime|some time|someday|some day|one day|one of these days
  * "skiing sometime" → wished.
  */
 export function wordingCertainty(sentence: string): Certainty | null {
-  const s = fold(sentence);
+  // "May" the month and "sometime in November" are dates, not hedges.
+  const s = fold(sentence)
+    .replace(/\b(in|on|by|until|till|since|from|through|early|late|mid|this|next|last|of)[ -]may\b/g, "$1 month")
+    .replace(/\bmay (?=\d)/g, "month ")
+    .replace(/\b(sometime|some time) (?=in (january|february|march|april|may|june|july|august|september|october|november|december)\b)/g, "");
   if (/\bi think\b/.test(s) && /\b(said|says|mentioned|told)\b/.test(s)) return "reported";
   if (REPORTED.test(s)) return "reported";
   if (WISHED.test(s)) return "wished";

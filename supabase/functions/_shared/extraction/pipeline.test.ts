@@ -318,3 +318,38 @@ Deno.test("a capitalised word that is neither in the note nor the roster is stil
   const out = run(input("Ben runs Chicago Sunday."), [item({ kind: "event", statement: "Ben runs Chicago Sunday with Kelly", evidence: ["Ben runs Chicago Sunday."] })]);
   eq(out.dropped.map((d) => d.reason), ["invented_name"]);
 });
+
+// ─── Stage 2: found by the realistic oracle over the full corpus ────────────
+
+Deno.test("'May' the month is not the hedge 'may'", () => {
+  for (const [note, ev] of [["Priya is pregnant, due in May!", "Priya is pregnant"], ["Anna's birthday is May 2.", "Anna's birthday is May 2"]]) {
+    const out = run(input(note, { roster: [...ROSTER, { key: "p4", id: "id-p4", display_name: "Anna", full_name: null, nicknames: [], relationship_label: null }, { key: "p11", id: "id-p11", display_name: "Priya", full_name: null, nicknames: [], relationship_label: null }] }),
+      [item({ person: note.startsWith("Priya") ? "p11" : "p4", person_mention: note.split(/[ ']/)[0], statement: ev, evidence: [ev] })]);
+    eq(out.items[0].certainty, "stated", note);
+  }
+  const hedged = run(input("Mike may leave Google."), [item({ person: "p3", person_mention: "Mike", statement: "Mike may leave Google", evidence: ["Mike may leave Google"] })]);
+  eq(hedged.items[0].certainty, "tentative", "the verb 'may' still hedges");
+});
+
+Deno.test("'sometime in November' is a vague date, not a wish; 'sometime' alone still is", () => {
+  const out = run(input("Grandma's surgery is sometime in November."), [item({
+    kind: "event", person: "p18", person_mention: "Grandma", sensitivity: "health", statement: "Grandma's surgery is sometime in November",
+    evidence: ["Grandma's surgery is sometime in November"], date_text: "sometime in November", detail: { ...item({}).detail, category: null, event_type: "surgery" },
+  })]);
+  eq(out.items[0].certainty, "stated");
+  const wish = run(input("We should see Ben sometime."), [item({ kind: "plan", subject: "shared", statement: "We should see Ben sometime", evidence: ["We should see Ben sometime"] })]);
+  eq(wish.items[0].certainty, "wished");
+});
+
+Deno.test("a goal clause in the same sentence leaves the event firm; a hedge on the event itself still lowers it", () => {
+  const goal = run(input("Ben's running the Berlin half in April, wants to go under two hours."), [item({
+    kind: "event", statement: "Ben's running the Berlin half in April", evidence: ["Ben's running the Berlin half in April,", "wants to go under two hours."],
+    date_text: "in April", detail: { ...item({}).detail, category: null, event_type: "race", event_goal: "go under two hours" },
+  })]);
+  eq(goal.items[0].certainty, "stated");
+  const hedged = run(input("Ben might run the Berlin half in April, wants to go under two hours."), [item({
+    kind: "event", statement: "Ben might run the Berlin half in April", evidence: ["Ben might run the Berlin half in April"],
+    date_text: "in April", detail: { ...item({}).detail, category: null, event_type: "race", event_goal: "go under two hours" },
+  })]);
+  eq(hedged.items[0].certainty, "tentative");
+});
