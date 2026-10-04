@@ -27,7 +27,7 @@ export default function V2Layout() {
     return () => followSystemAppearance(false);
   }, [shell]);
 
-  if (isLoading || shell === null) return null;
+  if (isLoading || shell === null) return <View style={{ flex: 1, backgroundColor: p.paper }} />;
   if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
   if (shell !== "v2") return <Redirect href="/(tabs)" />;
   const centered = (child: React.ReactNode) => (

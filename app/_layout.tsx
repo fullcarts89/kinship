@@ -26,6 +26,7 @@ import "../global.css";
 import { startCrashReporting } from "@/platform/crashReporting";
 import { startAnalytics } from "@/platform/analyticsSetup";
 import { followSystemAppearance } from "@/ui/appearance";
+import { buildEntryShell } from "@/platform/entryShell";
 
 // Scrubbed crash reporting; a no-op unless EXPO_PUBLIC_SENTRY_DSN is set.
 startCrashReporting();
@@ -33,8 +34,9 @@ startCrashReporting();
 startAnalytics();
 
 // The app follows the system appearance only inside the 2.0 shell, which has
-// a night palette (app/v2/_layout.tsx releases this). 1.0 is light-only.
-followSystemAppearance(false);
+// a night palette (app/v2/_layout.tsx releases this; so does the 2.0
+// dogfood build from launch, for its welcome). 1.0 is light-only.
+followSystemAppearance(buildEntryShell() === "v2");
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();

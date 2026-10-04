@@ -8,7 +8,8 @@
  * phone starts empty.
  *
  * Kept on purpose: device-level flags that hold no personal data
- * (onboarding / orientation seen), and the account's photos, which exist
+ * (onboarding / orientation seen, which sign-in look this phone shows:
+ * src/platform/entryShell.ts), and the account's photos, which exist
  * only on this phone in 1.0 (see photoStorage.ts). They are deleted when a
  * different account claims the device or the account is deleted. The auth
  * session itself is removed by Supabase's signOut.

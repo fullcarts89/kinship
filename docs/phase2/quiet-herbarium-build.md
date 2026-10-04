@@ -95,6 +95,7 @@
 ## 4. Information architecture
 
 ```
+app/(auth)/login.tsx          the 2.0 welcome (dogfood build / 2.0 phone) or 1.0 sign-in
 app/v2/_layout.tsx            session, Tell flow, appearance
 app/v2/(main)/_layout.tsx     Today · People tabs; the tab bar is the Tell field + the two-item bar; one-time consent
 app/v2/(main)/index.tsx       Today
@@ -205,6 +206,47 @@ Visual PASS · Interaction PASS · Accessibility PASS.
 
 The night palette is exact: green-black paper, parchment ink, a parchment primary button. Screens: `night-*.png`. Visual PASS.
 
+### Welcome and sign-in (board 1, "Setting up" screens): `compare/welcome.png`
+
+**The reference.** The approved canvas doesn't draw a promise or sign-in screen. Its two "Setting up" screens are people selection ("Who do you want to show up for?") and the first useful moment ("Already worth knowing"). Those are steps 4–5 of the D1 order and belong to Phase 3 onboarding. The welcome takes **their composition**:
+- a caps label;
+- the promise in the display serif;
+- generous paper;
+- the action pinned at the bottom in the gutter;
+- a quiet line above it.
+
+It is not a new metaphor.
+
+**The decision on the two promise screens (D1 order steps 1–2).** Not built for the wife-dogfood build. Her account is prepared in advance, so two screens before the button would be tutorial friction, and the setup board has no composition for them to follow. They are preserved for full Phase 3 onboarding (E16, ONB-01). The welcome carries the promise (step 1) in one sentence. The privacy context (step 2: the D2 disclosure next to the D3 choice) comes immediately after sign-in, as the one-time consent sheet.
+
+| Aspect | Status |
+|---|---|
+| Paper, caps label "Kinship", promise in Display 34, one line of Body, generous whitespace | exact (board 1's setup language) |
+| One identity-only pressed sprig (a fixed identity, "kinship") above the label | intentional (allowed by the brief; the System board's botanical rule) |
+| Primary: "Continue with Apple", full width, 48 pt pill | **technical** (Apple's guidelines: a black button on light, white on night, with Apple's mark; tokens `appleButton`) |
+| Secondary: "Continue with Google" (with Google's mark) and "Use email" as quiet text pills, centred | exact (quiet secondary, §H Pill) |
+| Legal: "By continuing you agree to the Terms and the Privacy Policy." at 12 pt, quiet, last | exact (provenance style) |
+| Busy: the Apple button shows a spinner in its own colours; "Signing you in…" above it; the other options hold | intentional |
+| Failure: "That didn't work. Please try again." in brick, said aloud (live region); a cancelled Apple sheet is silent | intentional |
+| Email: a sheet (Title, two fields on paper inside the surface, primary + quiet "Create an account" / "Forgot password?"); errors inline | intentional (Sheet = temporary context) |
+| Night: night paper, parchment ink, the white Apple button | exact (token night set) |
+| Native splash (dogfood build only): paper with the welcome's sprig; night green-black with parchment | intentional (`app.config.ts`; every other build keeps app.json) |
+| No carousel, no features, no AI, no loading animation, no 1.0 art | exact (brief) |
+
+**After sign-in**, the screen goes straight to the app's entry:
+- no 1.0 loading animation (`/loading` is not used);
+- the entry shows paper while the account's shell is decided;
+- a 2.0 account skips the 1.0 onboarding;
+- the 2.0 shell opens with the one-time consent sheet, then Today.
+
+**Which look the sign-in screen has.** Before sign-in the account isn't known (`shell_v2` is per account). So the welcome shows when either:
+1. the build says so (`EXPO_PUBLIC_V2_ENTRY=1`, EAS profile `dogfood-v2`); or
+2. this phone last opened the 2.0 shell (a device hint that survives sign-out and holds no personal data).
+
+Otherwise everyone keeps 1.0's sign-in. Production users see no change.
+
+Visual PASS (lab) · Interaction PASS (lab) · Accessibility PASS (lab: labels, roles, live regions, Dynamic Type caps) · **device pending**.
+
 ### Source, correction, offline: no board
 
 These are specified in the Design Direction (§I, §J) but not drawn. They are built from the same vocabulary:
@@ -219,15 +261,15 @@ There are no unexplained deviations in these screens.
 | Kind | Items |
 |---|---|
 | Superseded by the founder | Sprig marks and accumulation; Garden/Landscape toggle |
-| Intentional (grounding, scope) | Template moment copy; v0 quiet-line types; no first-line suggestions; mention items; review as a sheet; Kept line for clear readings; question-only sheet; history deferred; evening prompt deferred |
-| Technical / accessibility | No voice (Tell's listening screen and mic); token row instead of inline tokens; per-line provenance instead of footnotes; Newsreader instanced at fixed optical sizes |
+| Intentional (grounding, scope) | Promise screens deferred to Phase 3 (the welcome carries the promise; consent follows sign-in); template moment copy; v0 quiet-line types; no first-line suggestions; mention items; review as a sheet; Kept line for clear readings; question-only sheet; history deferred; evening prompt deferred |
+| Technical / accessibility | Apple's black/white sign-in button; no voice (Tell's listening screen and mic); token row instead of inline tokens; per-line provenance instead of footnotes; Newsreader instanced at fixed optical sizes |
 | Unresolved | None in the lab. **Device rendering not yet checked** (see the readiness doc) |
 
 ## 8. Checks on this branch
 
 | Check | Result |
 |---|---|
-| Jest | 267/267 in 42 suites (new: tokens, sprig, Today model, hand-off URLs, reasons and local state, consent copy, grounding across every 2.0 surface) |
+| Jest | 273/273 in 43 suites (new: welcome and sign-in, tokens, sprig, Today model, hand-off URLs, reasons and local state, consent copy, grounding across every 2.0 surface) |
 | pgTAP | 431, including `61_v2_reasons_v0` (22 assertions). The `54_v2_amendments` allowlist now names four user-callable SECURITY DEFINER functions; the new one, `refresh_my_reasons`, takes no user id |
 | Deno | 117 (no edge-function code changed; the gateway, prompt, model and schema are untouched) |
 | `tsc --noEmit` | clean |

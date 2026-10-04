@@ -188,6 +188,15 @@ export const motion = {
   reduced: { duration: 150 },
 } as const;
 
+/**
+ * Sign in with Apple's button: Apple's guidelines allow only black (on a
+ * light page) or white (on a dark one), with the white mark or the black.
+ */
+export const appleButton = {
+  light: { background: "#000000", foreground: "#FFFFFF" },
+  night: { background: "#FFFFFF", foreground: "#000000" },
+} as const;
+
 /** The only shadow: one soft lift for sheets. */
 export const shadow = {
   sheet: {

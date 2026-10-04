@@ -10,6 +10,7 @@ import { NoteView } from "@/features/person/NoteView";
 import { PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
 import { PortraitView, type PortraitLineData } from "@/features/person/PortraitView";
 import { PeopleView } from "@/features/people/PeopleView";
+import { EmailSheet, WelcomeView } from "@/features/welcome/WelcomeView";
 import { SettingsSheetView } from "@/features/people/SettingsSheet";
 import { ConsentSheetView } from "@/features/tell/ConsentSheet";
 import { ReviewSheet } from "@/features/tell/ReviewSheet";
@@ -191,6 +192,7 @@ const peopleRows = [
 export const LAB_STATES = [
   "today", "today-quiet", "today-return", "today-after", "handoff", "handoff-choose", "tell", "kept", "offline",
   "review", "keep", "sams", "sams-answering", "sarah", "maya", "changed",
+  "welcome", "welcome-busy", "welcome-error", "welcome-email", "welcome-email-error", "welcome-no-apple",
   "consent", "settings", "people", "people-add", "person", "person-empty", "correction", "correction-date", "knows", "source",
 ] as const;
 
@@ -256,6 +258,28 @@ export function V2Lab({ state }: { state: string }) {
       return <WithSheet view={review("Maya has surgery sometime soon.", row("review", { tier: "clarify", held: [maya] }), [])} />;
     case "changed":
       return <WithSheet view={review("Ana mentioned she might move to Lisbon.", row("review", { saved: [{ id: "m3", tier: "confirm" }], settled: true }, "changed_elsewhere"), [lisbon])} />;
+    case "welcome":
+    case "welcome-busy":
+    case "welcome-error":
+    case "welcome-no-apple":
+      return (
+        <WelcomeView
+          methods={{ apple: state !== "welcome-no-apple", google: true, email: true }}
+          busy={state === "welcome-busy"}
+          error={state === "welcome-error" ? "That didn't work. Please try again." : null}
+          onApple={noop} onGoogle={noop} onEmail={noop} onTerms={noop} onPrivacy={noop}
+        />
+      );
+    case "welcome-email":
+    case "welcome-email-error":
+      return (
+        <WelcomeView methods={{ apple: true, google: true, email: true }} busy={false} error={null}
+          onApple={noop} onGoogle={noop} onEmail={noop} onTerms={noop} onPrivacy={noop}>
+          <EmailSheet visible mode="sign_in" email="dana@example.com" password={state === "welcome-email-error" ? "secret12" : ""}
+            busy={false} message={state === "welcome-email-error" ? { text: "That email and password didn't work.", tone: "error" } : null}
+            onEmail={noop} onPassword={noop} onMode={noop} onSubmit={noop} onDismiss={noop} />
+        </WelcomeView>
+      );
     case "consent":
       return <Phone nav="today"><TodayLab view={today({ reasons: [], items: [] })} /><ConsentSheetView visible busy={false} onAllow={noop} onDecline={noop} /></Phone>;
     case "settings":
