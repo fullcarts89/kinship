@@ -46,8 +46,8 @@ In GitHub, each paid stage is authorised by the founder separately
 
 | Stage | How | Cost |
 |---|---|---|
-| 1. Live smoke | label the PR `run-evals-smoke`: the 29 fixtures locked in `extraction/smoke.json`, Opus 5.5 at low effort, with a per-fixture report | ~$0.25 |
-| 2. Full corpus | Actions → **AI evals** → Run workflow (one model; available once the workflow is on `main`) | ~$7 (Opus 5.5 low) |
+| 1. Live smoke | label the PR `run-evals-smoke`: the 29 fixtures locked in `extraction/smoke.json`, Opus 5.5 at low effort, with a per-fixture report | ~$0.20 |
+| 2. Full corpus | label the PR `run-evals-full`: the frozen corpus (MANIFEST.json) on Opus 5.5 low; refuses an unfrozen corpus | ~$2.50 |
 | 3. Comparison | label the PR `run-evals` (Opus 5.5 low and medium, Sonnet 5.5, Haiku 4.5) | ~$25 |
 
 All need the `ANTHROPIC_API_KEY` repository secret. To re-run a label, remove
@@ -61,6 +61,29 @@ ANTHROPIC_API_KEY=… deno run -A --config evals/deno.json evals/extraction/run.
 
 The smoke set is chosen for trust risk, not to estimate accuracy. Its ids are
 fixed in `smoke.json` before any run and never changed after seeing output.
+
+### The frozen corpus
+
+`MANIFEST.json` records each file's SHA-256 and the counts (377 fixtures,
+`extraction-v2.1`). CI fails if the corpus changes without a deliberate
+re-freeze (`manifest.ts --write <version>`, with the reason in the commit).
+CI also runs a **realistic oracle** (`--realistic`): perfect answers phrased
+the way the live model phrases them, which catches guard over-reach for free.
+
+### Two layers
+
+Every run reports the raw model (graded before any guard) and the final
+result. It covers:
+- guard rescues, escapes, overreach and confirmations caused by a guard;
+- tiers by set;
+- recall split into safe and product-significant omissions;
+- date outcomes (right, flagged, silently wrong, lost);
+- merge outcomes;
+- every metric per set.
+
+See `lib/layers.ts`. The raw-layer "unsafe" count is an upper bound: an
+extra, correct item that shares words with an expectation can be flagged,
+so review the list by hand.
 
 ### Grading
 

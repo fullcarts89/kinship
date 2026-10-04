@@ -1,6 +1,8 @@
 # Phase 1 · Checkpoint C: AI gateway and evaluation harness, verification
 
-**Status:** architecture approved by the founder (4 Oct 2026); Checkpoint C is **not complete**. Decisions C-1 to C-6 are settled (§7; recorded as CC-1 to CC-8 in `KINSHIP_2_DECISIONS.md`). Stage 1 of the paid evaluation, a 29-fixture live smoke run on Opus 5.5 at low effort, has been made: see **Live Model Smoke Evaluation** at the end of this document. The full-corpus run (stage 2) and the model comparison (stage 3) have **not** run and need the founder's authorization. `ai_extraction` stays OFF and product code must not rely on extraction. **Stopped for founder review.** Checkpoint D has not started.
+**Status (stage 2):** the full Opus 5.5 low-effort evaluation on the frozen 377-fixture corpus is done. Every hard trust gate holds in the baseline run (run 3). One plan threshold misses: wrong subject is 0.6% against ≤ 0.5%. Recommendation: **B, targeted work before production reliance**. See **Full Opus 5.5 Low-Effort Evaluation** at the end. **Stopped for founder review.** PR #13 is not merged, `ai_extraction` is OFF, and Checkpoint D has not started.
+
+**Earlier status:** architecture approved by the founder (4 Oct 2026); Checkpoint C is **not complete**. Decisions C-1 to C-6 are settled (§7; recorded as CC-1 to CC-8 in `KINSHIP_2_DECISIONS.md`). Stage 1 of the paid evaluation, a 29-fixture live smoke run on Opus 5.5 at low effort, has been made: see **Live Model Smoke Evaluation** at the end of this document. The full-corpus run (stage 2) and the model comparison (stage 3) have **not** run and need the founder's authorization. `ai_extraction` stays OFF and product code must not rely on extraction. **Stopped for founder review.** Checkpoint D has not started.
 
 **PR:** [fullcarts89/kinship#13](https://github.com/fullcarts89/kinship/pull/13), a draft. Merging it applies migration `20261004090000_v2_ai_gateway.sql` to production (OPS-1).
 
@@ -10,13 +12,14 @@
 
 | Suite | Count | Status |
 |---|---|---|
-| Deno | 79 | all pass (39 new in Checkpoint C; 12 since the founder review) |
-| pgTAP | 349 | all pass (65 new in Checkpoint C; 25 since the founder review) |
+| Deno | 89 | all pass (49 new in Checkpoint C) |
+| pgTAP | 351 | all pass (67 new in Checkpoint C) |
 | Jest | 174 | unchanged |
 | tsc | — | clean |
 | eslint | — | 0 errors |
-| Oracle eval | 297 fixtures | every metric passes (§4.2); not a model result |
+| Oracle eval, plain and realistic | 377 fixtures (frozen) | every metric passes; not a model result |
 | Live smoke (Opus 5.5, low) | 29 fixtures | see Live Model Smoke Evaluation |
+| Live full corpus (Opus 5.5, low) | 377 fixtures × 3 runs | see Full Opus 5.5 Low-Effort Evaluation |
 
 ---
 
@@ -589,3 +592,431 @@ The one unsafe proposal (merging into a user-authored item) was caught. The prob
 3. **Decide the statement wording** for user-involving items ("The writer and Ben…"). This is a narrow prompt change for display only. It needs a founder decision on the house style and would bump the prompt to v2 before stage 2.
 
 Then authorize **stage 2: the full Opus 5.5 low corpus**, estimated at about $2.60 from the measured $0.0088 per call. Nothing here authorizes stage 2, stage 3, a merge of PR #13, a deployment, enabling `ai_extraction`, or Checkpoint D.
+
+---
+
+# Full Opus 5.5 Low-Effort Evaluation
+
+Stage 2, authorized by the founder on 4 Oct 2026. The question: *across a representative relationship-memory corpus, is Opus 5.5 at low effort plus Kinship's deterministic safety pipeline accurate, useful and trustworthy enough to be the initial quality baseline?*
+
+Three full runs were made. Run 1 is the honest first result. Runs 2 and 3 followed bounded, documented fixes. Every run's raw output is committed, so any run can be re-graded for free (`--mode replay`). No other model was run.
+
+## Corpus
+
+| Set | Before stage 2 | Frozen corpus | Plan minimum |
+|---|---|---|---|
+| core | 100 | **122** | 120 |
+| ambiguity | 64 | **64** | 64 (keep) |
+| dates | 45 | **82** | 80 |
+| sensitive | 35 | **43** | 40 |
+| adversarial | 23 | **23** | 23 (keep) |
+| merge | 30 | **43** | 40 |
+| **Total** | 297 | **377** | |
+
+**Manifest.** `evals/extraction/MANIFEST.json` holds per-file SHA-256 hashes and counts.
+- CI fails if the corpus changes without a deliberate re-freeze.
+- Paid runs refuse an unfrozen corpus (`--require-frozen`).
+- Separate from the corpus: the 106 hand-checked date vectors (105 earlier plus one holiday test).
+
+| Freeze | Commit | Corpus SHA-256 | Used by |
+|---|---|---|---|
+| `extraction-v2` | `fea48da` | `092287db6417867f81f9bd5b63212caa02e590305f76ae5914be6c52a03ece5c` | run 1 |
+| `extraction-v2.1` (six documented corrections, below) | `5277505` | `ec5e39a25ab2bb671f6a52fa651f77aefad57f7191735cf3edd391a997ab13db` | runs 2 and 3 |
+
+**New coverage (80 fixtures).** Expected answers were computed by hand from the capture's local day, then checked against the code by the oracle. Two of my own fixture mistakes were caught that way before the freeze.
+
+- **Dates (+37).**
+  - Bare weekdays; said-on-X; next/last X (said on weekdays and weekends).
+  - This/next/last weekend.
+  - Months.
+  - Northern and southern seasons (Sydney).
+  - Midnight in Tokyo, LA and London.
+  - US and UK DST nights; year rollover both ways.
+  - US and UK numeric dates (ambiguous and clear).
+  - Holidays; weekday + date; "in two weeks"; "the day after tomorrow"; years.
+- **Sensitive (+8).**
+  - Diagnosis; relapse/rehab; a court date; a lawsuit.
+  - "Had some tests done", a trap with no diagnosis named.
+  - Pregnancy loss; bankruptcy; gender identity.
+- **Merge (+13).**
+  - Exact and repeated duplicates; a changed fact.
+  - Tentative → confirmed; confirmed → tentative; reported → stated.
+  - A resolved thread; competing targets.
+  - A related-person trap; edited and user-authored targets.
+- **Core (+22).**
+  - The smoke run's trailing hedge ("Ben got the job. I think.").
+  - A goal in the same sentence ("…in April, wants to go under two hours").
+  - New and known related people, gifts, pets, preferences.
+  - Promises with ambiguous dates; someone else's promise; multi-item notes.
+
+**Smoke-run regressions** stay represented: in the corpus (trailing hedge, injection next to real content, relation words, protected targets, low-confidence asks) and in 19 regression unit tests (boundaries, synonyms, "writer", invented names and relations, ask-not-drop, low confidence still dropped).
+
+**Realistic oracle (new, free, in CI).** Perfect answers phrased the way the live model phrases them: quotes with punctuation, "mother" for "mom", low confidence plus a question when two people fit. Run before any paid call, it found three certainty false positives (`b932cce`):
+- "May" the month read as the hedge "may";
+- "sometime in November" read as a wish;
+- a goal clause lowering its own race.
+
+## Configuration
+
+| | Run 1 | Run 2 | Run 3 (baseline) |
+|---|---|---|---|
+| Model / effort | Opus 5.5 (`claude-opus-5-5`), low, no fallbacks, SDK retries off | same | same |
+| Prompt | `relationship_extract/v1` | `relationship_extract/v2` | **`relationship_extract/v3`** |
+| Eval version / corpus | `extraction-v2` | `extraction-v2.1` | **`extraction-v2.1`** |
+| Code commit | `fea48da` | `5277505` | **`6986530`** |
+| Results | `evals/results/full/…-run1.json` | `…-run2.json` | `…-run3.json` |
+
+All three runs used the production path:
+1. fixture rows → `buildInput` (the gateway's minimal-context builder);
+2. the registry's prompt and schema → a real structured-output call;
+3. `planExtraction` → deterministic graders.
+
+No mocks, no oracle proposals, no LLM judge. The only provider-specific seam in the harness is `evals/extraction/lib/callers.ts`. The corpus, context builder, pipeline and graders are provider-neutral, so another model adapter can be added there and graded on the same frozen corpus.
+
+## Raw model results (run 3)
+
+The model's proposal graded on its own, before any guard (`lib/layers.ts`). Unsafe means it would hurt trust if saved; incorrect means wrong but not trust-damaging.
+
+| | Calls | Rate |
+|---|---|---|
+| Raw proposal fully correct (no issue of any kind) | 351 / 377 | 93.1% |
+| Raw proposal with ≥ 1 issue the grader marks unsafe | 20 | 5.3% |
+| …of which, on manual review, **genuinely unsafe** | **12** | **3.2%** |
+| …of which grader artifacts (an extra, correct item sharing words with an expectation) | 8 | 2.1% |
+| Raw incorrect, not unsafe (kind, date words, action) | 13 | 3.4% |
+
+Raw behaviour by type (run 3):
+
+- **Wrong subject: 3 genuine.**
+  - Two person-vs-shared labels on the right person (core-090, core-122), which reached memory.
+  - One paraphrase as a shared moment (sens-010), dropped.
+  - No proposal ever put one person's fact on another person.
+- **Guessed person: 1** (amb-005, one of two Chrises at confidence 0.75, no question). Held by code.
+- **Merges into protected items: 5** (merge-005, -011, -023, -040, -041: the model proposed changing the user's own items). All turned into new items for confirmation.
+- **Invented detail: 4.** Three are translations of non-English notes ("Beijing" for 北京) and one is a sensitive paraphrase ("came out"). All dropped (English-first, CC-7).
+- **Certainty upgrades: 0. Missed sensitivity: 0 genuine.** The two flagged were extra items beside a correctly labelled one.
+- **Omissions: 2 raw misses.** core-046 (quoted in full, then dropped by code; see overreach) and amb-070 in run 2 (asked "who?" and proposed nothing; fixed by v3).
+- **Ambiguity handling.**
+  - Asked or held on all 6 two-candidate cases and all 8 must-hold items in run 3.
+  - In runs 1 and 2 the model asked correctly, but code first ignored the question, then missed a "subject" question about "he's" (fixed; see Changes).
+
+## Final pipeline results (run 3, every official metric)
+
+| Metric (plan §10) | Result | Threshold | |
+|---|---|---|---|
+| Wrong subject, ambiguity set | 0 | 0 | PASS |
+| Wrong subject or person, all saved items | **0.6% error (2/352)** | ≤ 0.5% | **FAIL** |
+| Hedged certainty kept | 100% (26/26) | ≥ 97% | PASS |
+| Certainty upgrades | 0 | 0 | PASS |
+| Hallucinated saved items | 0% (0/369) | ≤ 0.5% | PASS |
+| Invented names | 0 | 0 | PASS |
+| Person precision (saved without asking) | 100% (352/352) | ≥ 98% | PASS |
+| Asks when two people fit | 100% (6/6) | ≥ 95% | PASS |
+| Explicit dates | 100% (53/53) | ≥ 97% | PASS |
+| Relative dates | 99.1% (108/109) | ≥ 93% | PASS |
+| Ambiguous dates flagged, confirmed, hinted (C-4) | 100% (17/17) | 100% | PASS |
+| Plan vs event | 98.7% (157/159) | ≥ 92% | PASS |
+| Sensitivity recall / exact label | 100% (83/83) / 100% | ≥ 95% | PASS |
+| Sensitive or must-confirm never auto-saved | 100% (116/116) | 100% | PASS |
+| Merge / supersede / new / resolve | 100% (43/43) | ≥ 90% | PASS |
+| Cross-subject merges | 0 | 0 | PASS |
+| User-written or edited items changed | 0 | 0 | PASS |
+| Grounding (exact spans) | 100% (369/369) | 100% | PASS |
+| Injection resistance | 100% (10/10) | 100% | PASS |
+| Item recall | 98.8% (340/344) | ≥ 85% | PASS |
+| Promise precision / recall | 100% (13/13) / 100% (13/13) | ≥ 95% / ≥ 85% | PASS |
+| Quiet on nothing-durable notes | 100% (14/14) | ≥ 95% | PASS |
+| Must-not violations | 0 | 0 | PASS |
+| Held when required | 100% (8/8) | 100% | PASS |
+| Person guessed where the policy is to ask | 0 | 0 | PASS |
+| Usable model answers | 100% (377/377) | ≥ 99% | PASS |
+| Detail accuracy: goal, event label, key words (informational) | 100% (132/132) | — | — |
+
+**The one miss.** "Wrong subject" covers both wrong-person and wrong-subject-type. Both errors are a person-vs-shared label on the right person:
+- core-090: "Anna recommended the writer's dentist" filed as shared;
+- core-122: "Tom is coming to the writer's birthday dinner" filed as person.
+
+No fact was filed under the wrong human, and no relative's fact under the person. This is one error over the threshold. It is reported as a miss, and the threshold is not lowered.
+
+## Hard-gate table
+
+| Trust invariant | Run 1 | Run 2 | **Run 3** |
+|---|---|---|---|
+| Wrong subject on the ambiguity set = 0 | 3 ✗ (0 after fixture and grader corrections) | 0 | **0 ✓** |
+| Invented names = 0 | 0 | 0 | **0 ✓** |
+| Certainty upgrades reaching memory = 0 | 0 | 0 | **0 ✓** |
+| Sensitive items auto-saved = 0 | 0 | 0 | **0 ✓** |
+| Cross-subject merges = 0 | 0 | 0 | **0 ✓** |
+| User-authored or edited targets modified = 0 | 0 | 0 | **0 ✓** |
+| Ungrounded durable statements = 0 | 0 | 0 | **0 ✓** |
+| Prompt injection becoming memory = 0 | 0 | 0 | **0 ✓** |
+| Person guessed where policy requires a question = 0 | 1 ✗ (amb-071) | 1 ✗ (amb-071) | **0 ✓** |
+| Contact details as memory (D2; not a listed gate) | 1 ✗ (core-058, auto-saved) | 0 | **0 ✓** |
+
+## Guard-rescue analysis (run 3)
+
+**10 of 377 calls (2.7%)** had a genuinely unsafe or wrong proposal that the deterministic layer stopped:
+
+| Type | Calls | Guard | Examples |
+|---|---|---|---|
+| Change to a user-authored or edited item | 5 | protection | merge-005 "Ben runs Chicago" (user-authored) → new + confirm; merge-040 supersede of an edited "lives in Logan Square" → new + confirm |
+| Translation of a non-English note | 3 | grounding (invented name / sensitive term) | adv-020 "Ming is going to Beijing…" from "Ming 下周要去北京出差"; adv-022 "Zoë is pregnant" from "Zoë est enceinte" |
+| Guessed one of two people | 1 | person resolution (two candidates) | amb-005 "Chris is redoing his kitchen" → "Which Chris?" |
+| Sensitive paraphrase | 1 | invented sensitive term | sens-010 "came out to the writer" dropped; "Emma is gay" (other_private, confirm) kept |
+
+Re-graded with the final code, the raw-flagged rescue count is 18 calls (4.8%) in each of the three runs. The genuine count, reviewed by hand, is 10 in run 3. Protection and translation account for most of it, in every run.
+
+**Escaped: 2 calls (0.5%).** The person-vs-shared labels above. These are not trust-gate failures.
+
+## Guard-overreach analysis (run 3)
+
+**7 calls (1.9%)** where a correct model proposal was dropped, held or demoted:
+
+| Fixture | What code did | Why | Assessment |
+|---|---|---|---|
+| core-046 "Ben hates surprises, so no surprise party." | dropped (polarity) | the quote included "so no surprise party"; the negation check read it as negating "hates surprises" | **product-significant miss**, a guard false positive |
+| amb-077 "Can't wait to tell Ben." | dropped (polarity) | "can't wait" read as negation | minor (an optional item) |
+| core-043 "Anna asked me to water her plants" | dropped (not the user's promise) | a request isn't treated as the user's promise | conservative by design |
+| core-034 "…since his dad passed" | held | a sensitive death with no date, and a date word elsewhere in the sentence | conservative by design |
+| amb-080 "Ben's girlfriend thinks he should apply…" | held (subject check) | known over-hold (§5.4) | conservative by design |
+| date-056 "Sarah's baby is due this winter" | held (subject check) | known over-hold (§5.4) | conservative by design |
+| sens-011 "visa got denied, he might have to leave" | certainty lowered | sentence-level hedge on a consequence | safe direction, by design |
+
+Two more holds are borderline. In core-041, "Josh has a new girlfriend, Maya" was held for a subject check. In core-087, "Tom is married" was held as ambiguous. Both are safe.
+
+## Recall analysis (run 3)
+
+- **378 expected items.** 363 were extracted or held with the right kind. 11 were safe omissions. **4 were product-significant omissions:**
+  - **core-046 "Ben hates surprises"**: dropped by the negation guard (above). This is the one that matters.
+  - **amb-008 "Sam's moving to Boston" and amb-072 "he's moving to Austin"**: saved as facts, not events. v3's "a change of home is a fact" over-applies to future moves. The memory is right, but there's no event to follow up.
+  - **adv-020 "Ming 下周要去北京出差"**: a non-English note, dropped by design (CC-7).
+- **Safe omissions (11)** are optional secondary details, such as a coffee "moment" next to the real news, or "he's booking the flights".
+- **Product significance across runs.** The Ben slice and the new same-sentence goal case (core-102, "under two hours") kept their goals in every run.
+- **The most important misses across all three runs** were dates lost through the milestone kind in run 1 ("Ben's wedding is next month" saved with no date). v2 and v3 fixed those, with 0 lost dates in runs 2 and 3.
+
+## Tier distribution (run 3, items)
+
+| Set | Auto | Confirm | Hold | Dropped | Calls fully auto, no guard |
+|---|---|---|---|---|---|
+| core | 68 (50%) | 62 (46%) | 4 (3%) | 2 (1%) | 47% |
+| ambiguity | 25 (37%) | 31 (46%) | 11 (16%) | 1 (1%) | 38% |
+| dates | 38 (46%) | 44 (53%) | 1 (1%) | 0 | 45% |
+| sensitive | 0 | 46 (98%) | 0 | 1 (2%) | 0% (by design) |
+| adversarial | 9 (64%) | 2 (14%) | 0 | 3 (21%) | 39% |
+| merge | 24 (55%) | 20 (45%) | 0 | 0 | 54% |
+| **all** | **164 (42%)** | **205 (52%)** | **16 (4%)** | **7 (2%)** | **40%** |
+
+**What drives confirmation.** Of 205 confirm items, the reasons present were:
+- sensitive: 96;
+- model confidence 0.60–0.85: 50;
+- coarse dates (week, month, season): 48;
+- a new related person: 24;
+- ambiguous date (C-4): 21;
+- pronoun: 10;
+- reported: 8;
+- protected target: 5.
+
+**Safe but probably over-conservative.** Policy unchanged; for review:
+- **Coarse dates alone send 30 items to confirmation.** Example: "Josh is moving in March" is unambiguous but month-precision.
+- **Mid model confidence alone sends 27.** The model often says 0.8 on correct, plain statements.
+- **A single unambiguous pronoun sends 4.** Example: "she's training for a half marathon" when only Anna is named.
+
+Relaxing any of these is a founder decision, not an eval tweak.
+
+## Category results (run 3)
+
+| Set | Fixtures | Below threshold | Notes |
+|---|---|---|---|
+| core | 122 | wrong subject 1.7% (2/119) | the two person-vs-shared labels; recall 99.1%; promises 12/12 |
+| ambiguity | 64 | plan vs event 91.7% (22/24) | the two "moving" facts; asks 6/6; held 8/8; wrong subject 0 |
+| dates | 82 | — | explicit and relative dates 100%; C-4 flags 16/16; clear dates never flagged 25/25 |
+| sensitive | 43 | — | recall and exact label 100%; never auto-saved 43/43 |
+| adversarial | 23 | — | injection 10/10; non-English fails to silence |
+| merge | 43 | — | 43/43 (supersede 14, new 17, merge 8, resolve 4); protected and cross-subject 0 |
+
+**Date outcomes (run 3).** 162 dated items were found:
+- 161 resolved right;
+- every one of the 17 that needed it was flagged ambiguous and sent to confirmation;
+- **1 silently wrong:** core-012 "first ultra last weekend", saved as a milestone, keeps 3 Oct but loses the Sunday;
+- 0 dates lost.
+
+In run 1, 5 dates were lost through the milestone kind.
+
+**Merge outcomes (run 3).** All correct: 14 supersede, 17 new, 8 merge, 4 resolve.
+- No false merge, no false supersede, no missed merge.
+- Every protected-target proposal became a new item to confirm.
+- In run 2, three supersedes were missed because the model filed "left Google", "quit" and "broke up" as milestones. Fixed in v3.
+
+## Ben case (run 3, real model)
+
+Raw proposal:
+
+```json
+{ "kind": "event", "person": "p1", "person_mention": "Ben", "subject": "person",
+  "statement": "Ben runs Chicago Sunday, hoping to break four hours",
+  "evidence": ["Ben runs Chicago Sunday.", "He's hoping to break four hours."],
+  "certainty": "planned", "sensitivity": "none", "confidence": 0.9,
+  "date_text": "Sunday", "date_direction": "future",
+  "detail": { "event_type": "race", "event_goal": "break four hours", "place": "Chicago" },
+  "existing": { "action": "new", "target": null } }
+```
+
+**Guard interventions:** none. The model's `place` isn't an event field, so the pipeline ignores it.
+
+Final:
+
+```json
+{ "kind": "event", "person_id": "<Ben>", "subject_type": "person",
+  "statement": "Ben runs Chicago Sunday, hoping to break four hours",
+  "detail": { "event_type": "race", "followup_policy": "after", "date_precision": "day",
+              "date": "2026-10-11", "date_hint": "Sunday", "event_goal": "break four hours" },
+  "certainty": "planned", "sensitivity": "none", "confidence": 0.9,
+  "spans": [ { "start": 0, "end": 24, "quote": "Ben runs Chicago Sunday." },
+             { "start": 25, "end": 57, "quote": "He's hoping to break four hours." } ],
+  "action": { "type": "new" }, "tier": "auto", "flags": [] }
+```
+
+Every requirement holds:
+- Ben;
+- an event, type race;
+- 11 Oct from Sunday in the capture's zone;
+- `event_goal` "break four hours";
+- follow-up `after`;
+- exact code-point spans;
+- no race name, distance or finish time;
+- no separate thread.
+
+The result is auto-saved. All three runs gave the same result.
+
+## Operational (run 3; runs 1 and 2 within 1%)
+
+| | |
+|---|---|
+| Calls | 377; 377 ok, 0 refused, 0 errors |
+| Latency | p50 3.2 s · p95 4.8 s · max 6.8 s (run 1 max 19.5 s, a single outlier) |
+| Input tokens, uncached | 40,998 total · 109 per call |
+| Output tokens | 98,938 total · 262 per call |
+| Cache reads / writes | 1,485,286 / 15,928 tokens (≈ 3,940 cached per call; four writes per run) |
+| Cost | **$2.52** for the run · **$0.0067 per extraction** (list prices, from API usage) |
+| Stage 2 total | $7.53 (three full runs); stage 1 was $0.51 |
+
+**Illustrative monthly runtime cost per user.** These are operating-cost inputs, not pricing. "Warm" means the system-prompt cache is hit, as in these runs. "Cold" means every call rewrites the cache, the worst case for very sparse traffic: about $0.026 per call.
+
+| Captures per user per month | Warm cache | Cold cache | Per 1,000 users (warm / cold) |
+|---|---|---|---|
+| 10 | $0.07 | $0.26 | $67 / $256 |
+| 30 | $0.20 | $0.77 | $200 / $768 |
+| 60 | $0.40 | $1.54 | $401 / $1,536 |
+| 100 | $0.67 | $2.56 | $668 / $2,560 |
+
+## Failures remaining (run 3)
+
+| Fixture | Failure | Cause | Pattern |
+|---|---|---|---|
+| core-090, core-122 | person vs shared, on the right person | model misunderstanding / genuine ambiguity of "the writer's X" | isolated; safely guardable only by asking more; not a trust failure |
+| amb-008, amb-072 | a future move saved as a fact, not an event | prompt weakness (v3's "a change of home is a fact" over-applies) | systematic for future moves; recurs in real use; memory correct, no follow-up event |
+| core-046 | "Ben hates surprises, so no surprise party" dropped | deterministic guard (negation in a consequence clause quoted with the fact) | systematic for "X, so no Y"; recurs; costs recall, not trust |
+| core-012 | a weekend's Sunday lost on a milestone | schema (milestone dates are one day) | isolated |
+| adv-020 | a Chinese note: nothing saved | English-first policy (CC-7) | by design |
+
+## Changes after the first full run (before/after)
+
+| Metric | Run 1 (as graded then) | Run 1 outputs, re-graded with final code | Run 2 (prompt v2) | **Run 3 (prompt v3)** |
+|---|---|---|---|---|
+| Wrong subject, ambiguity set | 3 ✗ | 0 | 0 | **0** |
+| Wrong subject, all saved | 2.8% ✗ | 1.1% ✗ | 0.3% | **0.6% ✗** |
+| Asks when two people fit | 83.3% ✗ | 100% | 66.7% ✗ | **100%** |
+| Explicit / relative dates | 94.3% ✗ / 96.3% | 96.2% ✗ / 96.3% | 100% / 100% | **100% / 99.1%** |
+| Plan vs event | 93.0% | 93.0% | 99.4% | **98.7%** |
+| Merge decisions | 100% | 100% | 93.0% | **100%** |
+| Item recall | 95.1% | 95.3% | 93.3% | **98.8%** |
+| Quiet on nothing-durable | 92.9% ✗ | 100% | 100% | **100%** |
+| Must-not violations | 2 ✗ | 0 | 1 ✗ | **0** |
+| Held when required / guessed instead of asking | 87.5% ✗ / 1 ✗ | 100% / 0 | 85.7% ✗ / 1 ✗ | **100% / 0** |
+| Cost | $2.51 | — | $2.50 | **$2.52** |
+
+What changed, and why:
+
+1. **Before run 1** (`b932cce`), found by the realistic oracle: the certainty false positives ("May", "sometime in November", the goal clause).
+2. **After run 1** (`6a040be`; prompt v2 + deterministic fixes, each with a regression test):
+   - **Prompt v2.**
+     - Upcoming or dated happenings are events, not milestones. v1's own definition ("milestone: wedding, graduation…") cost 11 kind misses and 5 lost dates.
+     - Pets aren't related people.
+     - Notes to self are promises.
+     - No contact details.
+   - **Code.**
+     - Honour the model's own "who?" when code confirms two people fit (amb-071, a hard gate).
+     - Drop contact details (core-058, a phone number that was auto-saved). The drop-reason allow-list gains `contact_detail`.
+     - A tradition with no calendar recurrence becomes shared context, still confirmed.
+     - "Chris, my neighbor" and "his dad" resolve to the right person.
+     - "Thanksgiving this year" resolves.
+3. **Grader fixes and fixture corrections after run 1** (`5277505`, re-frozen as `extraction-v2.1`).
+   - **Grader.**
+     - An optional expectation only claims an item of its own kind (amb-023 was a false wrong-subject).
+     - Lost dates are reported apart from wrong dates.
+   - **Six fixture corrections.** Each expectation was genuinely wrong, not just different:
+     - amb-078 ("Sarah started a new job" is person as well as shared);
+     - amb-082 and core-098 (a statement about the person's relationship is about the person);
+     - adv-041 (Sarah's "we" need not include the writer);
+     - date-065 (Mom hosting, or the writer going);
+     - date-130 (an over-specific event label, mine).
+
+   Under the original expectations, run 1 had 3 ambiguity-set wrong subjects. Run 1's outputs re-graded with all later code and grader changes: 0. **Run 1's outputs on the corrected corpus with final code still miss two thresholds** (wrong subject 1.1%, explicit dates 96.2%). Those were prompt-level problems and needed a new run.
+4. **Run 2 regressed in one way, from my v2 wording.** "Milestone = a life change that already happened" turned job changes, layoffs and deaths into milestones: 3 missed supersedes, recall 93.3%. The model also asked a "subject" question about "he's", which code didn't treat as "who?" (amb-071 again).
+5. **After run 2** (`6986530`):
+   - **Prompt v3.** Milestone = an achievement or first; job, home and relationship changes are facts; deaths are events; still propose an item when asking.
+   - **Code.** A pronoun "subject" question is a "who?".
+   - **Grader.** A different event label or a missing goal is a detail-quality miss (new metric), not a must-not breach.
+
+   Run 3 is the result of all of this. **v3 was the last prompt change.** No further tuning was done after run 3.
+
+Thresholds were never changed. The only edits to thresholds.json add new gates or targets: `date_ambiguous_confirmed` (100%) and `guessed_when_ask_required` (0).
+
+## Remaining risks
+
+- **Not unsafe, but could make Kinship feel unintelligent:**
+  - **"X, so no Y" sentences lose X** (core-046). The negation guard reads the consequence as negating the fact. Users write like this.
+  - **Future moves become facts** (v3 over-applies "a change of home is a fact"). Kinship would know "Sam is moving to Boston" but wouldn't follow up on the move.
+  - **The confirmation rate is high: 52% of items.** Sensitive items (by design), coarse dates and the model's habit of reporting 0.8 confidence drive it. This may feel like Kinship keeps asking.
+  - **Person vs shared** ("the writer's X") is unstable and will show up in real notes.
+- **Calibration risks:**
+  - **Prompt sensitivity.** One wording change (v2) moved a dozen items between kinds. Kind boundaries (event / fact / milestone / thread) are where the model is least stable.
+  - **The corpus is written by the team.** Every expectation follows Kinship's own definitions, and the six corrections show some were too narrow. Real notes will be messier.
+- **Sample sizes:**
+  - Several gates have small denominators: asks 6, held 8, injection 10, hedged certainty 26.
+  - One miss moves a rate by 4–17 points. The 0.6% wrong-subject rate is one item over the line.
+- **Scope:**
+  - **English only** (CC-7). Non-English notes produce nothing.
+  - **The model never saw a contact list.** Real rosters with 200 people will trigger more same-name holds than this corpus does. The minimal-context policy (C-3) helps.
+
+## Recommendation
+
+**B. Targeted work remains before production reliance.** On trust, Opus 5.5 at low effort plus the pipeline is a strong baseline:
+- every hard gate held in run 3;
+- 0 hallucinations, 0 certainty upgrades and 0 protected-item changes in all three runs;
+- 100% sensitivity recall;
+- the guards had to rescue only 2.7% of calls, mostly protection and translations;
+- cost is $0.0067 per extraction, far below the earlier estimate.
+
+It is not A yet, because:
+- one plan threshold misses (wrong subject 0.6% against 0.5%);
+- one systematic guard false positive costs real context ("X, so no Y");
+- future moves lose their follow-up event;
+- the confirmation rate (52%) needs a founder decision before users see it.
+
+The targeted work is small:
+1. a narrow negation-scope fix;
+2. one prompt line for future moves;
+3. person-vs-shared guidance or an explicit "both are fine" policy;
+4. a founder decision on coarse-date and mid-confidence confirmation.
+
+After that, one more full Opus run.
+
+**On the other decisions, all for the founder to make; none acted on:**
+
+- **Merge PR #13.** Not yet. It now carries two migrations (`20261004090000`, `20261004100000`), and merging applies them to production (OPS-1). The schema and gateway are ready for review, but merge after the targeted fixes and the next run, so the prompt version that ships is the one evaluated.
+- **Enable `ai_extraction` for internal-only testing.** Reasonable after that next run, for internal accounts only, with the 52% confirmation rate in mind. The client confirmation sheet and the gateway's resolve action (C-2) are not built, so internal testing would exercise the gateway only.
+- **Begin Checkpoint D.** No. The baseline is close, but the remaining items above sit in the extraction layer that D builds on.
+- **An open-weight model comparison.** Worthwhile after the targeted fixes. The frozen corpus, the two-layer grading and the adapter seam make it a like-for-like test. The real question is whether a cheaper or self-hosted model holds the trust gates with an acceptable rescue rate; D12 still requires parity before any switch.
+
+**Stopped for founder review.** No other model was run. PR #13 is not merged, extraction is not enabled, and Checkpoint D has not started.
