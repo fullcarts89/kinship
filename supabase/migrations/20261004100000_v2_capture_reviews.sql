@@ -363,3 +363,7 @@ AS $$
           OR NOT (e.value::text ~ '^[0-9]{1,3}$'))
 $$;
 REVOKE ALL ON FUNCTION public.ai_drop_reasons_ok(jsonb) FROM PUBLIC, anon, authenticated;
+-- The ai_calls CHECK constraint runs it as the inserting role (the gateway's
+-- service role). Granted explicitly: newer Supabase projects and branches no
+-- longer grant EXECUTE on new functions to service_role by default.
+GRANT EXECUTE ON FUNCTION public.ai_drop_reasons_ok(jsonb) TO service_role;

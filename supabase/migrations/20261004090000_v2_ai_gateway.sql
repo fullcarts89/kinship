@@ -74,6 +74,10 @@ ALTER TABLE public.ai_calls ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ai_calls FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT ON public.ai_calls TO service_role;
 REVOKE ALL ON FUNCTION public.ai_drop_reasons_ok(jsonb) FROM PUBLIC, anon, authenticated;
+-- The ai_calls CHECK constraint runs it as the inserting role (the gateway's
+-- service role). Granted explicitly: newer Supabase projects and branches no
+-- longer grant EXECUTE on new functions to service_role by default.
+GRANT EXECUTE ON FUNCTION public.ai_drop_reasons_ok(jsonb) TO service_role;
 
 -- ─── claim_capture_extraction ───────────────────────────────────────────────
 -- 'claimed'  this call owns the extraction (status → processing)

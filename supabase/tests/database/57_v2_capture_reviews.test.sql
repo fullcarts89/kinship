@@ -3,7 +3,7 @@
 -- written only with the extraction, read only by its owner, and cleared on
 -- answer, deletion, text purge or expiry.
 BEGIN;
-SELECT plan(27);
+SELECT plan(28);
 
 \set A '''aaaaaaaa-1717-1717-1717-171717171717'''
 \set B '''bbbbbbbb-1717-1717-1717-171717171717'''
@@ -149,6 +149,14 @@ SELECT throws_ok($$ INSERT INTO public.ai_calls (capability, model, prompt_versi
   VALUES ('relationship_extract', 'claude-opus-5-5', 'relationship_extract/v2', 'extraction-v2', 'ok', 1, '{"555-0100": 1}') $$,
   '23514', NULL, 'a phone number is still refused as a drop reason');
 SELECT tests.reset_role();
+-- The CHECK runs as the inserting role, so the gateway's service role needs
+-- EXECUTE explicitly (newer Supabase environments don't grant it by default).
+SELECT ok(has_function_privilege('service_role', 'public.ai_drop_reasons_ok(jsonb)', 'EXECUTE')
+          AND EXISTS (SELECT 1 FROM pg_proc p, aclexplode(p.proacl) a
+                       WHERE p.oid = 'public.ai_drop_reasons_ok(jsonb)'::regprocedure
+                         AND a.grantee = 'service_role'::regrole AND a.privilege_type = 'EXECUTE')
+          AND NOT has_function_privilege('authenticated', 'public.ai_drop_reasons_ok(jsonb)', 'EXECUTE'),
+  'the usage log''s CHECK function is granted to the service role explicitly, and not to users');
 
 SELECT * FROM finish();
 ROLLBACK;
