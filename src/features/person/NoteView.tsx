@@ -1,9 +1,11 @@
-// The Source view, from plain data (plan §6): the note as told, the words
-// each memory rests on marked, how and when it arrived, and what it produced.
+// The Source view (plan §6; Design Direction §J "what you said, when"): the
+// note as the user told it, the words each memory rests on underlined in
+// ochre, how and when it arrived, and what came of it. Deleting it forgets
+// what came only from it.
 import React from "react";
 import { Text, View } from "react-native";
-import { space, type } from "@/design/tokens";
-import { Body, Label, Pill, Row, Screen, Small, usePalette } from "@/ui";
+import { maxScale, size, space, type } from "@/design/tokens";
+import { Body, Label, MomentText, Pill, Row, Screen, Small, Sprig, usePalette } from "@/ui";
 
 export interface NoteData {
   /** The note's words in plain and marked runs; null once the note's own text is gone. */
@@ -26,39 +28,61 @@ export function NoteView({
   onDelete: () => void;
 }) {
   const p = usePalette();
-  const back = <Pill variant="quiet" label="Back" onPress={onBack} />;
   if (!note) {
     return (
-      <Screen left={back} title="Your note">
-        <Body tone="inkSoft">{"This note isn't here any more."}</Body>
+      <Screen onBack={onBack}>
+        <Body>{"This note isn't here any more."}</Body>
       </Screen>
     );
   }
   return (
-    <Screen left={back} title="Your note">
-      <Small>{note.arrived}</Small>
-      <View style={{ marginTop: space.m }}>
+    <Screen onBack={onBack}>
+      <Label>Your note</Label>
+      <Small style={{ marginTop: space.xs }}>{note.arrived}</Small>
+      <View style={{ marginTop: space.xl }}>
         {note.runs ? (
-          <Text style={[type.statement, { color: p.ink }]} accessibilityLabel={note.runs.map((r) => r.text).join("")}>
+          <Text
+            maxFontSizeMultiplier={maxScale.text}
+            style={[type.moment, { color: p.ink }]}
+            accessibilityLabel={note.runs.map((r) => r.text).join("")}
+          >
             {note.runs.map((r, i) => (
-              <Text key={i} style={r.marked ? { backgroundColor: p.mark } : undefined}>{r.text}</Text>
+              <Text
+                key={i}
+                style={r.marked ? { textDecorationLine: "underline", textDecorationColor: p.ochre, textDecorationStyle: "solid" } : undefined}
+              >
+                {r.text}
+              </Text>
             ))}
           </Text>
         ) : (
           <View>
-            <Body tone="inkSoft">You chose not to keep the note itself. These words from it stay with what they support:</Body>
+            <Body>You chose not to keep the note itself. These words from it stay with what they support:</Body>
             {note.quotes.map((q) => (
-              <Body key={q} style={{ marginTop: space.s }}>{`“${q}”`}</Body>
+              <MomentText key={q} style={{ marginTop: space.m }}>{`“${q}”`}</MomentText>
             ))}
           </View>
         )}
       </View>
-      {note.items.length ? <Label style={{ marginTop: space.xl }}>From this note</Label> : null}
-      {note.items.map((i) => (
-        <Row key={i.id} title={i.statement} subtitle={i.person} onPress={() => onPerson(i.personId)} />
+      {note.runs && note.items.length ? (
+        <Small style={{ marginTop: space.m }}>
+          {"Underlined: the words Kinship kept"}
+        </Small>
+      ) : null}
+      {note.items.length ? <Label style={{ marginTop: space.x3, marginBottom: space.s }}>From this note</Label> : null}
+      {note.items.map((i, n) => (
+        <Row
+          key={i.id}
+          first={n === 0}
+          leading={<Sprig personId={i.personId} width={size.sprig.row} />}
+          title={i.statement}
+          subtitle={i.person}
+          accessibilityHint={`Opens ${i.person}`}
+          onPress={() => onPerson(i.personId)}
+        />
       ))}
-      <View style={{ alignItems: "flex-start", marginTop: space.xl }}>
-        <Pill variant="danger" label="Delete this note" onPress={onDelete} />
+      <View style={{ alignItems: "flex-start", marginTop: space.x3 }}>
+        <Pill variant="danger" size="small" label="Delete this note" onPress={onDelete} />
       </View>
     </Screen>
   );

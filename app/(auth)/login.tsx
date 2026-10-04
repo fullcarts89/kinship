@@ -46,6 +46,9 @@ import Animated, {
 import Svg, { Path } from "react-native-svg";
 import { colors, fonts } from "@design/tokens";
 import { SingleSproutIllustration } from "@/components/illustrations";
+import { WelcomeScreen } from "@/features/welcome/WelcomeScreen";
+import { buildEntryShell, readEntryShell, type EntryShell } from "@/platform/entryShell";
+import { followSystemAppearance } from "@/ui/appearance";
 import { useAuth } from "@/providers";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
@@ -149,7 +152,7 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
-export default function LoginScreen() {
+function LoginScreenV1() {
   const insets = useSafeAreaInsets();
   const {
     signInWithApple,
@@ -779,4 +782,19 @@ export default function LoginScreen() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
+}
+
+// ─── Which sign-in ─────────────────────────────────────────────────────────
+// The 2.0 dogfood build, or a phone a 2.0 account has used, gets the 2.0
+// welcome (src/features/welcome); everyone else keeps this screen.
+
+export default function LoginScreen() {
+  const [entry, setEntry] = useState<EntryShell | null>(() => buildEntryShell());
+  useEffect(() => {
+    if (!entry) void readEntryShell().then(setEntry);
+    // 2.0's welcome has a night look; 1.0's sign-in is light-only.
+    else followSystemAppearance(entry === "v2");
+  }, [entry]);
+  if (!entry) return null;
+  return entry === "v2" ? <WelcomeScreen /> : <LoginScreenV1 />;
 }

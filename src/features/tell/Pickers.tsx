@@ -1,20 +1,21 @@
 // Correction panes (plan §8): who it's about, when, what kind, and the words.
-// Panes, not sheets: they replace the review's content in the same sheet, so
-// there is never a sheet on top of a sheet.
+// Panes, not sheets: they replace a sheet's content, so there is never a
+// sheet on top of a sheet.
 
 import React, { useMemo, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { radius, space, TOUCH, type } from "@/design/tokens";
+import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { height, maxScale, radius, size, space, TOUCH, type } from "@/design/tokens";
 import { kindLabel, monthName, spokenDay } from "@/features/memory/format";
 import { SWITCHABLE_KINDS, type SwitchableKind } from "@/store/memoryDetail";
 import type { Person } from "@/store/repositories";
-import { Body, Label, Pill, Row, Small, usePalette } from "@/ui";
+import { Body, Heading, IconButton, Pill, Row, Small, Sprig, usePalette } from "@/ui";
 import { personLabel } from "./reviewModel";
 
 function PaneHeader({ title, onCancel }: { title: string; onCancel: () => void }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: space.s }}>
-      <Label accessibilityRole="header" style={{ flex: 1 }}>{title}</Label>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginBottom: space.m }}>
+      <Heading style={{ flex: 1 }}>{title}</Heading>
       <Pill variant="quiet" label="Back" onPress={onCancel} />
     </View>
   );
@@ -36,10 +37,10 @@ export function PersonPane({
   const p = usePalette();
   const [query, setQuery] = useState("");
   const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim().toLocaleLowerCase();
     return people
       .filter((x) => x.state !== "archived")
-      .filter((x) => !q || x.display_name.toLowerCase().includes(q))
+      .filter((x) => !q || x.display_name.toLocaleLowerCase().includes(q))
       .sort((a, b) => a.display_name.localeCompare(b.display_name));
   }, [people, query]);
   return (
@@ -49,15 +50,23 @@ export function PersonPane({
         value={query}
         onChangeText={setQuery}
         placeholder="Search your people"
-        placeholderTextColor={p.inkSoft}
+        placeholderTextColor={p.inkQuiet}
         accessibilityLabel="Search your people"
-        style={[type.body, {
-          color: p.ink, minHeight: TOUCH, paddingHorizontal: space.m, borderRadius: radius.inline,
-          borderWidth: 1, borderColor: p.hairline, marginBottom: space.s,
+        maxFontSizeMultiplier={maxScale.text}
+        style={[type.field, {
+          color: p.ink, minHeight: height.search, paddingHorizontal: space.l, borderRadius: radius.pill(height.search),
+          borderWidth: 1, borderColor: p.hairline, backgroundColor: p.paper, marginBottom: space.m,
         }]}
       />
-      {shown.map((x) => (
-        <Row key={x.id} title={personLabel(x, people)} selected={x.id === current} onPress={() => onPick(x.id)} />
+      {shown.map((x, i) => (
+        <Row
+          key={x.id}
+          first={i === 0}
+          leading={<Sprig personId={x.id} width={size.sprig.row} />}
+          title={personLabel(x, people)}
+          selected={x.id === current}
+          onPress={() => onPick(x.id)}
+        />
       ))}
       {shown.length === 0 ? <Small>No one by that name yet.</Small> : null}
     </View>
@@ -68,8 +77,8 @@ export function KindPane({ current, onPick, onCancel }: { current: string; onPic
   return (
     <View>
       <PaneHeader title="What is it?" onCancel={onCancel} />
-      {SWITCHABLE_KINDS.map((k) => (
-        <Row key={k} title={kindLabel(k)} selected={k === current} onPress={() => onPick(k)} />
+      {SWITCHABLE_KINDS.map((k, i) => (
+        <Row key={k} first={i === 0} title={kindLabel(k)} selected={k === current} onPress={() => onPick(k)} />
       ))}
     </View>
   );
@@ -88,9 +97,10 @@ export function WordsPane({ initial, onSave, onCancel }: { initial: string; onSa
         maxLength={500}
         autoFocus
         accessibilityLabel="What to remember"
-        style={[type.statement, {
-          color: p.ink, minHeight: 88, padding: space.m, borderRadius: radius.inline, borderWidth: 1,
-          borderColor: p.hairline, textAlignVertical: "top",
+        maxFontSizeMultiplier={maxScale.text}
+        style={[type.line, {
+          color: p.ink, minHeight: TOUCH * 2, padding: space.m, borderRadius: radius.inline, borderWidth: 1,
+          borderColor: p.hairline, backgroundColor: p.paper, textAlignVertical: "top",
         }]}
       />
       <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.m }}>
@@ -127,13 +137,18 @@ export function DatePane({
     const t = new Date(Date.UTC(y, m - 1 + n, 1));
     setMonth(`${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}`);
   };
+  const dot = TOUCH - space.s;
   return (
     <View>
       <PaneHeader title={title} onCancel={onCancel} />
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: space.s }}>
-        <Pill variant="quiet" label="‹" accessibilityHint="Previous month" onPress={() => shift(-1)} />
-        <Body style={{ flex: 1, textAlign: "center" }}>{`${monthName(m - 1)} ${y}`}</Body>
-        <Pill variant="quiet" label="›" accessibilityHint="Next month" onPress={() => shift(1)} />
+        <IconButton label="Previous month" onPress={() => shift(-1)}>
+          <ChevronLeft color={p.ink} size={size.iconLarge} strokeWidth={1.8} />
+        </IconButton>
+        <Body tone="ink" style={{ flex: 1, textAlign: "center" }}>{`${monthName(m - 1)} ${y}`}</Body>
+        <IconButton label="Next month" onPress={() => shift(1)}>
+          <ChevronRight color={p.ink} size={size.iconLarge} strokeWidth={1.8} />
+        </IconButton>
       </View>
       <View style={{ flexDirection: "row" }}>
         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
@@ -157,12 +172,12 @@ export function DatePane({
               >
                 <View
                   style={{
-                    width: TOUCH - 8, height: TOUCH - 8, borderRadius: (TOUCH - 8) / 2, alignItems: "center",
-                    justifyContent: "center", backgroundColor: selected ? p.ochre : "transparent",
-                    borderWidth: day === today && !selected ? 1 : 0, borderColor: p.ochre,
+                    width: dot, height: dot, borderRadius: dot / 2, alignItems: "center", justifyContent: "center",
+                    backgroundColor: selected ? p.ink : "transparent",
+                    borderWidth: day === today && !selected ? 1.5 : 0, borderColor: p.ochre,
                   }}
                 >
-                  <Text style={[type.body, { color: selected ? p.onOchre : p.ink }]}>{d}</Text>
+                  <Text maxFontSizeMultiplier={maxScale.label} style={[type.field, { color: selected ? p.onInk : p.ink }]}>{d}</Text>
                 </View>
               </Pressable>
             );

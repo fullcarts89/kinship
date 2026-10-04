@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
+import { useColorScheme, View } from "react-native";
 import { Redirect } from "expo-router";
+import { color } from "@/design/tokens";
+import { buildEntryShell, readEntryShell, rememberEntryShell, type EntryShell } from "@/platform/entryShell";
+import { followSystemAppearance } from "@/ui/appearance";
 import { useAuth } from "@/providers";
 import { hasCompletedOnboarding } from "@/lib/onboardingStatus";
 import { useLaunchShell } from "@/hooks/useFlags";
@@ -19,21 +23,36 @@ export default function Index() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const shell = useLaunchShell(isAuthenticated ? (user?.id ?? null) : null);
+  const [entry, setEntry] = useState<EntryShell | null>(() => buildEntryShell());
+  const night = useColorScheme() === "dark";
 
   useEffect(() => {
     hasCompletedOnboarding().then(setOnboarded);
+    if (!entry) void readEntryShell().then(setEntry);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep splash screen visible while checking persisted state
-  if (isLoading || onboarded === null) return null;
+  // This phone's sign-in look follows the shell its account uses.
+  useEffect(() => {
+    if (isAuthenticated && shell) {
+      void rememberEntryShell(shell);
+      followSystemAppearance(shell === "v2");
+    }
+  }, [isAuthenticated, shell]);
+
+  // While deciding: 2.0's paper (no flash of 1.0's cream), else the splash.
+  const deciding = entry === "v2" ? <View style={{ flex: 1, backgroundColor: night ? color.night.paper : color.light.paper }} /> : null;
+  if (isLoading || onboarded === null) return deciding;
 
   // No session → login
   if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
 
+  // Authenticated (or mock mode) → main app, in the shell this account uses.
+  // 2.0 has no 1.0 onboarding: it asks only what it needs, in place.
+  if (shell === null) return deciding;
+  if (shell === "v2") return <Redirect href="/v2" />;
+
   // First launch → onboarding
   if (!onboarded) return <Redirect href="/(auth)/onboarding" />;
-
-  // Authenticated (or mock mode) → main app, in the shell this account uses
-  if (shell === null) return null;
-  return <Redirect href={shell === "v2" ? "/v2" : "/(tabs)"} />;
+  return <Redirect href="/(tabs)" />;
 }

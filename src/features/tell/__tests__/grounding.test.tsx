@@ -1,4 +1,6 @@
-// Founder invariant (D1 review): user-visible memory wording is grounded too.
+// Founder invariant (D1 review): user-visible memory wording is grounded too,
+// on every 2.0 surface: Today's moment, the Kept line, the hand-off, the
+// review, the relationship page, People, What Kinship knows and the Source.
 // The canonical Ben note never says "marathon", a distance or a time; the
 // screens may format dates, punctuation and labels, but must not add a claim
 // the memory or its note doesn't make: not from event_type, the goal, the
@@ -8,9 +10,14 @@ import TestRenderer, { act } from "react-test-renderer";
 import { NoteView } from "@/features/person/NoteView";
 import { PersonRecordView } from "@/features/person/PersonRecordView";
 import { provenanceLine } from "@/features/memory/format";
+import { PortraitView } from "@/features/person/PortraitView";
+import { PeopleView } from "@/features/people/PeopleView";
 import { ReviewSheet } from "@/features/tell/ReviewSheet";
-import { TellView } from "@/features/tell/TellView";
+import { KeptLine, TellDockView } from "@/features/tell/TellDock";
 import { buildReview, itemLine } from "@/features/tell/reviewModel";
+import { HandoffSheet } from "@/features/today/HandoffSheet";
+import { TodayView } from "@/features/today/TodayView";
+import { buildToday } from "@/features/today/todayModel";
 import { runsOf } from "@/hooks/useV2";
 import type { MemoryItem, Person } from "@/store/repositories";
 import type { UnderstandingRow } from "@/store/understanding";
@@ -57,10 +64,27 @@ it("Ben, everywhere it's shown: the note's words, a formatted date, and nothing 
   const summary = view("auto");
   const sheet = view("confirm");
   const line = itemLine(race, { people, related: [], today: TODAY });
+  // Today, the day after: the follow-up for Ben's Sunday, phrased from templates and the note's own words.
+  const today = buildToday({
+    now: new Date(2026, 9, 12, 9, 0), today: "2026-10-12", items: [{ ...race, sensitivity: "none" } as MemoryItem], people,
+    reasons: [{ id: "r1", person_id: "ben", type: "event_followup", window_start: new Date(2026, 9, 12).toISOString(),
+      window_end: new Date(2026, 9, 14).toISOString(), score: 90, state: "candidate", dedupe_key: "event_followup:m1:2026-10-11" }],
+    local: {}, primaries: [], handoff: null, questions: 0, toLookAt: 0,
+    provenance: () => ({ line: "You told Kinship · Oct 8", noteId: "c1" }),
+  });
+  expect(today.moment?.statement).toBe("How did it go for Ben?");
   const surfaces: Record<string, string[]> = {
     summary: [summary.summary ?? "", summary.heading],
-    tell: rendered(<TellView tellOn ai draft="" onDraft={noop} onKeep={noop} status={null} questions={0} toLookAt={0} waitingOffline={false}
-      onAnswer={noop} onReview={noop} toast={{ text: summary.summary ?? "", opens: true }} onToast={noop} onUndo={noop} onPeople={noop} />),
+    kept: rendered(<TellDockView tellOn draft="" onDraft={noop} onSend={noop} current="today" onGo={noop}
+      line={<KeptLine text={summary.summary ?? ""} onOpen={noop} onUndo={noop} />} />),
+    today: rendered(<TodayView view={today} afterReturn={null} onPrimary={noop} onNotNow={noop} onProvenance={noop} onReturn={noop}
+      onRemember={noop} onNothing={noop} onQuiet={noop} />),
+    handoff: rendered(<HandoffSheet visible heading={today.moment?.heading ?? ""} personName="Ben" mention={today.moment?.mention ?? []}
+      channels={["text", "call"]} ready onOpen={noop} onChooseContact={noop} onDismiss={noop} returnCheck />),
+    portrait: rendered(<PortraitView personId="ben" name="Ben" label={null} remembered={false} comingUp={[]} youSaid={[]} between={[]} total={1}
+      lately={[{ itemId: "m1", statement: race.statement, when: line.when?.label ?? null, provenance: "You told Kinship · Oct 8", noteId: "c1" }]}
+      onBack={noop} onLine={noop} onSource={noop} onKnows={noop} onMessage={noop} onCall={noop} onTell={noop} />),
+    people: rendered(<PeopleView rows={[{ id: "ben", label: "Ben", line: race.statement, remembered: false }]} onOpen={noop} onAdd={async () => undefined} />),
     sheet: rendered(<ReviewSheet view={sheet} visible people={people} today={TODAY} onDismiss={noop} onDone={noop} onUndo={noop}
       onReject={noop} onCorrect={noop} onAnswer={noop} onOpenNote={noop} onActivity={noop} />),
     record: rendered(<PersonRecordView name="Ben" label={null} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop}
@@ -73,7 +97,8 @@ it("Ben, everywhere it's shown: the note's words, a formatted date, and nothing 
   for (const [surface, strings] of Object.entries(surfaces)) {
     expect(strings.length).toBeGreaterThan(0);
     for (const s of strings) expect([surface, s, UNGROUNDED.test(s)]).toEqual([surface, s, false]);
-    expect([surface, strings.some((s) => s.includes("Ben runs Chicago Sunday"))]).toEqual([surface, true]);
+    // Every surface that shows the memory shows it in the note's words (the hand-off lists other things to mention).
+    if (surface !== "handoff") expect([surface, strings.some((s) => s.includes("Ben runs Chicago Sunday"))]).toEqual([surface, true]);
   }
   // The structured detail is never turned into words on screen.
   for (const strings of Object.values(surfaces)) {

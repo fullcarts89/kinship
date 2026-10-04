@@ -68,7 +68,7 @@ From plan §23, defined in `AnalyticsEvents`:
 | `deletion_completed` | `scope` (item/capture/person/account) |
 | `consent_changed` | `scope` (ai_processing/analytics/notifications), `granted` (boolean) |
 
-`reason_type` is one of birthday/follow_up/promise/anniversary/check_in/season/other. `item_kind` is one of fact/event/promise/plan/thread/moment/milestone/tradition/context.
+`reason_type` is one of birthday/upcoming/follow_up/promise/anniversary/check_in/season/other (Today v0 sends upcoming and follow_up). `item_kind` is one of fact/event/promise/plan/thread/moment/milestone/tradition/context.
 
 Wired in 1.0 today: `consent_changed` (AI consent) and `deletion_completed` (account).
 

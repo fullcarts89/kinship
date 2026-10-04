@@ -12,6 +12,10 @@ import {
   DMSans_600SemiBold,
   DMSans_700Bold,
 } from "@expo-google-fonts/dm-sans";
+import {
+  InstrumentSans_400Regular,
+  InstrumentSans_500Medium,
+} from "@expo-google-fonts/instrument-sans";
 import { AppProviders } from "@/providers";
 import { GrowthToastOverlay } from "@/components/ui/GrowthToast";
 import {
@@ -21,11 +25,18 @@ import {
 import "../global.css";
 import { startCrashReporting } from "@/platform/crashReporting";
 import { startAnalytics } from "@/platform/analyticsSetup";
+import { followSystemAppearance } from "@/ui/appearance";
+import { buildEntryShell } from "@/platform/entryShell";
 
 // Scrubbed crash reporting; a no-op unless EXPO_PUBLIC_SENTRY_DSN is set.
 startCrashReporting();
 // Content-free product analytics; off unless EXPO_PUBLIC_ANALYTICS_ENABLED=true.
 startAnalytics();
+
+// The app follows the system appearance only inside the 2.0 shell, which has
+// a night palette (app/v2/_layout.tsx releases this; so does the 2.0
+// dogfood build from launch, for its welcome). 1.0 is light-only.
+followSystemAppearance(buildEntryShell() === "v2");
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();
@@ -34,7 +45,8 @@ SplashScreen.preventAutoHideAsync();
  * Root Layout
  *
  * Responsibilities:
- * 1. Load DM Serif Display + DM Sans fonts (all required weights)
+ * 1. Load the fonts: DM Serif Display + DM Sans for 1.0; Newsreader +
+ *    Instrument Sans for the 2.0 shell (names match src/design/tokens.ts)
  * 2. Hold splash screen until fonts are ready
  * 3. Wrap app in providers (SafeArea → Theme → Auth)
  * 4. Define primary navigation stack
@@ -47,6 +59,13 @@ export default function RootLayout() {
     "DMSans-Medium": DMSans_500Medium,
     "DMSans-SemiBold": DMSans_600SemiBold,
     "DMSans-Bold": DMSans_700Bold,
+    // Kinship 2.0 (src/design/tokens.ts `font`).
+    NewsreaderDisplay: require("../assets/fonts/newsreader/NewsreaderDisplay-Regular.ttf"),
+    NewsreaderText: require("../assets/fonts/newsreader/NewsreaderText-Regular.ttf"),
+    NewsreaderTextLight: require("../assets/fonts/newsreader/NewsreaderText-Light.ttf"),
+    NewsreaderTextItalic: require("../assets/fonts/newsreader/NewsreaderText-Italic.ttf"),
+    InstrumentSans: InstrumentSans_400Regular,
+    "InstrumentSans-Medium": InstrumentSans_500Medium,
   });
 
   const onLayoutRootView = useCallback(async () => {

@@ -4,12 +4,14 @@
 
 import { useCallback } from "react";
 import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
-import { provenanceLine, arrivedLabel, momentLabel } from "@/features/memory/format";
+import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
-import { buildReview, itemLine, type ReviewView } from "@/features/tell/reviewModel";
-import { AI_CONSENT_VERSION } from "@/lib/aiPreferences";
-import { charsBucket, track } from "@/platform/analytics";
+import { buildToday, evidenceOf, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayView } from "@/features/today/todayModel";
+import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
+import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
+import { getMeta, setMeta } from "@/store/schema";
+import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, track } from "@/platform/analytics";
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { isOn } from "@/store/flags";
@@ -41,8 +43,10 @@ export function useTell() {
   // The server checks consent on every call; this only decides whether to ask.
   const consent = s ? (s.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION ? "on" : "off") : "unknown";
   const ai = isOn(flags, "ai_extraction") && consent !== "off";
-  const keep = useCallback(async (text: string): Promise<string> => {
-    const capture = await repositoriesFor(store).captures.tell(text, { aiEnabled: ai, timeZone: timeZone() });
+  const keep = useCallback(async (text: string, contextPersonId?: string | null): Promise<string> => {
+    const capture = await repositoriesFor(store).captures.tell(text, {
+      aiEnabled: ai, timeZone: timeZone(), contextPersonId: contextPersonId ?? undefined,
+    });
     track("capture_completed", { source: "text", chars_bucket: charsBucket([...text].length), offline: understanding.offline });
     if (ai) {
       await understanding.told(capture.id);
@@ -50,7 +54,7 @@ export function useTell() {
     }
     return capture.id;
   }, [store, understanding, ai]);
-  return { keep, ai, tellOn: isOn(flags, "tell") };
+  return { keep, ai, tellOn: isOn(flags, "tell"), extractionOn: isOn(flags, "ai_extraction") };
 }
 
 // ─── The review ─────────────────────────────────────────────────────────
@@ -211,11 +215,263 @@ export function runsOf(text: string, spans: { start: number; end: number }[]): {
 export function useV2Actions() {
   const { store } = useV2Session();
   return {
-    addPerson: (name: string) => repositoriesFor(store).people.add({ display_name: name.normalize("NFC").trim() }),
+    addPerson: async (name: string) => {
+      return repositoriesFor(store).people.add({ display_name: name.normalize("NFC").trim() });
+    },
     deleteNote: async (captureId: string) => {
       await repositoriesFor(store).captures.remove(captureId);
       track("deletion_completed", { scope: "capture" });
     },
     settleConflict: (id: number, choice: "keep_current" | "use_mine") => repositoriesFor(store).conflicts.resolve(id, choice),
+  };
+}
+
+// ─── Today ──────────────────────────────────────────────────────────────
+
+/** Today's view: the one moment, the return check, at most two quiet lines. */
+export function useToday(questions: number, toLookAt: number, now: Date): TodayView | null {
+  const { store, reasonLocal } = useV2Session();
+  const minute = Math.floor(now.getTime() / 60_000);
+  const q = useStoreQuery(store, async (repos) => {
+    const reasons = (await store.list("reasons")) as unknown as ReasonRow[];
+    const items = (await store.list("memory_items")) as MemoryItem[];
+    const people = await repos.people.list();
+    const local = await reasonLocal.read();
+    // Provenance only for what a reason cites (the moment's line).
+    const cited = new Set(reasons.map(evidenceOf).filter((x): x is string => !!x));
+    const prov = new Map<string, { line: string; noteId: string | null }>();
+    for (const id of cited) {
+      const sources = await repos.memory.sourcesFor(id);
+      const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
+        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      prov.set(id, {
+        line: provenanceLine(sources.map((s) => ({
+          source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
+        })), now),
+        noteId: notes[0]?.capture_id ?? null,
+      });
+    }
+    return buildToday({
+      now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
+      handoff: local.handoff, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
+    });
+  }, [questions, toLookAt, minute]);
+  return q.data ?? null;
+}
+
+/** What Today can do: refresh reasons, mark one shown, put it aside, hand off, answer the return check. */
+export function useTodayActions() {
+  const { store, reasons, reasonLocal } = useV2Session();
+  return {
+    refresh: (force = false) => reasons.refresh({ force, timeZone: timeZone() ?? null }),
+    shown: async (m: { reasonId: string; personId: string; type: TodayReasonType; score: number }) => {
+      const before = (await reasonLocal.read()).local[m.reasonId]?.firstShown;
+      await reasonLocal.shown(m.reasonId, m.personId, todayIso());
+      if (!before) {
+        reasons.record(m.reasonId, "shown");
+        track("reason_surfaced", { reason_type: reasonTypeName(m.type), surface: "today", score_bucket: scoreBucket(m.score) });
+      }
+    },
+    notNow: async (m: { reasonId: string; type: TodayReasonType }) => {
+      await reasonLocal.dismissed(m.reasonId, new Date().toISOString());
+      reasons.record(m.reasonId, "dismissed_not_now");
+      track("reason_dismissed", { reason_type: reasonTypeName(m.type), mode: "not_now" });
+    },
+    handedOff: async (h: { reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType }) => {
+      await reasonLocal.handedOff({ reasonId: h.reasonId, personId: h.personId, channel: h.channel, at: new Date().toISOString() });
+      reasons.record(h.reasonId, "acted", h.channel);
+      track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
+    },
+    /** "Yes": the one place a connection is recorded (plan §15). */
+    returned: async (answer: "yes" | "not_yet") => {
+      const h = await reasonLocal.answered(answer, new Date().toISOString());
+      if (!h) return null;
+      reasons.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
+      track("return_check_answered", { answer, minutes_since_handoff_bucket: minutesBucket(Date.now() - Date.parse(h.at)) });
+      if (answer === "yes") {
+        await repositoriesFor(store).contacts.confirm({
+          person_id: h.personId, channel: h.channel, source: "return_check", reason_id: h.reasonId,
+        });
+      }
+      return h;
+    },
+    linkContact: (personId: string, contactId: string) => store.update("people", personId, { contact_ref: contactId }),
+  };
+}
+
+// ─── People and the relationship page ───────────────────────────────────
+
+const LIVE_KINDS = ["fact", "thread", "event", "plan", "moment", "milestone", "promise", "context", "tradition"];
+
+function liveItem(m: MemoryItem): boolean {
+  return (m.status === "active" || m.status === "resolved") && !m.deleted_at;
+}
+
+export interface PeopleRowData {
+  person: Person;
+  label: string;
+  /** One live line: the newest thing told about them (never a sensitive one). */
+  line: string | null;
+}
+
+export function usePeopleRows(): PeopleRowData[] {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const people = (await repos.people.list()).filter((p) => p.state !== "archived" && !p.deleted_at);
+    const items = ((await store.list("memory_items")) as MemoryItem[])
+      .filter((m) => liveItem(m) && m.status === "active" && m.sensitivity === "none" && LIVE_KINDS.includes(m.kind))
+      .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+    const newest = new Map<string, string>();
+    for (const m of items) if (!newest.has(m.person_id)) newest.set(m.person_id, m.statement);
+    return people
+      .sort((a, b) => a.display_name.localeCompare(b.display_name))
+      .map((p) => ({ person: p, label: personLabel(p, people), line: newest.get(p.id) ?? null }));
+  });
+  return q.data ?? [];
+}
+
+export interface PortraitLine {
+  itemId: string;
+  statement: string;
+  /** "Sun, Oct 11", "October"… when it has a time. */
+  when: string | null;
+  provenance: string;
+  noteId: string | null;
+}
+
+export interface Portrait {
+  person: Person | null;
+  label: string | null;
+  lately: PortraitLine[];
+  comingUp: PortraitLine[];
+  youSaid: PortraitLine[];
+  between: PortraitLine[];
+  /** Everything Kinship keeps about them (for "What Kinship knows"). */
+  total: number;
+}
+
+/**
+ * The relationship page as a portrait (Design Direction §I.7; board 2): what's
+ * going on with them, what's coming up, what you said you'd do, what you
+ * share. Only sections with something in them are shown.
+ */
+export function usePortrait(personId: string): Portrait {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const people = await repos.people.list();
+    const person = people.find((p) => p.id === personId && !p.deleted_at) ?? null;
+    const empty: Portrait = { person, label: null, lately: [], comingUp: [], youSaid: [], between: [], total: 0 };
+    if (!person) return empty;
+    const now = new Date();
+    const today = todayIso(now);
+    const items = (await repos.memory.forPerson(personId))
+      .filter(liveItem)
+      .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+    const out: Portrait = {
+      ...empty,
+      label: typeof person.relationship_label === "string" && person.relationship_label ? person.relationship_label : null,
+      total: items.length,
+    };
+    for (const item of items) {
+      const sources = await repos.memory.sourcesFor(item.id);
+      const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
+        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      const detail = (item.detail ?? {}) as Record<string, unknown>;
+      const line: PortraitLine = {
+        itemId: item.id,
+        statement: item.statement,
+        when: whenLabel(item.kind, detail, today),
+        provenance: provenanceLine(sources.map((s) => ({
+          source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
+        })), now),
+        noteId: notes[0]?.capture_id ?? null,
+      };
+      const day = typeof detail.date === "string" ? detail.date : typeof detail.due_date === "string" ? detail.due_date : null;
+      const ahead = day ? day >= today : false;
+      if (item.kind === "promise") {
+        if (item.status === "active") out.youSaid.push(line);
+      } else if (item.kind === "plan" || ((item.kind === "event" || item.kind === "milestone") && ahead)) {
+        if (item.status === "active" && (ahead || !day)) out.comingUp.push(line);
+      } else if (item.kind === "context" || item.kind === "tradition" || item.kind === "moment") {
+        out.between.push(line);
+      } else if (item.status === "active") {
+        out.lately.push(line);
+      }
+    }
+    // Coming up reads soonest first; the rest newest first.
+    const dayOf = (l: PortraitLine) => {
+      const it = items.find((m) => m.id === l.itemId);
+      const d = (it?.detail ?? {}) as Record<string, unknown>;
+      return typeof d.date === "string" ? d.date : "9999";
+    };
+    out.comingUp.sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
+    return out;
+  }, [personId]);
+  return q.data ?? { person: null, label: null, lately: [], comingUp: [], youSaid: [], between: [], total: 0 };
+}
+
+/** One remembered item, for its correction sheet. */
+export function useItemLine(itemId: string | null): { line: ItemLine; provenance: string; noteId: string | null } | null {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    if (!itemId) return null;
+    const item = (await store.get("memory_items", itemId)) as MemoryItem | null;
+    if (!item || !liveItem(item)) return null;
+    const people = await repos.people.list();
+    const related = await repos.people.related();
+    const sources = await repos.memory.sourcesFor(item.id);
+    const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    const now = new Date();
+    return {
+      line: itemLine(item, { people, related, today: todayIso(now) }),
+      provenance: provenanceLine(sources.map((s) => ({
+        source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
+      })), now),
+      noteId: notes[0]?.capture_id ?? null,
+    };
+  }, [itemId]);
+  return q.data ?? null;
+}
+
+// ─── The one-time understanding consent (D2, D3) ────────────────────────
+
+const CONSENT_ASKED = "ai_consent_asked";
+
+/** Whether to ask now: understanding is on for this account, not yet allowed, and never asked on this device. */
+export function useConsentAsk(): { ask: boolean; answer: (allow: boolean) => Promise<void> } {
+  const { store } = useV2Session();
+  const { extractionOn } = useTell();
+  const q = useStoreQuery(store, async (repos) => {
+    const s = await repos.settings.get();
+    const allowed = s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
+    return { allowed, asked: (await getMeta(store.db, CONSENT_ASKED)) === "1" };
+  });
+  return {
+    ask: extractionOn && q.data !== undefined && !q.data.allowed && !q.data.asked,
+    answer: async (allow: boolean) => {
+      await setAIEnabled(allow);
+      await setMeta(store.db, CONSENT_ASKED, "1");
+      store.notify();
+    },
+  };
+}
+
+/** Understanding on or off (D3: revocable in Settings, enforced at the gateway). */
+export function useUnderstandingConsent(): { allowed: boolean | null; set: (allow: boolean) => Promise<void> } {
+  const { store, understanding } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const s = await repos.settings.get();
+    return s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
+  });
+  return {
+    allowed: q.data ?? null,
+    set: async (allow: boolean) => {
+      await setAIEnabled(allow);
+      await setMeta(store.db, "ai_consent_asked", "1");
+      // Pull the server's copy so the device agrees at once.
+      understanding.run().catch(() => undefined);
+      store.notify();
+    },
   };
 }

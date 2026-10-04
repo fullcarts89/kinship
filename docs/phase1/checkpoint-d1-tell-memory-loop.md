@@ -9,6 +9,32 @@
 | New migrations | `20261004130000_v2_resolve_capture_review`, `20261004140000_v2_restore_superseded` (forward-only; applied to production only by a merge to `main`) |
 | Paid model runs | none in D1. The extraction pipeline, prompt v5, guards, date resolver, person resolution, schema and model configuration are unchanged |
 
+## Behaviour vs. product: what D1 completed (added 5 Oct 2026)
+
+D1 is **complete as behaviour**. It built and tested the memory loop underneath Kinship 2.0:
+- Tell, kept offline-first;
+- understood by the gateway;
+- reviewed with the trust-required confirmation semantics in §0;
+- one question at a time;
+- corrections, Undo and provenance.
+
+None of that behaviour changed afterwards.
+
+D1 was **not** the finished visual product. Its screens used provisional stand-ins:
+- DM Serif Display / DM Sans;
+- an approximate palette;
+- a Tell-first screen, with no Today and no sprig.
+
+They are superseded by the Phase 2 integration on `claude/awesome-edison-3cuf6z`:
+- the Quiet Herbarium system (E07) and the identity-only sprig (E08);
+- Today + People + Tell;
+- the relationship portrait;
+- reasons v0 with hand-off and return check.
+
+The D1 screenshots in `d1-screens/` show the behaviour as first built, not the product's look. Current screens and the design-fidelity review: `docs/phase2/quiet-herbarium-build.md`; flow friction: `docs/phase2/v2-flow-friction-audit.md`; dogfood gate: `docs/phase2/wife-dogfood-readiness.md`.
+
+**Dogfood order (founder, 5 Oct).** No internal accounts are enabled and none have been requested. The first dogfood user is the founder's wife, on the polished product, after the native-device pass. The 2–5-account plan in §8 waits until then.
+
 ## 0. Founder review: two pre-dogfood trust checks (4 Oct 2026)
 
 D1 was approved subject to two trust checks. Both are now resolved; the earlier sections are updated to match.

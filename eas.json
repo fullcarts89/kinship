@@ -20,6 +20,12 @@
         "EXPO_PUBLIC_SENTRY_DSN": "https://5b8f839512cd7473429c416c9780ab8b@o4512185268371456.ingest.us.sentry.io/4512185274531840"
       }
     },
+    "dogfood-v2": {
+      "extends": "preview",
+      "env": {
+        "EXPO_PUBLIC_V2_ENTRY": "1"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "env": {

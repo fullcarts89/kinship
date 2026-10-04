@@ -1,5 +1,5 @@
-// A person's record (Checkpoint D1): what Kinship remembers about them, with
-// where each line came from. Change anything; "Not this" forgets it.
+// What Kinship knows about a person: every line, its tokens and its source.
+// Change anything; "Not this" forgets it.
 import React, { useState } from "react";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -11,7 +11,7 @@ import { Sheet } from "@/ui";
 
 type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine };
 
-export default function PersonRecordScreen() {
+export default function KnowsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { person, lines } = usePersonRecord(String(id));
   const people = usePeople();

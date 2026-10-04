@@ -7,6 +7,8 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { AppState } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { Gateway, supabaseGatewayTransport } from "@/store/gateway";
+import { ReasonLocal } from "@/store/reasonLocal";
+import { Reasons, supabaseReasonsTransport } from "@/store/reasons";
 import { storeForUser } from "@/store/session";
 import { SupabaseRemote } from "@/store/supabaseRemote";
 import { SyncEngine } from "@/store/syncEngine";
@@ -18,6 +20,10 @@ export interface V2Session {
   userId: string;
   store: UserStore;
   understanding: Understanding;
+  /** Today's reasons: refreshed on the server, recorded when online. */
+  reasons: Reasons;
+  /** What this device remembers about them (shown, acted, put aside, the last hand-off). */
+  reasonLocal: ReasonLocal;
 }
 
 const V2Context = createContext<V2Session | null>(null);
@@ -49,7 +55,13 @@ export function V2SessionProvider({
         if (cancelled) return;
         const engine = new SyncEngine(store, new SupabaseRemote(client));
         const gateway = new Gateway(supabaseGatewayTransport(client));
-        setSession({ userId, store, understanding: new Understanding(store, () => engine.sync(), gateway) });
+        setSession({
+          userId,
+          store,
+          understanding: new Understanding(store, () => engine.sync(), gateway),
+          reasons: new Reasons(supabaseReasonsTransport(client), () => engine.sync()),
+          reasonLocal: new ReasonLocal(store),
+        });
       },
       () => {
         if (!cancelled) setFailed(true);
