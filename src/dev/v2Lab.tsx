@@ -47,15 +47,19 @@ function held(over: Partial<HeldItem>): HeldItem {
   };
 }
 
+// The canonical Ben note (eval core-001): one event, in the note's own words,
+// with the goal kept on it. Nothing here says "marathon": the note doesn't.
 const race = item("m1", {
-  kind: "event", statement: "Ben runs the Chicago Marathon on Sunday",
+  kind: "event", statement: "Ben runs Chicago Sunday",
   detail: { date: "2026-10-11", date_precision: "day", date_hint: "Sunday", event_type: "race", followup_policy: "after", event_goal: "break four hours" },
 });
-const goal = item("m2", { kind: "fact", statement: "Ben is hoping to break four hours", detail: { category: "interest" } });
 const lisbon = item("m3", { person_id: "ana", statement: "Ana might move to Lisbon", certainty: "tentative", detail: { category: "home" } });
 const sam = held({ statement: "Sam is redoing his kitchen", flags: ["person_ambiguous"], spans: [{ start: 0, end: 26, quote: "Sam is redoing his kitchen" }] });
 const sister = held({ kind: "event", person_id: "sarah", statement: "Sarah's sister has surgery Thursday", sensitivity: "health",
   flags: ["subject_check", "sensitive"], spans: [{ start: 0, end: 35, quote: "Sarah's sister has surgery Thursday" }] });
+const surgery = held({ kind: "event", person_id: "sarah", statement: "Sarah has surgery Thursday", sensitivity: "health", tier: "confirm",
+  flags: ["sensitive"], detail: { event_type: "surgery", followup_policy: "both", date: "2026-10-15", date_precision: "day", date_hint: "Thursday" },
+  spans: [{ start: 0, end: 26, quote: "Sarah has surgery Thursday" }] });
 const maya = held({ kind: "event", new_person_name: "Maya", statement: "Maya has surgery", sensitivity: "health",
   flags: ["new_person", "date_unresolved_sensitive", "sensitive"], spans: [{ start: 0, end: 16, quote: "Maya has surgery" }] });
 
@@ -86,18 +90,18 @@ const benNote = "Ben runs Chicago Sunday. He's hoping to break four hours.";
 const record: RecordLine[] = [
   { line: itemLine(race, { people, related: [], today: TODAY }), provenance: "You told Kinship · Oct 8", noteId: "c1", conflict: null },
   {
-    line: itemLine({ ...goal, user_state: "edited", statement: "Ben wants to finish under four hours" }, { people, related: [], today: TODAY }),
+    line: itemLine(item("m2", { kind: "fact", user_state: "edited", statement: "Ben wants to finish under four hours", detail: { category: "interest" } }), { people, related: [], today: TODAY }),
     provenance: "You edited this · Oct 9 (from your note, Oct 8)", noteId: "c1",
     conflict: {
       id: 1, title: "This changed on another device.", canUseMine: true,
       choices: [{ field: "statement", title: "", keep: { label: "Keep", value: "“Ben wants to finish under four hours”" },
-        use: { label: "Use", value: "“Ben hopes to run a sub-4”" } }],
+        use: { label: "Use", value: "“Ben hopes to break four hours”" } }],
     },
   },
 ];
 
 export const LAB_STATES = [
-  "tell", "tell-offline", "ben-summary", "ben-sheet", "sams", "sams-answering", "sarah", "maya", "changed",
+  "tell", "tell-offline", "ben-summary", "ben-sheet", "keep", "sams", "sams-answering", "sarah", "maya", "changed",
   "record", "record-date", "source",
 ] as const;
 
@@ -108,7 +112,7 @@ export function V2Lab({ state }: { state: string }) {
     case "ben-summary":
       return <TellView {...tell({ toast: { text: review(benNote, row("review", { tier: "auto", saved: [{ id: "m1", tier: "auto" }], settled: true }), [race]).summary ?? "", opens: true } })} />;
     case "ben-sheet":
-      return <WithSheet view={review(benNote, row("review", { saved: [{ id: "m1", tier: "confirm" }, { id: "m2", tier: "confirm" }] }), [race, goal])} />;
+      return <WithSheet view={review(benNote, row("review", { saved: [{ id: "m1", tier: "confirm" }] }), [race])} />;
     case "sams":
       return <WithSheet view={review("Sam is redoing his kitchen.", row("review", { tier: "clarify", held: [sam] }), [])} />;
     case "sams-answering":
@@ -118,6 +122,8 @@ export function V2Lab({ state }: { state: string }) {
         tier: "clarify", held: [sister],
         clarification: { about: "subject", question: "Is this about Sarah, or Sarah's sister?", options: ["Sarah", "Sarah's sister"] },
       }), [])} />;
+    case "keep":
+      return <WithSheet view={review("Sarah has surgery Thursday.", row("review", { tier: "confirm", held: [surgery] }), [])} />;
     case "maya":
       return <WithSheet view={review("Maya has surgery sometime soon.", row("review", { tier: "clarify", held: [maya] }), [])} />;
     case "changed":
@@ -136,11 +142,10 @@ export function V2Lab({ state }: { state: string }) {
       return (
         <NoteView
           note={{
-            runs: [{ text: "Ben runs Chicago Sunday.", marked: true }, { text: " ", marked: false }, { text: "He's hoping to break four hours.", marked: true }],
+            runs: [{ text: "Ben runs Chicago Sunday.", marked: true }, { text: " ", marked: false }, { text: "He's hoping to break four hours", marked: true }, { text: ".", marked: false }],
             quotes: [], arrived: "Typed · Oct 8, 9:14 pm",
             items: [
-              { id: "m1", statement: "Ben runs the Chicago Marathon on Sunday", person: "Ben", personId: "ben" },
-              { id: "m2", statement: "Ben is hoping to break four hours", person: "Ben", personId: "ben" },
+              { id: "m1", statement: "Ben runs Chicago Sunday", person: "Ben", personId: "ben" },
             ],
           }}
           onBack={noop} onPerson={noop} onDelete={noop}

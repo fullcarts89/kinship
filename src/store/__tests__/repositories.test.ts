@@ -26,13 +26,13 @@ it("tells, remembers and syncs Ben's race with exact provenance, offline first",
   const note = "Ben runs Chicago Sunday. He's hoping to break four hours.";
   const capture = await repos.captures.tell(note, { contextPersonId: ben.id, timeZone: "America/Chicago", aiEnabled: false });
   const race = await repos.memory.remember({
-    kind: "event", person_id: ben.id, statement: "Ben runs the Chicago Marathon on Sunday",
+    kind: "event", person_id: ben.id, statement: "Ben runs Chicago Sunday",
     detail: { date: "2026-10-11", date_precision: "day", event_type: "race", followup_policy: "after",
       event_goal: "under four hours" },
   }, { captureId: capture.id, quote: "Ben runs Chicago Sunday." });
 
   // Visible at once, offline.
-  expect((await repos.memory.forPerson(ben.id)).map((m) => m.statement)).toEqual(["Ben runs the Chicago Marathon on Sunday"]);
+  expect((await repos.memory.forPerson(ben.id)).map((m) => m.statement)).toEqual(["Ben runs Chicago Sunday"]);
   const [src] = await repos.memory.sourcesFor(race.id);
   expect(src).toMatchObject({ capture_id: capture.id, span_start: 0, span_end: 24 });
 
@@ -88,10 +88,10 @@ it("a correction is the user's edit, with its own source, and wins on sync", asy
     detail: { date_precision: "day", event_type: "race", followup_policy: "after" },
   }, { captureId: c.id, quote: "Ben runs Chicago Sunday." });
   await engine.sync();
-  await repos.memory.correct(race.id, { statement: "Ben runs the Chicago Marathon on Sunday, Oct 11" });
+  await repos.memory.correct(race.id, { statement: "Ben runs Chicago Sunday, Oct 11" });
   await engine.sync();
   expect(server.table("memory_items").get(race.id)).toMatchObject({
-    statement: "Ben runs the Chicago Marathon on Sunday, Oct 11", user_state: "edited", version: 2,
+    statement: "Ben runs Chicago Sunday, Oct 11", user_state: "edited", version: 2,
   });
   const kinds = [...server.table("memory_item_sources").values()]
     .filter((s) => s.memory_item_id === race.id).map((s) => s.source_kind).sort();

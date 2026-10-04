@@ -45,7 +45,7 @@ export type MemoryKindName =
  */
 export type ReviewTier = "auto" | "light" | "later";
 /** What a held question was about. Coarse, never its words. */
-export type ClarificationType = "person" | "relation" | "new_person" | "date";
+export type ClarificationType = "person" | "relation" | "new_person" | "date" | "keep";
 export type ReasonType =
   | "birthday"
   | "follow_up"

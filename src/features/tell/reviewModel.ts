@@ -48,7 +48,8 @@ export interface ItemLine {
   edited: boolean;
 }
 
-export type QuestionType = "which_person" | "about_whom" | "new_person" | "date";
+/** "keep": a sensitive or ambiguous reading that is not memory until the user says yes. */
+export type QuestionType = "which_person" | "about_whom" | "new_person" | "date" | "keep";
 
 export type Choice =
   | { key: string; label: string; answer: Omit<HeldAnswer, "index"> }
@@ -63,6 +64,8 @@ export interface Question {
   prompt: string;
   /** What the question decides, in the user's words. */
   about: string[];
+  /** Who and when, for a reading waiting for the user's yes ("Sarah · Thu, Oct 15"). */
+  detail: string | null;
   /** The held items it answers. */
   items: number[];
   choices: Choice[];
@@ -155,7 +158,8 @@ export function answersFor(
     for (const index of q.items) {
       const prev = byItem.get(index) ?? { index };
       if (prev.skip) continue;
-      byItem.set(index, pick === "skip" ? { index, skip: true } : { ...prev, ...pick });
+      // A "keep" pick (Remember, or Remember on another day) is the user's explicit yes.
+      byItem.set(index, pick === "skip" ? { index, skip: true } : { ...prev, ...(q.type === "keep" ? { accept: true as const } : {}), ...pick });
     }
   }
   return [...byItem.values()].sort((a, b) => a.index - b.index);
@@ -236,6 +240,7 @@ interface Need {
   group: string;
   prompt: string;
   choices: Choice[];
+  detail?: string | null;
 }
 
 function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
@@ -249,12 +254,12 @@ function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
       } else {
         groups.set(need.group, {
           key: `q${groups.size}`, type: need.type, prompt: need.prompt, about: [item.statement], items: [index],
-          choices: need.choices, skip: { key: "skip", label: COPY.skip },
+          choices: need.choices, skip: { key: "skip", label: COPY.skip }, detail: need.detail ?? null,
         });
       }
     }
   });
-  const order: QuestionType[] = ["which_person", "about_whom", "new_person", "date"];
+  const order: QuestionType[] = ["which_person", "about_whom", "new_person", "date", "keep"];
   return [...groups.values()]
     .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type))
     .map((q, n) => ({ ...q, key: `q${n}` }));
@@ -318,6 +323,22 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       choices: [
         { key: "pick", label: COPY.pickDate, pick: "date" },
         { key: "none", label: COPY.noDate, answer: { date: null } },
+      ],
+    });
+  }
+  if (needs.length === 0 && item.person_id) {
+    // Held only for the user's yes: sensitive, or a day that reads two ways.
+    const person = input.people.find((p) => p.id === item.person_id);
+    const when = whenLabel(item.kind, item.detail ?? {}, input.today);
+    const ambiguousDay = item.flags.includes("date_ambiguous") && typeof item.detail?.date === "string";
+    needs.push({
+      type: "keep",
+      group: `keep:${item.statement}:${item.spans[0]?.start ?? 0}`,
+      prompt: person ? `Remember this about ${person.display_name}?` : "Remember this?",
+      detail: [person ? personLabel(person, input.people) : null, when].filter(Boolean).join(" · ") || null,
+      choices: [
+        { key: "yes", label: "Remember", answer: {} },
+        ...(ambiguousDay ? [{ key: "day", label: "A different day", pick: "date" as const }] : []),
       ],
     });
   }

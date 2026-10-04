@@ -25,7 +25,7 @@ const row = (reading: Partial<NonNullable<UnderstandingRow["reading"]>>): Unders
 });
 
 const race = {
-  id: "m1", kind: "event", person_id: "ben", statement: "Ben runs the Chicago Marathon on Sunday", status: "active",
+  id: "m1", kind: "event", person_id: "ben", statement: "Ben runs Chicago Sunday", status: "active",
   user_state: "unreviewed", subject_type: "person", subject_related_id: null, origin: "extracted", certainty: "stated",
   detail: { date: "2026-10-11", date_precision: "day", event_type: "race", followup_policy: "after" },
 } as unknown as MemoryItem;
@@ -79,7 +79,7 @@ it("'Someone else' opens the user's own people, and the pick is the answer", () 
 
 it("an item: × forgets it, its date token opens a calendar, Done is Done", () => {
   const { tree, props } = render("Ben runs Chicago Sunday.", row({ saved: [{ id: "m1", tier: "confirm" }] }), [race]);
-  press(tree, "Not this: Ben runs the Chicago Marathon on Sunday");
+  press(tree, "Not this: Ben runs Chicago Sunday");
   expect(props.onReject).toHaveBeenCalledWith("m1");
   press(tree, "When: Sun, Oct 11");
   press(tree, "Monday, October 12, 2026");

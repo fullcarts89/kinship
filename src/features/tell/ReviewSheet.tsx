@@ -82,7 +82,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
   } else if (pane.kind === "date") {
     body = (
       <DatePane
-        title={pane.question ? pane.question.prompt : "When is it?"}
+        title={pane.question ? (pane.question.type === "keep" ? "Which day?" : pane.question.prompt) : "When is it?"}
         initial={pane.line?.when?.value ?? null}
         today={props.today}
         allowNone={!pane.question}
@@ -210,6 +210,7 @@ function QuestionBlock({
       {q.about.map((a) => (
         <Small key={a} style={{ marginTop: space.xs }}>{`“${a}”`}</Small>
       ))}
+      {q.detail ? <Small style={{ marginTop: space.xs }}>{q.detail}</Small> : null}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
         {q.choices.map((c) => (
           <Pill key={c.key} label={c.label} onPress={() => ("answer" in c ? onChoose(c.answer) : onPick(c.pick))} />

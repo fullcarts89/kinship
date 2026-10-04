@@ -65,6 +65,8 @@ export interface HeldAnswer {
   subject?: "person" | "related";
   relation?: string;
   date?: string | null;
+  /** "Remember this": the user's yes to a reading held for it. */
+  accept?: true;
 }
 
 export type Understood =

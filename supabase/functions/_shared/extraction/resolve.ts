@@ -53,8 +53,10 @@ export interface HeldAnswer {
   subject?: "person" | "related";
   /** The relation word, from the user's own words ("sister"). */
   relation?: string;
-  /** The day a held health or loss event is on; null for "no date". */
+  /** The day a held health or loss event is on; null for "no date". Or the right day for an ambiguous date. */
   date?: string | null;
+  /** "Remember this": keep the item as proposed (required when nothing else is asked). */
+  accept?: boolean;
 }
 
 export interface ResolvePerson {
@@ -134,13 +136,18 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     const a = byIndex.get(index);
     if (!a) return { fail: "unanswered" };
     if (a.skip === true) {
-      if (a.person_id !== undefined || a.new_person !== undefined || a.subject !== undefined || a.date !== undefined) return { fail: "bad_answer" };
+      if (a.person_id !== undefined || a.new_person !== undefined || a.subject !== undefined || a.date !== undefined || a.accept !== undefined) return { fail: "bad_answer" };
       skipped++;
       continue;
     }
 
     const flags = new Set(item.flags ?? []);
     const needsPerson = item.person_id === null || PERSON_FLAGS.some((f) => flags.has(f));
+    // Held only for the user's yes (a sensitive or ambiguous reading): nothing is
+    // written on silence or on an empty answer.
+    const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive");
+    if (a.accept !== undefined && a.accept !== true) return { fail: "bad_answer" };
+    if (!asksSomething && a.accept !== true) return { fail: "bad_answer" };
 
     // ── Who ──
     let personId: string;
@@ -210,6 +217,11 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       } else {
         return { fail: "bad_date" };
       }
+    } else if (flags.has("date_ambiguous") && a.date !== undefined) {
+      // The user picks the right day for a date that could be read two ways.
+      if (typeof a.date !== "string" || !validDay(a.date) || !("date" in detail)) return { fail: "bad_date" };
+      delete detail.date_end;
+      detail = item.kind === "plan" ? { ...detail, date: a.date } : { ...detail, date: a.date, date_precision: "day" };
     } else if (a.date !== undefined) {
       return { fail: "bad_answer" };
     }

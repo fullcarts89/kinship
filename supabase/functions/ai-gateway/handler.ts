@@ -29,6 +29,7 @@ import { bearerToken } from "../_shared/auth.ts";
 import type { ModelCaller, StructuredResult } from "../_shared/ai/model.ts";
 import { type Capability, CAPABILITIES } from "../_shared/ai/registry.ts";
 import { buildInput, type CaptureRow, dossierPeople, type ItemRow, type PersonRow, type RelatedRow } from "../_shared/extraction/context.ts";
+import { needsAcceptance } from "../_shared/extraction/acceptance.ts";
 import { type HeldAnswer, type HeldItem, resolveHeld, type ResolvedItem } from "../_shared/extraction/resolve.ts";
 import { runExtraction } from "../_shared/extraction/run.ts";
 import type { DropReason, ExtractionOutcome, PlannedItem } from "../_shared/extraction/types.ts";
@@ -211,7 +212,11 @@ export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Resp
       }
 
       const outcome = run.outcome;
-      const toSave = outcome.items.filter((i) => (i.tier === "auto" || i.tier === "confirm") && i.person_id);
+      // Saved now: clear items, and "look over" items whose misreading wouldn't
+      // damage trust. Everything else waits for the user (acceptance.ts).
+      const toSave = outcome.items.filter((i) =>
+        (i.tier === "auto" || (i.tier === "confirm" && !needsAcceptance(i))) && i.person_id
+      );
       const held = outcome.items.filter((i) => !toSave.includes(i));
       const review: PendingReview | null = held.length ? { items: held.map(present), clarification: outcome.clarification } : null;
       const written = await deps.service.write(

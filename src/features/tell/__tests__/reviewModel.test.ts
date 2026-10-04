@@ -46,7 +46,7 @@ function view(note: string, r: UnderstandingRow, items: MemoryItem[] = [], peopl
 }
 
 const race = item("m1", {
-  kind: "event", person_id: "ben", statement: "Ben runs the Chicago Marathon on Sunday",
+  kind: "event", person_id: "ben", statement: "Ben runs Chicago Sunday",
   detail: { date: "2026-10-11", date_precision: "day", date_hint: "Sunday", event_type: "race", followup_policy: "after" },
 });
 
@@ -54,7 +54,7 @@ it("Ben: everything clear, so a quiet summary with Undo", () => {
   const v = view("Ben runs Chicago Sunday. He's hoping to break four hours.", row("review", { tier: "auto", saved: [{ id: "m1", tier: "auto" }] }), [race]);
   expect(v.mode).toBe("summary");
   expect(v.heading).toBe("Kept for Ben");
-  expect(v.summary).toBe("Kept: Ben runs the Chicago Marathon on Sunday · Sun, Oct 11");
+  expect(v.summary).toBe("Kept: Ben runs Chicago Sunday · Sun, Oct 11");
   expect(v.canUndo).toBe(true);
   expect(v.lines[0]).toMatchObject({
     person: { id: "ben", label: "Ben", changeable: true },
@@ -190,4 +190,29 @@ describe("dates and sources in the user's terms", () => {
       .toBe("You edited this · Oct 3 (from your note, Sep 29)");
     expect(provenanceLine([{ source_kind: "contacts", capture_id: null, created_at: "2026-10-03T08:00:00" }], now)).toBe("From Contacts");
   });
+});
+
+it("a sensitive reading waits for the user's yes: one question, their own words, who and when", () => {
+  const h = held({ kind: "event", person_id: "sarah", statement: "Sarah has surgery Thursday", sensitivity: "health", tier: "confirm",
+    flags: ["sensitive"], detail: { event_type: "surgery", followup_policy: "both", date: "2026-10-15", date_precision: "day" },
+    spans: [{ start: 0, end: 26, quote: "Sarah has surgery Thursday" }] });
+  const v = view("Sarah has surgery Thursday.", row("review", { tier: "confirm", held: [h], settled: false, review_created_at: "t" }));
+  expect(v.mode).toBe("sheet");
+  expect(v.lines).toEqual([]); // not shown as remembered
+  expect(v.heading).toBe("Kept");
+  const [q] = v.questions;
+  expect([q.type, q.prompt, q.about, q.detail]).toEqual(["keep", "Remember this about Sarah?", ["Sarah has surgery Thursday"], "Sarah · Thu, Oct 15"]);
+  expect(q.choices.map((c) => c.label)).toEqual(["Remember"]);
+  expect(answersFor(v.questions, {})).toBeNull();
+  expect(answersFor(v.questions, { q0: {} })).toEqual([{ index: 0, accept: true }]);
+  expect(answersFor(v.questions, { q0: "skip" })).toEqual([{ index: 0, skip: true }]);
+});
+
+it("an ambiguous day: Remember, or pick the right day", () => {
+  const h = held({ kind: "event", person_id: "ben", statement: "Ben runs Chicago Sunday", tier: "confirm", flags: ["date_ambiguous"],
+    detail: { event_type: "race", followup_policy: "after", date: "2026-10-11", date_precision: "day" },
+    spans: [{ start: 0, end: 23, quote: "Ben runs Chicago Sunday" }] });
+  const v = view("Ben runs Chicago Sunday.", row("review", { tier: "confirm", held: [h], settled: false, review_created_at: "t" }));
+  expect(v.questions[0].choices.map((c) => c.label)).toEqual(["Remember", "A different day"]);
+  expect(answersFor(v.questions, { q0: { date: "2026-10-18" } })).toEqual([{ index: 0, accept: true, date: "2026-10-18" }]);
 });

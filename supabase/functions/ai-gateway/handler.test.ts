@@ -361,3 +361,40 @@ Deno.test("answering needs consent and the flag; \"not now\" needs only the owne
   eq((await call(w, post({ action: "close_review", input_ref: { capture_id: "nope" } }))).status, 400);
   eq((await call(w, post({ action: "delete_everything", input_ref: { capture_id: CAPTURE } }))).status, 400);
 });
+
+// ─── D1 founder review: confirmation that protects trust ────────────────────
+
+Deno.test("a sensitive reading is held for the user's yes, never saved because a sheet appeared", async () => {
+  const note = "Sarah has surgery Thursday.";
+  const surgery = {
+    items: [{
+      ...BEN_PROPOSAL.items[0], person: "p1", person_mention: "Sarah", statement: "Sarah has surgery Thursday",
+      evidence: ["Sarah has surgery Thursday"], sensitivity: "health", date_text: "Thursday",
+      detail: { ...BEN_PROPOSAL.items[0].detail, event_type: "surgery", event_goal: null },
+    }],
+    needs_clarification: null,
+  };
+  const w = world({
+    note,
+    model: { output: surgery },
+    people: [{ id: "person-sarah", display_name: "Sarah", full_name: null, nicknames: [], relationship_label: null, state: "active" }],
+  });
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200);
+  eq(body.saved, [], "nothing became memory");
+  eq(body.held.map((i: { statement: string; tier: string }) => [i.statement, i.tier]), [["Sarah has surgery Thursday", "confirm"]]);
+  eq(w.writes[0].items, [], "no memory item written");
+  eq(w.writes[0].needsReview, true);
+  eq(w.writes[0].review?.items.length, 1, "kept as a pending review, so it survives a restart");
+  eq(typeof body.review_created_at, "string");
+
+  // An empty answer is not a yes.
+  const held: StoredReview = { items: w.writes[0].review!.items as unknown as StoredReview["items"], clarification: null, created_at: STORED_AT };
+  const w2 = world({ note, review: held, people: [{ id: "person-sarah", display_name: "Sarah", full_name: null, nicknames: [], relationship_label: null, state: "active" }] });
+  eq(await call(w2, post(resolveBody([{ index: 0 }]))), { status: 400, body: { error: "invalid_answer", reason: "bad_answer" } });
+  eq(w2.resolves.length, 0);
+  // "Remember this" writes it, as proposed.
+  const yes = await call(w2, post(resolveBody([{ index: 0, accept: true }])));
+  eq(yes.body.status, "resolved");
+  eq(w2.resolves[0].items.map((i) => [i.person_id, i.statement, i.sensitivity]), [["person-sarah", "Sarah has surgery Thursday", "health"]]);
+});

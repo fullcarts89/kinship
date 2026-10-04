@@ -13,6 +13,7 @@
 
 import { GatewayUnreachable, type Clarification, type GatewayTransport, type HeldAnswer, type TransportReply } from "@/store/gateway";
 import type { FakeServer } from "./fakeRemote";
+import { needsAcceptance } from "../../supabase/functions/_shared/extraction/acceptance";
 
 export interface ScriptedItem {
   kind: string;
@@ -118,10 +119,14 @@ export class FakeGateway implements GatewayTransport {
       return ok({ status: "kept" });
     }
     const planned = script.items.map((it) => this.plan(note, it));
-    const saved = planned.filter((p) => p.tier !== "hold" && p.person_id);
+    // As the gateway: a sensitive or ambiguous reading waits for the user's yes.
+    const saved = planned.filter((p) => p.person_id && (p.tier === "auto" ||
+      (p.tier === "confirm" && !needsAcceptance(p as unknown as { sensitivity: string; flags: string[] }))));
     const held = planned.filter((p) => !saved.includes(p));
     const written = saved.map((p) => this.writeItem(captureId, p));
-    const tier = held.length ? "clarify" : saved.length === 0 ? "nothing" : saved.every((p) => p.tier === "auto") ? "auto" : "confirm";
+    // The note's tier is the pipeline's (it doesn't know what the gateway holds back).
+    const tier = planned.some((p) => p.tier === "hold") ? "clarify" : planned.length === 0 ? "nothing"
+      : planned.every((p) => p.tier === "auto") ? "auto" : "confirm";
     this.write("captures", captureId, {
       status: tier === "auto" || tier === "nothing" ? "extracted" : "needs_review",
       extraction_version: "relationship_extract/v5+model",
@@ -165,6 +170,10 @@ export class FakeGateway implements GatewayTransport {
         skipped++;
         continue;
       }
+      const flags = (item.flags as string[]) ?? [];
+      const asks = !item.person_id || flags.some((f) => ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple",
+        "subject_check", "date_unresolved_sensitive"].includes(f));
+      if (!asks && a.accept !== true) return refuse(400, "invalid_answer", "bad_answer");
       let personId = (item.person_id as string | null) ?? null;
       if (a.person_id) {
         const p = this.server.table("people").get(a.person_id);

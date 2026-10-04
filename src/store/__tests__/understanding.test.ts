@@ -64,7 +64,8 @@ async function tell(d: Device, note: string): Promise<string> {
 
 const benScript = (ben: Person): Script => ({
   items: [{
-    kind: "event", statement: "Ben runs the Chicago Marathon on Sunday", quote: "Ben runs Chicago Sunday.", tier: "auto",
+    // As the canonical case expects (core-001): grounded words, one event, the goal on it.
+    kind: "event", statement: "Ben runs Chicago Sunday", quote: "Ben runs Chicago Sunday.", tier: "auto",
     person_id: ben.id,
     detail: { date: "2026-10-11", date_precision: "day", date_hint: "Sunday", event_type: "race", followup_policy: "after",
       event_goal: "break four hours" },
@@ -119,7 +120,7 @@ describe("Ben runs Chicago Sunday", () => {
     expect(row?.state).toBe("review");
     expect(row?.reading?.tier).toBe("auto");
     const [race] = await d.repos.memory.forPerson(ben.id);
-    expect(race).toMatchObject({ statement: "Ben runs the Chicago Marathon on Sunday", user_state: "unreviewed", origin: "extracted" });
+    expect(race).toMatchObject({ statement: "Ben runs Chicago Sunday", user_state: "unreviewed", origin: "extracted" });
     expect(race.detail).toMatchObject({ date: "2026-10-11", date_precision: "day", event_goal: "break four hours" });
     const [source] = await d.repos.memory.sourcesFor(race.id);
     expect(source).toMatchObject({ capture_id: captureId, source_kind: "capture", span_start: 0, span_end: 24, quote: "Ben runs Chicago Sunday." });
@@ -130,7 +131,7 @@ describe("Ben runs Chicago Sunday", () => {
 
     d = await relaunch(d, server, gateway, file);
     await d.understanding.run();
-    expect((await d.repos.memory.forPerson(ben.id)).map((m) => m.statement)).toEqual(["Ben runs the Chicago Marathon on Sunday"]);
+    expect((await d.repos.memory.forPerson(ben.id)).map((m) => m.statement)).toEqual(["Ben runs Chicago Sunday"]);
     expect(gateway.modelRuns).toBe(1);
     expect(gateway.calls).toEqual(["understand"]); // auto: nothing to settle, nothing asked twice
     expect(server.table("captures").get(captureId)?.status).toBe("extracted");
@@ -152,7 +153,7 @@ describe("Ben runs Chicago Sunday", () => {
     await d.understanding.run();
     const row = await d.understanding.get(captureId);
     expect(row?.state).toBe("review");
-    expect((await d.understanding.itemsFor(captureId, row!.reading)).map((m) => m.statement)).toEqual(["Ben runs the Chicago Marathon on Sunday"]);
+    expect((await d.understanding.itemsFor(captureId, row!.reading)).map((m) => m.statement)).toEqual(["Ben runs Chicago Sunday"]);
     expect(gateway.modelRuns).toBe(1); // asked again, answered "done": never a second run
   });
 
@@ -183,13 +184,13 @@ describe("Ben runs Chicago Sunday", () => {
     const [race] = await d.understanding.itemsFor(captureId, (await d.understanding.get(captureId))!.reading);
 
     await d.understanding.correct(race.id, { date: "2026-10-12" });
-    await d.understanding.correct(race.id, { statement: "Ben runs the Chicago Marathon" });
+    await d.understanding.correct(race.id, { statement: "Ben runs Chicago this Sunday" });
     await d.understanding.correct(race.id, { kind: "plan" });
     await d.understanding.correct(race.id, { person_id: josh.id });
     await d.understanding.run();
 
     const onServer = server.table("memory_items").get(race.id)!;
-    expect(onServer).toMatchObject({ kind: "plan", person_id: josh.id, statement: "Ben runs the Chicago Marathon", user_state: "edited" });
+    expect(onServer).toMatchObject({ kind: "plan", person_id: josh.id, statement: "Ben runs Chicago this Sunday", user_state: "edited" });
     // The user's day carried over into the plan; the old "Sunday" went with the date change.
     expect(onServer.detail).toEqual({ firmness: "intended", date: "2026-10-12" });
     const edits = (await d.repos.memory.sourcesFor(race.id)).filter((s) => s.source_kind === "user_edit");
@@ -478,8 +479,9 @@ describe("sensitive notes are handled conservatively", () => {
     expect(surgery.detail).not.toHaveProperty("date");
   });
 
-  it("a dated health event is shown to look over, never saved quietly", async () => {
-    const { server, gateway, d } = await world();
+  it("a dated health event is not memory until the user says yes: not on show, not on Done, not after a relaunch", async () => {
+    const { server, gateway, file, d: first } = await world();
+    let d = first;
     const sarah = await d.repos.people.add({ display_name: "Sarah" });
     await d.engine.sync();
     const note = "Sarah has surgery Thursday.";
@@ -490,10 +492,44 @@ describe("sensitive notes are handled conservatively", () => {
     });
     const captureId = await tell(d, note);
     await d.understanding.run();
-    const row = await d.understanding.get(captureId);
-    expect(row?.reading?.tier).toBe("confirm");
-    expect(row?.reading?.saved).toEqual([{ id: expect.any(String), tier: "confirm" }]);
-    expect(server.table("captures").get(captureId)?.status).toBe("needs_review");
+    let row = await d.understanding.get(captureId);
+    expect(row?.reading?.saved).toEqual([]);
+    expect(row?.reading?.held.map((h) => h.statement)).toEqual(["Sarah has surgery Thursday"]);
+    expect(serverItems(server)).toEqual([]); // shown, but not memory
+    expect(await d.repos.memory.forPerson(sarah.id)).toEqual([]);
+
+    await d.understanding.opened(captureId);
+    await d.understanding.finish(captureId, "done"); // Done is not a yes for a pending reading
+    d = await relaunch(d, server, gateway, file);
+    later(60 * 60_000);
+    await d.understanding.run();
+    expect(serverItems(server)).toEqual([]);
+    row = await d.understanding.get(captureId);
+    expect(row?.state).toBe("review"); // still waiting for the user, quietly
+
+    await d.understanding.answer(captureId, [{ index: 0, accept: true }]);
+    await d.understanding.run();
+    const [surgery] = await d.repos.memory.forPerson(sarah.id);
+    expect(surgery).toMatchObject({ statement: "Sarah has surgery Thursday", sensitivity: "health" });
+    expect(events.filter(([e]) => e.startsWith("clarification_"))).toEqual([
+      ["clarification_shown", { type: "keep" }], ["clarification_answered", { type: "keep" }]]);
+  });
+
+  it("a sensitive reading the user turns down is never remembered", async () => {
+    const { server, gateway, d } = await world();
+    const sarah = await d.repos.people.add({ display_name: "Sarah" });
+    await d.engine.sync();
+    const note = "Sarah and Tom are getting divorced.";
+    gateway.script(note, {
+      items: [{ kind: "fact", statement: "Sarah and Tom are getting divorced", quote: "Sarah and Tom are getting divorced", tier: "confirm",
+        person_id: sarah.id, sensitivity: "conflict", flags: ["sensitive"], detail: { category: "family" } }],
+    });
+    const captureId = await tell(d, note);
+    await d.understanding.run();
+    await d.understanding.answer(captureId, [{ index: 0, skip: true }]);
+    await d.understanding.run();
+    expect(serverItems(server)).toEqual([]);
+    expect(server.table("captures").get(captureId)?.status).toBe("extracted");
   });
 });
 

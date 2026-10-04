@@ -132,3 +132,40 @@ Deno.test("the same thing already remembered for the chosen person is one memory
   if ("fail" in resolvedTwin) throw new Error(resolvedTwin.fail);
   eq(resolvedTwin.items[0].action.type, "new", "only an active memory is the same thing");
 });
+
+Deno.test("held for the user's yes: only an explicit yes writes it; a skip writes nothing", () => {
+  const note = "Sarah is pregnant.";
+  const held: HeldItem = {
+    ...samHeld, kind: "fact", person_id: "sarah", statement: "Sarah is pregnant", sensitivity: "health", tier: "confirm",
+    flags: ["sensitive"], detail: { category: "health" }, spans: [{ start: 0, end: 17, quote: "Sarah is pregnant" }],
+  };
+  eq(resolveHeld([held], [{ index: 0 }], ctx({ note })), { fail: "bad_answer" }, "silence is not a yes");
+  eq(resolveHeld([held], [{ index: 0, accept: false }], ctx({ note })), { fail: "bad_answer" });
+  eq(resolveHeld([held], [{ index: 0, skip: true, accept: true }], ctx({ note })), { fail: "bad_answer" });
+  const yes = resolveHeld([held], [{ index: 0, accept: true }], ctx({ note }));
+  if ("fail" in yes) throw new Error(yes.fail);
+  eq(yes.items.map((i) => [i.person_id, i.statement, i.sensitivity]), [["sarah", "Sarah is pregnant", "health"]]);
+  eq(resolveHeld([held], [{ index: 0, accept: true, person_id: "sam-lee" }], ctx({ note })), { fail: "bad_answer" }, "a yes can't move it");
+  const no = resolveHeld([held], [{ index: 0, skip: true }], ctx({ note }));
+  if ("fail" in no) throw new Error(no.fail);
+  eq([no.items.length, no.skipped], [0, 1]);
+  // Answering the question an item was held for is itself the user's explicit choice.
+  const sam = resolveHeld([{ ...samHeld, sensitivity: "health", flags: ["person_ambiguous", "sensitive"] }], [{ index: 0, person_id: "sam-lee" }], ctx());
+  if ("fail" in sam) throw new Error(sam.fail);
+});
+
+Deno.test("an ambiguous day: the user's yes keeps it, or they pick the right day", () => {
+  const note = "Ben runs Chicago Sunday.";
+  const held: HeldItem = {
+    ...samHeld, kind: "event", person_id: "sarah", statement: "Ben runs Chicago Sunday", tier: "confirm", flags: ["date_ambiguous"],
+    detail: { event_type: "race", followup_policy: "after", date: "2026-10-11", date_precision: "day", date_hint: "Sunday" },
+    spans: [{ start: 0, end: 23, quote: "Ben runs Chicago Sunday" }],
+  };
+  const kept = resolveHeld([held], [{ index: 0, accept: true }], ctx({ note }));
+  if ("fail" in kept) throw new Error(kept.fail);
+  eq(kept.items[0].detail.date, "2026-10-11");
+  const moved = resolveHeld([held], [{ index: 0, accept: true, date: "2026-10-18" }], ctx({ note }));
+  if ("fail" in moved) throw new Error(moved.fail);
+  eq([moved.items[0].detail.date, moved.items[0].detail.date_precision], ["2026-10-18", "day"]);
+  eq(resolveHeld([held], [{ index: 0, accept: true, date: "Sunday" }], ctx({ note })), { fail: "bad_date" });
+});
