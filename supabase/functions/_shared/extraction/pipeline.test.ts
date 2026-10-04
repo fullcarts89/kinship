@@ -300,3 +300,21 @@ Deno.test("smoke: low confidence with no ambiguity code can confirm is still dro
   eq(out.items.length, 0);
   eq(out.dropped.map((d) => d.reason), ["low_confidence"]);
 });
+
+Deno.test("smoke: 'Writer', the prompt's word for the user, is not an invented name", () => {
+  const out = run(input("I think Anna said her mom comes home Tuesday.", {
+    roster: [...ROSTER, { key: "p4", id: "id-p4", display_name: "Anna", full_name: null, nicknames: [], relationship_label: null }],
+  }), [item({
+    kind: "event", person: "p4", person_mention: "Anna", subject: "related", related_relation: "mother", certainty: "reported",
+    statement: "Writer thinks Anna said her mom comes home Tuesday", evidence: ["I think Anna said her mom comes home Tuesday."],
+    date_text: "Tuesday", confidence: 0.8, detail: { ...item({}).detail, category: null, event_type: "other" },
+  })]);
+  eq(out.items.length, 1);
+  eq(out.items[0].related?.relation, "mom");
+  ok(out.items[0].tier !== "auto", "reported: never auto");
+});
+
+Deno.test("a capitalised word that is neither in the note nor the roster is still an invented name", () => {
+  const out = run(input("Ben runs Chicago Sunday."), [item({ kind: "event", statement: "Ben runs Chicago Sunday with Kelly", evidence: ["Ben runs Chicago Sunday."] })]);
+  eq(out.dropped.map((d) => d.reason), ["invented_name"]);
+});

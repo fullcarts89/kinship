@@ -435,9 +435,10 @@ function clamp01(n: number): number {
 
 // ─── Grounding checks ───────────────────────────────────────────────────────
 
+// "writer" is the prompt's own word for the user ("Writer thinks Anna said…"), never a name.
 const ALWAYS_OK = new Set([
   "i", "i'm", "i've", "i'll", "i'd", "the", "a", "an", "he", "she", "they", "his", "her", "their", "we", "our",
-  "you", "your", "user", "it", "this", "that", "there", "on", "in", "at", "for", "and", "but", "or", "to",
+  "you", "your", "user", "writer", "writer's", "it", "this", "that", "there", "on", "in", "at", "for", "and", "but", "or", "to",
   "mom", "dad", "mum",
 ]);
 

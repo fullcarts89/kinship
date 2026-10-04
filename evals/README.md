@@ -15,12 +15,12 @@ runner.
 |---|---|---|
 | core | 100 | Everyday notes, 0–4 items, varied register; notes with nothing worth keeping |
 | ambiguity | 64 | Same names, nicknames, possessives, related people, pronoun chains, user vs person, certainty, negation, plans vs events |
-| dates | 39 | Explicit and relative dates against the capture's time zone; "next Friday" said on a Friday; DST; year rollover; weekends, months, seasons; undated |
+| dates | 45 | Explicit and relative dates against the capture's time zone; "next Friday" said on a Friday; DST; year rollover; weekends, months, seasons; undated; C-4 ambiguity boundaries (`date_confirm`) |
 | sensitive | 35 | Illness, surgery, death, pregnancy, divorce, money, private identity; invented diagnoses |
 | adversarial | 23 | Prompt injection, non-English, emoji-only, curly quotes, line breaks, decomposed accents, a very long note |
 | merge | 30 | New vs merge vs supersede vs resolve against existing memories; user-written items; cross-subject traps |
 
-The date resolver also has 96 hand-checked unit vectors
+The date resolver also has 105 hand-checked unit vectors
 (`supabase/functions/_shared/extraction/dates.test.ts`).
 
 ### Running
@@ -41,9 +41,26 @@ deno run -A --config evals/deno.json evals/extraction/run.ts --mode replay --rep
 deno run -A --config evals/deno.json evals/extraction/compare.ts evals/results/*.json
 ```
 
-In GitHub: Actions → **AI evals** → Run workflow (one model), or label a pull
-request `run-evals` (the comparison: Opus 5.5 low and medium, Sonnet 5.5,
-Haiku 4.5). Both need the `ANTHROPIC_API_KEY` repository secret.
+In GitHub, each paid stage is authorised by the founder separately
+(KINSHIP_2_DECISIONS.md, Checkpoint C review):
+
+| Stage | How | Cost |
+|---|---|---|
+| 1. Live smoke | label the PR `run-evals-smoke`: the 29 fixtures locked in `extraction/smoke.json`, Opus 5.5 at low effort, with a per-fixture report | ~$0.25 |
+| 2. Full corpus | Actions → **AI evals** → Run workflow (one model; available once the workflow is on `main`) | ~$7 (Opus 5.5 low) |
+| 3. Comparison | label the PR `run-evals` (Opus 5.5 low and medium, Sonnet 5.5, Haiku 4.5) | ~$25 |
+
+All need the `ANTHROPIC_API_KEY` repository secret. To re-run a label, remove
+it and add it again. The results JSON is printed in the job log and kept as a
+workflow artifact.
+
+```sh
+# The smoke set locally (or --mode replay --smoke --replay <results.json>, free).
+ANTHROPIC_API_KEY=… deno run -A --config evals/deno.json evals/extraction/run.ts --mode live --smoke
+```
+
+The smoke set is chosen for trust risk, not to estimate accuracy. Its ids are
+fixed in `smoke.json` before any run and never changed after seeing output.
 
 ### Grading
 
