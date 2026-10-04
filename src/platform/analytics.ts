@@ -48,6 +48,7 @@ export type ReviewTier = "auto" | "light" | "later";
 export type ClarificationType = "person" | "relation" | "new_person" | "date" | "keep";
 export type ReasonType =
   | "birthday"
+  | "upcoming"
   | "follow_up"
   | "promise"
   | "anniversary"
@@ -138,4 +139,20 @@ export function charsBucket(n: number): CharsBucket {
 /** Clamps a count into SmallCount. */
 export function smallCount(n: number): SmallCount {
   return Math.max(0, Math.min(10, Math.floor(n))) as SmallCount;
+}
+
+/** A reason's score as low (< 55), mid (55–80) or high. */
+export function scoreBucket(score: number): ScoreBucket {
+  return score < 55 ? "low" : score <= 80 ? "mid" : "high";
+}
+
+/** Time from a hand-off to the return check's answer. */
+export function minutesBucket(ms: number): MinutesBucket {
+  const m = ms / 60_000;
+  return m < 15 ? "<15" : m < 60 ? "15-60" : m < 360 ? "1-6h" : "6h+";
+}
+
+/** The analytics name for a Today reason type. */
+export function reasonTypeName(type: "upcoming_event" | "event_followup"): ReasonType {
+  return type === "event_followup" ? "follow_up" : "upcoming";
 }

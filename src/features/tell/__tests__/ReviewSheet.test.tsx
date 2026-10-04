@@ -1,6 +1,7 @@
 // The review sheet does what its words say: a choice answers the question,
 // × forgets the item, a token opens the right picker and saves the change,
-// Done is Done. What it renders never includes system vocabulary.
+// Done is Done. What it renders never includes system vocabulary. (Look:
+// board 1, "Kept for David · Here's what I'll remember.")
 import React from "react";
 import TestRenderer, { act, type ReactTestInstance } from "react-test-renderer";
 import { ReviewSheet, type ReviewSheetProps } from "@/features/tell/ReviewSheet";
@@ -64,7 +65,9 @@ function texts(tree: TestRenderer.ReactTestRenderer): string[] {
 
 it("two Sams: choosing one answers the question, once, with that Sam", () => {
   const { tree, props } = render("Sam is redoing his kitchen.", row({ tier: "clarify", held: [sam] }), []);
-  expect(texts(tree)).toEqual(expect.arrayContaining(["Kept", "Which Sam do you mean?", "“Sam is redoing his kitchen”"]));
+  // One question and nothing kept yet: the question is the whole sheet.
+  expect(texts(tree)).toEqual(expect.arrayContaining(["Which Sam do you mean?", "“Sam is redoing his kitchen”"]));
+  expect(texts(tree)).not.toContain("Done");
   press(tree, "Sam (neighbor)");
   expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, person_id: "lee" }]);
   expect(props.onActivity).toHaveBeenCalled();

@@ -1,0 +1,138 @@
+// Today (plan §13): one moment at most, chosen deterministically; silence is
+// a valid answer; quiet lines are at most two, from different people; the
+// return check appears only 10 minutes to 12 hours after a hand-off; copy is
+// templates plus the user's own words.
+import { buildToday, evidenceOf, relativeDay, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
+import type { MemoryItem, Person } from "@/store/repositories";
+
+const NOW = new Date(2026, 9, 12, 9, 0); // Monday Oct 12, 9am local
+const people = [
+  { id: "ben", display_name: "Ben Carter", state: "active" },
+  { id: "josh", display_name: "Josh", state: "active" },
+  { id: "sarah", display_name: "Sarah", state: "active" },
+  { id: "dad", display_name: "Dad", state: "paused" },
+] as unknown as Person[];
+
+function item(id: string, over: Partial<MemoryItem>): MemoryItem {
+  return {
+    id, kind: "event", person_id: "ben", statement: "", detail: {}, certainty: "stated", status: "active", sensitivity: "none",
+    user_state: "unreviewed", subject_type: "person", origin: "extracted", created_at: "2026-10-08T21:14:00Z", ...over,
+  } as MemoryItem;
+}
+
+const race = item("m1", { statement: "Ben runs Chicago Sunday", detail: { date: "2026-10-11", date_precision: "day", event_type: "race", followup_policy: "after" } });
+const interview = item("m2", { person_id: "josh", statement: "Josh has his interview Tuesday", detail: { date: "2026-10-13", date_precision: "day", event_type: "interview", followup_policy: "both" } });
+
+const day = (d: number) => new Date(2026, 9, d).toISOString();
+function reason(id: string, type: string, person: string, itemId: string, from: number, to: number, over: Partial<ReasonRow> = {}): ReasonRow {
+  return { id, person_id: person, type, window_start: day(from), window_end: day(to), score: type === "event_followup" ? 90 : 85,
+    state: "candidate", dedupe_key: `${type}:${itemId}:x`, ...over };
+}
+
+function input(over: Partial<TodayInput> = {}): TodayInput {
+  return {
+    now: NOW, today: "2026-10-12", items: [race, interview], people, local: {}, primaries: [], handoff: null,
+    questions: 0, toLookAt: 0, provenance: () => ({ line: "You told Kinship · Oct 8", noteId: "c1" }),
+    reasons: [reason("r1", "event_followup", "ben", "m1", 12, 14), reason("r2", "upcoming_event", "josh", "m2", 12, 13)],
+    ...over,
+  };
+}
+
+it("one moment: the highest-scoring reason that can speak, in grounded words", () => {
+  const v = buildToday(input());
+  expect(v.moment).toMatchObject({
+    reasonId: "r1", personName: "Ben", statement: "How did it go for Ben?", context: "Ben runs Chicago Sunday · Sun, Oct 11",
+    provenance: "You told Kinship · Oct 8", noteId: "c1", primary: { label: "Ask how it went" }, heading: "Ask Ben how it went",
+  });
+  expect(v.quietDay).toBe(false);
+});
+
+it("an upcoming event speaks in the user's words with the day", () => {
+  const v = buildToday(input({ reasons: [reason("r2", "upcoming_event", "josh", "m2", 12, 13)] }));
+  expect(v.moment).toMatchObject({ statement: "Josh has his interview Tuesday", context: "Tomorrow · Tue, Oct 13", primary: { label: "Message Josh" } });
+});
+
+it("silence is a designed state: nothing below the threshold, nothing manufactured", () => {
+  // Shown on an earlier day, a follow-up's freshness halves it below 55.
+  const v = buildToday(input({ reasons: [reason("r1", "event_followup", "ben", "m1", 12, 14)], local: { r1: { firstShown: "2026-10-11" } }, items: [race] }));
+  expect(v.moment).toBeNull();
+  expect(v.quietDay).toBe(true);
+  expect(v.quiet).toEqual([]);
+  expect(90 * 0.85 * 0.5).toBeLessThan(THRESHOLD);
+});
+
+it("never speaks outside a reason's window, or about retracted, sensitive or coarse evidence", () => {
+  expect(buildToday(input({ reasons: [reason("r1", "event_followup", "ben", "m1", 13, 15)] })).moment).toBeNull();
+  expect(buildToday(input({ items: [{ ...race, status: "retracted" }], reasons: [reason("r1", "event_followup", "ben", "m1", 12, 14)] })).moment).toBeNull();
+  expect(buildToday(input({ items: [{ ...race, sensitivity: "health" }], reasons: [reason("r1", "event_followup", "ben", "m1", 12, 14)] })).moment).toBeNull();
+  expect(buildToday(input({ items: [{ ...race, detail: { ...race.detail, date_precision: "month" } }], reasons: [reason("r1", "event_followup", "ben", "m1", 12, 14)] })).moment).toBeNull();
+});
+
+it("a paused person, a dismissed, acted or done reason, a suppressed one: none speak", () => {
+  const dad = item("m9", { person_id: "dad", statement: "Dad has a race", detail: { date: "2026-10-11", date_precision: "day", followup_policy: "after" } });
+  expect(buildToday(input({ items: [dad], reasons: [reason("r9", "event_followup", "dad", "m9", 12, 14)] })).moment).toBeNull();
+  for (const local of [{ dismissed: "x" }, { acted: "x" }, { done: "x" }]) {
+    expect(buildToday(input({ reasons: [reason("r1", "event_followup", "ben", "m1", 12, 14)], local: { r1: local } })).moment).toBeNull();
+  }
+  expect(buildToday(input({ reasons: [reason("r1", "event_followup", "ben", "m1", 12, 14, { state: "suppressed" })] })).moment).toBeNull();
+});
+
+it("one primary per person per week", () => {
+  const v = buildToday(input({
+    reasons: [reason("r1", "event_followup", "ben", "m1", 12, 14)],
+    primaries: [{ personId: "ben", reasonId: "rOld", day: "2026-10-08" }],
+  }));
+  expect(v.moment).toBeNull();
+});
+
+it("evidence weighs in: a reading the user confirmed outranks an unreviewed one", () => {
+  const confirmed = { ...interview, user_state: "confirmed" };
+  const v = buildToday(input({
+    items: [race, confirmed],
+    reasons: [reason("r1", "event_followup", "ben", "m1", 12, 14, { score: 85 }), reason("r2", "upcoming_event", "josh", "m2", 12, 13)],
+  }));
+  expect(v.moment?.reasonId).toBe("r2");
+});
+
+it("at most two quiet lines, a question first, then the week ahead, never the moment's person twice", () => {
+  const plan = item("m3", { kind: "plan", person_id: "sarah", statement: "Dinner with Sarah Friday", detail: { date: "2026-10-16" } });
+  const benMore = item("m4", { statement: "Ben flies to Denver Thursday", detail: { date: "2026-10-15", date_precision: "day", followup_policy: "none" } });
+  const v = buildToday(input({ items: [race, interview, plan, benMore], questions: 1 }));
+  expect(v.quiet).toEqual([
+    { kind: "question", label: "A question", text: "About something you told me", action: "Answer" },
+    { kind: "coming", label: "Tomorrow", text: "Josh has his interview Tuesday", personId: "josh", itemId: "m2" },
+  ]);
+  expect(v.quiet.length).toBeLessThanOrEqual(2);
+});
+
+it("the return check: only 10 minutes to 12 hours after a hand-off Kinship opened, and only until answered", () => {
+  const at = (mins: number) => new Date(NOW.getTime() - mins * 60_000).toISOString();
+  const h = (mins: number, answered?: "yes") => ({ reasonId: "r1", personId: "ben", channel: "text" as const, at: at(mins), answered });
+  expect(buildToday(input({ handoff: h(5) })).returnCheck).toBeNull();
+  expect(buildToday(input({ handoff: h(40) })).returnCheck).toEqual({ personId: "ben", personName: "Ben", reasonId: "r1", channel: "text" });
+  expect(buildToday(input({ handoff: h(13 * 60) })).returnCheck).toBeNull();
+  expect(buildToday(input({ handoff: h(40, "yes") })).returnCheck).toBeNull();
+});
+
+it("reads the evidence id from the reason's dedupe key", () => {
+  expect(evidenceOf(reason("r", "event_followup", "ben", "abc", 1, 2))).toBe("abc");
+  expect(evidenceOf({ ...reason("r", "birthday", "ben", "x", 1, 2), dedupe_key: "birthday" })).toBeNull();
+});
+
+it("speaks of days the way people do", () => {
+  expect(relativeDay("2026-10-12", "2026-10-12")).toBe("Today");
+  expect(relativeDay("2026-10-13", "2026-10-12")).toBe("Tomorrow");
+  expect(relativeDay("2026-10-11", "2026-10-12")).toBe("Yesterday");
+  expect(relativeDay("2026-10-16", "2026-10-12")).toBe("Friday");
+  expect(relativeDay("2026-10-30", "2026-10-12")).toBe("Fri, Oct 30");
+});
+
+it("a greeting and a date, and no system vocabulary anywhere", () => {
+  const v = buildToday(input());
+  expect(v.dateLabel).toBe("Monday, 12 October");
+  expect(v.greeting).toBe("Good morning.");
+  const m = v.moment!;
+  const shown = [v.dateLabel, v.greeting, m.statement, m.context, m.provenance, m.primary.label, m.primary.hint, m.heading,
+    ...m.mention, ...v.quiet.flatMap((q) => [q.label, q.text, "action" in q ? q.action : ""])];
+  for (const s of shown) expect(String(s)).not.toMatch(/\b(score|tier|reason|candidate|model|AI|confidence|extract\w*|algorithm)\b/i);
+});

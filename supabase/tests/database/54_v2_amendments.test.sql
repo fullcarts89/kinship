@@ -161,12 +161,13 @@ SELECT is(
   (SELECT array_agg(p.proname::text ORDER BY p.proname) FROM pg_proc p
    JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public' AND p.prosecdef AND has_function_privilege('authenticated', p.oid, 'EXECUTE')),
-  -- close_capture_review (C-2) acts only on auth.uid()'s own capture.
-  ARRAY['close_capture_review', 'consume_ai_call', 'set_ai_consent'],
-  'signed-in users can call exactly three SECURITY DEFINER functions');
+  -- close_capture_review (C-2) acts only on auth.uid()'s own capture;
+  -- refresh_my_reasons (Phase 2, reasons v0) only on auth.uid()'s own reasons.
+  ARRAY['close_capture_review', 'consume_ai_call', 'refresh_my_reasons', 'set_ai_consent'],
+  'signed-in users can call exactly four SECURITY DEFINER functions');
 -- Those two take no user id: identity comes only from auth.uid().
 SELECT is((SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-           WHERE n.nspname = 'public' AND p.proname IN ('consume_ai_call', 'set_ai_consent')
+           WHERE n.nspname = 'public' AND p.proname IN ('consume_ai_call', 'set_ai_consent', 'refresh_my_reasons')
              AND 'uuid'::regtype = ANY (p.proargtypes::regtype[])), 0,
   'the user-callable SECURITY DEFINER functions take no user id argument');
 SELECT ok((SELECT pg_get_functiondef('public.set_ai_consent(boolean, integer)'::regprocedure) ~ 'auth\.uid\(\)'),

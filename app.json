@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "kinship",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
@@ -22,7 +22,10 @@
         "NSContactsUsageDescription": "Allow Kinship to access your contacts to help you add people to your garden.",
         "NSCalendarsUsageDescription": "Allow Kinship to check your calendar so it can gently suggest capturing memories after events with people in your garden.",
         "NSPhotoLibraryUsageDescription": "Allow Kinship to access your photos to attach them to memories in your garden.",
-        "NSCameraUsageDescription": "Allow Kinship to use your camera to take photos for your memories."
+        "NSCameraUsageDescription": "Allow Kinship to use your camera to take photos for your memories.",
+        "LSApplicationQueriesSchemes": [
+          "whatsapp"
+        ]
       }
     },
     "android": {
