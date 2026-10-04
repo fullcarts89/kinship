@@ -42,3 +42,16 @@ yarn-error.*
 
 # TypeScript
 *.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Eval runs write here; curated paid runs are committed gzipped under
+# evals/results/full/ and smoke/ (see evals/results/RUNS.md)
+/evals/results/*.json
+/evals/results/*.md
+!/evals/results/RUNS.md
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
