@@ -5,11 +5,13 @@
 import { useCallback } from "react";
 import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { provenanceLine, arrivedLabel, momentLabel } from "@/features/memory/format";
-import { buildReview, itemLine, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
+import type { NoteData } from "@/features/person/NoteView";
+import type { RecordLine } from "@/features/person/PersonRecordView";
+import { buildReview, itemLine, type ReviewView } from "@/features/tell/reviewModel";
 import { AI_CONSENT_VERSION } from "@/lib/aiPreferences";
 import { charsBucket, track } from "@/platform/analytics";
 import { useV2Session } from "@/providers/V2SessionProvider";
-import { CONFLICT_TITLE, describeConflict, type ConflictChoice } from "@/store/conflictCopy";
+import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { isOn } from "@/store/flags";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { questionWaiting } from "@/store/understanding";
@@ -115,14 +117,6 @@ export function usePeople(): Person[] {
   return q.data ?? [];
 }
 
-export interface RecordLine {
-  line: ItemLine;
-  provenance: string;
-  /** The newest note it came from, for the Source view. */
-  noteId: string | null;
-  conflict: { id: number; title: string; choices: ConflictChoice[]; canUseMine: boolean } | null;
-}
-
 export function usePersonRecord(personId: string) {
   const { store } = useV2Session();
   const q = useStoreQuery(store, async (repos) => {
@@ -158,23 +152,14 @@ export function usePersonRecord(personId: string) {
 
 // ─── The Source view ────────────────────────────────────────────────────
 
-export interface NoteView {
-  /** The note's words, split into plain and marked (quoted as evidence) runs. */
-  runs: { text: string; marked: boolean }[] | null;
-  /** When the note's own text is gone ("delete after it's understood"): the kept excerpts. */
-  quotes: string[];
-  arrived: string;
-  items: { id: string; statement: string; person: string; personId: string }[];
-}
-
-export function useNote(captureId: string): NoteView | null {
+export function useNote(captureId: string): NoteData | null {
   const { store } = useV2Session();
   const q = useStoreQuery(store, async (repos) => {
     const capture = await repos.captures.get(captureId);
     if (!capture) return null;
     const people = await repos.people.list();
     const all = (await store.list("memory_item_sources")).filter((s) => s.capture_id === captureId);
-    const items: NoteView["items"] = [];
+    const items: NoteData["items"] = [];
     const spans: { start: number; end: number }[] = [];
     const quotes: string[] = [];
     for (const s of all) {

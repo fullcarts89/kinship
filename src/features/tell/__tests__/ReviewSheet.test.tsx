@@ -9,7 +9,7 @@ import type { HeldItem } from "@/store/gateway";
 import type { MemoryItem, Person } from "@/store/repositories";
 import type { UnderstandingRow } from "@/store/understanding";
 
-jest.mock("react-native-safe-area-context", () => require("react-native-safe-area-context/jest/mock").default);
+jest.mock("react-native-safe-area-context", () => jest.requireActual("react-native-safe-area-context/jest/mock").default);
 
 const TODAY = "2026-10-08";
 const people = [
