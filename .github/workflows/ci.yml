@@ -52,8 +52,12 @@ jobs:
       - name: Tests
         working-directory: supabase/functions
         run: deno test
+      - name: Extraction eval corpus matches its frozen manifest
+        run: deno run -A --config evals/deno.json evals/extraction/manifest.ts
       - name: Extraction eval fixtures agree with the pipeline (oracle, no model, free)
         run: deno run -A --config evals/deno.json evals/extraction/run.ts --mode oracle --out /tmp/eval-results
+      - name: Same, phrased the way a real model phrases things (realistic oracle, free)
+        run: deno run -A --config evals/deno.json evals/extraction/run.ts --mode oracle --realistic --out /tmp/eval-results
 
   database:
     name: Database (migrations + pgTAP)

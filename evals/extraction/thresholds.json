@@ -25,5 +25,6 @@
   "quiet_on_nothing": { "min": 0.95 },
   "must_not_violations": { "max": 0 },
   "held_when_required": { "min": 1.0 },
+  "guessed_when_ask_required": { "max": 0 },
   "model_ok": { "min": 0.99 }
 }

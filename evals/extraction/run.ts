@@ -10,9 +10,11 @@
 // Options: --sets core,ambiguity,…  --ids a,b  --limit N  --concurrency N
 //          --repeat N  --out evals/results  --tag label
 //          --smoke   only the locked smoke set (smoke.json), with a per-fixture report
+//          --require-frozen   refuse to run unless the corpus matches MANIFEST.json
+//          --realistic   (oracle) phrase proposals the way a real model does
 
 import { parseArgs } from "jsr:@std/cli@1/parse-args";
-import { anthropicCaller, type StructuredResult } from "../../supabase/functions/_shared/ai/model.ts";
+import type { StructuredResult } from "../../supabase/functions/_shared/ai/model.ts";
 import { CAPABILITIES, EXTRACTION_EVAL_VERSION } from "../../supabase/functions/_shared/ai/registry.ts";
 import { runExtraction } from "../../supabase/functions/_shared/extraction/run.ts";
 import { planExtraction } from "../../supabase/functions/_shared/extraction/pipeline.ts";
@@ -21,12 +23,15 @@ import { type Fixture, loadFixtures, loadRosters, oracleProposal, SETS, toInput 
 import { type FixtureRun, grade } from "./lib/grade.ts";
 import { callStats, judge, markdown, type Threshold } from "./lib/report.ts";
 import { perFixtureMarkdown, type SmokeCase, verdicts } from "./lib/perfixture.ts";
+import { dateBreakdown, layers, layersMarkdown, mergeBreakdown } from "./lib/layers.ts";
+import { callerFor } from "./lib/callers.ts";
+import { buildManifest, readManifest } from "./manifest.ts";
 
 const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
 
 const args = parseArgs(Deno.args, {
   string: ["mode", "model", "effort", "sets", "ids", "limit", "concurrency", "repeat", "out", "replay", "tag"],
-  boolean: ["smoke"],
+  boolean: ["smoke", "require-frozen", "realistic"],
   default: { mode: "oracle", sets: SETS.join(","), concurrency: "4", repeat: "1", out: `${DIR}/../results` },
 });
 
@@ -35,6 +40,10 @@ const mode = args.mode as "oracle" | "live" | "replay";
 const model = args.model ?? cap.model;
 const effort = args.effort === "none" ? null : (args.effort ?? cap.effort) as typeof cap.effort;
 
+const frozen = await readManifest();
+const corpus = await buildManifest(frozen?.version ?? EXTRACTION_EVAL_VERSION);
+const isFrozen = !!frozen && frozen.corpus_sha256 === corpus.corpus_sha256;
+if (args["require-frozen"] && !isFrozen) throw new Error("the corpus differs from MANIFEST.json; refusing a paid run on an unfrozen corpus");
 const rosters = await loadRosters(DIR);
 let fixtures = await loadFixtures(DIR, args.sets.split(","));
 if (args.ids) {
@@ -58,7 +67,7 @@ let runs: FixtureRun[] = [];
 if (mode === "oracle") {
   for (const f of fixtures) {
     const input = toInput(f, rosters);
-    const proposal = oracleProposal(f, rosters, input);
+    const proposal = oracleProposal(f, rosters, input, { realistic: args.realistic });
     runs.push({ fixture: f, input, outcome: planExtraction(input, proposal), call: null, proposal });
   }
 } else if (mode === "replay") {
@@ -73,10 +82,7 @@ if (mode === "oracle") {
     runs.push({ fixture: f, input, outcome: p && Array.isArray(p.items) ? planExtraction(input, p) : null, call: r.call, proposal: r.proposal });
   }
 } else if (mode === "live") {
-  const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
-  // No SDK retries: a failed call is reported, not hidden.
-  const call = anthropicCaller(key, { maxRetries: 0 });
+  const call = callerFor(model);
   const queue: Fixture[] = [];
   for (let i = 0; i < repeat; i++) queue.push(...fixtures);
   let done = 0;
@@ -110,9 +116,30 @@ const meta = {
   Fixtures: `${fixtures.length} (${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ")})${repeat > 1 ? ` × ${repeat} repeats` : ""}`,
   Run: stamp,
   Commit: Deno.env.get("EVAL_COMMIT") ?? Deno.env.get("GITHUB_SHA") ?? "local",
+  Corpus: `${corpus.total} fixtures, sha256 ${corpus.corpus_sha256.slice(0, 16)}…${isFrozen ? " (matches MANIFEST.json)" : " (NOT the frozen manifest)"}`,
 };
 let md = markdown(`relationship_extract eval — ${label}${args.tag ? ` (${args.tag})` : ""}`, results, stats, meta);
 const perFixture = args.smoke ? verdicts(runs, results, smokeCases) : null;
+const layered = layers(runs, results);
+const dates = dateBreakdown(runs);
+const merges = mergeBreakdown(runs);
+const bySet = Object.fromEntries(SETS.filter((set) => runs.some((r) => r.fixture.set === set)).map((set) => [
+  set,
+  judge(grade(runs.filter((r) => r.fixture.set === set)), thresholds).map(({ failures: _f, ...r }) => r),
+]));
+md += "\n\n" + layersMarkdown(layered, runs);
+md += `\n\n## Dates\n\n- Dated items found: ${dates.total} · resolved right: ${dates.right} · of those, ambiguous and correctly flagged: ${dates.flaggedRight} · **silently wrong (saved, wrong date, no flag): ${dates.silentWrong.length}**\n`;
+for (const x of dates.silentWrong) md += `  - \`${x.id}\` ${x.detail}\n`;
+const { rows: mergeRows, ...mergeCounts } = merges;
+md += `\n## Merge decisions\n\n${Object.entries(mergeCounts).map(([k, v]) => `- ${k}: ${v}`).join("\n")}\n`;
+for (const r of mergeRows) md += `  - ${r}\n`;
+md += "\n## By set\n\n| Metric | " + Object.keys(bySet).join(" | ") + " |\n|---|" + Object.keys(bySet).map(() => "---|").join("") + "\n";
+for (const m of results) {
+  md += `| ${m.label} | ${Object.values(bySet).map((rs) => {
+    const x = rs.find((y) => y.key === m.key)!;
+    return x.pass === false ? `**${x.display}** ✗` : x.display;
+  }).join(" | ")} |\n`;
+}
 if (perFixture) md += "\n\n" + perFixtureMarkdown(runs, perFixture, smokeCases);
 console.log(md);
 
@@ -125,6 +152,11 @@ if (mode !== "replay" || args.tag) {
     metrics: results.map(({ failures, ...r }) => ({ ...r, failures: failures.slice(0, 200) })),
     stats,
     verdicts: perFixture,
+    corpus,
+    layers: layered,
+    dates,
+    merges,
+    bySet,
     runs: runs.map((r) => ({ id: r.fixture.id, call: r.call, proposal: r.proposal, outcome: r.outcome })),
   }, null, 1));
   console.error(`wrote ${base}.md and .json`);

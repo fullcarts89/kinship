@@ -187,7 +187,23 @@ export function fixtureKey(personId: string | null, newName: string | null): str
  * on it checks the fixtures and the deterministic code agree (a fixture
  * error found here costs nothing; one found in a paid run costs a run).
  */
-export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>, input: ExtractionInput): ModelProposal {
+/**
+ * With `realistic`, phrase it the way the live model did in the smoke run
+ * (founder review, stage 2): quotes carry their sentence punctuation,
+ * relation words are normalised ("mom" → "mother"), and a note with two
+ * people who fit is answered with low confidence plus a question. CI runs
+ * both, so guard over-reach on real phrasing is caught for free.
+ */
+export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>, input: ExtractionInput, opts: { realistic?: boolean } = {}): ModelProposal {
+  const realistic = !!opts.realistic;
+  const NORMAL: Record<string, string> = { mom: "mother", dad: "father", mum: "mother", grandma: "grandmother" };
+  const withStop = (ev: string) => {
+    if (!realistic) return ev;
+    const at = f.note.normalize("NFC").indexOf(ev);
+    const next = at >= 0 ? f.note.normalize("NFC")[at + ev.length] : undefined;
+    return next && /[.!?]/.test(next) ? ev + next : ev;
+  };
+  const asks = realistic && f.expect.clarify_about === "person";
   const people = rosters[f.roster].people;
   const promptKey = (fixtureKey: string) => input.roster.find((p) => p.id === `id-${fixtureKey}`)?.key ?? "unknown";
   const dossierKey = (fixtureKey: string) => input.dossier.find((d) => d.id === `id-${fixtureKey}`)?.key ?? fixtureKey;
@@ -202,13 +218,13 @@ export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>, i
       person: isNew ? "new" : promptKey(e.person),
       person_mention: mention,
       subject: e.subject ?? (kind === "promise" ? "user" : "person"),
-      related_relation: e.relation ?? null,
+      related_relation: e.relation ? (realistic ? NORMAL[e.relation] ?? e.relation : e.relation) : null,
       related_name: e.rname ?? null,
       statement: e.evidence,
-      evidence: [e.evidence],
+      evidence: [withStop(e.evidence)],
       certainty: (Array.isArray(e.certainty) ? e.certainty[0] : e.certainty) ?? "stated",
       sensitivity: (Array.isArray(e.sensitivity) ? e.sensitivity[0] : e.sensitivity) ?? "none",
-      confidence: 0.95,
+      confidence: asks ? 0.4 : 0.95,
       date_text: e.date_text ?? null,
       date_direction: e.dir ?? "future",
       detail: {
@@ -229,5 +245,6 @@ export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>, i
       existing: { action: act as Action, target: target ? dossierKey(target) : null },
     };
   });
-  return { items, needs_clarification: null };
+  const mention = f.expect.items.find((e) => e.mention)?.mention ?? null;
+  return { items, needs_clarification: asks ? { about: "person", mention } : null };
 }

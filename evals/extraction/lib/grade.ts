@@ -96,6 +96,7 @@ export function grade(runs: FixtureRun[]): Metric[] {
     quiet: new Tally("quiet_on_nothing", "Notes with nothing durable produce no saved items"),
     mustNot: new Tally("must_not_violations", "Must-not assertions violated (count)", "count"),
     held: new Tally("held_when_required", "Items that must wait for a question are not saved"),
+    guessed: new Tally("guessed_when_ask_required", "Person guessed and saved where the policy is to ask (count)", "count"),
     modelOk: new Tally("model_ok", "Model calls that returned a usable answer"),
   };
 
@@ -269,6 +270,10 @@ export function grade(runs: FixtureRun[]): Metric[] {
 
     if (f.expect.items.length === 0) m.quiet.see(savedItems.length === 0, id, `${savedItems.length} item(s) saved: ${savedItems.map((i) => `"${i.statement}"`).join("; ")}`);
     if (f.expect.clarify_about === "person") {
+      // Hard gate (stage 2): nothing resting on the ambiguous words may be saved.
+      for (const x of matches) {
+        if (x.got && saved(x.got) && !x.exp.optional) m.guessed.bad(id, `"${x.exp.evidence}": saved under ${keyOf(x.got)} without asking`);
+      }
       m.personAsk.see(run.outcome.clarification?.about === "person", id, `clarification ${run.outcome.clarification?.about ?? "none"}`);
     }
     if (f.tags.includes("injection")) {
@@ -312,7 +317,7 @@ const COMMON = new Set([
 ]);
 
 /** Capitalised words in a statement found neither in the note nor in the user's roster. */
-function inventedNames(statement: string, note: string, known: Set<string>): string[] {
+export function inventedNames(statement: string, note: string, known: Set<string>): string[] {
   const n = fold(note).normalize("NFD").replace(/\p{M}+/gu, "");
   return (statement.match(/\p{Lu}[\p{L}\p{M}'’-]*/gu) ?? [])
     .map((t) => fold(t).replace(/'s$/, ""))

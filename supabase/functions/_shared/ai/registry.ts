@@ -34,7 +34,8 @@ export interface Capability {
   fallbacks: boolean;
 }
 
-export const EXTRACTION_EVAL_VERSION = "extraction-v1";
+// v2: the frozen stage-2 corpus (evals/extraction/MANIFEST.json).
+export const EXTRACTION_EVAL_VERSION = "extraction-v2";
 
 export const CAPABILITIES: Record<string, Capability> = {
   relationship_extract: {
