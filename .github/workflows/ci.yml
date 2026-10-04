@@ -58,6 +58,12 @@ jobs:
         run: deno run -A --config evals/deno.json evals/extraction/run.ts --mode oracle --out /tmp/eval-results
       - name: Same, phrased the way a real model phrases things (realistic oracle, free)
         run: deno run -A --config evals/deno.json evals/extraction/run.ts --mode oracle --realistic --out /tmp/eval-results
+      - name: The approved baseline's saved model outputs still pass through the current pipeline (replay, free)
+        run: |
+          set -e
+          for f in evals/results/full/*.json.gz; do
+            deno run -A --config evals/deno.json evals/extraction/run.ts --mode replay --replay "$f"
+          done
 
   database:
     name: Database (migrations + pgTAP)

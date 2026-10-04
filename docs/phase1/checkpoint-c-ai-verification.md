@@ -322,7 +322,7 @@ Stage 1 of the staged evaluation the founder authorized on 4 Oct 2026. It asks o
 | 3 | `99bd544` | 29/29 calls answered. 28/29 passed; **every gated metric passed** |
 | Replay | `99bd544` + the "writer" fix | Run 3's saved outputs re-graded through the final code: **29/29**. Run 2's: 28/29 |
 
-The saved outputs of runs 2 and 3 are committed in `evals/results/smoke/`, and `run.ts --mode replay --smoke --replay <file>` re-grades them for free.
+Run 3's saved output is committed as `evals/results/smoke/2026-10-03T23-59-11-opus-5-5-low-smoke-run3.json.gz`. Run 2's is in git history at `673fd24`, with its SHA-256 in `evals/results/RUNS.md`. `run.ts --mode replay --smoke --replay <file>` re-grades either for free.
 
 ## Sample
 
@@ -666,7 +666,7 @@ Three full runs were made. Run 1 is the honest first result. Runs 2 and 3 follow
 | Prompt | `relationship_extract/v1` | `relationship_extract/v2` | **`relationship_extract/v3`** |
 | Eval version / corpus | `extraction-v2` | `extraction-v2.1` | **`extraction-v2.1`** |
 | Code commit | `fea48da` | `5277505` | **`6986530`** |
-| Results | `evals/results/full/…-run1.json` | `…-run2.json` | `…-run3.json` |
+| Results (in git history at `673fd24`; see `evals/results/RUNS.md`) | `evals/results/full/…-run1.json` | `…-run2.json` | `…-run3.json` |
 
 All three runs used the production path:
 1. fixture rows → `buildInput` (the gateway's minimal-context builder);
@@ -1076,7 +1076,7 @@ The founder authorized one bounded cleanup and one final full run (4 Oct 2026). 
 | Prompt | `relationship_extract/v4` |
 | Eval version / corpus | `extraction-v2.2`, 384 fixtures (core 129, ambiguity 64, dates 82, sensitive 43, adversarial 23, merge 43), SHA-256 `0d7a155d6fe4352b5abf52150be4036388ca5f50f7adf18514a2116e137812ed` |
 | Model | Opus 5.5 (`claude-opus-5-5`), effort low, fallbacks off, no retries; production path end to end, deterministic graders |
-| Results | `evals/results/full/2026-10-04T06-52-45-opus-5-5-low-final-run.json` |
+| Results | `evals/results/full/2026-10-04T06-52-45-opus-5-5-low-final-run.json` (in git history at `673fd24`; see `evals/results/RUNS.md`) |
 | Pre-run checks | Deno 93, pgTAP 351, Jest 174, tsc clean, eslint 0 errors, plain and realistic oracle pass on all 384 |
 
 No expectation was changed after the paid run.
@@ -1376,7 +1376,7 @@ One run was made: Opus 5.5, low effort, frozen corpus `extraction-v2.3`, commit 
 | Prompt | `relationship_extract/v5` (schema v1) |
 | Eval version / corpus | `extraction-v2.3`, 393 fixtures (core 129, ambiguity 64, dates 91, sensitive 43, adversarial 23, merge 43), SHA-256 `7f9ca9348e02c8f6ac8a2a9dd4f47b36ff708034af48dee16e567043fb8fc291` |
 | Model | Opus 5.5 (`claude-opus-5-5`), effort low, fallbacks off, production path, deterministic graders |
-| Results | `evals/results/full/2026-10-04T15-20-01-opus-5-5-low-c1-run.json` ([Actions run](https://github.com/fullcarts89/kinship/actions/runs/37212235734)) |
+| Results | `evals/results/full/2026-10-04T15-20-01-opus-5-5-low-c1-run.json.gz` ([Actions run](https://github.com/fullcarts89/kinship/actions/runs/37212235734)); SHA-256 of the JSON `b4acf2f83809293982b1d2def284b89d32c82fb9433ed4a640213087613a0dc4` |
 | Pre-run checks | Deno 102, pgTAP 365 (14 files), Jest 174, tsc clean, eslint 0 errors, plain and realistic oracle pass on all 393 |
 
 ## Final metrics (C.1 run; final baseline run for comparison)

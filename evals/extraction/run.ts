@@ -4,8 +4,8 @@
 //       Checks fixtures against the deterministic pipeline (free, no model).
 //   ANTHROPIC_API_KEY=… deno run -A evals/extraction/run.ts --mode live --model claude-opus-5-5 --effort low
 //       Calls the model on every fixture (costs money; see the README).
-//   deno run -A evals/extraction/run.ts --mode replay --replay evals/results/<run>.json
-//       Re-grades saved model outputs through the current pipeline, free.
+//   deno run -A evals/extraction/run.ts --mode replay --replay evals/results/full/<run>.json.gz
+//       Re-grades saved model outputs (.json or .json.gz) through the current pipeline, free.
 //
 // Options: --sets core,ambiguity,…  --ids a,b  --limit N  --concurrency N
 //          --repeat N  --out evals/results  --tag label
@@ -25,6 +25,7 @@ import { callStats, judge, markdown, type Threshold } from "./lib/report.ts";
 import { perFixtureMarkdown, type SmokeCase, verdicts } from "./lib/perfixture.ts";
 import { dateBreakdown, layers, layersMarkdown, mergeBreakdown } from "./lib/layers.ts";
 import { callerFor } from "./lib/callers.ts";
+import { readResults } from "./lib/results.ts";
 import { buildManifest, readManifest } from "./manifest.ts";
 
 const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
@@ -72,7 +73,7 @@ if (mode === "oracle") {
   }
 } else if (mode === "replay") {
   if (!args.replay) throw new Error("--replay <results.json> is required");
-  const saved = JSON.parse(await Deno.readTextFile(args.replay)) as { runs: { id: string; call: StructuredResult | null; proposal: unknown }[] };
+  const saved = await readResults<{ runs: { id: string; call: StructuredResult | null; proposal: unknown }[] }>(args.replay);
   const byId = new Map(fixtures.map((f) => [f.id, f]));
   for (const r of saved.runs) {
     const f = byId.get(r.id);

@@ -1,5 +1,7 @@
 // Side-by-side model comparison from saved eval results (no model calls).
-//   deno run -A --config evals/deno.json evals/extraction/compare.ts evals/results/a.json evals/results/b.json …
+//   deno run -A --config evals/deno.json evals/extraction/compare.ts evals/results/full/a.json.gz b.json …
+
+import { readResults } from "./lib/results.ts";
 
 interface Saved {
   meta: { model: string; effort: string | null; Fixtures: string; Run: string };
@@ -10,7 +12,7 @@ interface Saved {
 const files = Deno.args;
 if (files.length === 0) throw new Error("pass one or more results .json files");
 const runs: Saved[] = [];
-for (const f of files) runs.push(JSON.parse(await Deno.readTextFile(f)));
+for (const f of files) runs.push(await readResults<Saved>(f));
 
 const head = runs.map((r) => `${r.meta.model}${r.meta.effort ? ` (${r.meta.effort})` : ""}`);
 const out: string[] = ["| Metric | Threshold | " + head.join(" | ") + " |", "|---|---|" + head.map(() => "---|").join("")];

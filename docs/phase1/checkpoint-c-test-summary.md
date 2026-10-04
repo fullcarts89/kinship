@@ -154,7 +154,7 @@ The fixtures were locked in `evals/extraction/smoke.json` before any model call.
 
 **Ben vertical slice (real model).** Ben, a race on 2026-10-11, goal "break four hours", follow-up after the race, exact spans, nothing invented. Auto-saved.
 
-The full per-fixture results are in `docs/phase1/checkpoint-c-ai-verification.md` under "Live Model Smoke Evaluation". The saved outputs are in `evals/results/smoke/`.
+The full per-fixture results are in `docs/phase1/checkpoint-c-ai-verification.md` under "Live Model Smoke Evaluation". Run 3's saved output is in `evals/results/smoke/` (gzipped); run 2's is in git history (see `evals/results/RUNS.md`).
 
 ---
 
@@ -166,5 +166,5 @@ supabase/tests/run-db-tests.sh                                   # pgTAP (needs 
 npm run typecheck && npx eslint . && npm test -- --ci            # app
 deno run -A --config evals/deno.json evals/extraction/run.ts --mode oracle   # oracle eval
 deno run -A --config evals/deno.json evals/extraction/run.ts --mode replay --smoke \
-  --replay evals/results/smoke/<file>.json                       # re-grade the smoke run, free
+  --replay evals/results/smoke/<file>.json.gz                    # re-grade the smoke run, free
 ```
