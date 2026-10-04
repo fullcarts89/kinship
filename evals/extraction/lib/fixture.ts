@@ -198,10 +198,21 @@ export function fixtureKey(personId: string | null, newName: string | null): str
 export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>, input: ExtractionInput, opts: { realistic?: boolean } = {}): ModelProposal {
   const realistic = !!opts.realistic;
   const NORMAL: Record<string, string> = { mom: "mother", dad: "father", mum: "mother", grandma: "grandmother" };
+  // The live model often quotes the whole sentence ("Ben hates surprises, so
+  // no surprise party."): extend a quote to its sentence end when no other
+  // expected item's words lie in between.
+  const note = f.note.normalize("NFC");
   const withStop = (ev: string) => {
     if (!realistic) return ev;
-    const at = f.note.normalize("NFC").indexOf(ev);
-    const next = at >= 0 ? f.note.normalize("NFC")[at + ev.length] : undefined;
+    const at = note.indexOf(ev);
+    if (at < 0) return ev;
+    const end = at + ev.length;
+    const stop = note.slice(end).search(/[.!?\n]/);
+    const sentenceEnd = stop < 0 ? note.length : end + stop + (note[end + stop] === "\n" ? 0 : 1);
+    const others = [...f.expect.items.map((x) => x.evidence), ...(f.expect.forbidden_evidence ?? [])]
+      .map((x) => note.indexOf(x)).filter((p) => p > at && p < sentenceEnd);
+    if (others.length === 0 && !/[\n]/.test(note.slice(end, sentenceEnd))) return note.slice(at, sentenceEnd).trimEnd();
+    const next = note[end];
     return next && /[.!?]/.test(next) ? ev + next : ev;
   };
   const asks = realistic && f.expect.clarify_about === "person";
