@@ -8,7 +8,7 @@
 // founder's approval during beta. Change `model` only with an eval run
 // attached to the PR.
 
-import * as extractV1 from "../prompts/relationship_extract/v1.ts";
+import * as extract from "../prompts/relationship_extract/v2.ts";
 
 export type Effort = "low" | "medium" | "high";
 
@@ -34,15 +34,15 @@ export interface Capability {
   fallbacks: boolean;
 }
 
-// v2: the frozen stage-2 corpus (evals/extraction/MANIFEST.json).
-export const EXTRACTION_EVAL_VERSION = "extraction-v2";
+// v2.1: the frozen stage-2 corpus, with six documented fixture corrections (evals/extraction/MANIFEST.json).
+export const EXTRACTION_EVAL_VERSION = "extraction-v2.1";
 
 export const CAPABILITIES: Record<string, Capability> = {
   relationship_extract: {
     name: "relationship_extract",
-    promptVersion: extractV1.VERSION,
-    system: extractV1.SYSTEM,
-    schema: extractV1.SCHEMA as unknown as Record<string, unknown>,
+    promptVersion: extract.VERSION,
+    system: extract.SYSTEM,
+    schema: extract.SCHEMA as unknown as Record<string, unknown>,
     model: "claude-opus-5-5",
     effort: "low",
     maxTokens: 8000,

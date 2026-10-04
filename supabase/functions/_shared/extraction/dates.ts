@@ -533,7 +533,8 @@ const HOLIDAYS: [RegExp, HolidayFn][] = [
 ];
 
 function holiday(e: string): HolidayFn | null {
-  const bare = e.replace(/^(this |next |last )/, "");
+  // "Thanksgiving this year" is just Thanksgiving.
+  const bare = e.replace(/^(this |next |last )/, "").replace(/ this year$/, "");
   return HOLIDAYS.find(([re]) => re.test(bare))?.[1] ?? null;
 }
 

@@ -136,7 +136,8 @@ export type DropReason =
   | "low_confidence"
   | "bad_kind_subject"
   | "duplicate"
-  | "too_many_items";
+  | "too_many_items"
+  | "contact_detail";
 
 export type Flag =
   | "new_person"

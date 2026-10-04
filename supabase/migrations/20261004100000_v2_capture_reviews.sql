@@ -340,3 +340,26 @@ $$;
 
 REVOKE ALL ON FUNCTION public.write_extraction_with_review(uuid, uuid, text, boolean, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.write_extraction_with_review(uuid, uuid, text, boolean, jsonb, jsonb) TO service_role;
+
+-- ─── 6. Drop reason: contact_detail (stage 2) ───────────────────────────────
+-- The pipeline now drops phone numbers and emails proposed as memory (D2);
+-- the usage log counts the new reason like the others (still content-free).
+
+CREATE OR REPLACE FUNCTION public.ai_drop_reasons_ok(d jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT jsonb_typeof(d) = 'object'
+     AND NOT EXISTS (
+       SELECT 1 FROM jsonb_each(d) e
+       WHERE e.key NOT IN ('no_evidence', 'evidence_ambiguous', 'invented_name', 'invented_number',
+                           'invented_sensitive_term', 'invented_relation', 'mention_not_in_note',
+                           'polarity_mismatch', 'not_a_user_promise', 'instruction_text',
+                           'low_confidence', 'bad_kind_subject', 'duplicate', 'too_many_items',
+                           'contact_detail')
+          OR jsonb_typeof(e.value) <> 'number'
+          OR NOT (e.value::text ~ '^[0-9]{1,3}$'))
+$$;
+REVOKE ALL ON FUNCTION public.ai_drop_reasons_ok(jsonb) FROM PUBLIC, anon, authenticated;

@@ -165,3 +165,8 @@ Deno.test("date vectors", () => {
 });
 
 export const DATE_VECTOR_COUNT = vectors.length;
+
+Deno.test("a holiday with 'this year' is the holiday (core-109)", () => {
+  const r = resolveDate("Thanksgiving this year", "2026-10-09T02:14:00Z", "America/Chicago", "future");
+  if (r.date !== "2026-11-26") throw new Error(`got ${r.date}`);
+});

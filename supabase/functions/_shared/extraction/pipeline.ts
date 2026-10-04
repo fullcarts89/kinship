@@ -57,6 +57,7 @@ import { ASPECTS, CERTAINTIES, EVENT_TYPES, FACT_CATEGORIES, FIRMNESS, KINDS, RE
 export const MAX_ITEMS = 8;
 export const AUTO_SAVE_CONFIDENCE = 0.85;
 export const DROP_BELOW_CONFIDENCE = 0.6;
+const CONTACT_DETAIL = /\b(phone|cell|mobile|landline)\b|\bnew number\b|\bnumber (?:ends|ending) in\b|[\w.+-]+@[\w-]+\.[a-z]{2,}|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b/i;
 /** Floor for items held because code confirms the person or subject is ambiguous. */
 export const HOLD_FLOOR_CONFIDENCE = 0.3;
 const WHO_AMBIGUITY: Flag[] = ["person_ambiguous", "pronoun_multiple", "subject_check"];
@@ -74,7 +75,7 @@ const CERTAINTY_RANK = { stated: 3, planned: 2, reported: 1, tentative: 1, wishe
 
 export function planExtraction(input: ExtractionInput, proposal: ModelProposal): ExtractionOutcome {
   const text = input.capture.raw_text.normalize("NFC");
-  const ctx = new Context(input, text);
+  const ctx = new Context(input, text, proposal?.needs_clarification ?? null);
   const dropped: ExtractionOutcome["dropped"] = [];
   const items: PlannedItem[] = [];
 
@@ -118,7 +119,7 @@ class Context {
   readonly injection: boolean;
   readonly anchor: string;
 
-  constructor(readonly input: ExtractionInput, readonly text: string) {
+  constructor(readonly input: ExtractionInput, readonly text: string, readonly ask: ModelProposal["needs_clarification"] = null) {
     for (const p of input.roster) this.byKey.set(p.key, p);
     for (const d of input.dossier) this.dossier.set(d.key, d);
     this.folded = fold(text);
@@ -172,7 +173,13 @@ class Context {
 
 type ItemResult = { item: PlannedItem } | { drop: DropReason };
 
-function planItem(ctx: Context, raw: ProposedItem): ItemResult {
+function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
+  let raw = proposed;
+  // "Sarah and I always get dumplings after the opera" recurs, but on no
+  // calendar we model: keep it as shared context (still confirmed) rather
+  // than dropping it.
+  const looseTradition = raw?.kind === "tradition" && !RECURRENCES.includes(raw.detail?.recurrence as never);
+  if (looseTradition) raw = { ...raw, kind: "context", detail: { ...raw.detail, aspect: ASPECTS.includes(raw.detail?.aspect as never) ? raw.detail.aspect : "other" } };
   if (!wellFormed(raw)) return { drop: "bad_kind_subject" };
   const text = ctx.text;
   const flags = new Set<Flag>();
@@ -199,6 +206,8 @@ function planItem(ctx: Context, raw: ProposedItem): ItemResult {
 
   const statement = raw.statement.normalize("NFC").replace(/\s+/g, " ").trim().slice(0, 500);
   if (!statement) return { drop: "bad_kind_subject" };
+  // Contact details are never relationship memory (D2): Kinship keeps them elsewhere.
+  if (CONTACT_DETAIL.test(statement) || CONTACT_DETAIL.test(primary.quote)) return { drop: "contact_detail" };
   if (inventedName(ctx, statement)) return { drop: "invented_name" };
   if (inventedNumber(statement, text)) return { drop: "invented_number" };
   if (inventedSensitiveTerms(statement, text).length > 0) return { drop: "invented_sensitive_term" };
@@ -302,6 +311,13 @@ function planItem(ctx: Context, raw: ProposedItem): ItemResult {
   if (flags.has("certainty_lowered") || flags.has("sensitivity_raised") || flags.has("person_disagreement")) {
     confidence = Math.min(confidence, 0.84);
   }
+  // The model asked who this is about ("he's" with Ben and Josh both named).
+  // When code confirms two people fit those words, ask instead of filing it.
+  if (ctx.ask?.about === "person" && ctx.ask.mention && askConfirmed(ctx, ctx.ask.mention) &&
+      spans.some((s) => fold(s.quote).includes(fold(ctx.ask!.mention!).trim()))) {
+    flags.add(PRONOUNS.has(fold(ctx.ask.mention).replace(/'(s|ll|d|re)$/, "").trim()) ? "pronoun_multiple" : "person_ambiguous");
+  }
+  if (looseTradition) flags.add("tradition");
   // A model unsure *who* an item is about ("Sam" with two Sams) is right to
   // be unsure: when code independently finds the same ambiguity, the item is
   // held for one question (never saved) instead of silently dropped.
@@ -330,6 +346,13 @@ function planItem(ctx: Context, raw: ProposedItem): ItemResult {
       date_rule: resolution?.rule ?? null,
     },
   };
+}
+
+/** Code's own check of the model's "who?": a pronoun with two named people, or a name two people share. */
+function askConfirmed(ctx: Context, mention: string): boolean {
+  const m = fold(mention).replace(/'(s|ll|d|re)$/, "").trim();
+  if (PRONOUNS.has(m)) return ctx.namedInNote().length + (ctx.input.capture.context_person_key ? 1 : 0) > 1;
+  return ctx.candidatesFor(mention).length > 1;
 }
 
 // A pronoun that could point at two named people ("Ben and Josh went
@@ -521,6 +544,13 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
     if (ctx.byKey.has(modelKey) && ctx.namedInNote().some((p) => p.key === modelKey)) return pick(ctx.byKey.get(modelKey)!);
     return unresolved("person_ambiguous");
   }
+
+  // "Chris, my neighbor" / "Chris (my neighbor)": the name; the label settles ties below.
+  const labelled = mention.match(/^(.+?)\s*[,(]\s*(?:my|our)\s+[^,()]+[,)]?$/u);
+  if (labelled) return resolvePerson(ctx, { ...raw, person_mention: labelled[1].trim() }, flags);
+  // "his dad", "her mom" for a related subject: the pronoun names the person.
+  const pronounRelation = fold(mention).match(/^(his|her|their)\s+\S+$/);
+  if (pronounRelation && raw.subject === "related") return resolvePerson(ctx, { ...raw, person_mention: pronounRelation[1] }, flags);
 
   const folded = fold(mention).replace(/'s$/, "");
   // "Sarah's sister" names Sarah; the relation is the subject's business.

@@ -353,3 +353,58 @@ Deno.test("a goal clause in the same sentence leaves the event firm; a hedge on 
   })]);
   eq(hedged.items[0].certainty, "tentative");
 });
+
+// ─── Stage 2: found by the first full Opus run ──────────────────────────────
+
+Deno.test("the model asked 'who?' and two named people fit: held, not filed under one of them (amb-071)", () => {
+  const roster = [...ROSTER, { key: "p7", id: "id-p7", display_name: "Josh", full_name: null, nicknames: [], relationship_label: null }];
+  const out = planExtraction(input("Ben told Josh he's moving to Austin.", { roster }), {
+    items: [item({ kind: "thread", certainty: "reported", confidence: 0.6, statement: "Ben told Josh he's moving to Austin", evidence: ["Ben told Josh he's moving to Austin."] })],
+    needs_clarification: { about: "person", mention: "he's" },
+  });
+  eq(out.items.map((i) => i.tier), ["hold"]);
+  eq(out.clarification?.about, "person");
+});
+
+Deno.test("the model's 'who?' is not obeyed when code finds only one person who fits", () => {
+  const out = planExtraction(input("Ben said he's moving to Austin."), {
+    items: [item({ kind: "thread", statement: "Ben is moving to Austin", evidence: ["Ben said he's moving to Austin."] })],
+    needs_clarification: { about: "person", mention: "he's" },
+  });
+  ok(out.items[0].tier !== "hold", "one named person: no question");
+});
+
+Deno.test("contact details are never memory (core-058)", () => {
+  for (const [note, statement] of [
+    ["Priya's new number ends in 4471 — saved it in contacts.", "Priya has a new phone number ending in 4471"],
+    ["Ben's email is ben@example.com.", "Ben's email is ben@example.com"],
+  ]) {
+    const out = run(input(note), [item({ statement, evidence: [note.split(/ —|\.$/)[0].replace(/\.$/, "")] })]);
+    eq(out.items.length, 0, note);
+    eq(out.dropped.map((d) => d.reason), ["contact_detail"], note);
+  }
+  eq(run(input("Ben's jersey number is 23."), [item({ statement: "Ben's jersey number is 23", evidence: ["Ben's jersey number is 23"] })]).items.length, 1, "a number that isn't contact detail is fine");
+});
+
+Deno.test("a tradition with no calendar recurrence is kept as shared context, still confirmed (core-078)", () => {
+  const out = run(input("Sarah and I always get dumplings after the Lyric opera."), [item({
+    kind: "tradition", person: "p2", person_mention: "Sarah", subject: "shared", statement: "Sarah and the writer always get dumplings after the Lyric opera",
+    evidence: ["Sarah and I always get dumplings after the Lyric opera."], detail: { ...item({}).detail, category: null, anchor: "after the Lyric opera" },
+  })]);
+  eq(out.items.map((i) => [i.kind, i.tier]), [["context", "confirm"]]);
+});
+
+Deno.test("'Chris, my neighbor' and 'his dad' resolve to the right person", () => {
+  const roster = [...ROSTER,
+    { key: "p16", id: "id-p16", display_name: "Chris", full_name: "Chris Novak", nicknames: [], relationship_label: "neighbor" },
+    { key: "p17", id: "id-p17", display_name: "Chris", full_name: "Christine Abbott", nicknames: ["Chrissy"], relationship_label: "aunt" },
+    { key: "p12", id: "id-p12", display_name: "José", full_name: null, nicknames: [], relationship_label: null }];
+  const chris = run(input("Chris, my neighbor, is redoing his kitchen.", { roster }), [item({ person: "p16", person_mention: "Chris, my neighbor", statement: "Chris is redoing his kitchen", evidence: ["Chris, my neighbor, is redoing his kitchen."], detail: { ...item({}).detail, category: "home" } })]);
+  eq([chris.items[0].person_key, chris.items[0].tier !== "hold"], ["p16", true]);
+  const dad = run(input("Dropping off a lasagna for José tomorrow since his dad passed.", { roster }), [item({
+    kind: "event", person: "p12", person_mention: "his dad", subject: "related", related_relation: "father", sensitivity: "death_grief",
+    statement: "José's dad passed away", evidence: ["his dad passed"], detail: { ...item({}).detail, category: null, event_type: "funeral" },
+  })]);
+  eq([dad.items[0].person_key, dad.items[0].related?.relation], ["p12", "dad"]);
+  ok(!dad.items[0].flags.includes("person_ambiguous"), "not ambiguous");
+});

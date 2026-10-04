@@ -3,7 +3,7 @@
 -- written only with the extraction, read only by its owner, and cleared on
 -- answer, deletion, text purge or expiry.
 BEGIN;
-SELECT plan(25);
+SELECT plan(27);
 
 \set A '''aaaaaaaa-1717-1717-1717-171717171717'''
 \set B '''bbbbbbbb-1717-1717-1717-171717171717'''
@@ -139,6 +139,16 @@ SELECT tests.reset_role();
 SELECT ok(public.memory_detail_ok('moment', '{"date": "2026-10-10", "date_hint": "Saturday"}')
       AND public.memory_detail_ok('milestone', '{"milestone_type": "new job", "anniversary": false, "date_hint": "last Friday"}'),
   'moment and milestone details accept date_hint');
+
+-- ── Stage 2: the usage log counts the new contact_detail drop reason, and nothing else new ──
+SELECT tests.as_service();
+SELECT lives_ok($$ INSERT INTO public.ai_calls (capability, model, prompt_version, eval_version, outcome, latency_ms, drop_reasons)
+  VALUES ('relationship_extract', 'claude-opus-5-5', 'relationship_extract/v2', 'extraction-v2', 'ok', 1, '{"contact_detail": 1}') $$,
+  'contact_detail is a loggable drop reason');
+SELECT throws_ok($$ INSERT INTO public.ai_calls (capability, model, prompt_version, eval_version, outcome, latency_ms, drop_reasons)
+  VALUES ('relationship_extract', 'claude-opus-5-5', 'relationship_extract/v2', 'extraction-v2', 'ok', 1, '{"555-0100": 1}') $$,
+  '23514', NULL, 'a phone number is still refused as a drop reason');
+SELECT tests.reset_role();
 
 SELECT * FROM finish();
 ROLLBACK;
