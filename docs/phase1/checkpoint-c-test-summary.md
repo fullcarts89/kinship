@@ -1,6 +1,6 @@
 # Kinship 2.0 · Checkpoint C: test summary
 
-> **Updated for stage 2.** The counts in the table below are current. The detailed sections describe the smoke stage. The full-corpus evaluation (three Opus 5.5 low runs on 377 frozen fixtures) is reported in `docs/phase1/checkpoint-c-ai-verification.md` under "Full Opus 5.5 Low-Effort Evaluation".
+> **Updated for stage 2.** The counts in the table below are current. The detailed sections describe the smoke stage. The full-corpus evaluations are reported in `docs/phase1/checkpoint-c-ai-verification.md`: three stage-2 runs under "Full Opus 5.5 Low-Effort Evaluation", and the final run under "Final Opus Baseline Run".
 
 Branch `claude/gifted-pasteur-e2q0qu` at `5bceb6a`, [PR #13](https://github.com/fullcarts89/kinship/pull/13) (draft). The deterministic suites below were run locally on 4 Oct 2026, and CI ran them on every commit. CI passed on every commit up to the one before last; on `5bceb6a` it was still running when this summary was written. The live smoke runs were made in GitHub Actions on 3 Oct 2026, UTC.
 
@@ -8,12 +8,12 @@ Branch `claude/gifted-pasteur-e2q0qu` at `5bceb6a`, [PR #13](https://github.com/
 
 | Suite | What it checks | Count | Result |
 |---|---|---|---|
-| Deno | Edge functions: extraction pipeline, dates, context, prompt schema, AI gateway | 89 | all pass |
+| Deno | Edge functions: extraction pipeline, dates, context, prompt schema, AI gateway | 93 | all pass |
 | pgTAP | Database: every migration applied from scratch, then RLS, provenance and gateway writes | 351 (13 files) | all pass |
 | Jest | The app | 174 (28 suites) | all pass |
 | tsc / eslint | Types and lint across the app, functions and evals | — | clean / 0 errors |
-| Oracle eval, plain and realistic | Perfect proposals through the real pipeline, phrased ideally and as the live model does | 377 fixtures (frozen) | every metric passes |
-| Live full eval (stage 2) | Opus 5.5, low effort, the whole frozen corpus, 3 runs | 377 × 3 | run 3: every hard gate holds; wrong subject 0.6% vs ≤ 0.5% |
+| Oracle eval, plain and realistic | Perfect proposals through the real pipeline, phrased ideally and as the live model does | 384 fixtures (frozen) | every metric passes |
+| Live full eval | Opus 5.5, low effort, the whole frozen corpus | final run 384 | every founder exit criterion met; wrong subject 0%; C-4 hint metric 16/17 |
 | Live smoke eval | Real model (Opus 5.5, low effort) on 29 locked trust-critical fixtures | 29 fixtures × 3 runs | 0 trust failures reached memory |
 
 **The oracle eval is not a model result.** It shows the fixtures, graders and guards are consistent. Only the live smoke eval used a real model.
