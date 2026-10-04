@@ -130,6 +130,8 @@ const bySet = Object.fromEntries(SETS.filter((set) => runs.some((r) => r.fixture
 md += "\n\n" + layersMarkdown(layered, runs);
 md += `\n\n## Dates\n\n- Dated items found: ${dates.total} · resolved right: ${dates.right} · of those, ambiguous and correctly flagged: ${dates.flaggedRight} · **silently wrong (saved, wrong date, no flag): ${dates.silentWrong.length}**\n`;
 for (const x of dates.silentWrong) md += `  - \`${x.id}\` ${x.detail}\n`;
+md += `- Date lost (item kept, its date not stored): ${dates.lost.length}\n`;
+for (const x of dates.lost) md += `  - \`${x.id}\` ${x.detail}\n`;
 const { rows: mergeRows, ...mergeCounts } = merges;
 md += `\n## Merge decisions\n\n${Object.entries(mergeCounts).map(([k, v]) => `- ${k}: ${v}`).join("\n")}\n`;
 for (const r of mergeRows) md += `  - ${r}\n`;

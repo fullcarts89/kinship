@@ -88,7 +88,7 @@ export function layers(runs: FixtureRun[], results: MetricResult[]): FixtureLaye
       // promoted"): take the best match, as the final grader does.
       const score = (e: ExpectedItem, i: number) =>
         (asList(e.kind).includes(it.kind) ? 4 : 0) + (keyOfProposal(it) === e.person ? 2 : 0) +
-        ((e.subject ?? "person") === it.subject ? 1 : 0) + (matchedExp.has(i) ? -8 : 0);
+        (asList(e.subject ?? "person").includes(it.subject) ? 1 : 0) + (matchedExp.has(i) ? -8 : 0);
       const cands = f.expect.items.map((e, i) => ({ e, i })).filter(({ i }) => evid.some((q) => overlaps(note, q.trim(), expSpans[i])));
       const idx = cands.length ? cands.sort((a, b) => score(b.e, b.i) - score(a.e, a.i))[0].i : -1;
       const stmt = String(it.statement ?? "");
@@ -131,7 +131,8 @@ export function layers(runs: FixtureRun[], results: MetricResult[]): FixtureLaye
       matchedExp.add(idx);
       const e = f.expect.items[idx];
       const who = keyOfProposal(it);
-      const wantSubject = e.subject ?? (asList(e.kind).includes("promise") ? "user" : "person");
+      const wantSubjects: string[] = asList(e.subject ?? (asList(e.kind).includes("promise") ? "user" : "person"));
+      const wantSubject = wantSubjects.join("|");
       const ambiguousCase = e.held || f.expect.clarify_about === "person";
       if (ambiguousCase) {
         // Asking is right; a confident specific person without asking is a guess.
@@ -141,7 +142,7 @@ export function layers(runs: FixtureRun[], results: MetricResult[]): FixtureLaye
       } else if (!e.person.startsWith("new:") && who !== e.person) {
         raw.push({ issue: "wrong_person", detail: `"${stmt}": ${who}, want ${e.person}` });
       }
-      if (!ambiguousCase && it.subject !== wantSubject && !(wantSubject === "person" && it.subject === "shared") && !(wantSubject === "shared" && it.subject === "person")) {
+      if (!ambiguousCase && !wantSubjects.includes(it.subject)) {
         raw.push({ issue: "wrong_subject", detail: `"${stmt}": subject ${it.subject}, want ${wantSubject}` });
       }
       const wantC = asList(e.certainty);
@@ -285,9 +286,10 @@ export function layersMarkdown(ls: FixtureLayers[], runs: FixtureRun[]): string 
 }
 
 /** Date outcomes: right, correctly flagged, silently wrong (saved, wrong date, no flag). */
-export function dateBreakdown(runs: FixtureRun[]): { right: number; flaggedRight: number; silentWrong: { id: string; detail: string }[]; total: number } {
+export function dateBreakdown(runs: FixtureRun[]): { right: number; flaggedRight: number; silentWrong: { id: string; detail: string }[]; lost: { id: string; detail: string }[]; total: number } {
   let right = 0, flaggedRight = 0, total = 0;
   const silentWrong: { id: string; detail: string }[] = [];
+  const lost: { id: string; detail: string }[] = [];
   for (const run of runs) {
     if (!run.outcome) continue;
     const note = run.input.capture.raw_text;
@@ -304,12 +306,14 @@ export function dateBreakdown(runs: FixtureRun[]): { right: number; flaggedRight
       if (ok) {
         right++;
         if (e.date_confirm && got.flags.includes("date_ambiguous")) flaggedRight++;
+      } else if (date === null && e.date !== null) {
+        lost.push({ id: run.fixture.id, detail: `"${e.evidence}": no date kept (${got.kind}, rule ${got.date_rule}), want ${e.date}` });
       } else if (!got.flags.includes("date_ambiguous") && (got.tier === "auto" || got.tier === "confirm")) {
         silentWrong.push({ id: run.fixture.id, detail: `"${e.evidence}": ${date}${d.date_end ? `–${d.date_end}` : ""} (rule ${got.date_rule}), want ${e.date}${e.date_end ? `–${e.date_end}` : ""}` });
       }
     }
   }
-  return { right, flaggedRight, silentWrong, total };
+  return { right, flaggedRight, silentWrong, lost, total };
 }
 
 /** Merge outcomes against the expected action. */

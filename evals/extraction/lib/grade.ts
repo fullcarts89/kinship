@@ -122,10 +122,14 @@ export function grade(runs: FixtureRun[]): Metric[] {
     for (const exp of f.expect.items) {
       const loc = locateEvidence(note, exp.evidence);
       if (!loc.ok) throw new Error(`${id}: expected evidence "${exp.evidence}" is ${loc.reason} in the note`);
-      const overlapping = items.filter((i) => !used.has(i) && i.spans.some((s) => s.start < loc.span.end && loc.span.start < s.end));
+      // An optional expectation only claims an item of its own kind, so a
+      // different item off the same words (amb-023's "Mom is undergoing
+      // chemo" next to the optional shared moment) isn't judged against it.
+      const overlapping = items.filter((i) => !used.has(i) && i.spans.some((s) => s.start < loc.span.end && loc.span.start < s.end) &&
+        (!exp.optional || asList(exp.kind).includes(i.kind)));
       const score = (i: PlannedItem) =>
         (asList(exp.kind).includes(i.kind) ? 4 : 0) + (keyOf(i) === exp.person ? 2 : 0) +
-        ((exp.subject ?? "person") === i.subject_type ? 1 : 0);
+        (asList(exp.subject ?? "person").includes(i.subject_type) ? 1 : 0);
       const best = overlapping.sort((a, b) => score(b) - score(a))[0] ?? null;
       if (best) used.add(best);
       matches.push({ exp, span: loc.span, got: best });
@@ -141,11 +145,12 @@ export function grade(runs: FixtureRun[]): Metric[] {
       if (!got) continue;
 
       const isSaved = saved(got);
-      const wantSubject = exp.subject ?? (kinds.includes("promise") ? "user" : "person");
+      const wantSubjects = asList(exp.subject ?? (kinds.includes("promise") ? "user" : "person"));
+      const wantSubject = wantSubjects.join("|");
       if (isSaved) {
         const personOk = keyOf(got) === exp.person;
-        const subjectOk = got.subject_type === wantSubject &&
-          (wantSubject !== "related" || !exp.relation || relKey(got.related?.relation ?? "") === relKey(exp.relation));
+        const subjectOk = wantSubjects.includes(got.subject_type) &&
+          (got.subject_type !== "related" || !exp.relation || relKey(got.related?.relation ?? "") === relKey(exp.relation));
         m.personPrecision.see(personOk, id, `"${exp.evidence}": filed under ${keyOf(got)}, want ${exp.person}`);
         const ok = personOk && subjectOk;
         m.wrongSubject.see(ok, id, `"${exp.evidence}": ${keyOf(got)}/${got.subject_type}${got.related ? `(${got.related.relation})` : ""}, want ${exp.person}/${wantSubject}${exp.relation ? `(${exp.relation})` : ""}`);
@@ -260,7 +265,7 @@ export function grade(runs: FixtureRun[]): Metric[] {
       if (!isExpected) {
         // A second item off an expected span, about someone else, is a wrong subject.
         const overlap = matches.find((x) => it.spans.some((s) => s.start < x.span.end && x.span.start < s.end));
-        if (overlap && (keyOf(it) !== overlap.exp.person || it.subject_type !== (overlap.exp.subject ?? "person")) &&
+        if (overlap && (keyOf(it) !== overlap.exp.person || !asList(overlap.exp.subject ?? "person").includes(it.subject_type)) &&
             !matches.some((x) => x.exp.person === keyOf(it))) {
           m.wrongSubject.see(false, id, `extra "${it.statement}" as ${keyOf(it)}/${it.subject_type}`);
           if (f.set === "ambiguity") m.wrongSubjectAmb.bad(id, `extra "${it.statement}" as ${keyOf(it)}`);

@@ -35,7 +35,8 @@ export interface ExpectedItem {
   kind: Kind | Kind[];
   /** Roster key, or "new:<Name>" for someone not on the roster (should be held). */
   person: string;
-  subject?: SubjectType;
+  /** One subject, or several when the note genuinely reads either way (documented per fixture). */
+  subject?: SubjectType | SubjectType[];
   relation?: string;
   certainty?: Certainty | Certainty[];
   sensitivity?: Sensitivity | Sensitivity[];
@@ -217,7 +218,7 @@ export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>, i
       kind,
       person: isNew ? "new" : promptKey(e.person),
       person_mention: mention,
-      subject: e.subject ?? (kind === "promise" ? "user" : "person"),
+      subject: (Array.isArray(e.subject) ? e.subject[0] : e.subject) ?? (kind === "promise" ? "user" : "person"),
       related_relation: e.relation ? (realistic ? NORMAL[e.relation] ?? e.relation : e.relation) : null,
       related_name: e.rname ?? null,
       statement: e.evidence,
