@@ -447,3 +447,108 @@ Deno.test("'sometime this summer' is a vague date, not a wish", () => {
   const out = run(input("Zoë is moving to Portland sometime this summer.", { roster }), [item({ kind: "event", person: "p13", person_mention: "Zoë", statement: "Zoë is moving to Portland sometime this summer", evidence: ["Zoë is moving to Portland sometime this summer."], date_text: "this summer", detail: { ...item({}).detail, category: null, event_type: "move" } })]);
   ok(out.items.length === 1 && out.items[0].certainty === "stated", `got ${out.items[0]?.certainty}`);
 });
+
+// ─── C.1: temporal context survives on every kind ───────────────────────────
+// The C.1 regression notes, said Thursday 8 Oct 2026 at 9:14 pm in Chicago.
+// Each is run with the kind a model might reasonably pick, including the one
+// the final run picked for date-103 (a fact), so the time never depends on
+// the kind being "event".
+
+const C1_ROSTER = [
+  ...ROSTER,
+  { key: "p4", id: "id-p4", display_name: "Anna", full_name: "Anna Rossi", nicknames: [], relationship_label: "neighbor" },
+  { key: "p7", id: "id-p7", display_name: "Josh", full_name: "Josh Patel", nicknames: [], relationship_label: null },
+  { key: "p20", id: "id-p20", display_name: "Maya", full_name: "Maya Brooks", nicknames: [], relationship_label: "niece" },
+].filter((p) => p.key !== "p10"); // one Sam, so "Sam" is not a who-question here
+const NONE = item({}).detail;
+const c1 = (note: string, over: Partial<ProposedItem>) => {
+  const sentence = note.replace(/\.$/, "");
+  const out = run(input(note, { roster: C1_ROSTER }), [item({ statement: sentence, evidence: [sentence], date_direction: "past", ...over })]);
+  eq(out.items.length, 1, `${note}: exactly one item (no duplicate to keep a date)`);
+  return out.items[0];
+};
+
+Deno.test("C.1: 'Mike got back last Monday' keeps its day, flagged, in the user's words, as an event or a fact", () => {
+  for (const kind of ["event", "fact"] as const) {
+    const it = c1("Mike got back last Monday.", {
+      kind, person: "p3", person_mention: "Mike", date_text: "last Monday",
+      detail: kind === "event" ? { ...NONE, category: null, event_type: "trip" } : { ...NONE, category: "other", attribute: "got back", value: "last Monday" },
+    });
+    eq([it.detail.date, it.detail.date_precision, it.detail.date_hint], ["2026-09-28", "day", "last Monday"], kind);
+    ok(it.flags.includes("date_ambiguous") && it.tier !== "auto", `${kind}: last Monday must be confirmed (C-4), got ${it.tier}`);
+  }
+});
+
+Deno.test("C.1: 'Maya graduated in 2024' keeps the year, never a made-up day", () => {
+  for (const kind of ["milestone", "event"] as const) {
+    const it = c1("Maya graduated in 2024.", {
+      kind, person: "p20", person_mention: "Maya", date_text: "in 2024",
+      detail: { ...NONE, category: null, milestone_type: kind === "milestone" ? "graduated" : null, event_type: kind === "event" ? "school_start" : null },
+    });
+    eq([it.detail.date, it.detail.date_end, it.detail.date_precision, it.detail.date_hint], ["2024-01-01", "2024-12-31", "year", "in 2024"], kind);
+    eq(it.flags.includes("date_ambiguous"), false);
+  }
+});
+
+Deno.test("C.1: 'Ben's wedding was last month' is a past event with a month, shown for confirmation", () => {
+  const it = c1("Ben's wedding was last month.", { kind: "event", date_text: "last month", detail: { ...NONE, category: null, event_type: "wedding" } });
+  eq([it.detail.date, it.detail.date_end, it.detail.date_precision, it.detail.date_hint], ["2026-09-01", "2026-09-30", "month", "last month"]);
+  ok(it.flags.includes("date_coarse") && it.tier === "confirm", `got ${it.tier}`);
+});
+
+Deno.test("C.1: 'Sarah started her new job Tuesday' keeps Tuesday as an event or a fact", () => {
+  for (const kind of ["event", "fact"] as const) {
+    const it = c1("Sarah started her new job Tuesday.", {
+      kind, person: "p2", person_mention: "Sarah", date_text: "Tuesday",
+      detail: kind === "event" ? { ...NONE, category: null, event_type: "job_start" } : { ...NONE, category: "work", attribute: "job", value: "new job" },
+    });
+    eq([it.detail.date, it.detail.date_precision, it.detail.date_hint], ["2026-10-06", "day", "Tuesday"], kind);
+  }
+});
+
+Deno.test("C.1: lasting states stay facts and keep when they began; a duration invents no date", () => {
+  const google = c1("Mike has worked at Google since 2018.", { person: "p3", person_mention: "Mike", date_text: "since 2018", detail: { ...NONE, category: "work", attribute: "employer", value: "Google" } });
+  eq([google.kind, google.detail.date, google.detail.date_end, google.detail.date_precision, google.detail.date_hint], ["fact", "2018-01-01", "2018-12-31", "year", "since 2018"]);
+  eq(google.tier, "auto", "a clear year needs no question");
+  const oakland = c1("Anna has lived in Oakland for three years.", { person: "p4", person_mention: "Anna", date_text: "for three years", detail: { ...NONE, category: "home", attribute: "lives in", value: "Oakland" } });
+  eq([oakland.kind, oakland.detail.date, oakland.detail.date_hint], ["fact", undefined, "for three years"], "the words are kept; no start year is computed");
+  const moved = c1("Josh moved to Boston last month.", { person: "p7", person_mention: "Josh", date_text: "last month", detail: { ...NONE, category: "home", attribute: "lives in", value: "Boston" } });
+  eq([moved.kind, moved.detail.date, moved.detail.date_end, moved.detail.date_precision, moved.detail.date_hint], ["fact", "2026-09-01", "2026-09-30", "month", "last month"]);
+  const lives = c1("Josh lives in Boston.", { person: "p7", person_mention: "Josh", date_direction: "unclear", detail: { ...NONE, category: "home", attribute: "lives in", value: "Boston" } });
+  eq(lives.detail, { category: "home", attribute: "lives in", value: "Boston" }, "no time in the note, none added");
+});
+
+Deno.test("C.1: 'Sam is moving to Boston next month' is a future event that can be followed up", () => {
+  const it = c1("Sam is moving to Boston next month.", { kind: "event", person: "p9", person_mention: "Sam", date_text: "next month", date_direction: "future", detail: { ...NONE, category: null, event_type: "move" } });
+  eq([it.kind, it.detail.followup_policy, it.detail.date, it.detail.date_end, it.detail.date_precision, it.detail.date_hint], ["event", "after", "2026-11-01", "2026-11-30", "month", "next month"]);
+});
+
+Deno.test("C.1: a milestone or moment keeps a weekend as a range (core-012)", () => {
+  const roster = [...C1_ROSTER, { key: "p12", id: "id-p12", display_name: "José", full_name: null, nicknames: [], relationship_label: null }];
+  const out = run(input("José ran his first ultra last weekend!", { roster }), [item({ kind: "milestone", person: "p12", person_mention: "José", statement: "José ran his first ultra last weekend", evidence: ["José ran his first ultra last weekend"], date_text: "last weekend", date_direction: "past", detail: { ...NONE, category: null, milestone_type: "first ultra" } })]);
+  const d = out.items[0].detail;
+  eq([d.date, d.date_end, d.date_precision, d.date_hint], ["2026-10-03", "2026-10-04", "day", "last weekend"]);
+});
+
+Deno.test("C.1: every kind that can be flagged for its date keeps the user's words (C-4)", () => {
+  const cases: [ProposedItem["kind"], Partial<ProposedItem["detail"]>][] = [
+    ["fact", { category: "other" }], ["event", { category: null, event_type: "other" }], ["milestone", { category: null, milestone_type: "other" }],
+    ["moment", { category: null }], ["thread", { category: null, topic: "his trip" }], ["plan", { category: null, firmness: "intended" }],
+  ];
+  for (const [kind, d] of cases) {
+    const out = run(input("Ben is back next Friday."), [item({ kind, statement: "Ben is back next Friday", evidence: ["Ben is back next Friday"], date_text: "next Friday", detail: { ...NONE, ...d } })]);
+    const it = out.items[0];
+    ok(it, `${kind}: kept`);
+    ok(it.flags.includes("date_ambiguous") && it.tier !== "auto", `${kind}: flagged and confirmed`);
+    ok(["date_hint", "when_hint", "due_hint"].some((k) => it.detail[k] === "next Friday"), `${kind}: the user's words kept, got ${JSON.stringify(it.detail)}`);
+  }
+});
+
+Deno.test("C.1: traditions and context hold no date, so their date words raise no date question", () => {
+  const out = run(input("Ben and I have done football every Saturday since college."), [item({
+    kind: "tradition", subject: "shared", statement: "Ben and the writer watch football every Saturday", evidence: ["Ben and I have done football every Saturday since college."],
+    date_text: "every Saturday", certainty: "stated", detail: { ...NONE, category: null, recurrence: "seasonal", anchor: "football every Saturday" },
+  })]);
+  eq(out.items[0]?.flags.includes("date_ambiguous"), false);
+  eq(out.items[0]?.date_rule, null);
+});

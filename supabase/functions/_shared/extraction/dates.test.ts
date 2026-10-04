@@ -146,6 +146,20 @@ const vectors: Vector[] = [
   { expr: "in a few weeks", at: THU, tz: CHI, date: null, precision: "unknown" },
   { expr: "the weekend after Thanksgiving", at: THU, tz: CHI, date: null, precision: "unknown" },
   { expr: "when he's back", at: THU, tz: CHI, date: null, precision: "unknown" },
+  // C.1: when a state began, and a day with a clock time.
+  { expr: "since 2018", at: THU, tz: CHI, dir: "past", date: "2018-01-01", end: "2018-12-31", precision: "year", ambiguous: false },
+  { expr: "since last month", at: THU, tz: CHI, dir: "past", date: "2026-09-01", end: "2026-09-30", precision: "month" },
+  { expr: "since Tuesday", at: THU, tz: CHI, dir: "unclear", date: "2026-10-06", precision: "day" },
+  { expr: "since forever", at: THU, tz: CHI, dir: "past", date: null, precision: "unknown" },
+  // A duration is not an anchor: no start date is invented from it.
+  { expr: "for three years", at: THU, tz: CHI, dir: "past", date: null, precision: "unknown" },
+  { expr: "for 3 years", at: THU, tz: CHI, dir: "past", date: null, precision: "unknown" },
+  { expr: "tomorrow at 9", at: "2026-10-07T07:00:00Z", tz: "Europe/London", dir: "future", date: "2026-10-08", precision: "day", ambiguous: false },
+  { expr: "Friday at 3:30pm", at: THU, tz: CHI, dir: "future", date: "2026-10-09", precision: "day" },
+  { expr: "Sunday at noon", at: THU, tz: CHI, dir: "future", date: "2026-10-11", precision: "day" },
+  { expr: "next Friday at 9am", at: THU, tz: CHI, dir: "future", date: "2026-10-16", precision: "day", ambiguous: true },
+  { expr: "at 9", at: THU, tz: CHI, dir: "future", date: null, precision: "unknown" },
+  { expr: "in 2024", at: THU, tz: CHI, dir: "past", date: "2024-01-01", end: "2024-12-31", precision: "year" },
 ];
 
 Deno.test("date vectors", () => {

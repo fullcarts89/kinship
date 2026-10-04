@@ -81,6 +81,7 @@ export function grade(runs: FixtureRun[]): Metric[] {
     dateRelative: new Tally("date_relative", "Relative dates right"),
     dateConfirm: new Tally("date_ambiguous_confirmed", "Ambiguous dates flagged, confirmed and hinted (C-4)"),
     dateClear: new Tally("date_clear_unflagged", "Clear dates resolved without a flag (informational)"),
+    temporalKept: new Tally("temporal_kept", "Items whose time words were kept as a date or the user's words, any kind (C.1, informational)"),
     planEvent: new Tally("plan_event", "Plan vs event classified correctly"),
     sensRecall: new Tally("sensitivity_recall", "Sensitive items labelled sensitive"),
     sensLabel: new Tally("sensitivity_label", "Sensitive items given the exact label"),
@@ -172,6 +173,13 @@ export function grade(runs: FixtureRun[]): Metric[] {
         const t = exp.date_type === "explicit" ? m.dateExplicit : m.dateRelative;
         t.see(ok, id, `"${exp.evidence}": ${JSON.stringify(d)}, want ${JSON.stringify({ date: exp.date, end: exp.date_end, precision: exp.precision })}`);
         if (exp.date === null && d.date !== null && isSaved) m.halluc.bad(id, `"${exp.evidence}": invented date ${d.date}`);
+      }
+
+      // C.1: when the note gives a time, the item keeps it, whatever its kind.
+      if (exp.date_text && got.kind !== "tradition" && got.kind !== "context") {
+        const keys = ["date", "date_hint", "due_date", "due_hint", "when_hint", "season"];
+        m.temporalKept.see(keys.some((k) => typeof got.detail[k] === "string" && got.detail[k] !== ""), id,
+          `"${exp.evidence}": ${got.kind} kept no time for "${exp.date_text}"`);
       }
 
       if (exp.date_confirm !== undefined) {
@@ -316,7 +324,9 @@ function dateOf(i: PlannedItem): { date: string | null; end: string | null; prec
   if (i.kind === "event") return { date: s("date"), end: s("date_end"), precision: s("date_precision") };
   if (i.kind === "promise") return { date: s("due_date"), end: null, precision: s("due_date") ? "day" : null };
   if (i.kind === "plan") return { date: s("date"), end: null, precision: s("date") ? "day" : s("season") ? "season" : null };
-  return { date: s("date"), end: null, precision: s("date") ? "day" : null };
+  // Facts, milestones and moments (C.1) keep a range and its precision; rows
+  // written before C.1 carry a day date only.
+  return { date: s("date"), end: s("date_end"), precision: s("date_precision") ?? (s("date") ? "day" : null) };
 }
 
 const COMMON = new Set([

@@ -181,6 +181,22 @@ function resolveFrom(e: string, today: CivilDate, zone: string, dir: Direction):
   if (!e || VAGUE.test(e)) return { ...UNKNOWN, rule: e ? "vague" : "empty" };
   const past = dir === "past";
 
+  // "since 2018", "since last month": when a state began. The start is
+  // resolved as a past date with the inner expression's own precision.
+  let m = e.match(/^(?:ever )?since (.+)$/);
+  if (m) {
+    const inner = resolveFrom(m[1], today, zone, "past");
+    return inner.date ? { ...inner, rule: `since_${inner.rule}` } : { ...UNKNOWN, rule: "since_unrecognised" };
+  }
+
+  // A clock time after the day ("tomorrow at 9", "Friday at 3:30pm"): the
+  // day is resolved; the time is kept by the model's time_of_day.
+  m = e.match(/^(.+?),? at (?:\d{1,2}(?::\d{2})? ?(?:am|pm|a\.m\.|p\.m\.|o'clock)?|noon|midnight)$/);
+  if (m) {
+    const inner = resolveFrom(m[1], today, zone, dir);
+    if (inner.date) return { ...inner, rule: `${inner.rule}_at_time` };
+  }
+
   // today / tonight / tomorrow / yesterday
   if (/^(today|tonight|this (morning|afternoon|evening)|now|right now)$/.test(e)) return day(today, "today");
   if (/^(tomorrow|tmrw|tmr)$/.test(e)) return day(addDays(today, 1), "tomorrow");
@@ -189,7 +205,7 @@ function resolveFrom(e: string, today: CivilDate, zone: string, dir: Direction):
   if (e === "the day before yesterday") return day(addDays(today, -2), "day_before_yesterday");
 
   // ISO date
-  let m = e.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  m = e.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (m) {
     const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
     return valid(y, mo, d) ? day({ y, m: mo, d }, "iso") : { ...UNKNOWN, rule: "invalid" };

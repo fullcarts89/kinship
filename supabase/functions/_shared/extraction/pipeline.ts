@@ -278,8 +278,10 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   if (sensitivity !== "none") flags.add("sensitive");
 
   // ── Date: the model's words, our calendar ──
+  // Traditions and context hold no date (the words stay in the anchor or
+  // statement), so there is nothing to resolve or confirm for them.
   let resolution: DateResolution | null = null;
-  if (raw.date_text && raw.date_text.trim()) {
+  if (raw.date_text && raw.date_text.trim() && raw.kind !== "tradition" && raw.kind !== "context") {
     const words = raw.date_text.trim();
     if (ctx.inNote(words)) {
       resolution = resolveDate(words, ctx.anchor, ctx.input.capture.time_zone, raw.date_direction);
@@ -645,12 +647,25 @@ function buildDetail(
   const set = (k: string, v: unknown) => {
     if (v !== undefined && v !== null && v !== "") out[k] = v;
   };
+  // C.1: the time a memory happened or began, kept on every kind that can
+  // carry it, at the precision the user gave ("in 2024" is a year, "last
+  // weekend" a range). Only the resolver writes dates; the user's words go
+  // in date_hint, so a coarse or ambiguous time is shown as written.
+  const when = () => {
+    if (r?.date) {
+      set("date", r.date);
+      if (r.date_end && r.date_end !== r.date) set("date_end", r.date_end);
+      set("date_precision", r.precision);
+    }
+    set("date_hint", hint);
+  };
 
   switch (kind) {
     case "fact":
       set("category", FACT_CATEGORIES.includes(d.category as never) ? d.category : "other");
       set("attribute", grounded(d.attribute, 100));
       set("value", grounded(d.value));
+      when(); // when it became true: "since 2018", "moved last month"
       break;
     case "event": {
       const type: EventType = EVENT_TYPES.includes(d.event_type as never) ? d.event_type! : "other";
@@ -680,17 +695,16 @@ function buildDetail(
     case "thread":
       set("topic", grounded(d.topic) ?? Array.from(sentence.trim()).slice(0, 200).join(""));
       set("followup_after_days", THREAD_FOLLOWUP_DAYS);
+      set("date_hint", hint); // a thread's follow-up is its own; only the words are kept
       break;
     case "moment":
-      set("date", dayDate);
-      set("date_hint", hint); // the user's words, so a flagged date can be shown and fixed (C-4)
+      when();
       set("place", grounded(d.place));
       break;
     case "milestone":
       set("milestone_type", grounded(d.milestone_type, 100) ?? "other");
       set("anniversary", false);
-      set("date", dayDate);
-      set("date_hint", hint);
+      when();
       break;
     case "tradition": {
       if (!RECURRENCES.includes(d.recurrence as never)) return { drop: "bad_kind_subject" };

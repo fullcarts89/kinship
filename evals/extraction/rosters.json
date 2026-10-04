@@ -35,5 +35,17 @@
       { "key": "p1", "name": "Ben", "full": "Ben Ortiz", "label": "college roommate" }
     ],
     "related": []
+  },
+  "temporal": {
+    "people": [
+      { "key": "p1", "name": "Mike", "full": "Mike Chen", "label": "old teammate" },
+      { "key": "p2", "name": "Maya", "full": "Maya Brooks", "label": "niece" },
+      { "key": "p3", "name": "Ben", "full": "Ben Ortiz", "label": "college roommate" },
+      { "key": "p4", "name": "Sarah", "full": "Sarah Kim", "label": "friend from work" },
+      { "key": "p5", "name": "Anna", "full": "Anna Rossi", "label": "neighbor" },
+      { "key": "p6", "name": "Josh", "full": "Josh Patel", "label": "climbing buddy" },
+      { "key": "p7", "name": "Sam", "full": "Sam Lee", "label": "college friend" }
+    ],
+    "related": []
   }
 }
