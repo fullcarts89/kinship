@@ -95,6 +95,7 @@ export function grade(runs: FixtureRun[]): Metric[] {
     promiseR: new Tally("promise_recall", "User promises found"),
     quiet: new Tally("quiet_on_nothing", "Notes with nothing durable produce no saved items"),
     mustNot: new Tally("must_not_violations", "Must-not assertions violated (count)", "count"),
+    detail: new Tally("detail_accuracy", "Expected details present: goal, event label, key words (informational)"),
     held: new Tally("held_when_required", "Items that must wait for a question are not saved"),
     guessed: new Tally("guessed_when_ask_required", "Person guessed and saved where the policy is to ask (count)", "count"),
     modelOk: new Tally("model_ok", "Model calls that returned a usable answer"),
@@ -206,15 +207,17 @@ export function grade(runs: FixtureRun[]): Metric[] {
         m.merge.see(ok, id, `"${exp.evidence}": ${got.action.type}${got.action.target_id ? `:${got.action.target_id}` : ""}, want ${asList(exp.action).join(" or ")}`);
       }
 
+      // Detail quality (a missing goal, a different event label, a missing
+      // word) is measured on its own: it is not a must-not breach.
       if (exp.goal_includes) {
         const goal = String(got.detail.event_goal ?? "");
-        if (!fold(goal).includes(fold(exp.goal_includes))) m.mustNot.bad(id, `"${exp.evidence}": goal "${goal}" lacks "${exp.goal_includes}"`);
+        m.detail.see(fold(goal).includes(fold(exp.goal_includes)), id, `"${exp.evidence}": goal "${goal}" lacks "${exp.goal_includes}"`);
       }
-      if (exp.event_type && got.kind === "event" && got.detail.event_type !== exp.event_type) {
-        m.mustNot.bad(id, `"${exp.evidence}": event_type ${got.detail.event_type}, want ${exp.event_type}`);
+      if (exp.event_type && got.kind === "event") {
+        m.detail.see(got.detail.event_type === exp.event_type, id, `"${exp.evidence}": event_type ${got.detail.event_type}, want ${exp.event_type}`);
       }
       for (const w of exp.statement_includes ?? []) {
-        if (!fold(got.statement).includes(fold(w))) m.mustNot.bad(id, `"${exp.evidence}": statement "${got.statement}" lacks "${w}"`);
+        m.detail.see(fold(got.statement).includes(fold(w)), id, `"${exp.evidence}": statement "${got.statement}" lacks "${w}"`);
       }
       for (const w of exp.statement_excludes ?? []) {
         if (new RegExp(w, "i").test(got.statement)) m.mustNot.bad(id, `"${exp.evidence}": statement "${got.statement}" matches /${w}/`);

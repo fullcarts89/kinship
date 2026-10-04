@@ -408,3 +408,12 @@ Deno.test("'Chris, my neighbor' and 'his dad' resolve to the right person", () =
   eq([dad.items[0].person_key, dad.items[0].related?.relation], ["p12", "dad"]);
   ok(!dad.items[0].flags.includes("person_ambiguous"), "not ambiguous");
 });
+
+Deno.test("a 'subject' question about a pronoun is a 'who?' question (amb-071, run 2)", () => {
+  const roster = [...ROSTER, { key: "p7", id: "id-p7", display_name: "Josh", full_name: null, nicknames: [], relationship_label: null }];
+  const out = planExtraction(input("Ben told Josh he's moving to Austin.", { roster }), {
+    items: [item({ kind: "thread", certainty: "reported", confidence: 0.6, statement: "Ben told Josh he's moving to Austin", evidence: ["Ben told Josh he's moving to Austin."] })],
+    needs_clarification: { about: "subject", mention: "he's" },
+  });
+  eq(out.items.map((i) => i.tier), ["hold"]);
+});

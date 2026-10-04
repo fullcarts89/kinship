@@ -8,7 +8,7 @@
 // founder's approval during beta. Change `model` only with an eval run
 // attached to the PR.
 
-import * as extract from "../prompts/relationship_extract/v2.ts";
+import * as extract from "../prompts/relationship_extract/v3.ts";
 
 export type Effort = "low" | "medium" | "high";
 

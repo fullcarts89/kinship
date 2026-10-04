@@ -313,7 +313,9 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   }
   // The model asked who this is about ("he's" with Ben and Josh both named).
   // When code confirms two people fit those words, ask instead of filing it.
-  if (ctx.ask?.about === "person" && ctx.ask.mention && askConfirmed(ctx, ctx.ask.mention) &&
+  // A "subject" question about a pronoun ("he's") is the same question.
+  if ((ctx.ask?.about === "person" || (ctx.ask?.about === "subject" && isPronounMention(ctx.ask.mention))) &&
+      ctx.ask.mention && askConfirmed(ctx, ctx.ask.mention) &&
       spans.some((s) => fold(s.quote).includes(fold(ctx.ask!.mention!).trim()))) {
     flags.add(PRONOUNS.has(fold(ctx.ask.mention).replace(/'(s|ll|d|re)$/, "").trim()) ? "pronoun_multiple" : "person_ambiguous");
   }
@@ -346,6 +348,10 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
       date_rule: resolution?.rule ?? null,
     },
   };
+}
+
+function isPronounMention(mention: string | null | undefined): boolean {
+  return !!mention && PRONOUNS.has(fold(mention).replace(/'(s|ll|d|re)$/, "").trim());
 }
 
 /** Code's own check of the model's "who?": a pronoun with two named people, or a name two people share. */
