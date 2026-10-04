@@ -1,12 +1,22 @@
 # Phase 1 · Checkpoint C: AI gateway and evaluation harness, verification
 
+**Status: CLOSED (founder, 4 Oct 2026).**
+
+| | |
+|---|---|
+| Approved baseline | Opus 5.5, effort low; prompt `relationship_extract/v5`; eval `extraction-v2.3`; corpus SHA-256 `7f9ca9348e02c8f6ac8a2a9dd4f47b36ff708034af48dee16e567043fb8fc291`; code `66e15dd` |
+| Decisions | CC-9 to CC-15 in `KINSHIP_2_DECISIONS.md` |
+| Record | "Checkpoint C closeout record" at the end of this document |
+
+The status lines below are kept as history.
+
 **Status (final):** the final Opus 5.5 low-effort run (prompt v4, frozen corpus `extraction-v2.2`, commit `810594c`) meets every founder exit criterion. Every hard trust gate holds, and wrong subject is 0% (0/359). One extra C-4 metric misses by one item (disclosed). Recommendation: **A**, after founder approval. See **Final Opus Baseline Run** at the end. **Stopped.** PR #13 is not merged, `ai_extraction` is OFF, and Checkpoint D has not started.
 
 **Status (stage 2):** the full Opus 5.5 low-effort evaluation on the frozen 377-fixture corpus is done. Every hard trust gate holds in the baseline run (run 3). One plan threshold misses: wrong subject is 0.6% against ≤ 0.5%. Recommendation: **B, targeted work before production reliance**. See **Full Opus 5.5 Low-Effort Evaluation** at the end. **Stopped for founder review.** PR #13 is not merged, `ai_extraction` is OFF, and Checkpoint D has not started.
 
 **Earlier status:** architecture approved by the founder (4 Oct 2026); Checkpoint C is **not complete**. Decisions C-1 to C-6 are settled (§7; recorded as CC-1 to CC-8 in `KINSHIP_2_DECISIONS.md`). Stage 1 of the paid evaluation, a 29-fixture live smoke run on Opus 5.5 at low effort, has been made: see **Live Model Smoke Evaluation** at the end of this document. The full-corpus run (stage 2) and the model comparison (stage 3) have **not** run and need the founder's authorization. `ai_extraction` stays OFF and product code must not rely on extraction. **Stopped for founder review.** Checkpoint D has not started.
 
-**PR:** [fullcarts89/kinship#13](https://github.com/fullcarts89/kinship/pull/13), a draft. Merging it applies migration `20261004090000_v2_ai_gateway.sql` to production (OPS-1).
+**PR:** [fullcarts89/kinship#13](https://github.com/fullcarts89/kinship/pull/13). Merging it applies migrations `20261004090000_v2_ai_gateway`, `20261004100000_v2_capture_reviews` and `20261004110000_v2_temporal_detail` to production (OPS-1).
 
 **Commit range:** `9a41760..` the head of `claude/gifted-pasteur-e2q0qu`. Checkpoint C commits: `3d1c6c2`, `426ac5a`, `8c67018`; after the founder review: `0e02b61` (smoke set, C-4), `6219969` (schema limits), `de570e4` (smoke fixes), `99bd544` (C-2), and the commit carrying this update.
 
@@ -1477,3 +1487,28 @@ After founder approval:
 - **The meaning is not distorted.** States stayed facts. Occurrences became events. A duration produced no invented date. Ambiguous or coarse times went to the user in their own words.
 
 **Stopped for founder review.** PR #13 is not merged, `ai_extraction` is not enabled, no other model was run, and Checkpoint D has not started.
+
+
+---
+
+# Checkpoint C closeout record
+
+**Checkpoint C: CLOSED** (founder, 4 Oct 2026; decisions CC-9 to CC-15).
+
+| | |
+|---|---|
+| Final evaluated code | `66e15dd0b80698965050825fbe441281706608df` |
+| Prompt | `relationship_extract/v5` (output schema v1) |
+| Model | `claude-opus-5-5`, effort low, fallbacks off |
+| Eval version / corpus | `extraction-v2.3`, 393 fixtures, SHA-256 `7f9ca9348e02c8f6ac8a2a9dd4f47b36ff708034af48dee16e567043fb8fc291` |
+| Approved baseline run | `evals/results/full/2026-10-04T15-20-01-opus-5-5-low-c1-run.json.gz`; SHA-256 of the JSON `b4acf2f83809293982b1d2def284b89d32c82fb9433ed4a640213087613a0dc4`. CI replays it on every push. |
+| PR-size audit | `docs/phase1/pr13-repository-size-audit.md`: **SAFE TO MERGE**. 97.7% of the 407,666 added lines were raw eval output. The executable implementation is about 7,100 lines. Nothing accidental, no secrets, no real-user data. |
+| Artifact retention | Paid-run raw output is committed gzipped. Only the approved baseline and the final smoke run stay in the tree. Superseded runs stay in git history at `673fd24`. `evals/results/RUNS.md` indexes every paid run with its hashes. |
+| Accepted known issue | **core-083** (CC-10): the first-word invented-name guard drops a promise the model phrases "Promised to…". One missed promise, nothing false saved. The guard is not loosened; the fixture stays as a regression case. |
+| Corpus follow-up | date-063 and date-136 (marathons, filed as milestones with time kept): align the expectations in the next corpus revision (CC-11). |
+| Confirmation friction | About 52% of items need confirmation. Policy unchanged; it is calibrated in Checkpoint D with content-free instrumentation (CC-12). |
+| Model | Opus 5.5 low effort stays the initial model; no alternative-model work for now (CC-13). |
+| Migrations | `20261004090000`, `20261004100000`, `20261004110000`: reviewed; they apply cleanly from scratch. One explicit `service_role` grant was added before merge (a no-op in production; see the audit §11). |
+| Production before merge | 19 migrations; schema fingerprint `da13bfe7…` = a fresh build of `main` |
+| Expected after merge | 22 migrations; fingerprint `a42f9989bca2a251771c452304063717` = a fresh build of the PR |
+| `ai_extraction` | OFF globally (default off, rollout 0%, no overrides). It stays OFF after the merge. |

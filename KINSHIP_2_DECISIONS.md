@@ -530,3 +530,75 @@ Relationship understanding is initially optimized and evaluated for **English**.
 
 ## CC-8. Oracle results are not model results
 The oracle eval proves fixture coherence, grader behaviour, the guards and shared production/eval code. It does not measure model accuracy, latency or cost, is never described as a model metric, and never justifies enabling `ai_extraction`.
+
+---
+
+# Checkpoint C closeout decisions (4 Oct 2026)
+
+The founder reviewed the C.1 report and closed Checkpoint C. The founder labelled these decisions C-1 to C-5 in the closeout instructions; they are numbered CC-9 to CC-13 here so they don't collide with the earlier C-1 to C-6.
+
+## CC-9. Checkpoint C: APPROVED and CLOSED
+The extraction architecture and the Opus 5.5 low-effort baseline are approved.
+
+**Final record:**
+- code `66e15dd`;
+- prompt `relationship_extract/v5`;
+- eval `extraction-v2.3`;
+- corpus SHA-256 `7f9ca9348e02c8f6ac8a2a9dd4f47b36ff708034af48dee16e567043fb8fc291`.
+
+**The final run met every gate:**
+- every hard trust gate held;
+- wrong subject 0 on the ambiguity set;
+- C-4 100%;
+- every dated item resolved right, none lost and none silently wrong;
+- no threshold lowered.
+
+Checkpoint C is not reopened to chase perfect benchmark scores.
+
+## CC-10. core-083: ACCEPTED as a known, non-blocking issue
+In "I told Chrissy I'd help her move on the 24th", the model's promise began "Promised to…". The invented-name guard treats a first word that isn't in the note as suspicious, so it dropped the promise: one missed promise, nothing false saved.
+
+- **The guard is not loosened for this case.** core-083 stays in the corpus as a regression and known-issue fixture.
+- A future, narrow deterministic improvement may be considered only if it is shown to keep the same trust guarantees.
+- No paid run is needed for it now.
+
+## CC-11. Milestone vs event expectations: harmonize in the next corpus revision
+date-063 and date-136 (marathons) were filed as milestones with their time kept correctly and nothing invented. A completed achievement or first may legitimately be a milestone under the approved temporal model.
+
+Their expectations are aligned with that model in the next normal corpus revision. No paid run is spent on this alone.
+
+## CC-12. Confirmation friction (~52%) moves to Checkpoint D
+The confirmation policy is **not** changed at closeout. It becomes a product and UX calibration question, decided on evidence from D's content-free instrumentation.
+
+**Candidates for lower friction:**
+- clear coarse dates;
+- mid-confidence but strongly grounded items;
+- unambiguous single-person pronouns.
+
+**Always conservative:** sensitive information, true ambiguity, protected-memory conflicts and other trust-critical cases.
+
+## CC-13. Opus 5.5 low effort stays the initial extraction model
+No benchmarking of, or switch to, Sonnet, Haiku, DeepSeek, Mistral, Qwen or another open-weight model during this work. Alternatives are revisited after real product behaviour exists.
+
+## CC-14. PR #13 size and eval-artifact retention: APPROVED after audit
+The 400k-line diff was 97.7% pretty-printed raw eval output: 8.8 MB, 0.8 MB packed. See `docs/phase1/pr13-repository-size-audit.md`.
+
+- **Raw outputs of paid runs** are committed gzipped.
+- **In the tree:** only the approved baseline and the final smoke run. CI replays the approved baseline on every push.
+- **Superseded runs** stay byte-for-byte in git history at `673fd24`, which is reachable from `main` through the merge commit.
+- **Index:** `evals/results/RUNS.md` records every paid run's commit, prompt, eval version, corpus, model, result, cost and SHA-256.
+
+PR #13 merges with a merge commit, per repository policy.
+
+## CC-15. Checkpoint D1 authorized: Tell → Understand → Review → Memory
+This is conditional on the PR #13 merge gates, the deploy with `ai_extraction` OFF, and repository/deployed parity.
+
+**In scope:**
+- the C-2 resolve action;
+- the review and clarification surface;
+- correction and provenance;
+- content-free confirmation-friction instrumentation;
+- offline and restart behaviour;
+- gated internal dogfood, only through the existing per-account flag mechanism.
+
+**Out of scope until founder review:** Today, reasons, Garden, Intentions, Landscape and the Opportunity Engine.

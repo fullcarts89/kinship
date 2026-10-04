@@ -9,10 +9,11 @@ Branch `claude/gifted-pasteur-e2q0qu`; C.1 code at `66e15dd`, [PR #13](https://g
 | Suite | What it checks | Count | Result |
 |---|---|---|---|
 | Deno | Edge functions: extraction pipeline, dates, context, prompt schema, AI gateway (C.1: 9 temporal tests, 12 date vectors) | 102 | all pass |
-| pgTAP | Database: every migration applied from scratch, then RLS, provenance and gateway writes (C.1: `58_v2_temporal_detail`, 14 tests) | 365 (14 files) | all pass |
+| pgTAP | Database: every migration applied from scratch, then RLS, provenance and gateway writes (C.1: `58_v2_temporal_detail`, 14 tests; closeout: explicit `service_role` grant on the usage log's CHECK function) | 366 (14 files) | all pass |
 | Jest | The app | 174 (28 suites) | all pass |
 | tsc / eslint | Types and lint across the app, functions and evals | — | clean / 0 errors |
 | Oracle eval, plain and realistic | Perfect proposals through the real pipeline, phrased ideally and as the live model does | 393 fixtures (frozen, v2.3) | every metric passes |
+| Baseline replay (CI, free) | The approved baseline's saved model outputs through the current pipeline | 393 | reproduces the live run exactly; every metric passes |
 | Live full eval | Opus 5.5, low effort, the whole frozen corpus | C.1 run 393 | every gated metric passes; C-4 18/18; dates lost 0, silently wrong 0 |
 | Live smoke eval | Real model (Opus 5.5, low effort) on 29 locked trust-critical fixtures | 29 fixtures × 3 runs | 0 trust failures reached memory |
 
