@@ -1279,3 +1279,201 @@ The model is fully correct on 93.5% of calls. Guards genuinely rescue 2.1% and o
 - **Begin Checkpoint D.** Recommended after approval, starting with the confirmation sheet and the C-2 resolve path, with the follow-ups above.
 
 **Stopped.** No other model was run. PR #13 is not merged, `ai_extraction` is not enabled, and Checkpoint D has not started.
+
+---
+
+# Appendix C.1: Final Temporal-Preservation Fix and Closeout
+
+The question for C.1: *can Kinship keep the timing that makes a relationship memory useful without distorting what the user said?*
+
+The product invariant (founder, 4 Oct 2026): when temporal language materially contributes to the meaning of a durable memory, Kinship preserves it, even when the memory's kind is not `event`. A dated statement is not forced into an event. A date is not stored more precisely than the user gave it. The memory is not duplicated to hold a date.
+
+## Root cause
+
+The final baseline run missed the C-4 "confirmed and hinted" metric on one item: date-103, "Mike got back last Monday", filed as a fact. It was flagged and confirmed, but the user's date words were lost. That was one instance of a pattern with three parts.
+
+1. **Storage.** Only events could hold time fully.
+   - A `fact` had no temporal field at all. "Mike got back last Monday" and "Priya started her new job Monday" (date-135) kept no date and no date words.
+   - A `milestone` or `moment` held only a single-day `date`. "Mike ran a marathon in 2019" (date-136) lost its year. "José ran his first ultra last weekend" (core-012) kept only the Saturday, a silently narrowed date.
+   - A `thread` could be flagged for an ambiguous date with nowhere to keep the words the user would confirm.
+2. **The prompt contradicted itself.** Prompt v4 said both "a change … that has already happened is a fact" and "anything upcoming or dated is an event", and described a milestone as "said without a date". A dated past occurrence could therefore be read either way. The model's choice decided whether the time survived.
+3. **Resolver gaps.** "tomorrow at 9" (date-022) was unrecognised because of the clock time. "since 2018" was unrecognised, though it is the natural way to date a lasting state.
+
+## The semantic model chosen: C (schema plus classification rules)
+
+Neither option alone is enough. A schema-only fix (A) keeps the time but leaves "got back last Monday" as a "fact" that is really an occurrence. A rules-only fix (B) leaves a dated state ("has worked at Google since 2018") with no correct place to live.
+
+| What the user said | Kind | What is kept |
+|---|---|---|
+| A one-off occurrence, past or future ("got back last Monday", "the wedding was last month", "is moving next month") | `event` | `date`, `date_end`, `date_precision`, `date_hint`, follow-up policy |
+| A lasting state, including one that began at a stated time ("has worked at Google since 2018", "moved to Boston last month", "lives in Boston") | `fact` | when it became true: `date`, `date_end`, `date_precision`, `date_hint`. A duration with no anchor ("for three years") keeps only `date_hint`. |
+| An achievement or first, already reached ("graduated in 2024", "ran his first ultra last weekend") | `milestone` | `date`, `date_end`, `date_precision`, `date_hint` (year or range, not only a day) |
+| A shared experience | `moment` | as milestone |
+| An unresolved situation | `thread` | `date_hint` only (its follow-up interval is its own) |
+| Plans and promises | unchanged | `when_hint` / `date` / `season`; `due_hint` / `due_date` |
+| Traditions and context | unchanged | no date: the words stay in the anchor or statement, and no date question is raised |
+
+Unchanged rules:
+- Only the deterministic resolver writes dates; the model only copies the user's words.
+- An ambiguous expression is still flagged and confirmed (C-4), and always keeps the user's words.
+- A coarse one (week, month, season) still goes to confirmation (`date_coarse`).
+- A duration is never turned into a start date.
+- Each statement is still one memory.
+- Thresholds and the confirmation policy are unchanged.
+
+## Changes
+
+| Layer | Change |
+|---|---|
+| Database | New forward-only migration `20261004110000_v2_temporal_detail.sql`. It redefines `memory_detail_ok`: facts accept `date`, `date_end`, `date_precision` and `date_hint`; milestones and moments accept `date_end` and `date_precision`; threads accept `date_hint`. A `date_end` now requires a `date`. No stored row changes, and rows written before C.1 stay valid. |
+| Pipeline | `buildDetail` keeps the resolver's date, range, precision and the user's words on facts, milestones and moments, and the words on threads. Traditions and context skip date resolution. |
+| Resolver | "since <date>" resolves the start at the inner expression's precision. "<day> at <time>" resolves the day; the time stays in the model's `time_of_day`. "for three years" still resolves to nothing. |
+| Prompt | `relationship_extract/v5`; the output schema is unchanged (v1). Four instruction lines changed: a one-off past occurrence with its own time is an event; a lasting state stays a fact with its date words; a milestone keeps its date words; `date_text` applies to every kind. The prompt's examples are deliberately not the regression notes. |
+| Eval | Corpus `extraction-v2.3`, frozen before the run. The grader reads ranges and precision on every kind. A new informational metric, `temporal_kept`, checks that every item whose note gave time words keeps a date or the words, whatever its kind. |
+
+## Regression cases
+
+Nine notes, on a new `temporal` roster with one Sam and a Maya. Each is a corpus fixture (date-103 plus date-140 to date-148), marked exhaustive so a duplicate memory fails it, and each has a Deno test. The Deno tests also feed the pipeline the *other* kind a model might pick, so keeping the time never depends on the kind.
+
+| Note | Expected | Live run (v5) |
+|---|---|---|
+| Mike got back last Monday. | event; 2026-09-28; flagged; confirmed; hint "last Monday" | event, confirm, 2026-09-28, hint kept |
+| Maya graduated in 2024. | milestone or event; year 2024 | milestone, 2024-01-01 to 2024-12-31, year, hint "in 2024" |
+| Ben's wedding was last month. | event (wedding); September; confirmed (coarse) | event, confirm, 2026-09-01 to 2026-09-30, month |
+| Sarah started her new job Tuesday. | event or fact; 2026-10-06 | event (job_start), 2026-10-06, follow-up after |
+| Mike has worked at Google since 2018. | fact, never an event; started 2018 | fact, 2018, year, hint "since 2018" |
+| Anna has lived in Oakland for three years. | fact; **no date invented** | fact, hint "for three years", no date |
+| Josh moved to Boston last month. | fact or event, one item; September | fact, confirm, 2026-09-01 to 2026-09-30, month |
+| Josh lives in Boston. | fact; no time added | fact, no temporal fields |
+| Sam is moving to Boston next month. | event (move); November; follow-up capable | event, confirm, November, follow-up after |
+
+The Deno tests also cover:
+- every kind that can be flagged for a date keeps the user's words (fact, event, milestone, moment, thread and plan, with "next Friday");
+- a weekend kept as a range on a milestone (core-012);
+- a tradition's date words raise no date question.
+
+Resolver vectors were added for "since …", "… at <time>" and durations.
+
+## Was a paid run needed? Yes, one
+
+The storage, resolver and grader fixes are deterministic and downstream, and the C.1 rule says those are validated without a paid run. I did that first: the final baseline run's saved model outputs were replayed through the C.1 code, for free.
+
+- C-4: 100% (17/17), restored.
+- Explicit dates: 100% (53/53).
+- Relative dates: 100% (110/110).
+- Dates lost: 0. Silently wrong: 0.
+- Every gate still passed.
+
+That alone would have closed the metric. But date-103 would have stayed a "fact" about an occurrence. The root cause in the prompt is a contradiction in the kind-selection instructions, and fixing it changes what the model is told. Under the C.1 rule, that requires freezing and one final full run. The model's output schema did not change.
+
+One run was made: Opus 5.5, low effort, frozen corpus `extraction-v2.3`, commit `66e15dd`, triggered only after confirming the PR head. No expectation was changed after the run.
+
+## Frozen versions
+
+| | |
+|---|---|
+| Code and prompt commit | `66e15dd` |
+| Prompt | `relationship_extract/v5` (schema v1) |
+| Eval version / corpus | `extraction-v2.3`, 393 fixtures (core 129, ambiguity 64, dates 91, sensitive 43, adversarial 23, merge 43), SHA-256 `7f9ca9348e02c8f6ac8a2a9dd4f47b36ff708034af48dee16e567043fb8fc291` |
+| Model | Opus 5.5 (`claude-opus-5-5`), effort low, fallbacks off, production path, deterministic graders |
+| Results | `evals/results/full/2026-10-04T15-20-01-opus-5-5-low-c1-run.json` ([Actions run](https://github.com/fullcarts89/kinship/actions/runs/37212235734)) |
+| Pre-run checks | Deno 102, pgTAP 365 (14 files), Jest 174, tsc clean, eslint 0 errors, plain and realistic oracle pass on all 393 |
+
+## Final metrics (C.1 run; final baseline run for comparison)
+
+| Metric | C.1 run | Final baseline | Threshold | |
+|---|---|---|---|---|
+| Wrong subject, ambiguity set | 0 | 0 | 0 | PASS |
+| Wrong subject or person, all saved items | 0.3% (1/369) | 0% (0/359) | ≤ 0.5% | PASS (see core-083) |
+| Hedged certainty kept / upgrades | 100% (27/27) / 0 | 100% / 0 | ≥ 97% / 0 | PASS |
+| Hallucinated saved items / invented names | 0% (0/385) / 0 | 0% / 0 | ≤ 0.5% / 0 | PASS |
+| Person precision / asks when two fit | 100% (369/369) / 100% (6/6) | 100% / 100% | ≥ 98% / ≥ 95% | PASS |
+| **Explicit dates** | **100% (56/56)** | 98.1% | ≥ 97% | PASS |
+| **Relative dates** | **100% (118/118)** | 96.4% | ≥ 93% | PASS |
+| **Ambiguous dates flagged, confirmed and hinted (C-4)** | **100% (18/18)** | 94.1% (16/17) | 100% | **PASS** |
+| Time words kept on any kind (`temporal_kept`, informational) | 99.4% (174/175) | n/a | — | — |
+| Plan vs event | 98.8% (163/165) | 97.5% | ≥ 92% | PASS |
+| Sensitivity recall / never auto-saved | 100% (83/83) / 100% (117/117) | 100% / 100% | ≥ 95% / 100% | PASS |
+| Merge decisions / cross-subject / protected | 100% (43/43) / 0 / 0 | 100% / 0 / 0 | ≥ 90% / 0 / 0 | PASS |
+| Grounding / injection | 100% (385/385) / 100% (10/10) | 100% / 100% | 100% | PASS |
+| Item recall | 98.9% (356/360) | 98.0% | ≥ 85% | PASS |
+| Promise precision / recall | 100% (12/12) / 92.3% (12/13) | 100% / 100% | ≥ 95% / ≥ 85% | PASS |
+| Quiet on nothing-durable / must-not violations | 100% (14/14) / 0 | 100% / 0 | ≥ 95% / 0 | PASS |
+| Held when required / guessed instead of asking | 100% (8/8) / 0 | 100% / 0 | 100% / 0 | PASS |
+| Usable model answers | 100% (393/393) | 100% | ≥ 99% | PASS |
+
+**Dates, end to end.** 174 dated items were found and all 174 resolved right. Of those, 18 were ambiguous and correctly flagged. **Dates lost: 0** (4 in the final baseline). **Silently wrong: 0** (1 in the final baseline, core-012).
+
+**Every hard trust gate holds:** wrong subject in the ambiguity set, invented names, certainty upgrades, sensitive auto-saves, cross-subject merges, protected items changed, ungrounded statements, injection, guessed-instead-of-ask and contact details are all 0.
+
+## What still misses (all disclosed; none is a temporal failure)
+
+- **core-083, "I told Chrissy I'd help her move on the 24th".** This is the one wrong-subject count, the promise-recall miss and the run's one "escape".
+  - **What happened.** The model phrased the promise "Promised to help Chrissy move on the 24th". The invented-name guard checks the first word too ("The…" is allowed, "Ben…" must be grounded), so it dropped the promise because "Promised" is not in the note. Its other proposal, "Chrissy is moving on the 24th" (an event on Chrissy's page), was saved. That is true to the note, and it was saved in every earlier run too. With the promise gone, the grader matched that event against the promise's evidence and counted a wrong subject.
+  - **What it costs.** A promise is lost, which is a recall miss. No false memory was saved.
+  - **Not caused by C.1.** It comes from a wording variation: earlier runs wrote "Writer promised…" and "Told Chrissy…".
+  - **Not fixed here.** The fix would loosen a trust guard. A narrow option: do not treat the first word as a name when it is followed by a lowercase function word ("Promised to…"). That is the founder's call, and it can be validated by free replay.
+- **date-063 and date-136: "ran his first marathon on October 4" and "ran a marathon in 2019".** The model chose `milestone` where these two fixtures accept only `event`. Their dates were kept in full: October 4 as a day; 2019 as a year with its range.
+  - core-012 ("ran his first ultra last weekend") already accepts both kinds, so the two fixtures are stricter than the corpus is elsewhere. Under the C.1 model a completed first or achievement is a milestone.
+  - The expectations were **not** changed after the run. Proposed for v2.4: accept `milestone` or `event` on both, as core-012 does.
+- **adv-020: the Chinese note.** Not found. English-first beta (CC-7), as before.
+- **temporal_kept 174/175: amb-060, "We talked about skiing sometime".** A wished plan with no time to keep ("sometime" is not a date). Informational only.
+
+## Raw model, guards and confirmation friction
+
+| | C.1 run | Final baseline |
+|---|---|---|
+| Raw model fully correct | 93.9% | 93.5% |
+| Guard rescues, raw-flagged / genuinely unsafe on review | 4.1% (16) / 2.3% (9) | — / 2.1% (8) |
+| Escapes | 0.3% (1, core-083, above) | 0 |
+| Guard overreach | 2.0% | 2.1% |
+| Item tiers: auto / confirm / hold / dropped | 42.1% / 52.1% / 2.9% / 2.9% | 41% / 53% / 3.5% / 2% |
+
+**Rescues.** By the same hand review as the baseline, 9 calls were genuinely unsafe and stopped:
+- 5 edits to user-written or user-edited items, turned into new items to confirm;
+- 3 translations of non-English notes, dropped (CC-7);
+- 1 "Chris" filed without asking (amb-005), held.
+
+The other raw flags are extra correct items beside the expected one:
+- an event "Sarah's birthday is tomorrow" next to the promise to text her (core-009, core-055, core-107);
+- "José has a restaurant" next to the money-labelled thread (sens-012);
+- two harmless verbs ("had", "went").
+
+Confirmation friction is unchanged at about 52%, as instructed. No model other than Opus 5.5 was run.
+
+## Operational
+
+- Latency: p50 3.2 s, p95 5.1 s, max 10.9 s.
+- Tokens per call: about 108 input, 262 output, 4,281 cached.
+- Cost: **$0.0067 per extraction**; $2.65 for the run, at list prices.
+
+## Closeout
+
+| Criterion | Status |
+|---|---|
+| The temporal fix is semantically coherent | ✓ The model above: occurrences are events; states are facts that keep when they began; milestones keep their year or range; no duplicates; no invented precision |
+| `date_ambiguous_confirmed` = 100% | ✓ 18/18 in the live run; 17/17 replaying the baseline's outputs |
+| All founder trust gates green | ✓ |
+| Plain and realistic oracle pass | ✓ 393/393, every metric |
+| CI passes | ✓ on `66e15dd` |
+| Replay and full verification | ✓ baseline outputs replayed; one frozen full run |
+| Versions recorded | ✓ above |
+| No threshold lowered | ✓ `thresholds.json` unchanged |
+
+**Recommendation: Checkpoint C CLOSED, subject to founder approval.**
+
+Disclosed with it:
+- core-083, a first-word guard false positive that loses one promise. It is not temporal, and the proposed fix needs founder approval.
+- Two date fixtures stricter than core-012, to align in v2.4.
+
+After founder approval:
+1. Merge PR #13. Three migrations apply: `20261004090000`, `20261004100000` and `20261004110000`.
+2. Deploy the repo's exact `ai-gateway` and verify parity.
+3. Keep `ai_extraction` OFF globally.
+4. Begin Checkpoint D's minimum loop: Tell → extraction → "Here's what I'll remember" → confirm, correct or clarify → durable memory. That includes the C-2 resolve action for `capture_reviews`, the confirmation and clarification sheet, person creation and selection, deterministic revalidation, and closing the pending review.
+
+**Answer to the C.1 question.** Yes, within the measured scope:
+- **The time is kept.** Every dated item in the corpus kept its time on whatever kind it became: 174 of 174 resolved right, none lost, none silently wrong.
+- **The meaning is not distorted.** States stayed facts. Occurrences became events. A duration produced no invented date. Ambiguous or coarse times went to the user in their own words.
+
+**Stopped for founder review.** PR #13 is not merged, `ai_extraction` is not enabled, no other model was run, and Checkpoint D has not started.
