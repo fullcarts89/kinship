@@ -30,6 +30,7 @@ import { removeExportFile } from "@/lib/exportService";
 import { removePhotosExcept } from "@/lib/photoStorage";
 import { resetAnalyticsInstallId } from "@/platform/posthogSink";
 import { wipeAllStores } from "@/store/session";
+import { forgetFlags } from "@/hooks/useFlags";
 
 export async function clearAllLocalUserData(): Promise<void> {
   clearLocalPeople();
@@ -56,6 +57,8 @@ export async function clearAllLocalUserData(): Promise<void> {
   } catch {
     // No 2.0 store was ever opened on this device.
   }
+  // The account's feature flags (they choose the shell at launch).
+  await forgetFlags();
 }
 
 const OWNER_KEY = "device-owner";

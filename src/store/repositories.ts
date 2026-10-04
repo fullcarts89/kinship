@@ -9,7 +9,8 @@
 //   * "Not this" retracts and removes (§5).
 
 import { codePointLength, locateEvidence, utf16ToCodePoint } from "../../supabase/functions/_shared/spans";
-import { StoreWriteError, type Data, type UserStore } from "./userStore";
+import type { MirroredTable } from "./tables";
+import { StoreWriteError, type Conflict, type Data, type UserStore } from "./userStore";
 
 export type PersonState = "active" | "remembered" | "paused" | "archived";
 export type CaptureSource =
@@ -97,6 +98,18 @@ export class PeopleRepo {
   remove(id: string): Promise<void> {
     return this.store.remove("people", id);
   }
+
+  /** The people close to someone ("Sarah's sister"), as the user named them. */
+  related(personId?: string): Promise<RelatedPerson[]> {
+    return this.store.list("related_people", personId ? { personId } : {}) as Promise<RelatedPerson[]>;
+  }
+}
+
+export interface RelatedPerson extends Data {
+  id: string;
+  person_id: string;
+  relation: string;
+  name: string | null;
 }
 
 export class CaptureRepo {
@@ -237,12 +250,26 @@ export class SettingsRepo {
   }
 }
 
+/** Changes that met a different change on another device, kept for the user to settle (Checkpoint B). */
+export class ConflictRepo {
+  constructor(private readonly store: UserStore) {}
+
+  async forRow(table: MirroredTable, rowId: string): Promise<Conflict[]> {
+    return (await this.store.conflicts()).filter((c) => c.tbl === table && c.row_id === rowId);
+  }
+
+  resolve(id: number, choice: "keep_current" | "use_mine"): Promise<void> {
+    return this.store.resolveConflict(id, choice);
+  }
+}
+
 export interface Repositories {
   people: PeopleRepo;
   captures: CaptureRepo;
   memory: MemoryRepo;
   contacts: ContactRepo;
   settings: SettingsRepo;
+  conflicts: ConflictRepo;
 }
 
 export function repositoriesFor(store: UserStore): Repositories {
@@ -252,5 +279,6 @@ export function repositoriesFor(store: UserStore): Repositories {
     memory: new MemoryRepo(store),
     contacts: new ContactRepo(store),
     settings: new SettingsRepo(store),
+    conflicts: new ConflictRepo(store),
   };
 }
