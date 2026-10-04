@@ -1,6 +1,6 @@
 # Phase 1 · Checkpoint D1: Tell → Understand → Review → Memory
 
-**Status: approved by the founder subject to two trust checks (§0); both now pass.** Merge, deploy and enablement are recorded in §8. Today, reasons, Garden, Intentions, Landscape, the Opportunity Engine and broader product intelligence have not started.
+**Status: approved by the founder subject to two trust checks (§0); both now pass.** Merged (`8415943`), migrated and deployed with verified parity. Internal enablement is ready and waits on named accounts and a build (§8). Today, reasons, Garden, Intentions, Landscape, the Opportunity Engine and broader product intelligence have not started.
 
 | | |
 |---|---|
@@ -251,24 +251,32 @@ All events are content-free and typed. Values are closed enums, booleans or coun
 
 Never logged: note text, names, statements, evidence quotes, person ids, capture ids or free text. A test drives the Ben and two-Sams flows and checks every value sent (`analytics … no text, names or ids`). The PostHog sink stays off unless a build enables it.
 
-## 8. Dogfood status (D1.9): NOT enabled
+## 8. Dogfood status (D1.9): merged and deployed; ready for named accounts
 
-**The gating exists and is safe.** `user_flag_overrides` (writable only with the service role) and `my_flags()` resolve per account. The app now reads them per account, and the gateway enforces `ai_extraction` server-side on every call. No weak workaround was needed.
+**Merge.** D1 merged as [fullcarts89/kinship#14](https://github.com/fullcarts89/kinship/pull/14) with "Create a merge commit" (`8415943`, 4 Oct 2026 19:10 UTC). All seven checks were green, including Supabase Preview.
 
-**Why it isn't on yet:**
+**Migrations.** The GitHub integration applied `20261004130000_v2_resolve_capture_review` and `20261004140000_v2_restore_superseded`, giving 24 migrations in both production and the repository. The schema fingerprint is `d97fda4fd9427cffc4351c0133e112f3` (779 lines) in production and in a fresh build of merged `main`.
 
-- D1 isn't merged. The two migrations reach production only by a merge to `main`, and the deployed `ai-gateway` (v1, from `956c3d9`) has no resolve action. Deployed code must reproduce `main`.
-- No build contains the D1 client yet.
-- Internal accounts haven't been named.
+**Gateway.** `ai-gateway` v2 was deployed from `main` (`8415943`) with JWT verification on. It carries the 16 files of its import closure, including the new `_shared/extraction/acceptance.ts`. **Parity:** every deployed file was retrieved and compared mechanically, and all are byte-identical to `main`; ezbr `42d8601d…`. Probes without a valid user token return 401. Prompt v5, the pipeline, the registry, the model and the output schema are unchanged from v1.
 
-**To start, after your review:**
+**Flags.** `shell_v2`, `tell`, `ai_extraction` and `memory_v2` are all off everywhere (default off, rollout 0%). `user_flag_overrides` is empty. **Internal accounts enabled: 0.** Enabling them waits on two things only the founder can provide:
 
-1. Merge with "Create a merge commit". Confirm the migrations and schema parity.
-2. Deploy `ai-gateway` from `main` and verify byte parity.
-3. Ship a dev or TestFlight build.
-4. Insert overrides for the named internal user ids only, with the service role: `shell_v2`, `tell`, `ai_extraction` and `memory_v2` set to true.
+1. **Named internal accounts.** Give 2–5 user ids (never looked up by email).
+2. **A dev or TestFlight build of `main`.** No EAS or TestFlight access exists in this environment.
 
-Rollback is deleting those rows. Accounts are never looked up by email. A device that already cached "off" switches shells on the launch after it has seen the change.
+**Enablement, with the service role, once the ids are named:**
+
+```sql
+insert into user_flag_overrides (user_id, flag_key, enabled)
+select u.id, f.key, true
+from (values ('<uuid-1>'::uuid), ('<uuid-2>'::uuid)) as u(id)
+cross join (values ('shell_v2'), ('tell'), ('ai_extraction'), ('memory_v2')) as f(key)
+on conflict do nothing;
+```
+
+**Rollback** is `delete from user_flag_overrides where user_id in (…)`. A device that already cached "off" switches shells on the launch after it has seen the change. The flags are never enabled globally.
+
+**During the week.** Measure only with the content-free events (§7). Keep the confirmation policy as it is for the first few days, even if the review rate is high. Retention follow-up: see §0; it is planned and not yet built.
 
 ## 9. Acceptance (Part VI)
 

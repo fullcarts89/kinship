@@ -85,6 +85,13 @@ schema fingerprint before the merge was `da13bfe7…` (= a fresh build of `main`
 after it, `a42f9989bca2a251771c452304063717` in production and in a fresh build
 of the merged repository.
 
+D1 ([fullcarts89/kinship#14](https://github.com/fullcarts89/kinship/pull/14),
+merged 4 Oct 2026 19:10 UTC as merge commit `8415943`, deployed by the
+integration): `20261004130000_v2_resolve_capture_review`,
+`20261004140000_v2_restore_superseded`. **Parity:** 24 migrations in both;
+fingerprint `d97fda4fd9427cffc4351c0133e112f3` (779 lines) in production and in
+a fresh build of the merged repository.
+
 **OPS-1 (operational invariant, CA-9):** migrations reach production only
 through a reviewed PR merged to `main`. The GitHub integration's production
 branch stays `main`; nobody applies schema changes by hand.
@@ -95,4 +102,4 @@ branch stays `main`; nobody applies schema changes by hand.
 |---|---|---|
 | `ai-insight` | 4 | Auth, consent (403), validation, quota (429). Deployed from `d3b42c8`; identical to the repo (shared `_shared/auth.ts`, pinned SDKs). |
 | `delete-account` | 5 (platform) | Service role is used only after verifying the caller's own token. Redeployed from `main` (`7c57259`) on 2 Oct 2026; ezbr `c77ab4b0…`. |
-| `ai-gateway` | 1 | Deployed from `main` (`956c3d9`) on 4 Oct 2026, JWT verification on. Same layout as the others (`source/` + `_shared/`), with the 14 files of its import closure. **Parity:** every deployed file is byte-identical to `main` (retrieved and compared mechanically); ezbr `6818d998…`. Probed: no auth → 401; the anon key → the handler's own 401; GET → 405. `ai_extraction` is **OFF** for everyone (default off, rollout 0%, no overrides), so the gateway answers `feature_disabled` to any signed-in user. |
+| `ai-gateway` | 2 | Redeployed from `main` (`8415943`, D1) on 4 Oct 2026, JWT verification on, with the 16 files of its import closure (adds `_shared/extraction/acceptance.ts`). **Parity:** every deployed file is byte-identical to `main` (retrieved and compared mechanically); ezbr `42d8601d…`. Probed without a valid user token: 401. `shell_v2`, `tell`, `ai_extraction` and `memory_v2` are **OFF** for everyone (default off, rollout 0%, no overrides). v1 was `956c3d9`, ezbr `6818d998…`. |
