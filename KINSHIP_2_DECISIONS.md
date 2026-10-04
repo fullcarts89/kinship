@@ -477,3 +477,56 @@ All 2.0 flags stay **off** by default. Internal and developer overrides (`user_f
 - The additive migrations applied early stay; they are not rolled back.
 - **Operational invariant (OPS-1):** the Supabase GitHub integration's production branch is `main` and only `main`. Every schema change reaches production through a reviewed, CI-protected PR merged to `main`, and never from a working branch or by hand.
 - Before pushing migration files from any new environment or integration, check where that integration deploys.
+
+---
+
+# Checkpoint C review decisions (4 Oct 2026)
+
+The founder approved the Checkpoint C architecture (`docs/phase1/checkpoint-c-ai-verification.md`). Checkpoint C is **not complete**: no full model evaluation has run, PR #13 stays a draft, `ai_extraction` stays OFF, and Checkpoint D is not authorized. Paid evaluation is staged, and the founder authorizes each stage: (1) a small live smoke set on Opus 5.5 at low effort, (2) the full corpus on Opus 5.5 at low effort, (3) only after that passes, the cross-model comparison.
+
+## CC-1. Refusal fallback (C-1): APPROVED, fallbacks OFF
+If the primary model refuses a capture for `relationship_extract`, the raw capture is preserved, no memory is created, it is never sent to an unevaluated fallback model, and the product fails quietly. A fallback model may be enabled only after it has passed this capability's eval suite on its own. Trust before availability.
+
+## CC-2. Held items (C-2): APPROVED WITH AN AMENDMENT, now implemented
+Items that need clarification, have an ambiguous person or subject, need a new person, or carry other high-risk uncertainty never become `memory_items` until the user resolves them. The **pending-review state is durable**:
+- It is not memory.
+- It keeps the proposed interpretation, the question and its options, and provenance.
+- It survives a restart, and reopening it never triggers a new model run.
+- It is cleared when the item is resolved, when the source capture is deleted or its text purged, or after 30 days.
+
+Implemented as `capture_reviews` (migration `20261004100000`). The answer-to-memory write and the client sheet are later work.
+
+## CC-3. Minimal roster (C-3): STRONGLY APPROVED
+The model sees only the people a note plausibly concerns:
+- people it names;
+- people reached through a named relative;
+- the page's person;
+- likely family references.
+
+For each, it sees only what resolution needs. No phone numbers, emails, postal addresses, full contact lists or unrelated dossiers are sent. Recall is never bought with broader context.
+
+## CC-4. Date policy (C-4): APPROVED WITH AN AMBIGUITY RULE
+Dates stay deterministic. The model identifies the date words and code resolves them from the capture's time and time zone.
+
+- **Clearly unambiguous** expressions resolve automatically: "October 19", "tomorrow", "Sunday, October 11".
+- **Plausibly ambiguous** expressions keep the preferred candidate date but always require confirmation, and keep the user's words (`date_hint`):
+  - "next/last <weekday>";
+  - "next weekend";
+  - "this weekend" said during a weekend;
+  - a bare weekday equal to today;
+  - a weekday that contradicts its date;
+  - day/month order.
+
+The model is never the final arbiter of date ambiguity.
+
+## CC-5. AI usage logging (C-5): APPROVED
+`ai_calls` stays content-free. It has no `user_id` and records no text, names, statements, identifying labels, prompts, outputs, or capture, person or memory ids. Operational metadata only. Per-user quota stays in `ai_usage`. Investigating a reported bad result uses the durable capture or item records, which already carry the model, prompt and extraction version.
+
+## CC-6. Delete-after-extraction (C-6): BEHAVIOUR APPROVED, PROMISE MUST BE TRUTHFUL
+Kinship may delete the full note once it is understood and reviewed, keeping only the excerpts that support provenance. User-facing copy must not imply that nothing is retained. The meaning to convey: "Delete full notes after understanding. Kinship keeps only the excerpts needed to show where remembered details came from." A stronger mode that also removes excerpts ("Original source deleted") is future work and not required for V1.
+
+## CC-7. Language scope
+Relationship understanding is initially optimized and evaluated for **English**. Kinship does not claim equivalent multilingual quality. Non-English notes may fail toward silence, which is acceptable. Incorrect memory is not acceptable. Each future language needs its own fixtures for relations, certainty, subject, sensitivity and dates.
+
+## CC-8. Oracle results are not model results
+The oracle eval proves fixture coherence, grader behaviour, the guards and shared production/eval code. It does not measure model accuracy, latency or cost, is never described as a model metric, and never justifies enabling `ai_extraction`.
