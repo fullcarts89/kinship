@@ -2,7 +2,7 @@
 
 [fullcarts89/kinship#13](https://github.com/fullcarts89/kinship/pull/13) (Checkpoint C: AI gateway and evaluation harness) against `main` at `e3df441`. Audited 4 Oct 2026, before merge, at the founder's request: GitHub showed more than 400,000 changed lines.
 
-**Recommendation: SAFE TO MERGE.**
+**Recommendation: SAFE TO MERGE.** Merged 4 Oct 2026 as `956c3d9`, with a merge commit.
 
 - **Where the size came from.** 97.7% of the 407,666 added lines were pretty-printed raw output from paid eval runs. That output was 8.8 MB, or 0.8 MB packed in git.
 - **The implementation itself** is about 7,100 lines: runtime, tests and eval tooling, of which about 5,700 are non-blank, non-comment.
@@ -328,6 +328,6 @@ None of the remaining 10,065 lines is raw eval output.
 | 7 | Deterministic suites pass | ✓ Deno 102, pgTAP 366, Jest 174, tsc, eslint 0 errors |
 | 8 | Plain and realistic oracles pass | ✓ 393/393, every metric |
 | 9 | Replay verification passes | ✓ the baseline replays to the live run's exact metrics and outcomes; now in CI |
-| 10 | CI green | Checked on the final head before merge (recorded in the C closeout) |
+| 10 | CI green | ✓ green on the final head `166a5cf` (push and PR), including the new baseline replay; Supabase Preview passed; post-merge CI on `main` green |
 | 11 | The three migrations reviewed and apply cleanly from scratch | ✓ (above) |
 | 12 | Production feature flag OFF | ✓ |

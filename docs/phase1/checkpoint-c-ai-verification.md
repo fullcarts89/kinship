@@ -1512,3 +1512,13 @@ After founder approval:
 | Production before merge | 19 migrations; schema fingerprint `da13bfe7…` = a fresh build of `main` |
 | Expected after merge | 22 migrations; fingerprint `a42f9989bca2a251771c452304063717` = a fresh build of the PR |
 | `ai_extraction` | OFF globally (default off, rollout 0%, no overrides). It stays OFF after the merge. |
+
+**Merged and deployed (4 Oct 2026).**
+
+- **Merge.** PR #13 merged at 16:21 UTC as merge commit `956c3d9`, after green CI on the final head `166a5cf` and a passing Supabase Preview check. Post-merge CI on `main` is green.
+- **Migrations.** The integration applied the three new migrations: production now has 22.
+- **Schema parity.** Production's fingerprint is `a42f9989bca2a251771c452304063717`, identical to a fresh build of the merged repository.
+- **Gateway deployment.** `ai-gateway` version 1 was deployed from `main` with JWT verification on. Every one of its 14 files is byte-identical to `main` (ezbr `6818d998…`).
+- **Probes.** No auth → 401; the public anon key → the handler's own 401; GET → 405.
+- **Flags.** `ai_extraction`, `tell` and `shell_v2` are all OFF for everyone.
+- **Advisors.** Only the accepted SECURITY DEFINER warnings, now including `close_capture_review`, and the intended no-policy `ai_calls`.

@@ -45,9 +45,15 @@ From plan §23, defined in `AnalyticsEvents`:
 |---|---|
 | `capture_started` | `source` (text/voice/share/screenshot/siri/widget/post_handoff/post_encounter/photo/onboarding) |
 | `capture_completed` | `source`, `chars_bucket` (0-50/51-200/201+), `offline` (boolean) |
-| `extraction_completed` | `items_n` (0–10), `tier` (auto/light/clarify), `latency_ms_bucket` (<1s/1-3s/3-10s/10s+), `model_id` (primary/fallback) |
-| `extraction_corrected` | `correction` (person/date/kind/relation/removed), `item_kind` (fact/plan/promise/moment/preference) |
-| `clarification_answered`, `clarification_dismissed` | `type` (person/date/kind) |
+| `capture_abandoned` | `chars_bucket` (0-50/51-200/201+): the user left Tell with words not kept |
+| `extraction_completed` | `items_n` (0–10), `tier` (auto/light/clarify/none), `latency_ms_bucket` (<1s/1-3s/3-10s/10s+), `model_id` (primary/fallback) |
+| `review_item_shown` | `tier` (auto: saved quietly / light: shown to look over), `item_kind` |
+| `review_item_accepted` | `tier` (auto/light), `item_kind`: confirmed with Done |
+| `review_item_rejected` | `tier` (auto/light, or later: outside a review), `item_kind`: "Not this" |
+| `extraction_corrected` | `correction` (person/date/kind/relation/statement), `item_kind`: a change to an extracted item |
+| `clarification_shown`, `clarification_answered`, `clarification_dismissed` | `type` (person/relation/new_person/date/keep): what the held question was about (keep: a sensitive or ambiguous-day reading waiting for "Remember"), never its words |
+| `review_left` | `how` (done/idle/dismissed), `question_waiting` (boolean) |
+| `review_reopened` | `question_waiting` (boolean) |
 | `undo_capture` | none |
 | `reason_surfaced` | `reason_type`, `surface` (today/push/brief), `score_bucket` (low/mid/high) |
 | `reason_dismissed` | `reason_type`, `mode` (not_now/not_helpful) |
@@ -62,9 +68,11 @@ From plan §23, defined in `AnalyticsEvents`:
 | `deletion_completed` | `scope` (item/capture/person/account) |
 | `consent_changed` | `scope` (ai_processing/analytics/notifications), `granted` (boolean) |
 
-`reason_type` is one of birthday/follow_up/promise/anniversary/check_in/season/other.
+`reason_type` is one of birthday/follow_up/promise/anniversary/check_in/season/other. `item_kind` is one of fact/event/promise/plan/thread/moment/milestone/tradition/context.
 
 Wired in 1.0 today: `consent_changed` (AI consent) and `deletion_completed` (account).
+
+Wired in the 2.0 shell (Checkpoint D1, internal only): `capture_started`, `capture_completed`, `capture_abandoned`, `extraction_completed`, the `review_*` and `clarification_*` events, `extraction_corrected`, `undo_capture`, and `deletion_completed` (`capture`). They fire from `src/store/understanding.ts` and the Tell screen; `src/store/__tests__/understanding.test.ts` checks that no event carries text, a name or an id.
 
 ## PostHog project configuration
 

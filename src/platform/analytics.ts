@@ -27,7 +27,25 @@ export type CharsBucket = "0-50" | "51-200" | "201+";
 export type LatencyBucket = "<1s" | "1-3s" | "3-10s" | "10s+";
 export type ScoreBucket = "low" | "mid" | "high";
 export type MinutesBucket = "<15" | "15-60" | "1-6h" | "6h+";
-export type ExtractionTier = "auto" | "light" | "clarify";
+export type ExtractionTier = "auto" | "light" | "clarify" | "none";
+/** The 2.0 memory kinds (plan §5). */
+export type MemoryKindName =
+  | "fact"
+  | "event"
+  | "promise"
+  | "plan"
+  | "thread"
+  | "moment"
+  | "milestone"
+  | "tradition"
+  | "context";
+/**
+ * How a saved item reached the user: saved quietly ("auto") or shown to look
+ * over ("light"); "later" is outside any review (e.g. a person's page).
+ */
+export type ReviewTier = "auto" | "light" | "later";
+/** What a held question was about. Coarse, never its words. */
+export type ClarificationType = "person" | "relation" | "new_person" | "date" | "keep";
 export type ReasonType =
   | "birthday"
   | "follow_up"
@@ -59,11 +77,18 @@ export interface AnalyticsEvents {
     model_id: "primary" | "fallback";
   };
   extraction_corrected: {
-    correction: "person" | "date" | "kind" | "relation" | "removed";
-    item_kind: "fact" | "plan" | "promise" | "moment" | "preference";
+    correction: "person" | "date" | "kind" | "relation" | "statement";
+    item_kind: MemoryKindName;
   };
-  clarification_answered: { type: "person" | "date" | "kind" };
-  clarification_dismissed: { type: "person" | "date" | "kind" };
+  clarification_shown: { type: ClarificationType };
+  clarification_answered: { type: ClarificationType };
+  clarification_dismissed: { type: ClarificationType };
+  review_item_shown: { tier: Exclude<ReviewTier, "later">; item_kind: MemoryKindName };
+  review_item_accepted: { tier: Exclude<ReviewTier, "later">; item_kind: MemoryKindName };
+  review_item_rejected: { tier: ReviewTier; item_kind: MemoryKindName };
+  review_left: { how: "done" | "idle" | "dismissed"; question_waiting: boolean };
+  review_reopened: { question_waiting: boolean };
+  capture_abandoned: { chars_bucket: CharsBucket };
   undo_capture: Record<string, never>;
   reason_surfaced: { reason_type: ReasonType; surface: "today" | "push" | "brief"; score_bucket: ScoreBucket };
   reason_dismissed: { reason_type: ReasonType; mode: "not_now" | "not_helpful" };

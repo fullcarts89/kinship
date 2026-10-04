@@ -12,10 +12,15 @@
 //          change: kept and surfaced, never dropped silently.
 // meta     owner user id (a file is only ever opened for its owner), schema
 //          version, last full sync.
+// understanding  one row per note the user told with AI on: where it is in
+//          Tell → understand → review (understanding.ts), the gateway's
+//          reading while the user looks at it, and an answer or a "done" that
+//          must still reach the server. A killed app or a lost reply resumes
+//          from here: nothing is asked of the model twice, no answer is lost.
 
 import type { SqlDb } from "./sql";
 
-export const LOCAL_SCHEMA_VERSION = 1;
+export const LOCAL_SCHEMA_VERSION = 2;
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS mirror (
@@ -63,6 +68,18 @@ CREATE TABLE IF NOT EXISTS conflicts (
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS understanding (
+  capture_id  TEXT PRIMARY KEY,
+  state       TEXT NOT NULL,
+  reading     TEXT,
+  answer      TEXT,
+  notice      TEXT,
+  attempts    INTEGER NOT NULL DEFAULT 0,
+  next_at     TEXT,
+  seen_at     TEXT,
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
 );
 `;
 
