@@ -336,6 +336,20 @@ describe("two Sams", () => {
     expect(serverItems(server)).toEqual([]);
   });
 
+  it("a question is never closed on the user's behalf, however long it waits", async () => {
+    const { gateway, d } = await world();
+    await twoSams(d);
+    gateway.script(SAM_NOTE, samScript);
+    const captureId = await tell(d, SAM_NOTE);
+    await d.understanding.run();
+    await d.understanding.opened(captureId);
+    await d.understanding.finish(captureId, "dismissed");
+    later(7 * 24 * 60 * 60_000);
+    await d.understanding.run();
+    expect((await d.understanding.get(captureId))?.state).toBe("review");
+    expect(gateway.calls).toEqual(["understand"]);
+  });
+
   it("leaving with the question unanswered keeps it waiting, quietly, to reopen", async () => {
     const { gateway, d } = await world();
     await twoSams(d);
@@ -401,6 +415,27 @@ describe("a light confirmation", () => {
     expect(server.table("captures").get(captureId)?.status).toBe("extracted");
     expect((await d.understanding.get(captureId))?.state).toBe("done");
     expect(events.filter(([e]) => e === "review_item_accepted")).toEqual([["review_item_accepted", { tier: "light", item_kind: "fact" }]]);
+  });
+
+  it("left open when the app was killed: finished as left after a while, so the server isn't kept waiting", async () => {
+    const { server, gateway, file, d: first } = await world();
+    let d = first;
+    const ana = await d.repos.people.add({ display_name: "Ana" });
+    await d.engine.sync();
+    gateway.script(note, anaScript(ana));
+    const captureId = await tell(d, note);
+    await d.understanding.run();
+    await d.understanding.opened(captureId);
+    d = await relaunch(d, server, gateway, file); // killed with the sheet open
+    await d.understanding.run();
+    expect((await d.understanding.get(captureId))?.state).toBe("review"); // too soon
+    later(11 * 60_000);
+    await d.understanding.run();
+    expect((await d.understanding.get(captureId))?.state).toBe("done");
+    expect(server.table("captures").get(captureId)?.status).toBe("extracted");
+    const [item] = await d.repos.memory.forPerson(ana.id);
+    expect(item.user_state).toBe("unreviewed"); // left as saved, not confirmed on the user's behalf
+    expect(events.filter(([e]) => e === "review_left")).toEqual([["review_left", { how: "idle", question_waiting: false }]]);
   });
 
   it("'Not this' retracts the item", async () => {

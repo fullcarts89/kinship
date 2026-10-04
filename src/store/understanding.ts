@@ -87,6 +87,8 @@ export interface UnderstandingOptions {
 }
 
 const BACKOFF = [15_000, 60_000, 180_000, 600_000, 1_800_000, 3_600_000];
+/** A review seen and then left open (the app went away) is finished as left after this long. */
+const LEFT_OPEN_MS = 10 * 60_000;
 const PERSON_FLAGS = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple"];
 
 export class Understanding {
@@ -326,6 +328,7 @@ export class Understanding {
       this.store.notify();
       return;
     }
+    await this.finishLeftOpen();
     let wrote = false;
     for (const row of await this.due()) {
       try {
@@ -363,6 +366,21 @@ export class Understanding {
       [now],
     );
     return rows.map(parseRow);
+  }
+
+  /**
+   * A review the user saw, with nothing asked, that never got its Done or
+   * dismissal (the app was killed with the sheet open): finished as left, so
+   * the server isn't kept waiting. Items stay as saved. A question never
+   * expires here: it waits for the user.
+   */
+  private async finishLeftOpen(): Promise<void> {
+    const cutoff = new Date(Date.parse(this.store.now()) - LEFT_OPEN_MS).toISOString();
+    for (const row of await this.open()) {
+      if (row.state !== "review" || !row.reading || !row.seen_at || row.seen_at > cutoff) continue;
+      if (this.onScreen.has(row.capture_id) || questionWaiting(row.reading)) continue;
+      await this.finish(row.capture_id, "idle");
+    }
   }
 
   // ─── Understanding a note ─────────────────────────────────────────────
