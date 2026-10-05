@@ -73,14 +73,15 @@ export function useReview(captureId: string | null): ReviewView | null {
     const row = await understanding.get(captureId);
     if (!row) return null;
     const capture = await repos.captures.get(captureId);
+    const people = await repos.people.list();
     return buildReview({
       row,
       capture: capture
         ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status }
         : null,
-      items: (await understanding.itemsFor(captureId, row.reading)).map(voiced),
+      items: (await understanding.itemsFor(captureId, row.reading)).map((m) => voiced(m, people)),
       missing: await understanding.arriving(row.reading),
-      people: await repos.people.list(),
+      people,
       related: await repos.people.related(),
       offline: understanding.offline,
       today: todayIso(),
@@ -202,7 +203,7 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
   const related = await repos.people.related();
   const items = (await repos.memory.forPerson(personId))
     .filter((m) => m.status === "active" || m.status === "resolved")
-    .map(voiced)
+    .map((m) => voiced(m, people))
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   const lines: RecordLine[] = [];
   const byItem = await repos.memory.sourcesByItem();
@@ -248,7 +249,7 @@ export async function noteFor(store: UserStore, captureId: string, now: Date): P
     if (!item || item.status === "retracted" || item.status === "superseded") continue;
     if (!items.some((i) => i.id === item.id)) {
       const p = people.find((x) => x.id === item.person_id);
-      items.push({ id: item.id, statement: voiced(item).statement, person: p?.display_name ?? "", personId: item.person_id });
+      items.push({ id: item.id, statement: voiced(item, people).statement, person: p?.display_name ?? "", personId: item.person_id });
     }
     if (typeof s.span_start === "number" && typeof s.span_end === "number") spans.push({ start: s.span_start, end: s.span_end });
     if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
@@ -316,7 +317,7 @@ export function useToday(
   const q = useStoreQuery(store, async (repos) => {
     const reasons = (await store.list("reasons")) as unknown as ReasonRow[];
     const people = await repos.people.list();
-    const items = ((await store.list("memory_items")) as MemoryItem[]).map(voiced)
+    const items = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people))
       .filter((m) => !misfiled(m, people));
     const told = (await repos.captures.list()).length;
     const local = await reasonLocal.read();
@@ -417,7 +418,7 @@ export function usePeopleRows(): PeopleRowData[] {
       .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
     const all = await repos.people.list();
     const newest = new Map<string, string>();
-    for (const m of items) if (!newest.has(m.person_id) && !misfiled(m, all)) newest.set(m.person_id, voiced(m).statement);
+    for (const m of items) if (!newest.has(m.person_id) && !misfiled(m, all)) newest.set(m.person_id, voiced(m, all).statement);
     return people
       .sort((a, b) => a.display_name.localeCompare(b.display_name))
       .map((p) => ({ person: p, label: personLabel(p, people), line: newest.get(p.id) ?? null }));
@@ -450,7 +451,7 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
   const byItem = await repos.memory.sourcesByItem();
   const people = await repos.people.list();
   for (const stored of await repos.memory.forPerson(person.id)) {
-    const item = voiced(stored);
+    const item = voiced(stored, people);
     // Plainly about someone else: not on this portrait (it stays in What Kinship knows).
     if (misfiledOn(item, person, people)) continue;
     const sources = byItem.get(item.id) ?? [];
@@ -495,8 +496,8 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
     if (!itemId) return null;
     const stored = (await store.get("memory_items", itemId)) as MemoryItem | null;
     if (!stored || !liveItem(stored)) return null;
-    const item = voiced(stored);
     const people = await repos.people.list();
+    const item = voiced(stored, people);
     const related = await repos.people.related();
     const sources = await repos.memory.sourcesFor(item.id);
     const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)

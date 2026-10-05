@@ -9,6 +9,15 @@
 // can't rewrite with certainty (silence beats a wrong detail); screens use the
 // best-effort text for anything already stored, so the phrase is never shown.
 //
+// Stabilization Gate B: the model is now asked to write "you" itself (prompt
+// v6), so this is a defensive guard, and a wide one: "Writer told Michelle…"
+// (no "the", capitalised) is the internal reference too, and so is a "their"
+// or "they'd" that points back at the user ("you and their daughter Kaiya" →
+// "you and your daughter Kaiya"). Two more renderings live here because both
+// sides need them: a pronoun the user has just resolved becomes the person's
+// name ("He wants to go back" → "John wants to go back"), and a promise reads
+// as the user's own to-do ("Send Michelle that restaurant").
+//
 // Shared by the gateway (Deno) and the app: plain TypeScript, no imports.
 
 /** The phrases that mean the note's author. */
@@ -22,9 +31,39 @@ export interface Voiced {
   changed: boolean;
 }
 
-/** Whether a statement still refers to the user as "the writer" (or "the user"). */
+/** The internal words for the author, as they may appear bare ("Writer told…"). */
+const BARE = String.raw`(?:writer|user|author|narrator)`;
+/** Words that make a bare "writer" someone's job, not the note's author ("a writer", "his favourite author"). */
+const DETERMINERS = new Set(["a", "an", "the", "my", "your", "his", "her", "their", "our", "its", "this", "that", "every", "each", "any",
+  "favourite", "favorite", "famous", "great", "good", "best", "new", "old", "former", "fellow", "technical", "freelance", "staff",
+  "travel", "food", "sports", "fiction", "children's", "children’s", "ghost", "song", "script", "screen", "copy", "tech", "power", "heavy",
+  "first", "real", "is", "was", "as", "be", "been", "being", "become", "became", "becoming", "professional", "published", "aspiring"]);
+
+/**
+ * "Writer told Michelle…", "and writer", "Author's sister": the internal
+ * reference without "the". Normalised to "the writer" so the rules below
+ * apply. A bare word after a determiner or an adjective is left alone ("Ben
+ * is a writer", "her favourite author").
+ */
+function normaliseBare(statement: string): string {
+  const re = new RegExp(String.raw`(^|[^\p{L}'’])(${BARE})(?=['’]s\b|[^\p{L}'’]|$)`, "giu");
+  return statement.replace(re, (m: string, lead: string, word: string, offset: number, whole: string) => {
+    const before = whole.slice(0, offset + lead.length).trimEnd();
+    const prev = (before.match(/([\p{L}'’]+)$/u)?.[1] ?? "").toLocaleLowerCase();
+    if (prev && (DETERMINERS.has(prev) || prev === "note's" || prev === "note’s")) return m;
+    const capitalised = /^\p{Lu}/u.test(word);
+    const sentenceStart = before === "" || /[.!?:;]$/u.test(before);
+    // Lower case mid-sentence ("asked writer to…") only after the words that take a person.
+    if (!capitalised && !sentenceStart && !/^(and|with|to|for|told|asked|tell|ask|reminded|promised|gave|sent|invited|called|texted|met)$/u.test(prev)) {
+      return m;
+    }
+    return `${lead}${sentenceStart ? "The" : "the"} writer`;
+  });
+}
+
+/** Whether a statement still refers to the user as "the writer" (or "the user", or a bare "Writer"). */
 export function mentionsInternalSelf(statement: string): boolean {
-  return SELF_RE.test(statement);
+  return SELF_RE.test(statement) || normaliseBare(statement) !== statement;
 }
 
 const AUX: Record<string, string> = {
@@ -65,9 +104,15 @@ function capital(s: string): string {
  * into "you" / "your", fixing the verb that follows when it is the subject.
  */
 export function yourVoice(statement: string): Voiced {
-  if (!mentionsInternalSelf(statement)) return { text: statement, certain: true, changed: false };
+  if (!mentionsInternalSelf(statement)) {
+    // Already "you", from before this guard knew about "their" (stored rows):
+    // "You and their daughter Kaiya", "You told Michelle they'd send her…".
+    const repaired = repairStoredYou(statement);
+    return { text: repaired, certain: true, changed: repaired !== statement };
+  }
   let certain = true;
-  let text = statement;
+  let text = normaliseBare(statement);
+  const plural = hasOtherPlural(text);
 
   // Reflexive: "the writer themself" → "yourself".
   text = text.replace(new RegExp(String.raw`\b${SELF}\s+(?:themselves|themself|himself|herself)\b`, "giu"), "yourself");
@@ -109,12 +154,58 @@ export function yourVoice(statement: string): Voiced {
       return base ? `${you}${s1}${adv}${s2}${base}` : m;
     });
 
+  // A "their", "they'd" or "them" that points back at the user is "you" too:
+  // the model calls the author "they" ("Writer told Michelle they'd send her
+  // that restaurant", "the writer and their daughter Kaiya"). Only when no one
+  // else in the statement could be "they"; otherwise it's left, and not
+  // certain.
+  if (/\b(they|their|theirs|them|themselves|themself)\b|\bthey['’](d|ll|re|ve)\b/iu.test(text)) {
+    if (plural) certain = false;
+    else text = theyToYou(text);
+  }
+
   // "Ben and you booked…" reads as "You and Ben booked…".
   text = text.replace(/^([\p{Lu}][\p{L}\p{M}'’-]*(?:\s+[\p{Lu}][\p{L}\p{M}'’-]*)?)\s+and\s+you\b/u, "You and $1");
   // Sentence starts are capitalised: "you and Ben are…" → "You and Ben are…".
   text = text.replace(/(^|[.!?]\s+)(you|your|yourself|yours)\b/gu, (_m, lead: string, w: string) => lead + capital(w));
   if (mentionsInternalSelf(text)) certain = false;
   return { text, certain, changed: true };
+}
+
+/**
+ * Someone else in the statement who could be "they": two other people joined
+ * ("Ben and Sara"), or a plural group ("the kids", "her parents"). The user
+ * with someone ("the writer and Ben") isn't: "their" there is "your".
+ */
+function hasOtherPlural(text: string): boolean {
+  const noSelf = text.replace(new RegExp(String.raw`\b${SELF}\b(?:\s+and\s+[\p{L}'’]+)?|\b[\p{L}'’]+\s+and\s+${SELF}\b`, "giu"), "SELF");
+  if (/\b\p{Lu}[\p{L}'’-]*\s+(?:and|&)\s+\p{Lu}[\p{L}'’-]*/u.test(noSelf.replace(/^SELF\b/u, ""))) return true;
+  return /\b(kids|children|parents|family|friends|folks|guys|team|couple|twins|everyone|people|both|siblings|brothers|sisters|grandparents|neighbou?rs|boys|girls|cousins|in-laws|roommates|coworkers|colleagues)\b/iu.test(noSelf);
+}
+
+/**
+ * Lines already turned into "you" that kept the model's "they" for the user.
+ * Only the shapes where "they" can be no one else: "you and their …" and
+ * "you told/promised Michelle they'd …".
+ */
+function repairStoredYou(text: string): string {
+  if (!/\byou\b/iu.test(text) || !/\bthe(y|ir)\b|\bthey['’]/iu.test(text)) return text;
+  return text
+    .replace(/\b(you|You)(\s+and\s+)their\b/gu, "$1$2your")
+    .replace(/\b(you|You)(\s+(?:told|promised|assured|said to)\s+\p{Lu}[\p{L}\p{M}'’-]*\s+(?:that\s+)?)they(['’]d|['’]ll|\s+would|\s+will)\b/gu, "$1$2you$3");
+}
+
+/** "they'd" → "you'd", "their" → "your", "them" → "you", "they are" → "you are". */
+function theyToYou(text: string): string {
+  const keepCase = (orig: string, rep: string) => (/^\p{Lu}/u.test(orig) ? capital(rep) : rep);
+  return text
+    .replace(/\bthey(['’])(d|ll|re|ve)\b/giu, (m: string, q: string, tail: string) => keepCase(m, `you${q}${tail}`))
+    .replace(/\bthemsel(?:f|ves)\b/giu, (m: string) => keepCase(m, "yourself"))
+    .replace(/\btheirs\b/giu, (m: string) => keepCase(m, "yours"))
+    .replace(/\btheir\b/giu, (m: string) => keepCase(m, "your"))
+    .replace(/\bthem\b/giu, (m: string) => keepCase(m, "you"))
+    .replace(/\bthey(\s+)(is|was|has|does)\b/giu, (m: string, sp: string, v: string) => keepCase(m, `you${sp}${AUX[v.toLowerCase()] ?? v}`))
+    .replace(/\bthey\b/giu, (m: string) => keepCase(m, "you"));
 }
 
 /** What a screen shows: the second-person text, never the internal reference. */
@@ -180,4 +271,46 @@ export function aboutSomeoneElse<P extends { names: string[] }>(statement: strin
     return nk === k || nk.split(/\s+/u)[0] === first;
   }));
   return match.length === 1 ? match[0] : null;
+}
+
+// ─── After the user said who ────────────────────────────────────────────────
+
+/**
+ * "He wants to go back to Tahoe in December", once the user said "he" is John:
+ * "John wants to go back to Tahoe in December". A leading he / she / his / her
+ * becomes the name; anything else is left as it is.
+ */
+export function withResolvedName(statement: string, name: string): string {
+  const first = name.trim().split(/\s+/u)[0];
+  if (!first) return statement;
+  return statement
+    .replace(/^(He|She)(\s)/u, `${first}$2`)
+    .replace(/^(He|She)['’]s(\s)/u, `${first}'s$2`)
+    .replace(/^(His|Her)(\s)/u, `${first}'s$2`);
+}
+
+// ─── The user's own promises ────────────────────────────────────────────────
+
+/**
+ * A promise the user made, read as their own to-do (Gate B): "You told
+ * Michelle you'd send her that restaurant" → "Send Michelle that restaurant";
+ * "You said you'd introduce Matt to Alex" → "Introduce Matt to Alex". Only
+ * when the words allow it; anything else is left as it is.
+ */
+export function promiseLine(statement: string): string {
+  const s = statement.trim().replace(/[.]$/u, "");
+  const told = s.match(/^You\s+(?:told|promised|assured)\s+(\p{Lu}[\p{L}\p{M}'’-]*(?:\s+\p{Lu}[\p{L}\p{M}'’-]*)?)\s+(?:that\s+)?you(?:['’]d|['’]ll|\s+would|\s+will)\s+(.+)$/u);
+  if (told) {
+    const [, who, rest] = told;
+    // "send her that restaurant": the pronoun is the person told.
+    const named = rest.replace(/^(\S+)\s+(her|him|them)\b/u, `$1 ${who}`);
+    if (named !== rest) return capital(named);
+    if (new RegExp(`\\b${who.split(/\s+/u)[0]}\\b`, "u").test(rest)) return capital(rest);
+    return statement;
+  }
+  const said = s.match(/^You\s+(?:said|promised|offered)\s+(?:that\s+)?(?:you(?:['’]d|['’]ll|\s+would|\s+will)|to)\s+(.+)$/u);
+  if (said) return capital(said[1]);
+  const will = s.match(/^You(?:['’]ll|\s+will|\s+need\s+to|\s+have\s+to|\s+should|['’]re\s+going\s+to|\s+are\s+going\s+to)\s+(.+)$/u);
+  if (will) return capital(will[1]);
+  return statement;
 }

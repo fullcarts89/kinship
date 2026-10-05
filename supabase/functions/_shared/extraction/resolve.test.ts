@@ -169,3 +169,18 @@ Deno.test("an ambiguous day: the user's yes keeps it, or they pick the right day
   eq([moved.items[0].detail.date, moved.items[0].detail.date_precision], ["2026-10-18", "day"]);
   eq(resolveHeld([held], [{ index: 0, accept: true, date: "Sunday" }], ctx({ note })), { fail: "bad_date" });
 });
+
+Deno.test("Gate B: once the user says who \"he\" is, the line names him", () => {
+  const note = "Ben and John went to Tahoe. He wants to go back in December.";
+  const he: HeldItem = {
+    ...samHeld, kind: "plan", statement: "He wants to go back to Tahoe in December", detail: { firmness: "idea" },
+    flags: ["pronoun_multiple"], spans: [{ start: 28, end: 59, quote: "He wants to go back in December" }],
+  };
+  const people = [
+    { id: "ben", display_name: "Ben Oxnard", state: "active" },
+    { id: "john", display_name: "John Oxnard", state: "active" },
+  ];
+  const r = resolveHeld([he], [{ index: 0, person_id: "john" }], ctx({ note, people }));
+  if ("fail" in r) throw new Error(r.fail);
+  eq(r.items[0].statement, "John wants to go back to Tahoe in December");
+});

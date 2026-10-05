@@ -164,7 +164,7 @@ export function buildReview(input: ReviewInput): ReviewView {
   const lines = input.items.map((item) => itemLine(item, input));
   const answering = row.state === "answering";
   // Held statements are read the way the user reads everything: as "you".
-  const held = reading.held.map(voiced);
+  const held = reading.held.map((h) => voiced(h));
   const questions = questionWaiting(reading) && !answering ? questionsFor(held, input) : [];
   const heading = headingFor(input, lines);
   const personIds = [...new Set([

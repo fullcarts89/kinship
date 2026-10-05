@@ -20,6 +20,7 @@
 // the answer changes only who or when, never the words.
 
 import { fold, kinshipReference, relationKey, wordsOf } from "./lexicon.ts";
+import { withResolvedName } from "./voice.ts";
 import type { Flag } from "./types.ts";
 
 /** A held item as stored in capture_reviews (the gateway's presentation of a PlannedItem). */
@@ -243,12 +244,21 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       if (twin) action = { type: "merge", target_id: twin.id };
     }
 
+    // The user just said who "he" is: the line says so ("John wants to go
+    // back…"), never a "He" the page can't explain (Gate B).
+    const chosenName = needsPerson
+      ? (personId.startsWith("new:")
+        ? newPeople.find((p) => p.ref === personId)?.display_name
+        : ctx.people.find((p) => p.id === personId)?.display_name)
+      : null;
+    const statement = chosenName && subjectType !== "related" ? withResolvedName(item.statement, chosenName) : item.statement;
+
     items.push({
       kind: item.kind,
       person_id: personId,
       subject_type: subjectType,
       related: subjectType === "related" ? related : null,
-      statement: item.statement,
+      statement,
       detail,
       certainty: item.certainty,
       sensitivity: item.sensitivity,

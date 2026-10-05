@@ -17,7 +17,7 @@
 //             wrote or edited; a hedged item never replaces a firm one
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
-import { leadingName, statementNames, yourVoice } from "./voice.ts";
+import { leadingName, statementNames, withResolvedName, yourVoice } from "./voice.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
   capCertainty,
@@ -354,7 +354,11 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
       new_person_name: who.new_person_name,
       subject_type: subject,
       related,
-      statement: said,
+      // A leading "He"/"She" the pipeline is sure about names the person (Gate B);
+      // one still in question keeps it until the user answers (resolve.ts).
+      statement: who.person_key && subject !== "related" && !flags.has("pronoun_multiple") && !flags.has("person_ambiguous")
+        ? withResolvedName(said, ctx.byKey.get(who.person_key)?.display_name ?? "")
+        : said,
       detail: detail.detail,
       certainty,
       sensitivity,
