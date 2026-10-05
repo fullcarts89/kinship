@@ -4,9 +4,8 @@
 // can see and the way to change it (founder native pass F8: it used to be a
 // sentence with nothing to do); and signing out.
 import React, { useCallback, useEffect, useState } from "react";
-import { AppState } from "react-native";
 import { contactsAccess, openAppSettings, requestContactsAccess, shareMoreContacts, type ContactsAccess } from "@/platform/deviceContacts";
-import { Alert, Switch, View } from "react-native";
+import { Alert, AppState, Switch, View } from "react-native";
 import { space } from "@/design/tokens";
 import { CONSENT_COPY } from "@/features/tell/ConsentSheet";
 import { Body, Label, Pill, Sheet, Small, Title, usePalette } from "@/ui";

@@ -51,7 +51,6 @@ export function ConsentSheetView({ visible, busy, onAllow, onDecline }: {
   onAllow: () => void;
   onDecline: () => void;
 }) {
-  const p = usePalette();
   return (
     <Sheet
       visible={visible}
