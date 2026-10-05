@@ -140,8 +140,9 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
     .filter((m) => m.status === "active" || m.status === "resolved")
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   const lines: RecordLine[] = [];
+  const byItem = await repos.memory.sourcesByItem();
   for (const item of items) {
-    const sources = await repos.memory.sourcesFor(item.id);
+    const sources = byItem.get(item.id) ?? [];
     const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
@@ -250,8 +251,9 @@ export function useToday(questions: number, toLookAt: number, now: Date): TodayV
     // Provenance only for what a reason cites (the moment's line).
     const cited = new Set(reasons.map(evidenceOf).filter((x): x is string => !!x));
     const prov = new Map<string, { line: string; noteId: string | null }>();
+    const byItem = await repos.memory.sourcesByItem();
     for (const id of cited) {
-      const sources = await repos.memory.sourcesFor(id);
+      const sources = byItem.get(id) ?? [];
       const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
         .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
       prov.set(id, {
@@ -365,8 +367,9 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
   const today = todayIso(now);
   if (!person) return buildPortrait({ person: null, items: [], today });
   const items: PortraitItem[] = [];
+  const byItem = await repos.memory.sourcesByItem();
   for (const item of await repos.memory.forPerson(person.id)) {
-    const sources = await repos.memory.sourcesFor(item.id);
+    const sources = byItem.get(item.id) ?? [];
     const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     items.push({

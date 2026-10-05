@@ -20,7 +20,8 @@ export const CONSENT_COPY = {
 
 export function ConsentSheetView({ visible, busy, onAllow, onDecline }: {
   visible: boolean;
-  busy: boolean;
+  /** The choice being saved (its button shows it's working), or false. */
+  busy: false | "allow" | "decline";
   onAllow: () => void;
   onDecline: () => void;
 }) {
@@ -32,8 +33,8 @@ export function ConsentSheetView({ visible, busy, onAllow, onDecline }: {
       label={CONSENT_COPY.title}
       footer={
         <View style={{ gap: space.s }}>
-          <Pill variant="primary" label={CONSENT_COPY.allow} disabled={busy} onPress={onAllow} />
-          <Pill variant="quiet" label={CONSENT_COPY.notNow} disabled={busy} onPress={onDecline} />
+          <Pill variant="primary" label={CONSENT_COPY.allow} busy={busy === "allow"} disabled={!!busy} onPress={onAllow} />
+          <Pill variant="quiet" label={CONSENT_COPY.notNow} busy={busy === "decline"} disabled={!!busy} onPress={onDecline} />
         </View>
       }
     >
@@ -50,10 +51,10 @@ export function ConsentSheetView({ visible, busy, onAllow, onDecline }: {
 
 export function ConsentSheet() {
   const { ask, answer } = useConsentAsk();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | "allow" | "decline">(false);
   const [closed, setClosed] = useState(false);
   const go = async (allow: boolean) => {
-    setBusy(true);
+    setBusy(allow ? "allow" : "decline");
     try {
       await answer(allow);
       setClosed(true);

@@ -5,9 +5,12 @@
 //   danger    brick text in a faint outline, for destructive actions
 // At least 44 pt to touch; the label is never cut off (it shrinks a little as
 // a last resort, the canvas's button-wrap fix).
+//
+// Busy: the button keeps its look and size and shows a small spinner in
+// place of its label, so waiting reads as "working", never as "disabled".
 import React from "react";
-import { Pressable, Text, View, type ViewStyle } from "react-native";
-import { height as H, maxScale, radius, size as SIZE, space, TOUCH, type } from "@/design/tokens";
+import { ActivityIndicator, Pressable, Text, View, type ViewStyle } from "react-native";
+import { height as H, maxScale, press, radius, size as SIZE, space, TOUCH, type } from "@/design/tokens";
 import { usePalette } from "./theme";
 
 export type PillVariant = "primary" | "ghost" | "quiet" | "danger";
@@ -19,6 +22,7 @@ export function Pill({
   size = "regular",
   icon,
   disabled = false,
+  busy = false,
   accessibilityLabel,
   accessibilityHint,
   style,
@@ -31,6 +35,8 @@ export function Pill({
   /** A Lucide icon, drawn at 1.8 stroke in the label's colour. */
   icon?: (props: { color: string; size: number; strokeWidth: number }) => React.ReactNode;
   disabled?: boolean;
+  /** Working on it: a spinner replaces the label; the button can't be pressed again. */
+  busy?: boolean;
   accessibilityLabel?: string;
   accessibilityHint?: string;
   /** Layout only (flex, alignSelf). */
@@ -44,11 +50,11 @@ export function Pill({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: disabled || busy, busy }}
+      disabled={disabled || busy}
       onPress={onPress}
       hitSlop={variant === "quiet" ? space.s : space.xs}
-      style={({ pressed }) => [{ opacity: disabled ? 0.4 : pressed ? 0.72 : 1 }, style]}
+      style={({ pressed }) => [{ opacity: disabled ? press.disabled : pressed ? press.surface : 1 }, style]}
     >
       <View
         style={{
@@ -64,13 +70,18 @@ export function Pill({
           borderColor: variant === "danger" ? p.hairline : p.rule,
         }}
       >
-        {icon ? icon({ color: fg, size: SIZE.icon, strokeWidth: 1.8 }) : null}
+        {busy ? (
+          <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+            <ActivityIndicator color={fg} />
+          </View>
+        ) : null}
+        {icon && !busy ? icon({ color: fg, size: SIZE.icon, strokeWidth: 1.8 }) : null}
         <Text
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.8}
           maxFontSizeMultiplier={maxScale.label}
-          style={[type.button, { color: fg }]}
+          style={[type.button, { color: fg, opacity: busy ? 0 : 1 }]}
         >
           {label}
         </Text>

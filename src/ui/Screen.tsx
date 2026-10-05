@@ -5,7 +5,7 @@ import React from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { ChevronLeft } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { GUTTER, size, space, TOUCH } from "@/design/tokens";
+import { GUTTER, press, size, space, TOUCH } from "@/design/tokens";
 import { usePalette } from "./theme";
 
 export function Screen({
@@ -57,7 +57,7 @@ export function BackButton({ onPress }: { onPress: () => void }) {
       accessibilityLabel="Back"
       onPress={onPress}
       hitSlop={space.s}
-      style={({ pressed }) => ({ width: TOUCH, height: TOUCH, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+      style={({ pressed }) => ({ width: TOUCH, height: TOUCH, alignItems: "center", justifyContent: "center", opacity: pressed ? press.link : 1 })}
     >
       <ChevronLeft color={p.ink} size={size.iconLarge} strokeWidth={1.8} />
     </Pressable>
@@ -87,7 +87,7 @@ export function IconButton({
       hitSlop={Math.max(0, (TOUCH - diameter) / 2)}
       style={({ pressed }) => ({
         width: diameter, height: diameter, borderRadius: diameter / 2, alignItems: "center", justifyContent: "center",
-        backgroundColor: filled ? p.ink : "transparent", opacity: pressed ? 0.72 : 1,
+        backgroundColor: filled ? p.ink : "transparent", opacity: pressed ? press.surface : 1,
       })}
     >
       {children}

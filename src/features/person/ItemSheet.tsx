@@ -4,7 +4,7 @@
 // picker in the same sheet; a change saves at once.
 import React, { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
-import { space } from "@/design/tokens";
+import { press, space } from "@/design/tokens";
 import type { Correction } from "@/features/tell/ReviewSheet";
 import { DatePane, KindPane, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
@@ -54,6 +54,7 @@ export function ItemSheet(props: ItemSheetProps) {
             accessibilityLabel={line.statement}
             accessibilityHint="Double-tap to change the words"
             onPress={() => setPane("words")}
+            style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
           >
             <MomentText>{line.statement}</MomentText>
           </Pressable>

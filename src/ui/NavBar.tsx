@@ -2,7 +2,7 @@
 // only, the current one in ink with a hairline under it.
 import React from "react";
 import { Pressable, Text, View } from "react-native";
-import { height, maxScale, space, stroke, TOUCH, type } from "@/design/tokens";
+import { height, maxScale, press, space, stroke, TOUCH, type } from "@/design/tokens";
 import { usePalette } from "./theme";
 
 export type NavKey = "today" | "people";
@@ -18,7 +18,7 @@ export function NavBar({ current, onGo }: { current: NavKey; onGo: (to: NavKey) 
         accessibilityLabel={label}
         accessibilityState={{ selected: on }}
         onPress={() => !on && onGo(key)}
-        style={{ minHeight: TOUCH, minWidth: TOUCH + space.l, alignItems: "center", paddingTop: space.m }}
+        style={({ pressed }) => ({ minHeight: TOUCH, minWidth: TOUCH + space.l, alignItems: "center", paddingTop: space.m, opacity: pressed ? press.link : 1 })}
       >
         <View style={{ borderBottomWidth: on ? stroke.underline : 0, borderBottomColor: p.ink, paddingBottom: space.xs - 1 }}>
           <Text maxFontSizeMultiplier={maxScale.label} style={[type.nav, { color: on ? p.ink : p.inkQuiet }]}>{label}</Text>

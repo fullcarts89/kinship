@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ConsentSheet } from "@/features/tell/ConsentSheet";
 import { TellDock } from "@/features/tell/TellDock";
 import { useSetupGate } from "@/hooks/useV2";
-import { usePalette } from "@/ui";
+import { usePalette, Waiting } from "@/ui";
 import { useKeyboardLift } from "@/ui/useKeyboardLift";
 
 export default function MainLayout() {
@@ -16,7 +16,7 @@ export default function MainLayout() {
   const lift = useKeyboardLift();
   // A new account sets up first; it never lands on an empty Today (contract §8).
   const gate = useSetupGate();
-  if (gate === "checking") return <View style={{ flex: 1, backgroundColor: p.paper }} />;
+  if (gate === "checking") return <Waiting />;
   if (gate === "needed") return <Redirect href="/v2/setup" />;
   return (
     <>

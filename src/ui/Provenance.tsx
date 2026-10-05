@@ -2,7 +2,7 @@
 // and System). A small ochre dot and a quiet line; one tap opens the source.
 import React from "react";
 import { Pressable, View } from "react-native";
-import { size, space } from "@/design/tokens";
+import { press, size, space } from "@/design/tokens";
 import { Small } from "./Text";
 import { usePalette } from "./theme";
 
@@ -22,7 +22,7 @@ export function Provenance({ line, onPress, dot = true }: { line: string; onPres
       accessibilityHint="Opens where this came from"
       onPress={onPress}
       hitSlop={{ top: space.s, bottom: space.s, left: 0, right: space.l }}
-      style={({ pressed }) => ({ alignSelf: "flex-start", opacity: pressed ? 0.6 : 1 })}
+      style={({ pressed }) => ({ alignSelf: "flex-start", opacity: pressed ? press.link : 1 })}
     >
       {content}
     </Pressable>

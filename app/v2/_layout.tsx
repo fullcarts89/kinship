@@ -3,7 +3,7 @@
 // it goes back to 1.0. Everything inside runs on the user's encrypted store,
 // follows the system's light or night appearance, and shares one Tell flow.
 import React, { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
 import { Redirect, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GUTTER } from "@/design/tokens";
@@ -11,7 +11,7 @@ import { TellFlowProvider } from "@/features/tell/TellFlow";
 import { useLaunchShell } from "@/hooks/useFlags";
 import { useAuth } from "@/providers";
 import { V2SessionProvider } from "@/providers/V2SessionProvider";
-import { Body, useNight, usePalette } from "@/ui";
+import { Body, useNight, usePalette, Waiting } from "@/ui";
 import { followSystemAppearance } from "@/ui/appearance";
 
 export default function V2Layout() {
@@ -35,12 +35,16 @@ export default function V2Layout() {
   );
   return (
     <V2SessionProvider
-      opening={centered(<ActivityIndicator color={p.inkQuiet} />)}
+      opening={<Waiting />}
       unavailable={centered(<Body>{"Kinship couldn't open its secure storage on this device."}</Body>)}
     >
       <StatusBar style={night ? "light" : "dark"} />
       <TellFlowProvider>
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: p.paper } }} />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: p.paper } }}>
+          {/* Setup → Today, and the first open: a fade. A person, a source, add from contacts: the native push (swipe back works). */}
+          <Stack.Screen name="(main)" options={{ animation: "fade" }} />
+          <Stack.Screen name="setup" options={{ animation: "fade" }} />
+        </Stack>
       </TellFlowProvider>
     </V2SessionProvider>
   );

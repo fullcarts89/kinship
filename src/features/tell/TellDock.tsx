@@ -3,7 +3,7 @@
 // ("Kept: …" with Undo), or that it waits to be online.
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
-import { space, TOUCH } from "@/design/tokens";
+import { press, space, TOUCH } from "@/design/tokens";
 import { NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
 import { trackAbandoned, trackStarted, useTellFlow } from "./TellFlow";
@@ -26,7 +26,7 @@ export function KeptLine({
         accessibilityLiveRegion="polite"
         disabled={!onOpen}
         onPress={onOpen}
-        style={{ flex: 1 }}
+        style={({ pressed }) => ({ flex: 1, opacity: pressed ? press.surface : 1 })}
       >
         <Small tone="inkBody" numberOfLines={2}>{text}</Small>
       </Pressable>

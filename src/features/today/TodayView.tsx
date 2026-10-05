@@ -24,6 +24,12 @@ export interface TodayViewProps {
   onTellFirst?: () => void;
   /** First use with no one here: bring people in. */
   onAddPeople?: () => void;
+  /**
+   * Today's reasons are still being refreshed (at most 1.5 s after opening):
+   * hold the empty states, so "Nothing needs you today" never flashes before
+   * a moment arrives.
+   */
+  settling?: boolean;
   footer?: React.ReactNode;
 }
 
@@ -85,7 +91,7 @@ export function TodayView(props: TodayViewProps) {
             }
           />
         </View>
-      ) : view.firstUse && !props.afterReturn ? (
+      ) : props.settling ? null : view.firstUse && !props.afterReturn ? (
         <View style={{ marginTop: space.x4 }}>
           <Display>{FIRST_USE_COPY.title}</Display>
           <Body style={{ marginTop: space.m }}>{view.firstUse.hasPeople ? FIRST_USE_COPY.withPeople : FIRST_USE_COPY.noPeople}</Body>

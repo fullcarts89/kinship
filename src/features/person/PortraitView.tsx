@@ -6,7 +6,7 @@
 import React from "react";
 import { Pressable, View } from "react-native";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
-import { GUTTER, height, radius, size, space } from "@/design/tokens";
+import { GUTTER, height, press, radius, size, space } from "@/design/tokens";
 import { Body, IconButton, Label, Line, Name, Pill, Provenance, Screen, Small, Sprig, usePalette } from "@/ui";
 
 export interface PortraitLineData {
@@ -68,7 +68,7 @@ function Section({ title, lines, ochre, onLine, onSource }: {
               accessibilityLabel={withWhen(l)}
               accessibilityHint="Double-tap to correct it"
               onPress={() => onLine(l.itemId)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
+              style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
             >
               <Line>{withWhen(l)}</Line>
             </Pressable>
@@ -149,7 +149,7 @@ export function PortraitView(props: PortraitViewProps) {
           accessibilityRole="link"
           onPress={props.onKnows}
           style={({ pressed }) => ({
-            marginTop: space.x3, paddingTop: space.m, borderTopWidth: 1, borderTopColor: p.hairline, opacity: pressed ? 0.6 : 1,
+            marginTop: space.x3, paddingTop: space.m, borderTopWidth: 1, borderTopColor: p.hairline, opacity: pressed ? press.link : 1,
             minHeight: height.small, justifyContent: "center",
           })}
         >

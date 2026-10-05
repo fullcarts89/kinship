@@ -37,7 +37,7 @@ export function AddByNameSheet({
       visible={initial !== null}
       onDismiss={onDismiss}
       label="Add someone"
-      footer={<Pill variant="primary" label="Done" disabled={!name.trim() || busy} onPress={() => void done()} />}
+      footer={<Pill variant="primary" label="Done" busy={busy} disabled={!name.trim()} onPress={() => void done()} />}
     >
       <Title>Add someone</Title>
       <TextInput

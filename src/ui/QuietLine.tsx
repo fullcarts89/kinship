@@ -3,7 +3,7 @@
 // or urgency.
 import React from "react";
 import { Pressable, View } from "react-native";
-import { space, TOUCH } from "@/design/tokens";
+import { press, space, TOUCH } from "@/design/tokens";
 import { Label, Line, Small } from "./Text";
 
 export function QuietLine({
@@ -32,7 +32,7 @@ export function QuietLine({
           accessibilityRole="button"
           accessibilityLabel={`${label}: ${text}`}
           onPress={onPress}
-          style={({ pressed }) => ({ flex: 1, opacity: pressed ? 0.72 : 1 })}
+          style={({ pressed }) => ({ flex: 1, opacity: pressed ? press.surface : 1 })}
         >
           {body}
         </Pressable>
@@ -45,7 +45,7 @@ export function QuietLine({
           accessibilityLabel={action.label}
           onPress={action.onPress}
           hitSlop={space.s}
-          style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+          style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.link : 1 })}
         >
           <Small>{action.label}</Small>
         </Pressable>

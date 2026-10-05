@@ -3,7 +3,7 @@
 // tokens, where it came from, and "Not this". From plain data.
 import React from "react";
 import { Pressable, View } from "react-native";
-import { space } from "@/design/tokens";
+import { press, space } from "@/design/tokens";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { ConflictChoice } from "@/store/conflictCopy";
 import { Body, Line, Pill, Provenance, Screen, Small, Title, Token, TokenRow, usePalette } from "@/ui";
@@ -54,6 +54,7 @@ export function PersonRecordView(props: PersonRecordViewProps) {
               accessibilityLabel={r.line.statement}
               accessibilityHint="Double-tap to change the words"
               onPress={() => props.onChange(r.line, "words")}
+              style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
             >
               <Line>{r.line.statement}</Line>
             </Pressable>

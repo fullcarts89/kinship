@@ -7,7 +7,11 @@ import { router, useFocusEffect } from "expo-router";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TodayView } from "@/features/today/TodayView";
 import { useHandoff } from "@/features/today/useHandoff";
+import { reachedSomeone } from "@/platform/haptics";
 import { useToday, useTodayActions } from "@/hooks/useV2";
+
+/** The longest Today waits for its first refresh before showing an empty state. */
+const SETTLE_MS = 1500;
 
 export default function TodayScreen() {
   const flow = useTellFlow();
@@ -16,6 +20,21 @@ export default function TodayScreen() {
   const actions = useTodayActions();
   const handoff = useHandoff();
   const [afterReturn, setAfterReturn] = useState<{ personId: string; personName: string } | null>(null);
+  // Hold the empty states until the first refresh settles (never longer than SETTLE_MS).
+  const [settling, setSettling] = useState(true);
+  useEffect(() => {
+    let done = false;
+    const end = () => {
+      if (!done) {
+        done = true;
+        setSettling(false);
+      }
+    };
+    const t = setTimeout(end, SETTLE_MS);
+    void actions.refresh().finally(end);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useFocusEffect(useCallback(() => {
     setNow(new Date());
@@ -57,6 +76,7 @@ export default function TodayScreen() {
         onProvenance={() => moment && router.push(moment.noteId ? `/v2/source/${moment.noteId}` : `/v2/person/${moment.personId}`)}
         onReturn={(answer) => {
           const rc = view.returnCheck;
+          if (answer === "yes") void reachedSomeone();
           void actions.returned(answer).then(() => {
             if (answer === "yes" && rc) setAfterReturn({ personId: rc.personId, personName: rc.personName });
           });
@@ -71,6 +91,7 @@ export default function TodayScreen() {
           else if (q.kind === "look") flow.openNote(flow.toLookAt[0]);
           else router.push(`/v2/person/${q.personId}`);
         }}
+        settling={settling}
         onTellFirst={() => flow.focusTell(null)}
         onAddPeople={() => router.push("/v2/people/add")}
       />

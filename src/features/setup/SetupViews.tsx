@@ -6,7 +6,7 @@ import React from "react";
 import { ActivityIndicator, FlatList, Pressable, ScrollView, TextInput, View } from "react-native";
 import { Check, Lock, Search } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { GUTTER, height, maxScale, radius, size, space, type } from "@/design/tokens";
+import { GUTTER, height, maxScale, press, radius, size, space, type } from "@/design/tokens";
 import { CONSENT_COPY } from "@/features/tell/ConsentSheet";
 import { useKeyboardLift } from "@/ui/useKeyboardLift";
 import { Body, Display, Label, MomentText, Pill, Provenance, Small, Sprig, usePalette } from "@/ui";
@@ -105,7 +105,8 @@ function Frame({ children, footer }: { children: React.ReactNode; footer: React.
 
 export function ConsentStepView({ label, busy, onAllow, onDecline }: {
   label: string;
-  busy: boolean;
+  /** The choice being saved (its button shows it's working), or false. */
+  busy: false | "allow" | "decline";
   onAllow: () => void;
   onDecline: () => void;
 }) {
@@ -113,8 +114,8 @@ export function ConsentStepView({ label, busy, onAllow, onDecline }: {
     <Frame
       footer={
         <View style={{ gap: space.xs }}>
-          <Pill variant="primary" label={CONSENT_COPY.allow} disabled={busy} onPress={onAllow} />
-          <Pill variant="quiet" label={CONSENT_COPY.notNow} disabled={busy} onPress={onDecline} />
+          <Pill variant="primary" label={CONSENT_COPY.allow} busy={busy === "allow"} disabled={!!busy} onPress={onAllow} />
+          <Pill variant="quiet" label={CONSENT_COPY.notNow} busy={busy === "decline"} disabled={!!busy} onPress={onDecline} />
         </View>
       }
     >
@@ -179,17 +180,20 @@ function CheckMark({ on }: { on: boolean }) {
   );
 }
 
-export function PickRowView({ row, on, first, onToggle }: { row: PickRow; on: boolean; first: boolean; onToggle: () => void }) {
+/** One contact row. Memoized: ticking one person redraws one row, not the list. */
+export const PickRowView = React.memo(function PickRowView({ row, on, first, onToggle }: {
+  row: PickRow; on: boolean; first: boolean; onToggle: (row: PickRow) => void;
+}) {
   const p = usePalette();
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked: on }}
       accessibilityLabel={row.why ? `${row.name}, ${row.why}` : row.name}
-      onPress={onToggle}
+      onPress={() => onToggle(row)}
       style={({ pressed }) => ({
         minHeight: height.row, paddingVertical: space.s, flexDirection: "row", alignItems: "center", gap: space.l,
-        borderBottomWidth: 1, borderTopWidth: first ? 1 : 0, borderColor: p.hairline, opacity: pressed ? 0.72 : 1,
+        borderBottomWidth: 1, borderTopWidth: first ? 1 : 0, borderColor: p.hairline, opacity: pressed ? press.surface : 1,
       })}
     >
       <Sprig personId={row.personId} width={size.sprig.row} />
@@ -200,7 +204,7 @@ export function PickRowView({ row, on, first, onToggle }: { row: PickRow; on: bo
       <CheckMark on={on} />
     </Pressable>
   );
-}
+});
 
 function SearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const p = usePalette();
@@ -312,7 +316,7 @@ export function PeoplePickView(props: PeoplePickViewProps) {
             {item.kind === "label" ? (
               <Label style={{ marginTop: space.xl, marginBottom: space.s }}>{item.text}</Label>
             ) : (
-              <PickRowView row={item.row} on={props.selected.has(item.row.personId)} first={item.first} onToggle={() => props.onToggle(item.row)} />
+              <PickRowView row={item.row} on={props.selected.has(item.row.personId)} first={item.first} onToggle={props.onToggle} />
             )}
           </View>
         )}
@@ -322,7 +326,7 @@ export function PeoplePickView(props: PeoplePickViewProps) {
         {props.error ? <Small tone="brick" accessibilityRole="alert" accessibilityLiveRegion="assertive">{props.error}</Small> : null}
         {granted ? <LockLine text={SETUP_COPY.pickLock} /> : null}
         {n ? (
-          <Pill variant="primary" label={SETUP_COPY.continueN(n)} disabled={props.busy} onPress={props.onContinue} />
+          <Pill variant="primary" label={SETUP_COPY.continueN(n)} busy={props.busy} onPress={props.onContinue} />
         ) : (
           <Pill label={SETUP_COPY.skip} disabled={props.busy} onPress={props.onSkip} />
         )}
@@ -353,7 +357,7 @@ export function WorthStepView(props: WorthStepViewProps) {
       footer={
         <View style={{ flexDirection: "row", gap: space.s }}>
           <Pill label={SETUP_COPY.skip} style={{ flex: 1 }} disabled={props.busy} onPress={props.onSkip} />
-          <Pill variant="primary" label={SETUP_COPY.keep} style={{ flex: 1.4 }} disabled={!props.text.trim() || props.busy} onPress={props.onKeep} />
+          <Pill variant="primary" label={SETUP_COPY.keep} style={{ flex: 1.4 }} busy={props.busy} disabled={!props.text.trim()} onPress={props.onKeep} />
         </View>
       }
     >

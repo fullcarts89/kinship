@@ -1,4 +1,6 @@
 import { useEffect, useCallback } from "react";
+import { useColorScheme } from "react-native";
+import { color } from "@/design/tokens";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -52,6 +54,7 @@ SplashScreen.preventAutoHideAsync();
  * 4. Define primary navigation stack
  */
 export default function RootLayout() {
+  const night = useColorScheme() === "dark";
   const [fontsLoaded, fontError] = useFonts({
     // Register with clean names matching tailwind.config.js fontFamily values
     DMSerifDisplay: DMSerifDisplay_400Regular,
@@ -194,6 +197,15 @@ export default function RootLayout() {
           options={{
             headerShown: false,
             presentation: "modal",
+          }}
+        />
+        {/* 2.0 arrives by a fade on its own paper: never a slide over 1.0's cream. */}
+        <Stack.Screen
+          name="v2"
+          options={{
+            headerShown: false,
+            animation: "fade",
+            contentStyle: { backgroundColor: night ? color.night.paper : color.light.paper },
           }}
         />
         <Stack.Screen name="+not-found" />

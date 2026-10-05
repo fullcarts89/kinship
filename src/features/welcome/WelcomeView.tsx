@@ -8,7 +8,7 @@ import React from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { appleButton, GUTTER, height, maxScale, radius, size, space, type } from "@/design/tokens";
+import { appleButton, GUTTER, press, height, maxScale, radius, size, space, type } from "@/design/tokens";
 import { AppleMark, GoogleMark } from "@/ui/brand";
 import { HOW_COPY } from "./HowItWorks";
 import { Body, Display, Label, Pill, Sheet, Small, Sprig, Title, useNight, usePalette } from "@/ui";
@@ -62,7 +62,7 @@ function AppleButton({ onPress, busy, disabled }: { onPress: () => void; busy: b
       style={({ pressed }) => ({
         minHeight: height.button, borderRadius: radius.pill(height.button), backgroundColor: c.background,
         flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.s,
-        opacity: disabled && !busy ? 0.5 : pressed ? 0.8 : 1,
+        opacity: disabled && !busy ? press.disabled : pressed ? press.surface : 1,
       })}
     >
       {busy ? (

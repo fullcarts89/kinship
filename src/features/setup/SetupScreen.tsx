@@ -2,7 +2,7 @@
 // it's needed → pick people → already worth knowing + the first Tell → Today.
 // Each step is saved as it's reached, so a setup closed half-way resumes
 // where it stopped. Only the people the user picks are saved.
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { router } from "expo-router";
 import { useConsentAsk, useExistingPeople, useSetup, todayIso } from "@/hooks/useV2";
 import { useTellFlow } from "@/features/tell/TellFlow";
@@ -55,9 +55,9 @@ export function SetupScreen() {
 
 function ConsentStep({ label, onDone }: { label: string; onDone: () => void }) {
   const { answer } = useConsentAsk();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | "allow" | "decline">(false);
   const go = async (allow: boolean) => {
-    setBusy(true);
+    setBusy(allow ? "allow" : "decline");
     try {
       await answer(allow);
     } catch {
@@ -116,12 +116,12 @@ export function PeopleStep({ label, onDone, save, doneLabel }: {
     return [...added.filter((r) => r.name.toLocaleLowerCase().includes(q)), ...searchRows(lists, query)];
   }, [lists, added, query]);
 
-  const toggle = (row: PickRow) => setSelected((s) => {
+  const toggle = useCallback((row: PickRow) => setSelected((s) => {
     const n = new Set(s);
     if (n.has(row.personId)) n.delete(row.personId);
     else n.add(row.personId);
     return n;
-  });
+  }), []);
 
   const go = async () => {
     const all = [...added, ...lists.suggested, ...lists.everyone];

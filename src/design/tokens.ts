@@ -186,7 +186,17 @@ export const motion = {
   quick: 160,
   /** What everything becomes with Reduce Motion on. */
   reduced: { duration: 150 },
+  /** A sheet leaving: quicker than arriving, easing in. */
+  sheetOut: { duration: 240 },
+  /** The scrim behind a sheet fades; it never slides with the sheet. */
+  scrim: { duration: 240 },
 } as const;
+
+/**
+ * Pressed feedback: an immediate dim, never a scale or a bounce. Surfaces
+ * (buttons, rows, lines) dim to `surface`; small text links dim further.
+ */
+export const press = { surface: 0.72, link: 0.6, disabled: 0.4 } as const;
 
 /**
  * Sign in with Apple's button: Apple's guidelines allow only black (on a

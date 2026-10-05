@@ -179,6 +179,17 @@ export class MemoryRepo {
     return this.store.list("memory_items", { personId }) as Promise<MemoryItem[]>;
   }
 
+  /** Every live source, grouped by the item it supports (one read for a whole page). */
+  async sourcesByItem(): Promise<Map<string, MemorySource[]>> {
+    const by = new Map<string, MemorySource[]>();
+    for (const s of (await this.store.list("memory_item_sources")) as MemorySource[]) {
+      const list = by.get(s.memory_item_id);
+      if (list) list.push(s);
+      else by.set(s.memory_item_id, [s]);
+    }
+    return by;
+  }
+
   async sourcesFor(itemId: string): Promise<MemorySource[]> {
     const all = (await this.store.list("memory_item_sources")) as MemorySource[];
     return all.filter((s) => s.memory_item_id === itemId);
