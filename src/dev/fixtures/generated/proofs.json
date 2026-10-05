@@ -45,7 +45,7 @@
     },
     {
      "id": "f0000000-0000-4000-8000-000000000005",
-     "statement": "Matt and Jess are thinking about moving to Marin next summer",
+     "statement": "Matt and Jess are thinking about moving to Marin",
      "person": {
       "id": "00000001-0000-4000-8000-000000000001",
       "label": "Matt",
@@ -53,8 +53,8 @@
      },
      "about": null,
      "when": {
-      "label": "“next summer”",
-      "value": null,
+      "label": "Summer 2027",
+      "value": "2027-06-01",
       "changeable": true
      },
      "kind": {
@@ -114,8 +114,8 @@
    "comingUp": [
     {
      "itemId": "f0000000-0000-4000-8000-000000000005",
-     "statement": "Matt and Jess are thinking about moving to Marin next summer",
-     "when": "“next summer”",
+     "statement": "Matt and Jess are thinking about moving to Marin",
+     "when": "Summer 2027",
      "provenance": "You told Kinship · Oct 5",
      "noteId": "00000001-0000-4000-8000-000000000003"
     }
@@ -159,7 +159,7 @@
    {
     "line": {
      "id": "f0000000-0000-4000-8000-000000000005",
-     "statement": "Matt and Jess are thinking about moving to Marin next summer",
+     "statement": "Matt and Jess are thinking about moving to Marin",
      "person": {
       "id": "00000001-0000-4000-8000-000000000001",
       "label": "Matt",
@@ -167,8 +167,8 @@
      },
      "about": null,
      "when": {
-      "label": "“next summer”",
-      "value": null,
+      "label": "Summer 2027",
+      "value": "2027-06-01",
       "changeable": true
      },
      "kind": {
@@ -279,7 +279,7 @@
     },
     {
      "id": "f0000000-0000-4000-8000-000000000005",
-     "statement": "Matt and Jess are thinking about moving to Marin next summer",
+     "statement": "Matt and Jess are thinking about moving to Marin",
      "person": "Matt",
      "personId": "00000001-0000-4000-8000-000000000001"
     },
@@ -515,7 +515,7 @@
      "statement": "Lena moved to Oakland",
      "when": null,
      "provenance": "You told Kinship · Aug 1",
-     "noteId": "00000004-0000-4000-8000-000000000078"
+     "noteId": "00000004-0000-4000-8000-000000000079"
     }
    ],
    "comingUp": [],
@@ -525,7 +525,7 @@
      "statement": "Help Lena hang shelves",
      "when": null,
      "provenance": "You told Kinship · Aug 1",
-     "noteId": "00000004-0000-4000-8000-000000000081"
+     "noteId": "00000004-0000-4000-8000-000000000082"
     }
    ],
    "between": [],
@@ -564,7 +564,7 @@
    "comingUp": [
     {
      "itemId": "f0000000-0000-4000-8000-000000000055",
-     "statement": "Priya's mom is visiting from Pune next week",
+     "statement": "Priya's mom is visiting from Pune",
      "when": "Week of Aug 2",
      "provenance": "You told Kinship · Jul 27",
      "noteId": "00000004-0000-4000-8000-000000000064"
@@ -579,7 +579,7 @@
     {
      "itemId": "f0000000-0000-4000-8000-000000000043",
      "statement": "Priya and Dev are thinking about a trip to Japan in the spring",
-     "when": "“in the spring”",
+     "when": "Spring 2028",
      "provenance": "You told Kinship · Jul 2",
      "noteId": "00000004-0000-4000-8000-000000000046"
     }
@@ -725,7 +725,7 @@
    {
     "line": {
      "id": "f0000000-0000-4000-8000-000000000055",
-     "statement": "Priya's mom is visiting from Pune next week",
+     "statement": "Priya's mom is visiting from Pune",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
       "label": "Priya",
@@ -873,8 +873,8 @@
      },
      "about": null,
      "when": {
-      "label": "“in the spring”",
-      "value": null,
+      "label": "Spring 2028",
+      "value": "2028-03-01",
       "changeable": true
      },
      "kind": {

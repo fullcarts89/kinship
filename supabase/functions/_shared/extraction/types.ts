@@ -163,7 +163,12 @@ export type Flag =
   // The statement is plainly about someone other than the person the model
   // filed it under ("John is your brother" filed on Ben): moved to the person
   // it names, and shown for a yes rather than kept silently.
-  | "subject_moved";
+  | "subject_moved"
+  // Stabilization Gate E: this reads as an update to an earlier memory, but
+  // two fit equally well; the user says which one it replaces (or neither).
+  | "update_check"
+  // Stabilization Gate F: also about others in People (one memory, one source).
+  | "shared_people";
 
 export interface PlannedSpan {
   start: number;
@@ -191,6 +196,10 @@ export interface PlannedItem {
   flags: Flag[];
   /** For evals and the response: which date rule fired (no content). */
   date_rule: string | null;
+  /** Others in People this one memory is also about ("Ben and John went to Tahoe"); ids. */
+  with_person_ids?: string[];
+  /** Relationships to the user the note states outright, by person id ("Ben is my brother"). */
+  self_relations?: Record<string, string>;
 }
 
 export interface Clarification {

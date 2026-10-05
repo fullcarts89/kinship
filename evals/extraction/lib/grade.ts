@@ -132,8 +132,17 @@ export function grade(runs: FixtureRun[]): Metric[] {
       const score = (i: PlannedItem) =>
         (asList(exp.kind).includes(i.kind) ? 4 : 0) + (keyOf(i) === exp.person ? 2 : 0) +
         (asList(exp.subject ?? "person").includes(i.subject_type) ? 1 : 0);
-      const best = overlapping.sort((a, b) => score(b) - score(a))[0] ?? null;
+      let best = overlapping.sort((a, b) => score(b) - score(a))[0] ?? null;
       if (best) used.add(best);
+      // One shared memory ("Ben and Sarah both got promoted", stabilization
+      // Gate F) is on each person it names: it answers each person's
+      // expectation, as that person.
+      if (!best) {
+        const shared = items.find((i) => i.spans.some((s) => s.start < loc.span.end && loc.span.start < s.end) &&
+          (i.with_person_ids ?? []).some((pid) => fixtureKey(pid, null) === exp.person));
+        const pid = shared ? (shared.with_person_ids ?? []).find((x) => fixtureKey(x, null) === exp.person) : null;
+        if (shared && pid) best = { ...shared, person_id: pid };
+      }
       matches.push({ exp, span: loc.span, got: best });
     }
 

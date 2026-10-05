@@ -81,6 +81,8 @@ export interface WriteItem {
   confidence: number;
   spans: { start: number; end: number }[];
   action: PlannedItem["action"];
+  with_person_ids?: string[];
+  self_relations?: Record<string, string>;
 }
 
 export interface CallLog {
@@ -122,7 +124,7 @@ export interface ServiceOps {
     captureId: string,
     reviewCreatedAt: string,
     items: ResolvedItem[],
-    newPeople: { ref: string; display_name: string }[],
+    newPeople: { ref: string; display_name: string; relationship_label?: string }[],
   ): Promise<{ status: "resolved" | "already_resolved"; items?: { id: string; action: string }[]; people?: Record<string, string> }>;
 }
 
@@ -263,6 +265,8 @@ function toWriteItem(i: PlannedItem): WriteItem {
     confidence: i.confidence,
     spans: i.spans.map((s) => ({ start: s.start, end: s.end })),
     action: i.action,
+    ...(i.with_person_ids?.length ? { with_person_ids: i.with_person_ids } : {}),
+    ...(i.self_relations && Object.keys(i.self_relations).length ? { self_relations: i.self_relations } : {}),
   };
 }
 
@@ -288,6 +292,8 @@ function present(i: PlannedItem) {
     tier: i.tier,
     flags: i.flags,
     spans: i.spans,
+    ...(i.with_person_ids?.length ? { with_person_ids: i.with_person_ids } : {}),
+    ...(i.self_relations && Object.keys(i.self_relations).length ? { self_relations: i.self_relations } : {}),
   };
 }
 
@@ -322,7 +328,7 @@ async function resolveReview(
     related,
     existing: existing.map((m) => ({
       id: m.id, person_id: m.person_id, kind: m.kind, subject_type: m.subject_type,
-      subject_related_id: m.subject_related_id, statement: m.statement, status: m.status,
+      subject_related_id: m.subject_related_id, statement: m.statement, status: m.status, user_state: m.user_state,
     })),
   });
   if ("fail" in resolution) return json({ error: "invalid_answer", reason: resolution.fail }, 400, cors);

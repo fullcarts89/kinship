@@ -18,10 +18,14 @@
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
 import { leadingName, statementNames, withResolvedName, yourVoice } from "./voice.ts";
+import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
+  aboutAnimalHealth,
   capCertainty,
   floorSensitivity,
+  statedSelfRelations,
+  theyPromisedMe,
   fold,
   hasNegation,
   negatedWhereStated,
@@ -90,7 +94,11 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     const result = planItem(ctx, raw);
     if ("drop" in result) dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null });
     else {
-      const dup = items.find((p) => sameItem(p, result.item));
+      // "Ben and John went to Tahoe", told once for each of them: one shared memory.
+      const shared = items.find((p) => p.kind === result.item.kind && fold(p.statement) === fold(result.item.statement) &&
+        ((!!result.item.person_id && (p.with_person_ids ?? []).includes(result.item.person_id)) ||
+          (!!p.person_id && (result.item.with_person_ids ?? []).includes(p.person_id))));
+      const dup = shared ?? items.find((p) => sameItem(p, result.item));
       if (dup) {
         // Same thing twice in one note: keep one, with both spans.
         for (const s of result.item.spans) if (!dup.spans.some((d) => d.start === s.start)) dup.spans.push(s);
@@ -190,6 +198,16 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   const looseTradition = raw?.kind === "tradition" && !RECURRENCES.includes(raw.detail?.recurrence as never);
   if (looseTradition) raw = { ...raw, kind: "context", detail: { ...raw.detail, aspect: ASPECTS.includes(raw.detail?.aspect as never) ? raw.detail.aspect : "other" } };
   if (!wellFormed(raw)) return { drop: "bad_kind_subject" };
+  // A tradition whose anchor isn't in the note's words ("Amanda and I watch
+  // every Warriors playoff game together", founder G24, used to be dropped):
+  // its anchor is taken from the note ("every … "), or it's kept as what the
+  // two of them share. Never dropped for the model's wording.
+  if (raw.kind === "tradition" && !groundedIn(ctx, raw.detail?.anchor)) {
+    const anchor = everyPhrase(raw.evidence.filter((e): e is string => typeof e === "string").join(" "));
+    raw = anchor && groundedIn(ctx, anchor)
+      ? { ...raw, detail: { ...raw.detail, anchor } }
+      : { ...raw, kind: "context", detail: { ...raw.detail, aspect: "shared_interest" } };
+  }
   const text = ctx.text;
   const flags = new Set<Flag>();
 
@@ -232,9 +250,18 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
 
   // ── Kind / subject consistency ──
   let subject = raw.subject;
+  const clause = clauseAroundSpan(text, primary);
+  const mine = userIsActor(clause) || userIsActor(primary.quote);
+  const theirs = !mine && (theyPromisedMe(clause) || theyPromisedMe(primary.quote) || theyPromisedMe(sentence));
+  // Someone else's commitment to the user ("Tyler said he'd send me his
+  // contractor's number Wednesday") is a promise too, theirs: waiting on them,
+  // with its day, never under "You said you'd" (Gate F). The model often
+  // reads it as something ongoing; the words decide.
+  if (theirs && (raw.kind === "thread" || raw.kind === "fact" || raw.kind === "event")) raw = { ...raw, kind: "promise", subject: "person" };
   if (raw.kind === "promise") {
-    if (!userIsActor(clauseAroundSpan(text, primary)) && !userIsActor(primary.quote)) return { drop: "not_a_user_promise" };
-    subject = "user";
+    if (mine) subject = "user";
+    else if (theirs) subject = "person";
+    else return { drop: "not_a_user_promise" };
   } else if (subject === "user" && raw.kind !== "plan" && raw.kind !== "moment" && raw.kind !== "event") {
     return { drop: "bad_kind_subject" };
   }
@@ -288,8 +315,11 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
 
   // ── Sensitivity: wording can only raise it ──
   const floor = floorSensitivity(raw.sensitivity, allEvidence, raw.kind === "event" ? raw.detail.event_type : null);
-  const sensitivity = floor.sensitivity;
-  if (floor.raised) flags.add("sensitivity_raised");
+  let sensitivity = floor.sensitivity;
+  // A pet's vet visit isn't a person's protected health (founder G43): it
+  // doesn't wait for a yes. A death, or the person's own health, still does.
+  if (sensitivity === "health" && aboutAnimalHealth(`${allEvidence} ${said}`)) sensitivity = "none";
+  else if (floor.raised) flags.add("sensitivity_raised");
   if (sensitivity !== "none") flags.add("sensitive");
 
   // ── Date: the model's words, our calendar ──
@@ -314,15 +344,23 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
     flags.add("date_unresolved_sensitive");
   }
 
-  // ── Existing memory: merge / supersede / resolve ──
-  const action = relate(ctx, raw, {
+  // ── Existing memory: merge / supersede / resolve, or an update to a story ──
+  const relation = relate(ctx, raw, {
     kind: raw.kind,
     person_key: who.person_key,
     subject,
     related_id: related?.id ?? null,
     certainty,
     detail: detail.detail,
+    statement: said,
   }, flags);
+  const action = relation.action;
+  if (relation.transition && action.type !== "new") detail.detail.transition = relation.transition;
+  if (relation.replaces) {
+    // Two earlier memories fit equally: the user says which one this replaces.
+    flags.add("update_check");
+    detail.detail._replaces = relation.replaces.map((id) => ({ id, statement: ctx.input.dossier.find((d) => d.id === id)?.statement ?? "" }));
+  }
 
   // ── Confidence and tier ──
   let confidence = clamp01(Number(raw.confidence));
@@ -345,7 +383,31 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   if (confidence < (heldForWho ? HOLD_FLOOR_CONFIDENCE : DROP_BELOW_CONFIDENCE)) return { drop: "low_confidence" };
   if (confidence < AUTO_SAVE_CONFIDENCE) flags.add("mid_confidence");
 
+  // ── Who else it is about, and what they are to the user ──
+  // "Ben and John went to Tahoe": one memory, on Ben and also on John, never
+  // two copies. Only people the statement itself names, and only when who it
+  // is about is settled.
+  const unsure = flags.has("pronoun_multiple") || flags.has("person_ambiguous") || flags.has("person_disagreement");
+  const withPeople = who.person_id && !unsure && subject !== "related" && raw.kind !== "promise"
+    ? alsoAbout(ctx, said, spans, who.person_key)
+    : [];
+  if (withPeople.length) flags.add("shared_people");
+  // "Ben is my brother", "my daughter Kaiya": a relationship the note states
+  // outright, for the people this memory is about. Never inferred.
+  const selfRelations: Record<string, string> = {};
+  if (who.person_id && !unsure) {
+    const about = new Set([who.person_id, ...withPeople.map((p) => p.id)]);
+    for (const { name, relation } of statedSelfRelations(text)) {
+      const found = ctx.candidatesFor(name);
+      if (found.length === 1 && about.has(found[0].id)) selfRelations[found[0].id] = relation;
+    }
+  }
+
   const tier = tierFor(flags);
+  // Relative time words that would go stale ("in two weeks", "next summer")
+  // leave the statement once the day or season is kept (Gate F temporal);
+  // the screen shows when, from the date.
+  const timeless = stripRelativeTime(said, raw.date_text, resolution);
   return {
     item: {
       kind: raw.kind,
@@ -356,9 +418,9 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
       related,
       // A leading "He"/"She" the pipeline is sure about names the person (Gate B);
       // one still in question keeps it until the user answers (resolve.ts).
-      statement: who.person_key && subject !== "related" && !flags.has("pronoun_multiple") && !flags.has("person_ambiguous")
-        ? withResolvedName(said, ctx.byKey.get(who.person_key)?.display_name ?? "")
-        : said,
+      statement: who.person_key && subject !== "related" && !unsure
+        ? withResolvedName(timeless, ctx.byKey.get(who.person_key)?.display_name ?? "")
+        : timeless,
       detail: detail.detail,
       certainty,
       sensitivity,
@@ -368,8 +430,56 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
       tier,
       flags: [...flags],
       date_rule: resolution?.rule ?? null,
+      ...(withPeople.length ? { with_person_ids: withPeople.map((p) => p.id) } : {}),
+      ...(Object.keys(selfRelations).length ? { self_relations: selfRelations } : {}),
     },
   };
+}
+
+/** Whether every content word of `v` is the user's own. */
+function groundedIn(ctx: Context, v: unknown): boolean {
+  if (typeof v !== "string" || !v.trim()) return false;
+  return wordsOf(v).filter((w) => w.length > 2).every((w) => ctx.folded.includes(w));
+}
+
+/** "every Warriors playoff game" → "Warriors playoff game"; null without one. */
+function everyPhrase(text: string): string | null {
+  const m = text.normalize("NFC").match(/\b(?:every|each)\s+([^,.;!?]+?)(?:\s+together)?(?=[,.;!?]|$)/iu);
+  const anchor = m?.[1]?.trim();
+  return anchor && anchor.length <= 80 ? anchor : null;
+}
+
+/** Others on the roster this statement names, whose names are also in its evidence. */
+function alsoAbout(ctx: Context, statement: string, spans: PlannedSpan[], personKey: string | null): RosterPerson[] {
+  const quotes = spans.map((s) => s.quote).join(" ");
+  const out: RosterPerson[] = [];
+  for (const p of ctx.namedInNote()) {
+    if (p.key === personKey || out.some((o) => o.id === p.id)) continue;
+    const names = [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean);
+    if (!statementNames(statement, names) || !statementNames(quotes, names)) continue;
+    // A name two people share ("Sam") is never guessed onto both.
+    const first = names[0].split(/\s+/u)[0];
+    if (ctx.candidatesFor(first).length > 1 && !names.some((n) => n.includes(" ") && fold(quotes).includes(fold(n)))) continue;
+    out.push(p);
+  }
+  return out.slice(0, 7);
+}
+
+const RELATIVE_TIME = /\b(today|tonight|tomorrow|yesterday|this|next|last|coming|in\s+(?:a|an|one|two|three|four|five|six|a\s+few|\d+)\s+(?:days?|weeks?|months?|years?)|weekend|soon)\b/iu;
+
+/**
+ * "Ben is going to Dan's wedding in two weeks" → "Ben is going to Dan's
+ * wedding", once the date is kept: relative words go stale, the date doesn't.
+ * Only when the date resolved, the words are relative, and they're in the
+ * statement; hedges ("thinking about") are never touched.
+ */
+function stripRelativeTime(statement: string, dateText: string | null | undefined, r: DateResolution | null): string {
+  if (!r?.date || !dateText || !RELATIVE_TIME.test(dateText)) return statement;
+  const words = dateText.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(?:\\s*,)?\\s+(?:on|in|at|by|for|from)?\\s*${words}\\b`, "iu");
+  const out = statement.replace(re, "").replace(/\s{2,}/gu, " ").replace(/\s+([,.;!?])/gu, "$1").trim();
+  // Never leave a statement that's only a stub ("Ben is going to").
+  return out.split(/\s+/u).length >= 3 && !/\b(to|at|on|in|for|by|from|the|a|an)$/iu.test(out) ? out : statement;
 }
 
 function isPronounMention(mention: string | null | undefined): boolean {
@@ -385,7 +495,7 @@ function askConfirmed(ctx: Context, mention: string): boolean {
 
 // A pronoun that could point at two named people ("Ben and Josh went
 // climbing. He fell.") waits for the user, like any other ambiguity.
-const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive"];
+const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check"];
 
 function tierFor(flags: Set<Flag>): Tier {
   if (HOLD_FLAGS.some((f) => flags.has(f))) return "hold";
@@ -747,13 +857,20 @@ function buildDetail(
       set("firmness", FIRMNESS.includes(d.firmness as never) ? d.firmness : "idea");
       set("when_hint", hint);
       set("date", dayDate);
-      if (r?.precision === "season" && r.date) set("season", SEASON_OF_MONTH[Number(r.date.slice(5, 7)) - 1]);
+      if (r?.precision === "season" && r.date) {
+        set("season", SEASON_OF_MONTH[Number(r.date.slice(5, 7)) - 1]);
+        set("date", r.date);
+        if (r.date_end && r.date_end !== r.date) set("date_end", r.date_end);
+        set("date_precision", "season");
+      }
       break;
     }
     case "thread":
       set("topic", grounded(d.topic) ?? Array.from(sentence.trim()).slice(0, 200).join(""));
       set("followup_after_days", THREAD_FOLLOWUP_DAYS);
-      set("date_hint", hint); // a thread's follow-up is its own; only the words are kept
+      // "Thinking about moving to Marin next summer": the season is kept, not
+      // only the words (stabilization; the follow-up is still the thread's own).
+      when();
       break;
     case "moment":
       when();
@@ -788,6 +905,8 @@ interface NewShape {
   related_id: string | null;
   certainty: keyof typeof CERTAINTY_RANK;
   detail: Record<string, unknown>;
+  /** The statement as the user will read it (for recognising an update). */
+  statement: string;
 }
 
 const SUPERSEDE_FROM: Record<Kind, Kind[]> = {
@@ -802,7 +921,43 @@ const SUPERSEDE_FROM: Record<Kind, Kind[]> = {
   context: [],
 };
 
-function relate(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>): PlannedItem["action"] {
+interface Relation {
+  action: PlannedItem["action"];
+  /** How this updates the memory it supersedes or resolves (Gate E). */
+  transition: Transition | null;
+  /** Two or three equally good matches: ask the user which one (ids). */
+  replaces?: string[];
+}
+
+/**
+ * The model's merge / supersede / resolve, checked; then, when the model left
+ * it "new", the deterministic reading of an update (threads.ts): a firm
+ * "not moving anymore", "got the job" or "getting better" updates the one
+ * earlier memory of the same person and subject it is plainly about.
+ */
+function relate(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>): Relation {
+  const transition = transitionOf(n.statement);
+  const byModel = relateByModel(ctx, raw, n, flags, transition);
+  if (byModel.type !== "new") return { action: byModel, transition };
+  if (!transition || !n.person_key || flags.has("protected_target")) return { action: byModel, transition: null };
+  // A hedge never updates anything ("might not move after all").
+  if (n.certainty === "tentative" || n.certainty === "wished") return { action: byModel, transition: null };
+  const person = ctx.byKey.get(n.person_key);
+  const candidates = ctx.input.dossier.filter((t) =>
+    t.person_key === n.person_key && t.subject_type === n.subject && t.status === "active" &&
+    t.user_state !== "edited" && t.user_state !== "user_authored" &&
+    (n.subject !== "related" || (t.related_key ? ctx.input.related.find((r) => r.key === t.related_key)?.id === n.related_id : false))
+  );
+  const names = person ? [person.display_name, person.full_name ?? "", ...(person.nicknames ?? [])] : [];
+  const match = threadTarget(n.statement, candidates.map((c) => ({ id: c.id, kind: c.kind, statement: c.statement, status: c.status })), names);
+  if (!match) return { action: byModel, transition: null };
+  if ("ambiguous" in match) {
+    return { action: { type: "supersede", target_id: match.ambiguous[0] }, transition: match.transition, replaces: match.ambiguous };
+  }
+  return { action: { type: match.action, target_id: match.target }, transition: match.transition };
+}
+
+function relateByModel(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>, transition: Transition | null): PlannedItem["action"] {
   const none = { type: "new" as const, target_id: null };
   if (!n.person_key) return none;
   const proposedTarget = raw.existing?.target ? ctx.dossier.get(raw.existing.target) : undefined;
@@ -850,13 +1005,18 @@ function relate(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>):
     case "supersede": {
       // "Mike may leave Google" never replaces "Mike works at Google".
       if (!firm) return none;
-      if (!SUPERSEDE_FROM[n.kind].includes(proposedTarget.kind)) return none;
+      // A cancellation or an ending closes what it ends, whatever kind that
+      // was: "not moving anymore" (a fact) closes "planning to move" (an
+      // event); otherwise kinds must match as before (Gate C1/E).
+      const acrossKinds = (transition === "cancelled" || transition === "completed") &&
+        ["fact", "event", "plan", "thread", "promise"].includes(proposedTarget.kind);
+      if (!SUPERSEDE_FROM[n.kind].includes(proposedTarget.kind) && !acrossKinds) return none;
       if (CERTAINTY_RANK[n.certainty] < CERTAINTY_RANK[proposedTarget.certainty]) return none;
       // A fact replaces a fact about the same kind of thing ("works at" by
       // "left"), not an unrelated one; "other" matches anything.
       const a = proposedTarget.detail.category;
       const b = n.detail.category;
-      if (n.kind === "fact" && a !== b && a !== "other" && b !== "other") return none;
+      if (n.kind === "fact" && proposedTarget.kind === "fact" && !acrossKinds && a !== b && a !== "other" && b !== "other") return none;
       return { type: "supersede", target_id: proposedTarget.id };
     }
     case "resolves": {

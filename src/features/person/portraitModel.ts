@@ -118,11 +118,22 @@ export function buildPortrait(input: {
     const active = it.status === "active";
     switch (it.kind) {
       case "promise":
-        if (active) said.push({ x, at: told });
+        if (!active) break;
+        // Someone else's promise to the user ("Tyler said he'd send you his
+        // contractor's number") is never under "You said you'd": it's what's
+        // coming from them (stabilization Gate F).
+        if (it.subject_type === "person") {
+          if (day && daysFrom(today, day) >= -R.recentEventDays) coming.push({ x, at: day });
+          else if (!day && daysFrom(today, told) >= -R.latelyDays) lately.push({ x, at: told });
+        } else said.push({ x, at: told });
         break;
-      case "plan":
-        if (active && (!day || (daysFrom(today, day) >= 0 && daysFrom(today, day) <= R.comingUpDays))) coming.push({ x, at: day ?? "9999" });
+      case "plan": {
+        // A plan said as a season or a month ("next summer") is as good as
+        // undated here: it stays in Coming up, whenever it is.
+        const coarse = ["season", "month", "year"].includes(String((it.detail as Record<string, unknown> | null)?.date_precision ?? ""));
+        if (active && (!day || coarse || (daysFrom(today, day) >= 0 && daysFrom(today, day) <= R.comingUpDays))) coming.push({ x, at: day ?? "9999" });
         break;
+      }
       case "event":
       case "milestone":
         if (!active) break;

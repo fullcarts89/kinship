@@ -107,7 +107,8 @@ describe("a dense note: Matt", () => {
     expect(kept).toEqual(expect.arrayContaining([
       ["fact", "Matt was promoted", "stated"],
       ["fact", "Matt is excited but nervous about managing people", "stated"],
-      ["plan", "Matt and Jess are thinking about moving to Marin next summer", "tentative"],
+      // The hedge stays; "next summer" is kept as a season, not words that go stale (stabilization).
+      ["plan", "Matt and Jess are thinking about moving to Marin", "tentative"],
       ["promise", "Introduce Matt to Alex", "tentative"],
     ]));
     expect(kept).toHaveLength(4);
@@ -116,7 +117,7 @@ describe("a dense note: Matt", () => {
     const portrait = await portraitFor(w.repos, (await w.repos.people.get(matt.id))!, now(w));
     // In the note's own order.
     expect(portrait.lately.map((l) => l.statement)).toEqual(["Matt was promoted", "Matt is excited but nervous about managing people"]);
-    expect(portrait.comingUp.map((l) => l.statement)).toEqual(["Matt and Jess are thinking about moving to Marin next summer"]);
+    expect(portrait.comingUp.map((l) => [l.statement, l.when])).toEqual([["Matt and Jess are thinking about moving to Marin", "Summer 2027"]]);
     expect(portrait.youSaid.map((l) => l.statement)).toEqual(["Introduce Matt to Alex"]);
     expect(portrait.between).toEqual([]);
     for (const l of [...portrait.lately, ...portrait.comingUp, ...portrait.youSaid]) {
@@ -283,7 +284,8 @@ describe("the relationship page at every density", () => {
     expect(rich.lately.map((l) => l.statement)).not.toContain("Priya hates cilantro");
     expect(richKnows.lines.map((l) => l.line.statement)).toContain("Priya hates cilantro");
     // Coming up: soonest first.
-    expect(rich.comingUp[0].statement).toBe("Priya's mom is visiting from Pune next week");
+    expect(rich.comingUp[0].statement).toBe("Priya's mom is visiting from Pune");
+    expect(rich.comingUp[0].when).toMatch(/^Week of /);
 
     const strip = (p: typeof rich, id: string, name: string) => ({ ...p, person: { id, display_name: name } });
     proofs.density = {

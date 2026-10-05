@@ -35,7 +35,7 @@ export interface Capability {
 }
 
 // v2.3: the C.1 corpus (v2.2 + temporal-preservation regression fixtures) (evals/extraction/MANIFEST.json).
-export const EXTRACTION_EVAL_VERSION = "extraction-v2.3";
+export const EXTRACTION_EVAL_VERSION = "extraction-v2.4";
 
 export const CAPABILITIES: Record<string, Capability> = {
   relationship_extract: {
