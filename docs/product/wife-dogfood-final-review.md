@@ -169,6 +169,8 @@ See every rough edge below.
 
 ---
 
+> **Superseded for the next device pass (5 Oct, recovery pass):** use `docs/product/recovery-pass.md` §8. The founder's first native pass found the build NOT READY (`founder-native-feedback.md`, F1–F23).
+
 ## 13. Founder native-pass script
 
 I can't see your phone; everything below is what to check, in order. Each step says what you should see.

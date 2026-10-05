@@ -1,9 +1,9 @@
 # PERMANENT GATE (docs/product/KINSHIP_2_PRODUCT_CONTRACT.md §10)
 #
 # A fresh install, a brand-new account, the whole first session:
-#   promise → sign in → consent → pick people → already worth knowing / first
-#   Tell → understood → People → relationship page → Source → Today →
-#   hand-off → return check.
+#   promise → sign in → (first name) → consent → pick people → already worth
+#   knowing / first Tell → understood → People → relationship page → Source →
+#   Today → hand-off → return check.
 # A build that drops a new user straight into an empty Today and People
 # fails at "Setting up".
 #
@@ -26,8 +26,10 @@ appId: com.zenroost.kinship
 
 # Promise
 - assertVisible: "Remember what matters about the people you care about."
-- assertVisible: "Tell it what's going on with the people you love, in your own words."
+- assertVisible: "You tell it"
+- assertVisible: "It brings it back"
 - assertVisible: "Continue with Apple"
+- assertVisible: "Continue with Google"
 
 # Sign in (email: the only path automation can drive)
 - tapOn: "Use email"
@@ -37,13 +39,21 @@ appId: com.zenroost.kinship
 - inputText: ${E2E_PASSWORD}
 - tapOn: "Sign in"
 
-# Consent, as the first setup step — never an empty Today
+# Signed in: Welcome is left once (never back to Welcome with no error).
+# An email account has no name from sign-in, so setup asks for it first.
 - extendedWaitUntil:
-    visible: "So Kinship can understand what you tell it"
+    visible: "What should Kinship call you?"
     timeout: 20000
-- assertVisible: "Setting up · 1 of 3"
+- assertVisible: "Setting up · 1 of 4"
+- inputText: "Dana"
+- tapOn: "Continue"
+
+# Consent, inside setup — never as a sheet over an empty Today
+- assertVisible: "So Kinship can understand what you tell it"
+- assertVisible: "Setting up · 2 of 4"
+- assertVisible: "Who reads it"
 - assertVisible: "Information you choose to record about people in your life may be processed by Kinship's AI provider in order to understand and organize it."
-- tapOn: "Allow"
+- tapOn: "Allow understanding"
 
 # Pick people (contacts, read on the phone; nobody pre-selected)
 - assertVisible: "Who do you want to show up for?"
@@ -62,6 +72,7 @@ appId: com.zenroost.kinship
 - tapOn: "Something about someone you care about…"
 - inputText: "Maya starts her new job on Monday."
 - hideKeyboard
+- assertVisible: "Keep it"
 - tapOn: "Keep it"
 
 # Understood: a Kept line, or the review sheet (never a form)
@@ -87,8 +98,9 @@ appId: com.zenroost.kinship
 - back
 - back
 
-# Today: never the first-use void once something has been told
+# Today: greets by name; once the first Tell is memory, first use is over
 - tapOn: "Today"
+- assertVisible: "Good (morning|afternoon|evening), Dana."
 - assertNotVisible: "This is where Kinship brings things back."
 
 # Hand-off from the relationship page (opens Messages; nothing is sent)

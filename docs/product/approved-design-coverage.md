@@ -79,3 +79,22 @@
 3. **Settings export / delete account v2 UI** (#23): the 1.0 flows exist server-side; the 2.0 screens are not built. Defer to E17 before alpha?
 4. **Notification permission ask** (#31): no push exists yet, so there is nothing to ask for. Defer with E15?
 5. Activation pass questions 1–7 in `activation-pass.md` §7 (day-of event moment, density numbers, superseded history's home, kind words in the review, reported promises, relationship labels, look-over for dense notes).
+
+## Recovery pass (founder native pass, 5 Oct): what changed on approved surfaces
+
+Every change below was asked for in the founder's recovery brief (the latest founder decision; contract §1 ranks it first). Nothing approved was removed without that brief saying so.
+
+| Surface | Change | Why | Founder approval |
+|---|---|---|---|
+| 1 Welcome | The three plain lines are replaced by one small example card (you tell it → it remembers → it brings it back) that opens "See how it works"; Google is a full-width secondary button, email a quiet link. No carousel. | F9/F10: a wall of same-weight text; sign-in looked unfinished | Yes: recovery brief, "Welcome screen" |
+| Welcome › See how it works | The moment keeps the event's hope ("Ben was hoping to break four hours."); the last step plays the close of the loop (Yes → question with a reply → what Ben's page now shows). Still four steps. | F12–F14 | Yes: recovery brief, "See how it works" |
+| 3 Consent | Benefit first; the approved D2 sentence and provider line unchanged, under "Who reads it"; button "Allow understanding". Over-Today sheet stays only as the recovery path (couldn't save during setup, or understanding offered after setup). | F16; Apple 5.1.2(i) verified 5 Oct | Direction yes; **final wording: product/legal approval still needed** |
+| Setup | A first-name step only when sign-in gave no name (email; Apple after its first sign-in). Steps recorded as explicit account state. | F6/F20; Gate 3 | Yes: recovery brief, "Who the user is" |
+| 10 Today | First-use guidance lasts until the account is activated (first Tell became memory); greets by first name; the moment shows the event's hope | F23; F12 | Yes |
+| 12 Relationship page | Message · Call · Tell, three named actions (the pencil is gone) | F1 | Yes: "Preferred treatment: Message · Call · Tell" |
+| 14 What Kinship knows / 16 Correction | "Edit" on every line, "Edit the words" in the line's sheet; Forget asks Cancel / Forget | F5 | Yes |
+| 23 Settings | Contacts shows what Kinship can see, with the one action that changes it | F8 | Yes |
+| All | One primary action; the other is quiet (no filled-and-outlined pairs) | F18 | Yes |
+| Tell field | Unsent words fold to one "Draft · …" line when you leave, and stay with where they were started | F19/F21/F22 | Yes |
+
+Deferred in this pass (not removed): editing a person's name or birthday in 2.0 (the brief allows it "if required"; not needed for the loop); using the user's first name in understanding (the gateway would need it as input: a prompt-input change with its own eval).

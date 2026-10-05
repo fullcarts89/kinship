@@ -9,7 +9,7 @@ import { ActivityIndicator, Platform, ScrollView, Text, TextInput, View } from "
 import { Pressable } from "@/ui/Pressable";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { appleButton, GUTTER, press, height, maxScale, radius, size, space, TOUCH, type } from "@/design/tokens";
+import { appleButton, GUTTER, press, height, maxScale, radius, size, space, type } from "@/design/tokens";
 import { AppleMark, GoogleMark } from "@/ui/brand";
 import { HOW_COPY } from "./HowItWorks";
 import { Body, Display, Label, Pill, Sheet, Small, Sprig, Title, useNight, usePalette } from "@/ui";
@@ -100,16 +100,17 @@ function ExampleCard({ onPress }: { onPress?: () => void }) {
           </View>
         </View>
       ))}
+      {onPress ? <Small tone="ochreText">{`${HOW_COPY.link} →`}</Small> : null}
     </View>
   );
-  if (!onPress) return <View style={{ marginTop: space.xxl }}>{body}</View>;
+  if (!onPress) return <View style={{ marginTop: space.xl }}>{body}</View>;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${WELCOME_COPY.example.label}: ${WELCOME_COPY.example.steps.map((s) => `${s.label}, ${s.text}`).join(". ")}`}
       accessibilityHint={HOW_COPY.link}
       onPress={onPress}
-      style={({ pressed }) => ({ marginTop: space.xxl, opacity: pressed ? press.surface : 1 })}
+      style={({ pressed }) => ({ marginTop: space.xl, opacity: pressed ? press.surface : 1 })}
     >
       {body}
     </Pressable>
@@ -126,25 +127,13 @@ export function WelcomeView(props: WelcomeViewProps) {
       <StatusBar style={night ? "light" : "dark"} />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: GUTTER, paddingTop: insets.top + space.x4, paddingBottom: space.xl }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: GUTTER, paddingTop: insets.top + space.xl, paddingBottom: space.xl }}
       >
         <Sprig personId={WELCOME_SPRIG} width={size.sprig.moment} />
-        <Label style={{ marginTop: space.x3 }}>{WELCOME_COPY.label}</Label>
+        <Label style={{ marginTop: space.xl }}>{WELCOME_COPY.label}</Label>
         <Display style={{ marginTop: space.m }}>{WELCOME_COPY.promise}</Display>
         <Body style={{ marginTop: space.m }}>{WELCOME_COPY.sub}</Body>
         <ExampleCard onPress={props.onHowItWorks} />
-        {props.onHowItWorks ? (
-          <View style={{ alignItems: "flex-start", marginTop: space.s }}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={props.onHowItWorks}
-              hitSlop={space.s}
-              style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.link : 1 })}
-            >
-              <Small tone="ochreText">{`${HOW_COPY.link} →`}</Small>
-            </Pressable>
-          </View>
-        ) : null}
       </ScrollView>
 
       <View style={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + space.xl, gap: space.m }}>

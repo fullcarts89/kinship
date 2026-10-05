@@ -254,7 +254,7 @@ export const LAB_STATES = [
   "setup-consent", "setup-ask", "setup-people", "setup-people-picked", "setup-search", "setup-denied", "setup-limited",
   "setup-add-name", "setup-worth", "setup-tell", "today-first", "today-first-empty", "today-birthday", "today-birthday-week",
   "people-empty", "person-birthday", "setup-name", "tell-draft", "tell-about",
-  "how-1", "how-2", "how-3", "how-4", "setup-worth-typed",
+  "how-1", "how-2", "how-3", "how-4", "how-4-reply", "how-4-after", "setup-worth-typed",
   "matt-tell", "matt-review", "matt-person", "matt-knows", "matt-source",
   "anna-before", "anna-after", "anna-knows", "knee-before", "knee-after", "knee-knows",
   "person-new", "person-light", "person-rich", "person-rich-knows",
@@ -350,6 +350,9 @@ export function V2Lab({ state }: { state: string }) {
     case "how-3":
     case "how-4":
       return <HowItWorksView step={Number(state.slice(4)) - 1} onNext={noop} onClose={noop} />;
+    case "how-4-reply":
+    case "how-4-after":
+      return <HowItWorksView step={3} onNext={noop} onClose={noop} initialPhase={state === "how-4-reply" ? 1 : 2} />;
     case "setup-worth-typed":
       return <WorthStepView label="Setting up · 3 of 3" lines={worthLines} text="Maya starts her new job next month." busy={false} onText={noop} onKeep={noop} onSkip={noop} />;
     case "matt-tell":
