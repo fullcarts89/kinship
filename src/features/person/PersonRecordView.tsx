@@ -1,6 +1,8 @@
 // "What Kinship knows about Ben" (Design Direction §I.7, §J; plan §20 knows):
 // everything kept about a person, each line with who, when and what as
-// tokens, where it came from, and "Not this". From plain data.
+// tokens, where it came from, Edit (founder native pass F5: the words were
+// changeable only by tapping them, which nobody could see) and "Not this".
+// From plain data.
 import React from "react";
 import { View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
@@ -8,6 +10,9 @@ import { press, space } from "@/design/tokens";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { ConflictChoice } from "@/store/conflictCopy";
 import { Body, Line, Pill, Provenance, Screen, Small, Title, Token, TokenRow, usePalette } from "@/ui";
+
+/** "Forget this?" (founder native pass F5: "Keep it" also named the Tell button, with another meaning). */
+export const FORGET_COPY = { title: "Forget this?", cancel: "Cancel", forget: "Forget" } as const;
 
 export interface RecordLine {
   line: ItemLine;
@@ -75,7 +80,8 @@ export function PersonRecordView(props: PersonRecordViewProps) {
               <View style={{ flex: 1 }}>
                 <Provenance line={r.provenance} onPress={r.noteId ? () => props.onSource(r.noteId as string) : undefined} />
               </View>
-              <Pill variant="quiet" label="Not this" onPress={() => props.onForget(r)} />
+              <Pill variant="quiet" label="Edit" accessibilityLabel={`Edit: ${r.line.statement}`} accessibilityHint="Change the words" onPress={() => props.onChange(r.line, "words")} />
+              <Pill variant="quiet" label="Not this" accessibilityLabel={`Not this: ${r.line.statement}`} onPress={() => props.onForget(r)} />
             </View>
             {r.conflict ? (
               <View style={{ marginTop: space.s }}>

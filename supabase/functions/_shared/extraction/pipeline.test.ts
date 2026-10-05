@@ -552,3 +552,82 @@ Deno.test("C.1: traditions and context hold no date, so their date words raise n
   eq(out.items[0]?.flags.includes("date_ambiguous"), false);
   eq(out.items[0]?.date_rule, null);
 });
+
+// ─── Founder native pass (F4/F6): whose statement, and in whose voice ──────
+
+const BROTHERS = [
+  { key: "p1", id: "id-ben", display_name: "Ben Oxnard", full_name: "Ben Oxnard", nicknames: [], relationship_label: null },
+  { key: "p2", id: "id-john", display_name: "John Oxnard", full_name: "John Oxnard", nicknames: [], relationship_label: null },
+  { key: "p3", id: "id-tyler", display_name: "Tyler Shaffer", full_name: "Tyler Shaffer", nicknames: [], relationship_label: null },
+];
+const WARHAMMER = "Ben wants to play the new warhammer game with me and my brother John on weekends.";
+
+Deno.test("the founder's note: 'John is the writer's brother' filed on Ben moves to John, as 'your brother', for a yes", () => {
+  const out = run(input(WARHAMMER, { roster: BROTHERS, related: [] }), [
+    item({
+      kind: "plan", subject: "shared", person: "p1", person_mention: "Ben", certainty: "wished", confidence: 0.8,
+      statement: "Ben wants to play the new warhammer game with the writer and John on weekends",
+      evidence: ["Ben wants to play the new warhammer game with me and my brother John on weekends"],
+      detail: { ...item({}).detail, category: null, firmness: "idea" },
+    }),
+    // What the build stored: the model filed the brother fact under Ben.
+    item({ person: "p1", person_mention: "Ben", statement: "John is the writer's brother", evidence: ["my brother John"], confidence: 0.9 }),
+  ]);
+  const plan = out.items.find((i) => i.kind === "plan")!;
+  eq(plan.person_id, "id-ben");
+  eq(plan.statement, "Ben wants to play the new warhammer game with you and John on weekends");
+  const fact = out.items.find((i) => i.kind === "fact")!;
+  eq(fact.person_id, "id-john", "the brother fact is John's, not Ben's");
+  eq(fact.statement, "John is your brother");
+  ok(fact.flags.includes("subject_moved"), "a moved item is shown for a yes");
+  ok(fact.tier !== "auto", "never saved silently after a move");
+  for (const i of out.items) ok(!/the writer/i.test(i.statement), `no "the writer": ${i.statement}`);
+});
+
+Deno.test("the same note when John isn't in People yet: held, 'Add John?', never put on Ben", () => {
+  const out = run(input(WARHAMMER, { roster: BROTHERS.filter((p) => p.key !== "p2"), related: [] }), [
+    item({ person: "p1", person_mention: "Ben", statement: "John is the writer's brother", evidence: ["my brother John"], confidence: 0.9 }),
+  ]);
+  const fact = out.items[0];
+  eq(fact.person_id, null);
+  eq(fact.new_person_name, "John");
+  eq(fact.tier, "hold");
+  eq(out.tier, "clarify");
+});
+
+Deno.test("a statement that names the filed person isn't moved; neither is a pair or 'you'", () => {
+  const note = "John is Ben's brother. Ben and John went climbing. Ben told me he's tired.";
+  const both = run(input(note, { roster: BROTHERS, related: [] }), [
+    item({ person: "p1", person_mention: "Ben's", statement: "John is Ben's brother", evidence: ["John is Ben's brother"] }),
+    item({ kind: "moment", subject: "shared", person: "p1", person_mention: "Ben", statement: "Ben and John went climbing", evidence: ["Ben and John went climbing"], detail: { ...item({}).detail, category: null } }),
+  ]);
+  for (const i of both.items) {
+    eq(i.person_id, "id-ben", i.statement);
+    ok(!i.flags.includes("subject_moved"), `not moved: ${i.statement}`);
+  }
+});
+
+Deno.test("'the writer' never survives into a statement; what can't be said as 'you' is dropped", () => {
+  const note = "Sarah and I always get dumplings after the Lyric opera. Tom is coming to my birthday dinner Friday.";
+  const out = run(input(note, { roster: [...ROSTER, { key: "p20", id: "id-tom", display_name: "Tom", full_name: null, nicknames: [], relationship_label: null }] }), [
+    item({ kind: "context", subject: "shared", person: "p2", person_mention: "Sarah", statement: "Sarah and the writer always get dumplings after the Lyric opera", evidence: ["Sarah and I always get dumplings after the Lyric opera"], detail: { ...item({}).detail, category: null, aspect: "other" } }),
+    item({ kind: "event", person: "p20", person_mention: "Tom", statement: "Tom is coming to the writer's birthday dinner Friday", evidence: ["Tom is coming to my birthday dinner Friday"], date_text: "Friday", detail: { ...item({}).detail, category: null, event_type: "celebration" } }),
+  ]);
+  eq(out.items.map((i) => i.statement), [
+    "You and Sarah always get dumplings after the Lyric opera",
+    "Tom is coming to your birthday dinner Friday",
+  ]);
+});
+
+Deno.test("people picked from Contacts (full names) are named by their first name, and only as a name", () => {
+  const note = "Ben got the job. He starts Monday.";
+  const out = run(input(note, { roster: BROTHERS, related: [] }), [
+    item({ kind: "event", person: "p1", person_mention: "He", statement: "Ben starts his new job Monday", evidence: ["He starts Monday"], date_text: "Monday", detail: { ...item({}).detail, category: null, event_type: "job_start" } }),
+  ]);
+  eq(out.items[0].person_id, "id-ben", "'He' points at Ben Oxnard, named as 'Ben'");
+  const willRoster = [{ key: "p1", id: "id-will", display_name: "Will Park", full_name: "Will Park", nicknames: [], relationship_label: null }];
+  const lower = run(input("he will call later", { roster: willRoster, related: [] }), [
+    item({ person: "p1", person_mention: "he", statement: "Will Park will call later", evidence: ["he will call later"] }),
+  ]);
+  eq(lower.items.length === 0 || lower.items[0].person_id === null, true, "'will' is not Will Park");
+});

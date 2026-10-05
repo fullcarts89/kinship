@@ -137,7 +137,10 @@ export type DropReason =
   | "bad_kind_subject"
   | "duplicate"
   | "too_many_items"
-  | "contact_detail";
+  | "contact_detail"
+  // "the writer" left in a statement in a way that couldn't be turned into
+  // "you" with certainty (founder native pass F4/F6).
+  | "internal_reference";
 
 export type Flag =
   | "new_person"
@@ -156,7 +159,11 @@ export type Flag =
   | "date_unresolved_sensitive"
   | "protected_target"
   | "mid_confidence"
-  | "tradition";
+  | "tradition"
+  // The statement is plainly about someone other than the person the model
+  // filed it under ("John is your brother" filed on Ben): moved to the person
+  // it names, and shown for a yes rather than kept silently.
+  | "subject_moved";
 
 export interface PlannedSpan {
   start: number;

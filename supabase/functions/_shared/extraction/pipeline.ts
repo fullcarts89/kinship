@@ -17,6 +17,7 @@
 //             wrote or edited; a hedged item never replaces a firm one
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
+import { leadingName, statementNames, yourVoice } from "./voice.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
   capCertainty,
@@ -161,10 +162,17 @@ class Context {
   namedInNote(): RosterPerson[] {
     const words = new Set(wordsOf(this.text).map(nameKey));
     const joined = ` ${wordsOf(this.text).map(nameKey).join(" ")} `;
+    // People picked from Contacts carry their full name ("Ben Oxnard") while
+    // notes say "Ben": a first name counts when the note writes it as a name
+    // (capitalised), so "will" never means Will Park.
+    const capitalised = new Set(
+      (this.text.normalize("NFC").match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).filter((w) => /^\p{Lu}/u.test(w)).map(nameKey),
+    );
     return this.input.roster.filter((p) =>
       [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean).some((f) => {
         const fk = nameKey(f);
-        return fk.includes(" ") ? joined.includes(` ${fk} `) : words.has(fk) || words.has(fk.split(/\s+/)[0]);
+        if (!fk.includes(" ")) return words.has(fk);
+        return joined.includes(` ${fk} `) || capitalised.has(fk.split(/\s+/)[0]);
       })
     );
   }
@@ -217,6 +225,10 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   // one negated clause and one plain one.
   if (negatedWhereStated(clauseAroundSpan(text, primary), statement) && !hasNegation(statement)) return { drop: "polarity_mismatch" };
   if (raw.person_mention && !ctx.inNote(raw.person_mention)) return { drop: "mention_not_in_note" };
+  // The user reads this in their own app: "the writer" becomes "you".
+  const voiced = yourVoice(statement);
+  if (!voiced.certain) return { drop: "internal_reference" };
+  const said = voiced.text;
 
   // ── Kind / subject consistency ──
   let subject = raw.subject;
@@ -231,10 +243,13 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   // A related person the user already knows by name ("Leo", David's son) is
   // filed under their person even though that person isn't mentioned.
   const knownRelated = subject === "related" ? relatedByName(ctx, raw) : null;
-  const who = knownRelated
+  let who = knownRelated
     ? knownRelated.who
     : resolvePerson(ctx, raw, flags);
   if ("drop" in who) return who;
+  // A statement that plainly leads with someone else ("John is your
+  // brother") is never left on the page the model chose (Ben's).
+  if (subject === "person" && who.person_key && !knownRelated) who = refileBySubject(ctx, said, who, flags);
 
   // ── Related person ("Sarah's sister") ──
   let related: PlannedItem["related"] = null;
@@ -339,7 +354,7 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
       new_person_name: who.new_person_name,
       subject_type: subject,
       related,
-      statement,
+      statement: said,
       detail: detail.detail,
       certainty,
       sensitivity,
@@ -514,6 +529,45 @@ const DATEISH = new Set([
   "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "tomorrow", "tonight",
   "next", "week", "weekend", "month", "today",
 ]);
+
+// ─── Whose statement is it? ─────────────────────────────────────────────────
+
+function namesFor(p: RosterPerson): string[] {
+  return [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean);
+}
+
+/**
+ * The founder build kept "John is the writer's brother" on Ben's page: the
+ * model filed it under Ben (named in the note) and nothing checked the
+ * statement itself. When a person-subject statement leads with a name that
+ * isn't the filed person's, and doesn't name the filed person at all, it is
+ * about the person it names: that roster person (shown for a yes), someone
+ * new ("Add John?"), or, if the name fits two people, a question.
+ */
+function refileBySubject(
+  ctx: Context,
+  statement: string,
+  who: { person_id: string | null; person_key: string | null; new_person_name: string | null },
+  flags: Set<Flag>,
+): { person_id: string | null; person_key: string | null; new_person_name: string | null } {
+  const filed = who.person_key ? ctx.byKey.get(who.person_key) : null;
+  const lead = leadingName(statement);
+  if (!filed || !lead || statementNames(statement, namesFor(filed))) return who;
+  const firstOnly = lead.split(/\s+/u)[0];
+  // The name must be the note's own (the invented-name check already holds
+  // the statement to that); a full name only counts if the note says it.
+  const said = ctx.inNote(lead) ? lead : ctx.inNote(firstOnly) ? firstOnly : null;
+  if (!said) return who;
+  let candidates = ctx.candidatesFor(said);
+  if (candidates.length === 0 && said !== firstOnly) candidates = ctx.candidatesFor(firstOnly);
+  if (candidates.length === 1) {
+    if (candidates[0].key === filed.key) return who;
+    flags.add("subject_moved");
+    return { person_id: candidates[0].id, person_key: candidates[0].key, new_person_name: null };
+  }
+  flags.add(candidates.length === 0 ? "new_person" : "person_ambiguous");
+  return { person_id: null, person_key: null, new_person_name: candidates.length === 0 ? said.slice(0, 100) : null };
+}
 
 // ─── Person resolution ──────────────────────────────────────────────────────
 

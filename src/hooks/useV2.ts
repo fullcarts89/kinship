@@ -12,6 +12,7 @@ import { buildPortrait, PORTRAIT_RULES, type Portrait, type PortraitItem, type P
 import { dayMonth, needsSetup, nextBirthday, type PickRow, type SetupStep } from "@/features/setup/setupModel";
 import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
 import { parseDrafts, withDraft, type Drafts } from "@/features/tell/drafts";
+import { misfiledOn, voiced } from "@/features/memory/statements";
 import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
 import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, track } from "@/platform/analytics";
@@ -75,7 +76,7 @@ export function useReview(captureId: string | null): ReviewView | null {
       capture: capture
         ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status }
         : null,
-      items: await understanding.itemsFor(captureId, row.reading),
+      items: (await understanding.itemsFor(captureId, row.reading)).map(voiced),
       people: await repos.people.list(),
       related: await repos.people.related(),
       offline: understanding.offline,
@@ -139,6 +140,7 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
   const related = await repos.people.related();
   const items = (await repos.memory.forPerson(personId))
     .filter((m) => m.status === "active" || m.status === "resolved")
+    .map(voiced)
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   const lines: RecordLine[] = [];
   const byItem = await repos.memory.sourcesByItem();
@@ -184,7 +186,7 @@ export async function noteFor(store: UserStore, captureId: string, now: Date): P
     if (!item || item.status === "retracted" || item.status === "superseded") continue;
     if (!items.some((i) => i.id === item.id)) {
       const p = people.find((x) => x.id === item.person_id);
-      items.push({ id: item.id, statement: item.statement, person: p?.display_name ?? "", personId: item.person_id });
+      items.push({ id: item.id, statement: voiced(item).statement, person: p?.display_name ?? "", personId: item.person_id });
     }
     if (typeof s.span_start === "number" && typeof s.span_end === "number") spans.push({ start: s.span_start, end: s.span_end });
     if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
@@ -245,8 +247,9 @@ export function useToday(questions: number, toLookAt: number, now: Date): TodayV
   const minute = Math.floor(now.getTime() / 60_000);
   const q = useStoreQuery(store, async (repos) => {
     const reasons = (await store.list("reasons")) as unknown as ReasonRow[];
-    const items = (await store.list("memory_items")) as MemoryItem[];
     const people = await repos.people.list();
+    const items = ((await store.list("memory_items")) as MemoryItem[]).map(voiced)
+      .filter((m) => !misfiled(m, people));
     const told = (await repos.captures.list()).length;
     const local = await reasonLocal.read();
     // Provenance only for what a reason cites (the moment's line).
@@ -319,6 +322,12 @@ export function useTodayActions() {
 
 const LIVE_KINDS = ["fact", "thread", "event", "plan", "moment", "milestone", "promise", "context", "tradition"];
 
+/** A statement kept on one person that plainly leads with another (founder native pass F4). */
+function misfiled(m: MemoryItem, people: Person[]): boolean {
+  const person = people.find((p) => p.id === m.person_id);
+  return !!person && !!misfiledOn(m, person, people);
+}
+
 function liveItem(m: MemoryItem): boolean {
   return (m.status === "active" || m.status === "resolved") && !m.deleted_at;
 }
@@ -337,8 +346,9 @@ export function usePeopleRows(): PeopleRowData[] {
     const items = ((await store.list("memory_items")) as MemoryItem[])
       .filter((m) => liveItem(m) && m.status === "active" && m.sensitivity === "none" && LIVE_KINDS.includes(m.kind))
       .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+    const all = await repos.people.list();
     const newest = new Map<string, string>();
-    for (const m of items) if (!newest.has(m.person_id)) newest.set(m.person_id, m.statement);
+    for (const m of items) if (!newest.has(m.person_id) && !misfiled(m, all)) newest.set(m.person_id, voiced(m).statement);
     return people
       .sort((a, b) => a.display_name.localeCompare(b.display_name))
       .map((p) => ({ person: p, label: personLabel(p, people), line: newest.get(p.id) ?? null }));
@@ -369,7 +379,11 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
   if (!person) return buildPortrait({ person: null, items: [], today });
   const items: PortraitItem[] = [];
   const byItem = await repos.memory.sourcesByItem();
-  for (const item of await repos.memory.forPerson(person.id)) {
+  const people = await repos.people.list();
+  for (const stored of await repos.memory.forPerson(person.id)) {
+    const item = voiced(stored);
+    // Plainly about someone else: not on this portrait (it stays in What Kinship knows).
+    if (misfiledOn(item, person, people)) continue;
     const sources = byItem.get(item.id) ?? [];
     const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
@@ -410,8 +424,9 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
   const { store } = useV2Session();
   const q = useStoreQuery(store, async (repos) => {
     if (!itemId) return null;
-    const item = (await store.get("memory_items", itemId)) as MemoryItem | null;
-    if (!item || !liveItem(item)) return null;
+    const stored = (await store.get("memory_items", itemId)) as MemoryItem | null;
+    if (!stored || !liveItem(stored)) return null;
+    const item = voiced(stored);
     const people = await repos.people.list();
     const related = await repos.people.related();
     const sources = await repos.memory.sourcesFor(item.id);
