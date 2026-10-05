@@ -69,7 +69,7 @@ it("Ben, everywhere it's shown: the note's words, a formatted date, and nothing 
     now: new Date(2026, 9, 12, 9, 0), today: "2026-10-12", items: [{ ...race, sensitivity: "none" } as MemoryItem], people,
     reasons: [{ id: "r1", person_id: "ben", type: "event_followup", window_start: new Date(2026, 9, 12).toISOString(),
       window_end: new Date(2026, 9, 14).toISOString(), score: 90, state: "candidate", dedupe_key: "event_followup:m1:2026-10-11" }],
-    local: {}, primaries: [], handoff: null, questions: 0, toLookAt: 0,
+    local: {}, primaries: [], handoff: null, told: 1, questions: 0, toLookAt: 0,
     provenance: () => ({ line: "You told Kinship · Oct 8", noteId: "c1" }),
   });
   expect(today.moment?.statement).toBe("How did it go for Ben?");

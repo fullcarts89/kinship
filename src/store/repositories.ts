@@ -79,6 +79,32 @@ export class PeopleRepo {
     return this.store.create("people", { state: "active", nicknames: [], ...fields }) as Promise<Person>;
   }
 
+  /**
+   * Someone the user picked from their contacts (plan E16, T8): the name, the
+   * device's contact id (never the address book), and the contact's own
+   * birthday, which says it came from Contacts (CA-5).
+   */
+  addPicked(fields: {
+    id: string;
+    name: string;
+    contactId: string | null;
+    birthday: string | null;
+    birthdayYearKnown: boolean;
+  }): Promise<Person> {
+    const name = fields.name.normalize("NFC").trim();
+    return this.store.create("people", {
+      id: fields.id,
+      state: "active",
+      nicknames: [],
+      display_name: name,
+      full_name: name,
+      contact_ref: fields.contactId,
+      ...(fields.birthday
+        ? { birthday: fields.birthday, birthday_year_known: fields.birthdayYearKnown, birthday_source: "contacts" }
+        : {}),
+    }) as Promise<Person>;
+  }
+
   update(id: string, patch: Partial<Pick<Person, "display_name" | "full_name" | "relationship_label">>): Promise<Data> {
     return this.store.update("people", id, patch);
   }

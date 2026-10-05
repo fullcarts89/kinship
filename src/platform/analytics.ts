@@ -153,6 +153,7 @@ export function minutesBucket(ms: number): MinutesBucket {
 }
 
 /** The analytics name for a Today reason type. */
-export function reasonTypeName(type: "upcoming_event" | "event_followup"): ReasonType {
+export function reasonTypeName(type: "upcoming_event" | "event_followup" | "birthday"): ReasonType {
+  if (type === "birthday") return "birthday";
   return type === "event_followup" ? "follow_up" : "upcoming";
 }

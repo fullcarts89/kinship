@@ -71,6 +71,8 @@ export default function TodayScreen() {
           else if (q.kind === "look") flow.openNote(flow.toLookAt[0]);
           else router.push(`/v2/person/${q.personId}`);
         }}
+        onTellFirst={() => flow.focusTell(null)}
+        onAddPeople={() => router.push("/v2/people/add")}
       />
       {handoff.sheet}
     </>

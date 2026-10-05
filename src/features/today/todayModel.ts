@@ -14,9 +14,22 @@
 // event-type vocabulary in it.
 
 import { dayLabel, whenLabel } from "@/features/memory/format";
+import { nextBirthday } from "@/features/setup/setupModel";
 import type { MemoryItem, Person } from "@/store/repositories";
 
-export type ReasonType = "upcoming_event" | "event_followup";
+export type ReasonType = "upcoming_event" | "event_followup" | "birthday";
+
+/** A birthday's moment id: one per person per birthday (never a server reason row). */
+export function birthdayReasonId(personId: string, day: string): string {
+  return `birthday:${personId}:${day}`;
+}
+
+export function isBirthdayReason(id: string): boolean {
+  return id.startsWith("birthday:");
+}
+
+/** Birthday weight (plan §13). */
+const BIRTHDAY_WEIGHT = 80;
 
 export interface ReasonRow {
   id: string;
@@ -62,6 +75,8 @@ export interface TodayInput {
   /** The person each recent moment was about, by the day it was shown (person cap). */
   primaries: { personId: string; reasonId: string; day: string }[];
   handoff: Handoff | null;
+  /** How many notes the user has ever told Kinship (first use vs a quiet day). */
+  told: number;
   /** Notes waiting on the user (D1): a question, or understood while away. */
   questions: number;
   toLookAt: number;
@@ -74,7 +89,8 @@ export interface MomentView {
   type: ReasonType;
   personId: string;
   personName: string;
-  itemId: string;
+  /** The memory it cites; null for a birthday from the person's record. */
+  itemId: string | null;
   statement: string;
   context: string;
   provenance: string | null;
@@ -91,7 +107,7 @@ export interface MomentView {
 export type QuietView =
   | { kind: "question"; label: string; text: string; action: string }
   | { kind: "look"; label: string; text: string; action: string }
-  | { kind: "coming"; label: string; text: string; personId: string; itemId: string };
+  | { kind: "coming"; label: string; text: string; personId: string; itemId: string | null };
 
 export interface ReturnView {
   personId: string;
@@ -106,8 +122,14 @@ export interface TodayView {
   returnCheck: ReturnView | null;
   moment: MomentView | null;
   quiet: QuietView[];
-  /** "Nothing needs you today." */
+  /** "Nothing needs you today." Only for an account already in use (contract §8). */
   quietDay: boolean;
+  /**
+   * First use: setup is done but nothing has been told yet (or there is no
+   * one here). Today explains what it is for and offers the next step,
+   * instead of a quiet day.
+   */
+  firstUse: { hasPeople: boolean } | null;
 }
 
 export const THRESHOLD = 55;
@@ -190,6 +212,7 @@ export function buildToday(input: TodayInput): TodayView {
     moment: null,
     quiet: [],
     quietDay: false,
+    firstUse: null,
   };
 
   // The return check: 10 minutes to 12 hours after a hand-off Kinship opened.
@@ -217,7 +240,42 @@ export function buildToday(input: TodayInput): TodayView {
       best = { r, item, score };
     }
   }
-  if (best) {
+  // Birthdays, from the person's own record (Contacts, a note, or the user's edit).
+  let birthday: { p: Person; day: string; score: number } | null = null;
+  for (const p of input.people) {
+    if (!activePerson(p.id) || !p.birthday || !p.birthday_source) continue;
+    const day = nextBirthday(String(p.birthday), today);
+    if (day !== today) continue;
+    const id = birthdayReasonId(p.id, day);
+    const local = input.local[id];
+    if (local?.acted || local?.dismissed || local?.done) continue;
+    const capped = input.primaries.some((x) => x.personId === p.id && x.reasonId !== id && daysBetween(x.day, today) < 7);
+    const score = capped ? 0 : BIRTHDAY_WEIGHT * (local?.firstShown && local.firstShown !== today ? 0.5 : 1);
+    if (score >= THRESHOLD && (!birthday || score > birthday.score)) birthday = { p, day, score };
+  }
+  if (birthday && (!best || birthday.score > best.score)) {
+    const name = firstName(birthday.p);
+    const source = birthday.p.birthday_source;
+    view.moment = {
+      reasonId: birthdayReasonId(birthday.p.id, birthday.day),
+      type: "birthday",
+      personId: birthday.p.id,
+      personName: name,
+      itemId: null,
+      statement: `It's ${name}'s birthday.`,
+      context: "",
+      provenance: source === "contacts" ? "From Contacts" : source === "capture" ? "You told Kinship" : "You added this",
+      noteId: source === "capture" && typeof birthday.p.birthday_capture_id === "string" ? birthday.p.birthday_capture_id : null,
+      score: birthday.score,
+      primary: { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
+      heading: `Wish ${name} a happy birthday`,
+      mention: input.items
+        .filter((m) => m.person_id === birthday!.p.id && live(m) && ["fact", "thread", "event", "plan", "moment"].includes(m.kind))
+        .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
+        .slice(0, 2)
+        .map((m) => m.statement),
+    };
+  } else if (best) {
     const p = activePerson(best.r.person_id) as Person;
     const name = firstName(p);
     const day = eventDay(best.item) as string;
@@ -262,19 +320,32 @@ export function buildToday(input: TodayInput): TodayView {
     });
   }
   const seen = new Set<string>(view.moment ? [view.moment.personId] : []);
-  const coming = input.items
-    .filter((m) => live(m) && (m.kind === "event" || m.kind === "plan") && m.id !== view.moment?.itemId && activePerson(m.person_id))
-    .map((m) => ({ m, day: eventDay(m) }))
-    .filter((x): x is { m: MemoryItem; day: string } => !!x.day && daysBetween(today, x.day) >= 1 && daysBetween(today, x.day) <= 7)
-    .sort((a, b) => a.day.localeCompare(b.day) || a.m.id.localeCompare(b.m.id));
-  for (const { m, day } of coming) {
+  const soon = (day: string) => daysBetween(today, day) >= 1 && daysBetween(today, day) <= 7;
+  const coming: { personId: string; day: string; text: string; itemId: string | null; key: string }[] = [
+    ...input.items
+      .filter((m) => live(m) && (m.kind === "event" || m.kind === "plan") && m.id !== view.moment?.itemId && activePerson(m.person_id))
+      .map((m) => ({ m, day: eventDay(m) }))
+      .filter((x): x is { m: MemoryItem; day: string } => !!x.day && soon(x.day))
+      .map(({ m, day }) => ({ personId: m.person_id, day, text: m.statement, itemId: m.id, key: m.id })),
+    ...input.people
+      .filter((p) => activePerson(p.id) && p.birthday && p.birthday_source)
+      .map((p) => ({ p, day: nextBirthday(String(p.birthday), today) }))
+      .filter(({ day }) => soon(day))
+      .map(({ p, day }) => ({ personId: p.id, day, text: `${firstName(p)}'s birthday`, itemId: null, key: `b${p.id}` })),
+  ].sort((a, b) => a.day.localeCompare(b.day) || a.key.localeCompare(b.key));
+  for (const c of coming) {
     if (view.quiet.length >= 2) break;
-    if (seen.has(m.person_id)) continue;
-    seen.add(m.person_id);
-    view.quiet.push({ kind: "coming", label: relativeDay(day, today), text: m.statement, personId: m.person_id, itemId: m.id });
+    if (seen.has(c.personId)) continue;
+    seen.add(c.personId);
+    view.quiet.push({ kind: "coming", label: relativeDay(c.day, today), text: c.text, personId: c.personId, itemId: c.itemId });
   }
 
-  view.quietDay = !view.moment && !view.returnCheck;
+  // First use is not a quiet day (contract §8).
+  const here = input.people.filter((p) => !p.deleted_at && p.state !== "archived");
+  const firstUse = here.length === 0 || input.told === 0;
+  const nothing = !view.moment && !view.returnCheck;
+  view.firstUse = firstUse && nothing ? { hasPeople: here.length > 0 } : null;
+  view.quietDay = nothing && !firstUse;
   return view;
 }
 

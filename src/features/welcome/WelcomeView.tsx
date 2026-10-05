@@ -19,6 +19,12 @@ export const WELCOME_COPY = {
   label: "Kinship",
   promise: "Remember what matters about the people you care about.",
   sub: "Kinship keeps it for you, and helps you show up.",
+  /** What it is, in three plain lines: the outcome, never the machinery (DD §B–C). */
+  how: [
+    "Tell it what's going on with the people you love, in your own words.",
+    "It remembers, and always shows where each thing came from.",
+    "When something matters, it brings it back, so you can reach out.",
+  ],
   apple: "Continue with Apple",
   google: "Continue with Google",
   email: "Use email",
@@ -84,6 +90,13 @@ export function WelcomeView(props: WelcomeViewProps) {
         <Label style={{ marginTop: space.x3 }}>{WELCOME_COPY.label}</Label>
         <Display style={{ marginTop: space.m }}>{WELCOME_COPY.promise}</Display>
         <Body style={{ marginTop: space.l }}>{WELCOME_COPY.sub}</Body>
+        <View style={{ marginTop: space.x3, borderTopWidth: 1, borderTopColor: p.hairline }}>
+          {WELCOME_COPY.how.map((line) => (
+            <View key={line} style={{ paddingVertical: space.m, borderBottomWidth: 1, borderBottomColor: p.hairline }}>
+              <Body tone="ink">{line}</Body>
+            </View>
+          ))}
+        </View>
       </ScrollView>
 
       <View style={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + space.xl, gap: space.m }}>

@@ -2,12 +2,13 @@
 // repositories). Everything re-reads when the user's store changes: a local
 // write, a sync, or a step of Understanding.
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
-import { buildToday, evidenceOf, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayView } from "@/features/today/todayModel";
+import { buildToday, evidenceOf, isBirthdayReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayView } from "@/features/today/todayModel";
+import { dayMonth, needsSetup, nextBirthday, type PickRow, type SetupStep } from "@/features/setup/setupModel";
 import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
 import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
 import { getMeta, setMeta } from "@/store/schema";
@@ -43,11 +44,11 @@ export function useTell() {
   // The server checks consent on every call; this only decides whether to ask.
   const consent = s ? (s.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION ? "on" : "off") : "unknown";
   const ai = isOn(flags, "ai_extraction") && consent !== "off";
-  const keep = useCallback(async (text: string, contextPersonId?: string | null): Promise<string> => {
+  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text"): Promise<string> => {
     const capture = await repositoriesFor(store).captures.tell(text, {
-      aiEnabled: ai, timeZone: timeZone(), contextPersonId: contextPersonId ?? undefined,
+      aiEnabled: ai, timeZone: timeZone(), contextPersonId: contextPersonId ?? undefined, source,
     });
-    track("capture_completed", { source: "text", chars_bucket: charsBucket([...text].length), offline: understanding.offline });
+    track("capture_completed", { source, chars_bucket: charsBucket([...text].length), offline: understanding.offline });
     if (ai) {
       await understanding.told(capture.id);
       understanding.run().catch(() => undefined);
@@ -236,6 +237,7 @@ export function useToday(questions: number, toLookAt: number, now: Date): TodayV
     const reasons = (await store.list("reasons")) as unknown as ReasonRow[];
     const items = (await store.list("memory_items")) as MemoryItem[];
     const people = await repos.people.list();
+    const told = (await repos.captures.list()).length;
     const local = await reasonLocal.read();
     // Provenance only for what a reason cites (the moment's line).
     const cited = new Set(reasons.map(evidenceOf).filter((x): x is string => !!x));
@@ -253,7 +255,7 @@ export function useToday(questions: number, toLookAt: number, now: Date): TodayV
     }
     return buildToday({
       now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
-      handoff: local.handoff, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
+      handoff: local.handoff, told, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
     });
   }, [questions, toLookAt, minute]);
   return q.data ?? null;
@@ -268,30 +270,33 @@ export function useTodayActions() {
       const before = (await reasonLocal.read()).local[m.reasonId]?.firstShown;
       await reasonLocal.shown(m.reasonId, m.personId, todayIso());
       if (!before) {
-        reasons.record(m.reasonId, "shown");
+        if (!isBirthdayReason(m.reasonId)) reasons.record(m.reasonId, "shown");
         track("reason_surfaced", { reason_type: reasonTypeName(m.type), surface: "today", score_bucket: scoreBucket(m.score) });
       }
     },
     notNow: async (m: { reasonId: string; type: TodayReasonType }) => {
       await reasonLocal.dismissed(m.reasonId, new Date().toISOString());
-      reasons.record(m.reasonId, "dismissed_not_now");
+      if (!isBirthdayReason(m.reasonId)) reasons.record(m.reasonId, "dismissed_not_now");
       track("reason_dismissed", { reason_type: reasonTypeName(m.type), mode: "not_now" });
     },
     handedOff: async (h: { reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType }) => {
       await reasonLocal.handedOff({ reasonId: h.reasonId, personId: h.personId, channel: h.channel, at: new Date().toISOString() });
-      reasons.record(h.reasonId, "acted", h.channel);
+      if (!isBirthdayReason(h.reasonId)) reasons.record(h.reasonId, "acted", h.channel);
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
     },
     /** "Yes": the one place a connection is recorded (plan §15). */
     returned: async (answer: "yes" | "not_yet") => {
       const h = await reasonLocal.answered(answer, new Date().toISOString());
       if (!h) return null;
-      reasons.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
+      if (!isBirthdayReason(h.reasonId)) reasons.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
       track("return_check_answered", { answer, minutes_since_handoff_bucket: minutesBucket(Date.now() - Date.parse(h.at)) });
       if (answer === "yes") {
-        await repositoriesFor(store).contacts.confirm({
-          person_id: h.personId, channel: h.channel, source: "return_check", reason_id: h.reasonId,
-        });
+        // A birthday moment is worked out on this phone and has no server
+        // reason to name, so its "Yes" is recorded as the user's own word
+        // (manual). Server birthday reasons (RSN-05) will carry the reason.
+        await repositoriesFor(store).contacts.confirm(isBirthdayReason(h.reasonId)
+          ? { person_id: h.personId, channel: h.channel, source: "manual" }
+          : { person_id: h.personId, channel: h.channel, source: "return_check", reason_id: h.reasonId });
       }
       return h;
     },
@@ -331,12 +336,15 @@ export function usePeopleRows(): PeopleRowData[] {
 }
 
 export interface PortraitLine {
+  /** The memory item; "birthday" for the person's own birthday line. */
   itemId: string;
   statement: string;
   /** "Sun, Oct 11", "October"… when it has a time. */
   when: string | null;
   provenance: string;
   noteId: string | null;
+  /** Not correctable from the page (a birthday from Contacts). */
+  fixed?: boolean;
 }
 
 export interface Portrait {
@@ -405,6 +413,25 @@ export function usePortrait(personId: string): Portrait {
       return typeof d.date === "string" ? d.date : "9999";
     };
     out.comingUp.sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
+    // Their birthday, from their record, when it's within a month.
+    if (person.birthday && person.birthday_source && person.state === "active") {
+      const next = nextBirthday(String(person.birthday), today);
+      const days = Math.round((Date.parse(`${next}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+      if (days <= 30) {
+        const first = person.display_name.trim().split(/\s+/u)[0] || person.display_name;
+        const line: PortraitLine = {
+          itemId: "birthday",
+          statement: `${first}'s birthday`,
+          when: days === 0 ? "Today" : `${dayMonth(next)}`,
+          provenance: person.birthday_source === "contacts" ? "From Contacts"
+            : person.birthday_source === "capture" ? "You told Kinship" : "You added this",
+          noteId: person.birthday_source === "capture" && typeof person.birthday_capture_id === "string" ? person.birthday_capture_id : null,
+          fixed: true,
+        };
+        const at = out.comingUp.findIndex((l) => dayOf(l) > next);
+        out.comingUp.splice(at === -1 ? out.comingUp.length : at, 0, line);
+      }
+    }
     return out;
   }, [personId]);
   return q.data ?? { person: null, label: null, lately: [], comingUp: [], youSaid: [], between: [], total: 0 };
@@ -474,4 +501,109 @@ export function useUnderstandingConsent(): { allowed: boolean | null; set: (allo
       store.notify();
     },
   };
+}
+
+// ─── Setup (plan E16; contract §8) ──────────────────────────────────────
+
+const SETUP_DONE = "setup_done";
+const SETUP_STEP = "setup_step";
+/** How long setup waits for the server before deciding a new phone is a new account. */
+const SETUP_SYNC_WAIT_MS = 5000;
+
+export type SetupGate = "checking" | "needed" | "done";
+
+/**
+ * Whether this account still needs setup. Decided once per open: a finished
+ * setup on this phone; else, after one sync (so a reinstall brings an
+ * existing account's people down first), an account with no people and no
+ * notes, or a setup that was under way when the app was closed.
+ */
+export function useSetupGate(): SetupGate {
+  const { store, understanding } = useV2Session();
+  const [gate, setGate] = useState<SetupGate>("checking");
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if ((await getMeta(store.db, SETUP_DONE)) === "1") {
+        if (!cancelled) setGate("done");
+        return;
+      }
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        understanding.run().catch(() => undefined),
+        new Promise((r) => {
+          timer = setTimeout(r, SETUP_SYNC_WAIT_MS);
+        }),
+      ]);
+      clearTimeout(timer);
+      const repos = repositoriesFor(store);
+      const people = (await repos.people.list()).filter((p) => !p.deleted_at).length;
+      const notes = (await repos.captures.list()).length;
+      const inProgress = (await getMeta(store.db, SETUP_STEP)) !== null;
+      const needed = needsSetup({ done: false, inProgress, people, notes });
+      if (!needed) await setMeta(store.db, SETUP_DONE, "1");
+      if (!cancelled) setGate(needed ? "needed" : "done");
+    })().catch(() => {
+      if (!cancelled) setGate("done");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [store, understanding]);
+  return gate;
+}
+
+/** The steps, the saved place in them, and the writes setup makes. */
+export function useSetup() {
+  const { store, userId } = useV2Session();
+  const extractionOn = isOn(useFlags(userId), "ai_extraction");
+  const q = useStoreQuery(store, async (repos) => {
+    const s = await repos.settings.get();
+    const allowed = s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
+    const asked = (await getMeta(store.db, CONSENT_ASKED)) === "1";
+    const people = (await repos.people.list()).filter((p) => !p.deleted_at && p.state !== "archived");
+    return {
+      saved: await getMeta(store.db, SETUP_STEP),
+      needsConsent: extractionOn && !allowed && !asked,
+      people,
+    };
+  }, [extractionOn]);
+  return {
+    ready: q.data !== undefined,
+    saved: q.data?.saved ?? null,
+    needsConsent: q.data?.needsConsent ?? false,
+    people: q.data?.people ?? [],
+    goTo: (step: SetupStep) => setMeta(store.db, SETUP_STEP, step),
+    /** Saves the people the user picked, skipping anyone already here. */
+    savePicked: async (rows: PickRow[]) => {
+      const repos = repositoriesFor(store);
+      const have = new Set((await repos.people.list()).map((p) => p.id));
+      for (const r of rows) {
+        if (have.has(r.personId)) continue;
+        await repos.people.addPicked({
+          id: r.personId, name: r.name, contactId: r.contactId, birthday: r.birthday, birthdayYearKnown: r.birthdayYearKnown,
+        });
+      }
+    },
+    finish: async () => {
+      await setMeta(store.db, SETUP_DONE, "1");
+      store.notify();
+    },
+  };
+}
+
+/** What the picker must leave out: people already here, by contact and by name. */
+export function useExistingPeople(): { contactRefs: Set<string>; names: Set<string> } {
+  const people = usePeople();
+  return {
+    contactRefs: new Set(people.map((p) => p.contact_ref).filter((x): x is string => typeof x === "string")),
+    names: new Set(people.map((p) => p.display_name.toLocaleLowerCase())),
+  };
+}
+
+/** Whether the user has ever told Kinship anything (first use vs a quiet day). */
+export function useToldCount(): number {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => (await repos.captures.list()).length);
+  return q.data ?? 0;
 }

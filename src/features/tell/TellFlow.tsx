@@ -30,7 +30,7 @@ export interface TellFlow {
   tellOn: boolean;
   ai: boolean;
   /** Keeps what the user said; resolves once it's safely on the phone. */
-  keep: (text: string, contextPersonId?: string | null) => Promise<boolean>;
+  keep: (text: string, contextPersonId?: string | null, source?: "text" | "onboarding") => Promise<boolean>;
   /** What happened to the note just told, in a few words; null when nothing to say. */
   status: string | null;
   kept: KeptLineState | null;
@@ -117,10 +117,10 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     if (showing && sheet?.mode === "none") setShowing(null);
   }, [showing, sheet?.mode]);
 
-  const keep = useCallback(async (text: string, contextPersonId?: string | null) => {
+  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text") => {
     if (!text.trim()) return false;
     try {
-      const id = await keepNote(text, contextPersonId ?? null);
+      const id = await keepNote(text, contextPersonId ?? null, source);
       announced.current = null;
       setCurrent(id);
       // Without understanding, the note is kept exactly as written.

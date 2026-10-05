@@ -37,6 +37,10 @@ export function SettingsSheetView(props: {
           />
         </View>
       </View>
+      <View style={{ paddingVertical: space.l, borderBottomWidth: 1, borderColor: p.hairline }}>
+        <Body tone="ink">Contacts</Body>
+        <Small style={{ marginTop: space.xs }}>Read on this phone for names and birthdays. Only the people you pick are saved.</Small>
+      </View>
       <Label style={{ marginTop: space.xl }}>Account</Label>
       <View style={{ alignItems: "flex-start", marginTop: space.s }}>
         <Pill size="small" label="Sign out" onPress={props.onSignOut} />

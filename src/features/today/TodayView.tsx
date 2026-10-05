@@ -6,7 +6,7 @@ import React from "react";
 import { View } from "react-native";
 import { MessageCircle } from "lucide-react-native";
 import { space } from "@/design/tokens";
-import { Display, Greeting, Label, Moment, MomentText, Pill, QuietLine, Screen, usePalette } from "@/ui";
+import { Body, Display, Greeting, Label, Moment, MomentText, Pill, QuietLine, Screen, usePalette } from "@/ui";
 import type { QuietView, TodayView as TodayData } from "./todayModel";
 
 export interface TodayViewProps {
@@ -20,8 +20,20 @@ export interface TodayViewProps {
   onRemember: () => void;
   onNothing: () => void;
   onQuiet: (q: QuietView) => void;
+  /** First use: tell Kinship one thing (focuses the Tell field). */
+  onTellFirst?: () => void;
+  /** First use with no one here: bring people in. */
+  onAddPeople?: () => void;
   footer?: React.ReactNode;
 }
+
+export const FIRST_USE_COPY = {
+  title: "This is where Kinship brings things back.",
+  withPeople: "Tell Kinship what's going on with the people you care about. When something matters, like a birthday, a big day or something you said you'd do, it will be here, with what you said.",
+  noPeople: "Add the people you care about, then tell Kinship what's going on with them. When something matters, like a birthday or a big day, it will be here.",
+  tell: "Tell Kinship something",
+  add: "Add your people",
+} as const;
 
 export function TodayView(props: TodayViewProps) {
   const p = usePalette();
@@ -72,6 +84,21 @@ export function TodayView(props: TodayViewProps) {
               </>
             }
           />
+        </View>
+      ) : view.firstUse && !props.afterReturn ? (
+        <View style={{ marginTop: space.x4 }}>
+          <Display>{FIRST_USE_COPY.title}</Display>
+          <Body style={{ marginTop: space.m }}>{view.firstUse.hasPeople ? FIRST_USE_COPY.withPeople : FIRST_USE_COPY.noPeople}</Body>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.xxl }}>
+            {view.firstUse.hasPeople ? (
+              <Pill variant="primary" label={FIRST_USE_COPY.tell} onPress={() => props.onTellFirst?.()} />
+            ) : (
+              <>
+                <Pill variant="primary" label={FIRST_USE_COPY.add} onPress={() => props.onAddPeople?.()} />
+                <Pill label={FIRST_USE_COPY.tell} onPress={() => props.onTellFirst?.()} />
+              </>
+            )}
+          </View>
         </View>
       ) : view.quietDay && !props.afterReturn ? (
         <View style={{ marginTop: space.x4 }}>

@@ -15,6 +15,8 @@ export interface PortraitLineData {
   when: string | null;
   provenance: string;
   noteId: string | null;
+  /** From the person's record (a contact's birthday): shown, not corrected here. */
+  fixed?: boolean;
 }
 
 export interface PortraitViewProps {
@@ -58,15 +60,19 @@ function Section({ title, lines, ochre, onLine, onSource }: {
       <Label tone={ochre ? "ochreText" : "inkQuiet"} accessibilityRole="header">{title}</Label>
       {lines.map((l) => (
         <View key={l.itemId} style={{ marginTop: space.s }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={withWhen(l)}
-            accessibilityHint="Double-tap to correct it"
-            onPress={() => onLine(l.itemId)}
-            style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
-          >
+          {l.fixed ? (
             <Line>{withWhen(l)}</Line>
-          </Pressable>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={withWhen(l)}
+              accessibilityHint="Double-tap to correct it"
+              onPress={() => onLine(l.itemId)}
+              style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
+            >
+              <Line>{withWhen(l)}</Line>
+            </Pressable>
+          )}
           <View style={{ marginTop: space.xs }}>
             <Provenance line={l.provenance} onPress={l.noteId ? () => onSource(l.noteId as string) : undefined} />
           </View>
@@ -124,7 +130,12 @@ export function PortraitView(props: PortraitViewProps) {
       </View>
 
       {empty ? (
-        <Body style={{ marginTop: space.xl }}>{`What you tell Kinship about ${first} will be here.`}</Body>
+        <View style={{ marginTop: space.xl, alignItems: "flex-start" }}>
+          <Body>{`What you tell Kinship about ${first} will be here: what's going on with them, what's coming up, what you said you'd do.`}</Body>
+          <View style={{ marginTop: space.l }}>
+            <Pill label={`Tell Kinship about ${first}`} onPress={props.onTell} />
+          </View>
+        </View>
       ) : null}
       <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} />
       <Section title="Coming up" lines={props.comingUp} onLine={props.onLine} onSource={props.onSource} />

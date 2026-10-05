@@ -80,7 +80,7 @@ const reasons: ReasonRow[] = [
 
 function today(over: Partial<TodayInput> = {}) {
   return buildToday({
-    now: NOW, today: TODAY, reasons, items, people, local: {}, primaries: [], handoff: null, questions: 0, toLookAt: 0,
+    now: NOW, today: TODAY, reasons, items, people, local: {}, primaries: [], handoff: null, told: 6, questions: 0, toLookAt: 0,
     provenance: () => ({ line: "You told Kinship · Oct 8", noteId: "c1" }), ...over,
   });
 }
