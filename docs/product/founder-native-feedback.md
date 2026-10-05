@@ -73,3 +73,11 @@ Screen: the welcome screen again, after signing in by email.
 | # | Area | Founder's feedback | What the code / screenshots show (my observation, not yet investigated) |
 |---|---|---|---|
 | F15 | Sign-in: email bounces back (**blocking**) | Signed in by email, then landed back on the login screen. Users shouldn't have to sign in more than once. | No error is shown, so the sign-in either "succeeded" without the welcome screen moving on, or the session was lost straight away. Read-only notes: `signInWithEmail` (`src/providers/AuthProvider.tsx`) only sets the session and relies on `app/index.tsx` to redirect. An account whose flags are off would go to 1.0, not back to the welcome screen, so flags alone don't explain it. Things to check: which account was used; whether the welcome screen redirects when auth changes; whether the session survives (secure store) in this build; the Supabase auth logs for that sign-in. Also visible again: the broken Apple button (F10). |
+
+## Burst 9: 5 Oct, about 10:13
+
+Screen: Today's first-use screen with the consent sheet ("So Kinship can understand what you tell it").
+
+| # | Area | Founder's feedback | What the code / docs show (my observation, not yet investigated) |
+|---|---|---|---|
+| F16 | Consent: naming the AI provider | Unsure about naming the provider. Trust in AI tools is low, and leading with "it gets sent to an AI provider" may lose trust straight away. | **Constraint, needs the founder's decision.** The wording is the approved D2 sentence (product contract, lines 122 and 125). Apple's App Review rule 5.1.2(i) (Nov 2025) requires apps to say clearly when personal data goes to a third-party AI, and to ask permission first. So the disclosure itself has to stay. What can change is the framing and order: lead with the benefit and the user's control (e.g. "Kinship can read your notes to pick out dates, plans and what matters"), keep notes-as-written as an equal choice, and move the provider line into a quieter "Who reads it?" detail, still on the same screen before Allow. Wording changes to D2 need the founder's sign-off, and ideally a legal check. Separately: this sheet appears over Today's first-use screen, which suggests this account skipped the consent step in setup (the fallback in final-review item 17). |
