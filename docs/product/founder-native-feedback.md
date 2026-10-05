@@ -90,3 +90,11 @@ Screen: Today first-use with the Tell dock open, two lines typed: "My wife is re
 |---|---|---|---|
 | F17 | Tell dock: still can't submit (**blocking**, same as F2/F7) | After "Tell Kinship one thing", there's still no way to submit. | The Today dock has no send (↑) button either, so it's the same missing control as in the person sheet. This is the third surface where it's absent. That points to one shared cause (the send button's style is lost on device; see F10's hypothesis) rather than three separate bugs. Also: the dock floats about one tab bar's height above the keyboard, with the Today/People tabs showing between the field and the keyboard. The keyboard lift looks like it counts the tab bar or safe area twice. |
 | F18 | Today first-use: buttons read as a selection | "Add your people" looks selected even after tapping the other button. | It isn't a selection state. "Add your people" is the primary (filled) button, and "Tell Kinship one thing" the secondary (outline). Side by side, a filled and an outline pill read as a segmented toggle. Possible fix: make them not look like a pair. E.g. the primary on its own line and the secondary as a quiet text link; or once the dock is open, hide or dim the pair. |
+
+## Burst 11: 5 Oct, about 10:17
+
+Screen: People (empty) after switching tabs. The unsent Tell from Today is still in the dock.
+
+| # | Area | Founder's feedback | What the screenshots show (my observation, not yet investigated) |
+|---|---|---|---|
+| F19 | Tell dock: unsent text follows you | After moving to People, the unsent note is still sitting there. It shouldn't carry over to another page. | The dock is shared by both tabs, so its draft travels with it. This is made worse by F17: with no send button, the note can't leave. Things to weigh: silently throwing away typed words risks losing what she said. Options: (a) leaving the tab collapses the dock back to the pill and keeps the draft quietly (shown as "Draft" when reopened); (b) leaving clears it, with a brief "Draft discarded · Undo"; (c) keep it, but only on the tab where it was typed. Founder's call. Also seen again: the send button is missing (F17), and "Add from contacts" / "Add by name" form the same filled-and-outline pair as F18. |
