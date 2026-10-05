@@ -93,15 +93,15 @@
    "label": null,
    "lately": [
     {
-     "itemId": "f0000000-0000-4000-8000-000000000003",
-     "statement": "Matt is excited but nervous about managing people",
+     "itemId": "f0000000-0000-4000-8000-000000000001",
+     "statement": "Matt was promoted",
      "when": null,
      "provenance": "You told Kinship · Oct 5",
      "noteId": "00000001-0000-4000-8000-000000000003"
     },
     {
-     "itemId": "f0000000-0000-4000-8000-000000000001",
-     "statement": "Matt was promoted",
+     "itemId": "f0000000-0000-4000-8000-000000000003",
+     "statement": "Matt is excited but nervous about managing people",
      "when": null,
      "provenance": "You told Kinship · Oct 5",
      "noteId": "00000001-0000-4000-8000-000000000003"

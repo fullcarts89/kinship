@@ -68,9 +68,14 @@
 | Today birthday | Board quiet line "Saturday · Maya's birthday · Ideas →" | Quiet line without "Ideas →"; day-of birthday as the moment with "Message Maya" | **D9:** no generated ideas in V1 |
 | Return check after a birthday | — | "Yes" recorded as a user-confirmed contact (`source=manual`), not `return_check` | **Technical:** birthday moments are computed on the phone; the server requires a reason id for `return_check`. Server birthday reasons (RSN-05) remove this |
 
+| "See how it works" (welcome) | No board | An optional 4-step example of the loop, labelled "An example", from the welcome; nothing saved; its Today step is the real Today copy | **Founder request (activation pass, 5 Oct)**; built from the welcome/Today vocabulary |
+| First Tell | Board quote about Mom's hip surgery | Three plain examples (Ben's race, Maya's new job, a promise to Chris) under the field | **Founder request:** no health event as the first impression |
+| Relationship page density | Board shows one short line per section | At most 3 lines a section, by time only; Lately = last 120 days; the rest in What Kinship knows (`relationship-page-rules.md`) | **Founder request:** prove density; numbers await approval |
+
 ## 3. Items needing a founder decision
 
 1. **Your story together** (#13): defer to Phase 3 PER-07, before alpha? A new account has nothing to show.
 2. **"A year ago" quiet line** (#10): defer to RSN-10?
 3. **Settings export / delete account v2 UI** (#23): the 1.0 flows exist server-side; the 2.0 screens are not built. Defer to E17 before alpha?
 4. **Notification permission ask** (#31): no push exists yet, so there is nothing to ask for. Defer with E15?
+5. Activation pass questions 1–7 in `activation-pass.md` §7 (day-of event moment, density numbers, superseded history's home, kind words in the review, reported promises, relationship labels, look-over for dense notes).

@@ -114,7 +114,8 @@ describe("a dense note: Matt", () => {
 
     // Matt's page: what's going on, what's coming, what you said you'd do.
     const portrait = await portraitFor(w.repos, (await w.repos.people.get(matt.id))!, now(w));
-    expect(portrait.lately.map((l) => l.statement).sort()).toEqual(["Matt is excited but nervous about managing people", "Matt was promoted"]);
+    // In the note's own order.
+    expect(portrait.lately.map((l) => l.statement)).toEqual(["Matt was promoted", "Matt is excited but nervous about managing people"]);
     expect(portrait.comingUp.map((l) => l.statement)).toEqual(["Matt and Jess are thinking about moving to Marin next summer"]);
     expect(portrait.youSaid.map((l) => l.statement)).toEqual(["Introduce Matt to Alex"]);
     expect(portrait.between).toEqual([]);

@@ -196,6 +196,9 @@ I can't see your phone; everything below is what to check, in order. Each step s
 16. **Larger Text** (Settings › Accessibility › Display & Text Size › Larger Text, a few notches up): nothing cut off on the welcome, picker or Today.
 17. **Airplane mode:** tell something; it should say it will understand it when you're online; turn airplane mode off; it gets understood.
 
+18. **See how it works** on the welcome (before signing in): 4 steps, each labelled "An example"; Got it returns to the welcome.
+19. The native-pass review items in `activation-pass.md` §8 (provenance size, Contacts helper copy, Settings copy, Today quiet lines, keyboard on Tell, sheet heights, small screen, Dynamic Type and VoiceOver).
+
 Send screenshots of anything that looks wrong, plus how long steps 4–9 took.
 
 **Then:** I fix what you find → you approve → only then do we prepare her build and, with your explicit yes for her user id only, enable her four flags.

@@ -143,8 +143,13 @@ export function buildPortrait(input: {
         if (active && daysFrom(today, told) >= -R.latelyDays) lately.push({ x, at: told });
     }
   }
-  const newest = (a: { at: string; x: PortraitItem }, b: { at: string; x: PortraitItem }) =>
-    b.at.localeCompare(a.at) || String(b.x.item.created_at ?? "").localeCompare(String(a.x.item.created_at ?? ""));
+  // Newest first; lines from the same note keep the note's own order.
+  const newest = (a: { at: string; x: PortraitItem }, b: { at: string; x: PortraitItem }) => {
+    const ca = String(a.x.item.created_at ?? "");
+    const cb = String(b.x.item.created_at ?? "");
+    if (a.x.noteId && a.x.noteId === b.x.noteId) return ca.localeCompare(cb);
+    return b.at.localeCompare(a.at) || cb.localeCompare(ca);
+  };
   const soonest = (a: { at: string; x: PortraitItem }, b: { at: string; x: PortraitItem }) =>
     a.at.localeCompare(b.at) || String(a.x.item.created_at ?? "").localeCompare(String(b.x.item.created_at ?? ""));
 

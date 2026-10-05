@@ -331,7 +331,7 @@ export function V2Lab({ state }: { state: string }) {
           methods={{ apple: state !== "welcome-no-apple", google: true, email: true }}
           busy={state === "welcome-busy"}
           error={state === "welcome-error" ? "That didn't work. Please try again." : null}
-          onApple={noop} onGoogle={noop} onEmail={noop} onTerms={noop} onPrivacy={noop}
+          onApple={noop} onGoogle={noop} onEmail={noop} onTerms={noop} onPrivacy={noop} onHowItWorks={noop}
         />
       );
     case "welcome-email":
