@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/providers";
+import { HowItWorks } from "./HowItWorks";
 import { EmailSheet, type EmailMode, WELCOME_COPY, WelcomeView } from "./WelcomeView";
 
 function cancelled(err: unknown): boolean {
@@ -22,6 +23,7 @@ export function WelcomeScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<{ text: string; tone: "error" | "info" } | null>(null);
+  const [example, setExample] = useState(false);
 
   useEffect(() => {
     if (Platform.OS !== "ios") return;
@@ -91,7 +93,9 @@ export function WelcomeScreen() {
       }}
       onTerms={() => router.push("/settings/terms")}
       onPrivacy={() => router.push("/settings/privacy-policy")}
+      onHowItWorks={() => setExample(true)}
     >
+      <HowItWorks visible={example} onClose={() => setExample(false)} />
       <EmailSheet
         visible={emailOpen}
         mode={mode}

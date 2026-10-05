@@ -36,6 +36,17 @@ export const SETUP_COPY = {
   tellTitle: "Tell Kinship one thing about someone.",
   tellBody: "Say it the way you'd tell a friend. Kinship keeps what matters and asks only when unsure.",
   tellHint: "Something about someone you care about…",
+  /**
+   * What kinds of things are worth telling, by example rather than by
+   * category: what's happening, what's coming and hoped for, what you said
+   * you'd do. Never a health event first (activation pass).
+   */
+  examplesLabel: "Like",
+  examples: [
+    "Ben is running Chicago Sunday and wants to break four hours.",
+    "Maya starts her new job next month.",
+    "I told Chris I'd send him that restaurant.",
+  ],
   keep: "Keep it",
   saveFailed: "Those people weren't saved. Nothing was lost; try again.",
 } as const;
@@ -384,6 +395,12 @@ export function WorthStepView(props: WorthStepViewProps) {
           textAlignVertical: "top", outlineWidth: 0,
         }]}
       />
+      <View style={{ marginTop: space.l, gap: space.xs }} accessibilityLabel={`For example: ${SETUP_COPY.examples.join(" ")}`} accessible>
+        <Small>{SETUP_COPY.examplesLabel}</Small>
+        {SETUP_COPY.examples.map((e) => (
+          <Body key={e} tone="inkQuiet">{`“${e}”`}</Body>
+        ))}
+      </View>
     </Frame>
   );
 }

@@ -1,0 +1,1180 @@
+{
+ "matt": {
+  "note": "Matt just got promoted. He's excited but nervous about managing people. He and Jess are thinking about moving to Marin next summer, and I told him I'd introduce him to Alex.",
+  "review": {
+   "mode": "sheet",
+   "heading": "Kept for Matt",
+   "status": null,
+   "notice": null,
+   "summary": null,
+   "lines": [
+    {
+     "id": "f0000000-0000-4000-8000-000000000001",
+     "statement": "Matt was promoted",
+     "person": {
+      "id": "00000001-0000-4000-8000-000000000001",
+      "label": "Matt",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    {
+     "id": "f0000000-0000-4000-8000-000000000003",
+     "statement": "Matt is excited but nervous about managing people",
+     "person": {
+      "id": "00000001-0000-4000-8000-000000000001",
+      "label": "Matt",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    {
+     "id": "f0000000-0000-4000-8000-000000000005",
+     "statement": "Matt and Jess are thinking about moving to Marin next summer",
+     "person": {
+      "id": "00000001-0000-4000-8000-000000000001",
+      "label": "Matt",
+      "changeable": true
+     },
+     "about": null,
+     "when": {
+      "label": "“next summer”",
+      "value": null,
+      "changeable": true
+     },
+     "kind": {
+      "value": "plan",
+      "label": "A plan",
+      "changeable": true
+     },
+     "edited": false
+    },
+    {
+     "id": "f0000000-0000-4000-8000-000000000007",
+     "statement": "Introduce Matt to Alex",
+     "person": {
+      "id": "00000001-0000-4000-8000-000000000001",
+      "label": "Matt",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "promise",
+      "label": "Your promise",
+      "changeable": false
+     },
+     "edited": false
+    }
+   ],
+   "questions": [],
+   "answering": false,
+   "canUndo": true
+  },
+  "portrait": {
+   "person": {
+    "id": "00000001-0000-4000-8000-000000000001",
+    "display_name": "Matt"
+   },
+   "label": null,
+   "lately": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000003",
+     "statement": "Matt is excited but nervous about managing people",
+     "when": null,
+     "provenance": "You told Kinship · Oct 5",
+     "noteId": "00000001-0000-4000-8000-000000000003"
+    },
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000001",
+     "statement": "Matt was promoted",
+     "when": null,
+     "provenance": "You told Kinship · Oct 5",
+     "noteId": "00000001-0000-4000-8000-000000000003"
+    }
+   ],
+   "comingUp": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000005",
+     "statement": "Matt and Jess are thinking about moving to Marin next summer",
+     "when": "“next summer”",
+     "provenance": "You told Kinship · Oct 5",
+     "noteId": "00000001-0000-4000-8000-000000000003"
+    }
+   ],
+   "youSaid": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000007",
+     "statement": "Introduce Matt to Alex",
+     "when": null,
+     "provenance": "You told Kinship · Oct 5",
+     "noteId": "00000001-0000-4000-8000-000000000003"
+    }
+   ],
+   "between": [],
+   "total": 4,
+   "more": false
+  },
+  "knows": [
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000007",
+     "statement": "Introduce Matt to Alex",
+     "person": {
+      "id": "00000001-0000-4000-8000-000000000001",
+      "label": "Matt",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "promise",
+      "label": "Your promise",
+      "changeable": false
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Oct 5",
+    "noteId": "00000001-0000-4000-8000-000000000003",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000005",
+     "statement": "Matt and Jess are thinking about moving to Marin next summer",
+     "person": {
+      "id": "00000001-0000-4000-8000-000000000001",
+      "label": "Matt",
+      "changeable": true
+     },
+     "about": null,
+     "when": {
+      "label": "“next summer”",
+      "value": null,
+      "changeable": true
+     },
+     "kind": {
+      "value": "plan",
+      "label": "A plan",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Oct 5",
+    "noteId": "00000001-0000-4000-8000-000000000003",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000003",
+     "statement": "Matt is excited but nervous about managing people",
+     "person": {
+      "id": "00000001-0000-4000-8000-000000000001",
+      "label": "Matt",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Oct 5",
+    "noteId": "00000001-0000-4000-8000-000000000003",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000001",
+     "statement": "Matt was promoted",
+     "person": {
+      "id": "00000001-0000-4000-8000-000000000001",
+      "label": "Matt",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Oct 5",
+    "noteId": "00000001-0000-4000-8000-000000000003",
+    "conflict": null
+   }
+  ],
+  "source": {
+   "runs": [
+    {
+     "text": "Matt just got promoted",
+     "marked": true
+    },
+    {
+     "text": ". ",
+     "marked": false
+    },
+    {
+     "text": "He's excited but nervous about managing people",
+     "marked": true
+    },
+    {
+     "text": ". ",
+     "marked": false
+    },
+    {
+     "text": "He and Jess are thinking about moving to Marin next summer",
+     "marked": true
+    },
+    {
+     "text": ", and ",
+     "marked": false
+    },
+    {
+     "text": "I told him I'd introduce him to Alex",
+     "marked": true
+    },
+    {
+     "text": ".",
+     "marked": false
+    }
+   ],
+   "quotes": [],
+   "arrived": "Typed · Oct 5, 12:00 pm",
+   "items": [
+    {
+     "id": "f0000000-0000-4000-8000-000000000001",
+     "statement": "Matt was promoted",
+     "person": "Matt",
+     "personId": "00000001-0000-4000-8000-000000000001"
+    },
+    {
+     "id": "f0000000-0000-4000-8000-000000000003",
+     "statement": "Matt is excited but nervous about managing people",
+     "person": "Matt",
+     "personId": "00000001-0000-4000-8000-000000000001"
+    },
+    {
+     "id": "f0000000-0000-4000-8000-000000000005",
+     "statement": "Matt and Jess are thinking about moving to Marin next summer",
+     "person": "Matt",
+     "personId": "00000001-0000-4000-8000-000000000001"
+    },
+    {
+     "id": "f0000000-0000-4000-8000-000000000007",
+     "statement": "Introduce Matt to Alex",
+     "person": "Matt",
+     "personId": "00000001-0000-4000-8000-000000000001"
+    }
+   ]
+  },
+  "personId": "00000001-0000-4000-8000-000000000001"
+ },
+ "anna": {
+  "notes": [
+   "Anna is interviewing at Stripe.",
+   "Anna got the Stripe job!"
+  ],
+  "before": {
+   "person": {
+    "state": "active",
+    "nicknames": [],
+    "display_name": "Anna",
+    "id": "00000002-0000-4000-8000-000000000001",
+    "user_id": "aaaaaaaa-0000-4000-8000-00000000a011",
+    "created_at": "2026-10-05T12:00:00.000Z",
+    "updated_at": "2026-10-05T12:00:00.000Z",
+    "version": 0,
+    "deleted_at": null
+   },
+   "label": null,
+   "lately": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000009",
+     "statement": "Anna is interviewing at Stripe",
+     "when": null,
+     "provenance": "You told Kinship · Oct 5",
+     "noteId": "00000002-0000-4000-8000-000000000003"
+    }
+   ],
+   "comingUp": [],
+   "youSaid": [],
+   "between": [],
+   "total": 1,
+   "more": false
+  },
+  "after": {
+   "person": {
+    "state": "active",
+    "nicknames": [],
+    "display_name": "Anna",
+    "id": "00000002-0000-4000-8000-000000000001",
+    "user_id": "aaaaaaaa-0000-4000-8000-00000000a011",
+    "created_at": "2026-10-05T12:00:00.000Z",
+    "updated_at": "2026-10-05T12:00:00.000Z",
+    "version": 0,
+    "deleted_at": null
+   },
+   "label": null,
+   "lately": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000011",
+     "statement": "Anna got the job at Stripe",
+     "when": null,
+     "provenance": "You told Kinship · Oct 26",
+     "noteId": "00000002-0000-4000-8000-000000000006"
+    }
+   ],
+   "comingUp": [],
+   "youSaid": [],
+   "between": [],
+   "total": 2,
+   "more": true
+  },
+  "knowsAfter": [
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000011",
+     "statement": "Anna got the job at Stripe",
+     "person": {
+      "id": "00000002-0000-4000-8000-000000000001",
+      "label": "Anna",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Oct 26",
+    "noteId": "00000002-0000-4000-8000-000000000006",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000009",
+     "statement": "Anna is interviewing at Stripe",
+     "person": {
+      "id": "00000002-0000-4000-8000-000000000001",
+      "label": "Anna",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "thread",
+      "label": "Something ongoing",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Oct 5",
+    "noteId": "00000002-0000-4000-8000-000000000003",
+    "conflict": null
+   }
+  ],
+  "personId": "00000002-0000-4000-8000-000000000001"
+ },
+ "knee": {
+  "notes": [
+   "Ben's knee has been bothering him.",
+   "Ben's knee is finally better."
+  ],
+  "before": {
+   "person": {
+    "state": "active",
+    "nicknames": [],
+    "display_name": "Ben",
+    "id": "00000003-0000-4000-8000-000000000001",
+    "user_id": "aaaaaaaa-0000-4000-8000-00000000a011",
+    "created_at": "2026-10-05T12:00:00.000Z",
+    "updated_at": "2026-10-05T12:00:00.000Z",
+    "version": 0,
+    "deleted_at": null
+   },
+   "label": null,
+   "lately": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000013",
+     "statement": "Ben's knee has been bothering him",
+     "when": null,
+     "provenance": "You told Kinship · Oct 5",
+     "noteId": "00000003-0000-4000-8000-000000000003"
+    }
+   ],
+   "comingUp": [],
+   "youSaid": [],
+   "between": [],
+   "total": 1,
+   "more": false
+  },
+  "after": {
+   "person": {
+    "state": "active",
+    "nicknames": [],
+    "display_name": "Ben",
+    "id": "00000003-0000-4000-8000-000000000001",
+    "user_id": "aaaaaaaa-0000-4000-8000-00000000a011",
+    "created_at": "2026-10-05T12:00:00.000Z",
+    "updated_at": "2026-10-05T12:00:00.000Z",
+    "version": 0,
+    "deleted_at": null
+   },
+   "label": null,
+   "lately": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000015",
+     "statement": "Ben's knee is better",
+     "when": null,
+     "provenance": "You told Kinship · Nov 4",
+     "noteId": "00000003-0000-4000-8000-000000000005"
+    }
+   ],
+   "comingUp": [],
+   "youSaid": [],
+   "between": [],
+   "total": 1,
+   "more": false
+  },
+  "knowsAfter": [
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000015",
+     "statement": "Ben's knee is better",
+     "person": {
+      "id": "00000003-0000-4000-8000-000000000001",
+      "label": "Ben",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Nov 4",
+    "noteId": "00000003-0000-4000-8000-000000000005",
+    "conflict": null
+   }
+  ],
+  "personId": "00000003-0000-4000-8000-000000000001"
+ },
+ "density": {
+  "fresh": {
+   "person": {
+    "id": "00000004-0000-4000-8000-000000000001",
+    "display_name": "Sam"
+   },
+   "label": null,
+   "lately": [],
+   "comingUp": [],
+   "youSaid": [],
+   "between": [],
+   "total": 0,
+   "more": false
+  },
+  "light": {
+   "person": {
+    "id": "00000004-0000-4000-8000-000000000003",
+    "display_name": "Lena"
+   },
+   "label": null,
+   "lately": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000065",
+     "statement": "Lena moved to Oakland",
+     "when": null,
+     "provenance": "You told Kinship · Aug 1",
+     "noteId": "00000004-0000-4000-8000-000000000078"
+    }
+   ],
+   "comingUp": [],
+   "youSaid": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000067",
+     "statement": "Help Lena hang shelves",
+     "when": null,
+     "provenance": "You told Kinship · Aug 1",
+     "noteId": "00000004-0000-4000-8000-000000000081"
+    }
+   ],
+   "between": [],
+   "total": 2,
+   "more": false
+  },
+  "rich": {
+   "person": {
+    "id": "00000004-0000-4000-8000-000000000005",
+    "display_name": "Priya"
+   },
+   "label": null,
+   "lately": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000063",
+     "statement": "Priya's dog Miso had a good vet checkup",
+     "when": null,
+     "provenance": "You told Kinship · Aug 1",
+     "noteId": "00000004-0000-4000-8000-000000000076"
+    },
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000057",
+     "statement": "Priya is reading Piranesi",
+     "when": null,
+     "provenance": "You told Kinship · Jul 29",
+     "noteId": "00000004-0000-4000-8000-000000000067"
+    },
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000047",
+     "statement": "Priya's team at Figma shipped the new editor",
+     "when": null,
+     "provenance": "You told Kinship · Jul 12",
+     "noteId": "00000004-0000-4000-8000-000000000052"
+    }
+   ],
+   "comingUp": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000055",
+     "statement": "Priya's mom is visiting from Pune next week",
+     "when": "Week of Aug 2",
+     "provenance": "You told Kinship · Jul 27",
+     "noteId": "00000004-0000-4000-8000-000000000064"
+    },
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000053",
+     "statement": "Priya's pottery show is on October 24",
+     "when": "Sun, Oct 24",
+     "provenance": "You told Kinship · Jul 25",
+     "noteId": "00000004-0000-4000-8000-000000000061"
+    },
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000043",
+     "statement": "Priya and Dev are thinking about a trip to Japan in the spring",
+     "when": "“in the spring”",
+     "provenance": "You told Kinship · Jul 2",
+     "noteId": "00000004-0000-4000-8000-000000000046"
+    }
+   ],
+   "youSaid": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000061",
+     "statement": "Send Priya the Piranesi audiobook link",
+     "when": null,
+     "provenance": "You told Kinship · Jul 31",
+     "noteId": "00000004-0000-4000-8000-000000000073"
+    },
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000049",
+     "statement": "Come to Priya's pottery show",
+     "when": null,
+     "provenance": "You told Kinship · Jul 18",
+     "noteId": "00000004-0000-4000-8000-000000000055"
+    },
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000041",
+     "statement": "Lend Priya your tent",
+     "when": null,
+     "provenance": "You told Kinship · Jun 22",
+     "noteId": "00000004-0000-4000-8000-000000000043"
+    }
+   ],
+   "between": [
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000059",
+     "statement": "You and Priya have watched every Ghibli film together",
+     "when": null,
+     "provenance": "You told Kinship · Jul 30",
+     "noteId": "00000004-0000-4000-8000-000000000070"
+    },
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000029",
+     "statement": "You and Priya did the Dipsea hike",
+     "when": null,
+     "provenance": "You told Kinship · Mar 4",
+     "noteId": "00000004-0000-4000-8000-000000000025"
+    },
+    {
+     "itemId": "f0000000-0000-4000-8000-000000000023",
+     "statement": "You and Priya always get dumplings at Yank Sing",
+     "when": null,
+     "provenance": "You told Kinship · Dec 4, 2026",
+     "noteId": "00000004-0000-4000-8000-000000000016"
+    }
+   ],
+   "total": 24,
+   "more": true
+  },
+  "richKnows": [
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000063",
+     "statement": "Priya's dog Miso had a good vet checkup",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Aug 1",
+    "noteId": "00000004-0000-4000-8000-000000000076",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000061",
+     "statement": "Send Priya the Piranesi audiobook link",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "promise",
+      "label": "Your promise",
+      "changeable": false
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jul 31",
+    "noteId": "00000004-0000-4000-8000-000000000073",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000059",
+     "statement": "You and Priya have watched every Ghibli film together",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "context",
+      "label": "Background",
+      "changeable": false
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jul 30",
+    "noteId": "00000004-0000-4000-8000-000000000070",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000057",
+     "statement": "Priya is reading Piranesi",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jul 29",
+    "noteId": "00000004-0000-4000-8000-000000000067",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000055",
+     "statement": "Priya's mom is visiting from Pune next week",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": false
+     },
+     "about": null,
+     "when": {
+      "label": "Week of Aug 2",
+      "value": "2027-08-02",
+      "changeable": true
+     },
+     "kind": {
+      "value": "event",
+      "label": "Something happening",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jul 27",
+    "noteId": "00000004-0000-4000-8000-000000000064",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000053",
+     "statement": "Priya's pottery show is on October 24",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": {
+      "label": "Sun, Oct 24",
+      "value": "2027-10-24",
+      "changeable": true
+     },
+     "kind": {
+      "value": "event",
+      "label": "Something happening",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jul 25",
+    "noteId": "00000004-0000-4000-8000-000000000061",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000051",
+     "statement": "You and Priya talked about doing the Dipsea hike again",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "plan",
+      "label": "A plan",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jul 22",
+    "noteId": "00000004-0000-4000-8000-000000000058",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000049",
+     "statement": "Come to Priya's pottery show",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "promise",
+      "label": "Your promise",
+      "changeable": false
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jul 18",
+    "noteId": "00000004-0000-4000-8000-000000000055",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000047",
+     "statement": "Priya's team at Figma shipped the new editor",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jul 12",
+    "noteId": "00000004-0000-4000-8000-000000000052",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000045",
+     "statement": "Priya is redoing her kitchen",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "thread",
+      "label": "Something ongoing",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jul 7",
+    "noteId": "00000004-0000-4000-8000-000000000049",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000043",
+     "statement": "Priya and Dev are thinking about a trip to Japan in the spring",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": {
+      "label": "“in the spring”",
+      "value": null,
+      "changeable": true
+     },
+     "kind": {
+      "value": "plan",
+      "label": "A plan",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jul 2",
+    "noteId": "00000004-0000-4000-8000-000000000046",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000041",
+     "statement": "Lend Priya your tent",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "promise",
+      "label": "Your promise",
+      "changeable": false
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jun 22",
+    "noteId": "00000004-0000-4000-8000-000000000043",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000039",
+     "statement": "Priya's book club is reading Middlemarch",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jun 17",
+    "noteId": "00000004-0000-4000-8000-000000000040",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000037",
+     "statement": "Priya started at Figma",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jun 2",
+    "noteId": "00000004-0000-4000-8000-000000000037",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000035",
+     "statement": "Send Priya the Lisbon restaurant list",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "promise",
+      "label": "Your promise",
+      "changeable": false
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · May 18",
+    "noteId": "00000004-0000-4000-8000-000000000034",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000033",
+     "statement": "Priya is learning ceramics",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "thread",
+      "label": "Something ongoing",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · May 3",
+    "noteId": "00000004-0000-4000-8000-000000000031",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000031",
+     "statement": "Priya's sister Ana moved to Lisbon",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": false
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Apr 13",
+    "noteId": "00000004-0000-4000-8000-000000000028",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000029",
+     "statement": "You and Priya did the Dipsea hike",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "moment",
+      "label": "A moment",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Mar 4",
+    "noteId": "00000004-0000-4000-8000-000000000025",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000027",
+     "statement": "Priya is training for the Big Sur half",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "thread",
+      "label": "Something ongoing",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Feb 12",
+    "noteId": "00000004-0000-4000-8000-000000000022",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000025",
+     "statement": "Priya's dog Miso is twelve",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Jan 13",
+    "noteId": "00000004-0000-4000-8000-000000000019",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000023",
+     "statement": "You and Priya always get dumplings at Yank Sing",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "context",
+      "label": "Background",
+      "changeable": false
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Dec 4, 2026",
+    "noteId": "00000004-0000-4000-8000-000000000016",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000021",
+     "statement": "Priya hates cilantro",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Nov 14, 2026",
+    "noteId": "00000004-0000-4000-8000-000000000013",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000019",
+     "statement": "Priya loves the Moth podcast",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "fact",
+      "label": "Something true",
+      "changeable": true
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Oct 25, 2026",
+    "noteId": "00000004-0000-4000-8000-000000000010",
+    "conflict": null
+   },
+   {
+    "line": {
+     "id": "f0000000-0000-4000-8000-000000000017",
+     "statement": "You met Priya at the Stanford reading group",
+     "person": {
+      "id": "00000004-0000-4000-8000-000000000005",
+      "label": "Priya",
+      "changeable": true
+     },
+     "about": null,
+     "when": null,
+     "kind": {
+      "value": "context",
+      "label": "Background",
+      "changeable": false
+     },
+     "edited": false
+    },
+    "provenance": "You told Kinship · Oct 5, 2026",
+    "noteId": "00000004-0000-4000-8000-000000000007",
+    "conflict": null
+   }
+  ],
+  "ids": {
+   "sam": "00000004-0000-4000-8000-000000000001",
+   "lena": "00000004-0000-4000-8000-000000000003",
+   "priya": "00000004-0000-4000-8000-000000000005"
+  }
+ }
+}

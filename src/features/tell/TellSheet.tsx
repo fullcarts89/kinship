@@ -33,7 +33,7 @@ export function TellSheet({ person, onClose }: { person: { id: string; name: str
           onClose();
           void flow.keep(text, person.id);
         }}
-        placeholder={person ? `Tell Kinship about ${person.name}…` : undefined}
+        placeholder={person ? `What's going on with ${person.name}?` : undefined}
       />
     </Sheet>
   );

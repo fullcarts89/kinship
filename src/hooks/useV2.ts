@@ -8,6 +8,7 @@ import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
 import { buildToday, evidenceOf, isBirthdayReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayView } from "@/features/today/todayModel";
+import { buildPortrait, PORTRAIT_RULES, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
 import { dayMonth, needsSetup, nextBirthday, type PickRow, type SetupStep } from "@/features/setup/setupModel";
 import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
 import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
@@ -16,8 +17,9 @@ import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, track } from "
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { isOn } from "@/store/flags";
-import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
+import { repositoriesFor, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
 import { questionWaiting } from "@/store/understanding";
+import type { UserStore } from "@/store/userStore";
 import { useFlags } from "./useFlags";
 import { useStoreQuery } from "./useStoreQuery";
 
@@ -124,68 +126,74 @@ export function usePeople(): Person[] {
 
 export function usePersonRecord(personId: string) {
   const { store } = useV2Session();
-  const q = useStoreQuery(store, async (repos) => {
-    const people = await repos.people.list();
-    const person = people.find((p) => p.id === personId) ?? null;
-    if (!person) return { person: null, lines: [] as RecordLine[] };
-    const related = await repos.people.related();
-    const now = new Date();
-    const items = (await repos.memory.forPerson(personId))
-      .filter((m) => m.status === "active" || m.status === "resolved")
-      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-    const lines: RecordLine[] = [];
-    for (const item of items) {
-      const sources = await repos.memory.sourcesFor(item.id);
-      const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
-        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-      const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
-      lines.push({
-        line: itemLine(item, { people, related, today: todayIso(now) }),
-        provenance: provenanceLine(sources.map((s) => ({
-          source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-        })), now),
-        noteId: notes[0]?.capture_id ?? null,
-        conflict: conflict
-          ? { id: conflict.id, title: CONFLICT_TITLE, choices: describeConflict(conflict, item), canUseMine: conflict.reason === "concurrent_edit" }
-          : null,
-      });
-    }
-    return { person, lines };
-  }, [personId]);
+  const q = useStoreQuery(store, (repos) => recordFor(repos, personId, new Date()), [personId]);
   return q.data ?? { person: null, lines: [] as RecordLine[] };
+}
+
+/** What Kinship knows about someone: every live item, newest first, with its source (the hook and tests share it). */
+export async function recordFor(repos: Repositories, personId: string, now: Date): Promise<{ person: Person | null; lines: RecordLine[] }> {
+  const people = await repos.people.list();
+  const person = people.find((p) => p.id === personId) ?? null;
+  if (!person) return { person: null, lines: [] as RecordLine[] };
+  const related = await repos.people.related();
+  const items = (await repos.memory.forPerson(personId))
+    .filter((m) => m.status === "active" || m.status === "resolved")
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  const lines: RecordLine[] = [];
+  for (const item of items) {
+    const sources = await repos.memory.sourcesFor(item.id);
+    const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
+    lines.push({
+      line: itemLine(item, { people, related, today: todayIso(now) }),
+      provenance: provenanceLine(sources.map((s) => ({
+        source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
+      })), now),
+      noteId: notes[0]?.capture_id ?? null,
+      conflict: conflict
+        ? { id: conflict.id, title: CONFLICT_TITLE, choices: describeConflict(conflict, item), canUseMine: conflict.reason === "concurrent_edit" }
+        : null,
+    });
+  }
+  return { person, lines };
 }
 
 // ─── The Source view ────────────────────────────────────────────────────
 
 export function useNote(captureId: string): NoteData | null {
   const { store } = useV2Session();
-  const q = useStoreQuery(store, async (repos) => {
-    const capture = await repos.captures.get(captureId);
-    if (!capture) return null;
-    const people = await repos.people.list();
-    const all = (await store.list("memory_item_sources")).filter((s) => s.capture_id === captureId);
-    const items: NoteData["items"] = [];
-    const spans: { start: number; end: number }[] = [];
-    const quotes: string[] = [];
-    for (const s of all) {
-      const item = (await store.get("memory_items", String(s.memory_item_id))) as MemoryItem | null;
-      if (!item || item.status === "retracted" || item.status === "superseded") continue;
-      if (!items.some((i) => i.id === item.id)) {
-        const p = people.find((x) => x.id === item.person_id);
-        items.push({ id: item.id, statement: item.statement, person: p?.display_name ?? "", personId: item.person_id });
-      }
-      if (typeof s.span_start === "number" && typeof s.span_end === "number") spans.push({ start: s.span_start, end: s.span_end });
-      if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
-    }
-    const text = capture.raw_text;
-    return {
-      runs: text ? runsOf(text, spans) : null,
-      quotes: text ? [] : quotes,
-      arrived: `${arrivedLabel(capture.source)} · ${momentLabel(String(capture.created_at ?? capture.occurred_at), new Date())}`,
-      items,
-    };
-  }, [captureId]);
+  const q = useStoreQuery(store, () => noteFor(store, captureId, new Date()), [captureId]);
   return q.data ?? null;
+}
+
+/** The Source view's data for one note: its words, the understood spans, what came of it (the hook and tests share it). */
+export async function noteFor(store: UserStore, captureId: string, now: Date): Promise<NoteData | null> {
+  const repos = repositoriesFor(store);
+  const capture = await repos.captures.get(captureId);
+  if (!capture) return null;
+  const people = await repos.people.list();
+  const all = (await store.list("memory_item_sources")).filter((s) => s.capture_id === captureId);
+  const items: NoteData["items"] = [];
+  const spans: { start: number; end: number }[] = [];
+  const quotes: string[] = [];
+  for (const s of all) {
+    const item = (await store.get("memory_items", String(s.memory_item_id))) as MemoryItem | null;
+    if (!item || item.status === "retracted" || item.status === "superseded") continue;
+    if (!items.some((i) => i.id === item.id)) {
+      const p = people.find((x) => x.id === item.person_id);
+      items.push({ id: item.id, statement: item.statement, person: p?.display_name ?? "", personId: item.person_id });
+    }
+    if (typeof s.span_start === "number" && typeof s.span_end === "number") spans.push({ start: s.span_start, end: s.span_end });
+    if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
+  }
+  const text = capture.raw_text;
+  return {
+    runs: text ? runsOf(text, spans) : null,
+    quotes: text ? [] : quotes,
+    arrived: `${arrivedLabel(capture.source)} · ${momentLabel(String(capture.created_at ?? capture.occurred_at), now)}`,
+    items,
+  };
 }
 
 /** Splits text at the (code-point) spans, merged, into marked and plain runs. */
@@ -335,106 +343,62 @@ export function usePeopleRows(): PeopleRowData[] {
   return q.data ?? [];
 }
 
-export interface PortraitLine {
-  /** The memory item; "birthday" for the person's own birthday line. */
-  itemId: string;
-  statement: string;
-  /** "Sun, Oct 11", "October"… when it has a time. */
-  when: string | null;
-  provenance: string;
-  noteId: string | null;
-  /** Not correctable from the page (a birthday from Contacts). */
-  fixed?: boolean;
-}
-
-export interface Portrait {
-  person: Person | null;
-  label: string | null;
-  lately: PortraitLine[];
-  comingUp: PortraitLine[];
-  youSaid: PortraitLine[];
-  between: PortraitLine[];
-  /** Everything Kinship keeps about them (for "What Kinship knows"). */
-  total: number;
-}
+export type { Portrait, PortraitLine } from "@/features/person/portraitModel";
 
 /**
- * The relationship page as a portrait (Design Direction §I.7; board 2): what's
- * going on with them, what's coming up, what you said you'd do, what you
- * share. Only sections with something in them are shown.
+ * The relationship page as a portrait (Design Direction §I.7; board 2). The
+ * sectioning and density rules live in portraitModel.ts
+ * (docs/product/relationship-page-rules.md); this only gathers the data.
  */
 export function usePortrait(personId: string): Portrait {
   const { store } = useV2Session();
   const q = useStoreQuery(store, async (repos) => {
     const people = await repos.people.list();
     const person = people.find((p) => p.id === personId && !p.deleted_at) ?? null;
-    const empty: Portrait = { person, label: null, lately: [], comingUp: [], youSaid: [], between: [], total: 0 };
-    if (!person) return empty;
-    const now = new Date();
-    const today = todayIso(now);
-    const items = (await repos.memory.forPerson(personId))
-      .filter(liveItem)
-      .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
-    const out: Portrait = {
-      ...empty,
-      label: typeof person.relationship_label === "string" && person.relationship_label ? person.relationship_label : null,
-      total: items.length,
-    };
-    for (const item of items) {
-      const sources = await repos.memory.sourcesFor(item.id);
-      const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
-        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-      const detail = (item.detail ?? {}) as Record<string, unknown>;
-      const line: PortraitLine = {
-        itemId: item.id,
-        statement: item.statement,
-        when: whenLabel(item.kind, detail, today),
-        provenance: provenanceLine(sources.map((s) => ({
-          source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-        })), now),
-        noteId: notes[0]?.capture_id ?? null,
-      };
-      const day = typeof detail.date === "string" ? detail.date : typeof detail.due_date === "string" ? detail.due_date : null;
-      const ahead = day ? day >= today : false;
-      if (item.kind === "promise") {
-        if (item.status === "active") out.youSaid.push(line);
-      } else if (item.kind === "plan" || ((item.kind === "event" || item.kind === "milestone") && ahead)) {
-        if (item.status === "active" && (ahead || !day)) out.comingUp.push(line);
-      } else if (item.kind === "context" || item.kind === "tradition" || item.kind === "moment") {
-        out.between.push(line);
-      } else if (item.status === "active") {
-        out.lately.push(line);
-      }
-    }
-    // Coming up reads soonest first; the rest newest first.
-    const dayOf = (l: PortraitLine) => {
-      const it = items.find((m) => m.id === l.itemId);
-      const d = (it?.detail ?? {}) as Record<string, unknown>;
-      return typeof d.date === "string" ? d.date : "9999";
-    };
-    out.comingUp.sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
-    // Their birthday, from their record, when it's within a month.
-    if (person.birthday && person.birthday_source && person.state === "active") {
-      const next = nextBirthday(String(person.birthday), today);
-      const days = Math.round((Date.parse(`${next}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
-      if (days <= 30) {
-        const first = person.display_name.trim().split(/\s+/u)[0] || person.display_name;
-        const line: PortraitLine = {
-          itemId: "birthday",
-          statement: `${first}'s birthday`,
-          when: days === 0 ? "Today" : `${dayMonth(next)}`,
-          provenance: person.birthday_source === "contacts" ? "From Contacts"
-            : person.birthday_source === "capture" ? "You told Kinship" : "You added this",
-          noteId: person.birthday_source === "capture" && typeof person.birthday_capture_id === "string" ? person.birthday_capture_id : null,
-          fixed: true,
-        };
-        const at = out.comingUp.findIndex((l) => dayOf(l) > next);
-        out.comingUp.splice(at === -1 ? out.comingUp.length : at, 0, line);
-      }
-    }
-    return out;
+    return portraitFor(repos, person, new Date());
   }, [personId]);
-  return q.data ?? { person: null, label: null, lately: [], comingUp: [], youSaid: [], between: [], total: 0 };
+  return q.data ?? buildPortrait({ person: null, items: [], today: todayIso() });
+}
+
+/** The portrait from the store (also used by tests and the dense-Tell proof). */
+export async function portraitFor(repos: Repositories, person: Person | null, now: Date): Promise<Portrait> {
+  const today = todayIso(now);
+  if (!person) return buildPortrait({ person: null, items: [], today });
+  const items: PortraitItem[] = [];
+  for (const item of await repos.memory.forPerson(person.id)) {
+    const sources = await repos.memory.sourcesFor(item.id);
+    const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    items.push({
+      item,
+      when: whenLabel(item.kind, (item.detail ?? {}) as Record<string, unknown>, today),
+      provenance: provenanceLine(sources.map((s) => ({
+        source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
+      })), now),
+      noteId: notes[0]?.capture_id ?? null,
+    });
+  }
+  // Their birthday, from their record, when it's within a month.
+  let birthday: PortraitLine | null = null;
+  let birthdayDay: string | null = null;
+  if (person.birthday && person.birthday_source && person.state === "active") {
+    const next = nextBirthday(String(person.birthday), today);
+    const days = Math.round((Date.parse(`${next}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+    if (days <= PORTRAIT_RULES.birthdayDays) {
+      const first = person.display_name.trim().split(/\s+/u)[0] || person.display_name;
+      birthdayDay = next;
+      birthday = {
+        itemId: "birthday",
+        statement: `${first}'s birthday`,
+        when: days === 0 ? "Today" : dayMonth(next),
+        provenance: person.birthday_source === "contacts" ? "From Contacts"
+          : person.birthday_source === "capture" ? "You told Kinship" : "You added this",
+        noteId: person.birthday_source === "capture" && typeof person.birthday_capture_id === "string" ? person.birthday_capture_id : null,
+        fixed: true,
+      };
+    }
+  }
+  return buildPortrait({ person, items, today, birthday, birthdayDay });
 }
 
 /** One remembered item, for its correction sheet. */

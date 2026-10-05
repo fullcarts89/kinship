@@ -10,6 +10,7 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { appleButton, GUTTER, height, maxScale, radius, size, space, type } from "@/design/tokens";
 import { AppleMark, GoogleMark } from "@/ui/brand";
+import { HOW_COPY } from "./HowItWorks";
 import { Body, Display, Label, Pill, Sheet, Small, Sprig, Title, useNight, usePalette } from "@/ui";
 
 /** The sprig on the welcome screen: a fixed identity, the same on every phone. */
@@ -43,6 +44,8 @@ export interface WelcomeViewProps {
   onEmail: () => void;
   onTerms: () => void;
   onPrivacy: () => void;
+  /** "See how it works": the example of the whole loop. */
+  onHowItWorks?: () => void;
   children?: React.ReactNode;
 }
 
@@ -97,6 +100,11 @@ export function WelcomeView(props: WelcomeViewProps) {
             </View>
           ))}
         </View>
+        {props.onHowItWorks ? (
+          <View style={{ alignItems: "flex-start", marginTop: space.l, marginLeft: -space.l }}>
+            <Pill size="small" variant="quiet" label={HOW_COPY.link} onPress={props.onHowItWorks} />
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + space.xl, gap: space.m }}>

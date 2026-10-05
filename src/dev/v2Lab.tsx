@@ -6,11 +6,14 @@
 import React from "react";
 import { View } from "react-native";
 import { ItemSheet } from "@/features/person/ItemSheet";
-import { NoteView } from "@/features/person/NoteView";
+import { NoteView, type NoteData } from "@/features/person/NoteView";
 import { PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
 import { PortraitView, type PortraitLineData } from "@/features/person/PortraitView";
 import { PeopleView } from "@/features/people/PeopleView";
 import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
+import { HowItWorksView } from "@/features/welcome/HowItWorks";
+import type { Portrait as PortraitData } from "@/features/person/portraitModel";
+import proofs from "./fixtures/generated/proofs.json";
 import { buildPickLists, searchRows, worthKnowing, type DeviceContact } from "@/features/setup/setupModel";
 import { ConsentStepView, PeoplePickView, WorthStepView, type PeoplePickViewProps } from "@/features/setup/SetupViews";
 import { EmailSheet, WelcomeView } from "@/features/welcome/WelcomeView";
@@ -18,7 +21,7 @@ import { SettingsSheetView } from "@/features/people/SettingsSheet";
 import { ConsentSheetView } from "@/features/tell/ConsentSheet";
 import { ReviewSheet } from "@/features/tell/ReviewSheet";
 import { KeptLine, OFFLINE_LINE, TellDockView } from "@/features/tell/TellDock";
-import { buildReview, itemLine, type ReviewInput } from "@/features/tell/reviewModel";
+import { buildReview, itemLine, type ReviewInput, type ReviewView } from "@/features/tell/reviewModel";
 import { HandoffSheet } from "@/features/today/HandoffSheet";
 import { TodayView } from "@/features/today/TodayView";
 import { buildToday, type ReasonRow, type TodayInput } from "@/features/today/todayModel";
@@ -43,11 +46,11 @@ const ID = {
 
 const people = [
   { id: ID.ana, display_name: "Ana", state: "active" },
-  { id: ID.ben, display_name: "Ben", state: "active", relationship_label: "running buddy" },
+  { id: ID.ben, display_name: "Ben", full_name: "Ben Carter", state: "active" },
   { id: ID.josh, display_name: "Josh", state: "active" },
   { id: ID.mom, display_name: "Mom", state: "active" },
-  { id: ID.sam1, display_name: "Sam", state: "active", relationship_label: "neighbor" },
-  { id: ID.sam2, display_name: "Sam", state: "active", relationship_label: "climbing" },
+  { id: ID.sam1, display_name: "Sam", full_name: "Sam Lee", state: "active" },
+  { id: ID.sam2, display_name: "Sam", full_name: "Sam Diaz", state: "active" },
   { id: ID.sarah, display_name: "Sarah", state: "active" },
 ] as unknown as Person[];
 
@@ -159,7 +162,7 @@ const line = (it: MemoryItem, prov = "You told Kinship · Oct 8"): PortraitLineD
 function Portrait(props: { children?: React.ReactNode; empty?: boolean; kept?: boolean }) {
   return (
     <PortraitView
-      personId={ID.ben} name="Ben" label="running buddy" remembered={false}
+      personId={ID.ben} name="Ben" label={null} remembered={false}
       lately={props.empty ? [] : [line(race), line(knee, "You told Kinship · Sep 2")]}
       comingUp={[]}
       youSaid={props.empty ? [] : [line(jam)]}
@@ -187,8 +190,8 @@ const peopleRows = [
   { id: ID.ben, label: "Ben", line: "Ben runs Chicago Sunday", remembered: false },
   { id: ID.josh, label: "Josh", line: "Josh has his interview Wednesday", remembered: false },
   { id: ID.mom, label: "Mom", line: null, remembered: false },
-  { id: ID.sam1, label: "Sam (neighbor)", line: null, remembered: false },
-  { id: ID.sam2, label: "Sam (climbing)", line: null, remembered: false },
+  { id: ID.sam1, label: "Sam Lee", line: null, remembered: false },
+  { id: ID.sam2, label: "Sam Diaz", line: null, remembered: false },
   { id: ID.sarah, label: "Sarah", line: null, remembered: false },
 ];
 
@@ -224,6 +227,25 @@ const picked = [...pickLists.suggested, ...pickLists.everyone].filter((r) => ["M
 const pickedPeople = picked.map((r) => ({ id: r.personId, display_name: r.name, state: "active", birthday: r.birthday, birthday_source: r.birthday ? "contacts" : null })) as unknown as Person[];
 const worthLines = worthKnowing(picked.map((r) => ({ id: r.personId, name: r.name, birthday: r.birthday })), TODAY);
 
+// The memory proofs, exactly as src/features/person/__tests__/memoryProofs.test.ts computed them.
+type ProofPortrait = PortraitData & { person: { id: string; display_name: string } };
+const P = proofs as unknown as {
+  matt: { note: string; review: ReviewView; portrait: ProofPortrait; knows: RecordLine[]; source: NoteData; personId: string };
+  anna: { before: ProofPortrait; after: ProofPortrait; knowsAfter: RecordLine[]; personId: string };
+  knee: { before: ProofPortrait; after: ProofPortrait; knowsAfter: RecordLine[]; personId: string };
+  density: { fresh: ProofPortrait; light: ProofPortrait; rich: ProofPortrait; richKnows: RecordLine[] };
+};
+function ProofPage({ p }: { p: ProofPortrait }) {
+  return (
+    <PortraitView
+      personId={p.person.id} name={p.person.display_name} label={p.label} remembered={false}
+      lately={p.lately} comingUp={p.comingUp} youSaid={p.youSaid} between={p.between} total={p.total}
+      onBack={noop} onLine={noop} onSource={noop} onKnows={noop} onMessage={noop} onCall={noop} onTell={noop}
+    />
+  );
+}
+const proofPeople = [{ id: P.matt.personId, display_name: "Matt", state: "active" }] as unknown as Person[];
+
 export const LAB_STATES = [
   "today", "today-quiet", "today-return", "today-after", "handoff", "handoff-choose", "tell", "kept", "offline",
   "review", "keep", "sams", "sams-answering", "sarah", "maya", "changed",
@@ -231,6 +253,10 @@ export const LAB_STATES = [
   "setup-consent", "setup-ask", "setup-people", "setup-people-picked", "setup-search", "setup-denied", "setup-limited",
   "setup-add-name", "setup-worth", "setup-tell", "today-first", "today-first-empty", "today-birthday", "today-birthday-week",
   "people-empty", "person-birthday",
+  "how-1", "how-2", "how-3", "how-4", "setup-worth-typed",
+  "matt-tell", "matt-review", "matt-person", "matt-knows", "matt-source",
+  "anna-before", "anna-after", "anna-knows", "knee-before", "knee-after", "knee-knows",
+  "person-new", "person-light", "person-rich", "person-rich-knows",
   "consent", "settings", "people", "people-add", "person", "person-empty", "correction", "correction-date", "knows", "source",
 ] as const;
 
@@ -318,6 +344,49 @@ export function V2Lab({ state }: { state: string }) {
             onEmail={noop} onPassword={noop} onMode={noop} onSubmit={noop} onDismiss={noop} />
         </WelcomeView>
       );
+    case "how-1":
+    case "how-2":
+    case "how-3":
+    case "how-4":
+      return <HowItWorksView step={Number(state.slice(4)) - 1} onNext={noop} onClose={noop} />;
+    case "setup-worth-typed":
+      return <WorthStepView label="Setting up · 3 of 3" lines={worthLines} text="Maya starts her new job next month." busy={false} onText={noop} onKeep={noop} onSkip={noop} />;
+    case "matt-tell":
+      return <Phone nav="today" dock={<TellDockView tellOn draft={P.matt.note} onDraft={noop} onSend={noop} line={null} current="today" onGo={noop} />}><TodayLab view={today({ reasons: [], items: [], told: 3 })} /></Phone>;
+    case "matt-review":
+      return (
+        <Phone nav="today">
+          <TodayLab view={today({ reasons: [], items: [], told: 3 })} />
+          <ReviewSheet view={P.matt.review} visible people={proofPeople} today={TODAY} onDismiss={noop} onDone={noop} onUndo={noop}
+            onReject={noop} onCorrect={noop} onAnswer={noop} onOpenNote={noop} onActivity={noop} />
+        </Phone>
+      );
+    case "matt-person":
+      return <ProofPage p={P.matt.portrait} />;
+    case "matt-knows":
+      return <PersonRecordView name="Matt" label={null} lines={P.matt.knows} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+    case "matt-source":
+      return <NoteView note={P.matt.source} onBack={noop} onPerson={noop} onDelete={noop} />;
+    case "anna-before":
+      return <ProofPage p={P.anna.before} />;
+    case "anna-after":
+      return <ProofPage p={P.anna.after} />;
+    case "anna-knows":
+      return <PersonRecordView name="Anna" label={null} lines={P.anna.knowsAfter} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+    case "knee-before":
+      return <ProofPage p={P.knee.before} />;
+    case "knee-after":
+      return <ProofPage p={P.knee.after} />;
+    case "knee-knows":
+      return <PersonRecordView name="Ben" label={null} lines={P.knee.knowsAfter} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+    case "person-new":
+      return <ProofPage p={P.density.fresh} />;
+    case "person-light":
+      return <ProofPage p={P.density.light} />;
+    case "person-rich":
+      return <ProofPage p={P.density.rich} />;
+    case "person-rich-knows":
+      return <PersonRecordView name="Priya" label={null} lines={P.density.richKnows} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
     case "setup-consent":
       return <ConsentStepView label="Setting up · 1 of 3" busy={false} onAllow={noop} onDecline={noop} />;
     case "setup-ask":
@@ -340,7 +409,7 @@ export function V2Lab({ state }: { state: string }) {
         </View>
       );
     case "setup-worth":
-      return <WorthStepView label="Setting up · 3 of 3" lines={worthLines} text="Mom's hip surgery went well. She's home on the 12th." busy={false} onText={noop} onKeep={noop} onSkip={noop} />;
+      return <WorthStepView label="Setting up · 3 of 3" lines={worthLines} text="" busy={false} onText={noop} onKeep={noop} onSkip={noop} />;
     case "setup-tell":
       return <WorthStepView label="Setting up · 3 of 3" lines={[]} text="" busy={false} onText={noop} onKeep={noop} onSkip={noop} />;
     case "today-first":
@@ -390,7 +459,7 @@ export function V2Lab({ state }: { state: string }) {
         </Portrait>
       );
     case "knows":
-      return <PersonRecordView name="Ben" label="running buddy" lines={record} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+      return <PersonRecordView name="Ben" label={null} lines={record} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
     case "source":
       return (
         <NoteView
