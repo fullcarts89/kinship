@@ -30,3 +30,11 @@ Screen: Ben Oxnard, "About Ben" Tell sheet with the keyboard dismissed and a two
 | # | Area | Founder's feedback | What the screenshots show (my observation, not yet investigated) |
 |---|---|---|---|
 | F7 | Tell sheet: submit (confirms F2) | Still no way to submit a fact. | The keyboard is down and the text has wrapped to two lines, yet there is still no send / Keep button anywhere in the sheet. So the button isn't just hidden behind the keyboard: it's missing (or drawn off screen) in this sheet. Blocking: the person-page Tell can't be used at all. |
+
+## Burst 4: 5 Oct, about 10:02
+
+Screen: People with the Settings sheet open.
+
+| # | Area | Founder's feedback | What the code / screenshots show (my observation, not yet investigated) |
+|---|---|---|---|
+| F8 | Settings: Contacts | What's the point of the Contacts section if there's nothing to adjust? | It's a disclosure only: a title and one sentence (`src/features/people/SettingsSheet.tsx`), with no control and no tap action. Options: make it act (show whether access is allowed, open iOS Settings to change it, and "Add from contacts"), or fold the sentence into the Understanding section and drop the row. Also: the People list shows "the writer" in Ben's preview line (F4/F6). |
