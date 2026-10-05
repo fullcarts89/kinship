@@ -619,7 +619,7 @@ Deno.test("'the writer' never survives into a statement; what can't be said as '
   ]);
   eq(out.items.map((i) => i.statement), [
     "You and Sarah always get dumplings after the Lyric opera",
-    "Tom is coming to your birthday dinner Friday",
+    "Tom is coming to your birthday dinner", // "Friday" is kept as the date (stabilization)
   ]);
 });
 

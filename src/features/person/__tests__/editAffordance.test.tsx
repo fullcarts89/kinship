@@ -11,7 +11,7 @@ import type { ItemLine } from "@/features/tell/reviewModel";
 jest.mock("react-native-safe-area-context", () => jest.requireActual("react-native-safe-area-context/jest/mock").default);
 
 const line: ItemLine = {
-  id: "m1", statement: "John is your brother", person: { id: "john", label: "John Oxnard", changeable: true }, about: null, when: null,
+  id: "m1", statement: "John is your brother", person: { id: "john", label: "John Oxnard", changeable: true }, about: null, also: [], replaces: null, when: null,
   kind: { value: "fact", label: "Something true", changeable: true }, edited: false,
 };
 function render(el: React.ReactElement) {

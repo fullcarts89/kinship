@@ -70,12 +70,15 @@ export function PersonRecordView(props: PersonRecordViewProps) {
                   <Token what="Who" value={r.line.person.label} onPress={() => props.onChange(r.line, "person")} />
                 ) : null}
                 {r.line.about ? <Token what="About" value={r.line.about} /> : null}
+                {r.line.also?.length ? <Token what="Also about" value={r.line.also.join(", ")} /> : null}
                 {r.line.when ? (
                   <Token what="When" value={r.line.when.label} onPress={r.line.when.changeable ? () => props.onChange(r.line, "date") : undefined} />
                 ) : null}
                 <Token what="What" value={r.line.kind.label} onPress={r.line.kind.changeable ? () => props.onChange(r.line, "kind") : undefined} />
               </TokenRow>
             </View>
+            {/* Gate E: what this updated stays traceable. */}
+            {r.line.replaces ? <Small style={{ marginTop: space.xs }}>{`Before: ${r.line.replaces}`}</Small> : null}
             <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
               <View style={{ flex: 1 }}>
                 <Provenance line={r.provenance} onPress={r.noteId ? () => props.onSource(r.noteId as string) : undefined} />

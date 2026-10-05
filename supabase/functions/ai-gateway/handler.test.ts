@@ -382,7 +382,7 @@ Deno.test("a sensitive reading is held for the user's yes, never saved because a
   const { status, body } = await call(w, post(extract));
   eq(status, 200);
   eq(body.saved, [], "nothing became memory");
-  eq(body.held.map((i: { statement: string; tier: string }) => [i.statement, i.tier]), [["Sarah has surgery Thursday", "confirm"]]);
+  eq(body.held.map((i: { statement: string; tier: string }) => [i.statement, i.tier]), [["Sarah has surgery", "confirm"]]);
   eq(w.writes[0].items, [], "no memory item written");
   eq(w.writes[0].needsReview, true);
   eq(w.writes[0].review?.items.length, 1, "kept as a pending review, so it survives a restart");
@@ -396,5 +396,5 @@ Deno.test("a sensitive reading is held for the user's yes, never saved because a
   // "Remember this" writes it, as proposed.
   const yes = await call(w2, post(resolveBody([{ index: 0, accept: true }])));
   eq(yes.body.status, "resolved");
-  eq(w2.resolves[0].items.map((i) => [i.person_id, i.statement, i.sensitivity]), [["person-sarah", "Sarah has surgery Thursday", "health"]]);
+  eq(w2.resolves[0].items.map((i) => [i.person_id, i.statement, i.sensitivity]), [["person-sarah", "Sarah has surgery", "health"]]);
 });

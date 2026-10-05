@@ -198,7 +198,8 @@ function resolveFrom(e: string, today: CivilDate, zone: string, dir: Direction):
   }
 
   // today / tonight / tomorrow / yesterday
-  if (/^(today|tonight|this (morning|afternoon|evening)|now|right now)$/.test(e)) return day(today, "today");
+  // "just had a baby", "earlier today": today (stabilization: recent news keeps its day).
+  if (/^(today|tonight|this (morning|afternoon|evening)|now|right now|just|just now|earlier today|earlier)$/.test(e)) return day(today, "today");
   if (/^(tomorrow|tmrw|tmr)$/.test(e)) return day(addDays(today, 1), "tomorrow");
   if (/^(yesterday|last night)$/.test(e)) return day(addDays(today, -1), "yesterday");
   if (e === "the day after tomorrow") return day(addDays(today, 2), "day_after_tomorrow");

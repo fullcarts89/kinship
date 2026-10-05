@@ -15,6 +15,7 @@ import { useActivation, type ActivationState } from "./useActivation";
 import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
 import { parseDrafts, withDraft, type Drafts } from "@/features/tell/drafts";
 import { misfiledOn, voiced } from "@/features/memory/statements";
+import { linkSuggestions, type LinkSuggestion } from "@/features/person/links";
 import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
 import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, track } from "@/platform/analytics";
@@ -64,6 +65,21 @@ export function useTell() {
   return { keep, ai, tellOn: isOn(flags, "tell"), extractionOn: isOn(flags, "ai_extraction") };
 }
 
+/**
+ * What each superseded memory said, for the ones these items update (Gate E:
+ * history stays traceable: "Updates: Sam is interviewing at Stripe").
+ */
+async function earlierOf(repos: Repositories, items: MemoryItem[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const m of items) {
+    const id = typeof m.supersedes_id === "string" ? m.supersedes_id : null;
+    if (!id || out[id]) continue;
+    const prev = await repos.memory.get(id);
+    if (prev && !prev.deleted_at) out[id] = voiced(prev).statement;
+  }
+  return out;
+}
+
 // ─── The review ─────────────────────────────────────────────────────────
 
 export function useReview(captureId: string | null): ReviewView | null {
@@ -74,12 +90,14 @@ export function useReview(captureId: string | null): ReviewView | null {
     if (!row) return null;
     const capture = await repos.captures.get(captureId);
     const people = await repos.people.list();
+    const items = (await understanding.itemsFor(captureId, row.reading)).map((m) => voiced(m, people));
     return buildReview({
       row,
       capture: capture
         ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status }
         : null,
-      items: (await understanding.itemsFor(captureId, row.reading)).map((m) => voiced(m, people)),
+      items,
+      earlier: await earlierOf(repos, items),
       missing: await understanding.arriving(row.reading),
       people,
       related: await repos.people.related(),
@@ -201,7 +219,7 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
   const person = people.find((p) => p.id === personId) ?? null;
   if (!person) return { person: null, lines: [] as RecordLine[] };
   const related = await repos.people.related();
-  const items = (await repos.memory.forPerson(personId))
+  const items = (await repos.memory.aboutPerson(personId))
     .filter((m) => m.status === "active" || m.status === "resolved")
     .map((m) => voiced(m, people))
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
@@ -213,7 +231,7 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
     lines.push({
-      line: itemLine(item, { people, related, today: todayIso(now) }),
+      line: itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }),
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
       })), now),
@@ -443,6 +461,44 @@ export function usePortrait(personId: string): Portrait {
   return q.data ?? buildPortrait({ person: null, items: [], today: todayIso() });
 }
 
+// ─── Someone added after they were mentioned (G20) ──────────────────────
+
+const LINKS_ANSWERED = "person_links_answered";
+
+/** "Is this the Michelle in 'Sam is married to Michelle'?" on Michelle's page, once. */
+export function usePersonLinks(personId: string) {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const people = await repos.people.list();
+    const person = people.find((p) => p.id === personId && !p.deleted_at);
+    if (!person) return [];
+    const answered = new Set<string>(JSON.parse((await getMeta(store.db, LINKS_ANSWERED)) ?? "[]") as string[]);
+    const items = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people));
+    return linkSuggestions({ person, people, items, related: await repos.people.related(), answered });
+  }, [personId]);
+  const remember = async (key: string) => {
+    const answered = JSON.parse((await getMeta(store.db, LINKS_ANSWERED)) ?? "[]") as string[];
+    await setMeta(store.db, LINKS_ANSWERED, JSON.stringify([...new Set([...answered, key])]));
+    store.notify();
+  };
+  return {
+    suggestions: q.data ?? [],
+    yes: async (s: LinkSuggestion) => {
+      if (s.kind === "related") {
+        await store.update("related_people", s.targetId, { promoted_person_id: personId });
+      } else {
+        const item = (await store.get("memory_items", s.targetId)) as MemoryItem | null;
+        if (item) {
+          const others = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
+          await store.update("memory_items", s.targetId, { with_person_ids: [...new Set([...others, personId])] });
+        }
+      }
+      await remember(s.key);
+    },
+    no: (s: LinkSuggestion) => remember(s.key),
+  };
+}
+
 /** The portrait from the store (also used by tests and the dense-Tell proof). */
 export async function portraitFor(repos: Repositories, person: Person | null, now: Date): Promise<Portrait> {
   const today = todayIso(now);
@@ -450,7 +506,7 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
   const items: PortraitItem[] = [];
   const byItem = await repos.memory.sourcesByItem();
   const people = await repos.people.list();
-  for (const stored of await repos.memory.forPerson(person.id)) {
+  for (const stored of await repos.memory.aboutPerson(person.id)) {
     const item = voiced(stored, people);
     // Plainly about someone else: not on this portrait (it stays in What Kinship knows).
     if (misfiledOn(item, person, people)) continue;
@@ -504,7 +560,7 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const now = new Date();
     return {
-      line: itemLine(item, { people, related, today: todayIso(now) }),
+      line: itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }),
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
       })), now),

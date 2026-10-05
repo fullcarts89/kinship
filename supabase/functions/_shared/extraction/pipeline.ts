@@ -465,7 +465,8 @@ function alsoAbout(ctx: Context, statement: string, spans: PlannedSpan[], person
   return out.slice(0, 7);
 }
 
-const RELATIVE_TIME = /\b(today|tonight|tomorrow|yesterday|this|next|last|coming|in\s+(?:a|an|one|two|three|four|five|six|a\s+few|\d+)\s+(?:days?|weeks?|months?|years?)|weekend|soon)\b/iu;
+// A weekday is relative too: "Wednesday" means a different day next week.
+const RELATIVE_TIME = /\b(today|tonight|tomorrow|yesterday|this|next|last|coming|in\s+(?:a|an|one|two|three|four|five|six|a\s+few|\d+)\s+(?:days?|weeks?|months?|years?)|weekend|soon|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/iu;
 
 /**
  * "Ben is going to Dan's wedding in two weeks" → "Ben is going to Dan's

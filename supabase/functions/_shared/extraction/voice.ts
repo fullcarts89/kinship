@@ -289,6 +289,23 @@ export function withResolvedName(statement: string, name: string): string {
     .replace(/^(His|Her)(\s)/u, `${first}'s$2`);
 }
 
+/**
+ * "He wants to go back to Tahoe", when the user said it's both of them: "Ben
+ * and John want to go back to Tahoe". The verb that follows agrees; anything
+ * that can't be made to agree is left as it was (never a wrong sentence).
+ */
+export function withResolvedNames(statement: string, names: string[]): string {
+  const firsts = names.map((n) => n.trim().split(/\s+/u)[0]).filter(Boolean);
+  if (firsts.length < 2) return firsts.length ? withResolvedName(statement, firsts[0]) : statement;
+  const who = firsts.length === 2 ? `${firsts[0]} and ${firsts[1]}` : `${firsts.slice(0, -1).join(", ")} and ${firsts[firsts.length - 1]}`;
+  const m = statement.match(/^(He|She)\s+([\p{L}'’]+)(.*)$/su);
+  if (!m) return statement;
+  const verb = m[2];
+  const lower = verb.toLocaleLowerCase();
+  const plural = AUX[lower] ?? (KEEP_AFTER.has(lower) || /ed$/u.test(lower) ? verb : baseForm(verb));
+  return plural ? `${who} ${plural}${m[3]}` : statement;
+}
+
 // ─── The user's own promises ────────────────────────────────────────────────
 
 /**

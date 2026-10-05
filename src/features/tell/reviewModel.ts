@@ -33,6 +33,8 @@ export interface ReviewInput {
   items: MemoryItem[];
   /** Items the reading saved that haven't reached this phone yet (sync in flight). */
   missing?: number;
+  /** What each superseded memory said, by id: "Updates: Sam is interviewing at Stripe". */
+  earlier?: Record<string, string>;
   people: Person[];
   related: RelatedPerson[];
   offline: boolean;
@@ -62,6 +64,10 @@ export interface ItemLine {
   person: { id: string; label: string; changeable: boolean } | null;
   /** About someone close to the person: "Sarah's sister". */
   about: string | null;
+  /** Others in People this one memory is also about ("John Oxnard"). */
+  also: string[];
+  /** The earlier memory this one updates, in its words ("Sam is interviewing at Stripe"). */
+  replaces: string | null;
   /** value: the exact day, when there is one (for the date picker). */
   when: { label: string; value: string | null; changeable: boolean } | null;
   kind: { value: string; label: string; changeable: boolean };
@@ -70,7 +76,7 @@ export interface ItemLine {
 }
 
 /** "keep": a sensitive or ambiguous reading that is not memory until the user says yes. */
-export type QuestionType = "which_person" | "about_whom" | "new_person" | "date" | "keep";
+export type QuestionType = "which_person" | "about_whom" | "new_person" | "replace" | "date" | "keep";
 
 export type Choice =
   | { key: string; label: string; answer: Omit<HeldAnswer, "index"> }
@@ -170,6 +176,7 @@ export function buildReview(input: ReviewInput): ReviewView {
   const personIds = [...new Set([
     ...(context ? [context] : []),
     ...lines.map((l) => l.person?.id).filter((x): x is string => !!x),
+    ...input.items.flatMap((m) => (Array.isArray(m.with_person_ids) ? m.with_person_ids : [])),
     ...held.map((h) => h.person_id).filter((x): x is string => !!x),
     ...questions.flatMap((q) => q.choices.flatMap((c) => ("answer" in c && c.answer.person_id ? [c.answer.person_id] : []))),
   ])];
@@ -217,7 +224,7 @@ export function answersFor(
 // ─── Lines ──────────────────────────────────────────────────────────────
 
 /** One remembered item in the user's terms, with what they can change. */
-export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "related" | "today">): ItemLine {
+export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "related" | "today" | "earlier">): ItemLine {
   const person = input.people.find((p) => p.id === item.person_id);
   const related = item.subject_related_id ? input.related.find((r) => r.id === item.subject_related_id) : null;
   const when = whenLabel(item.kind, (item.detail ?? {}) as Record<string, unknown>, input.today);
@@ -228,6 +235,11 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
       ? { id: person.id, label: personLabel(person, input.people), changeable: item.subject_type !== "related" }
       : null,
     about: related && person ? aboutLabel(person.display_name, related) : null,
+    also: (Array.isArray(item.with_person_ids) ? item.with_person_ids : [])
+      .map((id) => input.people.find((p) => p.id === id))
+      .filter((p): p is Person => !!p)
+      .map((p) => personLabel(p, input.people)),
+    replaces: typeof item.supersedes_id === "string" ? input.earlier?.[item.supersedes_id] ?? null : null,
     // Shown only when there is a time to show (an event without one says so).
     when: when ? { label: when, value: exactDay(item), changeable: takesDate(item.kind) } : null,
     kind: {
@@ -314,7 +326,7 @@ function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
       }
     }
   });
-  const order: QuestionType[] = ["which_person", "about_whom", "new_person", "date", "keep"];
+  const order: QuestionType[] = ["which_person", "about_whom", "new_person", "replace", "date", "keep"];
   return [...groups.values()]
     .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type))
     .map((q, n) => ({ ...q, key: `q${n}` }));
@@ -430,6 +442,20 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
             { key: "related", label: `${name}'s ${relation}`, answer: { subject: "related", relation } },
           ]
         : [{ key: "person", label: `Yes, ${name}`, answer: { subject: "person" } }],
+    });
+  }
+  if (item.flags.includes("update_check") && Array.isArray(item.detail?._replaces)) {
+    // Gate E: this reads as an update to something earlier, and two fit.
+    const offered = (item.detail._replaces as { id: string; statement: string }[]).filter((r) => r.id && r.statement);
+    needs.push({
+      type: "replace",
+      group: `replace:${offered.map((r) => r.id).join(",")}`,
+      prompt: "Does this replace one of these?",
+      reason: "It sounds like news about something you told me before.",
+      choices: [
+        ...offered.map((r) => ({ key: `r:${r.id}`, label: r.statement, answer: { replaces: r.id } })),
+        { key: "both", label: "No, keep both", answer: { replaces: null } },
+      ],
     });
   }
   if (item.flags.includes("date_unresolved_sensitive")) {

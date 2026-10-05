@@ -18,6 +18,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -35,6 +37,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -52,6 +56,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": {
       "label": "Summer 2027",
       "value": "2027-06-01",
@@ -73,6 +79,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "promise",
@@ -144,6 +152,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "promise",
@@ -166,6 +176,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": {
       "label": "Summer 2027",
       "value": "2027-06-01",
@@ -192,6 +204,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -214,6 +228,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -365,6 +381,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -387,6 +405,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "thread",
@@ -474,6 +494,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": "Ben's knee has been bothering him",
      "when": null,
      "kind": {
       "value": "fact",
@@ -644,6 +666,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -666,6 +690,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "promise",
@@ -688,6 +714,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "context",
@@ -710,6 +738,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -732,6 +762,8 @@
       "changeable": false
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": {
       "label": "Week of Aug 2",
       "value": "2027-08-02",
@@ -758,6 +790,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": {
       "label": "Sun, Oct 24",
       "value": "2027-10-24",
@@ -784,6 +818,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "plan",
@@ -806,6 +842,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "promise",
@@ -828,6 +866,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -850,6 +890,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "thread",
@@ -872,6 +914,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": {
       "label": "Spring 2028",
       "value": "2028-03-01",
@@ -898,6 +942,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "promise",
@@ -920,6 +966,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -942,6 +990,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -964,6 +1014,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "promise",
@@ -986,6 +1038,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "thread",
@@ -1008,6 +1062,8 @@
       "changeable": false
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -1030,6 +1086,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "moment",
@@ -1052,6 +1110,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "thread",
@@ -1074,6 +1134,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -1096,6 +1158,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "context",
@@ -1118,6 +1182,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -1140,6 +1206,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "fact",
@@ -1162,6 +1230,8 @@
       "changeable": true
      },
      "about": null,
+     "also": [],
+     "replaces": null,
      "when": null,
      "kind": {
       "value": "context",

@@ -119,7 +119,9 @@ describe("the founder's note, through the real pipeline", () => {
     const johnPage = await portraitFor(w.repos, john, now(w));
     const shown = [...benPage.lately, ...benPage.comingUp, ...benPage.youSaid, ...benPage.between].map((l) => l.statement);
     expect(shown).toEqual(["Ben wants to play the new warhammer game with you and John on weekends"]);
-    expect([...johnPage.lately, ...johnPage.comingUp].map((l) => l.statement)).toEqual(["John is your brother"]);
+    // The plan names John too, so it's one shared memory, on his page as well (stabilization Gate F).
+    expect([...johnPage.lately, ...johnPage.comingUp].map((l) => l.statement)).toEqual([
+      "John is your brother", "Ben wants to play the new warhammer game with you and John on weekends"]);
 
     // Nothing anywhere says "the writer": pages, records, the Source view, the stored rows.
     const benKnows = await recordFor(w.repos, ben.id, now(w));

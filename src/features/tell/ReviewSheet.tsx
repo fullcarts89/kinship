@@ -205,11 +205,14 @@ function ReviewLine({
           <TokenRow>
             {line.person ? <Token what="Who" value={line.person.label} onPress={line.person.changeable ? () => onOpen("person") : undefined} /> : null}
             {line.about ? <Token what="About" value={line.about} /> : null}
+            {line.also?.length ? <Token what="Also about" value={line.also.join(", ")} /> : null}
             {line.when ? <Token what="When" value={line.when.label} onPress={line.when.changeable ? () => onOpen("date") : undefined} /> : null}
             <Token what="What" value={line.kind.label} onPress={line.kind.changeable ? () => onOpen("kind") : undefined} />
           </TokenRow>
         </View>
         {line.edited ? <Small style={{ marginTop: space.xs }}>You edited this</Small> : null}
+        {/* Gate E: an update says what it replaces, so the user can say no. */}
+        {line.replaces ? <Small style={{ marginTop: space.xs }}>{`Updates: ${line.replaces}`}</Small> : null}
       </View>
       <Pressable
         accessibilityRole="button"

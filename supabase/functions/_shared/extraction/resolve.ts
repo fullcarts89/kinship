@@ -20,7 +20,7 @@
 // the answer changes only who or when, never the words.
 
 import { fold, kinshipReference, relationKey, statedSelfRelations, wordsOf } from "./lexicon.ts";
-import { withResolvedName } from "./voice.ts";
+import { withResolvedName, withResolvedNames } from "./voice.ts";
 import { threadTarget } from "./threads.ts";
 import type { Flag } from "./types.ts";
 
@@ -262,6 +262,19 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       withPeople = [...new Set([...withPeople, ...a.also_person_ids])].filter((id) => id !== personId);
     }
 
+    // The user just said who "he" is: the line says so ("John wants to go
+    // back…"), never a "He" the page can't explain (Gate B).
+    const chosenName = needsPerson
+      ? (personId.startsWith("new:")
+        ? newPeople.find((p) => p.ref === personId)?.display_name
+        : ctx.people.find((p) => p.id === personId)?.display_name)
+      : null;
+    // The user said who: the line names them ("Ben and John want to go back…" for Both).
+    const alsoNames = (a.also_person_ids ?? []).map((id) => ctx.people.find((p) => p.id === id)?.display_name).filter((n): n is string => !!n);
+    const statement = chosenName && subjectType !== "related"
+      ? (alsoNames.length ? withResolvedNames(item.statement, [chosenName, ...alsoNames]) : withResolvedName(item.statement, chosenName))
+      : item.statement;
+
     // ── Existing memory ──
     // A merge or supersede was worked out for the item as held; once the
     // person or subject changes, it no longer applies.
@@ -311,15 +324,6 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       );
       if (twin) action = { type: "merge", target_id: twin.id };
     }
-
-    // The user just said who "he" is: the line says so ("John wants to go
-    // back…"), never a "He" the page can't explain (Gate B).
-    const chosenName = needsPerson
-      ? (personId.startsWith("new:")
-        ? newPeople.find((p) => p.ref === personId)?.display_name
-        : ctx.people.find((p) => p.id === personId)?.display_name)
-      : null;
-    const statement = chosenName && subjectType !== "related" ? withResolvedName(item.statement, chosenName) : item.statement;
 
     items.push({
       kind: item.kind,

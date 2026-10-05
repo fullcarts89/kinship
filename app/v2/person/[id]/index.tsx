@@ -10,7 +10,7 @@ import { KeptCard } from "@/features/tell/TellDock";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TellSheet } from "@/features/tell/TellSheet";
 import { useHandoff } from "@/features/today/useHandoff";
-import { todayIso, useItemLine, usePeople, usePortrait, useUnderstanding } from "@/hooks/useV2";
+import { todayIso, useItemLine, usePeople, usePersonLinks, usePortrait, useUnderstanding } from "@/hooks/useV2";
 
 export default function PersonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,6 +20,7 @@ export default function PersonScreen() {
   const u = useUnderstanding();
   const flow = useTellFlow();
   const handoff = useHandoff();
+  const links = usePersonLinks(personId);
   const [itemId, setItemId] = useState<string | null>(null);
   const [telling, setTelling] = useState(false);
   const item = useItemLine(itemId);
@@ -56,6 +57,11 @@ export default function PersonScreen() {
         : null}
       waiting={flow.pending.filter((n) => n.personIds.includes(personId))}
       onWaiting={(captureId) => flow.openNote(captureId)}
+      links={links.suggestions.map((l) => ({ key: l.key, prompt: l.prompt }))}
+      onLink={(key, yes) => {
+        const s = links.suggestions.find((l) => l.key === key);
+        if (s) fail(yes ? links.yes(s) : links.no(s));
+      }}
     >
       <ItemSheet
         item={item}

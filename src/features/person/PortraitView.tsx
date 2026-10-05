@@ -45,6 +45,9 @@ export interface PortraitViewProps {
    */
   waiting?: { captureId: string; label: string; text: string; action: string | null }[];
   onWaiting?: (captureId: string) => void;
+  /** Someone added after they were mentioned: "Is this the Michelle in …?" (Yes / No). */
+  links?: { key: string; prompt: string }[];
+  onLink?: (key: string, yes: boolean) => void;
   /** An unsent note about them is waiting (Tell reopens it). */
   hasDraft?: boolean;
   children?: React.ReactNode;
@@ -147,6 +150,21 @@ export function PortraitView(props: PortraitViewProps) {
         </View>
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>
+
+      {props.links?.length ? (
+        <View style={{ marginTop: space.xl, gap: space.m }}>
+          {props.links.map((l) => (
+            <View key={l.key} accessibilityLabel={l.prompt}>
+              <Label>{"One thing to check"}</Label>
+              <Body tone="ink" style={{ marginTop: space.xs }}>{l.prompt}</Body>
+              <View style={{ flexDirection: "row", gap: space.s, marginTop: space.s }}>
+                <Pill size="small" label="Yes" onPress={() => props.onLink?.(l.key, true)} />
+                <Pill size="small" variant="quiet" label="No, someone else" onPress={() => props.onLink?.(l.key, false)} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {props.waiting?.length ? (
         <View style={{ marginTop: space.xl, gap: space.m }}>

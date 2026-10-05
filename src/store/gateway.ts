@@ -66,6 +66,8 @@ export interface HeldAnswer {
   new_person?: true;
   /** The name to add, when the reading didn't name the new person itself (it must be in the note). */
   new_person_name?: string;
+  /** Which earlier memory this replaces (one of those offered), or null to keep both. */
+  replaces?: string | null;
   subject?: "person" | "related";
   relation?: string;
   date?: string | null;
