@@ -61,7 +61,11 @@ export interface HeldAnswer {
   index: number;
   skip?: true;
   person_id?: string;
+  /** "Both": the others it is also about (a shared memory, one source). */
+  also_person_ids?: string[];
   new_person?: true;
+  /** The name to add, when the reading didn't name the new person itself (it must be in the note). */
+  new_person_name?: string;
   subject?: "person" | "related";
   relation?: string;
   date?: string | null;

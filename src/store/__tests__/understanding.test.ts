@@ -260,9 +260,13 @@ describe("two Sams", () => {
     gateway.offline = false;
     await d.understanding.run();
     const row = await d.understanding.get(captureId);
-    expect(row?.state).toBe("done");
+    // Back in review: what the answer kept is shown ("Kept for Sam"), and the
+    // note stays accounted for until the user is finished with it (Gate A).
+    expect(row?.state).toBe("review");
     expect(row?.notice).toBeNull();
     expect(serverItems(server)).toHaveLength(1);
+    await d.understanding.finish(captureId, "done");
+    expect((await d.understanding.get(captureId))?.state).toBe("done");
     expect((await d.repos.memory.forPerson(lee.id)).map((m) => m.statement)).toEqual(["Sam is redoing his kitchen"]);
   });
 
@@ -555,7 +559,7 @@ describe("notes that aren't understood are kept as written", () => {
     expect(gateway.calls).toEqual(["understand"]);
   });
 
-  it("server trouble is retried with growing waits, then the note is kept as written", async () => {
+  it("server trouble is retried with growing waits, then the note is kept as written and the user told so", async () => {
     const { gateway, d } = await world();
     const captureId = await tell(d, BEN_NOTE);
     for (let i = 0; i < 6; i++) {
@@ -569,7 +573,12 @@ describe("notes that aren't understood are kept as written", () => {
         later(Date.parse(row!.next_at!) - clock);
       }
     }
-    expect((await d.understanding.get(captureId))?.state).toBe("kept");
+    // Terminal and explicit: "Couldn't understand this one. Your note is saved."
+    const row = await d.understanding.get(captureId);
+    expect(row?.state).toBe("failed");
+    expect(row?.understood_at).toBeTruthy();
+    expect(await d.repos.captures.get(captureId)).toBeTruthy();
+    expect((await d.understanding.open()).map((r) => r.capture_id)).not.toContain(captureId);
   });
 
   it("the user's answer is never dropped, however long the server has trouble", async () => {

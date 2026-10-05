@@ -7,7 +7,7 @@ import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
-import { buildToday, evidenceOf, isBirthdayReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayView } from "@/features/today/todayModel";
+import { buildToday, evidenceOf, isBirthdayReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { buildPortrait, PORTRAIT_RULES, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
 import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
 import { legacyActivation, NO_ACTIVATION, nextStep, setupFinished, setupStepsFor, type SetupNeeds } from "@/features/setup/activation";
@@ -79,13 +79,16 @@ export function useReview(captureId: string | null): ReviewView | null {
         ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status }
         : null,
       items: (await understanding.itemsFor(captureId, row.reading)).map(voiced),
+      missing: await understanding.arriving(row.reading),
       people: await repos.people.list(),
       related: await repos.people.related(),
       offline: understanding.offline,
       today: todayIso(),
     });
   }, [captureId]);
-  return q.data ?? null;
+  // Only ever the note asked for: while a new id loads, the previous note's
+  // view must not stand in for it.
+  return q.data && q.data.captureId === captureId ? q.data : null;
 }
 
 export interface OpenNotes {
@@ -96,6 +99,63 @@ export interface OpenNotes {
   /** Understood while the user was elsewhere, not looked at yet. */
   toLookAt: string[];
   offline: boolean;
+}
+
+/**
+ * A note still open, as a quiet line (stabilization Gate A): Today and the
+ * person's page always account for every note until it's finished. Never a
+ * count or a badge: what it is, in words.
+ */
+export interface PendingNote {
+  captureId: string;
+  kind: "understanding" | "question";
+  /** The quiet line's label ("A question", "Understanding"). */
+  label: string;
+  text: string;
+  action: string | null;
+  /** Who it's about so far (the person it was told from, the people it names). */
+  personIds: string[];
+  createdAt: string;
+}
+
+export function usePending(): PendingNote[] {
+  const { store, understanding } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const rows = await understanding.open();
+    if (rows.length === 0) return [];
+    const people = await repos.people.list();
+    const related = await repos.people.related();
+    const out: PendingNote[] = [];
+    for (const row of rows) {
+      if (row.state === "closing") continue;
+      const capture = await repos.captures.get(row.capture_id);
+      if (!capture) continue;
+      const view = buildReview({
+        row,
+        capture: { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status },
+        items: [], missing: 0, people, related, offline: understanding.offline, today: todayIso(),
+      });
+      const about = capture.context_person_id ? people.find((p) => p.id === capture.context_person_id)?.display_name.split(/\s+/u)[0] : null;
+      if (view.questions.length) {
+        const [first] = view.questions;
+        out.push({
+          captureId: row.capture_id, kind: "question", label: "A question",
+          text: first.type === "keep" ? `${first.prompt.replace(/\?$/u, "")}: “${first.about[0]}”?` : first.prompt,
+          action: "Answer", personIds: view.personIds, createdAt: row.created_at,
+        });
+      } else if (row.state === "waiting" || row.state === "answering") {
+        out.push({
+          captureId: row.capture_id, kind: "understanding", label: row.state === "answering" ? "Saving your answer" : "Understanding",
+          text: row.state === "waiting" && row.attempts > 0
+            ? "Couldn't understand a note yet. It's saved, and I'll try again."
+            : about ? `A note about ${about}` : "A note you told me",
+          action: null, personIds: view.personIds, createdAt: row.created_at,
+        });
+      }
+    }
+    return out;
+  });
+  return q.data ?? [];
 }
 
 export function useOpenNotes(): OpenNotes {
@@ -244,7 +304,12 @@ export function useV2Actions() {
 // ─── Today ──────────────────────────────────────────────────────────────
 
 /** Today's view: the one moment, the return check, at most two quiet lines. */
-export function useToday(questions: number, toLookAt: number, now: Date): TodayView | null {
+export function useToday(
+  questions: number,
+  toLookAt: number,
+  now: Date,
+  pending?: TodayInput["pending"],
+): TodayView | null {
   const { store, reasonLocal } = useV2Session();
   const activation = useActivation();
   const minute = Math.floor(now.getTime() / 60_000);
@@ -273,9 +338,9 @@ export function useToday(questions: number, toLookAt: number, now: Date): TodayV
     return buildToday({
       now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
       handoff: local.handoff, told, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
-      activated: activation.activated, firstName: activation.firstName,
+      activated: activation.activated, firstName: activation.firstName, pending,
     });
-  }, [questions, toLookAt, minute, activation.activated, activation.firstName]);
+  }, [questions, toLookAt, minute, activation.activated, activation.firstName, JSON.stringify(pending ?? null)]);
   return q.data ?? null;
 }
 

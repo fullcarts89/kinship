@@ -2,11 +2,12 @@
  "matt": {
   "note": "Matt just got promoted. He's excited but nervous about managing people. He and Jess are thinking about moving to Marin next summer, and I told him I'd introduce him to Alex.",
   "review": {
-   "mode": "sheet",
+   "captureId": "00000001-0000-4000-8000-000000000003",
+   "mode": "card",
    "heading": "Kept for Matt",
    "status": null,
    "notice": null,
-   "summary": null,
+   "summary": "Kept: Matt was promoted · +3",
    "lines": [
     {
      "id": "f0000000-0000-4000-8000-000000000001",
@@ -83,7 +84,10 @@
    ],
    "questions": [],
    "answering": false,
-   "canUndo": true
+   "canUndo": true,
+   "personIds": [
+    "00000001-0000-4000-8000-000000000001"
+   ]
   },
   "portrait": {
    "person": {

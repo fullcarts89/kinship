@@ -89,6 +89,12 @@ export interface TodayInput {
   /** Notes waiting on the user (D1): a question, or understood while away. */
   questions: number;
   toLookAt: number;
+  /**
+   * Every note still open, as words (stabilization Gate A): each question
+   * waiting on the user, and anything still being understood. When given,
+   * Today names them instead of counting them.
+   */
+  pending?: { captureId: string; kind: "understanding" | "question"; label: string; text: string; action: string | null }[];
   /** "You told Kinship · Oct 8" for an item, and the note it came from. */
   provenance: (itemId: string) => { line: string; noteId: string | null } | null;
 }
@@ -120,7 +126,8 @@ export interface MomentView {
 }
 
 export type QuietView =
-  | { kind: "question"; label: string; text: string; action: string }
+  | { kind: "question"; label: string; text: string; action: string; captureId?: string }
+  | { kind: "understanding"; label: string; text: string; captureId: string }
   | { kind: "look"; label: string; text: string; action: string }
   | { kind: "coming"; label: string; text: string; personId: string; itemId: string | null };
 
@@ -139,6 +146,12 @@ export interface TodayView {
   quiet: QuietView[];
   /** "Nothing needs you today." Only for an account already in use (contract §8). */
   quietDay: boolean;
+  /**
+   * Kinship is waiting on the user (a question), and there's no moment:
+   * the headline says so instead of "Nothing needs you today" (Gate G).
+   * Headline priority: moment → waiting on the user → first use → quiet day.
+   */
+  waiting: "one" | "some" | null;
   /**
    * First use: setup is done but nothing has been told yet (or there is no
    * one here). Today explains what it is for and offers the next step,
@@ -241,6 +254,7 @@ export function buildToday(input: TodayInput): TodayView {
     moment: null,
     quiet: [],
     quietDay: false,
+    waiting: null,
     firstUse: null,
   };
 
@@ -335,8 +349,30 @@ export function buildToday(input: TodayInput): TodayView {
     };
   }
 
-  // At most two quiet lines, from different people than the moment.
-  if (input.questions > 0) {
+  // What's open comes first, by name: each question (a few at most), then
+  // anything still being understood. Then at most two quiet lines, from
+  // different people than the moment.
+  const pending = input.pending;
+  const asks = pending?.filter((n) => n.kind === "question") ?? [];
+  if (pending) {
+    for (const n of asks.slice(0, 3)) {
+      view.quiet.push({ kind: "question", label: n.label, text: n.text, action: n.action ?? "Answer", captureId: n.captureId });
+    }
+    const working = pending.filter((n) => n.kind === "understanding");
+    if (working.length) {
+      view.quiet.push({
+        kind: "understanding", label: working[0].label,
+        text: working.length > 1 ? "Notes you told me" : working[0].text, captureId: working[0].captureId,
+      });
+    }
+    if (!asks.length && input.toLookAt > 0) {
+      view.quiet.push({
+        kind: "look", label: "Kept",
+        text: input.toLookAt === 1 ? "Something you told me, to look over" : `${input.toLookAt} things you told me, to look over`,
+        action: "Look",
+      });
+    }
+  } else if (input.questions > 0) {
     view.quiet.push({
       kind: "question", label: "A question",
       text: input.questions === 1 ? "About something you told me" : `About ${input.questions} things you told me`,
@@ -363,8 +399,9 @@ export function buildToday(input: TodayInput): TodayView {
       .filter(({ day }) => soon(day))
       .map(({ p, day }) => ({ personId: p.id, day, text: `${firstName(p)}'s birthday`, itemId: null, key: `b${p.id}` })),
   ].sort((a, b) => a.day.localeCompare(b.day) || a.key.localeCompare(b.key));
+  const comingRoom = pending ? view.quiet.length + 2 : 2;
   for (const c of coming) {
-    if (view.quiet.length >= 2) break;
+    if (view.quiet.length >= comingRoom || view.quiet.length >= 4) break;
     if (seen.has(c.personId)) continue;
     seen.add(c.personId);
     view.quiet.push({ kind: "coming", label: relativeDay(c.day, today), text: c.text, personId: c.personId, itemId: c.itemId });
@@ -374,8 +411,11 @@ export function buildToday(input: TodayInput): TodayView {
   const here = input.people.filter((p) => !p.deleted_at && p.state !== "archived");
   const firstUse = here.length === 0 || !(input.activated ?? input.told > 0);
   const nothing = !view.moment && !view.returnCheck;
-  view.firstUse = firstUse && nothing ? { hasPeople: here.length > 0 } : null;
-  view.quietDay = nothing && !firstUse;
+  const asking = pending ? asks.length : input.questions;
+  // Never "Nothing needs you today" while Kinship is waiting on the user.
+  view.waiting = nothing && asking > 0 ? (asking === 1 ? "one" : "some") : null;
+  view.firstUse = firstUse && nothing && !view.waiting ? { hasPeople: here.length > 0 } : null;
+  view.quietDay = nothing && !firstUse && !view.waiting;
   return view;
 }
 

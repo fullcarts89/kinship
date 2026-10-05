@@ -8,7 +8,7 @@ import { View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
 import { GUTTER, height, press, size, space } from "@/design/tokens";
-import { Body, Label, Line, Name, Pill, Provenance, Screen, Small, Sprig, usePalette } from "@/ui";
+import { Body, Label, Line, Name, Pill, Provenance, QuietLine, Screen, Small, Sprig, usePalette } from "@/ui";
 
 export interface PortraitLineData {
   itemId: string;
@@ -37,8 +37,14 @@ export interface PortraitViewProps {
   onMessage: () => void;
   onCall: () => void;
   onTell: () => void;
-  /** What happened to a note just told from here ("Kept: …", Undo). */
+  /** What happened to a note just told about them (the Kept card). */
   kept?: React.ReactNode;
+  /**
+   * Notes about them still open (stabilization Gate A): a question waiting on
+   * the user, or a note still being understood. Quiet lines, never a badge.
+   */
+  waiting?: { captureId: string; label: string; text: string; action: string | null }[];
+  onWaiting?: (captureId: string) => void;
   /** An unsent note about them is waiting (Tell reopens it). */
   hasDraft?: boolean;
   children?: React.ReactNode;
@@ -141,6 +147,20 @@ export function PortraitView(props: PortraitViewProps) {
         </View>
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>
+
+      {props.waiting?.length ? (
+        <View style={{ marginTop: space.xl, gap: space.m }}>
+          {props.waiting.map((w) => (
+            <QuietLine
+              key={w.captureId}
+              label={w.label}
+              text={w.text}
+              action={w.action ? { label: w.action, onPress: () => props.onWaiting?.(w.captureId) } : undefined}
+              onPress={w.action ? () => props.onWaiting?.(w.captureId) : undefined}
+            />
+          ))}
+        </View>
+      ) : null}
 
 
       <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} />

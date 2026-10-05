@@ -109,15 +109,20 @@ export function ReviewSheet(props: ReviewSheetProps) {
       back();
     }} />;
   } else {
-    // A single question with nothing kept yet is the whole sheet: ask it, plainly.
+    // Gate D: what was kept ("Kept for Ben", the lines), then, apart and
+    // explained, "One thing to check". The label is drawn once (founder G3);
+    // while nothing is kept yet it's "About Ben", never "Kept for".
     const questionOnly = !!question && view.lines.length === 0 && !view.answering;
-    const label = view.heading.startsWith("Kept for") ? view.heading : null;
+    const label = view.heading.startsWith("Kept for") || view.heading.startsWith("About ") ? view.heading : null;
+    const waiting = !!question && !view.answering;
     body = (
       <View>
-        {label ? <Label>{label}</Label> : null}
-        {questionOnly ? null : (
-          <Title style={{ marginTop: label ? space.m : 0 }}>{view.lines.length ? `${COPY.remember}.` : view.heading}</Title>
-        )}
+        {label && !questionOnly ? <Label>{label}</Label> : null}
+        {questionOnly ? null : view.lines.length ? (
+          <Title style={{ marginTop: label ? space.m : 0 }}>{`${COPY.remember}.`}</Title>
+        ) : view.mode === "nothing" ? (
+          <Title style={{ marginTop: label ? space.m : 0 }}>{"Nothing kept from that one."}</Title>
+        ) : null}
         {view.status ? <Small style={{ marginTop: space.s }} accessibilityLiveRegion="polite">{view.status}</Small> : null}
         {view.notice ? <Body tone="ochreText" style={{ marginTop: space.s }}>{view.notice}</Body> : null}
         {view.lines.length ? (
@@ -135,7 +140,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
             ))}
           </View>
         ) : null}
-        {question && !view.answering ? (
+        {waiting && question ? (
           <QuestionBlock
             q={question}
             boxed={!questionOnly}
@@ -149,12 +154,16 @@ export function ReviewSheet(props: ReviewSheetProps) {
           />
         ) : null}
         <View style={{ marginTop: space.xl }}>
-          {view.lines.length ? <Small>{"Tap any underlined word to change it."}</Small> : null}
+          {view.lines.length && !waiting ? <Small>{"Tap any underlined word to change it."}</Small> : null}
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: space.s }}>
             {view.canUndo ? <Pill variant="quiet" label="Undo" accessibilityHint="Forget this note and what came from it" onPress={act(props.onUndo)} /> : null}
             <Pill variant="quiet" label="See the note" onPress={act(props.onOpenNote)} />
+            {waiting ? (
+              // Not now: the question keeps waiting, on Today and on their page.
+              <Pill variant="quiet" label="Not now" accessibilityHint="Keeps the question for later" onPress={act(props.onDismiss)} />
+            ) : null}
           </View>
-          {!questionOnly ? (
+          {!waiting ? (
             <View style={{ marginTop: space.s }}>
               <Pill variant="primary" label="Done" onPress={act(props.onDone)} />
             </View>
@@ -247,6 +256,7 @@ function QuestionBlock({
   );
   const about = (
     <>
+      {q.reason ? <Small style={{ marginTop: space.xs }}>{q.reason}</Small> : null}
       {q.about.map((a) => (
         <Line key={a} tone="inkBody" style={{ marginTop: space.s }}>{`“${a}”`}</Line>
       ))}
@@ -256,8 +266,8 @@ function QuestionBlock({
   if (!boxed) {
     return (
       <View accessibilityLabel={q.prompt}>
-        {label ? <Label>{label}</Label> : null}
-        <Title style={{ marginTop: label ? space.m : 0 }}>{q.prompt}</Title>
+        <Label>{COPY.check}</Label>
+        <Title style={{ marginTop: space.m }}>{q.prompt}</Title>
         {about}
         {choices}
         <View style={{ alignItems: "flex-start", marginTop: space.xs }}>
@@ -271,7 +281,8 @@ function QuestionBlock({
       accessibilityLabel={q.prompt}
       style={{ marginTop: space.l, borderRadius: radius.inline, backgroundColor: p.paper, borderWidth: 1, borderColor: p.hairline, padding: space.l }}
     >
-      <Body tone="ink">{q.prompt}</Body>
+      <Label>{COPY.check}</Label>
+      <Body tone="ink" style={{ marginTop: space.s }}>{q.prompt}</Body>
       {about}
       {choices}
       <View style={{ alignItems: "flex-start", marginTop: space.xs }}>

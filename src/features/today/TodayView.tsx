@@ -112,6 +112,10 @@ export function TodayView(props: TodayViewProps) {
             )}
           </View>
         </View>
+      ) : view.waiting && !props.afterReturn ? (
+        <View style={{ marginTop: space.x4 }}>
+          <Display>{view.waiting === "one" ? "One thing to check." : "A few things to check."}</Display>
+        </View>
       ) : view.quietDay && !props.afterReturn ? (
         <View style={{ marginTop: space.x4 }}>
           <Display>Nothing needs you today.</Display>
@@ -125,7 +129,7 @@ export function TodayView(props: TodayViewProps) {
               key={`${q.kind}${i}`}
               label={q.label}
               text={q.text}
-              action={q.kind === "coming" ? undefined : { label: q.action, onPress: () => props.onQuiet(q) }}
+              action={q.kind === "coming" || q.kind === "understanding" ? undefined : { label: q.action, onPress: () => props.onQuiet(q) }}
               onPress={() => props.onQuiet(q)}
             />
           ))}

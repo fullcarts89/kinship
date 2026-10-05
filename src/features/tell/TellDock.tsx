@@ -1,15 +1,18 @@
 // The Tell field in its place (board 1): above the two-item bar on Today and
-// People. A quiet line above it says what happened to the note just told
-// ("Kept: …" with Undo), or that it waits to be online.
+// People. Above it, the Kept card says what happened to the note just told
+// ("Understanding…", then "Kept for Ben" and what was kept, with Undo), and
+// stays until the user is done with it (stabilization Gate D).
 import React, { useEffect, useRef, useState } from "react";
-import { Keyboard, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, TextInput, View } from "react-native";
+import { X } from "lucide-react-native";
 import { Pressable } from "@/ui/Pressable";
 import { draftPreview } from "./drafts";
-import { press, space, TOUCH } from "@/design/tokens";
-import { NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette } from "@/ui";
+import { press, size, space, TOUCH } from "@/design/tokens";
+import { Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
-import { trackStarted, useTellFlow } from "./TellFlow";
+import { trackStarted, useTellFlow, type KeptCardState } from "./TellFlow";
 
+/** A quiet one-line status (offline, and older callers). */
 export function KeptLine({
   text,
   onOpen,
@@ -33,6 +36,94 @@ export function KeptLine({
         <Small tone="inkBody" numberOfLines={2}>{text}</Small>
       </Pressable>
       {onUndo ? <Pill variant="quiet" label="Undo" accessibilityHint="Forgets this note and what came from it" onPress={onUndo} /> : null}
+    </View>
+  );
+}
+
+/** Words first; a small spinner only once the wait is long enough to notice (motion spec rule 10). */
+function Working() {
+  const p = usePalette();
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setShow(true), WAITING_DELAY_MS);
+    return () => clearTimeout(t);
+  }, []);
+  return show ? <ActivityIndicator size="small" color={p.inkQuiet} /> : null;
+}
+
+/**
+ * The Kept card (Gate D): "Understanding…" while it's understood, then "Kept
+ * for Ben" and each line kept (tap one to correct it), Undo, and ✕ when the
+ * user has seen it. Or "One thing to check" (tap to answer), "Nothing to
+ * remember in that one", "Couldn't understand this one". No timer: it stays
+ * until the user is done with it.
+ */
+export function KeptCard({
+  card,
+  onOpen,
+  onUndo,
+  onDismiss,
+}: {
+  card: KeptCardState;
+  onOpen: () => void;
+  onUndo: () => void;
+  onDismiss: () => void;
+}) {
+  const p = usePalette();
+  const working = card.mode === "understanding";
+  const opens = card.mode === "card" || card.mode === "sheet";
+  return (
+    <View
+      accessibilityLiveRegion="polite"
+      style={{ paddingHorizontal: space.xs, paddingTop: space.s, paddingBottom: space.xs, borderTopWidth: 1, borderTopColor: p.hairline }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.s }}>
+        <View style={{ flex: 1, gap: space.xs }}>
+          {card.heading ? <Label>{card.heading}</Label> : null}
+          {card.status ? (
+            <Pressable
+              accessibilityRole={opens ? "button" : "text"}
+              accessibilityLabel={card.status}
+              disabled={!opens}
+              onPress={onOpen}
+              style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.s, minHeight: TOUCH, opacity: pressed ? press.surface : 1 })}
+            >
+              <Small tone="inkBody" style={{ flexShrink: 1 }}>{card.status}</Small>
+              {working ? <Working /> : null}
+            </Pressable>
+          ) : null}
+          {card.lines.map((l) => (
+            <Pressable
+              key={l.id}
+              accessibilityRole="button"
+              accessibilityLabel={l.statement}
+              accessibilityHint="Shows what was kept, to correct it"
+              onPress={onOpen}
+              style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.surface : 1 })}
+            >
+              <Line numberOfLines={2}>{l.statement}</Line>
+            </Pressable>
+          ))}
+          {card.more > 0 ? <Small>{`and ${card.more} more`}</Small> : null}
+          {card.mode === "card" ? <Small>{"Tap a line to correct it."}</Small> : null}
+        </View>
+        {working ? null : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Got it"
+            onPress={onDismiss}
+            hitSlop={space.s}
+            style={({ pressed }) => ({ minWidth: TOUCH, minHeight: TOUCH, alignItems: "center", justifyContent: "center", opacity: pressed ? press.link : 1 })}
+          >
+            <X color={p.inkQuiet} size={size.icon} strokeWidth={1.8} />
+          </Pressable>
+        )}
+      </View>
+      {card.mode === "understanding" || card.mode === "sheet" ? null : (
+        <View style={{ alignItems: "flex-start" }}>
+          <Pill variant="quiet" label="Undo" accessibilityHint="Forgets this note and what came from it" onPress={onUndo} />
+        </View>
+      )}
     </View>
   );
 }
@@ -127,10 +218,8 @@ export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to
   };
 
   let line: React.ReactNode = null;
-  if (flow.kept) {
-    line = <KeptLine text={flow.kept.text} onOpen={flow.kept.opens ? flow.openKept : undefined} onUndo={flow.undoKept} />;
-  } else if (flow.status) {
-    line = <KeptLine text={flow.status} />;
+  if (flow.card) {
+    line = <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} />;
   } else if (flow.waitingOffline) {
     line = <KeptLine text={OFFLINE_LINE} />;
   }

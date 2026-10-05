@@ -16,7 +16,9 @@ const SETTLE_MS = 1500;
 export default function TodayScreen() {
   const flow = useTellFlow();
   const [now, setNow] = useState(() => new Date());
-  const view = useToday(flow.questions.length, flow.toLookAt.length, now);
+  // Every open note by name (a question, something still being understood),
+  // except the one the Kept card is already showing.
+  const view = useToday(flow.questions.length, flow.toLookAt.length, now, flow.pending);
   const actions = useTodayActions();
   const handoff = useHandoff();
   const [afterReturn, setAfterReturn] = useState<{ personId: string; personName: string } | null>(null);
@@ -87,9 +89,9 @@ export default function TodayScreen() {
         }}
         onNothing={() => setAfterReturn(null)}
         onQuiet={(q) => {
-          if (q.kind === "question") flow.openNote(flow.questions[0]);
+          if (q.kind === "question") flow.openNote(q.captureId ?? flow.questions[0]);
           else if (q.kind === "look") flow.openNote(flow.toLookAt[0]);
-          else router.push(`/v2/person/${q.personId}`);
+          else if (q.kind === "coming") router.push(`/v2/person/${q.personId}`);
         }}
         settling={settling}
         onTellFirst={() => flow.focusTell(null)}

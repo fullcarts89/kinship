@@ -104,8 +104,8 @@ describe("the founder's note, through the real pipeline", () => {
     await person(w, "Tyler Shaffer");
     const { captureId, row, review } = await tell(w, foundersReply);
 
-    // The review shows the move for a yes (never silently): John's line, John's name on it.
-    expect(review.mode).toBe("sheet");
+    // The Kept card shows the move (never silently): John's line, John's name on it.
+    expect(review.mode).toBe("card");
     const lines = review.lines.map((l) => [l.statement, l.person?.label]);
     expect(lines).toEqual(expect.arrayContaining([
       ["Ben wants to play the new warhammer game with you and John on weekends", "Ben Oxnard"],

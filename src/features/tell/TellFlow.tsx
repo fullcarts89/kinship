@@ -1,10 +1,23 @@
 // Tell, wherever it's told from (plan §7–§8; Checkpoint D1 behaviour, Quiet
 // Herbarium placement). The Tell field sits on Today and People and opens
-// from a person's page; this keeps one flow for all of them:
+// from a person's page; this keeps one flow for all of them.
 //
-//   kept at once (offline too) → understood when online → either a quiet
-//   "Kept" line with Undo (everything was clear), or the review sheet
-//   ("Here's what I'll remember", one question at most).
+// One post-Tell contract (stabilization Gate D), always in this order:
+//
+//   "Understanding…" → the Kept card ("Kept for Ben", what was kept, tap to
+//   correct, Undo)
+//                    → or the sheet, when Kinship needs the user ("One thing
+//                      to check", and why)
+//                    → or "Nothing to remember in that one" / "Couldn't
+//                      understand this one", the note itself always saved
+//
+// Durable lifecycle (Gate A): the note's row in the store
+// (store/understanding.ts) is the truth; the card and the sheet are only
+// views over it. Nothing here runs on a timer: a card stays until the user
+// dismisses it, undoes it or tells something else; a sheet stays until the
+// user answers, says Done or Not now, or swipes it away. Backgrounding the
+// app, a refresh or a sync arriving never decides anything. A question the
+// sheet no longer shows still waits, on Today and on the person's page.
 //
 // The behaviour is D1's, unchanged: what needs the user's yes is never memory
 // until they say it; a question is never answered for them.
@@ -12,19 +25,31 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { ReviewSheet, type Correction } from "@/features/tell/ReviewSheet";
-import { todayIso, useOpenNotes, usePeople, useReview, useTell, useTellDrafts, useUnderstanding } from "@/hooks/useV2";
+import { todayIso, useOpenNotes, usePending, usePeople, useReview, useTell, useTellDrafts, useUnderstanding, type PendingNote } from "@/hooks/useV2";
 import { draftKey } from "./drafts";
+import type { ReviewMode, ReviewView } from "./reviewModel";
 import { useActivation } from "@/hooks/useActivation";
 import { charsBucket, track } from "@/platform/analytics";
 
-const SUMMARY_MS = 5000; // plan §8: the auto-save summary
-const IDLE_MS = 20_000; // plan §8: a light confirmation left alone
-const UNDO_MS = 8000; // plan §8: Undo after Done
+/** The Kept card: what happened to the note just told (Gate D). */
+export interface KeptCardState {
+  captureId: string;
+  mode: Exclude<ReviewMode, "none">;
+  /** "Kept for Ben"; null while understanding, or when there's nothing kept. */
+  heading: string | null;
+  /** What was kept, in the user's words (at most three; the rest is "more"). */
+  lines: { id: string; statement: string }[];
+  more: number;
+  /** "Understanding…", "Nothing to remember in that one…", "One thing to check". */
+  status: string | null;
+  /** Who it belongs with: shown on their page, never on someone else's. */
+  personIds: string[];
+}
 
+/** @deprecated kept for the lab: the one-line form of the card. */
 export interface KeptLineState {
   captureId: string;
   text: string;
-  /** Tapping it opens what was kept. */
   opens: boolean;
 }
 
@@ -33,16 +58,22 @@ export interface TellFlow {
   ai: boolean;
   /** Keeps what the user said; resolves once it's safely on the phone. */
   keep: (text: string, contextPersonId?: string | null, source?: "text" | "onboarding") => Promise<boolean>;
-  /** What happened to the note just told, in a few words; null when nothing to say. */
-  status: string | null;
-  kept: KeptLineState | null;
-  openKept: () => void;
-  undoKept: () => void;
+  /** The note just told, as a card; null when there's nothing to say about it. */
+  card: KeptCardState | null;
+  /** Opens what was kept (or the question), to look over or correct. */
+  openCard: () => void;
+  undoCard: () => void;
+  /** "Got it": the user has seen what was kept. */
+  dismissCard: () => void;
+  /** Every other note still open: understanding, or waiting on the user. */
+  pending: PendingNote[];
   /** Notes waiting on the user: a question, or understood while away. */
   questions: string[];
   toLookAt: string[];
   waitingOffline: boolean;
   openNote: (captureId: string) => void;
+  /** Back from "See the note": the question it was opened from comes back. */
+  returnFromNote: (captureId: string) => void;
   /** Ask the Tell field to take focus, optionally about someone ("Anything worth remembering?"). */
   focusTell: (personId?: string | null) => void;
   focusRequest: { at: number; personId: string | null } | null;
@@ -59,139 +90,173 @@ export function useTellFlow(): TellFlow {
   return v;
 }
 
+/** Views a sheet can show; anything else is a passing state it rides over. */
+const SHEET_CONTENT: ReviewMode[] = ["sheet", "card", "nothing"];
+/** What the card shows for the note just told. */
+const CARD_MODES: ReviewMode[] = ["understanding", "card", "nothing", "failed", "asWritten", "sheet"];
+
+export function cardFor(view: ReviewView): KeptCardState | null {
+  if (!CARD_MODES.includes(view.mode)) return null;
+  const lines = view.mode === "card" ? view.lines.map((l) => ({ id: l.id, statement: l.statement })) : [];
+  return {
+    captureId: view.captureId,
+    mode: view.mode as KeptCardState["mode"],
+    heading: view.mode === "card" ? view.heading : null,
+    lines: lines.slice(0, 3),
+    more: Math.max(0, lines.length - 3),
+    status: view.mode === "card" ? null : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
+    personIds: view.personIds,
+  };
+}
+
 export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   const u = useUnderstanding();
   const { keep: keepNote, ai, tellOn } = useTell();
   const open = useOpenNotes();
+  const pendingAll = usePending();
   const people = usePeople();
   const today = todayIso();
   const [current, setCurrent] = useState<string | null>(null);
   const [showing, setShowing] = useState<string | null>(null);
-  const [kept, setKept] = useState<(KeptLineState & { ms: number; summary: boolean }) | null>(null);
-  const [touches, setTouches] = useState(0);
+  const [dismissed, setDismissed] = useState<Record<string, true>>({});
+  const [parked, setParked] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState<TellFlow["focusRequest"]>(null);
   const currentView = useReview(current);
-  const sheet = useReview(showing);
-  const announced = useRef<string | null>(null);
+  const sheetView = useReview(showing);
+  // The last view the sheet had something to show: it stays on screen while
+  // the next one arrives (an answer saving, a sync in flight), never blank.
+  const [lastSheet, setLastSheet] = useState<ReviewView | null>(null);
+  const announced = useRef<Record<string, true>>({});
   const drafts = useTellDrafts();
   // The first Tell that becomes memory activates the account (recovery Gate 3).
   const activation = useActivation();
   const activate = activation.activated ? null : activation.activate;
 
   const openSheet = useCallback((id: string, report = true) => {
-    setKept(null);
     setShowing(id);
     if (report) void u.opened(id);
   }, [u]);
 
-  // The note just told, once understood: a quiet "Kept" line, or the sheet.
   useEffect(() => {
-    if (!current || !currentView || announced.current === current) return;
-    if (currentView.mode === "summary") {
-      announced.current = current;
-      void u.opened(current);
-      setKept({ captureId: current, text: currentView.summary ?? "Kept", opens: true, ms: SUMMARY_MS, summary: true });
-      void activate?.();
-    } else if (currentView.mode === "sheet") {
-      announced.current = current;
+    if (sheetView && SHEET_CONTENT.includes(sheetView.mode)) setLastSheet(sheetView);
+  }, [sheetView]);
+  useEffect(() => {
+    if (!showing) setLastSheet(null);
+  }, [showing]);
+
+  // The note just told, once there's something to say: the card, or the sheet.
+  useEffect(() => {
+    if (!current || !currentView || announced.current[current]) return;
+    const mode = currentView.mode;
+    if (mode === "sheet") {
+      announced.current[current] = true;
       openSheet(current);
+    } else if (mode === "card" || mode === "nothing" || mode === "failed" || mode === "asWritten") {
+      announced.current[current] = true;
+      // On screen as a card: shown (timed), and never "left open" while it is.
+      void u.opened(current);
+      if (mode === "card" || mode === "asWritten") void activate?.();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, currentView, openSheet, u]);
 
-  useEffect(() => {
-    if (!kept) return;
-    const t = setTimeout(() => {
-      if (kept.summary) void u.finish(kept.captureId, "idle");
-      setKept(null);
-    }, kept.ms);
-    return () => clearTimeout(t);
-  }, [kept, u]);
+  const finishCard = useCallback((id: string | null, how: "done" | "idle") => {
+    if (!id) return;
+    void u.finish(id, how);
+  }, [u]);
 
-  const close = useCallback((how: "done" | "idle" | "dismissed") => {
+  const close = useCallback((how: "done" | "dismissed") => {
     const id = showing;
     if (!id) return;
     setShowing(null);
     // What the sheet showed is memory now (held items never are until answered).
-    if (sheet && sheet.lines.length > 0) void activate?.();
+    if (sheetView && sheetView.lines.length > 0) void activate?.();
     void u.finish(id, how);
-    if (how === "done") setKept({ captureId: id, text: "Kept", opens: false, ms: UNDO_MS, summary: false });
-  }, [showing, u, sheet, activate]);
-
-  // Left alone with nothing to answer, the sheet closes itself; items stay as saved.
-  const idle = !!showing && !!sheet && sheet.mode === "sheet" && sheet.questions.length === 0 && !sheet.answering;
-  useEffect(() => {
-    if (!idle) return;
-    const t = setTimeout(() => close("idle"), IDLE_MS);
-    return () => clearTimeout(t);
-  }, [idle, touches, close]);
-
-  useEffect(() => {
-    if (showing && sheet?.mode === "none") setShowing(null);
-  }, [showing, sheet?.mode]);
+    // Seen in full: no card for it afterwards. A question left waiting is
+    // still on Today and the person's page.
+    if (how === "done") setDismissed((d) => ({ ...d, [id]: true }));
+  }, [showing, u, sheetView, activate]);
 
   const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text") => {
     if (!text.trim()) return false;
     try {
       const id = await keepNote(text, contextPersonId ?? null, source);
-      announced.current = null;
+      // Telling something else is the end of the last card: what it kept stays kept.
+      if (current && current !== id && !dismissed[current] && currentView?.mode === "card") finishCard(current, "idle");
       setCurrent(id);
       // Without understanding, the note is kept exactly as written (and that's the account's first memory).
-      if (!ai) {
-        setKept({ captureId: id, text: "Kept as you wrote it.", opens: false, ms: UNDO_MS, summary: false });
-        void activate?.();
-      }
+      if (!ai) void activate?.();
       return true;
     } catch {
       Alert.alert("That wasn't kept", "Something went wrong saving it on this phone. Your words are still here.");
       return false;
     }
-  }, [keepNote, ai, activate]);
+  }, [keepNote, ai, activate, current, dismissed, currentView?.mode, finishCard]);
 
   const fail = (what: Promise<unknown>) => {
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
   };
 
-  let status: string | null = null;
-  if (current && !kept && !showing) {
-    if (!ai) status = null;
-    else if (currentView?.mode === "understanding") status = currentView.status;
-  }
+  const card = current && !dismissed[current] && showing !== current && currentView ? cardFor(currentView) : null;
   const others = (ids: string[]) => ids.filter((id) => id !== current && id !== showing);
   const questions = others(open.questions);
   const toLookAt = others(open.toLookAt);
   const waiting = others(open.waiting);
+  const pending = pendingAll.filter((n) => n.captureId !== showing && !(card && n.captureId === card.captureId));
 
   const value = useMemo<TellFlow>(() => ({
     tellOn,
     ai,
     keep,
-    status,
-    kept: kept ? { captureId: kept.captureId, text: kept.text, opens: kept.opens } : null,
-    openKept: () => kept?.opens && openSheet(kept.captureId, false),
-    undoKept: () => {
-      if (!kept) return;
-      setKept(null);
-      void u.undo(kept.captureId);
+    card,
+    openCard: () => {
+      if (!card) return;
+      if (card.mode === "card" || card.mode === "sheet" || card.mode === "nothing") openSheet(card.captureId, false);
     },
+    undoCard: () => {
+      if (!card) return;
+      setDismissed((d) => ({ ...d, [card.captureId]: true }));
+      void u.undo(card.captureId);
+    },
+    dismissCard: () => {
+      if (!card) return;
+      setDismissed((d) => ({ ...d, [card.captureId]: true }));
+      // "Got it" on what was kept is the user's look-over: confirmed. Anything
+      // still being understood or waiting keeps going, on Today.
+      if (card.mode === "card") finishCard(card.captureId, "done");
+      else u.hidden(card.captureId);
+    },
+    pending,
     questions,
     toLookAt,
     waitingOffline: waiting.length > 0 && open.offline && currentView?.mode !== "understanding",
     openNote: (id) => openSheet(id),
+    returnFromNote: (id) => {
+      if (parked !== id) return;
+      setParked(null);
+      openSheet(id, false);
+    },
     focusTell: (personId) => setFocusRequest({ at: Date.now(), personId: personId ?? null }),
     focusRequest,
     draft: (personId) => drafts.drafts[draftKey(personId)] ?? "",
     setDraft: (personId, text) => drafts.set(draftKey(personId), text),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tellOn, ai, keep, status, kept, questions.join(), toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set]);
+  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked]);
+
+  // The sheet shows its own view, or the last one while the next arrives.
+  const shown = sheetView && SHEET_CONTENT.includes(sheetView.mode)
+    ? sheetView
+    : lastSheet && sheetView?.mode === "understanding"
+      ? { ...lastSheet, answering: true, questions: [], status: sheetView.status }
+      : lastSheet;
 
   return (
     <Ctx.Provider value={value}>
       {children}
-      {sheet && showing ? (
+      {shown && showing ? (
         <ReviewSheet
-          view={sheet}
-          visible={sheet.mode !== "none"}
+          view={shown}
+          visible
           people={people}
           today={today}
           onDismiss={() => close("dismissed")}
@@ -199,17 +264,22 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
           onUndo={() => {
             const id = showing;
             setShowing(null);
+            setDismissed((d) => ({ ...d, [id]: true }));
             void u.undo(id);
           }}
           onReject={(itemId) => fail(u.reject(itemId, showing))}
           onCorrect={(itemId: string, change: Correction) => fail(u.correct(itemId, change))}
           onAnswer={(answers) => fail(u.answer(showing, answers))}
           onOpenNote={() => {
+            // Looking at the note never decides anything: the sheet steps
+            // aside and comes back, question and all, on the way back.
             const id = showing;
-            close("dismissed");
+            setParked(id);
+            setShowing(null);
+            u.hidden(id);
             router.push(`/v2/source/${id}`);
           }}
-          onActivity={() => setTouches((n) => n + 1)}
+          onActivity={() => undefined}
         />
       ) : null}
     </Ctx.Provider>

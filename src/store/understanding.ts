@@ -8,8 +8,16 @@
 //   answering  the user's answer, kept until the gateway has it
 //   closing    the user is finished; the server must still settle the note
 //   done       nothing more to do
-//   kept       not understood (declined, AI off, or it kept failing): the note
-//              stays exactly as written
+//   kept       not understood (declined, or AI off): the note stays exactly
+//              as written
+//   failed     understanding kept failing: the note stays exactly as written,
+//              and the user is told so ("Couldn't understand this one")
+//
+// A note is always accounted for until it reaches done, kept or failed
+// (stabilization Gate A). Screens are views over this row: a sheet closing,
+// a refresh or a restart never decides anything. In particular a note that
+// was understood after the user answered stays in review (shown as "Kept
+// for …") instead of slipping to done unseen.
 //
 // Every step is safe to repeat, so a killed app or a lost reply resumes where
 // it was: the gateway never runs the model twice for a note (asking again
@@ -21,7 +29,7 @@
 // Analytics are content-free by construction (track's closed schema): tiers,
 // kinds and question types only, never text, names or ids.
 
-import { smallCount, track, type ClarificationType, type MemoryKindName } from "@/platform/analytics";
+import { latencyBucketOf, smallCount, track, type ClarificationType, type MemoryKindName } from "@/platform/analytics";
 import {
   Gateway,
   GatewayRefused,
@@ -37,7 +45,7 @@ import type { SyncReport } from "./syncEngine";
 import { StoreWriteError, type Data, type UserStore } from "./userStore";
 import type { SqlValue } from "./sql";
 
-export type UnderstandingState = "waiting" | "review" | "answering" | "closing" | "done" | "kept";
+export type UnderstandingState = "waiting" | "review" | "answering" | "closing" | "done" | "kept" | "failed";
 
 /** What the gateway understood, as the review needs it. */
 export interface Reading {
@@ -73,6 +81,10 @@ export interface UnderstandingRow {
   attempts: number;
   next_at: string | null;
   seen_at: string | null;
+  /** When the gateway's reading (or "nothing", or a failure) arrived: content-free timing. */
+  understood_at: string | null;
+  /** When the result was first in front of the user. */
+  shown_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -123,7 +135,7 @@ export class Understanding {
   /** Every note still in progress or waiting for the user, oldest first. */
   async open(): Promise<UnderstandingRow[]> {
     const rows = await this.store.db.all<Record<string, SqlValue>>(
-      "SELECT * FROM understanding WHERE state NOT IN ('done', 'kept') ORDER BY created_at, capture_id",
+      "SELECT * FROM understanding WHERE state NOT IN ('done', 'kept', 'failed') ORDER BY created_at, capture_id",
     );
     return rows.map(parseRow);
   }
@@ -138,6 +150,13 @@ export class Understanding {
       if (item && item.status !== "retracted" && item.status !== "superseded") out.push(item);
     }
     return out;
+  }
+
+  /** How many items the reading saved that haven't reached this phone yet (sync in flight). */
+  async arriving(reading: Reading | null): Promise<number> {
+    let n = 0;
+    for (const s of reading?.saved ?? []) if (!(await this.store.get("memory_items", s.id))) n++;
+    return n;
   }
 
   // ─── The user's actions ───────────────────────────────────────────────
@@ -157,6 +176,7 @@ export class Understanding {
   async opened(captureId: string): Promise<void> {
     this.onScreen.add(captureId);
     const row = await this.get(captureId);
+    if (row) await this.markShown(row);
     if (!row?.reading || row.state !== "review") return;
     const waiting = questionWaiting(row.reading);
     if (row.seen_at) {
@@ -168,6 +188,31 @@ export class Understanding {
       track("review_item_shown", { tier: tierOf(item.id, row.reading), item_kind: kindName(item.kind) });
     }
     if (waiting) for (const t of questionTypes(row.reading.held)) track("clarification_shown", { type: t });
+  }
+
+  /**
+   * The result of a Tell is in front of the user (a sheet, the Kept card, a
+   * "nothing to keep" or "couldn't understand" line): recorded once, with
+   * the lifecycle timing (sent → understood → shown), content-free.
+   */
+  async markShown(row: UnderstandingRow): Promise<void> {
+    if (row.shown_at || !row.understood_at) return;
+    const now = this.store.now();
+    await this.save(row.capture_id, { shown_at: now });
+    const outcome = row.state === "failed" ? "failed"
+      : row.reading && questionWaiting(row.reading) ? "needs_input"
+      : row.reading?.tier === "nothing" || (row.state === "done" && !row.reading?.saved.length) ? "nothing"
+      : "kept";
+    track("tell_lifecycle", {
+      outcome,
+      understood_bucket: latencyBucketOf(Date.parse(row.understood_at) - Date.parse(row.created_at)),
+      shown_bucket: latencyBucketOf(Date.parse(now) - Date.parse(row.understood_at)),
+    });
+  }
+
+  /** Lets go of a review on screen without deciding anything (the sheet was hidden, not answered). */
+  hidden(captureId: string): void {
+    this.onScreen.delete(captureId);
   }
 
   /** The user's answer to what was held. Kept here first, so nothing loses it. */
@@ -407,7 +452,7 @@ export class Understanding {
     }
     if (reply.status === "kept") {
       // The model declined this note: kept as written, quietly.
-      await this.save(id, { state: "kept", attempts: 0, next_at: null });
+      await this.save(id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now() });
       return false;
     }
     if (reply.status === "extracted") {
@@ -435,8 +480,13 @@ export class Understanding {
           review_created_at: reply.review_created_at,
           settled: false,
         };
+    // Nothing to remember in it: done, with the reading kept so the user is
+    // told so ("Your note is saved") rather than met with silence.
     const nothing = reply.status === "extracted" && reading.saved.length === 0 && reading.held.length === 0;
-    await this.save(id, { state: nothing ? "done" : "review", reading, attempts: 0, next_at: null });
+    await this.save(id, {
+      state: nothing ? "done" : "review", reading, attempts: 0, next_at: null,
+      understood_at: row.understood_at ?? this.store.now(),
+    });
     return true;
   }
 
@@ -447,13 +497,13 @@ export class Understanding {
       case "invalid_request":
       case "not_found":
         // AI is off for this user, or the note isn't theirs to understand: kept as written.
-        await this.save(row.capture_id, { state: "kept", attempts: 0, next_at: null });
+        await this.save(row.capture_id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now() });
         return false;
       case "daily_limit_reached":
         await this.save(row.capture_id, { next_at: this.later((err.retryAfterS ?? 3600) * 1000) });
         return false;
       default:
-        await this.failed(row, "kept");
+        await this.failed(row, "failed");
         return false;
     }
   }
@@ -474,8 +524,10 @@ export class Understanding {
         ? [...reading.saved, ...reply.saved.filter((s) => s.id).map((s) => ({ id: s.id as string, tier: "confirm" as const }))]
         : reading.saved;
       await this.save(id, {
-        // Shown if the user is still looking; otherwise it's simply remembered.
-        state: this.onScreen.has(id) ? "review" : "done",
+        // Always back to review: what the answer kept is shown ("Kept for …")
+        // and stays accounted for until the user is finished with it. A
+        // review nobody is looking at is finished later (finishLeftOpen).
+        state: "review",
         reading: { ...reading, saved, held: [], clarification: null, review_created_at: null, settled: true, answered: pending.answers },
         answer: null, notice: null, attempts: 0, next_at: null,
       });
@@ -597,7 +649,10 @@ export class Understanding {
   private async failed(row: UnderstandingRow, giveUp: UnderstandingState | null): Promise<void> {
     const attempts = row.attempts + 1;
     if (giveUp && attempts >= this.maxAttempts) {
-      await this.save(row.capture_id, { state: giveUp, attempts, next_at: null });
+      await this.save(row.capture_id, {
+        state: giveUp, attempts, next_at: null,
+        ...(giveUp === "failed" ? { understood_at: this.store.now() } : {}),
+      });
       return;
     }
     await this.save(row.capture_id, { attempts, next_at: this.later(this.backoffMs(attempts)) });
@@ -686,6 +741,8 @@ function parseRow(r: Record<string, SqlValue>): UnderstandingRow {
     attempts: (r.attempts as number) ?? 0,
     next_at: (r.next_at as string | null) ?? null,
     seen_at: (r.seen_at as string | null) ?? null,
+    understood_at: (r.understood_at as string | null) ?? null,
+    shown_at: (r.shown_at as string | null) ?? null,
     created_at: r.created_at as string,
     updated_at: r.updated_at as string,
   };

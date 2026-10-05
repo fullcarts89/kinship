@@ -6,7 +6,7 @@ import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { ItemSheet } from "@/features/person/ItemSheet";
 import { PortraitView } from "@/features/person/PortraitView";
-import { KeptLine } from "@/features/tell/TellDock";
+import { KeptCard } from "@/features/tell/TellDock";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TellSheet } from "@/features/tell/TellSheet";
 import { useHandoff } from "@/features/today/useHandoff";
@@ -50,7 +50,12 @@ export default function PersonScreen() {
       onCall={reachOut}
       onTell={() => setTelling(true)}
       hasDraft={!!flow.draft(personId).trim()}
-      kept={flow.kept ? <KeptLine text={flow.kept.text} onOpen={flow.kept.opens ? flow.openKept : undefined} onUndo={flow.undoKept} /> : null}
+      // The note just told about them, and only about them (never another person's card).
+      kept={flow.card && flow.card.personIds.includes(personId)
+        ? <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} />
+        : null}
+      waiting={flow.pending.filter((n) => n.personIds.includes(personId))}
+      onWaiting={(captureId) => flow.openNote(captureId)}
     >
       <ItemSheet
         item={item}

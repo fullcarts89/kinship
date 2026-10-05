@@ -20,7 +20,7 @@
 
 import type { SqlDb } from "./sql";
 
-export const LOCAL_SCHEMA_VERSION = 2;
+export const LOCAL_SCHEMA_VERSION = 3;
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS mirror (
@@ -78,10 +78,19 @@ CREATE TABLE IF NOT EXISTS understanding (
   attempts    INTEGER NOT NULL DEFAULT 0,
   next_at     TEXT,
   seen_at     TEXT,
+  understood_at TEXT,
+  shown_at    TEXT,
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL
 );
 `;
+
+/** Columns added after a table first shipped: (table, column, type). */
+const ADDED: [string, string, string][] = [
+  // Version 3 (stabilization pass, Gate A): content-free lifecycle times.
+  ["understanding", "understood_at", "TEXT"],
+  ["understanding", "shown_at", "TEXT"],
+];
 
 export class StoreOwnerMismatch extends Error {
   constructor() {
@@ -95,6 +104,10 @@ export class StoreOwnerMismatch extends Error {
  */
 export async function prepareSchema(db: SqlDb, ownerUserId: string): Promise<void> {
   await db.exec(DDL);
+  for (const [table, column, type] of ADDED) {
+    const cols = await db.all<{ name: string }>(`PRAGMA table_info(${table})`);
+    if (!cols.some((c) => c.name === column)) await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
   const owner = await db.get<{ value: string }>("SELECT value FROM meta WHERE key = 'owner_user_id'");
   if (owner && owner.value !== ownerUserId) throw new StoreOwnerMismatch();
   if (!owner) {

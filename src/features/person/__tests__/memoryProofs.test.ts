@@ -100,8 +100,8 @@ describe("a dense note: Matt", () => {
     const matt = await person(w, "Matt");
     const { captureId, review } = await tell(w, MATT_NOTE, mattProposal);
 
-    // The review: a light look-over (everything already saved), no question.
-    expect(review.mode).toBe("sheet");
+    // The Kept card: a look-over (everything already saved), no question.
+    expect(review.mode).toBe("card");
     expect(review.questions).toHaveLength(0);
     const kept = (await w.repos.memory.forPerson(matt.id)).map((m) => [m.kind, m.statement, m.certainty]);
     expect(kept).toEqual(expect.arrayContaining([
