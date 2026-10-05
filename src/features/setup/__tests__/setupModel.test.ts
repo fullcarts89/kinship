@@ -26,7 +26,8 @@ it("suggests family names and birthdays within a month, alphabetically; everyone
   expect(l.suggested.map((r) => r.name)).toEqual(["Maya Okafor", "Mom", "Uncle Ray"]);
   expect(l.everyone.map((r) => r.name)).toEqual(["Ben Carter", "Grandmaster Flash", "Zed Plumber"]);
   expect(l.suggested.find((r) => r.name === "Maya Okafor")?.why).toBe("Birthday · 10 October");
-  expect(l.suggested.find((r) => r.name === "Mom")?.why).toBe("Family");
+  // Shown as it was saved; never labelled "Family" (Gate C).
+  expect(l.suggested.find((r) => r.name === "Mom")?.why).toBeNull();
   expect(l.everyone.find((r) => r.name === "Ben Carter")?.why).toBe("Birthday · 3 February");
 });
 
@@ -47,6 +48,19 @@ it("family means a whole word, not a fragment", () => {
   expect(looksLikeFamily({ name: "Grandma Jo" })).toBe(true);
   expect(looksLikeFamily({ name: "Grandmaster Flash" })).toBe(false);
   expect(looksLikeFamily({ name: "Sam", nickname: "Sis" })).toBe(true);
+});
+
+it("someone else's relative is never the user's family (founder G39, Gate C)", () => {
+  for (const name of ["Arash Tami’s Cooler Brother", "Bryce Lara’s Hubby", "Jon Brahm’s Daddy", "Laura (Rigo’s Wife) Gardener",
+    "Lori Brahm's Mommy", "Ben's Mom"]) {
+    expect([name, looksLikeFamily({ name })]).toEqual([name, false]);
+  }
+  for (const name of ["Dad", "Aunt Vickie", "Grandma Oxnard", "Grandma & Grandpa Elsey"]) {
+    expect([name, looksLikeFamily({ name })]).toEqual([name, true]);
+  }
+  const l = buildPickLists([{ id: "x1", name: "Bryce Lara’s Hubby" }, { id: "x2", name: "Dad" }], { today: TODAY, existing: none, newId: ids });
+  expect(l.suggested.map((r) => [r.name, r.why])).toEqual([["Dad", null]]);
+  expect(l.everyone.map((r) => [r.name, r.why])).toEqual([["Bryce Lara’s Hubby", null]]);
 });
 
 it("birthdays: month and day from the contact; a missing year is not invented", () => {

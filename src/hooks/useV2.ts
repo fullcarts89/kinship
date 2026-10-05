@@ -566,12 +566,15 @@ export function useConsentAsk(): { ask: boolean; answer: (allow: boolean) => Pro
     const allowed = s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
     // "Keep notes as written", said on another phone, is an answer too.
     const declined = s?.ai_consent === false && !!s?.ai_consent_updated_at;
-    return { allowed, asked: declined || (await getMeta(store.db, CONSENT_ASKED)) === "1" };
+    // The account's own answer isn't on this phone yet (signed in, first sync
+    // still on its way): never ask on a guess (stabilization Gate C).
+    const known = !!s;
+    return { allowed, known, asked: declined || (await getMeta(store.db, CONSENT_ASKED)) === "1" };
   });
   return {
     // Setup asks first (recovery Gate 3); this only catches a choice that
     // couldn't be saved then, or understanding offered after setup.
-    ask: extractionOn && q.data !== undefined && !q.data.allowed && !q.data.asked,
+    ask: extractionOn && q.data !== undefined && q.data.known && !q.data.allowed && !q.data.asked,
     answer: async (allow: boolean) => {
       await setAIEnabled(allow);
       await setMeta(store.db, CONSENT_ASKED, "1");

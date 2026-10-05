@@ -52,9 +52,11 @@ export function ConsentSheetView({ visible, busy, onAllow, onDecline }: {
   onDecline: () => void;
 }) {
   return (
+    // Only the two buttons answer (stabilization Gate C): a swipe, a tap
+    // outside or Back never allows or declines anything, and the sheet stays.
     <Sheet
       visible={visible}
-      onDismiss={onDecline}
+      onDismiss={() => undefined}
       label={CONSENT_COPY.title}
       footer={
         <View style={{ gap: space.s }}>

@@ -7,7 +7,11 @@
 //   * only the people the user picks are saved; nothing is pre-selected;
 //   * a birthday is only ever the one in the contact (source "contacts");
 //   * suggestions never rank people by importance: they are a short list of
-//     contacts with a family name or a birthday soon, alphabetical.
+//     contacts saved under a family word or with a birthday soon, alphabetical;
+//   * a contact's name is never read as a relationship to the user
+//     (stabilization Gate C): "Bryce Lara's Hubby" is Lara's husband, not the
+//     user's family, and even "Dad" is only shown as it was saved, never
+//     labelled "Family" or recorded as a relationship.
 
 /** A contact as read on this phone (src/platform/contacts.ts). */
 export interface DeviceContact {
@@ -23,7 +27,7 @@ export interface PickRow {
   personId: string;
   contactId: string | null;
   name: string;
-  /** The quiet line under the name: "Family", "Birthday · 10 October". */
+  /** The quiet line under the name: "Birthday · 10 October"; never a relationship. */
   why: string | null;
   /** ISO day; the year is 2000 when the contact has none. */
   birthday: string | null;
@@ -44,12 +48,25 @@ const SUGGEST_BIRTHDAY_DAYS = 31;
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-// Names people give family in their address book. Matched as whole words.
-const FAMILY = /\b(mom|mommy|mum|mummy|mother|mama|ma|dad|daddy|father|papa|pop|grandma|grandpa|granny|grandmother|grandfather|nana|nanna|nan|gran|grandad|granddad|abuela|abuelo|oma|opa|sister|sis|brother|bro|aunt|auntie|aunty|uncle|wife|husband|hubby)\b/iu;
+// Words people save family under in their address book.
+const FAMILY_WORD = "(?:mom|mommy|mum|mummy|mother|mama|ma|dad|daddy|father|papa|pop|grandma|grandpa|granny|grandmother|grandfather|nana|nanna|nan|gran|grandad|granddad|abuela|abuelo|oma|opa|sister|sis|brother|bro|aunt|auntie|aunty|uncle|wife|husband|hubby)";
+/** The family word leads the name: "Dad", "Grandma Jo", "Aunt Vickie", "Grandma & Grandpa Elsey". */
+const LEADS = new RegExp(`^${FAMILY_WORD}\\b`, "iu");
 
-/** A whole-word family name ("Mom", "Grandma Jo", "Uncle Ray"). */
+/**
+ * Saved under a family word of the user's own ("Mom", "Grandma Jo", "Uncle
+ * Ray"): a reason to suggest them, nothing more. Someone else's relative
+ * ("Bryce Lara's Hubby", "Jon Brahm's Daddy", "Laura (Rigo's Wife)
+ * Gardener") never counts: a possessive or a bracket anywhere means the word
+ * is about someone else.
+ */
 export function looksLikeFamily(c: Pick<DeviceContact, "name" | "nickname">): boolean {
-  return FAMILY.test(c.name) || (!!c.nickname && FAMILY.test(c.nickname));
+  const own = (s: string) => {
+    const t = s.normalize("NFC").trim();
+    if (/['’]s\b|\(|\)/u.test(t)) return false;
+    return LEADS.test(t);
+  };
+  return own(c.name) || (!!c.nickname && own(c.nickname));
 }
 
 function pad(n: number): string {
@@ -132,7 +149,8 @@ export function buildPickLists(
     const b = birthdayIso(c.birthday);
     const family = looksLikeFamily({ name, nickname: c.nickname });
     const soon = b ? daysBetween(opts.today, nextBirthday(b.iso, opts.today)) <= SUGGEST_BIRTHDAY_DAYS : false;
-    const why = b && soon ? `Birthday · ${dayMonth(b.iso)}` : family ? "Family" : b ? `Birthday · ${dayMonth(b.iso)}` : null;
+    // Never "Family": the name already says how they were saved (Gate C).
+    const why = b ? `Birthday · ${dayMonth(b.iso)}` : null;
     rows.push({
       row: {
         personId: opts.newId(c.id), contactId: c.id, name, why,
