@@ -144,23 +144,29 @@ it("a question stays on screen through refreshes and syncs; nothing but the user
   r.unmount();
 });
 
-it("no timer closes anything: a Kept card, a backgrounded app, twenty-five seconds later", async () => {
+it("no timer closes anything: the Kept card stays until the user is done with it", async () => {
   const w = await world();
-  jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate", "queueMicrotask"] });
-  const r = TestRenderer.create(<TellFlowProvider><Probe /></TellFlowProvider>);
-  jest.useRealTimers();
-  await settle();
+  const r = await mount();
   await tell(w, BEN_NOTE);
   expect(flow.current!.card).toMatchObject({ mode: "card", heading: "Kept for Ben", lines: [{ statement: "Ben runs Chicago Sunday" }] });
   await act(async () => {
     await new Promise((res) => setTimeout(res, 50));
   });
-  // Still there: only the user (✕, Undo, another Tell) ends it.
   expect(flow.current!.card?.mode).toBe("card");
+  // Only the user (✕, Undo, another Tell) ends it.
   await act(async () => flow.current!.dismissCard());
   await settle();
   expect(flow.current!.card).toBeNull();
   r.unmount();
+});
+
+it("the Tell flow has no timers at all: backgrounding the app can't use one up", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require("fs") as typeof import("fs");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require("path") as typeof import("path");
+  const src = fs.readFileSync(path.join(__dirname, "../TellFlow.tsx"), "utf8");
+  expect(src).not.toMatch(/setTimeout|setInterval/);
 });
 
 it("closing a question's sheet keeps the question: it waits on Today and the person's page, and another Tell doesn't lose it", async () => {
@@ -257,5 +263,20 @@ it("records when it was understood and when it was shown, content-free", async (
   expect(row?.understood_at).toBeTruthy();
   expect(row?.shown_at).toBeTruthy();
   expect(Date.parse(row!.shown_at!)).toBeGreaterThanOrEqual(Date.parse(row!.understood_at!));
+  r.unmount();
+});
+
+it("never a sheet on a sheet: a question that arrives while another sheet is up waits for it, and is listed meanwhile", async () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const stack = require("@/ui/sheetStack") as typeof import("@/ui/sheetStack");
+  const w = await world();
+  const r = await mount();
+  act(() => stack.sheetOpened()); // e.g. the Tell sheet on a person's page, still leaving
+  await tell(w, SAM_NOTE);
+  expect(sheetOpen()).toBe(false);
+  expect(flow.current!.card).toMatchObject({ mode: "sheet" });
+  act(() => stack.sheetClosed());
+  await settle();
+  expect(sheetQuestion()).toBe("Which Sam do you mean?");
   r.unmount();
 });

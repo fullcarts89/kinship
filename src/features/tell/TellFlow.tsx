@@ -30,6 +30,7 @@ import { draftKey } from "./drafts";
 import type { ReviewMode, ReviewView } from "./reviewModel";
 import { useActivation } from "@/hooks/useActivation";
 import { charsBucket, track } from "@/platform/analytics";
+import { onSheetsChange, openSheets } from "@/ui/sheetStack";
 
 /** The Kept card: what happened to the note just told (Gate D). */
 export interface KeptCardState {
@@ -137,6 +138,24 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     if (report) void u.opened(id);
   }, [u]);
 
+  // A question that arrives by itself waits for any other sheet to be gone
+  // (never a sheet on a sheet; see ui/sheetStack.ts). Meanwhile it's on the
+  // card, Today and the person's page.
+  const [wanted, setWanted] = useState<string | null>(null);
+  const showingRef = useRef(showing);
+  showingRef.current = showing;
+  useEffect(() => {
+    if (!wanted) return;
+    const tryOpen = () => {
+      const ours = showingRef.current ? 1 : 0;
+      if (openSheets() - ours > 0) return;
+      setWanted(null);
+      openSheet(wanted);
+    };
+    tryOpen();
+    return onSheetsChange(tryOpen);
+  }, [wanted, openSheet]);
+
   useEffect(() => {
     if (sheetView && SHEET_CONTENT.includes(sheetView.mode)) setLastSheet(sheetView);
   }, [sheetView]);
@@ -150,7 +169,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     const mode = currentView.mode;
     if (mode === "sheet") {
       announced.current[current] = true;
-      openSheet(current);
+      setWanted(current);
     } else if (mode === "card" || mode === "nothing" || mode === "failed" || mode === "asWritten") {
       announced.current[current] = true;
       // On screen as a card: shown (timed), and never "left open" while it is.
