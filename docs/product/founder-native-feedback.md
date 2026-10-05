@@ -121,3 +121,15 @@ Screen: Today ("Nothing needs you today.") with the Disney note still in the doc
 |---|---|---|---|
 | F22 | Tell dock: unsent text on Today too (adds to F19/F21) | The same unsent note is still there on the home page. | Confirms F19/F21: the draft lives for the whole session, everywhere. |
 | F23 | Today: new account shown the "mature" quiet day | (My observation, not raised by the founder.) | With one person (Tyler) and no notes kept, Today has switched from the first-use guidance to the bare "Nothing needs you today." The contract says a new account must never land on an empty Today. First use should last until there's at least one kept note, but the current rule seems to end it once a person exists. Check `TodayView`'s firstUse condition against `app/__tests__/firstRun.test.tsx`. This also feeds F20 (no orientation). |
+
+---
+
+# Second native pass (recovery build, gateway v3), 5 Oct afternoon
+
+## Burst 9: about 12:57
+
+Screen: Ben Oxnard's page, with "Here's what I'll remember" open after a Tell from his page. Ben works in private equity (Something true); Ben works a lot and is miserable with his job (Something ongoing). Statements correct, on the right person, no "the writer".
+
+| # | Area | Founder's feedback | What the code / data show | Recommendation (not built) |
+|---|---|---|---|---|
+| G1 | Tell: wait after sending | There's a lag between sending and the summary appearing. There should be a loading/processing sign so you know something is happening, or it should be faster. | **Why nothing showed:** a Tell sent from a person's page closes the sheet and returns to the page, but the page only shows the line *after* understanding ("Kept: …"). The "Understanding…" status line exists only in the Today/People dock, so on a person's page the wait is silent. **How long:** this note's model call took 4.3 s (`ai_calls`: ok, confirm, 187 in / 474 out tokens), plus a sync before and after, so roughly 5–7 s end to end. | **(1) Now:** show the same quiet status on the person page the moment Send is tapped: "Understanding…" in the slot above Message · Call · Tell, with the existing delayed spinner (motion spec rule 10: words, plus a small spinner only after 600 ms), replaced by the Kept line or the review sheet. Same on any screen a Tell can be sent from. **(2) Faster, measured first:** (a) send the note to the gateway straight away instead of waiting for the next sync pass; (b) on return, apply the gateway's response directly instead of a second full sync; (c) model speed: the call is already Opus at low effort with a small prompt. A smaller model would need a paid eval and your approval, so not first. Expected from (a)+(b): about 1–2 s saved. |
