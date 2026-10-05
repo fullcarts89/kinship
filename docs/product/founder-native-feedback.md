@@ -65,3 +65,11 @@ Screen: "See how it works", step 4 of 4 ("You reach out. Afterwards, one quiet q
 |---|---|---|---|
 | F13 | Example: show what "Yes" does | There should be an animated demo of what happens when you pick "Yes". | Step 4 draws the question, both answers and the follow-up all at once, as a static picture. "Yes" and "Not yet" look tappable but are not (dead controls in a demo). Possible change: make "Yes" tappable (or auto-play it once) so the follow-up arrives with the standard arrive motion (spec rule 4). That would also answer F11's wish for guided motion without decoration. |
 | F14 | Example: "Anything worth remembering?" | It should be its own step (a 5th), and its purpose is unclear to a new user. | The current line, "Whatever you say becomes part of what Kinship knows, and it starts again", is abstract. A separate step 5 could show a reply being typed (e.g. "Ran 3:52 — so proud of him. Wants to do Berlin next.") and what it becomes on Ben's page: the race moves to history, and "Berlin" arrives as a new hope. That makes the loop visible: told → remembered → brought back → reached out → remembered more. |
+
+## Burst 8: 5 Oct, about 10:11
+
+Screen: the welcome screen again, after signing in by email.
+
+| # | Area | Founder's feedback | What the code / screenshots show (my observation, not yet investigated) |
+|---|---|---|---|
+| F15 | Sign-in: email bounces back (**blocking**) | Signed in by email, then landed back on the login screen. Users shouldn't have to sign in more than once. | No error is shown, so the sign-in either "succeeded" without the welcome screen moving on, or the session was lost straight away. Read-only notes: `signInWithEmail` (`src/providers/AuthProvider.tsx`) only sets the session and relies on `app/index.tsx` to redirect. An account whose flags are off would go to 1.0, not back to the welcome screen, so flags alone don't explain it. Things to check: which account was used; whether the welcome screen redirects when auth changes; whether the session survives (secure store) in this build; the Supabase auth logs for that sign-in. Also visible again: the broken Apple button (F10). |
