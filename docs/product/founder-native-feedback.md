@@ -112,3 +112,12 @@ Screen: People with "Tyler" added by name. The Disney note is still in the dock.
 | # | Area | Founder's feedback | What the screenshots show (my observation, not yet investigated) |
 |---|---|---|---|
 | F21 | Tell dock: unsent text survives other actions (adds to F19) | After adding Tyler by hand, the unsent note about the founder's wife is still there. | Confirms F19 across actions, not just tab switches: the draft outlives adding a person and the sheet closing. Two more observations: (a) the note is about the founder's wife, who isn't a person in this account. When it's finally sent, Kinship can't attach it to anyone without asking. Worth checking that the review handles "my wife" (offers to add her) rather than dropping it or guessing. (b) "Tyler" was added with a first name only, so the hand-off later needs the contact picker (by design). |
+
+## Burst 14: 5 Oct, about 10:22
+
+Screen: Today ("Nothing needs you today.") with the Disney note still in the dock.
+
+| # | Area | Founder's feedback | What the screenshots show (my observation, not yet investigated) |
+|---|---|---|---|
+| F22 | Tell dock: unsent text on Today too (adds to F19/F21) | The same unsent note is still there on the home page. | Confirms F19/F21: the draft lives for the whole session, everywhere. |
+| F23 | Today: new account shown the "mature" quiet day | (My observation, not raised by the founder.) | With one person (Tyler) and no notes kept, Today has switched from the first-use guidance to the bare "Nothing needs you today." The contract says a new account must never land on an empty Today. First use should last until there's at least one kept note, but the current rule seems to end it once a person exists. Check `TodayView`'s firstUse condition against `app/__tests__/firstRun.test.tsx`. This also feeds F20 (no orientation). |
