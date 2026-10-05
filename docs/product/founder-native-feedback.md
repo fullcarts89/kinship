@@ -22,3 +22,11 @@ Screen: What Kinship knows about Ben, with the "Forget this?" dialog open over "
 |---|---|---|---|
 | F5 | Correcting a fact | There's no way to edit a fact Kinship kept, only delete it. The founder wanted to change it to "John and Ben are the writer's brothers". | Each line offers its person ("Ben Oxnard"), its kind ("Something true") and "Not this". Nothing on screen says the words themselves can be changed. "Keep it" in the Forget dialog is the same label as the Tell button, with a different meaning. |
 | F6 | How the user is named | Doesn't like being called "the writer": it's too impersonal. It should use the name they registered with. | Ties into F4(a). Open decision: use the user's own name ("[your name]'s brother"), or "your" ("your brother")? |
+
+## Burst 3: 5 Oct, about 10:01
+
+Screen: Ben Oxnard, "About Ben" Tell sheet with the keyboard dismissed and a two-line note typed.
+
+| # | Area | Founder's feedback | What the screenshots show (my observation, not yet investigated) |
+|---|---|---|---|
+| F7 | Tell sheet: submit (confirms F2) | Still no way to submit a fact. | The keyboard is down and the text has wrapped to two lines, yet there is still no send / Keep button anywhere in the sheet. So the button isn't just hidden behind the keyboard: it's missing (or drawn off screen) in this sheet. Blocking: the person-page Tell can't be used at all. |
