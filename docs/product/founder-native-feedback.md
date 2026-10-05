@@ -56,3 +56,12 @@ Screen: "See how it works", step 3 of 4 ("How did it go for Ben?").
 | # | Area | Founder's feedback | What the code / screenshots show (my observation, not yet investigated) |
 |---|---|---|---|
 | F12 | Example: goals, not just facts | Step 3 should carry the four-hour goal. If you want to show up for someone, you acknowledge their goals, not just facts about them. | The example note is "Ben runs Chicago Sunday and hopes to break four hours." Step 2 shows "Hoping to break four hours" as a remembered line (`HOW_COPY.goal`). Step 3 drops it, showing only "Ben runs Chicago Sunday · Sun, Oct 11". Possible change: show the goal under the moment ("Hoping to break four hours"), so the moment says why it matters. Wider product question: should real Today moments and pages also show a person's related goal or hope alongside an event? That touches extraction and ranking (a goal kind or detail), so it's beyond a copy fix. |
+
+## Burst 7: 5 Oct, about 10:08
+
+Screen: "See how it works", step 4 of 4 ("You reach out. Afterwards, one quiet question.").
+
+| # | Area | Founder's feedback | What the code / screenshots show (my observation, not yet investigated) |
+|---|---|---|---|
+| F13 | Example: show what "Yes" does | There should be an animated demo of what happens when you pick "Yes". | Step 4 draws the question, both answers and the follow-up all at once, as a static picture. "Yes" and "Not yet" look tappable but are not (dead controls in a demo). Possible change: make "Yes" tappable (or auto-play it once) so the follow-up arrives with the standard arrive motion (spec rule 4). That would also answer F11's wish for guided motion without decoration. |
+| F14 | Example: "Anything worth remembering?" | It should be its own step (a 5th), and its purpose is unclear to a new user. | The current line, "Whatever you say becomes part of what Kinship knows, and it starts again", is abstract. A separate step 5 could show a reply being typed (e.g. "Ran 3:52 — so proud of him. Wants to do Berlin next.") and what it becomes on Ben's page: the race moves to history, and "Berlin" arrives as a new hope. That makes the loop visible: told → remembered → brought back → reached out → remembered more. |
