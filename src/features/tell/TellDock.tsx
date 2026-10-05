@@ -2,11 +2,13 @@
 // People. A quiet line above it says what happened to the note just told
 // ("Kept: …" with Undo), or that it waits to be online.
 import React, { useEffect, useRef, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
-import { space, TOUCH } from "@/design/tokens";
+import { Keyboard, TextInput, View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
+import { draftPreview } from "./drafts";
+import { press, space, TOUCH } from "@/design/tokens";
 import { NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
-import { trackAbandoned, trackStarted, useTellFlow } from "./TellFlow";
+import { trackStarted, useTellFlow } from "./TellFlow";
 
 export function KeptLine({
   text,
@@ -26,7 +28,7 @@ export function KeptLine({
         accessibilityLiveRegion="polite"
         disabled={!onOpen}
         onPress={onOpen}
-        style={{ flex: 1 }}
+        style={({ pressed }) => ({ flex: 1, opacity: pressed ? press.surface : 1 })}
       >
         <Small tone="inkBody" numberOfLines={2}>{text}</Small>
       </Pressable>
@@ -40,6 +42,7 @@ export interface TellDockViewProps {
   draft: string;
   onDraft: (text: string) => void;
   onSend: () => void;
+  onFocus?: () => void;
   onBlur?: () => void;
   placeholder?: string;
   /** The quiet line above the field (Kept, understanding, offline). */
@@ -47,6 +50,13 @@ export interface TellDockViewProps {
   current: NavKey;
   onGo: (to: NavKey) => void;
   inputRef?: React.Ref<TextInput>;
+  /** The keyboard is up: the field sits on it and the bar stays underneath. */
+  typing?: boolean;
+  /** An unsent draft, folded to one line until it's opened again. */
+  collapsed?: { preview: string; onExpand: () => void } | null;
+  /** Who this Tell is about, when it isn't the general one ("About Ben"). */
+  about?: string | null;
+  autoFocus?: boolean;
 }
 
 /** The dock's look, from plain data (the lab renders it without a session). */
@@ -57,33 +67,44 @@ export function TellDockView(props: TellDockViewProps) {
       {props.tellOn ? (
         <TellDockFrame>
           {props.line}
+          {props.about && !props.collapsed ? <Small style={{ paddingHorizontal: space.xs, paddingBottom: space.xs }}>{`About ${props.about}`}</Small> : null}
           <TellField
             ref={props.inputRef}
             value={props.draft}
             onChange={props.onDraft}
             onSend={props.onSend}
+            onFocus={props.onFocus}
             onBlur={props.onBlur}
             placeholder={props.placeholder}
+            collapsed={props.collapsed}
+            autoFocus={props.autoFocus}
           />
         </TellDockFrame>
       ) : null}
-      <NavBar current={props.current} onGo={props.onGo} />
+      {props.typing ? null : <NavBar current={props.current} onGo={props.onGo} />}
     </View>
   );
 }
 
-export function TellDock({ current, onGo }: { current: NavKey; onGo: (to: NavKey) => void }) {
+export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: NavKey) => void; typing?: boolean }) {
   const flow = useTellFlow();
   const people = usePeople();
-  const [draft, setDraft] = useState("");
+  // Who the Tell is about: no one (the general Tell), or the person
+  // "Anything worth remembering?" asked about. Each has its own draft.
   const [about, setAbout] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [focusNow, setFocusNow] = useState(false);
   const started = useRef(false);
+  const sending = useRef(false);
   const input = useRef<TextInput>(null);
+  const draft = flow.draft(about);
 
   // "Anything worth remembering?" focuses the field, about that person.
   useEffect(() => {
     if (!flow.focusRequest) return;
     setAbout(flow.focusRequest.personId);
+    setOpen(true);
+    setFocusNow(true);
     input.current?.focus();
   }, [flow.focusRequest]);
 
@@ -91,12 +112,18 @@ export function TellDock({ current, onGo }: { current: NavKey; onGo: (to: NavKey
 
   const send = async () => {
     const text = draft;
-    if (!text.trim()) return;
-    setDraft("");
+    if (!text.trim() || sending.current) return;
+    sending.current = true;
+    const forWhom = about;
+    flow.setDraft(forWhom, "");
     started.current = false;
-    const ok = await flow.keep(text, about);
-    if (!ok) setDraft(text);
-    else setAbout(null);
+    try {
+      const ok = await flow.keep(text, forWhom);
+      if (!ok) flow.setDraft(forWhom, text);
+      else setAbout(null);
+    } finally {
+      sending.current = false;
+    }
   };
 
   let line: React.ReactNode = null;
@@ -117,20 +144,35 @@ export function TellDock({ current, onGo }: { current: NavKey; onGo: (to: NavKey
           started.current = true;
           trackStarted();
         }
-        setDraft(t);
+        flow.setDraft(about, t);
       }}
       onSend={() => void send()}
+      onFocus={() => setOpen(true)}
       onBlur={() => {
+        setOpen(false);
+        setFocusNow(false);
+        // An empty Tell about someone goes back to being the general one.
         if (!draft.trim()) setAbout(null);
       }}
       placeholder={aboutName ? `Tell Kinship about ${aboutName}…` : undefined}
       line={line}
       current={current}
       onGo={(to) => {
-        trackAbandoned(draft);
+        // Leaving folds the Tell away; its words wait as a draft.
+        Keyboard.dismiss();
         onGo(to);
       }}
       inputRef={input}
+      typing={typing}
+      about={aboutName}
+      autoFocus={focusNow}
+      collapsed={!open && draft.trim() ? {
+        preview: draftPreview(draft, aboutName),
+        onExpand: () => {
+          setOpen(true);
+          setFocusNow(true);
+        },
+      } : null}
     />
   );
 }

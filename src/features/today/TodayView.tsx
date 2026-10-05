@@ -6,7 +6,7 @@ import React from "react";
 import { View } from "react-native";
 import { MessageCircle } from "lucide-react-native";
 import { space } from "@/design/tokens";
-import { Display, Greeting, Label, Moment, MomentText, Pill, QuietLine, Screen, usePalette } from "@/ui";
+import { Body, Display, Greeting, Label, Moment, MomentText, Pill, QuietLine, Screen, usePalette } from "@/ui";
 import type { QuietView, TodayView as TodayData } from "./todayModel";
 
 export interface TodayViewProps {
@@ -20,8 +20,27 @@ export interface TodayViewProps {
   onRemember: () => void;
   onNothing: () => void;
   onQuiet: (q: QuietView) => void;
+  /** First use: tell Kinship one thing (focuses the Tell field). */
+  onTellFirst?: () => void;
+  /** First use with no one here: bring people in. */
+  onAddPeople?: () => void;
+  /**
+   * Today's reasons are still being refreshed (at most 1.5 s after opening):
+   * hold the empty states, so "Nothing needs you today" never flashes before
+   * a moment arrives.
+   */
+  settling?: boolean;
   footer?: React.ReactNode;
 }
+
+export const FIRST_USE_COPY = {
+  title: "This is where Kinship brings things back.",
+  withPeople: "Tell Kinship what's going on with the people you care about. When something matters, like a birthday, a big day or something you said you'd do, it will be here, with what you said.",
+  noPeople: "Add the people you care about, then tell Kinship what's going on with them. When something matters, like a birthday or a big day, it will be here.",
+  tell: "Tell Kinship one thing",
+  add: "Add your people",
+  addMore: "Add more people",
+} as const;
 
 export function TodayView(props: TodayViewProps) {
   const p = usePalette();
@@ -38,7 +57,7 @@ export function TodayView(props: TodayViewProps) {
           <Display>{`Anything worth remembering about ${props.afterReturn.personName}?`}</Display>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.xxl }}>
             <Pill variant="primary" label="Tell Kinship" onPress={props.onRemember} />
-            <Pill label="Nothing today" onPress={props.onNothing} />
+            <Pill variant="quiet" label="Nothing today" onPress={props.onNothing} />
           </View>
         </View>
       ) : view.returnCheck ? (
@@ -57,6 +76,7 @@ export function TodayView(props: TodayViewProps) {
             personId={view.moment.personId}
             statement={view.moment.statement}
             context={view.moment.context}
+            hope={view.moment.hope ?? null}
             provenance={view.moment.provenance}
             onProvenance={props.onProvenance}
             actions={
@@ -68,10 +88,29 @@ export function TodayView(props: TodayViewProps) {
                   icon={({ color, size, strokeWidth }) => <MessageCircle color={color} size={size} strokeWidth={strokeWidth} />}
                   onPress={props.onPrimary}
                 />
-                <Pill label="Not now" onPress={props.onNotNow} />
+                <Pill variant="quiet" label="Not now" onPress={props.onNotNow} />
               </>
             }
           />
+        </View>
+      ) : props.settling ? null : view.firstUse && !props.afterReturn ? (
+        <View style={{ marginTop: space.x4 }}>
+          <Display>{FIRST_USE_COPY.title}</Display>
+          <Body style={{ marginTop: space.m }}>{view.firstUse.hasPeople ? FIRST_USE_COPY.withPeople : FIRST_USE_COPY.noPeople}</Body>
+          {/* One clear next step; the other is a quiet line, never a pair that reads as a toggle. */}
+          <View style={{ alignItems: "flex-start", marginTop: space.xxl, gap: space.xs }}>
+            {view.firstUse.hasPeople ? (
+              <>
+                <Pill variant="primary" label={FIRST_USE_COPY.tell} onPress={() => props.onTellFirst?.()} />
+                {props.onAddPeople ? <Pill variant="quiet" label={FIRST_USE_COPY.addMore} onPress={() => props.onAddPeople?.()} /> : null}
+              </>
+            ) : (
+              <>
+                <Pill variant="primary" label={FIRST_USE_COPY.add} onPress={() => props.onAddPeople?.()} />
+                <Pill variant="quiet" label={FIRST_USE_COPY.tell} onPress={() => props.onTellFirst?.()} />
+              </>
+            )}
+          </View>
         </View>
       ) : view.quietDay && !props.afterReturn ? (
         <View style={{ marginTop: space.x4 }}>

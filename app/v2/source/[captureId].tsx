@@ -17,7 +17,7 @@ export default function SourceScreen() {
       onPerson={(personId) => router.push(`/v2/person/${personId}`)}
       onDelete={() =>
         Alert.alert("Delete this note?", "What Kinship remembers only from it goes too.", [
-          { text: "Keep it", style: "cancel" },
+          { text: "Cancel", style: "cancel" },
           { text: "Delete", style: "destructive", onPress: () => void deleteNote(String(captureId)).then(() => router.back()) },
         ])}
     />

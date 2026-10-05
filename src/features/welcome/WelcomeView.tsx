@@ -5,11 +5,13 @@
 //
 // From plain data; app/(auth)/login.tsx supplies the auth calls.
 import React from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { appleButton, GUTTER, height, maxScale, radius, size, space, type } from "@/design/tokens";
+import { appleButton, GUTTER, press, height, maxScale, radius, size, space, type } from "@/design/tokens";
 import { AppleMark, GoogleMark } from "@/ui/brand";
+import { HOW_COPY } from "./HowItWorks";
 import { Body, Display, Label, Pill, Sheet, Small, Sprig, Title, useNight, usePalette } from "@/ui";
 
 /** The sprig on the welcome screen: a fixed identity, the same on every phone. */
@@ -19,11 +21,24 @@ export const WELCOME_COPY = {
   label: "Kinship",
   promise: "Remember what matters about the people you care about.",
   sub: "Kinship keeps it for you, and helps you show up.",
+  /**
+   * What it is, as one small example instead of a paragraph (founder native
+   * pass F9): what you tell it, what it keeps, what it brings back.
+   */
+  example: {
+    label: "An example",
+    steps: [
+      { label: "You tell it", text: "“Ben runs Chicago Sunday. He's hoping to break four hours.”" },
+      { label: "It remembers", text: "Ben runs Chicago · Sun, Oct 11" },
+      { label: "It brings it back", text: "How did it go for Ben?" },
+    ],
+  },
   apple: "Continue with Apple",
   google: "Continue with Google",
   email: "Use email",
   signingIn: "Signing you in…",
   failed: "That didn't work. Please try again.",
+  stuck: "You're signed in, but Kinship couldn't open your account. Close Kinship and open it again.",
   legal: "By continuing you agree to the Terms and the Privacy Policy.",
 } as const;
 
@@ -37,6 +52,8 @@ export interface WelcomeViewProps {
   onEmail: () => void;
   onTerms: () => void;
   onPrivacy: () => void;
+  /** "See how it works": the example of the whole loop. */
+  onHowItWorks?: () => void;
   children?: React.ReactNode;
 }
 
@@ -53,7 +70,7 @@ function AppleButton({ onPress, busy, disabled }: { onPress: () => void; busy: b
       style={({ pressed }) => ({
         minHeight: height.button, borderRadius: radius.pill(height.button), backgroundColor: c.background,
         flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.s,
-        opacity: disabled && !busy ? 0.5 : pressed ? 0.8 : 1,
+        opacity: disabled && !busy ? press.disabled : pressed ? press.surface : 1,
       })}
     >
       {busy ? (
@@ -68,6 +85,38 @@ function AppleButton({ onPress, busy, disabled }: { onPress: () => void; busy: b
   );
 }
 
+/** Tell → Remember → Bring back, in three short lines on one card; it opens the full example. */
+function ExampleCard({ onPress }: { onPress?: () => void }) {
+  const p = usePalette();
+  const body = (
+    <View style={{ backgroundColor: p.surface, borderRadius: radius.inline + 2, borderWidth: 1, borderColor: p.hairline, padding: space.l, gap: space.m }}>
+      <Small>{WELCOME_COPY.example.label}</Small>
+      {WELCOME_COPY.example.steps.map((s, i) => (
+        <View key={s.label} style={{ flexDirection: "row", gap: space.m }}>
+          <View style={{ width: 3, borderRadius: 2, backgroundColor: i === 2 ? p.ochre : p.hairline }} />
+          <View style={{ flex: 1 }}>
+            <Label>{s.label}</Label>
+            <Body tone="ink" style={{ marginTop: space.xs }}>{s.text}</Body>
+          </View>
+        </View>
+      ))}
+      {onPress ? <Small tone="ochreText">{`${HOW_COPY.link} →`}</Small> : null}
+    </View>
+  );
+  if (!onPress) return <View style={{ marginTop: space.xl }}>{body}</View>;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${WELCOME_COPY.example.label}: ${WELCOME_COPY.example.steps.map((s) => `${s.label}, ${s.text}`).join(". ")}`}
+      accessibilityHint={HOW_COPY.link}
+      onPress={onPress}
+      style={({ pressed }) => ({ marginTop: space.xl, opacity: pressed ? press.surface : 1 })}
+    >
+      {body}
+    </Pressable>
+  );
+}
+
 export function WelcomeView(props: WelcomeViewProps) {
   const p = usePalette();
   const night = useNight();
@@ -78,12 +127,13 @@ export function WelcomeView(props: WelcomeViewProps) {
       <StatusBar style={night ? "light" : "dark"} />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: GUTTER, paddingTop: insets.top + space.x4, paddingBottom: space.xl }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: GUTTER, paddingTop: insets.top + space.xl, paddingBottom: space.xl }}
       >
         <Sprig personId={WELCOME_SPRIG} width={size.sprig.moment} />
-        <Label style={{ marginTop: space.x3 }}>{WELCOME_COPY.label}</Label>
+        <Label style={{ marginTop: space.xl }}>{WELCOME_COPY.label}</Label>
         <Display style={{ marginTop: space.m }}>{WELCOME_COPY.promise}</Display>
-        <Body style={{ marginTop: space.l }}>{WELCOME_COPY.sub}</Body>
+        <Body style={{ marginTop: space.m }}>{WELCOME_COPY.sub}</Body>
+        <ExampleCard onPress={props.onHowItWorks} />
       </ScrollView>
 
       <View style={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + space.xl, gap: space.m }}>
@@ -93,21 +143,18 @@ export function WelcomeView(props: WelcomeViewProps) {
           <Small accessibilityLiveRegion="polite">{WELCOME_COPY.signingIn}</Small>
         ) : null}
         {methods.apple ? <AppleButton onPress={props.onApple} busy={props.busy} disabled={props.busy} /> : null}
-        {methods.google || methods.email ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: space.s }}>
-            {methods.google ? (
-              <Pill
-                size="small"
-                variant={methods.apple ? "quiet" : "ghost"}
-                label={WELCOME_COPY.google}
-                disabled={props.busy}
-                icon={() => <GoogleMark size={size.icon} />}
-                onPress={props.onGoogle}
-              />
-            ) : null}
-            {methods.email ? (
-              <Pill size="small" variant="quiet" label={WELCOME_COPY.email} disabled={props.busy} onPress={props.onEmail} />
-            ) : null}
+        {methods.google ? (
+          <Pill
+            variant={methods.apple ? "ghost" : "primary"}
+            label={WELCOME_COPY.google}
+            disabled={props.busy}
+            icon={() => <GoogleMark size={size.icon} />}
+            onPress={props.onGoogle}
+          />
+        ) : null}
+        {methods.email ? (
+          <View style={{ alignItems: "center" }}>
+            <Pill size="small" variant="quiet" label={WELCOME_COPY.email} disabled={props.busy} onPress={props.onEmail} />
           </View>
         ) : null}
         <Text maxFontSizeMultiplier={maxScale.text} style={[type.provenance, { color: p.inkQuiet, textAlign: "center" }]}>

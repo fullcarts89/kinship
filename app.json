@@ -19,7 +19,7 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSContactsUsageDescription": "Allow Kinship to access your contacts to help you add people to your garden.",
+        "NSContactsUsageDescription": "Allow Kinship to read your contacts on this phone so you can pick the people you care about. Only the people you pick are saved.",
         "NSCalendarsUsageDescription": "Allow Kinship to check your calendar so it can gently suggest capturing memories after events with people in your garden.",
         "NSPhotoLibraryUsageDescription": "Allow Kinship to access your photos to attach them to memories in your garden.",
         "NSCameraUsageDescription": "Allow Kinship to use your camera to take photos for your memories.",
@@ -71,7 +71,7 @@
       [
         "expo-contacts",
         {
-          "contactsPermission": "Allow Kinship to access your contacts to help you add people to your garden."
+          "contactsPermission": "Allow Kinship to read your contacts on this phone so you can pick the people you care about. Only the people you pick are saved."
         }
       ],
       [

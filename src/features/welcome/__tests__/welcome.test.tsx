@@ -64,7 +64,7 @@ it("email is a sheet with its own sign-in, account and reset paths", () => {
 });
 
 it("the 2.0 look comes from the build or from this phone, never from a guess", async () => {
-  expect(buildEntryShell({ EXPO_PUBLIC_V2_ENTRY: "1" })).toBe("v2");
-  expect(buildEntryShell({})).toBeNull();
+  expect(buildEntryShell("1")).toBe("v2");
+  expect(buildEntryShell(undefined)).toBeNull();
   expect(await readEntryShell()).toBe("v1"); // nothing remembered here: 1.0
 });

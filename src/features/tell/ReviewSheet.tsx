@@ -6,9 +6,10 @@
 // sheet.
 
 import React, { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { X } from "lucide-react-native";
-import { radius, size, space, TOUCH } from "@/design/tokens";
+import { press, radius, size, space, TOUCH } from "@/design/tokens";
 import type { HeldAnswer } from "@/store/gateway";
 import type { SwitchableKind } from "@/store/memoryDetail";
 import type { Person } from "@/store/repositories";
@@ -183,7 +184,7 @@ function ReviewLine({
     <View style={{ paddingVertical: space.m, borderBottomWidth: 1, borderBottomColor: p.hairline, flexDirection: "row", gap: space.m }}>
       <View style={{ flex: 1 }}>
         <Pressable
-          style={{ minHeight: TOUCH, justifyContent: "center" }}
+          style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.surface : 1 })}
           accessibilityRole="button"
           accessibilityLabel={line.statement}
           accessibilityHint="Double-tap to change the words"
@@ -206,7 +207,7 @@ function ReviewLine({
         accessibilityLabel={`Not this: ${line.statement}`}
         onPress={onReject}
         hitSlop={space.s}
-        style={{ minWidth: TOUCH, minHeight: TOUCH, alignItems: "center", justifyContent: "center" }}
+        style={({ pressed }) => ({ minWidth: TOUCH, minHeight: TOUCH, alignItems: "center", justifyContent: "center", opacity: pressed ? press.link : 1 })}
       >
         <X color={p.inkQuiet} size={size.iconLarge} strokeWidth={1.8} />
       </Pressable>

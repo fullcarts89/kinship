@@ -2,21 +2,28 @@
 // repositories). Everything re-reads when the user's store changes: a local
 // write, a sync, or a step of Understanding.
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
-import { buildToday, evidenceOf, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayView } from "@/features/today/todayModel";
+import { buildToday, evidenceOf, isBirthdayReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayView } from "@/features/today/todayModel";
+import { buildPortrait, PORTRAIT_RULES, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
+import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
+import { legacyActivation, NO_ACTIVATION, nextStep, setupFinished, setupStepsFor, type SetupNeeds } from "@/features/setup/activation";
+import { useActivation, type ActivationState } from "./useActivation";
 import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
+import { parseDrafts, withDraft, type Drafts } from "@/features/tell/drafts";
+import { misfiledOn, voiced } from "@/features/memory/statements";
 import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
 import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, track } from "@/platform/analytics";
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { isOn } from "@/store/flags";
-import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
+import { repositoriesFor, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
 import { questionWaiting } from "@/store/understanding";
+import type { UserStore } from "@/store/userStore";
 import { useFlags } from "./useFlags";
 import { useStoreQuery } from "./useStoreQuery";
 
@@ -43,11 +50,11 @@ export function useTell() {
   // The server checks consent on every call; this only decides whether to ask.
   const consent = s ? (s.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION ? "on" : "off") : "unknown";
   const ai = isOn(flags, "ai_extraction") && consent !== "off";
-  const keep = useCallback(async (text: string, contextPersonId?: string | null): Promise<string> => {
+  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text"): Promise<string> => {
     const capture = await repositoriesFor(store).captures.tell(text, {
-      aiEnabled: ai, timeZone: timeZone(), contextPersonId: contextPersonId ?? undefined,
+      aiEnabled: ai, timeZone: timeZone(), contextPersonId: contextPersonId ?? undefined, source,
     });
-    track("capture_completed", { source: "text", chars_bucket: charsBucket([...text].length), offline: understanding.offline });
+    track("capture_completed", { source, chars_bucket: charsBucket([...text].length), offline: understanding.offline });
     if (ai) {
       await understanding.told(capture.id);
       understanding.run().catch(() => undefined);
@@ -71,7 +78,7 @@ export function useReview(captureId: string | null): ReviewView | null {
       capture: capture
         ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status }
         : null,
-      items: await understanding.itemsFor(captureId, row.reading),
+      items: (await understanding.itemsFor(captureId, row.reading)).map(voiced),
       people: await repos.people.list(),
       related: await repos.people.related(),
       offline: understanding.offline,
@@ -123,68 +130,76 @@ export function usePeople(): Person[] {
 
 export function usePersonRecord(personId: string) {
   const { store } = useV2Session();
-  const q = useStoreQuery(store, async (repos) => {
-    const people = await repos.people.list();
-    const person = people.find((p) => p.id === personId) ?? null;
-    if (!person) return { person: null, lines: [] as RecordLine[] };
-    const related = await repos.people.related();
-    const now = new Date();
-    const items = (await repos.memory.forPerson(personId))
-      .filter((m) => m.status === "active" || m.status === "resolved")
-      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-    const lines: RecordLine[] = [];
-    for (const item of items) {
-      const sources = await repos.memory.sourcesFor(item.id);
-      const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
-        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-      const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
-      lines.push({
-        line: itemLine(item, { people, related, today: todayIso(now) }),
-        provenance: provenanceLine(sources.map((s) => ({
-          source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-        })), now),
-        noteId: notes[0]?.capture_id ?? null,
-        conflict: conflict
-          ? { id: conflict.id, title: CONFLICT_TITLE, choices: describeConflict(conflict, item), canUseMine: conflict.reason === "concurrent_edit" }
-          : null,
-      });
-    }
-    return { person, lines };
-  }, [personId]);
+  const q = useStoreQuery(store, (repos) => recordFor(repos, personId, new Date()), [personId]);
   return q.data ?? { person: null, lines: [] as RecordLine[] };
+}
+
+/** What Kinship knows about someone: every live item, newest first, with its source (the hook and tests share it). */
+export async function recordFor(repos: Repositories, personId: string, now: Date): Promise<{ person: Person | null; lines: RecordLine[] }> {
+  const people = await repos.people.list();
+  const person = people.find((p) => p.id === personId) ?? null;
+  if (!person) return { person: null, lines: [] as RecordLine[] };
+  const related = await repos.people.related();
+  const items = (await repos.memory.forPerson(personId))
+    .filter((m) => m.status === "active" || m.status === "resolved")
+    .map(voiced)
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  const lines: RecordLine[] = [];
+  const byItem = await repos.memory.sourcesByItem();
+  for (const item of items) {
+    const sources = byItem.get(item.id) ?? [];
+    const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
+    lines.push({
+      line: itemLine(item, { people, related, today: todayIso(now) }),
+      provenance: provenanceLine(sources.map((s) => ({
+        source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
+      })), now),
+      noteId: notes[0]?.capture_id ?? null,
+      conflict: conflict
+        ? { id: conflict.id, title: CONFLICT_TITLE, choices: describeConflict(conflict, item), canUseMine: conflict.reason === "concurrent_edit" }
+        : null,
+    });
+  }
+  return { person, lines };
 }
 
 // ─── The Source view ────────────────────────────────────────────────────
 
 export function useNote(captureId: string): NoteData | null {
   const { store } = useV2Session();
-  const q = useStoreQuery(store, async (repos) => {
-    const capture = await repos.captures.get(captureId);
-    if (!capture) return null;
-    const people = await repos.people.list();
-    const all = (await store.list("memory_item_sources")).filter((s) => s.capture_id === captureId);
-    const items: NoteData["items"] = [];
-    const spans: { start: number; end: number }[] = [];
-    const quotes: string[] = [];
-    for (const s of all) {
-      const item = (await store.get("memory_items", String(s.memory_item_id))) as MemoryItem | null;
-      if (!item || item.status === "retracted" || item.status === "superseded") continue;
-      if (!items.some((i) => i.id === item.id)) {
-        const p = people.find((x) => x.id === item.person_id);
-        items.push({ id: item.id, statement: item.statement, person: p?.display_name ?? "", personId: item.person_id });
-      }
-      if (typeof s.span_start === "number" && typeof s.span_end === "number") spans.push({ start: s.span_start, end: s.span_end });
-      if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
-    }
-    const text = capture.raw_text;
-    return {
-      runs: text ? runsOf(text, spans) : null,
-      quotes: text ? [] : quotes,
-      arrived: `${arrivedLabel(capture.source)} · ${momentLabel(String(capture.created_at ?? capture.occurred_at), new Date())}`,
-      items,
-    };
-  }, [captureId]);
+  const q = useStoreQuery(store, () => noteFor(store, captureId, new Date()), [captureId]);
   return q.data ?? null;
+}
+
+/** The Source view's data for one note: its words, the understood spans, what came of it (the hook and tests share it). */
+export async function noteFor(store: UserStore, captureId: string, now: Date): Promise<NoteData | null> {
+  const repos = repositoriesFor(store);
+  const capture = await repos.captures.get(captureId);
+  if (!capture) return null;
+  const people = await repos.people.list();
+  const all = (await store.list("memory_item_sources")).filter((s) => s.capture_id === captureId);
+  const items: NoteData["items"] = [];
+  const spans: { start: number; end: number }[] = [];
+  const quotes: string[] = [];
+  for (const s of all) {
+    const item = (await store.get("memory_items", String(s.memory_item_id))) as MemoryItem | null;
+    if (!item || item.status === "retracted" || item.status === "superseded") continue;
+    if (!items.some((i) => i.id === item.id)) {
+      const p = people.find((x) => x.id === item.person_id);
+      items.push({ id: item.id, statement: voiced(item).statement, person: p?.display_name ?? "", personId: item.person_id });
+    }
+    if (typeof s.span_start === "number" && typeof s.span_end === "number") spans.push({ start: s.span_start, end: s.span_end });
+    if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
+  }
+  const text = capture.raw_text;
+  return {
+    runs: text ? runsOf(text, spans) : null,
+    quotes: text ? [] : quotes,
+    arrived: `${arrivedLabel(capture.source)} · ${momentLabel(String(capture.created_at ?? capture.occurred_at), now)}`,
+    items,
+  };
 }
 
 /** Splits text at the (code-point) spans, merged, into marked and plain runs. */
@@ -231,17 +246,21 @@ export function useV2Actions() {
 /** Today's view: the one moment, the return check, at most two quiet lines. */
 export function useToday(questions: number, toLookAt: number, now: Date): TodayView | null {
   const { store, reasonLocal } = useV2Session();
+  const activation = useActivation();
   const minute = Math.floor(now.getTime() / 60_000);
   const q = useStoreQuery(store, async (repos) => {
     const reasons = (await store.list("reasons")) as unknown as ReasonRow[];
-    const items = (await store.list("memory_items")) as MemoryItem[];
     const people = await repos.people.list();
+    const items = ((await store.list("memory_items")) as MemoryItem[]).map(voiced)
+      .filter((m) => !misfiled(m, people));
+    const told = (await repos.captures.list()).length;
     const local = await reasonLocal.read();
     // Provenance only for what a reason cites (the moment's line).
     const cited = new Set(reasons.map(evidenceOf).filter((x): x is string => !!x));
     const prov = new Map<string, { line: string; noteId: string | null }>();
+    const byItem = await repos.memory.sourcesByItem();
     for (const id of cited) {
-      const sources = await repos.memory.sourcesFor(id);
+      const sources = byItem.get(id) ?? [];
       const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
         .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
       prov.set(id, {
@@ -253,9 +272,10 @@ export function useToday(questions: number, toLookAt: number, now: Date): TodayV
     }
     return buildToday({
       now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
-      handoff: local.handoff, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
+      handoff: local.handoff, told, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
+      activated: activation.activated, firstName: activation.firstName,
     });
-  }, [questions, toLookAt, minute]);
+  }, [questions, toLookAt, minute, activation.activated, activation.firstName]);
   return q.data ?? null;
 }
 
@@ -268,30 +288,33 @@ export function useTodayActions() {
       const before = (await reasonLocal.read()).local[m.reasonId]?.firstShown;
       await reasonLocal.shown(m.reasonId, m.personId, todayIso());
       if (!before) {
-        reasons.record(m.reasonId, "shown");
+        if (!isBirthdayReason(m.reasonId)) reasons.record(m.reasonId, "shown");
         track("reason_surfaced", { reason_type: reasonTypeName(m.type), surface: "today", score_bucket: scoreBucket(m.score) });
       }
     },
     notNow: async (m: { reasonId: string; type: TodayReasonType }) => {
       await reasonLocal.dismissed(m.reasonId, new Date().toISOString());
-      reasons.record(m.reasonId, "dismissed_not_now");
+      if (!isBirthdayReason(m.reasonId)) reasons.record(m.reasonId, "dismissed_not_now");
       track("reason_dismissed", { reason_type: reasonTypeName(m.type), mode: "not_now" });
     },
     handedOff: async (h: { reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType }) => {
       await reasonLocal.handedOff({ reasonId: h.reasonId, personId: h.personId, channel: h.channel, at: new Date().toISOString() });
-      reasons.record(h.reasonId, "acted", h.channel);
+      if (!isBirthdayReason(h.reasonId)) reasons.record(h.reasonId, "acted", h.channel);
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
     },
     /** "Yes": the one place a connection is recorded (plan §15). */
     returned: async (answer: "yes" | "not_yet") => {
       const h = await reasonLocal.answered(answer, new Date().toISOString());
       if (!h) return null;
-      reasons.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
+      if (!isBirthdayReason(h.reasonId)) reasons.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
       track("return_check_answered", { answer, minutes_since_handoff_bucket: minutesBucket(Date.now() - Date.parse(h.at)) });
       if (answer === "yes") {
-        await repositoriesFor(store).contacts.confirm({
-          person_id: h.personId, channel: h.channel, source: "return_check", reason_id: h.reasonId,
-        });
+        // A birthday moment is worked out on this phone and has no server
+        // reason to name, so its "Yes" is recorded as the user's own word
+        // (manual). Server birthday reasons (RSN-05) will carry the reason.
+        await repositoriesFor(store).contacts.confirm(isBirthdayReason(h.reasonId)
+          ? { person_id: h.personId, channel: h.channel, source: "manual" }
+          : { person_id: h.personId, channel: h.channel, source: "return_check", reason_id: h.reasonId });
       }
       return h;
     },
@@ -302,6 +325,12 @@ export function useTodayActions() {
 // ─── People and the relationship page ───────────────────────────────────
 
 const LIVE_KINDS = ["fact", "thread", "event", "plan", "moment", "milestone", "promise", "context", "tradition"];
+
+/** A statement kept on one person that plainly leads with another (founder native pass F4). */
+function misfiled(m: MemoryItem, people: Person[]): boolean {
+  const person = people.find((p) => p.id === m.person_id);
+  return !!person && !!misfiledOn(m, person, people);
+}
 
 function liveItem(m: MemoryItem): boolean {
   return (m.status === "active" || m.status === "resolved") && !m.deleted_at;
@@ -321,8 +350,9 @@ export function usePeopleRows(): PeopleRowData[] {
     const items = ((await store.list("memory_items")) as MemoryItem[])
       .filter((m) => liveItem(m) && m.status === "active" && m.sensitivity === "none" && LIVE_KINDS.includes(m.kind))
       .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+    const all = await repos.people.list();
     const newest = new Map<string, string>();
-    for (const m of items) if (!newest.has(m.person_id)) newest.set(m.person_id, m.statement);
+    for (const m of items) if (!newest.has(m.person_id) && !misfiled(m, all)) newest.set(m.person_id, voiced(m).statement);
     return people
       .sort((a, b) => a.display_name.localeCompare(b.display_name))
       .map((p) => ({ person: p, label: personLabel(p, people), line: newest.get(p.id) ?? null }));
@@ -330,84 +360,67 @@ export function usePeopleRows(): PeopleRowData[] {
   return q.data ?? [];
 }
 
-export interface PortraitLine {
-  itemId: string;
-  statement: string;
-  /** "Sun, Oct 11", "October"… when it has a time. */
-  when: string | null;
-  provenance: string;
-  noteId: string | null;
-}
-
-export interface Portrait {
-  person: Person | null;
-  label: string | null;
-  lately: PortraitLine[];
-  comingUp: PortraitLine[];
-  youSaid: PortraitLine[];
-  between: PortraitLine[];
-  /** Everything Kinship keeps about them (for "What Kinship knows"). */
-  total: number;
-}
+export type { Portrait, PortraitLine } from "@/features/person/portraitModel";
 
 /**
- * The relationship page as a portrait (Design Direction §I.7; board 2): what's
- * going on with them, what's coming up, what you said you'd do, what you
- * share. Only sections with something in them are shown.
+ * The relationship page as a portrait (Design Direction §I.7; board 2). The
+ * sectioning and density rules live in portraitModel.ts
+ * (docs/product/relationship-page-rules.md); this only gathers the data.
  */
 export function usePortrait(personId: string): Portrait {
   const { store } = useV2Session();
   const q = useStoreQuery(store, async (repos) => {
     const people = await repos.people.list();
     const person = people.find((p) => p.id === personId && !p.deleted_at) ?? null;
-    const empty: Portrait = { person, label: null, lately: [], comingUp: [], youSaid: [], between: [], total: 0 };
-    if (!person) return empty;
-    const now = new Date();
-    const today = todayIso(now);
-    const items = (await repos.memory.forPerson(personId))
-      .filter(liveItem)
-      .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
-    const out: Portrait = {
-      ...empty,
-      label: typeof person.relationship_label === "string" && person.relationship_label ? person.relationship_label : null,
-      total: items.length,
-    };
-    for (const item of items) {
-      const sources = await repos.memory.sourcesFor(item.id);
-      const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
-        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-      const detail = (item.detail ?? {}) as Record<string, unknown>;
-      const line: PortraitLine = {
-        itemId: item.id,
-        statement: item.statement,
-        when: whenLabel(item.kind, detail, today),
-        provenance: provenanceLine(sources.map((s) => ({
-          source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-        })), now),
-        noteId: notes[0]?.capture_id ?? null,
-      };
-      const day = typeof detail.date === "string" ? detail.date : typeof detail.due_date === "string" ? detail.due_date : null;
-      const ahead = day ? day >= today : false;
-      if (item.kind === "promise") {
-        if (item.status === "active") out.youSaid.push(line);
-      } else if (item.kind === "plan" || ((item.kind === "event" || item.kind === "milestone") && ahead)) {
-        if (item.status === "active" && (ahead || !day)) out.comingUp.push(line);
-      } else if (item.kind === "context" || item.kind === "tradition" || item.kind === "moment") {
-        out.between.push(line);
-      } else if (item.status === "active") {
-        out.lately.push(line);
-      }
-    }
-    // Coming up reads soonest first; the rest newest first.
-    const dayOf = (l: PortraitLine) => {
-      const it = items.find((m) => m.id === l.itemId);
-      const d = (it?.detail ?? {}) as Record<string, unknown>;
-      return typeof d.date === "string" ? d.date : "9999";
-    };
-    out.comingUp.sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
-    return out;
+    return portraitFor(repos, person, new Date());
   }, [personId]);
-  return q.data ?? { person: null, label: null, lately: [], comingUp: [], youSaid: [], between: [], total: 0 };
+  return q.data ?? buildPortrait({ person: null, items: [], today: todayIso() });
+}
+
+/** The portrait from the store (also used by tests and the dense-Tell proof). */
+export async function portraitFor(repos: Repositories, person: Person | null, now: Date): Promise<Portrait> {
+  const today = todayIso(now);
+  if (!person) return buildPortrait({ person: null, items: [], today });
+  const items: PortraitItem[] = [];
+  const byItem = await repos.memory.sourcesByItem();
+  const people = await repos.people.list();
+  for (const stored of await repos.memory.forPerson(person.id)) {
+    const item = voiced(stored);
+    // Plainly about someone else: not on this portrait (it stays in What Kinship knows).
+    if (misfiledOn(item, person, people)) continue;
+    const sources = byItem.get(item.id) ?? [];
+    const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    items.push({
+      item,
+      when: whenLabel(item.kind, (item.detail ?? {}) as Record<string, unknown>, today),
+      provenance: provenanceLine(sources.map((s) => ({
+        source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
+      })), now),
+      noteId: notes[0]?.capture_id ?? null,
+    });
+  }
+  // Their birthday, from their record, when it's within a month.
+  let birthday: PortraitLine | null = null;
+  let birthdayDay: string | null = null;
+  if (person.birthday && person.birthday_source && person.state === "active") {
+    const next = nextBirthday(String(person.birthday), today);
+    const days = Math.round((Date.parse(`${next}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+    if (days <= PORTRAIT_RULES.birthdayDays) {
+      const first = person.display_name.trim().split(/\s+/u)[0] || person.display_name;
+      birthdayDay = next;
+      birthday = {
+        itemId: "birthday",
+        statement: `${first}'s birthday`,
+        when: days === 0 ? "Today" : dayMonth(next),
+        provenance: person.birthday_source === "contacts" ? "From Contacts"
+          : person.birthday_source === "capture" ? "You told Kinship" : "You added this",
+        noteId: person.birthday_source === "capture" && typeof person.birthday_capture_id === "string" ? person.birthday_capture_id : null,
+        fixed: true,
+      };
+    }
+  }
+  return buildPortrait({ person, items, today, birthday, birthdayDay });
 }
 
 /** One remembered item, for its correction sheet. */
@@ -415,8 +428,9 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
   const { store } = useV2Session();
   const q = useStoreQuery(store, async (repos) => {
     if (!itemId) return null;
-    const item = (await store.get("memory_items", itemId)) as MemoryItem | null;
-    if (!item || !liveItem(item)) return null;
+    const stored = (await store.get("memory_items", itemId)) as MemoryItem | null;
+    if (!stored || !liveItem(stored)) return null;
+    const item = voiced(stored);
     const people = await repos.people.list();
     const related = await repos.people.related();
     const sources = await repos.memory.sourcesFor(item.id);
@@ -434,6 +448,45 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
   return q.data ?? null;
 }
 
+// ─── Unsent Tells ───────────────────────────────────────────────────────
+
+const DRAFTS = "tell_drafts";
+const DRAFT_SAVE_MS = 400;
+
+/**
+ * Unsent Tells, by where they were started (general, or one person). Kept in
+ * this account's own encrypted store, so a draft survives closing the app
+ * and never reaches another account.
+ */
+export function useTellDrafts(): { drafts: Drafts; set: (key: string, text: string) => void } {
+  const { store } = useV2Session();
+  const [drafts, setDrafts] = useState<Drafts>({});
+  const loaded = useRef(false);
+  useEffect(() => {
+    let live = true;
+    void getMeta(store.db, DRAFTS).then((raw) => {
+      if (!live) return;
+      loaded.current = true;
+      // Words typed before the saved drafts loaded win over the saved copy.
+      setDrafts((now) => ({ ...parseDrafts(raw), ...now }));
+    }).catch(() => {
+      loaded.current = true;
+    });
+    return () => {
+      live = false;
+    };
+  }, [store]);
+  useEffect(() => {
+    if (!loaded.current) return;
+    const t = setTimeout(() => {
+      void setMeta(store.db, DRAFTS, JSON.stringify(drafts)).catch(() => undefined);
+    }, DRAFT_SAVE_MS);
+    return () => clearTimeout(t);
+  }, [drafts, store]);
+  const set = useCallback((key: string, text: string) => setDrafts((d) => withDraft(d, key, text)), []);
+  return { drafts, set };
+}
+
 // ─── The one-time understanding consent (D2, D3) ────────────────────────
 
 const CONSENT_ASKED = "ai_consent_asked";
@@ -445,9 +498,13 @@ export function useConsentAsk(): { ask: boolean; answer: (allow: boolean) => Pro
   const q = useStoreQuery(store, async (repos) => {
     const s = await repos.settings.get();
     const allowed = s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
-    return { allowed, asked: (await getMeta(store.db, CONSENT_ASKED)) === "1" };
+    // "Keep notes as written", said on another phone, is an answer too.
+    const declined = s?.ai_consent === false && !!s?.ai_consent_updated_at;
+    return { allowed, asked: declined || (await getMeta(store.db, CONSENT_ASKED)) === "1" };
   });
   return {
+    // Setup asks first (recovery Gate 3); this only catches a choice that
+    // couldn't be saved then, or understanding offered after setup.
     ask: extractionOn && q.data !== undefined && !q.data.allowed && !q.data.asked,
     answer: async (allow: boolean) => {
       await setAIEnabled(allow);
@@ -474,4 +531,123 @@ export function useUnderstandingConsent(): { allowed: boolean | null; set: (allo
       store.notify();
     },
   };
+}
+
+// ─── Setup (plan E16; contract §8; recovery Gate 3) ─────────────────────
+
+/** How long setup waits for the server before deciding an older account with no record. */
+const SETUP_SYNC_WAIT_MS = 5000;
+
+export type SetupGate = "checking" | "needed" | "done";
+
+/** Whether understanding is offered to this account and it hasn't answered yet. */
+function useConsentAnswered(): boolean | undefined {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const s = await repos.settings.get();
+    const allowed = s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
+    const declined = s?.ai_consent === false && !!s?.ai_consent_updated_at;
+    return allowed || declined || (await getMeta(store.db, CONSENT_ASKED)) === "1";
+  });
+  return q.data;
+}
+
+/** What setup has to ask this account (name only if sign-in didn't give one; consent only if offered and unanswered). */
+function useSetupNeeds(act: ActivationState): SetupNeeds | null {
+  const { userId } = useV2Session();
+  const extractionOn = isOn(useFlags(userId), "ai_extraction");
+  const answered = useConsentAnswered();
+  if (answered === undefined) return null;
+  return { name: !act.firstName, consent: extractionOn && !answered };
+}
+
+/**
+ * Whether this account still needs setup, from its explicit record
+ * (src/features/setup/activation.ts), never from what it happens to hold.
+ * An account from before the record existed is decided once (after one
+ * sync), recorded, and from then on follows the record like any other.
+ * Decided once per visit: after "done" it stays done until the app reopens.
+ */
+export function useSetupGate(): SetupGate {
+  const { store, understanding } = useV2Session();
+  const act = useActivation();
+  const needs = useSetupNeeds(act);
+  const [gate, setGate] = useState<SetupGate>("checking");
+  const adopting = useRef(false);
+
+  useEffect(() => {
+    if (!act.loaded || act.activation || adopting.current) return;
+    adopting.current = true;
+    void (async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        understanding.run().catch(() => undefined),
+        new Promise((r) => {
+          timer = setTimeout(r, SETUP_SYNC_WAIT_MS);
+        }),
+      ]);
+      clearTimeout(timer);
+      const repos = repositoriesFor(store);
+      const people = (await repos.people.list()).filter((p) => !p.deleted_at && p.state !== "archived").length;
+      const memories = ((await store.list("memory_items")) as MemoryItem[]).filter((m) => liveItem(m)).length;
+      const s = await repos.settings.get();
+      const consentAnswered = (s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION) ||
+        (s?.ai_consent === false && !!s?.ai_consent_updated_at) || (await getMeta(store.db, CONSENT_ASKED)) === "1";
+      await act.adopt(legacyActivation({ people, memories, consentAnswered, nameKnown: !!act.firstName }, new Date().toISOString()));
+    })().catch(() => act.adopt(NO_ACTIVATION));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [act.loaded, !!act.activation]);
+
+  useEffect(() => {
+    if (gate === "done" || !needs || !act.activation) return;
+    setGate(setupFinished(needs, act.activation) ? "done" : "needed");
+  }, [gate, needs?.name, needs?.consent, act.activation]);
+  return gate;
+}
+
+/** The steps, where this account is in them, and the writes setup makes. */
+export function useSetup() {
+  const { store } = useV2Session();
+  const act = useActivation();
+  const needs = useSetupNeeds(act);
+  const q = useStoreQuery(store, async (repos) =>
+    (await repos.people.list()).filter((p) => !p.deleted_at && p.state !== "archived"));
+  const steps = needs ? setupStepsFor(needs, act.activation) : [];
+  return {
+    ready: act.loaded && !!needs && q.data !== undefined,
+    steps,
+    /** The first step still to do (null: setup is finished). */
+    next: needs ? nextStep(needs, act.activation) : null,
+    people: q.data ?? [],
+    firstName: act.firstName,
+    record: act.record,
+    saveFirstName: act.saveFirstName,
+    /** Saves the people the user picked, skipping anyone already here. */
+    savePicked: async (rows: PickRow[]) => {
+      const repos = repositoriesFor(store);
+      const have = new Set((await repos.people.list()).map((p) => p.id));
+      for (const r of rows) {
+        if (have.has(r.personId)) continue;
+        await repos.people.addPicked({
+          id: r.personId, name: r.name, contactId: r.contactId, birthday: r.birthday, birthdayYearKnown: r.birthdayYearKnown,
+        });
+      }
+    },
+  };
+}
+
+/** What the picker must leave out: people already here, by contact and by name. */
+export function useExistingPeople(): { contactRefs: Set<string>; names: Set<string> } {
+  const people = usePeople();
+  return {
+    contactRefs: new Set(people.map((p) => p.contact_ref).filter((x): x is string => typeof x === "string")),
+    names: new Set(people.map((p) => p.display_name.toLocaleLowerCase())),
+  };
+}
+
+/** Whether the user has ever told Kinship anything (first use vs a quiet day). */
+export function useToldCount(): number {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => (await repos.captures.list()).length);
+  return q.data ?? 0;
 }

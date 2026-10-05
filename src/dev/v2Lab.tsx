@@ -6,16 +6,23 @@
 import React from "react";
 import { View } from "react-native";
 import { ItemSheet } from "@/features/person/ItemSheet";
-import { NoteView } from "@/features/person/NoteView";
+import { NoteView, type NoteData } from "@/features/person/NoteView";
 import { PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
 import { PortraitView, type PortraitLineData } from "@/features/person/PortraitView";
 import { PeopleView } from "@/features/people/PeopleView";
+import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
+import { HowItWorksView } from "@/features/welcome/HowItWorks";
+import type { Portrait as PortraitData } from "@/features/person/portraitModel";
+import proofs from "./fixtures/generated/proofs.json";
+import { buildPickLists, searchRows, worthKnowing, type DeviceContact } from "@/features/setup/setupModel";
+import { ConsentStepView, NameStepView, PeoplePickView, WorthStepView, type PeoplePickViewProps } from "@/features/setup/SetupViews";
+import { draftPreview } from "@/features/tell/drafts";
 import { EmailSheet, WelcomeView } from "@/features/welcome/WelcomeView";
 import { SettingsSheetView } from "@/features/people/SettingsSheet";
 import { ConsentSheetView } from "@/features/tell/ConsentSheet";
 import { ReviewSheet } from "@/features/tell/ReviewSheet";
 import { KeptLine, OFFLINE_LINE, TellDockView } from "@/features/tell/TellDock";
-import { buildReview, itemLine, type ReviewInput } from "@/features/tell/reviewModel";
+import { buildReview, itemLine, type ReviewInput, type ReviewView } from "@/features/tell/reviewModel";
 import { HandoffSheet } from "@/features/today/HandoffSheet";
 import { TodayView } from "@/features/today/TodayView";
 import { buildToday, type ReasonRow, type TodayInput } from "@/features/today/todayModel";
@@ -40,11 +47,11 @@ const ID = {
 
 const people = [
   { id: ID.ana, display_name: "Ana", state: "active" },
-  { id: ID.ben, display_name: "Ben", state: "active", relationship_label: "running buddy" },
+  { id: ID.ben, display_name: "Ben", full_name: "Ben Carter", state: "active" },
   { id: ID.josh, display_name: "Josh", state: "active" },
   { id: ID.mom, display_name: "Mom", state: "active" },
-  { id: ID.sam1, display_name: "Sam", state: "active", relationship_label: "neighbor" },
-  { id: ID.sam2, display_name: "Sam", state: "active", relationship_label: "climbing" },
+  { id: ID.sam1, display_name: "Sam", full_name: "Sam Lee", state: "active" },
+  { id: ID.sam2, display_name: "Sam", full_name: "Sam Diaz", state: "active" },
   { id: ID.sarah, display_name: "Sarah", state: "active" },
 ] as unknown as Person[];
 
@@ -80,7 +87,7 @@ const reasons: ReasonRow[] = [
 
 function today(over: Partial<TodayInput> = {}) {
   return buildToday({
-    now: NOW, today: TODAY, reasons, items, people, local: {}, primaries: [], handoff: null, questions: 0, toLookAt: 0,
+    now: NOW, today: TODAY, reasons, items, people, local: {}, primaries: [], handoff: null, told: 6, questions: 0, toLookAt: 0,
     provenance: () => ({ line: "You told Kinship · Oct 8", noteId: "c1" }), ...over,
   });
 }
@@ -156,7 +163,7 @@ const line = (it: MemoryItem, prov = "You told Kinship · Oct 8"): PortraitLineD
 function Portrait(props: { children?: React.ReactNode; empty?: boolean; kept?: boolean }) {
   return (
     <PortraitView
-      personId={ID.ben} name="Ben" label="running buddy" remembered={false}
+      personId={ID.ben} name="Ben" label={null} remembered={false}
       lately={props.empty ? [] : [line(race), line(knee, "You told Kinship · Sep 2")]}
       comingUp={[]}
       youSaid={props.empty ? [] : [line(jam)]}
@@ -184,15 +191,73 @@ const peopleRows = [
   { id: ID.ben, label: "Ben", line: "Ben runs Chicago Sunday", remembered: false },
   { id: ID.josh, label: "Josh", line: "Josh has his interview Wednesday", remembered: false },
   { id: ID.mom, label: "Mom", line: null, remembered: false },
-  { id: ID.sam1, label: "Sam (neighbor)", line: null, remembered: false },
-  { id: ID.sam2, label: "Sam (climbing)", line: null, remembered: false },
+  { id: ID.sam1, label: "Sam Lee", line: null, remembered: false },
+  { id: ID.sam2, label: "Sam Diaz", line: null, remembered: false },
   { id: ID.sarah, label: "Sarah", line: null, remembered: false },
 ];
+
+// Setup fixtures: lab-only contacts (never in a real account; contract §7.9).
+const labContacts: DeviceContact[] = [
+  { id: "k1", name: "Maya Okafor", birthday: { day: 17, month: 10, year: 1991 } },
+  { id: "k2", name: "Mom" },
+  { id: "k3", name: "David Reyes", birthday: { day: 2, month: 3 } },
+  { id: "k4", name: "Ben Carter" },
+  { id: "k5", name: "Chris Alvarez" },
+  { id: "k6", name: "Sarah Kim", birthday: { day: 14, month: 10, year: 1988 } },
+  { id: "k7", name: "Grandpa Joe" },
+  { id: "k8", name: "Josh Lee" },
+  { id: "k9", name: "Priya Shah" },
+  { id: "k10", name: "Ana Torres" },
+  { id: "k11", name: "Dr. Feldman (dentist)" },
+  { id: "k12", name: "Sam Okafor" },
+];
+const pickLists = buildPickLists(labContacts, {
+  today: TODAY, existing: { contactRefs: new Set(), names: new Set() }, newId: (c) => `0000000${c.length}-0000-4000-8000-${c.padStart(12, "0")}`,
+});
+function Pick(over: Partial<PeoplePickViewProps>) {
+  return (
+    <PeoplePickView
+      label="Setting up · 2 of 3" access={{ state: "granted", limited: false }} suggested={pickLists.suggested}
+      everyone={pickLists.everyone} added={[]} results={null} query="" selected={new Set()} busy={false} error={null}
+      onQuery={noop} onToggle={noop} onAddByName={noop} onAsk={noop} onSettings={noop} onShareMore={noop} onContinue={noop} onSkip={noop}
+      {...over}
+    />
+  );
+}
+const picked = [...pickLists.suggested, ...pickLists.everyone].filter((r) => ["Maya Okafor", "Mom", "Sarah Kim", "Ben Carter"].includes(r.name));
+const pickedPeople = picked.map((r) => ({ id: r.personId, display_name: r.name, state: "active", birthday: r.birthday, birthday_source: r.birthday ? "contacts" : null })) as unknown as Person[];
+const worthLines = worthKnowing(picked.map((r) => ({ id: r.personId, name: r.name, birthday: r.birthday })), TODAY);
+
+// The memory proofs, exactly as src/features/person/__tests__/memoryProofs.test.ts computed them.
+type ProofPortrait = PortraitData & { person: { id: string; display_name: string } };
+const P = proofs as unknown as {
+  matt: { note: string; review: ReviewView; portrait: ProofPortrait; knows: RecordLine[]; source: NoteData; personId: string };
+  anna: { before: ProofPortrait; after: ProofPortrait; knowsAfter: RecordLine[]; personId: string };
+  knee: { before: ProofPortrait; after: ProofPortrait; knowsAfter: RecordLine[]; personId: string };
+  density: { fresh: ProofPortrait; light: ProofPortrait; rich: ProofPortrait; richKnows: RecordLine[] };
+};
+function ProofPage({ p }: { p: ProofPortrait }) {
+  return (
+    <PortraitView
+      personId={p.person.id} name={p.person.display_name} label={p.label} remembered={false}
+      lately={p.lately} comingUp={p.comingUp} youSaid={p.youSaid} between={p.between} total={p.total}
+      onBack={noop} onLine={noop} onSource={noop} onKnows={noop} onMessage={noop} onCall={noop} onTell={noop}
+    />
+  );
+}
+const proofPeople = [{ id: P.matt.personId, display_name: "Matt", state: "active" }] as unknown as Person[];
 
 export const LAB_STATES = [
   "today", "today-quiet", "today-return", "today-after", "handoff", "handoff-choose", "tell", "kept", "offline",
   "review", "keep", "sams", "sams-answering", "sarah", "maya", "changed",
   "welcome", "welcome-busy", "welcome-error", "welcome-email", "welcome-email-error", "welcome-no-apple",
+  "setup-consent", "setup-ask", "setup-people", "setup-people-picked", "setup-search", "setup-denied", "setup-limited",
+  "setup-add-name", "setup-worth", "setup-tell", "today-first", "today-first-empty", "today-birthday", "today-birthday-week",
+  "people-empty", "person-birthday", "setup-name", "tell-draft", "tell-about",
+  "how-1", "how-2", "how-3", "how-4", "how-4-reply", "how-4-after", "setup-worth-typed",
+  "matt-tell", "matt-review", "matt-person", "matt-knows", "matt-source",
+  "anna-before", "anna-after", "anna-knows", "knee-before", "knee-after", "knee-knows",
+  "person-new", "person-light", "person-rich", "person-rich-knows",
   "consent", "settings", "people", "people-add", "person", "person-empty", "correction", "correction-date", "knows", "source",
 ] as const;
 
@@ -267,7 +332,7 @@ export function V2Lab({ state }: { state: string }) {
           methods={{ apple: state !== "welcome-no-apple", google: true, email: true }}
           busy={state === "welcome-busy"}
           error={state === "welcome-error" ? "That didn't work. Please try again." : null}
-          onApple={noop} onGoogle={noop} onEmail={noop} onTerms={noop} onPrivacy={noop}
+          onApple={noop} onGoogle={noop} onEmail={noop} onTerms={noop} onPrivacy={noop} onHowItWorks={noop}
         />
       );
     case "welcome-email":
@@ -280,13 +345,119 @@ export function V2Lab({ state }: { state: string }) {
             onEmail={noop} onPassword={noop} onMode={noop} onSubmit={noop} onDismiss={noop} />
         </WelcomeView>
       );
+    case "how-1":
+    case "how-2":
+    case "how-3":
+    case "how-4":
+      return <HowItWorksView step={Number(state.slice(4)) - 1} onNext={noop} onClose={noop} />;
+    case "how-4-reply":
+    case "how-4-after":
+      return <HowItWorksView step={3} onNext={noop} onClose={noop} initialPhase={state === "how-4-reply" ? 1 : 2} />;
+    case "setup-worth-typed":
+      return <WorthStepView label="Setting up · 3 of 3" lines={worthLines} text="Maya starts her new job next month." busy={false} onText={noop} onKeep={noop} onSkip={noop} />;
+    case "matt-tell":
+      return <Phone nav="today" dock={<TellDockView tellOn draft={P.matt.note} onDraft={noop} onSend={noop} line={null} current="today" onGo={noop} />}><TodayLab view={today({ reasons: [], items: [], told: 3 })} /></Phone>;
+    case "matt-review":
+      return (
+        <Phone nav="today">
+          <TodayLab view={today({ reasons: [], items: [], told: 3 })} />
+          <ReviewSheet view={P.matt.review} visible people={proofPeople} today={TODAY} onDismiss={noop} onDone={noop} onUndo={noop}
+            onReject={noop} onCorrect={noop} onAnswer={noop} onOpenNote={noop} onActivity={noop} />
+        </Phone>
+      );
+    case "matt-person":
+      return <ProofPage p={P.matt.portrait} />;
+    case "matt-knows":
+      return <PersonRecordView name="Matt" label={null} lines={P.matt.knows} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+    case "matt-source":
+      return <NoteView note={P.matt.source} onBack={noop} onPerson={noop} onDelete={noop} />;
+    case "anna-before":
+      return <ProofPage p={P.anna.before} />;
+    case "anna-after":
+      return <ProofPage p={P.anna.after} />;
+    case "anna-knows":
+      return <PersonRecordView name="Anna" label={null} lines={P.anna.knowsAfter} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+    case "knee-before":
+      return <ProofPage p={P.knee.before} />;
+    case "knee-after":
+      return <ProofPage p={P.knee.after} />;
+    case "knee-knows":
+      return <PersonRecordView name="Ben" label={null} lines={P.knee.knowsAfter} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+    case "person-new":
+      return <ProofPage p={P.density.fresh} />;
+    case "person-light":
+      return <ProofPage p={P.density.light} />;
+    case "person-rich":
+      return <ProofPage p={P.density.rich} />;
+    case "person-rich-knows":
+      return <PersonRecordView name="Priya" label={null} lines={P.density.richKnows} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+    case "setup-name":
+      return <NameStepView label="Setting up · 1 of 4" name="" busy={false} onName={noop} onContinue={noop} onSkip={noop} autoFocus={false} />;
+    case "tell-draft":
+      return (
+        <Phone nav="people" dock={<TellDockView tellOn draft="My wife is really excited for our Disney trip on October 23rd" onDraft={noop} onSend={noop}
+          line={null} current="people" onGo={noop}
+          collapsed={{ preview: draftPreview("My wife is really excited for our Disney trip on October 23rd", null), onExpand: noop }} />}>
+          <PeopleView rows={peopleRows} onOpen={noop} onAdd={async () => undefined} onSettings={noop} />
+        </Phone>
+      );
+    case "tell-about":
+      return (
+        <Phone nav="today" dock={<TellDockView tellOn draft="Ran 3:52. Wants to do Berlin next." onDraft={noop} onSend={noop} line={null} current="today" onGo={noop} about="Ben" />}>
+          <TodayLab />
+        </Phone>
+      );
+    case "setup-consent":
+      return <ConsentStepView label="Setting up · 1 of 3" busy={false} onAllow={noop} onDecline={noop} />;
+    case "setup-ask":
+      return <Pick access={{ state: "undetermined" }} suggested={[]} everyone={[]} />;
+    case "setup-people":
+      return <Pick />;
+    case "setup-people-picked":
+      return <Pick selected={new Set(picked.map((r) => r.personId))} />;
+    case "setup-search":
+      return <Pick query="sa" results={searchRows(pickLists, "sa")} selected={new Set(picked.map((r) => r.personId))} />;
+    case "setup-denied":
+      return <Pick access={{ state: "denied", canAskAgain: false }} suggested={[]} everyone={[]} />;
+    case "setup-limited":
+      return <Pick access={{ state: "granted", limited: true }} suggested={pickLists.suggested.slice(0, 2)} everyone={[]} />;
+    case "setup-add-name":
+      return (
+        <View style={{ flex: 1 }}>
+          <Pick access={{ state: "denied", canAskAgain: false }} suggested={[]} everyone={[]} />
+          <AddByNameSheet initial="" onDismiss={noop} onDone={async () => undefined} />
+        </View>
+      );
+    case "setup-worth":
+      return <WorthStepView label="Setting up · 3 of 3" lines={worthLines} text="" busy={false} onText={noop} onKeep={noop} onSkip={noop} />;
+    case "setup-tell":
+      return <WorthStepView label="Setting up · 3 of 3" lines={[]} text="" busy={false} onText={noop} onKeep={noop} onSkip={noop} />;
+    case "today-first":
+      return <Phone nav="today"><TodayLab view={today({ reasons: [], items: [], people: pickedPeople.filter((x) => !x.birthday), told: 0 })} /></Phone>;
+    case "today-first-empty":
+      return <Phone nav="today"><TodayLab view={today({ reasons: [], items: [], people: [], told: 0 })} /></Phone>;
+    case "today-birthday":
+      return <Phone nav="today"><TodayLab view={today({ reasons: [], items: [], people: [{ ...pickedPeople[0], birthday: "1991-10-12" } as Person, ...pickedPeople.slice(1)], told: 0 })} /></Phone>;
+    case "today-birthday-week":
+      return <Phone nav="today"><TodayLab view={today({ people: [...people, ...pickedPeople], told: 3 })} /></Phone>;
+    case "people-empty":
+      return <Phone nav="people"><PeopleView rows={[]} onOpen={noop} onAdd={async () => undefined} onSettings={noop} onAddFromContacts={noop} /></Phone>;
+    case "person-birthday":
+      return (
+        <PortraitView
+          personId={picked.find((r) => r.name === "Sarah Kim")?.personId ?? ""} name="Sarah Kim" label={null} remembered={false} lately={[]} youSaid={[]} between={[]} total={0}
+          comingUp={[{ itemId: "birthday", statement: "Sarah's birthday", when: "14 October", provenance: "From Contacts", noteId: null, fixed: true }]}
+          onBack={noop} onLine={noop} onSource={noop} onKnows={noop} onMessage={noop} onCall={noop} onTell={noop}
+        />
+      );
     case "consent":
       return <Phone nav="today"><TodayLab view={today({ reasons: [], items: [] })} /><ConsentSheetView visible busy={false} onAllow={noop} onDecline={noop} /></Phone>;
     case "settings":
       return (
         <Phone nav="people">
           <PeopleView rows={peopleRows} onOpen={noop} onAdd={async () => undefined} onSettings={noop} />
-          <SettingsSheetView visible understanding onUnderstanding={noop} onSignOut={noop} onDismiss={noop} />
+          <SettingsSheetView visible understanding onUnderstanding={noop} onSignOut={noop} onDismiss={noop}
+            contacts={{ state: "granted", limited: false }} onAddFromContacts={noop} />
         </Phone>
       );
     case "people":
@@ -309,7 +480,7 @@ export function V2Lab({ state }: { state: string }) {
         </Portrait>
       );
     case "knows":
-      return <PersonRecordView name="Ben" label="running buddy" lines={record} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+      return <PersonRecordView name="Ben" label={null} lines={record} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
     case "source":
       return (
         <NoteView

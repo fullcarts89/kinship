@@ -4,6 +4,7 @@
 // a score, a model, a guard or a table; how sure the reading was only decides
 // whether the review is a quiet summary or a sheet to look over.
 
+import { voiced } from "@/features/memory/statements";
 import type { HeldAnswer, HeldItem } from "@/store/gateway";
 import { SWITCHABLE_KINDS, takesDate } from "@/store/memoryDetail";
 import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
@@ -122,7 +123,9 @@ export function buildReview(input: ReviewInput): ReviewView {
   const reading = row.reading;
   const lines = input.items.map((item) => itemLine(item, input));
   const answering = row.state === "answering";
-  const questions = questionWaiting(reading) && !answering ? questionsFor(reading.held, input) : [];
+  // Held statements are read the way the user reads everything: as "you".
+  const held = reading.held.map(voiced);
+  const questions = questionWaiting(reading) && !answering ? questionsFor(held, input) : [];
   const heading = headingFor(input, lines);
   const base: ReviewView = {
     ...empty,

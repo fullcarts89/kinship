@@ -22,7 +22,10 @@ function texts(el: React.ReactElement): string[] {
 it("the consent sheet carries the approved disclosure and the interim provider line", () => {
   const t = texts(<ConsentSheetView visible busy={false} onAllow={() => undefined} onDecline={() => undefined} />);
   expect(CONSENT_COPY.body).toBe(D2);
-  expect(t).toEqual(expect.arrayContaining([D2, "Sent to Anthropic to understand it; not used to train models.", "Allow", "Keep notes as written"]));
+  expect(t).toEqual(expect.arrayContaining([D2, "Sent to Anthropic to understand it; not used to train models.", "Allow understanding", "Keep notes as written"]));
+  // What Kinship asks to do comes first; the disclosure follows, complete (recovery pass, F16).
+  expect(t.indexOf(CONSENT_COPY.benefit)).toBeGreaterThan(-1);
+  expect(t.indexOf(CONSENT_COPY.benefit)).toBeLessThan(t.indexOf(D2));
   // Never claims the provider keeps nothing (D2: not until zero-retention terms apply).
   for (const s of t) expect(s).not.toMatch(/retain|kept nothing|never stored|deleted immediately/i);
 });

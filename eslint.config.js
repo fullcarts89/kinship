@@ -37,6 +37,12 @@ const screenLayerPaths = [
   ),
 ];
 
+const nativePressable = {
+  name: "react-native",
+  importNames: ["Pressable"],
+  message: "Use Pressable from @/ui/Pressable: on a phone NativeWind drops a Pressable's style function, so the control loses its look.",
+};
+
 module.exports = defineConfig([
   expoConfig,
   {
@@ -57,6 +63,23 @@ module.exports = defineConfig([
     files: ["app/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": ["error", { paths: [...sharedPaths, ...screenLayerPaths] }],
+    },
+  },
+  {
+    // 2.0 controls use @/ui/Pressable. On a phone, NativeWind's wrapper around
+    // React Native's Pressable turns a style function into {}, so a control
+    // drawn with `style={({ pressed }) => …}` loses its size and fill (the
+    // founder build's missing send button and broken Apple button).
+    files: ["src/ui/**/*.{ts,tsx}", "src/features/**/*.{ts,tsx}"],
+    ignores: ["src/ui/Pressable.tsx"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: [...sharedPaths, nativePressable] }],
+    },
+  },
+  {
+    files: ["app/v2/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: [...sharedPaths, ...screenLayerPaths, nativePressable] }],
     },
   },
   {

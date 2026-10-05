@@ -5,10 +5,11 @@
 // ai_extraction are checked again by the server on every call; the app's
 // copy only decides what to show.
 //
-// The app keeps the last answer on the device, so a relaunch, even offline,
-// decides the same way, and asks the server again in the background. A change
-// therefore shows on the next launch after the app has seen it. Unknown is
-// off: no flag ever turns on by accident.
+// At launch the app asks the server first (a few seconds at most), so an
+// account switched on is on at its very next launch. Without an answer in
+// time (offline, a slow start), it decides from the last answer kept on the
+// device, and an answer that arrives late is still kept for next time.
+// Unknown is off: no flag ever turns on by accident.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -42,28 +43,34 @@ export class FlagRepo {
   constructor(
     private readonly source: FlagSource,
     private readonly cache: FlagCache,
-    private readonly timeoutMs = 2500,
+    private readonly timeoutMs = 4000,
   ) {}
 
-  /** What to launch with: this user's last known flags, else the server's (briefly), else all off. */
+  /** What to launch with: the server's answer if it comes in time, else this user's last known flags, else all off. */
   async atLaunch(userId: string): Promise<Flags> {
-    return (await this.cached(userId)) ?? (await this.refresh(userId)) ?? {};
+    return (await this.refresh(userId)) ?? (await this.cached(userId)) ?? {};
   }
 
-  /** Asks the server. Remembers and returns its answer, or null if none came in time. */
+  /**
+   * Asks the server and returns its answer, or null if none came in time.
+   * Every answer is remembered on the device, even one that arrives after
+   * the wait, so a slow start never leaves a stale copy behind.
+   */
   async refresh(userId: string): Promise<Flags | null> {
-    let flags: Flags;
+    const answer = this.source.fetch().then(async (flags) => {
+      try {
+        await this.cache.write(JSON.stringify({ user_id: userId, flags }));
+      } catch {
+        // Not remembered: the next launch asks again.
+      }
+      return flags;
+    });
+    answer.catch(() => undefined);
     try {
-      flags = await withTimeout(this.source.fetch(), this.timeoutMs);
+      return await withTimeout(answer, this.timeoutMs);
     } catch {
       return null;
     }
-    try {
-      await this.cache.write(JSON.stringify({ user_id: userId, flags }));
-    } catch {
-      // Not remembered: the next launch asks again.
-    }
-    return flags;
   }
 
   private async cached(userId: string): Promise<Flags | null> {

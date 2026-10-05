@@ -3,9 +3,10 @@
 // sheet on top of a sheet.
 
 import React, { useMemo, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Text, TextInput, View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
-import { height, maxScale, radius, size, space, TOUCH, type } from "@/design/tokens";
+import { height, maxScale, press, radius, size, space, TOUCH, type } from "@/design/tokens";
 import { kindLabel, monthName, spokenDay } from "@/features/memory/format";
 import { SWITCHABLE_KINDS, type SwitchableKind } from "@/store/memoryDetail";
 import type { Person } from "@/store/repositories";
@@ -168,7 +169,7 @@ export function DatePane({
                 accessibilityLabel={spokenDay(day)}
                 accessibilityState={{ selected }}
                 onPress={() => onPick(day)}
-                style={{ flex: 1, minHeight: TOUCH, alignItems: "center", justifyContent: "center" }}
+                style={({ pressed }) => ({ flex: 1, minHeight: TOUCH, alignItems: "center", justifyContent: "center", opacity: pressed ? press.surface : 1 })}
               >
                 <View
                   style={{

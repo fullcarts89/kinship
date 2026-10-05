@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { PersonRecordView } from "@/features/person/PersonRecordView";
+import { FORGET_COPY, PersonRecordView } from "@/features/person/PersonRecordView";
 import { DatePane, KindPane, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import { todayIso, usePeople, usePersonRecord, useUnderstanding, useV2Actions } from "@/hooks/useV2";
@@ -31,9 +31,9 @@ export default function KnowsScreen() {
       onBack={() => router.back()}
       onChange={(line, kind) => setPane({ kind, line })}
       onForget={(r) =>
-        Alert.alert("Forget this?", r.line.statement, [
-          { text: "Keep it", style: "cancel" },
-          { text: "Forget", style: "destructive", onPress: () => fail(u.reject(r.line.id)) },
+        Alert.alert(FORGET_COPY.title, r.line.statement, [
+          { text: FORGET_COPY.cancel, style: "cancel" },
+          { text: FORGET_COPY.forget, style: "destructive", onPress: () => fail(u.reject(r.line.id)) },
         ])}
       onSource={(noteId) => router.push(`/v2/source/${noteId}`)}
       onSettle={(conflictId, choice) => fail(settleConflict(conflictId, choice))}

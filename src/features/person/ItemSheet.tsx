@@ -3,8 +3,9 @@
 // and what as tokens, where it came from, and "Not this". A token opens its
 // picker in the same sheet; a change saves at once.
 import React, { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
-import { space } from "@/design/tokens";
+import { View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
+import { press, space } from "@/design/tokens";
 import type { Correction } from "@/features/tell/ReviewSheet";
 import { DatePane, KindPane, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
@@ -12,6 +13,11 @@ import type { Person } from "@/store/repositories";
 import { MomentText, Pill, Provenance, Sheet, Small, Token, TokenRow } from "@/ui";
 
 type Pane = "item" | "person" | "date" | "kind" | "words";
+
+export const ITEM_COPY = {
+  edit: "Edit the words",
+  tokens: "Tap who, when or what to change it.",
+} as const;
 
 export interface ItemSheetProps {
   item: { line: ItemLine; provenance: string; noteId: string | null } | null;
@@ -54,10 +60,14 @@ export function ItemSheet(props: ItemSheetProps) {
             accessibilityLabel={line.statement}
             accessibilityHint="Double-tap to change the words"
             onPress={() => setPane("words")}
+            style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
           >
             <MomentText>{line.statement}</MomentText>
           </Pressable>
-          <View style={{ marginTop: space.m }}>
+          <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
+            <Pill variant="quiet" label={ITEM_COPY.edit} accessibilityHint="Change the words" onPress={() => setPane("words")} />
+          </View>
+          <View style={{ marginTop: space.xs }}>
             <TokenRow>
               {line.person?.changeable ? <Token what="Who" value={line.person.label} onPress={() => setPane("person")} /> : null}
               {line.about ? <Token what="About" value={line.about} /> : null}
@@ -69,7 +79,7 @@ export function ItemSheet(props: ItemSheetProps) {
             <Provenance line={it.provenance} onPress={it.noteId ? () => props.onSource(it.noteId as string) : undefined} />
           </View>
           {line.edited ? <Small style={{ marginTop: space.xs }}>You edited this</Small> : null}
-          <Small style={{ marginTop: space.xl }}>Tap any underlined word to change it.</Small>
+          <Small style={{ marginTop: space.xl }}>{ITEM_COPY.tokens}</Small>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: space.m }}>
             <Pill variant="danger" size="small" label="Not this" accessibilityHint="Kinship forgets this" onPress={() => props.onForget(line.id)} />
             <View style={{ flex: 1 }} />

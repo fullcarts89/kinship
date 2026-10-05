@@ -13,8 +13,13 @@ import { Platform } from "react-native";
 export type EntryShell = "v1" | "v2";
 const KEY = "kinship.entry_shell";
 
-export function buildEntryShell(env: Record<string, string | undefined> = process.env): EntryShell | null {
-  return env.EXPO_PUBLIC_V2_ENTRY === "1" ? "v2" : null;
+// Written as process.env.EXPO_PUBLIC_V2_ENTRY on purpose: Expo bakes a build
+// setting into the app only where it appears literally like this. Read
+// through a variable, it is undefined in every release build.
+const BUILT_V2_ENTRY = process.env.EXPO_PUBLIC_V2_ENTRY;
+
+export function buildEntryShell(value: string | undefined = BUILT_V2_ENTRY): EntryShell | null {
+  return value === "1" ? "v2" : null;
 }
 
 async function store() {

@@ -19,6 +19,7 @@ export default function PeopleScreen() {
         onOpen={(id) => router.push(`/v2/person/${id}`)}
         onAdd={addPerson}
         onSettings={() => setSettings(true)}
+        onAddFromContacts={() => router.push("/v2/people/add")}
       />
       <SettingsSheet
         visible={settings}
@@ -26,6 +27,7 @@ export default function PeopleScreen() {
         understanding={consent.allowed}
         setUnderstanding={consent.set}
         signOut={signOut}
+        onAddFromContacts={() => router.push("/v2/people/add")}
       />
     </>
   );

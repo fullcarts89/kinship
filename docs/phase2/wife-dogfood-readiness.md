@@ -1,5 +1,7 @@
 # Wife dogfood: readiness
 
+> **Superseded (5 Oct 2026)** by `docs/product/wife-dogfood-final-review.md` and `docs/product/approved-design-coverage.md`. This document judged readiness from seeded lab screens and missed that a new account opened onto an empty Today and People. Kept for history.
+
 **Status: not ready to hand over. Code-complete for the slice, pending a native-device pass and a build.** No account is enabled. No internal user id has been requested. All four flags (`shell_v2`, `tell`, `ai_extraction`, `memory_v2`) stay OFF for everyone.
 
 **The question.** Does Kinship feel beautiful, obvious and low-effort enough that someone who doesn't care about the AI underneath would still want to use it? In the lab, it is close. On a phone, nobody has looked yet. That is the gap.

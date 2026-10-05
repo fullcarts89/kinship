@@ -32,7 +32,7 @@ function reason(id: string, type: string, person: string, itemId: string, from: 
 function input(over: Partial<TodayInput> = {}): TodayInput {
   return {
     now: NOW, today: "2026-10-12", items: [race, interview], people, local: {}, primaries: [], handoff: null,
-    questions: 0, toLookAt: 0, provenance: () => ({ line: "You told Kinship · Oct 8", noteId: "c1" }),
+    told: 3, questions: 0, toLookAt: 0, provenance: () => ({ line: "You told Kinship · Oct 8", noteId: "c1" }),
     reasons: [reason("r1", "event_followup", "ben", "m1", 12, 14), reason("r2", "upcoming_event", "josh", "m2", 12, 13)],
     ...over,
   };
@@ -135,4 +135,53 @@ it("a greeting and a date, and no system vocabulary anywhere", () => {
   const shown = [v.dateLabel, v.greeting, m.statement, m.context, m.provenance, m.primary.label, m.primary.hint, m.heading,
     ...m.mention, ...v.quiet.flatMap((q) => [q.label, q.text, "action" in q ? q.action : ""])];
   for (const s of shown) expect(String(s)).not.toMatch(/\b(score|tier|reason|candidate|model|AI|confidence|extract\w*|algorithm)\b/i);
+});
+
+// ─── Birthdays (from Contacts) and first use vs a quiet day (contract §8) ─
+
+const maya = { id: "maya", display_name: "Maya Okafor", state: "active", birthday: "1991-10-12", birthday_source: "contacts" } as unknown as Person;
+const quietInput = (over: Partial<TodayInput> = {}) => input({ reasons: [], items: [], ...over });
+
+it("a birthday today is the moment, from Contacts, with a way to reach them", () => {
+  const v = buildToday(quietInput({ people: [...people, maya] }));
+  expect(v.moment).toMatchObject({
+    type: "birthday", personId: "maya", statement: "It's Maya's birthday.", provenance: "From Contacts", itemId: null,
+    primary: { label: "Message Maya" }, heading: "Wish Maya a happy birthday",
+  });
+  expect(v.quietDay).toBe(false);
+  expect(v.firstUse).toBeNull();
+});
+
+it("a birthday this week is a quiet line; tomorrow says Tomorrow", () => {
+  const soon = { ...maya, birthday: "1991-10-13" } as Person;
+  const v = buildToday(quietInput({ people: [...people, soon] }));
+  expect(v.moment).toBeNull();
+  expect(v.quiet).toEqual([{ kind: "coming", label: "Tomorrow", text: "Maya's birthday", personId: "maya", itemId: null }]);
+});
+
+it("no birthday reasons for remembered or paused people (D13), or a birthday without a source", () => {
+  for (const state of ["remembered", "paused"]) {
+    expect(buildToday(quietInput({ people: [{ ...maya, state } as Person] })).moment).toBeNull();
+  }
+  expect(buildToday(quietInput({ people: [{ ...maya, birthday_source: null } as unknown as Person] })).moment).toBeNull();
+});
+
+it("a birthday put aside with Not now doesn't come back that day", () => {
+  const v = buildToday(quietInput({ people: [maya], local: { "birthday:maya:2026-10-12": { dismissed: "2026-10-12T08:00:00Z" } } }));
+  expect(v.moment).toBeNull();
+});
+
+it("first use is not a quiet day: nothing told yet → Today explains itself", () => {
+  const v = buildToday(quietInput({ told: 0 }));
+  expect(v.quietDay).toBe(false);
+  expect(v.firstUse).toEqual({ hasPeople: true });
+  const empty = buildToday(quietInput({ people: [], told: 0 }));
+  expect(empty.firstUse).toEqual({ hasPeople: false });
+  expect(empty.quietDay).toBe(false);
+});
+
+it("an account in use with nothing to say: Nothing needs you today", () => {
+  const v = buildToday(quietInput({ told: 4 }));
+  expect(v.firstUse).toBeNull();
+  expect(v.quietDay).toBe(true);
 });

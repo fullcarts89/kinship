@@ -23,7 +23,9 @@
     "dogfood-v2": {
       "extends": "preview",
       "env": {
-        "EXPO_PUBLIC_V2_ENTRY": "1"
+        "EXPO_PUBLIC_V2_ENTRY": "1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kddpxiiyxgvjrtpdkvio.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtkZHB4aWl5eGd2anJ0cGRrdmlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxOTUyNTcsImV4cCI6MjA4Nzc3MTI1N30.x99wG7gF34mvKVJDRF8LcyqTbArqlaUcmoEEof4Q2Es"
       }
     },
     "production": {
@@ -31,9 +33,18 @@
       "env": {
         "EXPO_PUBLIC_SENTRY_DSN": "https://5b8f839512cd7473429c416c9780ab8b@o4512185268371456.ingest.us.sentry.io/4512185274531840"
       }
+    },
+    "testflight-v2": {
+      "extends": "production",
+      "env": {
+        "EXPO_PUBLIC_V2_ENTRY": "1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kddpxiiyxgvjrtpdkvio.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtkZHB4aWl5eGd2anJ0cGRrdmlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxOTUyNTcsImV4cCI6MjA4Nzc3MTI1N30.x99wG7gF34mvKVJDRF8LcyqTbArqlaUcmoEEof4Q2Es"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "testflight-v2": {}
   }
 }

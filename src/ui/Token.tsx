@@ -2,8 +2,9 @@
 // when, what kind. A solid 1.5 pt ochre underline marks it; the underline is
 // not the only cue: it is a button with a label and a hint.
 import React from "react";
-import { Pressable, Text, View } from "react-native";
-import { maxScale, space, stroke, type } from "@/design/tokens";
+import { Text, View } from "react-native";
+import { Pressable } from "./Pressable";
+import { maxScale, press, space, stroke, type } from "@/design/tokens";
 import { usePalette } from "./theme";
 
 export function Token({ value, what, onPress }: { value: string; what: string; onPress?: () => void }) {
@@ -22,7 +23,7 @@ export function Token({ value, what, onPress }: { value: string; what: string; o
       accessibilityHint="Double-tap to change"
       onPress={onPress}
       hitSlop={{ top: space.m, bottom: space.m, left: space.xs, right: space.xs }}
-      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+      style={({ pressed }) => ({ opacity: pressed ? press.link : 1 })}
     >
       <View style={{ borderBottomWidth: stroke.underline, borderBottomColor: p.ochre, paddingBottom: 1 }}>
         <Text maxFontSizeMultiplier={maxScale.text} style={[type.field, { color: p.inkBody }]}>{value}</Text>

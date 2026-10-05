@@ -69,7 +69,7 @@ it("Ben, everywhere it's shown: the note's words, a formatted date, and nothing 
     now: new Date(2026, 9, 12, 9, 0), today: "2026-10-12", items: [{ ...race, sensitivity: "none" } as MemoryItem], people,
     reasons: [{ id: "r1", person_id: "ben", type: "event_followup", window_start: new Date(2026, 9, 12).toISOString(),
       window_end: new Date(2026, 9, 14).toISOString(), score: 90, state: "candidate", dedupe_key: "event_followup:m1:2026-10-11" }],
-    local: {}, primaries: [], handoff: null, questions: 0, toLookAt: 0,
+    local: {}, primaries: [], handoff: null, told: 1, questions: 0, toLookAt: 0,
     provenance: () => ({ line: "You told Kinship · Oct 8", noteId: "c1" }),
   });
   expect(today.moment?.statement).toBe("How did it go for Ben?");
@@ -100,9 +100,17 @@ it("Ben, everywhere it's shown: the note's words, a formatted date, and nothing 
     // Every surface that shows the memory shows it in the note's words (the hand-off lists other things to mention).
     if (surface !== "handoff") expect([surface, strings.some((s) => s.includes("Ben runs Chicago Sunday"))]).toEqual([surface, true]);
   }
-  // The structured detail is never turned into words on screen.
+  // The structured detail is never turned into words on screen, with one
+  // exception the founder asked for (recovery pass): the event's own hope,
+  // in the note's own words, beside its moment ("Ben is hoping to break four
+  // hours."). Its words must be the note's.
+  const hope = /^Ben (?:is|was) hoping to (.+)\.$/u;
   for (const strings of Object.values(surfaces)) {
-    expect(strings.some((s) => /four hours/.test(s) && !NOTE.includes(s) && !/^“?Ben runs/.test(s))).toBe(false);
+    expect(strings.some((s) => /four hours/.test(s) && !NOTE.includes(s) && !/^“?Ben runs/.test(s) && !hope.test(s))).toBe(false);
+    for (const s of strings) {
+      const m = s.match(hope);
+      if (m) expect(NOTE).toContain(m[1]);
+    }
   }
 });
 

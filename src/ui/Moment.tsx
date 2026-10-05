@@ -12,6 +12,7 @@ import { useReduceMotion } from "./theme";
 export function Moment({
   statement,
   context,
+  hope,
   personId,
   provenance,
   onProvenance,
@@ -21,6 +22,8 @@ export function Moment({
   statement: string;
   /** One line under the statement ("Ben runs Chicago Sunday"). */
   context?: string | null;
+  /** What they hoped for, with the event ("Ben was hoping to break four hours."). */
+  hope?: string | null;
   /** Whose sprig sits beside it. */
   personId?: string | null;
   provenance?: string | null;
@@ -50,6 +53,7 @@ export function Moment({
         <View style={{ flex: 1 }}>
           <Display>{statement}</Display>
           {context ? <Body style={{ marginTop: space.m }}>{context}</Body> : null}
+          {hope ? <Body tone="ink" style={{ marginTop: space.xs }}>{hope}</Body> : null}
           {provenance ? (
             <View style={{ marginTop: space.s }}>
               <Provenance line={provenance} onPress={onProvenance} />

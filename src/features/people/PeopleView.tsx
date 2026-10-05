@@ -5,7 +5,8 @@ import React, { useMemo, useState } from "react";
 import { TextInput, View } from "react-native";
 import { Plus, Search, Settings } from "lucide-react-native";
 import { height, maxScale, radius, size, space, type } from "@/design/tokens";
-import { Body, IconButton, Pill, Row, Screen, Sheet, Sprig, Title, usePalette } from "@/ui";
+import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
+import { Body, IconButton, Pill, Row, Screen, Sprig, usePalette } from "@/ui";
 
 export interface PersonRowData {
   id: string;
@@ -20,6 +21,7 @@ export function PeopleView({
   onAdd,
   initialAdding = null,
   onSettings,
+  onAddFromContacts,
 }: {
   rows: PersonRowData[];
   onOpen: (personId: string) => void;
@@ -28,6 +30,8 @@ export function PeopleView({
   initialAdding?: string | null;
   /** Settings, from the header. */
   onSettings?: () => void;
+  /** Add from contacts (the setup picker). */
+  onAddFromContacts?: () => void;
 }) {
   const p = usePalette();
   const [query, setQuery] = useState("");
@@ -85,9 +89,10 @@ export function PeopleView({
 
       {rows.length === 0 ? (
         <View style={{ marginTop: space.l }}>
-          <Body>{"No one yet. Add someone, or tell Kinship about them."}</Body>
-          <View style={{ alignItems: "flex-start", marginTop: space.l }}>
-            <Pill label="Add someone" onPress={() => setAdding("")} />
+          <Body>{"The people you care about will be here. Bring them in from your contacts, or add someone by name."}</Body>
+          <View style={{ alignItems: "flex-start", gap: space.xs, marginTop: space.l }}>
+            {onAddFromContacts ? <Pill variant="primary" label="Add from contacts" onPress={onAddFromContacts} /> : null}
+            <Pill variant={onAddFromContacts ? "quiet" : "primary"} label="Add by name" onPress={() => setAdding("")} />
           </View>
         </View>
       ) : shown.length === 0 ? (
@@ -97,9 +102,13 @@ export function PeopleView({
         </View>
       ) : null}
 
-      <AddPersonSheet
+      <AddByNameSheet
         initial={adding}
         onDismiss={() => setAdding(null)}
+        onContacts={onAddFromContacts ? () => {
+          setAdding(null);
+          onAddFromContacts();
+        } : undefined}
         onDone={async (name) => {
           await onAdd(name);
           setAdding(null);
@@ -107,58 +116,5 @@ export function PeopleView({
         }}
       />
     </Screen>
-  );
-}
-
-function AddPersonSheet({
-  initial,
-  onDismiss,
-  onDone,
-}: {
-  initial: string | null;
-  onDismiss: () => void;
-  onDone: (name: string) => Promise<void>;
-}) {
-  const p = usePalette();
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  React.useEffect(() => {
-    if (initial !== null) setName(initial);
-  }, [initial]);
-  const done = async () => {
-    if (!name.trim() || busy) return;
-    setBusy(true);
-    try {
-      await onDone(name);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <Sheet
-      visible={initial !== null}
-      onDismiss={onDismiss}
-      label="Add someone"
-      footer={<Pill variant="primary" label="Done" disabled={!name.trim() || busy} onPress={() => void done()} />}
-    >
-      <Title>Add someone</Title>
-      <TextInput
-        value={name}
-        onChangeText={setName}
-        autoFocus
-        placeholder="Their name"
-        placeholderTextColor={p.inkQuiet}
-        accessibilityLabel="Their name"
-        returnKeyType="done"
-        onSubmitEditing={() => void done()}
-        maxLength={80}
-        autoCapitalize="words"
-        maxFontSizeMultiplier={maxScale.text}
-        style={[type.moment, {
-          color: p.ink, marginTop: space.l, paddingVertical: space.m, borderBottomWidth: 1, borderBottomColor: p.hairline,
-          outlineWidth: 0,
-        }]}
-      />
-    </Sheet>
   );
 }

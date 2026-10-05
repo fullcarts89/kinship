@@ -1,8 +1,9 @@
 // A hairline-separated line (plan §18): people, items, choices. Lists are
 // hairlines, not cards.
 import React from "react";
-import { Pressable, View } from "react-native";
-import { height, space, TOUCH } from "@/design/tokens";
+import { View } from "react-native";
+import { Pressable } from "./Pressable";
+import { height, press, space, TOUCH } from "@/design/tokens";
 import { Body, Small } from "./Text";
 import { usePalette } from "./theme";
 
@@ -58,7 +59,7 @@ export function Row({
       accessibilityHint={accessibilityHint}
       accessibilityState={{ selected }}
       onPress={onPress}
-      style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
+      style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
     >
       {content}
     </Pressable>

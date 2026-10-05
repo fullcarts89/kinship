@@ -4,10 +4,11 @@
 // you. Every line says where it came from; tap a line to correct it, tap its
 // provenance for the note. Message, Call and Tell sit at the bottom.
 import React from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
-import { GUTTER, height, radius, size, space } from "@/design/tokens";
-import { Body, IconButton, Label, Line, Name, Pill, Provenance, Screen, Small, Sprig, usePalette } from "@/ui";
+import { GUTTER, height, press, size, space } from "@/design/tokens";
+import { Body, Label, Line, Name, Pill, Provenance, Screen, Small, Sprig, usePalette } from "@/ui";
 
 export interface PortraitLineData {
   itemId: string;
@@ -15,6 +16,8 @@ export interface PortraitLineData {
   when: string | null;
   provenance: string;
   noteId: string | null;
+  /** From the person's record (a contact's birthday): shown, not corrected here. */
+  fixed?: boolean;
 }
 
 export interface PortraitViewProps {
@@ -36,6 +39,8 @@ export interface PortraitViewProps {
   onTell: () => void;
   /** What happened to a note just told from here ("Kept: …", Undo). */
   kept?: React.ReactNode;
+  /** An unsent note about them is waiting (Tell reopens it). */
+  hasDraft?: boolean;
   children?: React.ReactNode;
 }
 
@@ -58,15 +63,19 @@ function Section({ title, lines, ochre, onLine, onSource }: {
       <Label tone={ochre ? "ochreText" : "inkQuiet"} accessibilityRole="header">{title}</Label>
       {lines.map((l) => (
         <View key={l.itemId} style={{ marginTop: space.s }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={withWhen(l)}
-            accessibilityHint="Double-tap to correct it"
-            onPress={() => onLine(l.itemId)}
-            style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
-          >
+          {l.fixed ? (
             <Line>{withWhen(l)}</Line>
-          </Pressable>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={withWhen(l)}
+              accessibilityHint="Double-tap to correct it"
+              onPress={() => onLine(l.itemId)}
+              style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
+            >
+              <Line>{withWhen(l)}</Line>
+            </Pressable>
+          )}
           <View style={{ marginTop: space.xs }}>
             <Provenance line={l.provenance} onPress={l.noteId ? () => onSource(l.noteId as string) : undefined} />
           </View>
@@ -86,29 +95,39 @@ export function PortraitView(props: PortraitViewProps) {
     );
   }
   const first = props.name.trim().split(/\s+/u)[0];
-  const empty = !props.lately.length && !props.comingUp.length && !props.youSaid.length && !props.between.length;
+  // Nothing told about them yet (a birthday from Contacts doesn't count).
+  const empty = !props.lately.length && !props.comingUp.some((l) => !l.fixed) && !props.youSaid.length && !props.between.length;
   const footer = (
     <View style={{ backgroundColor: p.paper }}>
     {props.kept ? <View style={{ paddingHorizontal: GUTTER }}>{props.kept}</View> : null}
+    {/* Message · Call · Tell (founder native pass F1): three named actions,
+        the same size. Tell adds to what Kinship knows about them; changing
+        what's already kept happens on the line itself. */}
     <View style={{ flexDirection: "row", gap: space.s, paddingHorizontal: GUTTER, paddingTop: space.m, paddingBottom: space.m }}>
       <Pill
         variant="primary"
+        dense
         label="Message"
         style={{ flex: 1 }}
         icon={({ color, size: s, strokeWidth }) => <MessageCircle color={color} size={s} strokeWidth={strokeWidth} />}
         onPress={props.onMessage}
       />
       <Pill
+        dense
         label="Call"
         style={{ flex: 1 }}
         icon={({ color, size: s, strokeWidth }) => <Phone color={color} size={s} strokeWidth={strokeWidth} />}
         onPress={props.onCall}
       />
-      <View style={{ borderWidth: 1, borderColor: p.rule, borderRadius: radius.pill(height.button) }}>
-        <IconButton label={`Tell Kinship about ${first}`} onPress={props.onTell} diameter={height.button - 2}>
-          <PenLine color={p.ink} size={size.icon} strokeWidth={1.8} />
-        </IconButton>
-      </View>
+      <Pill
+        dense
+        label="Tell"
+        accessibilityLabel={`Tell Kinship about ${first}`}
+        accessibilityHint={props.hasDraft ? "Opens your unsent note" : undefined}
+        style={{ flex: 1 }}
+        icon={({ color, size: s, strokeWidth }) => <PenLine color={color} size={s} strokeWidth={strokeWidth} />}
+        onPress={props.onTell}
+      />
     </View>
     </View>
   );
@@ -123,20 +142,26 @@ export function PortraitView(props: PortraitViewProps) {
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>
 
-      {empty ? (
-        <Body style={{ marginTop: space.xl }}>{`What you tell Kinship about ${first} will be here.`}</Body>
-      ) : null}
+
       <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} />
       <Section title="Coming up" lines={props.comingUp} onLine={props.onLine} onSource={props.onSource} />
       <Section title="You said you'd" lines={props.youSaid} ochre onLine={props.onLine} onSource={props.onSource} />
       <Section title="Between you" lines={props.between} onLine={props.onLine} onSource={props.onSource} />
+      {empty ? (
+        <View style={{ marginTop: space.xl, alignItems: "flex-start" }}>
+          <Body>{`What you tell Kinship about ${first} will be here: what's going on with them, what's coming up, what you said you'd do.`}</Body>
+          <View style={{ marginTop: space.l }}>
+            <Pill label={`Tell Kinship about ${first}`} onPress={props.onTell} />
+          </View>
+        </View>
+      ) : null}
 
       {props.total > 0 ? (
         <Pressable
           accessibilityRole="link"
           onPress={props.onKnows}
           style={({ pressed }) => ({
-            marginTop: space.x3, paddingTop: space.m, borderTopWidth: 1, borderTopColor: p.hairline, opacity: pressed ? 0.6 : 1,
+            marginTop: space.x3, paddingTop: space.m, borderTopWidth: 1, borderTopColor: p.hairline, opacity: pressed ? press.link : 1,
             minHeight: height.small, justifyContent: "center",
           })}
         >

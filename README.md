@@ -6,6 +6,15 @@ Every person in your life is a plant in your garden. Capture memories,
 reflect on the moments you share, and watch your relationships grow —
 at your own pace, with no streaks, scores, or guilt.
 
+## Kinship 2.0: read this first
+
+Kinship 2.0 is a private relationship memory: it remembers what matters about
+the people you care about and brings it back when it matters, so you can show
+up. Before changing any product behaviour or UI, read
+[`docs/product/KINSHIP_2_PRODUCT_CONTRACT.md`](docs/product/KINSHIP_2_PRODUCT_CONTRACT.md)
+and [`docs/product/approved-design-coverage.md`](docs/product/approved-design-coverage.md).
+The 1.0 description below is historical.
+
 ## Stack
 
 - [Expo](https://expo.dev) SDK 54 (React Native, TypeScript, portrait-only)

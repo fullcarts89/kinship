@@ -2,7 +2,7 @@
 // them from their contact on this phone (choosing the contact once if it
 // isn't linked yet), opens the channel, and, for a reason, remembers it for
 // the return check.
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { usePeople, useTodayActions } from "@/hooks/useV2";
 import { channelsFor, openChannel, pickContact, routesFor, type ContactRoutes, type HandoffChannel } from "@/platform/handoff";
@@ -23,6 +23,8 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
   const actions = useTodayActions();
   const [req, setReq] = useState<HandoffRequest | null>(null);
   const [routes, setRoutes] = useState<ContactRoutes | null>(null);
+  // A second tap while the first is opening the app does nothing.
+  const opening = useRef(false);
 
   const start = useCallback((r: HandoffRequest) => {
     setReq(r);
@@ -34,8 +36,11 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
   const close = () => setReq(null);
 
   const open = async (channel: HandoffChannel) => {
-    if (!req || !routes) return;
-    const ok = await openChannel(channel, routes);
+    if (!req || !routes || opening.current) return;
+    opening.current = true;
+    const ok = await openChannel(channel, routes).finally(() => {
+      opening.current = false;
+    });
     if (!ok) {
       Alert.alert("That didn't open", channel === "whatsapp" ? "WhatsApp isn't on this phone." : "This phone couldn't open it.");
       return;

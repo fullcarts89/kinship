@@ -14,3 +14,4 @@ export { TellDockFrame, TellField } from "./TellField";
 export { Body, Display, Greeting, Heading, Italic, Label, Line, MomentText, Name, Small, Title, type Tone } from "./Text";
 export { Token, TokenRow } from "./Token";
 export { useNight, usePalette, useReduceMotion } from "./theme";
+export { Waiting } from "./Waiting";

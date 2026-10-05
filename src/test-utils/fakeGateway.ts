@@ -14,6 +14,9 @@
 import { GatewayUnreachable, type Clarification, type GatewayTransport, type HeldAnswer, type TransportReply } from "@/store/gateway";
 import type { FakeServer } from "./fakeRemote";
 import { needsAcceptance } from "../../supabase/functions/_shared/extraction/acceptance";
+import { buildInput, type CaptureRow, type ItemRow, type PersonRow, type RelatedRow } from "../../supabase/functions/_shared/extraction/context";
+import { planExtraction } from "../../supabase/functions/_shared/extraction/pipeline";
+import type { ExtractionInput, ModelProposal } from "../../supabase/functions/_shared/extraction/types";
 
 export interface ScriptedItem {
   kind: string;
@@ -48,6 +51,12 @@ const id = (prefix: string) => `${prefix}0000000-0000-4000-8000-${String(++count
 
 export class FakeGateway implements GatewayTransport {
   readonly scripts = new Map<string, Script>();
+  /**
+   * Notes read by the gateway's real pipeline: the model's reply is supplied
+   * (there is no model in tests), and the gateway's own input builder and
+   * planExtraction decide everything after it, as in production.
+   */
+  readonly proposals = new Map<string, (input: ExtractionInput) => ModelProposal>();
   readonly reviews = new Map<string, StoredReview>();
   readonly calls: string[] = [];
   modelRuns = 0;
@@ -66,6 +75,26 @@ export class FakeGateway implements GatewayTransport {
 
   script(note: string, script: Script): void {
     this.scripts.set(note, script);
+  }
+
+  /** Reads this note with the real pipeline, given the model's reply. */
+  propose(note: string, reply: (input: ExtractionInput) => ModelProposal): void {
+    this.proposals.set(note, reply);
+  }
+
+  private rows<T>(table: "people" | "related_people" | "memory_items"): T[] {
+    return [...this.server.table(table).values()].filter((r) => r.user_id === this.userId && !r.deleted_at) as unknown as T[];
+  }
+
+  private pipeline(captureId: string, reply: (input: ExtractionInput) => ModelProposal): Script & { planned: Record<string, unknown>[] } {
+    const c = this.capture(captureId)!;
+    const capture: CaptureRow = {
+      id: captureId, raw_text: String(c.raw_text), occurred_at: String(c.occurred_at),
+      time_zone: (c.time_zone as string | null) ?? null, context_person_id: (c.context_person_id as string | null) ?? null,
+    };
+    const input = buildInput(capture, this.rows<PersonRow>("people"), this.rows<RelatedRow>("related_people"), this.rows<ItemRow>("memory_items"));
+    const outcome = planExtraction(input, reply(input));
+    return { items: [], clarification: outcome.clarification, planned: outcome.items as unknown as Record<string, unknown>[] };
   }
 
   async post(body: Record<string, unknown>): Promise<TransportReply> {
@@ -113,12 +142,13 @@ export class FakeGateway implements GatewayTransport {
 
     this.modelRuns++;
     const note = String(capture.raw_text);
-    const script = this.scripts.get(note);
+    const reply = this.proposals.get(note);
+    const script = reply ? this.pipeline(captureId, reply) : this.scripts.get(note);
     if (!script || script.declined) {
       this.write("captures", captureId, { status: "failed" });
       return ok({ status: "kept" });
     }
-    const planned = script.items.map((it) => this.plan(note, it));
+    const planned = "planned" in script ? (script.planned as Record<string, unknown>[]) : script.items.map((it) => this.plan(note, it));
     // As the gateway: a sensitive or ambiguous reading waits for the user's yes.
     const saved = planned.filter((p) => p.person_id && (p.tier === "auto" ||
       (p.tier === "confirm" && !needsAcceptance(p as unknown as { sensitivity: string; flags: string[] }))));
@@ -229,12 +259,37 @@ export class FakeGateway implements GatewayTransport {
   }
 
   private writeItem(captureId: string, p: Record<string, unknown>): string {
-    const itemId = this.writeNew("memory_items", {
-      kind: p.kind, person_id: p.person_id, subject_type: p.subject_type, subject_related_id: null,
-      statement: p.statement, detail: p.detail, certainty: p.certainty, sensitivity: p.sensitivity,
-      extraction_confidence: p.confidence, status: "active", user_state: "unreviewed", origin: "extracted",
-      supersedes_id: null, valid_from: null, valid_to: null, deleted_at: null,
-    });
+    // The gateway's write rules (write_extraction): merge adds a source to the
+    // existing item; supersede writes a new item that replaces the old one
+    // (kept, marked superseded, a fact's valid_to set); resolves closes an
+    // open thread. A doubtful target (gone, user-edited, someone else's,
+    // another subject) makes it a new item instead.
+    const action = (p.action as { type?: string; target_id?: string | null } | undefined) ?? {};
+    const target = action.target_id ? this.server.table("memory_items").get(action.target_id) : undefined;
+    let type = action.type ?? "new";
+    if (type !== "new" && (!target || target.deleted_at || target.user_id !== this.userId
+      || ["edited", "user_authored"].includes(String(target.user_state)) || target.person_id !== p.person_id
+      || target.subject_type !== p.subject_type
+      || (type === "merge" && (target.kind !== p.kind || target.status !== "active"))
+      || (type === "supersede" && !["active", "resolved"].includes(String(target.status)))
+      || (type === "resolves" && (target.kind !== "thread" || target.status !== "active")))) type = "new";
+    let itemId: string;
+    if (type === "merge") {
+      itemId = String(target!.id);
+    } else {
+      itemId = this.writeNew("memory_items", {
+        kind: p.kind, person_id: p.person_id, subject_type: p.subject_type, subject_related_id: null,
+        statement: p.statement, detail: p.detail, certainty: p.certainty, sensitivity: p.sensitivity,
+        extraction_confidence: p.confidence, status: "active", user_state: "unreviewed", origin: "extracted",
+        supersedes_id: type === "supersede" ? target!.id : null, valid_from: null, valid_to: null, deleted_at: null,
+      });
+      if (type === "supersede") {
+        this.write("memory_items", String(target!.id), {
+          status: "superseded", ...(target!.kind === "fact" ? { valid_to: this.server.tick(0).slice(0, 10) } : {}),
+        });
+      }
+      if (type === "resolves") this.write("memory_items", String(target!.id), { status: "resolved" });
+    }
     for (const s of p.spans as { start: number; end: number; quote: string }[]) {
       this.writeNew("memory_item_sources", {
         memory_item_id: itemId, capture_id: captureId, source_kind: "capture",
@@ -258,7 +313,7 @@ export class FakeGateway implements GatewayTransport {
     return c && c.user_id === this.userId && !c.deleted_at ? c : null;
   }
 
-  private write(table: "captures", key: string, fields: Record<string, unknown>): void {
+  private write(table: "captures" | "memory_items", key: string, fields: Record<string, unknown>): void {
     this.server.serverWrite(table, key, this.userId, fields);
   }
 

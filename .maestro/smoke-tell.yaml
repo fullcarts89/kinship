@@ -1,0 +1,65 @@
+# NATIVE SMOKE TEST (recovery pass, Gate 1): the controls that vanished on the
+# founder's iPhone are drawn, and a Tell can be sent and understood.
+#
+#   sign-in control visible → Tell visible → type → submit visible →
+#   submit → understood (Kept line or review) → the same from a person's page
+#
+# The founder build drew none of these on a device although every browser
+# screenshot and Jest test looked right (NativeWind dropped Pressable style
+# functions natively). Browser screenshots are not a readiness gate; this is.
+#
+# Run on the dogfood-v2 build, on a simulator or a device:
+#   maestro test .maestro/smoke-tell.yaml \
+#     -e E2E_EMAIL=<a test account that has finished setup> \
+#     -e E2E_PASSWORD=<…> -e E2E_PERSON="<someone in its People>"
+appId: com.zenroost.kinship
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+# The sign-in controls are drawn (the Apple button had no fill on device).
+- assertVisible: "Continue with Apple"
+- assertVisible: "Continue with Google"
+- tapOn: "Use email"
+- tapOn: "Email"
+- inputText: ${E2E_EMAIL}
+- tapOn: "Password"
+- inputText: ${E2E_PASSWORD}
+- tapOn: "Sign in"
+
+# Signed in: Today, not Welcome again.
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 20000
+- assertNotVisible: "Continue with Apple"
+
+# The Tell field, and its send button once there's text.
+- tapOn: "Tell Kinship something"
+- inputText: "Maya's sister is visiting next weekend."
+- assertVisible: "Send to Kinship"
+# The keyboard can be put away, and the field stays reachable.
+- hideKeyboard
+- assertVisible: "Send to Kinship"
+- tapOn: "Send to Kinship"
+- extendedWaitUntil:
+    visible: "(Understanding.*|Kept.*|Here's what I'll remember.*)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Done"
+    commands:
+      - tapOn: "Done"
+
+# From a person's page: Message · Call · Tell are all drawn; Tell sends.
+- tapOn: "People"
+- tapOn: ${E2E_PERSON}
+- assertVisible: "Message"
+- assertVisible: "Call"
+- tapOn: "Tell Kinship about .*"
+- inputText: "We're getting coffee Thursday."
+- assertVisible: "Send to Kinship"
+- tapOn: "Send to Kinship"
+- extendedWaitUntil:
+    visible: "(Understanding.*|Kept.*|Here's what I'll remember.*)"
+    timeout: 30000

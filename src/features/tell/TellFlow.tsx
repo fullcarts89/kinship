@@ -12,7 +12,9 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { ReviewSheet, type Correction } from "@/features/tell/ReviewSheet";
-import { todayIso, useOpenNotes, usePeople, useReview, useTell, useUnderstanding } from "@/hooks/useV2";
+import { todayIso, useOpenNotes, usePeople, useReview, useTell, useTellDrafts, useUnderstanding } from "@/hooks/useV2";
+import { draftKey } from "./drafts";
+import { useActivation } from "@/hooks/useActivation";
 import { charsBucket, track } from "@/platform/analytics";
 
 const SUMMARY_MS = 5000; // plan §8: the auto-save summary
@@ -30,7 +32,7 @@ export interface TellFlow {
   tellOn: boolean;
   ai: boolean;
   /** Keeps what the user said; resolves once it's safely on the phone. */
-  keep: (text: string, contextPersonId?: string | null) => Promise<boolean>;
+  keep: (text: string, contextPersonId?: string | null, source?: "text" | "onboarding") => Promise<boolean>;
   /** What happened to the note just told, in a few words; null when nothing to say. */
   status: string | null;
   kept: KeptLineState | null;
@@ -44,6 +46,9 @@ export interface TellFlow {
   /** Ask the Tell field to take focus, optionally about someone ("Anything worth remembering?"). */
   focusTell: (personId?: string | null) => void;
   focusRequest: { at: number; personId: string | null } | null;
+  /** The unsent words for a Tell about someone (or the general one). */
+  draft: (personId?: string | null) => string;
+  setDraft: (personId: string | null | undefined, text: string) => void;
 }
 
 const Ctx = createContext<TellFlow | null>(null);
@@ -68,6 +73,10 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   const currentView = useReview(current);
   const sheet = useReview(showing);
   const announced = useRef<string | null>(null);
+  const drafts = useTellDrafts();
+  // The first Tell that becomes memory activates the account (recovery Gate 3).
+  const activation = useActivation();
+  const activate = activation.activated ? null : activation.activate;
 
   const openSheet = useCallback((id: string, report = true) => {
     setKept(null);
@@ -82,10 +91,12 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
       announced.current = current;
       void u.opened(current);
       setKept({ captureId: current, text: currentView.summary ?? "Kept", opens: true, ms: SUMMARY_MS, summary: true });
+      void activate?.();
     } else if (currentView.mode === "sheet") {
       announced.current = current;
       openSheet(current);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, currentView, openSheet, u]);
 
   useEffect(() => {
@@ -101,9 +112,11 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     const id = showing;
     if (!id) return;
     setShowing(null);
+    // What the sheet showed is memory now (held items never are until answered).
+    if (sheet && sheet.lines.length > 0) void activate?.();
     void u.finish(id, how);
     if (how === "done") setKept({ captureId: id, text: "Kept", opens: false, ms: UNDO_MS, summary: false });
-  }, [showing, u]);
+  }, [showing, u, sheet, activate]);
 
   // Left alone with nothing to answer, the sheet closes itself; items stay as saved.
   const idle = !!showing && !!sheet && sheet.mode === "sheet" && sheet.questions.length === 0 && !sheet.answering;
@@ -117,20 +130,23 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     if (showing && sheet?.mode === "none") setShowing(null);
   }, [showing, sheet?.mode]);
 
-  const keep = useCallback(async (text: string, contextPersonId?: string | null) => {
+  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text") => {
     if (!text.trim()) return false;
     try {
-      const id = await keepNote(text, contextPersonId ?? null);
+      const id = await keepNote(text, contextPersonId ?? null, source);
       announced.current = null;
       setCurrent(id);
-      // Without understanding, the note is kept exactly as written.
-      if (!ai) setKept({ captureId: id, text: "Kept as you wrote it.", opens: false, ms: UNDO_MS, summary: false });
+      // Without understanding, the note is kept exactly as written (and that's the account's first memory).
+      if (!ai) {
+        setKept({ captureId: id, text: "Kept as you wrote it.", opens: false, ms: UNDO_MS, summary: false });
+        void activate?.();
+      }
       return true;
     } catch {
       Alert.alert("That wasn't kept", "Something went wrong saving it on this phone. Your words are still here.");
       return false;
     }
-  }, [keepNote, ai]);
+  }, [keepNote, ai, activate]);
 
   const fail = (what: Promise<unknown>) => {
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
@@ -164,8 +180,10 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     openNote: (id) => openSheet(id),
     focusTell: (personId) => setFocusRequest({ at: Date.now(), personId: personId ?? null }),
     focusRequest,
+    draft: (personId) => drafts.drafts[draftKey(personId)] ?? "",
+    setDraft: (personId, text) => drafts.set(draftKey(personId), text),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tellOn, ai, keep, status, kept, questions.join(), toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest]);
+  }), [tellOn, ai, keep, status, kept, questions.join(), toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set]);
 
   return (
     <Ctx.Provider value={value}>
