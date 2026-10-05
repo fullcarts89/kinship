@@ -5,7 +5,8 @@
 //
 // From plain data; app/(auth)/login.tsx supplies the auth calls.
 import React from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { appleButton, GUTTER, press, height, maxScale, radius, size, space, type } from "@/design/tokens";
@@ -31,6 +32,7 @@ export const WELCOME_COPY = {
   email: "Use email",
   signingIn: "Signing you in…",
   failed: "That didn't work. Please try again.",
+  stuck: "You're signed in, but Kinship couldn't open your account. Close Kinship and open it again.",
   legal: "By continuing you agree to the Terms and the Privacy Policy.",
 } as const;
 

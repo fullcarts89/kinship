@@ -2,7 +2,8 @@
 // close under the status bar, and an optional pinned footer (the Tell field
 // and the two-item bar on Today and People; actions on a person's page).
 import React from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Keyboard, Platform, ScrollView, View } from "react-native";
+import { Pressable } from "./Pressable";
 import { ChevronLeft } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GUTTER, press, size, space, TOUCH } from "@/design/tokens";
@@ -38,11 +39,17 @@ export function Screen({
     <View style={{ flex: 1, backgroundColor: p.paper, paddingTop: insets.top }}>
       {header}
       {scroll ? (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={body} keyboardShouldPersistTaps="handled">
+        // A tap on anything that isn't a control, or a drag, puts the keyboard away.
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={body}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        >
           {children}
         </ScrollView>
       ) : (
-        <View style={[{ flex: 1 }, body]}>{children}</View>
+        <Pressable accessible={false} onPress={Keyboard.dismiss} style={[{ flex: 1 }, body]}>{children}</Pressable>
       )}
       {footer ? <View style={{ paddingBottom: insets.bottom }}>{footer}</View> : null}
     </View>

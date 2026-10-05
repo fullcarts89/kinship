@@ -3,7 +3,8 @@
 // and what as tokens, where it came from, and "Not this". A token opens its
 // picker in the same sheet; a change saves at once.
 import React, { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { Correction } from "@/features/tell/ReviewSheet";
 import { DatePane, KindPane, PersonPane, WordsPane } from "@/features/tell/Pickers";

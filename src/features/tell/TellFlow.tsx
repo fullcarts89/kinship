@@ -12,7 +12,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { ReviewSheet, type Correction } from "@/features/tell/ReviewSheet";
-import { todayIso, useOpenNotes, usePeople, useReview, useTell, useUnderstanding } from "@/hooks/useV2";
+import { todayIso, useOpenNotes, usePeople, useReview, useTell, useTellDrafts, useUnderstanding } from "@/hooks/useV2";
+import { draftKey } from "./drafts";
 import { charsBucket, track } from "@/platform/analytics";
 
 const SUMMARY_MS = 5000; // plan §8: the auto-save summary
@@ -44,6 +45,9 @@ export interface TellFlow {
   /** Ask the Tell field to take focus, optionally about someone ("Anything worth remembering?"). */
   focusTell: (personId?: string | null) => void;
   focusRequest: { at: number; personId: string | null } | null;
+  /** The unsent words for a Tell about someone (or the general one). */
+  draft: (personId?: string | null) => string;
+  setDraft: (personId: string | null | undefined, text: string) => void;
 }
 
 const Ctx = createContext<TellFlow | null>(null);
@@ -68,6 +72,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   const currentView = useReview(current);
   const sheet = useReview(showing);
   const announced = useRef<string | null>(null);
+  const drafts = useTellDrafts();
 
   const openSheet = useCallback((id: string, report = true) => {
     setKept(null);
@@ -164,8 +169,10 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     openNote: (id) => openSheet(id),
     focusTell: (personId) => setFocusRequest({ at: Date.now(), personId: personId ?? null }),
     focusRequest,
+    draft: (personId) => drafts.drafts[draftKey(personId)] ?? "",
+    setDraft: (personId, text) => drafts.set(draftKey(personId), text),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tellOn, ai, keep, status, kept, questions.join(), toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest]);
+  }), [tellOn, ai, keep, status, kept, questions.join(), toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set]);
 
   return (
     <Ctx.Provider value={value}>

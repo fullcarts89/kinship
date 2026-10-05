@@ -1,7 +1,8 @@
 // "You told Kinship · Sep 29": where something came from (plan §6; boards 2
 // and System). A small ochre dot and a quiet line; one tap opens the source.
 import React from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { Pressable } from "./Pressable";
 import { press, size, space } from "@/design/tokens";
 import { Small } from "./Text";
 import { usePalette } from "./theme";

@@ -2,13 +2,14 @@
 // D2/D3 in the same composition): a caps label, the question in the display
 // serif, a line of explanation, the content, and the action pinned at the
 // bottom in the gutter. From plain data; SetupScreen.tsx supplies it.
-import React from "react";
-import { ActivityIndicator, FlatList, Pressable, ScrollView, TextInput, View } from "react-native";
+import React, { useRef } from "react";
+import { ActivityIndicator, FlatList, Platform, ScrollView, TextInput, View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { Check, Lock, Search } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GUTTER, height, maxScale, press, radius, size, space, type } from "@/design/tokens";
 import { CONSENT_COPY } from "@/features/tell/ConsentSheet";
-import { useKeyboardLift } from "@/ui/useKeyboardLift";
+import { useKeyboardInset } from "@/ui/useKeyboardLift";
 import { Body, Display, Label, MomentText, Pill, Provenance, Small, Sprig, usePalette } from "@/ui";
 import type { PickRow, WorthLine } from "./setupModel";
 
@@ -86,12 +87,14 @@ function Head({ label, title, body }: { label: string; title: string; body?: str
 function Frame({ children, footer }: { children: React.ReactNode; footer: React.ReactNode }) {
   const p = usePalette();
   const insets = useSafeAreaInsets();
-  const lift = useKeyboardLift();
+  const root = useRef<View>(null);
+  const lift = useKeyboardInset(root);
   return (
-    <View style={{ flex: 1, backgroundColor: p.paper, paddingBottom: lift ? Math.max(0, lift - insets.bottom) : 0 }}>
+    <View ref={root} style={{ flex: 1, backgroundColor: p.paper, paddingBottom: lift ? Math.max(0, lift - insets.bottom) : 0 }}>
       <ScrollView
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: insets.top + space.x3, paddingBottom: space.xl }}
       >
         {children}

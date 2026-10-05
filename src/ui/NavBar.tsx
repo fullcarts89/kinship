@@ -1,7 +1,8 @@
 // The two-item bar (Design Direction §H; board 1): Today and People, words
 // only, the current one in ink with a hairline under it.
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { Pressable } from "./Pressable";
 import { height, maxScale, press, space, stroke, TOUCH, type } from "@/design/tokens";
 import { usePalette } from "./theme";
 

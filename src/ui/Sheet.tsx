@@ -7,7 +7,8 @@
 // with no overshoot and leaves in 240 ms. With Reduce Motion both fade in
 // 150 ms. The grabber means what it shows: drag the sheet down to close it.
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable } from "./Pressable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GUTTER, motion, radius, shadow, size, space } from "@/design/tokens";
 import { useReduceMotion, usePalette } from "./theme";
@@ -97,7 +98,14 @@ export function Sheet({
     <Modal visible transparent animationType="none" onRequestClose={onDismiss}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: scrim, backgroundColor: p.scrim }]} />
-        <Pressable accessibilityLabel="Close" accessibilityRole="button" onPress={onDismiss} style={{ flex: 1 }} />
+        {/* A tap above the sheet first puts the keyboard away (iOS's habit);
+            with no keyboard up, it closes the sheet. */}
+        <Pressable
+          accessibilityLabel="Close"
+          accessibilityRole="button"
+          onPress={() => (Keyboard.isVisible() ? Keyboard.dismiss() : onDismiss())}
+          style={{ flex: 1 }}
+        />
         <Animated.View
           accessibilityViewIsModal
           accessibilityLabel={label}
@@ -116,7 +124,11 @@ export function Sheet({
               }}
             />
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: space.s }}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: space.s }}
+          >
             {children}
           </ScrollView>
           {footer ? <View style={{ paddingHorizontal: GUTTER, paddingTop: space.m }}>{footer}</View> : null}

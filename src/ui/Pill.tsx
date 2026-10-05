@@ -9,7 +9,8 @@
 // Busy: the button keeps its look and size and shows a small spinner in
 // place of its label, so waiting reads as "working", never as "disabled".
 import React from "react";
-import { ActivityIndicator, Pressable, Text, View, type ViewStyle } from "react-native";
+import { ActivityIndicator, Text, View, type ViewStyle } from "react-native";
+import { Pressable } from "./Pressable";
 import { height as H, maxScale, press, radius, size as SIZE, space, TOUCH, type } from "@/design/tokens";
 import { usePalette } from "./theme";
 

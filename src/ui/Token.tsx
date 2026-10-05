@@ -2,7 +2,8 @@
 // when, what kind. A solid 1.5 pt ochre underline marks it; the underline is
 // not the only cue: it is a button with a label and a hint.
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { Pressable } from "./Pressable";
 import { maxScale, press, space, stroke, type } from "@/design/tokens";
 import { usePalette } from "./theme";
 

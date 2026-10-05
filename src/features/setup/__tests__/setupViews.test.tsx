@@ -3,6 +3,7 @@
 // Contacts is refused; the first Tell asks for nothing but words; no screen
 // talks about AI, models or confidence.
 import React from "react";
+import { Pressable } from "@/ui/Pressable";
 import TestRenderer, { act } from "react-test-renderer";
 import { ConsentStepView, PeoplePickView, SETUP_COPY, WorthStepView, type PeoplePickViewProps } from "../SetupViews";
 import type { PickRow } from "../setupModel";
@@ -49,7 +50,8 @@ it("the picker: board 1's question, the T8 lock line, nobody pre-selected", () =
   const tree = pick();
   const t = texts(tree);
   expect(t).toEqual(expect.arrayContaining([SETUP_COPY.pickTitle, SETUP_COPY.pickLock, "Suggested", "Everyone", "Maya Okafor", "Birthday · 10 October"]));
-  const boxes = tree.root.findAll((n) => n.props.accessibilityRole === "checkbox" && typeof n.props.onPress === "function");
+  // One per row: the app's Pressable wraps React Native's, so match the outer one.
+  const boxes = tree.root.findAll((n) => n.type === Pressable && n.props.accessibilityRole === "checkbox");
   expect(boxes).toHaveLength(3);
   for (const b of boxes) expect(b.props.accessibilityState).toEqual({ checked: false });
   // With no one picked, the way on is "Skip for now", never a disabled button.

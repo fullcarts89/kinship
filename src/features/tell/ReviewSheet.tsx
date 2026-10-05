@@ -6,7 +6,8 @@
 // sheet.
 
 import React, { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { X } from "lucide-react-native";
 import { press, radius, size, space, TOUCH } from "@/design/tokens";
 import type { HeldAnswer } from "@/store/gateway";

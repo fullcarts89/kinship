@@ -4,7 +4,8 @@
 // you. Every line says where it came from; tap a line to correct it, tap its
 // provenance for the note. Message, Call and Tell sit at the bottom.
 import React from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
 import { GUTTER, height, press, radius, size, space } from "@/design/tokens";
 import { Body, IconButton, Label, Line, Name, Pill, Provenance, Screen, Small, Sprig, usePalette } from "@/ui";

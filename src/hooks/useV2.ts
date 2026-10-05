@@ -2,7 +2,7 @@
 // repositories). Everything re-reads when the user's store changes: a local
 // write, a sync, or a step of Understanding.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
@@ -11,6 +11,7 @@ import { buildToday, evidenceOf, isBirthdayReason, type Handoff, type ReasonRow,
 import { buildPortrait, PORTRAIT_RULES, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
 import { dayMonth, needsSetup, nextBirthday, type PickRow, type SetupStep } from "@/features/setup/setupModel";
 import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
+import { parseDrafts, withDraft, type Drafts } from "@/features/tell/drafts";
 import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
 import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, track } from "@/platform/analytics";
@@ -426,6 +427,45 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
     };
   }, [itemId]);
   return q.data ?? null;
+}
+
+// ─── Unsent Tells ───────────────────────────────────────────────────────
+
+const DRAFTS = "tell_drafts";
+const DRAFT_SAVE_MS = 400;
+
+/**
+ * Unsent Tells, by where they were started (general, or one person). Kept in
+ * this account's own encrypted store, so a draft survives closing the app
+ * and never reaches another account.
+ */
+export function useTellDrafts(): { drafts: Drafts; set: (key: string, text: string) => void } {
+  const { store } = useV2Session();
+  const [drafts, setDrafts] = useState<Drafts>({});
+  const loaded = useRef(false);
+  useEffect(() => {
+    let live = true;
+    void getMeta(store.db, DRAFTS).then((raw) => {
+      if (!live) return;
+      loaded.current = true;
+      // Words typed before the saved drafts loaded win over the saved copy.
+      setDrafts((now) => ({ ...parseDrafts(raw), ...now }));
+    }).catch(() => {
+      loaded.current = true;
+    });
+    return () => {
+      live = false;
+    };
+  }, [store]);
+  useEffect(() => {
+    if (!loaded.current) return;
+    const t = setTimeout(() => {
+      void setMeta(store.db, DRAFTS, JSON.stringify(drafts)).catch(() => undefined);
+    }, DRAFT_SAVE_MS);
+    return () => clearTimeout(t);
+  }, [drafts, store]);
+  const set = useCallback((key: string, text: string) => setDrafts((d) => withDraft(d, key, text)), []);
+  return { drafts, set };
 }
 
 // ─── The one-time understanding consent (D2, D3) ────────────────────────

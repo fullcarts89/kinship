@@ -3,7 +3,8 @@
 // sheet on top of a sheet.
 
 import React, { useMemo, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Text, TextInput, View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { height, maxScale, press, radius, size, space, TOUCH, type } from "@/design/tokens";
 import { kindLabel, monthName, spokenDay } from "@/features/memory/format";

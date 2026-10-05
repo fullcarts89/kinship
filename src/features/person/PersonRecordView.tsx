@@ -2,7 +2,8 @@
 // everything kept about a person, each line with who, when and what as
 // tokens, where it came from, and "Not this". From plain data.
 import React from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { ConflictChoice } from "@/store/conflictCopy";

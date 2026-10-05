@@ -8,9 +8,10 @@
 // typed, and appears only when there is something to send; the keyboard's
 // own dictation works in the field.
 import React, { forwardRef } from "react";
-import { TextInput, View } from "react-native";
+import { Text, TextInput, View } from "react-native";
+import { Pressable } from "./Pressable";
 import { ArrowUp } from "lucide-react-native";
-import { height, maxScale, radius, size, space, type } from "@/design/tokens";
+import { height, maxScale, press, radius, size, space, type } from "@/design/tokens";
 import { IconButton } from "./Screen";
 import { usePalette } from "./theme";
 
@@ -23,14 +24,47 @@ export interface TellFieldProps {
   autoFocus?: boolean;
   onFocus?: () => void;
   onBlur?: () => void;
+  /**
+   * An unsent draft, folded away: one quiet line ("Draft · …") in the
+   * field's place. Tapping it opens the words again; Send still sends them.
+   */
+  collapsed?: { preview: string; onExpand: () => void } | null;
 }
 
 export const TellField = forwardRef<TextInput, TellFieldProps>(function TellField(
-  { value, onChange, onSend, placeholder = "Tell Kinship something…", autoFocus, onFocus, onBlur },
+  { value, onChange, onSend, placeholder = "Tell Kinship something…", autoFocus, onFocus, onBlur, collapsed },
   ref,
 ) {
   const p = usePalette();
   const canSend = value.trim().length > 0;
+  const send = canSend ? (
+    <IconButton label="Send to Kinship" onPress={onSend} filled diameter={height.mic}>
+      <ArrowUp color={p.onInk} size={size.icon} strokeWidth={1.8} />
+    </IconButton>
+  ) : null;
+  if (collapsed && canSend) {
+    return (
+      <View
+        style={{
+          minHeight: height.tell, borderRadius: radius.pill(height.tell), backgroundColor: p.surface, borderWidth: 1,
+          borderColor: p.hairline, flexDirection: "row", alignItems: "center", paddingLeft: space.xl, paddingRight: space.s,
+        }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={collapsed.preview}
+          accessibilityHint="Opens your unsent note"
+          onPress={collapsed.onExpand}
+          style={({ pressed }) => ({ flex: 1, minHeight: height.tell, justifyContent: "center", paddingRight: space.s, opacity: pressed ? press.surface : 1 })}
+        >
+          <Text numberOfLines={1} maxFontSizeMultiplier={maxScale.text} style={[type.field, { color: p.inkBody }]}>
+            {collapsed.preview}
+          </Text>
+        </Pressable>
+        {send}
+      </View>
+    );
+  }
   const multi = value.includes("\n") || value.length > 34;
   return (
     <View
@@ -66,11 +100,7 @@ export const TellField = forwardRef<TextInput, TellFieldProps>(function TellFiel
           paddingRight: space.s, textAlignVertical: "top",
         }]}
       />
-      {canSend ? (
-        <IconButton label="Send to Kinship" onPress={onSend} filled diameter={height.mic}>
-          <ArrowUp color={p.onInk} size={size.icon} strokeWidth={1.8} />
-        </IconButton>
-      ) : null}
+      {send}
     </View>
   );
 });

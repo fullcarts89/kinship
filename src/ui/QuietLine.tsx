@@ -2,7 +2,8 @@
 // serif line, with at most one quiet action. Never a badge, a count to clear,
 // or urgency.
 import React from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { Pressable } from "./Pressable";
 import { press, space, TOUCH } from "@/design/tokens";
 import { Label, Line, Small } from "./Text";
 
