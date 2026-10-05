@@ -80,7 +80,7 @@ See §6 for the layout jumps these cause.
    - the look-over sheet closes itself after 20 s idle.
 
    All three are deliberate D1 values. **Recommend 5 / 8 / 20 stay** (see spec).
-8. A review sheet can rise on its own (2–7 s after a Tell) on whatever screen she's on, even mid-scroll on People. It's D1 behaviour; see question 3 in §7.
+8. A review sheet can rise on its own (2–7 s after a Tell) on whatever screen she's on, even mid-scroll on People. It's D1 behaviour; see the founder decisions in §9.
 9. Return check and "Anything worth remembering?" appear without the moment's arrive motion. Small; spec says they should arrive like the moment.
 
 ## 4. Optimistic UI, waits, and latency-sensitive flows
@@ -132,7 +132,7 @@ All are local writes that sync later.
 
 | Shift | Cause | Severity | Recommendation |
 |---|---|---|---|
-| Kept / "Understanding…" line appears above the Tell field | Dock height changes instantly | Medium: the whole Today/People content area shortens by one line | Animate the line's height, 160 ms (spec §7.4) |
+| Kept / "Understanding…" line appears above the Tell field | Dock height changes instantly | Medium: the whole Today/People content area shortens by one line | Animate the line's height, 160 ms (spec rule 5) |
 | Review line removed with × | Row disappears | Low | 160 ms fade then collapse |
 | Correction pane swap | Sheet height jumps | Medium | 160 ms cross-fade; let height follow |
 | Tell field pill → box at 34 characters | Radius and alignment flip | Low | Animate radius or switch on the second line only |
