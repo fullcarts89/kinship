@@ -8,7 +8,7 @@ import { Pressable } from "@/ui/Pressable";
 import { Check, Lock, Search } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GUTTER, height, maxScale, press, radius, size, space, type } from "@/design/tokens";
-import { CONSENT_COPY } from "@/features/tell/ConsentSheet";
+import { CONSENT_COPY, ConsentBody } from "@/features/tell/ConsentSheet";
 import { useKeyboardInset } from "@/ui/useKeyboardLift";
 import { Body, Display, Label, MomentText, Pill, Provenance, Small, Sprig, usePalette } from "@/ui";
 import type { PickRow, WorthLine } from "./setupModel";
@@ -173,11 +173,7 @@ export function ConsentStepView({ label, busy, onAllow, onDecline }: {
       }
     >
       <Head label={label} title={CONSENT_COPY.title} />
-      <Body style={{ marginTop: space.l }}>{CONSENT_COPY.body}</Body>
-      <View style={{ marginTop: space.xl, gap: space.s }}>
-        <LockLine text={CONSENT_COPY.provider} />
-        <Small>{CONSENT_COPY.declined}</Small>
-      </View>
+      <ConsentBody />
     </Frame>
   );
 }

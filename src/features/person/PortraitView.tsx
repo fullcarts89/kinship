@@ -7,8 +7,8 @@ import React from "react";
 import { View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
-import { GUTTER, height, press, radius, size, space } from "@/design/tokens";
-import { Body, IconButton, Label, Line, Name, Pill, Provenance, Screen, Small, Sprig, usePalette } from "@/ui";
+import { GUTTER, height, press, size, space } from "@/design/tokens";
+import { Body, Label, Line, Name, Pill, Provenance, Screen, Small, Sprig, usePalette } from "@/ui";
 
 export interface PortraitLineData {
   itemId: string;
@@ -39,6 +39,8 @@ export interface PortraitViewProps {
   onTell: () => void;
   /** What happened to a note just told from here ("Kept: …", Undo). */
   kept?: React.ReactNode;
+  /** An unsent note about them is waiting (Tell reopens it). */
+  hasDraft?: boolean;
   children?: React.ReactNode;
 }
 
@@ -98,25 +100,34 @@ export function PortraitView(props: PortraitViewProps) {
   const footer = (
     <View style={{ backgroundColor: p.paper }}>
     {props.kept ? <View style={{ paddingHorizontal: GUTTER }}>{props.kept}</View> : null}
+    {/* Message · Call · Tell (founder native pass F1): three named actions,
+        the same size. Tell adds to what Kinship knows about them; changing
+        what's already kept happens on the line itself. */}
     <View style={{ flexDirection: "row", gap: space.s, paddingHorizontal: GUTTER, paddingTop: space.m, paddingBottom: space.m }}>
       <Pill
         variant="primary"
+        dense
         label="Message"
         style={{ flex: 1 }}
         icon={({ color, size: s, strokeWidth }) => <MessageCircle color={color} size={s} strokeWidth={strokeWidth} />}
         onPress={props.onMessage}
       />
       <Pill
+        dense
         label="Call"
         style={{ flex: 1 }}
         icon={({ color, size: s, strokeWidth }) => <Phone color={color} size={s} strokeWidth={strokeWidth} />}
         onPress={props.onCall}
       />
-      <View style={{ borderWidth: 1, borderColor: p.rule, borderRadius: radius.pill(height.button) }}>
-        <IconButton label={`Tell Kinship about ${first}`} onPress={props.onTell} diameter={height.button - 2}>
-          <PenLine color={p.ink} size={size.icon} strokeWidth={1.8} />
-        </IconButton>
-      </View>
+      <Pill
+        dense
+        label="Tell"
+        accessibilityLabel={`Tell Kinship about ${first}`}
+        accessibilityHint={props.hasDraft ? "Opens your unsent note" : undefined}
+        style={{ flex: 1 }}
+        icon={({ color, size: s, strokeWidth }) => <PenLine color={color} size={s} strokeWidth={strokeWidth} />}
+        onPress={props.onTell}
+      />
     </View>
     </View>
   );

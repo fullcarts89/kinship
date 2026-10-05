@@ -111,6 +111,12 @@ export interface MomentView {
   heading: string;
   /** Other things the user told Kinship about them, for "You could mention". */
   mention: string[];
+  /**
+   * What they were hoping for, kept with the event itself (its event_goal,
+   * in the note's words): "Ben was hoping to break four hours." Showing up
+   * means knowing what mattered to them about it, not only that it happened.
+   */
+  hope?: string | null;
 }
 
 export type QuietView =
@@ -201,6 +207,14 @@ export function scoreOf(r: ReasonRow, item: MemoryItem, input: TodayInput): numb
   const freshness = local?.firstShown && local.firstShown !== input.today ? 0.5 : 1;
   const capped = input.primaries.some((p) => p.personId === r.person_id && p.reasonId !== r.id && daysBetween(p.day, input.today) < 7);
   return capped ? 0 : Number(r.score) * timeliness * evidence * freshness;
+}
+
+/** "Ben was hoping to break four hours." from the event's own goal; null when there isn't one to say plainly. */
+export function hopeLine(name: string, detail: Record<string, unknown>, type: ReasonType | "birthday"): string | null {
+  const raw = typeof detail.event_goal === "string" ? detail.event_goal.trim() : "";
+  const goal = raw.replace(/^to\s+/iu, "").replace(/[.!]+$/u, "");
+  if (!goal || goal.length > 80 || !/^\p{Ll}/u.test(goal)) return null;
+  return type === "event_followup" ? `${name} was hoping to ${goal}.` : `${name} is hoping to ${goal}.`;
 }
 
 /** "Good morning." or, when Kinship knows their name, "Good morning, Thor." */
@@ -309,6 +323,7 @@ export function buildToday(input: TodayInput): TodayView {
       itemId: best.item.id,
       statement: type === "event_followup" ? `How did it go for ${name}?` : best.item.statement,
       context: type === "event_followup" ? `${best.item.statement} · ${when}` : `${relativeDay(day, today)} · ${when}`,
+      hope: hopeLine(name, (best.item.detail ?? {}) as Record<string, unknown>, type),
       provenance: input.provenance(best.item.id)?.line ?? null,
       noteId: input.provenance(best.item.id)?.noteId ?? null,
       score: best.score,

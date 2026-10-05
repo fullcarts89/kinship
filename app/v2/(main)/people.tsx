@@ -27,6 +27,7 @@ export default function PeopleScreen() {
         understanding={consent.allowed}
         setUnderstanding={consent.set}
         signOut={signOut}
+        onAddFromContacts={() => router.push("/v2/people/add")}
       />
     </>
   );

@@ -90,9 +90,9 @@ export function PeopleView({
       {rows.length === 0 ? (
         <View style={{ marginTop: space.l }}>
           <Body>{"The people you care about will be here. Bring them in from your contacts, or add someone by name."}</Body>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.l }}>
+          <View style={{ alignItems: "flex-start", gap: space.xs, marginTop: space.l }}>
             {onAddFromContacts ? <Pill variant="primary" label="Add from contacts" onPress={onAddFromContacts} /> : null}
-            <Pill label="Add by name" onPress={() => setAdding("")} />
+            <Pill variant={onAddFromContacts ? "quiet" : "primary"} label="Add by name" onPress={() => setAdding("")} />
           </View>
         </View>
       ) : shown.length === 0 ? (

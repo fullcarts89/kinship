@@ -1,6 +1,6 @@
 // A person's page: the portrait (board 2). Tap a line to correct it, its
-// provenance for the note; Message and Call open the real conversation; the
-// pen tells Kinship something about them.
+// provenance for the note; Message and Call open the real conversation;
+// Tell adds something about them (an unsent note about them waits here).
 import React, { useState } from "react";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -49,6 +49,7 @@ export default function PersonScreen() {
       onMessage={reachOut}
       onCall={reachOut}
       onTell={() => setTelling(true)}
+      hasDraft={!!flow.draft(personId).trim()}
       kept={flow.kept ? <KeptLine text={flow.kept.text} onOpen={flow.kept.opens ? flow.openKept : undefined} onUndo={flow.undoKept} /> : null}
     >
       <ItemSheet

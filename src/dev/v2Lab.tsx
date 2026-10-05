@@ -453,7 +453,8 @@ export function V2Lab({ state }: { state: string }) {
       return (
         <Phone nav="people">
           <PeopleView rows={peopleRows} onOpen={noop} onAdd={async () => undefined} onSettings={noop} />
-          <SettingsSheetView visible understanding onUnderstanding={noop} onSignOut={noop} onDismiss={noop} />
+          <SettingsSheetView visible understanding onUnderstanding={noop} onSignOut={noop} onDismiss={noop}
+            contacts={{ state: "granted", limited: false }} onAddFromContacts={noop} />
         </Phone>
       );
     case "people":

@@ -3,6 +3,7 @@
 // Contacts is refused; the first Tell asks for nothing but words; no screen
 // talks about AI, models or confidence.
 import React from "react";
+import { CONSENT_COPY } from "@/features/tell/ConsentSheet";
 import { Pressable } from "@/ui/Pressable";
 import TestRenderer, { act } from "react-test-renderer";
 import { ConsentStepView, PeoplePickView, SETUP_COPY, WorthStepView, type PeoplePickViewProps } from "../SetupViews";
@@ -43,7 +44,10 @@ function pick(over: Partial<PeoplePickViewProps> = {}) {
 
 it("consent: the approved disclosure, the interim provider line, and the two choices", () => {
   const t = texts(render(<ConsentStepView label="Setting up · 1 of 3" busy={false} onAllow={noop} onDecline={noop} />));
-  expect(t).toEqual(expect.arrayContaining([D2, "Sent to Anthropic to understand it; not used to train models.", "Allow", "Keep notes as written"]));
+  expect(t).toEqual(expect.arrayContaining([D2, "Sent to Anthropic to understand it; not used to train models.", "Allow understanding", "Keep notes as written"]));
+  // What Kinship asks to do comes first; the disclosure follows, complete (recovery pass, F16).
+  expect(t.indexOf(CONSENT_COPY.benefit)).toBeGreaterThan(-1);
+  expect(t.indexOf(CONSENT_COPY.benefit)).toBeLessThan(t.indexOf(D2));
 });
 
 it("the picker: board 1's question, the T8 lock line, nobody pre-selected", () => {
@@ -85,7 +89,7 @@ it("already worth knowing shows only real lines; without them it opens on the fi
 it("no first-run copy talks about AI, models, confidence, CRM chores or gardens", () => {
   const all = [
     ...(Object.values(SETUP_COPY) as unknown[]).filter((v): v is string => typeof v === "string"),
-    ...Object.values(FIRST_USE_COPY), ...WELCOME_COPY.how, WELCOME_COPY.promise, WELCOME_COPY.sub,
+    ...Object.values(FIRST_USE_COPY), ...WELCOME_COPY.example.steps.map((s) => `${s.label} ${s.text}`), WELCOME_COPY.promise, WELCOME_COPY.sub,
   ];
   for (const s of all) expect(s).not.toMatch(/\bAI\b|model|confidence|algorithm|smart|magic|garden|streak|log |contact frequency|score/i);
 });

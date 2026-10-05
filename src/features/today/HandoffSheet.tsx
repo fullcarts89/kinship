@@ -42,14 +42,19 @@ export function HandoffSheet(props: HandoffSheetProps) {
 
       {!props.ready ? null : first ? (
         <>
-          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.xl }}>
-            <Pill variant="primary" label={CHANNEL_LABEL[first]} onPress={() => props.onOpen(first)} style={{ flex: 1.3 }} />
-            {second ? <Pill label={CHANNEL_LABEL[second]} onPress={() => props.onOpen(second)} style={{ flex: 1 }} /> : null}
+          {/* The usual way, then the others as quiet choices (never a filled-and-outlined pair). */}
+          <View style={{ marginTop: space.xl }}>
+            <Pill variant="primary" label={CHANNEL_LABEL[first]} onPress={() => props.onOpen(first)} />
           </View>
+          {second ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.s }}>
+              <Pill size="small" variant="quiet" label={CHANNEL_LABEL[second]} onPress={() => props.onOpen(second)} />
+            </View>
+          ) : null}
           {rest.length ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.s }}>
               {rest.map((c) => (
-                <Pill key={c} size="small" label={CHANNEL_LABEL[c]} onPress={() => props.onOpen(c)} />
+                <Pill key={c} size="small" variant="quiet" label={CHANNEL_LABEL[c]} onPress={() => props.onOpen(c)} />
               ))}
             </View>
           ) : null}

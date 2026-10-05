@@ -24,6 +24,7 @@ export function Pill({
   icon,
   disabled = false,
   busy = false,
+  dense = false,
   accessibilityLabel,
   accessibilityHint,
   style,
@@ -42,6 +43,8 @@ export function Pill({
   accessibilityHint?: string;
   /** Layout only (flex, alignSelf). */
   style?: ViewStyle;
+  /** Tighter sides, for three equal actions in one row (Message · Call · Tell). */
+  dense?: boolean;
 }) {
   const p = usePalette();
   const h = size === "regular" ? H.button : H.small;
@@ -60,7 +63,7 @@ export function Pill({
       <View
         style={{
           minHeight: variant === "quiet" ? TOUCH : h,
-          paddingHorizontal: variant === "quiet" ? space.xs : size === "regular" ? space.xl : space.l,
+          paddingHorizontal: variant === "quiet" ? space.xs : dense ? space.s : size === "regular" ? space.xl : space.l,
           borderRadius: radius.pill(h),
           flexDirection: "row",
           alignItems: "center",
