@@ -92,7 +92,8 @@ export function PortraitView(props: PortraitViewProps) {
     );
   }
   const first = props.name.trim().split(/\s+/u)[0];
-  const empty = !props.lately.length && !props.comingUp.length && !props.youSaid.length && !props.between.length;
+  // Nothing told about them yet (a birthday from Contacts doesn't count).
+  const empty = !props.lately.length && !props.comingUp.some((l) => !l.fixed) && !props.youSaid.length && !props.between.length;
   const footer = (
     <View style={{ backgroundColor: p.paper }}>
     {props.kept ? <View style={{ paddingHorizontal: GUTTER }}>{props.kept}</View> : null}
@@ -129,6 +130,11 @@ export function PortraitView(props: PortraitViewProps) {
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>
 
+
+      <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} />
+      <Section title="Coming up" lines={props.comingUp} onLine={props.onLine} onSource={props.onSource} />
+      <Section title="You said you'd" lines={props.youSaid} ochre onLine={props.onLine} onSource={props.onSource} />
+      <Section title="Between you" lines={props.between} onLine={props.onLine} onSource={props.onSource} />
       {empty ? (
         <View style={{ marginTop: space.xl, alignItems: "flex-start" }}>
           <Body>{`What you tell Kinship about ${first} will be here: what's going on with them, what's coming up, what you said you'd do.`}</Body>
@@ -137,10 +143,6 @@ export function PortraitView(props: PortraitViewProps) {
           </View>
         </View>
       ) : null}
-      <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} />
-      <Section title="Coming up" lines={props.comingUp} onLine={props.onLine} onSource={props.onSource} />
-      <Section title="You said you'd" lines={props.youSaid} ochre onLine={props.onLine} onSource={props.onSource} />
-      <Section title="Between you" lines={props.between} onLine={props.onLine} onSource={props.onSource} />
 
       {props.total > 0 ? (
         <Pressable

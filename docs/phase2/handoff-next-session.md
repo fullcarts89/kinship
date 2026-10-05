@@ -1,5 +1,7 @@
 # Kinship 2.0: hand-off to the next session
 
+> **Done / superseded (5 Oct 2026):** the first-run work this prompt asked for is built on this branch; start from `docs/product/KINSHIP_2_PRODUCT_CONTRACT.md`.
+
 You are taking over the Kinship 2.0 build. The last session shipped a 2.0 app that technically worked, but it failed the founder on first open. It had no onboarding and no guidance. The screens were empty with nothing to explain them. A new user could not tell what the app was or what to do. Getting it onto the founder's phone also took many rounds of wrong instructions. Read this whole prompt before doing anything.
 
 ## Project

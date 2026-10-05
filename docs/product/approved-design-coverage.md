@@ -58,12 +58,15 @@
 |---|---|---|---|
 | People selection | All suggested rows pre-checked; "Continue with 14 people" | Nothing pre-checked; the count follows what she picks | **Trust:** pre-checking guesses who matters; only people she picks are saved |
 | People selection | "Suggested from your favourites, recent calls and family names" | "Suggested from family names and birthdays" | **Platform:** iOS gives apps no access to Favorites or call history |
+| People selection | List directly under the explanation; no search | A search field and "Add someone by name" above the list; with nobody picked the button reads "Skip for now" | **Interaction need:** a real address book (plan: "handles 2,000 contacts"); **brief §10:** add by name must exist when Contacts is refused |
 | People selection | Lock line "Nothing leaves it until you choose." | "Kinship reads contacts on this phone. Only the people you pick are saved." | **Founder (T8)** |
 | Already worth knowing | "You're seeing David on Thursday" (calendar) | Birthdays only | **Founder (T7, D6)** |
 | First Tell | Example quote in a surface box; "Say it" with a mic | An empty field in the same surface box with a neutral hint; "Keep it" | **Trust:** an example about invented people reads as data; **D5:** no voice yet |
 | Consent | No board | B1 setup composition: caps label, Title, Body, lock line, actions pinned | No reference exists; built from the approved vocabulary |
 | Welcome | No board | B1 setup composition + three plain lines | No reference exists; promise follows DD §B, §C |
 | Today first use | No board | Display line about what Today is for + one action | Required by contract §8; built from Today's own composition |
+| Today birthday | Board quiet line "Saturday · Maya's birthday · Ideas →" | Quiet line without "Ideas →"; day-of birthday as the moment with "Message Maya" | **D9:** no generated ideas in V1 |
+| Return check after a birthday | — | "Yes" recorded as a user-confirmed contact (`source=manual`), not `return_check` | **Technical:** birthday moments are computed on the phone; the server requires a reason id for `return_check`. Server birthday reasons (RSN-05) remove this |
 
 ## 3. Items needing a founder decision
 

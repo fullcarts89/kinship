@@ -31,7 +31,7 @@ export const FIRST_USE_COPY = {
   title: "This is where Kinship brings things back.",
   withPeople: "Tell Kinship what's going on with the people you care about. When something matters, like a birthday, a big day or something you said you'd do, it will be here, with what you said.",
   noPeople: "Add the people you care about, then tell Kinship what's going on with them. When something matters, like a birthday or a big day, it will be here.",
-  tell: "Tell Kinship something",
+  tell: "Tell Kinship one thing",
   add: "Add your people",
 } as const;
 

@@ -21,7 +21,6 @@ export const SETUP_COPY = {
   everyone: "Everyone",
   addByName: "Add someone by name",
   continueN: (n: number) => `Continue with ${n} ${n === 1 ? "person" : "people"}`,
-  continue: "Continue",
   skip: "Skip for now",
   askTitle: "Who do you want to show up for?",
   askBody: "Kinship can suggest people from your contacts, so you don't have to type them in. It reads them on this phone, and only the people you pick are saved.",
@@ -276,7 +275,7 @@ export function PeoplePickView(props: PeoplePickViewProps) {
       ) : null}
       {granted ? <View style={{ marginTop: space.xl }}><SearchField value={props.query} onChange={props.onQuery} /></View> : null}
       <View style={{ alignItems: "flex-start", marginTop: space.m, marginBottom: space.s }}>
-        <Pill size="small" variant="quiet" label={SETUP_COPY.addByName} onPress={() => props.onAddByName(props.query.trim())} />
+        <Pill size="small" variant={granted ? "quiet" : "ghost"} label={SETUP_COPY.addByName} onPress={() => props.onAddByName(props.query.trim())} />
       </View>
       {props.results && props.results.length === 0 && props.query.trim() ? (
         <View style={{ alignItems: "flex-start", gap: space.s, marginBottom: space.l }}>
@@ -311,13 +310,11 @@ export function PeoplePickView(props: PeoplePickViewProps) {
       <SetupFooter>
         {props.error ? <Small tone="brick" accessibilityRole="alert" accessibilityLiveRegion="assertive">{props.error}</Small> : null}
         {granted ? <LockLine text={SETUP_COPY.pickLock} /> : null}
-        <Pill
-          variant="primary"
-          label={n ? SETUP_COPY.continueN(n) : SETUP_COPY.continue}
-          disabled={!n || props.busy}
-          onPress={props.onContinue}
-        />
-        <Pill variant="quiet" label={SETUP_COPY.skip} disabled={props.busy} onPress={props.onSkip} />
+        {n ? (
+          <Pill variant="primary" label={SETUP_COPY.continueN(n)} disabled={props.busy} onPress={props.onContinue} />
+        ) : (
+          <Pill label={SETUP_COPY.skip} disabled={props.busy} onPress={props.onSkip} />
+        )}
       </SetupFooter>
     </View>
   );

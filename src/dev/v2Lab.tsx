@@ -10,6 +10,9 @@ import { NoteView } from "@/features/person/NoteView";
 import { PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
 import { PortraitView, type PortraitLineData } from "@/features/person/PortraitView";
 import { PeopleView } from "@/features/people/PeopleView";
+import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
+import { buildPickLists, searchRows, worthKnowing, type DeviceContact } from "@/features/setup/setupModel";
+import { ConsentStepView, PeoplePickView, WorthStepView, type PeoplePickViewProps } from "@/features/setup/SetupViews";
 import { EmailSheet, WelcomeView } from "@/features/welcome/WelcomeView";
 import { SettingsSheetView } from "@/features/people/SettingsSheet";
 import { ConsentSheetView } from "@/features/tell/ConsentSheet";
@@ -189,10 +192,45 @@ const peopleRows = [
   { id: ID.sarah, label: "Sarah", line: null, remembered: false },
 ];
 
+// Setup fixtures: lab-only contacts (never in a real account; contract §7.9).
+const labContacts: DeviceContact[] = [
+  { id: "k1", name: "Maya Okafor", birthday: { day: 17, month: 10, year: 1991 } },
+  { id: "k2", name: "Mom" },
+  { id: "k3", name: "David Reyes", birthday: { day: 2, month: 3 } },
+  { id: "k4", name: "Ben Carter" },
+  { id: "k5", name: "Chris Alvarez" },
+  { id: "k6", name: "Sarah Kim", birthday: { day: 14, month: 10, year: 1988 } },
+  { id: "k7", name: "Grandpa Joe" },
+  { id: "k8", name: "Josh Lee" },
+  { id: "k9", name: "Priya Shah" },
+  { id: "k10", name: "Ana Torres" },
+  { id: "k11", name: "Dr. Feldman (dentist)" },
+  { id: "k12", name: "Sam Okafor" },
+];
+const pickLists = buildPickLists(labContacts, {
+  today: TODAY, existing: { contactRefs: new Set(), names: new Set() }, newId: (c) => `0000000${c.length}-0000-4000-8000-${c.padStart(12, "0")}`,
+});
+function Pick(over: Partial<PeoplePickViewProps>) {
+  return (
+    <PeoplePickView
+      label="Setting up · 2 of 3" access={{ state: "granted", limited: false }} suggested={pickLists.suggested}
+      everyone={pickLists.everyone} added={[]} results={null} query="" selected={new Set()} busy={false} error={null}
+      onQuery={noop} onToggle={noop} onAddByName={noop} onAsk={noop} onSettings={noop} onShareMore={noop} onContinue={noop} onSkip={noop}
+      {...over}
+    />
+  );
+}
+const picked = [...pickLists.suggested, ...pickLists.everyone].filter((r) => ["Maya Okafor", "Mom", "Sarah Kim", "Ben Carter"].includes(r.name));
+const pickedPeople = picked.map((r) => ({ id: r.personId, display_name: r.name, state: "active", birthday: r.birthday, birthday_source: r.birthday ? "contacts" : null })) as unknown as Person[];
+const worthLines = worthKnowing(picked.map((r) => ({ id: r.personId, name: r.name, birthday: r.birthday })), TODAY);
+
 export const LAB_STATES = [
   "today", "today-quiet", "today-return", "today-after", "handoff", "handoff-choose", "tell", "kept", "offline",
   "review", "keep", "sams", "sams-answering", "sarah", "maya", "changed",
   "welcome", "welcome-busy", "welcome-error", "welcome-email", "welcome-email-error", "welcome-no-apple",
+  "setup-consent", "setup-ask", "setup-people", "setup-people-picked", "setup-search", "setup-denied", "setup-limited",
+  "setup-add-name", "setup-worth", "setup-tell", "today-first", "today-first-empty", "today-birthday", "today-birthday-week",
+  "people-empty", "person-birthday",
   "consent", "settings", "people", "people-add", "person", "person-empty", "correction", "correction-date", "knows", "source",
 ] as const;
 
@@ -279,6 +317,49 @@ export function V2Lab({ state }: { state: string }) {
             busy={false} message={state === "welcome-email-error" ? { text: "That email and password didn't work.", tone: "error" } : null}
             onEmail={noop} onPassword={noop} onMode={noop} onSubmit={noop} onDismiss={noop} />
         </WelcomeView>
+      );
+    case "setup-consent":
+      return <ConsentStepView label="Setting up · 1 of 3" busy={false} onAllow={noop} onDecline={noop} />;
+    case "setup-ask":
+      return <Pick access={{ state: "undetermined" }} suggested={[]} everyone={[]} />;
+    case "setup-people":
+      return <Pick />;
+    case "setup-people-picked":
+      return <Pick selected={new Set(picked.map((r) => r.personId))} />;
+    case "setup-search":
+      return <Pick query="sa" results={searchRows(pickLists, "sa")} selected={new Set(picked.map((r) => r.personId))} />;
+    case "setup-denied":
+      return <Pick access={{ state: "denied", canAskAgain: false }} suggested={[]} everyone={[]} />;
+    case "setup-limited":
+      return <Pick access={{ state: "granted", limited: true }} suggested={pickLists.suggested.slice(0, 2)} everyone={[]} />;
+    case "setup-add-name":
+      return (
+        <View style={{ flex: 1 }}>
+          <Pick access={{ state: "denied", canAskAgain: false }} suggested={[]} everyone={[]} />
+          <AddByNameSheet initial="" onDismiss={noop} onDone={async () => undefined} />
+        </View>
+      );
+    case "setup-worth":
+      return <WorthStepView label="Setting up · 3 of 3" lines={worthLines} text="Mom's hip surgery went well. She's home on the 12th." busy={false} onText={noop} onKeep={noop} onSkip={noop} />;
+    case "setup-tell":
+      return <WorthStepView label="Setting up · 3 of 3" lines={[]} text="" busy={false} onText={noop} onKeep={noop} onSkip={noop} />;
+    case "today-first":
+      return <Phone nav="today"><TodayLab view={today({ reasons: [], items: [], people: pickedPeople.filter((x) => !x.birthday), told: 0 })} /></Phone>;
+    case "today-first-empty":
+      return <Phone nav="today"><TodayLab view={today({ reasons: [], items: [], people: [], told: 0 })} /></Phone>;
+    case "today-birthday":
+      return <Phone nav="today"><TodayLab view={today({ reasons: [], items: [], people: [{ ...pickedPeople[0], birthday: "1991-10-12" } as Person, ...pickedPeople.slice(1)], told: 0 })} /></Phone>;
+    case "today-birthday-week":
+      return <Phone nav="today"><TodayLab view={today({ people: [...people, ...pickedPeople], told: 3 })} /></Phone>;
+    case "people-empty":
+      return <Phone nav="people"><PeopleView rows={[]} onOpen={noop} onAdd={async () => undefined} onSettings={noop} onAddFromContacts={noop} /></Phone>;
+    case "person-birthday":
+      return (
+        <PortraitView
+          personId={picked.find((r) => r.name === "Sarah Kim")?.personId ?? ""} name="Sarah Kim" label={null} remembered={false} lately={[]} youSaid={[]} between={[]} total={0}
+          comingUp={[{ itemId: "birthday", statement: "Sarah's birthday", when: "14 October", provenance: "From Contacts", noteId: null, fixed: true }]}
+          onBack={noop} onLine={noop} onSource={noop} onKnows={noop} onMessage={noop} onCall={noop} onTell={noop}
+        />
       );
     case "consent":
       return <Phone nav="today"><TodayLab view={today({ reasons: [], items: [] })} /><ConsentSheetView visible busy={false} onAllow={noop} onDecline={noop} /></Phone>;

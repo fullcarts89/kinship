@@ -1,0 +1,105 @@
+# PERMANENT GATE (docs/product/KINSHIP_2_PRODUCT_CONTRACT.md §10)
+#
+# A fresh install, a brand-new account, the whole first session:
+#   promise → sign in → consent → pick people → already worth knowing / first
+#   Tell → understood → People → relationship page → Source → Today →
+#   hand-off → return check.
+# A build that drops a new user straight into an empty Today and People
+# fails at "Setting up".
+#
+# Run before every build handed to anyone (founder, wife, alpha):
+#   maestro test .maestro/fresh-install.yaml \
+#     -e E2E_EMAIL=<a dedicated, never-used test account> -e E2E_PASSWORD=<…>
+#
+# Needs: a dev or release build of the dogfood-v2 profile on a simulator or
+# device; a dedicated e2e account whose 2.0 flags (shell_v2, tell,
+# ai_extraction, memory_v2) the founder has enabled; at least one contact on
+# the simulator ("Maya Okafor", birthday within 14 days, a mobile number).
+# Sign in with Apple can't be driven by Maestro; the flow signs in by email.
+appId: com.zenroost.kinship
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    permissions:
+      contacts: allow
+
+# Promise
+- assertVisible: "Remember what matters about the people you care about."
+- assertVisible: "Tell it what's going on with the people you love, in your own words."
+- assertVisible: "Continue with Apple"
+
+# Sign in (email: the only path automation can drive)
+- tapOn: "Use email"
+- tapOn: "Email"
+- inputText: ${E2E_EMAIL}
+- tapOn: "Password"
+- inputText: ${E2E_PASSWORD}
+- tapOn: "Sign in"
+
+# Consent, as the first setup step — never an empty Today
+- extendedWaitUntil:
+    visible: "So Kinship can understand what you tell it"
+    timeout: 20000
+- assertVisible: "Setting up · 1 of 3"
+- assertVisible: "Information you choose to record about people in your life may be processed by Kinship's AI provider in order to understand and organize it."
+- tapOn: "Allow"
+
+# Pick people (contacts, read on the phone; nobody pre-selected)
+- assertVisible: "Who do you want to show up for?"
+- assertVisible: "Kinship reads contacts on this phone. Only the people you pick are saved."
+- assertVisible: "Skip for now"
+- tapOn: "Search your contacts"
+- inputText: "Maya"
+- tapOn: "Maya Okafor.*"
+- hideKeyboard
+- tapOn: "Continue with 1 person"
+
+# Already worth knowing (Maya's real birthday) and the first Tell
+- assertVisible: "Already worth knowing"
+- assertVisible: "Maya's birthday is .*"
+- assertVisible: "From Contacts"
+- tapOn: "Something about someone you care about…"
+- inputText: "Maya starts her new job on Monday."
+- hideKeyboard
+- tapOn: "Keep it"
+
+# Understood: a Kept line, or the review sheet (never a form)
+- extendedWaitUntil:
+    visible: "(Kept.*|Here's what I'll remember.*)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Done"
+    commands:
+      - tapOn: "Done"
+
+# People is populated with who she picked
+- tapOn: "People"
+- assertVisible: "Maya Okafor"
+- assertNotVisible: "The people you care about will be here.*"
+
+# The relationship page, its provenance and the Source
+- tapOn: "Maya Okafor"
+- assertVisible: "Coming up"
+- tapOn: "You told Kinship.*"
+- assertVisible: "Your note"
+- back
+- back
+
+# Today: never the first-use void once something has been told
+- tapOn: "Today"
+- assertNotVisible: "This is where Kinship brings things back."
+
+# Hand-off from the relationship page (opens Messages; nothing is sent)
+- tapOn: "People"
+- tapOn: "Maya Okafor"
+- tapOn: "Message"
+- assertVisible: "Open Messages"
+- tapOn: "Open Messages"
+- launchApp:
+    stopApp: false
+# The return check appears only 10 minutes after a hand-off from a reason;
+# its timing is covered by Jest (todayModel.test.ts). Here: the app returns
+# to Kinship without a 1.0 screen.
+- assertVisible: "Today"

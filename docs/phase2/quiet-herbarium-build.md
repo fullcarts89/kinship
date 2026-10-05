@@ -1,5 +1,7 @@
 # Kinship 2.0: the Quiet Herbarium, built (E07, E08, Phase 2 slice)
 
+> **Note (5 Oct 2026):** §6's decision to defer the promise and onboarding screens was reversed by the founder. Setup (consent, people from contacts, already worth knowing, first Tell) is now built; see `docs/product/KINSHIP_2_PRODUCT_CONTRACT.md` and `docs/product/approved-design-coverage.md`.
+
 **Goal: build the design we already chose, not a new one.**
 
 **Sources of truth:**

@@ -52,13 +52,15 @@ it("the picker: board 1's question, the T8 lock line, nobody pre-selected", () =
   const boxes = tree.root.findAll((n) => n.props.accessibilityRole === "checkbox" && typeof n.props.onPress === "function");
   expect(boxes).toHaveLength(3);
   for (const b of boxes) expect(b.props.accessibilityState).toEqual({ checked: false });
-  const cont = tree.root.find((n) => n.props.accessibilityRole === "button" && n.props.accessibilityLabel === "Continue");
-  expect(cont.props.accessibilityState?.disabled).toBe(true);
+  // With no one picked, the way on is "Skip for now", never a disabled button.
+  expect(t).toContain(SETUP_COPY.skip);
+  expect(t.some((x) => x.startsWith("Continue with"))).toBe(false);
 });
 
 it("the count follows what was picked", () => {
   const t = texts(pick({ selected: new Set(["p-Mom", "p-Ben Carter"]) }));
   expect(t).toContain("Continue with 2 people");
+  expect(t).not.toContain(SETUP_COPY.skip);
 });
 
 it("Contacts refused: no dead end — add by name, Settings, and a way on", () => {
