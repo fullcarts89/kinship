@@ -38,3 +38,13 @@ Screen: People with the Settings sheet open.
 | # | Area | Founder's feedback | What the code / screenshots show (my observation, not yet investigated) |
 |---|---|---|---|
 | F8 | Settings: Contacts | What's the point of the Contacts section if there's nothing to adjust? | It's a disclosure only: a title and one sentence (`src/features/people/SettingsSheet.tsx`), with no control and no tap action. Options: make it act (show whether access is allowed, open iOS Settings to change it, and "Add from contacts"), or fold the sentence into the Understanding section and drop the row. Also: the People list shows "the writer" in Ben's preview line (F4/F6). |
+
+## Burst 5: 5 Oct, about 10:04
+
+Screen: the welcome (sign-in) screen.
+
+| # | Area | Founder's feedback | What the code / screenshots show (my observation, not yet investigated) |
+|---|---|---|---|
+| F9 | Welcome: layout | It reads as a wall of text and isn't neatly organised. | Kicker, headline, subline, then three ruled lines. All of it is the same weight of body text, so nothing leads. "See how it works" sits left of the text margin: it's pulled out by `marginLeft: -space.l`. |
+| F10 | Welcome: sign-in buttons | The Apple and Google buttons are oriented wrong. It looks cheap. | **Apple button is broken:** no black fill, white text on paper, and the logo stacked above the label instead of beside it. Its layout lives in a `Pressable` style *function*. Hypothesis: NativeWind (`jsxImportSource: "nativewind"`) drops function styles on `Pressable` in the native build. That could also explain the squeezed pencil button (F1) and any other control styled the same way. Needs a device check. Google and email are small, quiet text links in a row under the broken Apple button, so the hierarchy reads as unfinished. |
+| F11 | Welcome: orientation | Would prefer a rotating carousel or a fun animated design to orient people who are signing in. | **Design-direction question for the founder.** The Design Direction asks for no decorative motion, and "See how it works" already exists as a tap-through. Options: (a) turn the three lines into a calm, swipeable 3-panel carousel (Tell → Remember → Bring back), using the "See how it works" content, auto-advancing slowly, with Reduce Motion respected; (b) one quiet illustrated animation, e.g. the sprig growing a leaf per step. Needs the founder's choice before anything is built. |
