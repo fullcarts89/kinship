@@ -9,7 +9,9 @@ import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
 import { buildToday, evidenceOf, isBirthdayReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayView } from "@/features/today/todayModel";
 import { buildPortrait, PORTRAIT_RULES, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
-import { dayMonth, needsSetup, nextBirthday, type PickRow, type SetupStep } from "@/features/setup/setupModel";
+import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
+import { legacyActivation, NO_ACTIVATION, nextStep, setupFinished, setupStepsFor, type SetupNeeds } from "@/features/setup/activation";
+import { useActivation, type ActivationState } from "./useActivation";
 import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
 import { parseDrafts, withDraft, type Drafts } from "@/features/tell/drafts";
 import { misfiledOn, voiced } from "@/features/memory/statements";
@@ -244,6 +246,7 @@ export function useV2Actions() {
 /** Today's view: the one moment, the return check, at most two quiet lines. */
 export function useToday(questions: number, toLookAt: number, now: Date): TodayView | null {
   const { store, reasonLocal } = useV2Session();
+  const activation = useActivation();
   const minute = Math.floor(now.getTime() / 60_000);
   const q = useStoreQuery(store, async (repos) => {
     const reasons = (await store.list("reasons")) as unknown as ReasonRow[];
@@ -270,8 +273,9 @@ export function useToday(questions: number, toLookAt: number, now: Date): TodayV
     return buildToday({
       now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
       handoff: local.handoff, told, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
+      activated: activation.activated, firstName: activation.firstName,
     });
-  }, [questions, toLookAt, minute]);
+  }, [questions, toLookAt, minute, activation.activated, activation.firstName]);
   return q.data ?? null;
 }
 
@@ -494,9 +498,13 @@ export function useConsentAsk(): { ask: boolean; answer: (allow: boolean) => Pro
   const q = useStoreQuery(store, async (repos) => {
     const s = await repos.settings.get();
     const allowed = s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
-    return { allowed, asked: (await getMeta(store.db, CONSENT_ASKED)) === "1" };
+    // "Keep notes as written", said on another phone, is an answer too.
+    const declined = s?.ai_consent === false && !!s?.ai_consent_updated_at;
+    return { allowed, asked: declined || (await getMeta(store.db, CONSENT_ASKED)) === "1" };
   });
   return {
+    // Setup asks first (recovery Gate 3); this only catches a choice that
+    // couldn't be saved then, or understanding offered after setup.
     ask: extractionOn && q.data !== undefined && !q.data.allowed && !q.data.asked,
     answer: async (allow: boolean) => {
       await setAIEnabled(allow);
@@ -525,31 +533,52 @@ export function useUnderstandingConsent(): { allowed: boolean | null; set: (allo
   };
 }
 
-// ─── Setup (plan E16; contract §8) ──────────────────────────────────────
+// ─── Setup (plan E16; contract §8; recovery Gate 3) ─────────────────────
 
-const SETUP_DONE = "setup_done";
-const SETUP_STEP = "setup_step";
-/** How long setup waits for the server before deciding a new phone is a new account. */
+/** How long setup waits for the server before deciding an older account with no record. */
 const SETUP_SYNC_WAIT_MS = 5000;
 
 export type SetupGate = "checking" | "needed" | "done";
 
+/** Whether understanding is offered to this account and it hasn't answered yet. */
+function useConsentAnswered(): boolean | undefined {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const s = await repos.settings.get();
+    const allowed = s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
+    const declined = s?.ai_consent === false && !!s?.ai_consent_updated_at;
+    return allowed || declined || (await getMeta(store.db, CONSENT_ASKED)) === "1";
+  });
+  return q.data;
+}
+
+/** What setup has to ask this account (name only if sign-in didn't give one; consent only if offered and unanswered). */
+function useSetupNeeds(act: ActivationState): SetupNeeds | null {
+  const { userId } = useV2Session();
+  const extractionOn = isOn(useFlags(userId), "ai_extraction");
+  const answered = useConsentAnswered();
+  if (answered === undefined) return null;
+  return { name: !act.firstName, consent: extractionOn && !answered };
+}
+
 /**
- * Whether this account still needs setup. Decided once per open: a finished
- * setup on this phone; else, after one sync (so a reinstall brings an
- * existing account's people down first), an account with no people and no
- * notes, or a setup that was under way when the app was closed.
+ * Whether this account still needs setup, from its explicit record
+ * (src/features/setup/activation.ts), never from what it happens to hold.
+ * An account from before the record existed is decided once (after one
+ * sync), recorded, and from then on follows the record like any other.
+ * Decided once per visit: after "done" it stays done until the app reopens.
  */
 export function useSetupGate(): SetupGate {
   const { store, understanding } = useV2Session();
+  const act = useActivation();
+  const needs = useSetupNeeds(act);
   const [gate, setGate] = useState<SetupGate>("checking");
+  const adopting = useRef(false);
+
   useEffect(() => {
-    let cancelled = false;
+    if (!act.loaded || act.activation || adopting.current) return;
+    adopting.current = true;
     void (async () => {
-      if ((await getMeta(store.db, SETUP_DONE)) === "1") {
-        if (!cancelled) setGate("done");
-        return;
-      }
       let timer: ReturnType<typeof setTimeout> | undefined;
       await Promise.race([
         understanding.run().catch(() => undefined),
@@ -559,43 +588,40 @@ export function useSetupGate(): SetupGate {
       ]);
       clearTimeout(timer);
       const repos = repositoriesFor(store);
-      const people = (await repos.people.list()).filter((p) => !p.deleted_at).length;
-      const notes = (await repos.captures.list()).length;
-      const inProgress = (await getMeta(store.db, SETUP_STEP)) !== null;
-      const needed = needsSetup({ done: false, inProgress, people, notes });
-      if (!needed) await setMeta(store.db, SETUP_DONE, "1");
-      if (!cancelled) setGate(needed ? "needed" : "done");
-    })().catch(() => {
-      if (!cancelled) setGate("done");
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [store, understanding]);
+      const people = (await repos.people.list()).filter((p) => !p.deleted_at && p.state !== "archived").length;
+      const memories = ((await store.list("memory_items")) as MemoryItem[]).filter((m) => liveItem(m)).length;
+      const s = await repos.settings.get();
+      const consentAnswered = (s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION) ||
+        (s?.ai_consent === false && !!s?.ai_consent_updated_at) || (await getMeta(store.db, CONSENT_ASKED)) === "1";
+      await act.adopt(legacyActivation({ people, memories, consentAnswered, nameKnown: !!act.firstName }, new Date().toISOString()));
+    })().catch(() => act.adopt(NO_ACTIVATION));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [act.loaded, !!act.activation]);
+
+  useEffect(() => {
+    if (gate === "done" || !needs || !act.activation) return;
+    setGate(setupFinished(needs, act.activation) ? "done" : "needed");
+  }, [gate, needs?.name, needs?.consent, act.activation]);
   return gate;
 }
 
-/** The steps, the saved place in them, and the writes setup makes. */
+/** The steps, where this account is in them, and the writes setup makes. */
 export function useSetup() {
-  const { store, userId } = useV2Session();
-  const extractionOn = isOn(useFlags(userId), "ai_extraction");
-  const q = useStoreQuery(store, async (repos) => {
-    const s = await repos.settings.get();
-    const allowed = s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
-    const asked = (await getMeta(store.db, CONSENT_ASKED)) === "1";
-    const people = (await repos.people.list()).filter((p) => !p.deleted_at && p.state !== "archived");
-    return {
-      saved: await getMeta(store.db, SETUP_STEP),
-      needsConsent: extractionOn && !allowed && !asked,
-      people,
-    };
-  }, [extractionOn]);
+  const { store } = useV2Session();
+  const act = useActivation();
+  const needs = useSetupNeeds(act);
+  const q = useStoreQuery(store, async (repos) =>
+    (await repos.people.list()).filter((p) => !p.deleted_at && p.state !== "archived"));
+  const steps = needs ? setupStepsFor(needs, act.activation) : [];
   return {
-    ready: q.data !== undefined,
-    saved: q.data?.saved ?? null,
-    needsConsent: q.data?.needsConsent ?? false,
-    people: q.data?.people ?? [],
-    goTo: (step: SetupStep) => setMeta(store.db, SETUP_STEP, step),
+    ready: act.loaded && !!needs && q.data !== undefined,
+    steps,
+    /** The first step still to do (null: setup is finished). */
+    next: needs ? nextStep(needs, act.activation) : null,
+    people: q.data ?? [],
+    firstName: act.firstName,
+    record: act.record,
+    saveFirstName: act.saveFirstName,
     /** Saves the people the user picked, skipping anyone already here. */
     savePicked: async (rows: PickRow[]) => {
       const repos = repositoriesFor(store);
@@ -606,10 +632,6 @@ export function useSetup() {
           id: r.personId, name: r.name, contactId: r.contactId, birthday: r.birthday, birthdayYearKnown: r.birthdayYearKnown,
         });
       }
-    },
-    finish: async () => {
-      await setMeta(store.db, SETUP_DONE, "1");
-      store.notify();
     },
   };
 }

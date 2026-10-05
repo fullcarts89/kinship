@@ -187,32 +187,4 @@ export function worthKnowing(people: { id: string; name: string; birthday: strin
     });
 }
 
-// ─── Where setup stands ─────────────────────────────────────────────────
-
-export type SetupStep = "consent" | "people" | "worth";
-
-/** The steps this account goes through, in order (consent only when it's needed). */
-export function setupSteps(needsConsent: boolean): SetupStep[] {
-  return needsConsent ? ["consent", "people", "worth"] : ["people", "worth"];
-}
-
-/** Where to resume after a relaunch: the saved step if it's still one of this account's steps. */
-export function resumeStep(saved: string | null, steps: SetupStep[]): SetupStep {
-  return steps.includes(saved as SetupStep) ? (saved as SetupStep) : steps[0];
-}
-
-/** "Setting up · 1 of 2" (board 1). */
-export function stepLabel(step: SetupStep, steps: SetupStep[]): string {
-  return `Setting up · ${steps.indexOf(step) + 1} of ${steps.length}`;
-}
-
-/**
- * Whether this account still needs setup. Setup is for an account with
- * nothing in it yet: once it has people or notes (on this phone or brought
- * down from the server), it never starts setup again, even after a reinstall.
- * A setup already under way on this phone (killed mid-way) always resumes.
- */
-export function needsSetup(s: { done: boolean; inProgress: boolean; people: number; notes: number }): boolean {
-  if (s.done) return false;
-  return s.inProgress || (s.people === 0 && s.notes === 0);
-}
+// Where setup stands lives in activation.ts (an explicit record, not a guess).

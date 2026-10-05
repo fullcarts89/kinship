@@ -3,7 +3,7 @@
 // the contact's own, "already worth knowing" is only what's true, and a
 // half-finished setup resumes.
 import {
-  birthdayIso, buildPickLists, looksLikeFamily, needsSetup, nextBirthday, resumeStep, searchRows, setupSteps, stepLabel,
+  birthdayIso, buildPickLists, looksLikeFamily, nextBirthday, searchRows,
   whenFromToday, worthKnowing, type DeviceContact,
 } from "../setupModel";
 
@@ -81,20 +81,3 @@ it("search finds people in both lists", () => {
   expect(searchRows(l, "  ")).toEqual([]);
 });
 
-it("steps: consent only when needed; labels follow board 1; resume where it stopped", () => {
-  expect(setupSteps(true)).toEqual(["consent", "people", "worth"]);
-  expect(setupSteps(false)).toEqual(["people", "worth"]);
-  expect(stepLabel("people", setupSteps(false))).toBe("Setting up · 1 of 2");
-  expect(stepLabel("worth", setupSteps(true))).toBe("Setting up · 3 of 3");
-  expect(resumeStep("worth", setupSteps(false))).toBe("worth");
-  expect(resumeStep("consent", setupSteps(false))).toBe("people");
-  expect(resumeStep(null, setupSteps(true))).toBe("consent");
-});
-
-it("a new account sets up; an account with anything in it doesn't; a setup under way resumes", () => {
-  expect(needsSetup({ done: false, inProgress: false, people: 0, notes: 0 })).toBe(true);
-  expect(needsSetup({ done: false, inProgress: false, people: 3, notes: 0 })).toBe(false);
-  expect(needsSetup({ done: false, inProgress: false, people: 0, notes: 1 })).toBe(false);
-  expect(needsSetup({ done: false, inProgress: true, people: 3, notes: 0 })).toBe(true);
-  expect(needsSetup({ done: true, inProgress: true, people: 0, notes: 0 })).toBe(false);
-});

@@ -75,8 +75,17 @@ export interface TodayInput {
   /** The person each recent moment was about, by the day it was shown (person cap). */
   primaries: { personId: string; reasonId: string; day: string }[];
   handoff: Handoff | null;
-  /** How many notes the user has ever told Kinship (first use vs a quiet day). */
+  /** How many notes the user has ever told Kinship (kept for the lab and older callers). */
   told: number;
+  /**
+   * Whether the account is activated: its first Tell became memory
+   * (src/features/setup/activation.ts). Until then Today keeps its first-use
+   * guidance, however many people or notes the account has (recovery Gate 3).
+   * When absent, first use falls back to "nothing told yet".
+   */
+  activated?: boolean;
+  /** The user's first name, when Kinship knows it: "Good morning, Thor." */
+  firstName?: string | null;
   /** Notes waiting on the user (D1): a question, or understood while away. */
   questions: number;
   toLookAt: number;
@@ -194,6 +203,12 @@ export function scoreOf(r: ReasonRow, item: MemoryItem, input: TodayInput): numb
   return capped ? 0 : Number(r.score) * timeliness * evidence * freshness;
 }
 
+/** "Good morning." or, when Kinship knows their name, "Good morning, Thor." */
+export function greetingFor(now: Date, firstName: string | null): string {
+  const part = now.getHours() < 12 ? "Good morning" : now.getHours() < 18 ? "Good afternoon" : "Good evening";
+  return firstName ? `${part}, ${firstName}.` : `${part}.`;
+}
+
 export function buildToday(input: TodayInput): TodayView {
   const { now, today } = input;
   const people = new Map(input.people.map((p) => [p.id, p]));
@@ -207,7 +222,7 @@ export function buildToday(input: TodayInput): TodayView {
 
   const view: TodayView = {
     dateLabel: `${WEEKDAYS[now.getDay()]}, ${now.getDate()} ${MONTHS[now.getMonth()]}`,
-    greeting: now.getHours() < 12 ? "Good morning." : now.getHours() < 18 ? "Good afternoon." : "Good evening.",
+    greeting: greetingFor(now, input.firstName ?? null),
     returnCheck: null,
     moment: null,
     quiet: [],
@@ -342,7 +357,7 @@ export function buildToday(input: TodayInput): TodayView {
 
   // First use is not a quiet day (contract §8).
   const here = input.people.filter((p) => !p.deleted_at && p.state !== "archived");
-  const firstUse = here.length === 0 || input.told === 0;
+  const firstUse = here.length === 0 || !(input.activated ?? input.told > 0);
   const nothing = !view.moment && !view.returnCheck;
   view.firstUse = firstUse && nothing ? { hasPeople: here.length > 0 } : null;
   view.quietDay = nothing && !firstUse;

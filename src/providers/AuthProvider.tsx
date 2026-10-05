@@ -157,6 +157,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
 
     if (error) throw new Error(error.message || "Apple sign-in failed");
+
+    // Apple shares the name only on the very first sign-in, and Supabase
+    // doesn't keep it from an ID token: keep the first name (only) on the
+    // account, so setup doesn't have to ask (recovery Gate 3).
+    const given = (credential.fullName?.givenName ?? "").trim();
+    if (given) {
+      supabase.auth.updateUser({ data: { given_name: given } }).catch(() => undefined);
+    }
   }, []);
 
   // ─── Google Sign-In ────────────────────────────────────────────────────

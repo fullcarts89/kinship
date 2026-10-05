@@ -15,7 +15,8 @@ import { HowItWorksView } from "@/features/welcome/HowItWorks";
 import type { Portrait as PortraitData } from "@/features/person/portraitModel";
 import proofs from "./fixtures/generated/proofs.json";
 import { buildPickLists, searchRows, worthKnowing, type DeviceContact } from "@/features/setup/setupModel";
-import { ConsentStepView, PeoplePickView, WorthStepView, type PeoplePickViewProps } from "@/features/setup/SetupViews";
+import { ConsentStepView, NameStepView, PeoplePickView, WorthStepView, type PeoplePickViewProps } from "@/features/setup/SetupViews";
+import { draftPreview } from "@/features/tell/drafts";
 import { EmailSheet, WelcomeView } from "@/features/welcome/WelcomeView";
 import { SettingsSheetView } from "@/features/people/SettingsSheet";
 import { ConsentSheetView } from "@/features/tell/ConsentSheet";
@@ -252,7 +253,7 @@ export const LAB_STATES = [
   "welcome", "welcome-busy", "welcome-error", "welcome-email", "welcome-email-error", "welcome-no-apple",
   "setup-consent", "setup-ask", "setup-people", "setup-people-picked", "setup-search", "setup-denied", "setup-limited",
   "setup-add-name", "setup-worth", "setup-tell", "today-first", "today-first-empty", "today-birthday", "today-birthday-week",
-  "people-empty", "person-birthday",
+  "people-empty", "person-birthday", "setup-name", "tell-draft", "tell-about",
   "how-1", "how-2", "how-3", "how-4", "setup-worth-typed",
   "matt-tell", "matt-review", "matt-person", "matt-knows", "matt-source",
   "anna-before", "anna-after", "anna-knows", "knee-before", "knee-after", "knee-knows",
@@ -387,6 +388,22 @@ export function V2Lab({ state }: { state: string }) {
       return <ProofPage p={P.density.rich} />;
     case "person-rich-knows":
       return <PersonRecordView name="Priya" label={null} lines={P.density.richKnows} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+    case "setup-name":
+      return <NameStepView label="Setting up · 1 of 4" name="" busy={false} onName={noop} onContinue={noop} onSkip={noop} autoFocus={false} />;
+    case "tell-draft":
+      return (
+        <Phone nav="people" dock={<TellDockView tellOn draft="My wife is really excited for our Disney trip on October 23rd" onDraft={noop} onSend={noop}
+          line={null} current="people" onGo={noop}
+          collapsed={{ preview: draftPreview("My wife is really excited for our Disney trip on October 23rd", null), onExpand: noop }} />}>
+          <PeopleView rows={peopleRows} onOpen={noop} onAdd={async () => undefined} onSettings={noop} />
+        </Phone>
+      );
+    case "tell-about":
+      return (
+        <Phone nav="today" dock={<TellDockView tellOn draft="Ran 3:52. Wants to do Berlin next." onDraft={noop} onSend={noop} line={null} current="today" onGo={noop} about="Ben" />}>
+          <TodayLab />
+        </Phone>
+      );
     case "setup-consent":
       return <ConsentStepView label="Setting up · 1 of 3" busy={false} onAllow={noop} onDecline={noop} />;
     case "setup-ask":

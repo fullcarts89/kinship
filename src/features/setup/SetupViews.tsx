@@ -14,6 +14,11 @@ import { Body, Display, Label, MomentText, Pill, Provenance, Small, Sprig, usePa
 import type { PickRow, WorthLine } from "./setupModel";
 
 export const SETUP_COPY = {
+  nameTitle: "What should Kinship call you?",
+  nameBody: "Your first name is enough.",
+  nameHint: "First name",
+  continue: "Continue",
+  notNow: "Not now",
   consentLabel: "Before you start",
   pickTitle: "Who do you want to show up for?",
   pickBody: "Pick as many as feel right. Suggested from family names and birthdays coming up.",
@@ -101,6 +106,51 @@ function Frame({ children, footer }: { children: React.ReactNode; footer: React.
       </ScrollView>
       <SetupFooter>{footer}</SetupFooter>
     </View>
+  );
+}
+
+// ─── Name (recovery Gate 3: only when sign-in didn't give one) ──────────
+
+export function NameStepView({ label, name, busy, onName, onContinue, onSkip, autoFocus = true }: {
+  label: string;
+  name: string;
+  busy: boolean;
+  onName: (v: string) => void;
+  onContinue: () => void;
+  onSkip: () => void;
+  autoFocus?: boolean;
+}) {
+  const p = usePalette();
+  return (
+    <Frame
+      footer={
+        <View style={{ gap: space.xs }}>
+          <Pill variant="primary" label={SETUP_COPY.continue} busy={busy} disabled={!name.trim()} onPress={onContinue} />
+          <Pill variant="quiet" label={SETUP_COPY.notNow} disabled={busy} onPress={onSkip} />
+        </View>
+      }
+    >
+      <Head label={label} title={SETUP_COPY.nameTitle} body={SETUP_COPY.nameBody} />
+      <TextInput
+        value={name}
+        onChangeText={onName}
+        autoFocus={autoFocus}
+        autoCapitalize="words"
+        autoComplete="given-name"
+        textContentType="givenName"
+        returnKeyType="done"
+        onSubmitEditing={() => name.trim() && onContinue()}
+        placeholder={SETUP_COPY.nameHint}
+        placeholderTextColor={p.inkQuiet}
+        accessibilityLabel={SETUP_COPY.nameHint}
+        maxLength={40}
+        maxFontSizeMultiplier={maxScale.text}
+        style={[type.field, {
+          marginTop: space.xl, minHeight: height.search, color: p.ink, backgroundColor: p.surface, borderRadius: radius.inline,
+          borderWidth: 1, borderColor: p.hairline, paddingHorizontal: space.l,
+        }]}
+      />
+    </Frame>
   );
 }
 
@@ -358,9 +408,9 @@ export function WorthStepView(props: WorthStepViewProps) {
   return (
     <Frame
       footer={
-        <View style={{ flexDirection: "row", gap: space.s }}>
-          <Pill label={SETUP_COPY.skip} style={{ flex: 1 }} disabled={props.busy} onPress={props.onSkip} />
-          <Pill variant="primary" label={SETUP_COPY.keep} style={{ flex: 1.4 }} busy={props.busy} disabled={!props.text.trim()} onPress={props.onKeep} />
+        <View style={{ gap: space.xs }}>
+          <Pill variant="primary" label={SETUP_COPY.keep} busy={props.busy} disabled={!props.text.trim()} onPress={props.onKeep} />
+          <Pill variant="quiet" label={SETUP_COPY.skip} disabled={props.busy} onPress={props.onSkip} />
         </View>
       }
     >
