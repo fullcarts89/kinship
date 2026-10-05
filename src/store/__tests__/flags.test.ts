@@ -25,18 +25,34 @@ function server(answer: () => Promise<Flags>) {
   return { calls, source: { fetch: () => (calls.n++, answer()) } };
 }
 
-it("launches from the server the first time, and from the device after that", async () => {
+it("launches from the server's answer, so a switch shows at the very next launch", async () => {
   const cache = memoryCache();
-  let on = true;
+  let on = false;
   const s = server(async () => ({ shell_v2: on, tell: on, ai_extraction: false }));
   const repo = new FlagRepo(s.source, cache);
-  const first = await repo.atLaunch(ME);
-  expect([isOn(first, "shell_v2"), isOn(first, "tell"), isOn(first, "ai_extraction")]).toEqual([true, true, false]);
+  expect(isOn(await repo.atLaunch(ME), "shell_v2")).toBe(false);
+  on = true; // switched on for this account
+  const next = await repo.atLaunch(ME);
+  expect([isOn(next, "shell_v2"), isOn(next, "tell"), isOn(next, "ai_extraction")]).toEqual([true, true, false]);
+});
 
-  on = false; // switched off on the server
-  expect(isOn(await repo.atLaunch(ME), "shell_v2")).toBe(true); // this launch keeps what it knew
-  await repo.refresh(ME); // the background refresh learns the change
-  expect(isOn(await repo.atLaunch(ME), "shell_v2")).toBe(false); // and the next launch uses it
+it("offline or slow, it launches from what the device last heard", async () => {
+  const cache = memoryCache();
+  await new FlagRepo({ fetch: async () => ({ shell_v2: true }) }, cache).atLaunch(ME);
+  const offline = new FlagRepo({ fetch: async () => { throw new Error("offline"); } }, cache);
+  expect(isOn(await offline.atLaunch(ME), "shell_v2")).toBe(true);
+});
+
+it("keeps an answer that arrives too late for this launch, for the next one", async () => {
+  const cache = memoryCache();
+  cache.value = JSON.stringify({ user_id: ME, flags: { shell_v2: false } });
+  let release!: (f: Flags) => void;
+  const slow = new FlagRepo({ fetch: () => new Promise<Flags>((r) => { release = r; }) }, cache, 20);
+  expect(isOn(await slow.atLaunch(ME), "shell_v2")).toBe(false); // waited, used the device's copy
+  release({ shell_v2: true }); // the answer lands after the wait
+  await new Promise((r) => setTimeout(r, 0));
+  const offline = new FlagRepo({ fetch: async () => { throw new Error("offline"); } }, cache);
+  expect(isOn(await offline.atLaunch(ME), "shell_v2")).toBe(true); // and is what the next launch knows
 });
 
 it("is all off when the server can't be reached and nothing is known", async () => {
