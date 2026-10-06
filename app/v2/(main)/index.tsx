@@ -91,7 +91,7 @@ export default function TodayScreen() {
         onQuiet={(q) => {
           if (q.kind === "question") flow.openNote(q.captureId ?? flow.questions[0]);
           else if (q.kind === "look") flow.openNote(flow.toLookAt[0]);
-          else if (q.kind === "coming") router.push(`/v2/person/${q.personId}`);
+          else if (q.kind === "coming" || q.kind === "waiting") router.push(`/v2/person/${q.personId}`);
         }}
         settling={settling}
         onTellFirst={() => flow.focusTell(null)}

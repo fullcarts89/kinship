@@ -7,7 +7,7 @@ import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
-import { buildToday, evidenceOf, isBirthdayReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
+import { buildToday, evidenceOf, isBirthdayReason, isLocalReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { buildPortrait, PORTRAIT_RULES, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
 import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
 import { legacyActivation, NO_ACTIVATION, nextStep, setupFinished, setupStepsFor, type SetupNeeds } from "@/features/setup/activation";
@@ -372,31 +372,31 @@ export function useTodayActions() {
       const before = (await reasonLocal.read()).local[m.reasonId]?.firstShown;
       await reasonLocal.shown(m.reasonId, m.personId, todayIso());
       if (!before) {
-        if (!isBirthdayReason(m.reasonId)) reasons.record(m.reasonId, "shown");
+        if (!isLocalReason(m.reasonId)) reasons.record(m.reasonId, "shown");
         track("reason_surfaced", { reason_type: reasonTypeName(m.type), surface: "today", score_bucket: scoreBucket(m.score) });
       }
     },
     notNow: async (m: { reasonId: string; type: TodayReasonType }) => {
       await reasonLocal.dismissed(m.reasonId, new Date().toISOString());
-      if (!isBirthdayReason(m.reasonId)) reasons.record(m.reasonId, "dismissed_not_now");
+      if (!isLocalReason(m.reasonId)) reasons.record(m.reasonId, "dismissed_not_now");
       track("reason_dismissed", { reason_type: reasonTypeName(m.type), mode: "not_now" });
     },
     handedOff: async (h: { reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType }) => {
       await reasonLocal.handedOff({ reasonId: h.reasonId, personId: h.personId, channel: h.channel, at: new Date().toISOString() });
-      if (!isBirthdayReason(h.reasonId)) reasons.record(h.reasonId, "acted", h.channel);
+      if (!isLocalReason(h.reasonId)) reasons.record(h.reasonId, "acted", h.channel);
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
     },
     /** "Yes": the one place a connection is recorded (plan §15). */
     returned: async (answer: "yes" | "not_yet") => {
       const h = await reasonLocal.answered(answer, new Date().toISOString());
       if (!h) return null;
-      if (!isBirthdayReason(h.reasonId)) reasons.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
+      if (!isLocalReason(h.reasonId)) reasons.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
       track("return_check_answered", { answer, minutes_since_handoff_bucket: minutesBucket(Date.now() - Date.parse(h.at)) });
       if (answer === "yes") {
         // A birthday moment is worked out on this phone and has no server
         // reason to name, so its "Yes" is recorded as the user's own word
         // (manual). Server birthday reasons (RSN-05) will carry the reason.
-        await repositoriesFor(store).contacts.confirm(isBirthdayReason(h.reasonId)
+        await repositoriesFor(store).contacts.confirm(isLocalReason(h.reasonId)
           ? { person_id: h.personId, channel: h.channel, source: "manual" }
           : { person_id: h.personId, channel: h.channel, source: "return_check", reason_id: h.reasonId });
       }
@@ -436,6 +436,10 @@ export function usePeopleRows(): PeopleRowData[] {
       .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
     const all = await repos.people.list();
     const newest = new Map<string, string>();
+    // A person's row shows their own news first; a relative's ("Michelle's
+    // sister Ana had a baby") only when there's nothing else (founder G42).
+    const own = (m: MemoryItem) => m.subject_type !== "related";
+    for (const m of items) if (own(m) && !newest.has(m.person_id) && !misfiled(m, all)) newest.set(m.person_id, voiced(m, all).statement);
     for (const m of items) if (!newest.has(m.person_id) && !misfiled(m, all)) newest.set(m.person_id, voiced(m, all).statement);
     return people
       .sort((a, b) => a.display_name.localeCompare(b.display_name))

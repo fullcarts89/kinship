@@ -53,43 +53,60 @@ export interface PortraitViewProps {
   children?: React.ReactNode;
 }
 
-function withWhen(l: PortraitLineData): string {
+function withWhen(l: PortraitLineData, leading = false): string {
   if (!l.when || l.when === "No date yet") return l.statement;
   const plain = l.when.replace(/[“”]/gu, "");
-  return l.statement.toLocaleLowerCase().includes(plain.toLocaleLowerCase()) ? l.statement : `${l.statement} · ${l.when}`;
+  if (l.statement.toLocaleLowerCase().includes(plain.toLocaleLowerCase())) return l.statement;
+  // Coming up leads with when it is (stabilization Gate H).
+  return leading ? `${l.when} · ${l.statement}` : `${l.statement} · ${l.when}`;
 }
 
-function Section({ title, lines, ochre, onLine, onSource }: {
+/**
+ * Sections read as groups (Gate H, within the approved look): more space
+ * between sections than between lines, a hairline above each label, labels a
+ * step darker. "You told Kinship · Oct 5" is shown once per run of lines that
+ * share it, not under every line (the line's sheet always has it).
+ */
+function Section({ title, lines, ochre, leadWithWhen, onLine, onSource }: {
   title: string;
   lines: PortraitLineData[];
   ochre?: boolean;
+  leadWithWhen?: boolean;
   onLine: (id: string) => void;
   onSource: (noteId: string) => void;
 }) {
+  const p = usePalette();
   if (!lines.length) return null;
   return (
-    <View style={{ marginTop: space.xl }}>
-      <Label tone={ochre ? "ochreText" : "inkQuiet"} accessibilityRole="header">{title}</Label>
-      {lines.map((l) => (
-        <View key={l.itemId} style={{ marginTop: space.s }}>
-          {l.fixed ? (
-            <Line>{withWhen(l)}</Line>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={withWhen(l)}
-              accessibilityHint="Double-tap to correct it"
-              onPress={() => onLine(l.itemId)}
-              style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
-            >
-              <Line>{withWhen(l)}</Line>
-            </Pressable>
-          )}
-          <View style={{ marginTop: space.xs }}>
-            <Provenance line={l.provenance} onPress={l.noteId ? () => onSource(l.noteId as string) : undefined} />
+    <View style={{ marginTop: space.x3, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline }}>
+      <Label tone={ochre ? "ochreText" : "inkBody"} accessibilityRole="header">{title}</Label>
+      {lines.map((l, i) => {
+        const text = withWhen(l, leadWithWhen);
+        const nextShares = i + 1 < lines.length && lines[i + 1].provenance === l.provenance && !lines[i + 1].fixed;
+        return (
+          <View key={l.itemId} style={{ marginTop: i === 0 ? space.m : space.s }}>
+            {l.fixed ? (
+              <Line>{text}</Line>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={text}
+                accessibilityHint="Double-tap to correct it"
+                onPress={() => onLine(l.itemId)}
+                style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
+              >
+                <Line>{text}</Line>
+              </Pressable>
+            )}
+            {/* Said once for the lines it covers: under the last of them. */}
+            {nextShares ? null : (
+              <View style={{ marginTop: space.xs }}>
+                <Provenance line={l.provenance} onPress={l.noteId ? () => onSource(l.noteId as string) : undefined} />
+              </View>
+            )}
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -182,7 +199,7 @@ export function PortraitView(props: PortraitViewProps) {
 
 
       <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} />
-      <Section title="Coming up" lines={props.comingUp} onLine={props.onLine} onSource={props.onSource} />
+      <Section title="Coming up" lines={props.comingUp} leadWithWhen onLine={props.onLine} onSource={props.onSource} />
       <Section title="You said you'd" lines={props.youSaid} ochre onLine={props.onLine} onSource={props.onSource} />
       <Section title="Between you" lines={props.between} onLine={props.onLine} onSource={props.onSource} />
       {empty ? (

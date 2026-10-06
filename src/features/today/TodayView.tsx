@@ -129,7 +129,7 @@ export function TodayView(props: TodayViewProps) {
               key={`${q.kind}${i}`}
               label={q.label}
               text={q.text}
-              action={q.kind === "coming" || q.kind === "understanding" ? undefined : { label: q.action, onPress: () => props.onQuiet(q) }}
+              action={q.kind === "question" || q.kind === "look" ? { label: q.action, onPress: () => props.onQuiet(q) } : undefined}
               onPress={() => props.onQuiet(q)}
             />
           ))}

@@ -17,7 +17,7 @@ import { dayLabel, whenLabel } from "@/features/memory/format";
 import { nextBirthday } from "@/features/setup/setupModel";
 import type { MemoryItem, Person } from "@/store/repositories";
 
-export type ReasonType = "upcoming_event" | "event_followup" | "birthday";
+export type ReasonType = "upcoming_event" | "event_followup" | "birthday" | "good_news" | "starts_today";
 
 /** A birthday's moment id: one per person per birthday (never a server reason row). */
 export function birthdayReasonId(personId: string, day: string): string {
@@ -27,6 +27,26 @@ export function birthdayReasonId(personId: string, day: string): string {
 export function isBirthdayReason(id: string): boolean {
   return id.startsWith("birthday:");
 }
+
+/**
+ * A moment worked out on this phone from what the user told Kinship (a
+ * birthday, good news, a first day), never a server reason row: nothing to
+ * record on the server for it.
+ */
+export function isLocalReason(id: string): boolean {
+  return /^(birthday|news|starts):/.test(id);
+}
+
+/** Good news, recent (stabilization Gate G): "Ben was promoted yesterday." */
+export const GOOD_NEWS_WEIGHT = 75;
+/** A first day, on the day: "Amanda starts her new job today." */
+export const STARTS_TODAY_WEIGHT = 70;
+/** How long good news stays worth a congratulation. */
+const GOOD_NEWS_DAYS = 2;
+const GOOD_NEWS = /\b(?:was |got |been |is |has been )?promoted\b|\bpromotion\b|\bgot (?:the|a|an|her|his|their)\s+(?:\S+\s+){0,2}?(?:job|offer|role|position|place)\b|\bgot (?:engaged|married|in|into|accepted|hired)\b|\b(?:was|were) (?:accepted|hired)\b|\bgraduated\b|\bhad (?:a|the|her|his|their) baby\b|\bis engaged\b|\bpassed (?:the|her|his|their)\b|\bbought (?:a|their|his|her) (?:house|home|place)\b|\bclosed on\b|\bfinished (?:the|her|his|their) (?:marathon|race|degree|thesis)\b/iu;
+const NOT = /\b(not|didn['’]?t|did not|never|no longer|wasn['’]?t|isn['’]?t)\b/iu;
+/** Firsts that matter on the day itself (the server's follow-up comes after). */
+const STARTS = ["job_start", "school_start"];
 
 /** Birthday weight (plan §13). */
 const BIRTHDAY_WEIGHT = 80;
@@ -127,6 +147,8 @@ export interface MomentView {
 
 export type QuietView =
   | { kind: "question"; label: string; text: string; action: string; captureId?: string }
+  /** Someone's promise to the user, a few days past its day: "Did Tyler send it?" */
+  | { kind: "waiting"; label: string; text: string; personId: string; itemId: string }
   | { kind: "understanding"; label: string; text: string; captureId: string }
   | { kind: "look"; label: string; text: string; action: string }
   | { kind: "coming"; label: string; text: string; personId: string; itemId: string | null };
@@ -204,6 +226,11 @@ function eventDay(item: MemoryItem): string | null {
   const day = d.date;
   const precision = typeof d.date_precision === "string" ? d.date_precision : "day";
   return typeof day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(day) && precision === "day" ? day : null;
+}
+
+function dueDay(item: MemoryItem): string | null {
+  const due = (item.detail as Record<string, unknown>)?.due_date;
+  return typeof due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : null;
 }
 
 /** Plan §13 ranking, for one open reason now. Zero when it can't speak. */
@@ -296,7 +323,54 @@ export function buildToday(input: TodayInput): TodayView {
     const score = capped ? 0 : BIRTHDAY_WEIGHT * (local?.firstShown && local.firstShown !== today ? 0.5 : 1);
     if (score >= THRESHOLD && (!birthday || score > birthday.score)) birthday = { p, day, score };
   }
-  if (birthday && (!best || birthday.score > best.score)) {
+  // Good news and first days, from what the user told (Gate G): recent good
+  // news is worth a congratulation; a first day is worth a word on the day.
+  // Deterministic: the person's own news (never a relative's), in their words.
+  let local: { item: MemoryItem; day: string; type: "good_news" | "starts_today"; score: number } | null = null;
+  for (const m of input.items) {
+    if (!live(m) || !activePerson(m.person_id) || (m.subject_type !== undefined && m.subject_type !== "person" && m.subject_type !== "shared")) continue;
+    let type: "good_news" | "starts_today" | null = null;
+    let day: string | null = null;
+    if (m.kind === "event" && STARTS.includes(String((m.detail as Record<string, unknown>)?.event_type)) && eventDay(m) === today) {
+      type = "starts_today";
+      day = today;
+    } else if (["fact", "milestone", "event", "moment"].includes(m.kind) && GOOD_NEWS.test(m.statement) && !NOT.test(m.statement)) {
+      day = eventDay(m) ?? (String(m.created_at ?? "").slice(0, 10) || null);
+      if (day && daysBetween(day, today) >= 0 && daysBetween(day, today) <= GOOD_NEWS_DAYS) type = "good_news";
+    }
+    if (!type || !day) continue;
+    const id = type === "good_news" ? `news:${m.id}` : `starts:${m.id}:${day}`;
+    const lr = input.local[id];
+    if (lr?.acted || lr?.dismissed || lr?.done) continue;
+    const capped = input.primaries.some((x) => x.personId === m.person_id && x.reasonId !== id && daysBetween(x.day, today) < 7);
+    const weight = type === "good_news" ? GOOD_NEWS_WEIGHT : STARTS_TODAY_WEIGHT;
+    const score = capped ? 0 : weight * (lr?.firstShown && lr.firstShown !== today ? 0.5 : 1);
+    if (score >= THRESHOLD && (!local || score > local.score)) local = { item: m, day, type, score };
+  }
+
+  const bestScore = Math.max(best?.score ?? 0, birthday?.score ?? 0);
+  if (local && local.score > bestScore) {
+    const p = activePerson(local.item.person_id) as Person;
+    const name = firstName(p);
+    const id = local.type === "good_news" ? `news:${local.item.id}` : `starts:${local.item.id}:${local.day}`;
+    view.moment = {
+      reasonId: id,
+      type: local.type,
+      personId: p.id,
+      personName: name,
+      itemId: local.item.id,
+      statement: local.item.statement,
+      context: local.type === "good_news" ? relativeDay(local.day, today) : `Today · ${dayLabel(local.day, today)}`,
+      provenance: input.provenance(local.item.id)?.line ?? null,
+      noteId: input.provenance(local.item.id)?.noteId ?? null,
+      score: local.score,
+      primary: local.type === "good_news"
+        ? { label: `Congratulate ${name}`, hint: `Opens a conversation with ${name}` }
+        : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
+      heading: local.type === "good_news" ? `Congratulate ${name}` : `Message ${name}`,
+      mention: [],
+    };
+  } else if (birthday && (!best || birthday.score > best.score)) {
     const name = firstName(birthday.p);
     const source = birthday.p.birthday_source;
     view.moment = {
@@ -386,11 +460,26 @@ export function buildToday(input: TodayInput): TodayView {
     });
   }
   const seen = new Set<string>(view.moment ? [view.moment.personId] : []);
+  // Someone's promise to the user, a few days past its day: one gentle check (Gate F).
+  for (const m of input.items) {
+    if (view.quiet.length >= 4) break;
+    if (!live(m) || m.kind !== "promise" || m.subject_type !== "person" || !activePerson(m.person_id) || seen.has(m.person_id)) continue;
+    const due = (m.detail as Record<string, unknown>)?.due_date;
+    if (typeof due !== "string" || daysBetween(due, today) < 1 || daysBetween(due, today) > 3) continue;
+    const p = activePerson(m.person_id) as Person;
+    const verb = m.statement.match(/\b(?:he|she|they)\s*(?:['’]d|would|['’]ll|will)\s+([a-z]+)/iu)?.[1];
+    view.quiet.push({
+      kind: "waiting", label: `Waiting on ${firstName(p)}`, itemId: m.id, personId: p.id,
+      text: verb ? `Did ${firstName(p)} ${verb.toLowerCase()} it?` : `Still waiting on ${firstName(p)}?`,
+    });
+    seen.add(p.id);
+  }
   const soon = (day: string) => daysBetween(today, day) >= 1 && daysBetween(today, day) <= 7;
   const coming: { personId: string; day: string; text: string; itemId: string | null; key: string }[] = [
     ...input.items
-      .filter((m) => live(m) && (m.kind === "event" || m.kind === "plan") && m.id !== view.moment?.itemId && activePerson(m.person_id))
-      .map((m) => ({ m, day: eventDay(m) }))
+      .filter((m) => live(m) && (m.kind === "event" || m.kind === "plan" || (m.kind === "promise" && m.subject_type === "person")) &&
+        m.id !== view.moment?.itemId && activePerson(m.person_id))
+      .map((m) => ({ m, day: m.kind === "promise" ? dueDay(m) : eventDay(m) }))
       .filter((x): x is { m: MemoryItem; day: string } => !!x.day && soon(x.day))
       .map(({ m, day }) => ({ personId: m.person_id, day, text: m.statement, itemId: m.id, key: m.id })),
     ...input.people
