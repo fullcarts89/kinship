@@ -46,6 +46,9 @@ export const FIRST_USE_COPY = {
 export function TodayView(props: TodayViewProps) {
   const p = usePalette();
   const { view } = props;
+  // "and 2 more" opens in place; nothing in the next week is ever hidden for good.
+  const [allComing, setAllComing] = React.useState(false);
+  const quiet = view.quiet.flatMap((q) => (q.kind === "more" ? (allComing ? q.rest : [q]) : [q]));
   return (
     <Screen footer={props.footer}>
       <View style={{ paddingTop: space.x3 }}>
@@ -124,15 +127,15 @@ export function TodayView(props: TodayViewProps) {
         </View>
       ) : null}
 
-      {view.quiet.length ? (
+      {quiet.length ? (
         <View style={{ marginTop: space.x4, borderTopWidth: 1, borderTopColor: p.hairline, paddingTop: space.l, gap: space.l }}>
-          {view.quiet.map((q, i) => (
+          {quiet.map((q, i) => (
             <QuietLine
               key={`${q.kind}${i}`}
               label={q.label}
               text={q.text}
               action={q.kind === "question" || q.kind === "look" ? { label: q.action, onPress: () => props.onQuiet(q) } : undefined}
-              onPress={() => props.onQuiet(q)}
+              onPress={() => (q.kind === "more" ? setAllComing(true) : props.onQuiet(q))}
             />
           ))}
         </View>

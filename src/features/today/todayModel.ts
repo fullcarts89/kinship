@@ -161,7 +161,9 @@ export type QuietView =
   | { kind: "waiting"; label: string; text: string; personId: string; itemId: string }
   | { kind: "understanding"; label: string; text: string; captureId: string }
   | { kind: "look"; label: string; text: string; action: string }
-  | { kind: "coming"; label: string; text: string; personId: string; itemId: string | null };
+  | { kind: "coming"; label: string; text: string; personId: string; itemId: string | null }
+  /** "and 2 more": the rest of the next seven days, folded, never dropped (H27). */
+  | { kind: "more"; label: string; text: string; rest: QuietView[] };
 
 export interface ReturnView {
   personId: string;
@@ -198,6 +200,8 @@ export interface TodayView {
 }
 
 export const THRESHOLD = 55;
+/** Coming up lines shown before the rest fold into "and N more". */
+const COMING_SHOWN = 3;
 /**
  * The return question is there as soon as the user is back from the
  * conversation Kinship opened (H10), and waits up to three days for an
@@ -502,13 +506,17 @@ export function buildToday(input: TodayInput): TodayView {
     });
     seen.add(p.id);
   }
+  // Coming up (H26, H27): everything in the next seven days, by date. The
+  // user's own dated promises too ("You said you'd send Chris the
+  // restaurant"); nothing valid is dropped because something else arrived.
   const soon = (day: string) => daysBetween(today, day) >= 1 && daysBetween(today, day) <= 7;
+  const dueSoon = (day: string) => daysBetween(today, day) >= 0 && daysBetween(today, day) <= 7;
   const coming: { personId: string; day: string; text: string; itemId: string | null; key: string }[] = [
     ...input.items
-      .filter((m) => live(m) && (m.kind === "event" || m.kind === "plan" || (m.kind === "promise" && m.subject_type === "person")) &&
+      .filter((m) => live(m) && (m.kind === "event" || m.kind === "plan" || m.kind === "promise") &&
         m.id !== view.moment?.itemId && activePerson(m.person_id))
       .map((m) => ({ m, day: m.kind === "promise" ? dueDay(m) : eventDay(m) }))
-      .filter((x): x is { m: MemoryItem; day: string } => !!x.day && soon(x.day))
+      .filter((x): x is { m: MemoryItem; day: string } => !!x.day && (x.m.kind === "promise" ? dueSoon(x.day) : soon(x.day)))
       .map(({ m, day }) => ({ personId: m.person_id, day, text: m.statement, itemId: m.id, key: m.id })),
     ...input.people
       .filter((p) => activePerson(p.id) && p.birthday && p.birthday_source)
@@ -516,13 +524,13 @@ export function buildToday(input: TodayInput): TodayView {
       .filter(({ day }) => soon(day))
       .map(({ p, day }) => ({ personId: p.id, day, text: `${firstName(p)}'s birthday`, itemId: null, key: `b${p.id}` })),
   ].sort((a, b) => a.day.localeCompare(b.day) || a.key.localeCompare(b.key));
-  const comingRoom = pending ? view.quiet.length + 2 : 2;
-  for (const c of coming) {
-    if (view.quiet.length >= comingRoom || view.quiet.length >= 4) break;
-    if (seen.has(c.personId)) continue;
-    seen.add(c.personId);
-    view.quiet.push({ kind: "coming", label: relativeDay(c.day, today), text: c.text, personId: c.personId, itemId: c.itemId });
-  }
+  const comingLines: QuietView[] = coming
+    .filter((c) => !(view.moment && c.itemId === view.moment.itemId))
+    .map((c) => ({ kind: "coming", label: relativeDay(c.day, today), text: c.text, personId: c.personId, itemId: c.itemId }));
+  const shownComing = comingLines.slice(0, COMING_SHOWN);
+  view.quiet.push(...shownComing);
+  const rest = comingLines.slice(COMING_SHOWN);
+  if (rest.length) view.quiet.push({ kind: "more", label: "", text: `and ${rest.length} more`, rest });
 
   // First use is not a quiet day (contract §8).
   const here = input.people.filter((p) => !p.deleted_at && p.state !== "archived");

@@ -94,15 +94,27 @@ it("evidence weighs in: a reading the user confirmed outranks an unreviewed one"
   expect(v.moment?.reasonId).toBe("r2");
 });
 
-it("at most two quiet lines, a question first, then the week ahead, never the moment's person twice", () => {
-  const plan = item("m3", { kind: "plan", person_id: "sarah", statement: "Dinner with Sarah Friday", detail: { date: "2026-10-16" } });
-  const benMore = item("m4", { statement: "Ben flies to Denver Thursday", detail: { date: "2026-10-15", date_precision: "day", followup_policy: "none" } });
-  const v = buildToday(input({ items: [race, interview, plan, benMore], questions: 1 }));
-  expect(v.quiet).toEqual([
-    { kind: "question", label: "A question", text: "About something you told me", action: "Answer" },
-    { kind: "coming", label: "Tomorrow", text: "Josh has his interview Tuesday", personId: "josh", itemId: "m2" },
+it("Coming up: everything in the next seven days by date, your promises too; past three, 'and N more', never dropped (H26, H27)", () => {
+  const promise = (id: string, person: string, subject: "user" | "person", statement: string, due: string) =>
+    item(id, { kind: "promise", person_id: person, subject_type: subject, statement, detail: { due_date: due } });
+  const yours = promise("p1", "sarah", "user", "You said you'd send Sarah the restaurant", "2026-10-14");
+  const tylers = promise("p2", "josh", "person", "Josh promised to send you his contractor's number", "2026-10-16");
+  const games = item("e1", { person_id: "sarah", statement: "Sarah wants to play games with you Saturday", detail: { date: "2026-10-17", date_precision: "day" } });
+  const zoo = item("e2", { person_id: "ben", statement: "You and Ben are going to the zoo", detail: { date: "2026-10-18", date_precision: "day" } });
+  const v = buildToday(input({ reasons: [], items: [interview, yours, tylers, games, zoo], questions: 1 }));
+  const [question, ...rest] = v.quiet;
+  expect(question).toMatchObject({ kind: "question" });
+  expect(rest.slice(0, 3).map((q) => q.text)).toEqual([
+    "Josh has his interview Tuesday",                     // Tue
+    "You said you'd send Sarah the restaurant",           // Wed: the user's own promise
+    "Josh promised to send you his contractor's number",  // Fri: the same person twice is fine
   ]);
-  expect(v.quiet.length).toBeLessThanOrEqual(2);
+  const more = rest[3];
+  expect(more).toMatchObject({ kind: "more", text: "and 2 more" });
+  expect(more.kind === "more" ? more.rest.map((q) => q.text) : []).toEqual([
+    "Sarah wants to play games with you Saturday",
+    "You and Ben are going to the zoo", // still there after Tyler's promise arrived
+  ]);
 });
 
 it("the return check: there as soon as the user is back, with its reason, until answered (H10, H18)", () => {
