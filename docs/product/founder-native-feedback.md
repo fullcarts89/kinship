@@ -477,3 +477,27 @@ From the founder's native pass after the ai-gateway deploy. Screenshots to follo
 |---|---|---|
 | H15 | Group what's known about a person into logical sections, e.g. "John's interests" (Vietnamese food, volleyball) and something for aspirations (construction job, robotics; a better word than "goals"). Keep Lately and Coming up. | A change to the approved person page: needs a design decision and an entry in `approved-design-coverage.md`. |
 | H16 | Recognise major milestones (getting married, buying a home, a new job), even with no details, and follow up: when, where. Big moments are the chance to show up. Could be deterministic to save model cost. | A deterministic milestone list with follow-up questions on Today is plausible. Ties to H18's need to carry the reason. |
+
+### Screenshots for H13, H19, H20, H23 (`screens/feedback3/`)
+
+What each screenshot shows, from the screen only (not investigated):
+
+- **H13, John's record** (`h13-john-tahoe-duplicate.png`)
+  - "John and Ben went to Tahoe" (John Oxnard · Ben Oxnard) and "Ben and John went to Tahoe" (Ben Oxnard · John Oxnard) are both on John's page, both told Oct 5.
+  - Each is already a shared memory, one filed under John and one under Ben, so both show on John's page.
+  - The duplicate check only works within one note. Two notes, or items saved before the stabilization build, aren't merged.
+  - Also visible: "John wants to go back to Tahoe in December" is still "Something ongoing" with "in December" kept as words. That's G32b on an item from before the fix.
+- **H19, Today** (`h19-today-kept-card-under-coming-up.png`)
+  - The problem is on **Today**, not the person page as first guessed. The Kept card for Ben's promotion sits directly under the Coming up line "SATURDAY · Ben wants to play games with you and Susan this weekend". It reads as part of that entry.
+  - The headline still says "Nothing needs you today." above a Kept card.
+  - The card's placement and separation from Coming up need design.
+- **H20, Kaiya** (`h20-kaiya-someone-new.png`, `h20-kept-for-my-daughter-kaiya.png`)
+  - The question reads "Is **My daughter Kaiya** someone new?", with "Add My daughter Kaiya".
+  - After it was kept, the heading is "KEPT FOR MY DAUGHTER KAIYA" and the person token is "My daughter Kaiya".
+  - The whole phrase "My daughter Kaiya" was taken as a name. It wasn't matched to the known Kaiya, and the relation words weren't stripped.
+  - The statement itself was right: "You and Kaiya are going to the zoo", Sun, Oct 11.
+  - **Data note:** the founder's account likely now has a person named "My daughter Kaiya", possibly beside an earlier "Kaiya". Clean-up needs the founder's say.
+- **H23, Susan** (`h23-susan-not-moving-oakland.png`)
+  - The review shows "Susan is no longer moving to Oakland" with a small grey "Updates: Susan is moving to Oakland in August". That's correct, but it's the subtle cue the founder means.
+  - On her page, under Lately, "Susan is no longer moving to Oakland" and "Susan is not moving to Alameda anymore" read as current news. The cancelled plans aren't shown as what changed.
+  - Also visible: "Susan is interviewing for a job at Meta and is really nervous" has no source line of its own. It shares the Oct 5 line printed under the Alameda line, the same grouping problem as H19.
