@@ -27,6 +27,8 @@ export interface PersonRecordViewProps {
   label: string | null;
   lines: RecordLine[];
   onBack: () => void;
+  /** "Edit name": a correction to the same person (H1). */
+  onRename?: () => void;
   onChange: (line: ItemLine, what: "person" | "date" | "kind" | "words") => void;
   onForget: (line: RecordLine) => void;
   onSource: (noteId: string) => void;
@@ -47,6 +49,11 @@ export function PersonRecordView(props: PersonRecordViewProps) {
   return (
     <Screen onBack={props.onBack}>
       <Title>{`What Kinship knows about ${first}`}</Title>
+      {props.onRename ? (
+        <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
+          <Pill variant="quiet" size="small" label="Edit name" accessibilityHint={`Change ${first}'s name`} onPress={props.onRename} />
+        </View>
+      ) : null}
       <Body style={{ marginTop: space.s }}>
         {props.lines.length
           ? "Everything you've told Kinship about them, and where each came from. Change or remove any of it."

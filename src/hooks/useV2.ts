@@ -335,6 +335,8 @@ export function useV2Actions() {
       track("deletion_completed", { scope: "capture" });
     },
     settleConflict: (id: number, choice: "keep_current" | "use_mine") => repositoriesFor(store).conflicts.resolve(id, choice),
+    /** Correct a person's name: same person, same memories (H1). */
+    rename: (personId: string, name: string) => repositoriesFor(store).people.rename(personId, name),
   };
 }
 

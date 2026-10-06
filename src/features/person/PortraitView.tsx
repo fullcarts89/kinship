@@ -29,6 +29,8 @@ export interface PortraitViewProps {
   remembered: boolean;
   /** "You reached out · Oct 6" (H10). */
   reachedOut?: string | null;
+  /** Tapping the name corrects it (H1). */
+  onRename?: () => void;
   lately: PortraitLineData[];
   comingUp: PortraitLineData[];
   youSaid: PortraitLineData[];
@@ -175,7 +177,17 @@ export function PortraitView(props: PortraitViewProps) {
     <Screen onBack={props.onBack} footer={footer}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: space.l }}>
         <View style={{ flex: 1, paddingTop: space.s }}>
-          <Name>{props.name}</Name>
+          {props.onRename ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={props.name ?? ""}
+              accessibilityHint="Double-tap to change their name"
+              onPress={props.onRename}
+              style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
+            >
+              <Name>{props.name}</Name>
+            </Pressable>
+          ) : <Name>{props.name}</Name>}
           {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
           {props.remembered ? <Small style={{ marginTop: space.xs }}>Remembered</Small> : null}
           {props.reachedOut ? <Small style={{ marginTop: space.xs }}>{props.reachedOut}</Small> : null}

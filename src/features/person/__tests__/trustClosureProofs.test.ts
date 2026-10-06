@@ -414,4 +414,29 @@ describe("core trust closure", () => {
     expect(line.maybe).toBe(true);
     expect(JSON.stringify(t.review)).not.toMatch(/confidence|tentative|0\.\d/);
   });
+
+  it("H1: correcting a name ('Thors' → 'Thor', 'My daughter Kaiya' → 'Kaiya') keeps the same person, memories, relationship and sources", async () => {
+    const w = await world();
+    const [thors] = await people(w, "Thors");
+    await w.store.update("people", thors.id, { relationship_label: "brother" });
+    const t = await tell(w, "Thors likes volleyball.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, "Thors"), person_mention: "Thors", statement: "Thors likes volleyball", evidence: ["Thors likes volleyball"], detail: { category: "preference" } })],
+    }));
+    await w.understanding.finish(t.id, "done");
+    await w.understanding.run();
+    const [line] = t.review.lines;
+    const before = sourcesOf(w, line.id).map((s) => s.id).sort();
+
+    const renamed = await w.repos.people.rename(thors.id, "  Thor ");
+    await w.engine.sync();
+    expect([renamed.id, renamed.display_name, renamed.relationship_label]).toEqual([thors.id, "Thor", "brother"]);
+    const all = await w.repos.people.list();
+    expect(all.map((p) => [p.id, p.display_name])).toEqual([[thors.id, "Thor"]]); // no duplicate
+    expect(w.server.table("people").get(thors.id)?.display_name).toBe("Thor");
+    const { knows } = await page(w, renamed);
+    expect(knows.lines.map((l) => l.line.id)).toEqual([line.id]);
+    expect(sourcesOf(w, line.id).map((s) => s.id).sort()).toEqual(before);
+    await expect(w.repos.people.rename(thors.id, "   ")).rejects.toThrow();
+  });
 });

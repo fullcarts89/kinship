@@ -107,6 +107,33 @@ export function KindPane({
   );
 }
 
+/** "Their name": a correction, never a new person (founder H1). */
+export function NamePane({ initial, onSave, onCancel }: { initial: string; onSave: (name: string) => void; onCancel: () => void }) {
+  const p = usePalette();
+  const [name, setName] = useState(initial);
+  return (
+    <View>
+      <PaneHeader title="Their name" onCancel={onCancel} />
+      <TextInput
+        value={name}
+        onChangeText={setName}
+        maxLength={100}
+        autoFocus
+        autoCapitalize="words"
+        accessibilityLabel="Their name"
+        maxFontSizeMultiplier={maxScale.text}
+        style={[type.field, {
+          color: p.ink, minHeight: height.search, paddingHorizontal: space.l, borderRadius: radius.inline, borderWidth: 1,
+          borderColor: p.hairline, backgroundColor: p.paper,
+        }]}
+      />
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.m }}>
+        <Pill variant="primary" label="Save" disabled={!name.trim() || name.trim() === initial} onPress={() => onSave(name)} />
+      </View>
+    </View>
+  );
+}
+
 export function WordsPane({ initial, onSave, onCancel }: { initial: string; onSave: (words: string) => void; onCancel: () => void }) {
   const p = usePalette();
   const [words, setWords] = useState(initial);

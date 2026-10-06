@@ -87,6 +87,22 @@ export class PeopleRepo {
   }
 
   /**
+   * The user corrects a name ("Thors" → "Thor", "My daughter Kaiya" →
+   * "Kaiya"; founder H1). Same person: same id, every memory, relationship
+   * and source stays theirs. Never a new person.
+   */
+  async rename(id: string, name: string): Promise<Person> {
+    const clean = name.normalize("NFC").replace(/\s+/gu, " ").trim();
+    if (!clean || clean.length > 100) throw new StoreWriteError("say their name");
+    const person = await this.get(id);
+    if (!person) throw new StoreWriteError("that person isn't here any more");
+    if (clean === person.display_name) return person;
+    // A full name that only repeated the old name follows it.
+    const full = typeof person.full_name === "string" && person.full_name === person.display_name ? { full_name: clean } : {};
+    return (await this.store.update("people", id, { display_name: clean, ...full })) as Person;
+  }
+
+  /**
    * Someone the user picked from their contacts (plan E16, T8): the name, the
    * device's contact id (never the address book), and the contact's own
    * birthday, which says it came from Contacts (CA-5).
