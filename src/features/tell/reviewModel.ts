@@ -78,6 +78,8 @@ export interface ItemLine {
     /** Promises only: whose commitment it is, and the other person's first name. */
     owner?: { value: "user" | "person"; name: string | null };
   };
+  /** Someone the line names who isn't in People yet ("Pedro"), to add (H21). */
+  newcomers?: string[];
   /** The user already changed it. */
   edited: boolean;
 }
@@ -176,7 +178,12 @@ export function buildReview(input: ReviewInput): ReviewView {
   if (row.state === "done" || row.state === "closing" || !row.reading) return empty;
 
   const reading = row.reading;
-  const lines = input.items.map((item) => itemLine(item, input));
+  const note = input.capture?.raw_text ?? "";
+  const lines = input.items.map((item) => {
+    const line = itemLine(item, input);
+    const newcomers = newcomersIn(line.statement, note, input.people);
+    return newcomers.length ? { ...line, newcomers } : line;
+  });
   const answering = row.state === "answering";
   // Held statements are read the way the user reads everything: as "you".
   const held = reading.held.map((h) => voiced(h));
@@ -393,6 +400,35 @@ function unknownNames(item: HeldItem, people: Person[]): string[] {
       const w = m[1].replace(/['’]s$/u, "");
       const k = fold(w);
       if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || out.some((o) => fold(o) === k)) continue;
+      out.push(w);
+    }
+  }
+  return out;
+}
+
+/**
+ * Someone a kept line names alongside the person it's filed on, who isn't in
+ * People yet: "Susan is getting married to Pedro", "Anthony and Natalia are
+ * moving", "moving to Seattle with Dana" (founder H21/H5). Only the shapes
+ * that name a person, only names the note itself says, never a place or a
+ * company ("interviewing with Box", "moving to Austin").
+ */
+export function newcomersIn(statement: string, note: string, people: Person[]): string[] {
+  const known = new Set(people.flatMap((p) => wordsOf(p.display_name)));
+  const NAME = "(\\p{Lu}[\\p{Ll}\\p{M}'’-]+)";
+  const patterns = [
+    new RegExp(`\\b(?:married|marrying|engaged|wed|dating|seeing|divorcing|separated)\\s+(?:to|from)?\\s*${NAME}`, "gu"),
+    new RegExp(`\\b(?:moving|living|traveling|travelling|going|staying|having a baby|expecting)\\b[^.!?]{0,40}?\\bwith\\s+${NAME}`, "gu"),
+    new RegExp(`(?:^|[^\\p{L}])\\p{Lu}[\\p{Ll}\\p{M}'’-]+\\s+and\\s+${NAME}\\s+(?:are|were|have|had|got|just|will|went)\\b`, "gu"),
+    new RegExp(`(?:^|[^\\p{L}])${NAME}\\s+and\\s+\\p{Lu}[\\p{Ll}\\p{M}'’-]+\\s+(?:are|were|have|had|got|just|will|went)\\b`, "gu"),
+  ];
+  const out: string[] = [];
+  for (const re of patterns) {
+    for (const m of statement.matchAll(re)) {
+      const w = m[1].replace(/['’]s$/u, "");
+      const k = fold(w);
+      if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || out.some((o) => fold(o) === k)) continue;
+      if (!new RegExp(`(^|[^\\p{L}])${w}([^\\p{L}]|$)`, "u").test(note)) continue;
       out.push(w);
     }
   }

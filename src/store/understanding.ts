@@ -327,6 +327,26 @@ export class Understanding {
     if (item.origin === "extracted") track("extraction_corrected", { correction, item_kind: kindName(item.kind) });
   }
 
+  /**
+   * "Add Pedro" (founder H21): someone the kept line names who isn't in
+   * People yet becomes a person by name (no phone needed), and the memory is
+   * about them too. One memory, one source; never merged with anyone else.
+   */
+  async addParticipant(itemId: string, name: string): Promise<string> {
+    const item = (await this.store.get("memory_items", itemId)) as MemoryItem | null;
+    if (!item) throw new StoreWriteError("that memory isn't here any more");
+    const clean = name.normalize("NFC").trim();
+    if (!clean || clean.length > 60 || !new RegExp(`(^|[^\\p{L}])${clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}]|$)`, "u").test(item.statement)) {
+      throw new StoreWriteError("only someone this memory names");
+    }
+    const repos = repositoriesFor(this.store);
+    const person = await repos.people.add({ display_name: clean });
+    const others = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
+    await this.store.update("memory_items", itemId, { with_person_ids: [...new Set([...others, person.id])] });
+    this.kick();
+    return person.id;
+  }
+
   /** "Not this": retracted and removed. */
   async reject(itemId: string, captureId?: string): Promise<void> {
     const item = (await this.store.get("memory_items", itemId)) as MemoryItem | null;

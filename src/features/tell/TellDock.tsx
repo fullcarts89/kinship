@@ -105,6 +105,16 @@ export function KeptCard({
             </Pressable>
           ))}
           {card.more > 0 ? <Small>{`and ${card.more} more`}</Small> : null}
+          {card.newcomers?.length ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${card.newcomers.join(" and ")} isn't in your people yet. Add`}
+              onPress={onOpen}
+              style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.surface : 1 })}
+            >
+              <Small tone="inkBody">{`${card.newcomers.join(" and ")} ${card.newcomers.length > 1 ? "aren't" : "isn't"} in your people yet · Add`}</Small>
+            </Pressable>
+          ) : null}
           {card.mode === "card" ? <Small>{"Tap a line to correct it."}</Small> : null}
         </View>
         {working ? null : (

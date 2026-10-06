@@ -4,7 +4,7 @@
 // relationship page and What Kinship knows. Only the model's reply is written
 // by hand. Each case first failed on the code before this pass.
 import { earlierOf, noteFor, portraitFor, recordFor, todayIso } from "@/hooks/useV2";
-import { buildReview, type ReviewView } from "@/features/tell/reviewModel";
+import { buildReview, newcomersIn, type ReviewView } from "@/features/tell/reviewModel";
 import { linkSuggestions } from "@/features/person/links";
 import { voiced } from "@/features/memory/statements";
 import { Gateway, type HeldAnswer } from "@/store/gateway";
@@ -243,6 +243,55 @@ describe("core trust closure", () => {
     for (const p of [ben, john]) {
       const { knows } = await page(w, p);
       expect(knows.lines.filter((l) => /Tahoe/.test(l.line.statement))).toHaveLength(1);
+    }
+  });
+
+  it("H21: 'Susan is getting married to Pedro' keeps Pedro: 'Add Pedro' adds him by name and the memory is about both", async () => {
+    const w = await world();
+    const [susan] = await people(w, "Susan Oxnard");
+    const t = await tell(w, "Susan is getting married to Pedro in the fall", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "event", person: key(i, "Susan"), person_mention: "Susan", statement: "Susan is getting married to Pedro in the fall",
+        evidence: ["Susan is getting married to Pedro in the fall"], date_text: "in the fall", detail: { event_type: "wedding" } })],
+    }));
+    const [line] = t.review.lines;
+    expect(line.statement).toMatch(/Pedro/); // the name is kept on the memory before Pedro exists
+    expect(line.newcomers).toEqual(["Pedro"]);
+    await w.understanding.addParticipant(line.id, "Pedro");
+    await w.understanding.finish(t.id, "done");
+    await w.understanding.run();
+    await w.engine.sync();
+    const pedro = (await w.repos.people.list()).find((p) => p.display_name === "Pedro")!;
+    expect(pedro).toBeTruthy();
+    expect(serverItems(w).find((m) => m.id === line.id)!.with_person_ids).toEqual([pedro.id]);
+    expect((await page(w, pedro)).knows.lines.map((l) => l.line.statement)).toEqual([line.statement]);
+    expect((await page(w, susan)).knows.lines.map((l) => l.line.statement)).toEqual([line.statement]);
+    // Never a place or a company.
+    expect(newcomersIn("Natalia is interviewing with Box", "Natalia is interviewing with Box", [])).toEqual([]);
+    expect(newcomersIn("Susan is moving to Oakland in August", "Susan is moving to Oakland in August", [])).toEqual([]);
+  });
+
+  it("H5: 'Anthony and Natalia are getting married', and 'Sam and Meesh are moving', are one memory on both pages", async () => {
+    for (const [a, b, note, sa, sb] of [
+      ["Anthony Lopez", "Natalia Ruiz", "Anthony and Natalia are getting married next summer", "Anthony and Natalia are getting married", "Natalia and Anthony are getting married"],
+      ["Sam Eden", "Meesh Eden", "Sam and Meesh are moving to Australia", "Sam is moving to Australia with Meesh", "Meesh is moving to Australia with Sam"],
+    ] as const) {
+      const w = await world();
+      const [pa, pb] = await people(w, a, b);
+      // The model's actual reading in the founder's data: one line for each of them.
+      const t = await tell(w, note, (i) => ({
+        needs_clarification: null,
+        items: [
+          item({ kind: "event", person: key(i, a.split(" ")[0]), person_mention: a.split(" ")[0], statement: sa, evidence: [note], detail: { event_type: "other" } }),
+          item({ kind: "event", person: key(i, b.split(" ")[0]), person_mention: b.split(" ")[0], statement: sb, evidence: [note], detail: { event_type: "other" } }),
+        ],
+      }));
+      expect(t.review.lines).toHaveLength(1);
+      await w.understanding.finish(t.id, "done");
+      await w.understanding.run();
+      for (const p of [pa, pb]) expect((await page(w, p)).knows.lines).toHaveLength(1);
+      const [m] = serverItems(w).filter((x) => x.status === "active");
+      expect([m.person_id, ...(m.with_person_ids ?? [])].sort()).toEqual([pa.id, pb.id].sort());
     }
   });
 });

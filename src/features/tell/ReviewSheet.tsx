@@ -41,6 +41,8 @@ export interface ReviewSheetProps {
   onUndo: () => void;
   onReject: (itemId: string) => void;
   onCorrect: (itemId: string, change: Correction) => void;
+  /** "Add Pedro": someone a kept line names, added by name and linked (H21). */
+  onAddPerson?: (itemId: string, name: string) => void;
   onAnswer: (answers: HeldAnswer[]) => void;
   onOpenNote: () => void;
   /** Any touch: the sheet isn't idle. */
@@ -144,6 +146,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
                   props.onActivity();
                   setPane(what === "kind" ? { kind: "kind", line } : what === "words" ? { kind: "words", line } : { kind: what, line });
                 }}
+                onAddPerson={props.onAddPerson ? (id, name) => { props.onActivity(); props.onAddPerson!(id, name); } : undefined}
               />
             ))}
           </View>
@@ -191,10 +194,12 @@ function ReviewLine({
   line,
   onReject,
   onOpen,
+  onAddPerson,
 }: {
   line: ItemLine;
   onReject: () => void;
   onOpen: (what: "person" | "date" | "kind" | "words") => void;
+  onAddPerson?: (itemId: string, name: string) => void;
 }) {
   const p = usePalette();
   return (
@@ -221,6 +226,16 @@ function ReviewLine({
         {line.edited ? <Small style={{ marginTop: space.xs }}>You edited this</Small> : null}
         {/* Gate E: an update says what it replaces, so the user can say no. */}
         {line.replaces ? <Replaces text={line.replaces} /> : null}
+        {line.newcomers?.length && onAddPerson ? (
+          <View style={{ marginTop: space.xs, gap: space.xs }}>
+            {line.newcomers.map((name) => (
+              <View key={name} style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: space.s }}>
+                <Small>{`${name} isn't in your people yet.`}</Small>
+                <Pill variant="quiet" size="small" label={`Add ${name}`} onPress={() => onAddPerson(line.id, name)} />
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
       <Pressable
         accessibilityRole="button"

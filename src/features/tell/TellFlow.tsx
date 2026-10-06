@@ -45,6 +45,8 @@ export interface KeptCardState {
   status: string | null;
   /** Who it belongs with: shown on their page, never on someone else's. */
   personIds: string[];
+  /** Named in what was kept but not in People yet ("Pedro"): the card points to adding them (H21). */
+  newcomers?: string[];
 }
 
 /** @deprecated kept for the lab: the one-line form of the card. */
@@ -107,6 +109,10 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     more: Math.max(0, lines.length - 3),
     status: view.mode === "card" ? null : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
     personIds: view.personIds,
+    ...(() => {
+      const names = [...new Set(view.lines.flatMap((l) => l.newcomers ?? []))];
+      return names.length ? { newcomers: names } : {};
+    })(),
   };
 }
 
@@ -288,6 +294,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
           }}
           onReject={(itemId) => fail(u.reject(itemId, showing))}
           onCorrect={(itemId: string, change: Correction) => fail(u.correct(itemId, change))}
+          onAddPerson={(itemId: string, name: string) => fail(u.addParticipant(itemId, name).then(() => undefined))}
           onAnswer={(answers) => fail(u.answer(showing, answers))}
           onOpenNote={() => {
             // Looking at the note never decides anything: the sheet steps
