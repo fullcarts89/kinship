@@ -2,7 +2,8 @@
 // were shown and when, which the user acted on or put aside, and the last
 // hand-off Kinship opened (for the return check). Kept in the encrypted
 // store's meta table; the server keeps its own record through reason_events
-// when online. Nothing here is user content: ids, days and a channel.
+// when online. Ids, days and a channel, plus the return question's own words
+// for the last hand-off (the reason, so the user knows what it's asking about).
 
 import type { Handoff, LocalReason } from "@/features/today/todayModel";
 import { getMeta, setMeta } from "./schema";
@@ -68,6 +69,14 @@ export class ReasonLocal {
   async handedOff(handoff: Handoff): Promise<void> {
     await this.patch(handoff.reasonId, { acted: handoff.at });
     await setMeta(this.store.db, HANDOFF, JSON.stringify(handoff));
+    this.store.notify();
+  }
+
+  /** The other app never opened: the hand-off didn't happen. */
+  async cancel(reasonId: string): Promise<void> {
+    const { handoff } = await this.read();
+    if (handoff?.reasonId === reasonId && !handoff.answered) await setMeta(this.store.db, HANDOFF, JSON.stringify(null));
+    await this.patch(reasonId, { acted: undefined });
     this.store.notify();
   }
 

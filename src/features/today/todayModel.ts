@@ -81,6 +81,12 @@ export interface Handoff {
   channel: "text" | "call" | "facetime" | "whatsapp" | "email";
   at: string;
   answered?: "yes" | "not_yet";
+  /** Why Kinship opened it, carried to the return (H18): "Did you congratulate Ben on the promotion?" */
+  ask?: string;
+  /** The memory it was about, in the user's words: "Ben got promoted". */
+  about?: string | null;
+  /** After a yes: "Anything worth remembering from congratulating Ben?" */
+  followUp?: string;
 }
 
 export interface TodayInput {
@@ -137,6 +143,10 @@ export interface MomentView {
   heading: string;
   /** Other things the user told Kinship about them, for "You could mention". */
   mention: string[];
+  /** The return question, with its reason (H10, H18). */
+  ask: string;
+  /** After a yes, the same reason: "Anything worth remembering from congratulating Ben?" */
+  followUp: string;
   /**
    * What they were hoping for, kept with the event itself (its event_goal,
    * in the note's words): "Ben was hoping to break four hours." Showing up
@@ -158,6 +168,11 @@ export interface ReturnView {
   personName: string;
   reasonId: string;
   channel: Handoff["channel"];
+  /** "Did you congratulate Ben on the promotion?": the reason, never a bare "Did you reach Ben?" (H18). */
+  ask: string;
+  /** What it was about: "Ben got promoted". */
+  about: string | null;
+  followUp: string;
 }
 
 export interface TodayView {
@@ -183,8 +198,12 @@ export interface TodayView {
 }
 
 export const THRESHOLD = 55;
-const RETURN_MIN_MS = 10 * 60 * 1000;
-const RETURN_MAX_MS = 12 * 60 * 60 * 1000;
+/**
+ * The return question is there as soon as the user is back from the
+ * conversation Kinship opened (H10), and waits up to three days for an
+ * answer; opening an app is never taken as having reached someone.
+ */
+const RETURN_MAX_MS = 72 * 60 * 60 * 1000;
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -285,13 +304,19 @@ export function buildToday(input: TodayInput): TodayView {
     firstUse: null,
   };
 
-  // The return check: 10 minutes to 12 hours after a hand-off Kinship opened.
+  // The return check: from the moment the user is back, until answered (up to three days).
   const h = input.handoff;
   if (h && !h.answered) {
     const since = now.getTime() - Date.parse(h.at);
     const p = activePerson(h.personId);
-    if (p && since >= RETURN_MIN_MS && since <= RETURN_MAX_MS) {
-      view.returnCheck = { personId: p.id, personName: firstName(p), reasonId: h.reasonId, channel: h.channel };
+    if (p && since >= 0 && since <= RETURN_MAX_MS) {
+      const name = firstName(p);
+      view.returnCheck = {
+        personId: p.id, personName: name, reasonId: h.reasonId, channel: h.channel,
+        ask: h.ask ?? `Did you reach ${name}?`,
+        about: h.about ?? null,
+        followUp: h.followUp ?? `Anything worth remembering from talking with ${name}?`,
+      };
     }
   }
 
@@ -369,6 +394,7 @@ export function buildToday(input: TodayInput): TodayView {
         : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: local.type === "good_news" ? `Congratulate ${name}` : `Message ${name}`,
       mention: [],
+      ...returnCopy(local.type, name, local.item.statement),
     };
   } else if (birthday && (!best || birthday.score > best.score)) {
     const name = firstName(birthday.p);
@@ -386,6 +412,7 @@ export function buildToday(input: TodayInput): TodayView {
       score: birthday.score,
       primary: { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: `Wish ${name} a happy birthday`,
+      ...returnCopy("birthday", name, null),
       mention: input.items
         .filter((m) => m.person_id === birthday!.p.id && live(m) && ["fact", "thread", "event", "plan", "moment"].includes(m.kind))
         .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
@@ -420,6 +447,7 @@ export function buildToday(input: TodayInput): TodayView {
         : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: type === "event_followup" ? `Ask ${name} how it went` : `Message ${name}`,
       mention,
+      ...returnCopy(type, name, best.item.statement),
     };
   }
 
@@ -511,4 +539,40 @@ export function buildToday(input: TodayInput): TodayView {
 /** The day a moment counts as shown (for freshness and the person cap). */
 export function shownDay(now: Date): string {
   return isoDay(now);
+}
+
+// ─── The return question, with its reason (founder H10, H18) ───────────────
+
+/** What the good news was, said back: "on the promotion". Deterministic; nothing when unsure. */
+function newsTopic(statement: string): string | null {
+  const s = statement.toLocaleLowerCase();
+  if (/\bpromot/u.test(s)) return "on the promotion";
+  if (/\bengaged\b/u.test(s)) return "on the engagement";
+  if (/\bmarried\b|\bwedding\b/u.test(s)) return "on the wedding";
+  if (/\bbaby\b/u.test(s)) return "on the baby";
+  if (/\bgraduat/u.test(s)) return "on graduating";
+  if (/\b(?:house|home|place|apartment)\b/u.test(s) && /\b(?:bought|closed on|got)\b/u.test(s)) return "on the new place";
+  if (/\b(?:job|offer|role|position|hired)\b/u.test(s)) return "on the new job";
+  if (/\b(?:accepted|got into|got in)\b/u.test(s)) return "on getting in";
+  return null;
+}
+
+function returnCopy(type: ReasonType | "good_news" | "starts_today" | "birthday", name: string, statement: string | null): { ask: string; followUp: string } {
+  switch (type) {
+    case "good_news": {
+      const topic = statement ? newsTopic(statement) : null;
+      return {
+        ask: `Did you congratulate ${name}${topic ? ` ${topic}` : ""}?`,
+        followUp: `Anything worth remembering from congratulating ${name}?`,
+      };
+    }
+    case "starts_today":
+      return { ask: `Did you wish ${name} luck today?`, followUp: `Anything worth remembering from talking with ${name}?` };
+    case "birthday":
+      return { ask: `Did you wish ${name} a happy birthday?`, followUp: `Anything worth remembering from ${name}'s birthday?` };
+    case "event_followup":
+      return { ask: `Did you ask ${name} how it went?`, followUp: `How did it go for ${name}? Anything worth remembering?` };
+    default:
+      return { ask: `Did you reach ${name}?`, followUp: `Anything worth remembering from talking with ${name}?` };
+  }
 }

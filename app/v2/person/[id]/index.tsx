@@ -38,6 +38,7 @@ export default function PersonScreen() {
       name={name}
       label={portrait.label}
       remembered={portrait.person?.state === "remembered"}
+      reachedOut={portrait.reachedOut ?? null}
       lately={portrait.lately}
       comingUp={portrait.comingUp}
       youSaid={portrait.youSaid}

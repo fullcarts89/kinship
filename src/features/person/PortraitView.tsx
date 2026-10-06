@@ -25,6 +25,8 @@ export interface PortraitViewProps {
   name: string | null;
   label: string | null;
   remembered: boolean;
+  /** "You reached out · Oct 6" (H10). */
+  reachedOut?: string | null;
   lately: PortraitLineData[];
   comingUp: PortraitLineData[];
   youSaid: PortraitLineData[];
@@ -168,6 +170,7 @@ export function PortraitView(props: PortraitViewProps) {
           <Name>{props.name}</Name>
           {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
           {props.remembered ? <Small style={{ marginTop: space.xs }}>Remembered</Small> : null}
+          {props.reachedOut ? <Small style={{ marginTop: space.xs }}>{props.reachedOut}</Small> : null}
         </View>
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>

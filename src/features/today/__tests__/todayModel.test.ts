@@ -1,6 +1,6 @@
 // Today (plan §13): one moment at most, chosen deterministically; silence is
 // a valid answer; quiet lines are at most two, from different people; the
-// return check appears only 10 minutes to 12 hours after a hand-off; copy is
+// return check is there as soon as the user is back, with its reason; copy is
 // templates plus the user's own words.
 import { buildToday, evidenceOf, relativeDay, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
 import type { MemoryItem, Person } from "@/store/repositories";
@@ -105,13 +105,26 @@ it("at most two quiet lines, a question first, then the week ahead, never the mo
   expect(v.quiet.length).toBeLessThanOrEqual(2);
 });
 
-it("the return check: only 10 minutes to 12 hours after a hand-off Kinship opened, and only until answered", () => {
+it("the return check: there as soon as the user is back, with its reason, until answered (H10, H18)", () => {
   const at = (mins: number) => new Date(NOW.getTime() - mins * 60_000).toISOString();
-  const h = (mins: number, answered?: "yes") => ({ reasonId: "r1", personId: "ben", channel: "text" as const, at: at(mins), answered });
-  expect(buildToday(input({ handoff: h(5) })).returnCheck).toBeNull();
-  expect(buildToday(input({ handoff: h(40) })).returnCheck).toEqual({ personId: "ben", personName: "Ben", reasonId: "r1", channel: "text" });
-  expect(buildToday(input({ handoff: h(13 * 60) })).returnCheck).toBeNull();
-  expect(buildToday(input({ handoff: h(40, "yes") })).returnCheck).toBeNull();
+  const h = (mins: number, answered?: "yes") => ({
+    reasonId: "news:n1", personId: "ben", channel: "text" as const, at: at(mins), answered,
+    ask: "Did you congratulate Ben on the promotion?", about: "Ben was promoted", followUp: "Anything worth remembering from congratulating Ben?",
+  });
+  expect(buildToday(input({ handoff: h(0) })).returnCheck).toEqual({
+    personId: "ben", personName: "Ben", reasonId: "news:n1", channel: "text",
+    ask: "Did you congratulate Ben on the promotion?", about: "Ben was promoted", followUp: "Anything worth remembering from congratulating Ben?",
+  });
+  expect(buildToday(input({ handoff: h(48 * 60) })).returnCheck?.ask).toBe("Did you congratulate Ben on the promotion?");
+  expect(buildToday(input({ handoff: h(73 * 60) })).returnCheck).toBeNull();
+  expect(buildToday(input({ handoff: h(0, "yes") })).returnCheck).toBeNull();
+});
+
+it("every moment knows how to ask about itself afterwards, without guessing", () => {
+  const promoted = item("n1", { kind: "fact", statement: "Ben was promoted", detail: { category: "work", date: "2026-10-11", date_precision: "day" } });
+  const v = buildToday(input({ reasons: [], items: [promoted] }));
+  expect([v.moment?.ask, v.moment?.followUp]).toEqual(["Did you congratulate Ben on the promotion?", "Anything worth remembering from congratulating Ben?"]);
+  expect(buildToday(input()).moment?.ask).toBe("Did you ask Ben how it went?");
 });
 
 it("reads the evidence id from the reason's dedupe key", () => {

@@ -399,11 +399,19 @@ export function useTodayActions() {
       if (!isLocalReason(m.reasonId)) reasons.record(m.reasonId, "dismissed_not_now");
       track("reason_dismissed", { reason_type: reasonTypeName(m.type), mode: "not_now" });
     },
-    handedOff: async (h: { reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType }) => {
-      await reasonLocal.handedOff({ reasonId: h.reasonId, personId: h.personId, channel: h.channel, at: new Date().toISOString() });
+    handedOff: async (h: {
+      reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType;
+      ask?: string; about?: string | null; followUp?: string;
+    }) => {
+      await reasonLocal.handedOff({
+        reasonId: h.reasonId, personId: h.personId, channel: h.channel, at: new Date().toISOString(),
+        ...(h.ask ? { ask: h.ask } : {}), ...(h.about ? { about: h.about } : {}), ...(h.followUp ? { followUp: h.followUp } : {}),
+      });
       if (!isLocalReason(h.reasonId)) reasons.record(h.reasonId, "acted", h.channel);
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
     },
+    /** The app didn't open: nothing was handed off after all. */
+    handoffFailed: (reasonId: string) => reasonLocal.cancel(reasonId),
     /** "Yes": the one place a connection is recorded (plan §15). */
     returned: async (answer: "yes" | "not_yet") => {
       const h = await reasonLocal.answered(answer, new Date().toISOString());
@@ -564,7 +572,12 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
       };
     }
   }
-  return buildPortrait({ person, items, today, birthday, birthdayDay });
+  // The last time the user said they reached them: a quiet line, never a count or a streak.
+  const contacts = (await repos.contacts.forPerson(person.id)) as { occurred_at?: unknown; deleted_at?: unknown }[];
+  const last = contacts.filter((c) => !c.deleted_at && typeof c.occurred_at === "string")
+    .map((c) => String(c.occurred_at)).sort().pop();
+  const portrait = buildPortrait({ person, items, today, birthday, birthdayDay });
+  return last ? { ...portrait, reachedOut: `You reached out · ${momentLabel(last, now, false)}` } : portrait;
 }
 
 /** One remembered item, for its correction sheet. */

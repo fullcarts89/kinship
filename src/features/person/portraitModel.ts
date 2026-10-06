@@ -39,6 +39,8 @@ export interface Portrait {
   total: number;
   /** Some of what Kinship knows isn't on the portrait (shown as the link, never as a number). */
   more: boolean;
+  /** "You reached out · Oct 6": the last time the user said yes to having reached them (H10). Never a count. */
+  reachedOut?: string | null;
 }
 
 /** Product rules (docs/product/relationship-page-rules.md). */

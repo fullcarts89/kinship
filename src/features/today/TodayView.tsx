@@ -6,13 +6,14 @@ import React from "react";
 import { View } from "react-native";
 import { MessageCircle } from "lucide-react-native";
 import { space } from "@/design/tokens";
-import { Body, Display, Greeting, Label, Moment, MomentText, Pill, QuietLine, Screen, usePalette } from "@/ui";
+import { Body, Display, Greeting, Label, Moment, MomentText, Pill, QuietLine, Screen, Small, usePalette } from "@/ui";
 import type { QuietView, TodayView as TodayData } from "./todayModel";
 
 export interface TodayViewProps {
   view: TodayData;
   /** After "Yes" to the return check: offer to remember something from it. */
-  afterReturn: { personId: string; personName: string } | null;
+  /** After "Yes": the same reason carried on ("Anything worth remembering from congratulating Ben?"). */
+  afterReturn: { personId: string; personName: string; followUp?: string } | null;
   onPrimary: () => void;
   onNotNow: () => void;
   onProvenance: () => void;
@@ -54,7 +55,7 @@ export function TodayView(props: TodayViewProps) {
 
       {props.afterReturn ? (
         <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
-          <Display>{`Anything worth remembering about ${props.afterReturn.personName}?`}</Display>
+          <Display>{props.afterReturn.followUp ?? `Anything worth remembering about ${props.afterReturn.personName}?`}</Display>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.xxl }}>
             <Pill variant="primary" label="Tell Kinship" onPress={props.onRemember} />
             <Pill variant="quiet" label="Nothing today" onPress={props.onNothing} />
@@ -62,7 +63,8 @@ export function TodayView(props: TodayViewProps) {
         </View>
       ) : view.returnCheck ? (
         <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
-          <MomentText>{`Did you reach ${view.returnCheck.personName}?`}</MomentText>
+          <MomentText>{view.returnCheck.ask}</MomentText>
+          {view.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{view.returnCheck.about}</Small> : null}
           <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
             <Pill size="small" label="Yes" onPress={() => props.onReturn("yes")} />
             <Pill size="small" label="Not yet" onPress={() => props.onReturn("not_yet")} />
