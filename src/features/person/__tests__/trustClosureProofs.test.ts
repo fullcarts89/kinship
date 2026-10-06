@@ -5,6 +5,8 @@
 // by hand. Each case first failed on the code before this pass.
 import { portraitFor, recordFor, todayIso } from "@/hooks/useV2";
 import { buildReview, type ReviewView } from "@/features/tell/reviewModel";
+import { linkSuggestions } from "@/features/person/links";
+import { voiced } from "@/features/memory/statements";
 import { Gateway, type HeldAnswer } from "@/store/gateway";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
@@ -122,5 +124,32 @@ describe("core trust closure", () => {
     expect([stored.kind, stored.subject_type, stored.user_state]).toEqual(["promise", "user", "edited"]);
     const kinds = sourcesOf(w, line.id).map((s) => s.source_kind).sort();
     expect(kinds).toEqual(["capture", "user_edit"]);
+  });
+
+  it("H12: once 'which Sam?' is answered, the other Sam's page never asks about it", async () => {
+    const w = await world();
+    const [eden, doughty] = await people(w, "Sam Eden", "Sam Doughty");
+    const ask = (i: ExtractionInput, statement: string, extra: Partial<Over> = {}): ModelProposal => ({
+      needs_clarification: { about: "person", mention: "Sam" },
+      items: [item({ kind: "fact", person: key(i, "Sam Eden"), person_mention: "Sam", statement, evidence: [statement], confidence: 0.6, ...extra })],
+    });
+    const job = await tell(w, "Sam got the Stripe job!", (i) => ask(i, "Sam got the Stripe job", { detail: { category: "work" } }));
+    await answer(w, job.id, [{ index: 0, person_id: eden.id }]);
+    const wed = await tell(w, "Sam is married to Michelle.", (i) => ask(i, "Sam is married to Michelle"));
+    await answer(w, wed.id, [{ index: 0, person_id: eden.id }]);
+    const house = await tell(w, "Sam bought a house in Oakland.", (i) => ask(i, "Sam bought a house in Oakland"));
+    await answer(w, house.id, [{ index: 0, person_id: doughty.id }]);
+
+    const suggestionsFor = async (p: Person) => {
+      const ppl = await w.repos.people.list();
+      const items = ((await w.store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, ppl));
+      return linkSuggestions({ person: p, people: ppl, items, related: await w.repos.people.related(), answered: new Set() })
+        .map((s) => s.prompt);
+    };
+    expect(await suggestionsFor(doughty)).toEqual([]);
+    expect(await suggestionsFor(eden)).toEqual([]);
+    // Someone genuinely new to a memory is still asked about, once.
+    const [michelle] = await people(w, "Michelle Lee");
+    expect(await suggestionsFor(michelle)).toEqual(["Is this the Michelle in “Sam is married to Michelle”?"]);
   });
 });
