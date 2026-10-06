@@ -238,8 +238,14 @@ export class MemoryRepo {
 
   /** The user's correction wins, and says so (a user_edit source; plan §5). */
   async correct(id: string, patch: Partial<Pick<MemoryItem, "statement" | "detail" | "kind" | "person_id" | "certainty" | "subject_type">>): Promise<Data> {
+    // An edit is a correction, not a rewrite of history (founder H30): the
+    // words it replaced stay with the edit, next to the note's own source.
+    const before = typeof patch.statement === "string" ? (await this.get(id))?.statement : undefined;
     const updated = await this.store.update("memory_items", id, { ...patch, user_state: "edited" });
-    await this.store.create("memory_item_sources", { memory_item_id: id, source_kind: "user_edit" });
+    await this.store.create("memory_item_sources", {
+      memory_item_id: id, source_kind: "user_edit",
+      ...(typeof before === "string" && before !== patch.statement ? { meta: { before: before.slice(0, 500) } } : {}),
+    });
     return updated;
   }
 

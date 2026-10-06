@@ -223,7 +223,7 @@ function ReviewLine({
             <Token what="What" value={line.kind.label} onPress={line.kind.changeable ? () => onOpen("kind") : undefined} />
           </TokenRow>
         </View>
-        {line.edited ? <Small style={{ marginTop: space.xs }}>You edited this</Small> : null}
+        {line.edited ? <Small style={{ marginTop: space.xs }}>Edited by you</Small> : null}
         {/* Gate E: an update says what it replaces, so the user can say no. */}
         {line.replaces ? <Replaces text={line.replaces} /> : null}
         {line.newcomers?.length && onAddPerson ? (

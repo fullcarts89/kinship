@@ -194,7 +194,7 @@ describe("dates and sources in the user's terms", () => {
     expect(provenanceLine([note("2026-09-29T10:00:00"), note("2026-10-08T21:14:00"), note("2026-10-01T09:00:00")], now))
       .toBe("You told Kinship · Oct 8 · and 2 other notes");
     expect(provenanceLine([note("2026-09-29T10:00:00"), { source_kind: "user_edit", capture_id: null, created_at: "2026-10-03T08:00:00" }], now))
-      .toBe("You edited this · Oct 3 (from your note, Sep 29)");
+      .toBe("Edited by you · Oct 3 · from your note, Sep 29");
     expect(provenanceLine([{ source_kind: "contacts", capture_id: null, created_at: "2026-10-03T08:00:00" }], now)).toBe("From Contacts");
   });
 });

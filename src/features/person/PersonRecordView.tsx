@@ -4,7 +4,7 @@
 // changeable only by tapping them, which nobody could see) and "Not this".
 // From plain data.
 import React from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { ItemLine } from "@/features/tell/reviewModel";
@@ -79,6 +79,12 @@ export function PersonRecordView(props: PersonRecordViewProps) {
             </View>
             {/* Gate E: what this updated stays traceable. */}
             {r.line.replaces ? <Small style={{ marginTop: space.xs }}>{`Before: ${r.line.replaces}`}</Small> : null}
+            {r.line.editedFrom ? (
+              <Small style={{ marginTop: space.xs }} accessibilityLabel={`Edited by you. Before: ${r.line.editedFrom}`}>
+                {"Edited by you · was: "}
+                <Text style={{ textDecorationLine: "line-through" }}>{r.line.editedFrom}</Text>
+              </Small>
+            ) : null}
             <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
               <View style={{ flex: 1 }}>
                 <Provenance line={r.provenance} onPress={r.noteId ? () => props.onSource(r.noteId as string) : undefined} />

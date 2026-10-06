@@ -85,6 +85,14 @@ export async function earlierOf(repos: Repositories, items: MemoryItem[], held: 
   return out;
 }
 
+/** The words a memory had before the user's first edit, from that edit's source (H30). */
+export function editedFrom(sources: { source_kind: string; created_at?: unknown; meta?: unknown }[]): string | null {
+  const edits = sources
+    .filter((s) => s.source_kind === "user_edit" && s.meta && typeof (s.meta as Record<string, unknown>).before === "string")
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  return edits.length ? String((edits[0].meta as Record<string, unknown>).before) : null;
+}
+
 // ─── The review ─────────────────────────────────────────────────────────
 
 export function useReview(captureId: string | null): ReviewView | null {
@@ -236,7 +244,7 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
     lines.push({
-      line: itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }),
+      line: { ...itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }), editedFrom: editedFrom(sources) },
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
       })), now, typeof item.origin === "string" ? item.origin : null),
@@ -574,7 +582,7 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const now = new Date();
     return {
-      line: itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }),
+      line: { ...itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }), editedFrom: editedFrom(sources) },
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
       })), now, typeof item.origin === "string" ? item.origin : null),

@@ -333,4 +333,31 @@ describe("core trust closure", () => {
     expect(after.lately[0].provenance).toMatch(/^You told Kinship · /);
     expect(after.lately[0].noteId).toBe(c.id);
   });
+
+  it("H30: editing a kept line is a correction: original Tell, earlier words, new words and when are all kept", async () => {
+    const w = await world();
+    const [ben] = await people(w, "Ben Oxnard");
+    const t = await tell(w, "Ben is really happy about his promotion and is no longer nervous about managing people.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, "Ben"), person_mention: "Ben",
+        statement: "Ben is really happy about his promotion and is no longer nervous about managing people",
+        evidence: ["Ben is really happy about his promotion and is no longer nervous about managing people"], detail: { category: "work" } })],
+    }));
+    await w.understanding.finish(t.id, "done");
+    await w.understanding.run();
+    const [line] = t.review.lines;
+    await w.understanding.correct(line.id, { statement: "Ben is really not happy about his promotion but is no longer nervous about managing people" });
+    await w.engine.sync();
+    const sources = sourcesOf(w, line.id);
+    expect(sources.map((s) => s.source_kind).sort()).toEqual(["capture", "user_edit"]); // the original Tell stays a source
+    expect(sources.find((s) => s.source_kind === "user_edit")!.meta).toEqual({
+      before: "Ben is really happy about his promotion and is no longer nervous about managing people",
+    });
+    const { knows } = await page(w, ben);
+    const [r] = knows.lines;
+    expect(r.line.statement).toBe("Ben is really not happy about his promotion but is no longer nervous about managing people");
+    expect(r.line.editedFrom).toBe("Ben is really happy about his promotion and is no longer nervous about managing people");
+    expect(r.provenance).toMatch(/^Edited by you · .* · from your note, /);
+    expect(r.noteId).toBe(t.id); // the source opens the original note
+  });
 });

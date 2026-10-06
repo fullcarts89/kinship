@@ -82,6 +82,8 @@ export interface ItemLine {
   newcomers?: string[];
   /** The user already changed it. */
   edited: boolean;
+  /** The words before the user's first edit, kept with the edit (H30). */
+  editedFrom?: string | null;
 }
 
 /** "keep": a sensitive or ambiguous reading that is not memory until the user says yes. */

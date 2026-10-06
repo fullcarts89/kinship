@@ -182,7 +182,7 @@ const record: RecordLine[] = [
   { line: itemLine(knee, { people, related: [], today: TODAY }), provenance: "You told Kinship · Sep 2", noteId: "c2", conflict: null },
   {
     line: itemLine(item("m8", { kind: "fact", user_state: "edited", statement: "Ben wants to finish under four hours", detail: { category: "interest" } }), { people, related: [], today: TODAY }),
-    provenance: "You edited this · Oct 9 (from your note, Oct 8)", noteId: "c1", conflict: null,
+    provenance: "Edited by you · Oct 9 · from your note, Oct 8", noteId: "c1", conflict: null,
   },
 ];
 

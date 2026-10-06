@@ -149,7 +149,7 @@ export interface SourceFacts {
 
 /**
  * The provenance line under a memory (plan §6): "You told Kinship · Oct 8",
- * "· and 2 other notes", "You edited this · Oct 9 (from your note, Oct 8)",
+ * "· and 2 other notes", "Edited by you · Oct 9 · from your note, Oct 8",
  * "From Contacts", "Combined from your notes".
  */
 export function provenanceLine(sources: SourceFacts[], now: Date, origin?: string | null): string {
@@ -160,8 +160,8 @@ export function provenanceLine(sources: SourceFacts[], now: Date, origin?: strin
   const notes = live.filter((s) => s.source_kind === "capture");
   const edits = live.filter((s) => s.source_kind === "user_edit");
   if (edits.length) {
-    const from = notes.length ? ` (from your note, ${momentLabel(notes[notes.length - 1].created_at, now, false)})` : "";
-    return `You edited this · ${momentLabel(edits[0].created_at, now, false)}${from}`;
+    const from = notes.length ? ` · from your note, ${momentLabel(notes[notes.length - 1].created_at, now, false)}` : "";
+    return `Edited by you · ${momentLabel(edits[0].created_at, now, false)}${from}`;
   }
   if (notes.length) {
     const others = notes.length - 1;

@@ -3,14 +3,14 @@
 // and what as tokens, where it came from, and "Not this". A token opens its
 // picker in the same sheet; a change saves at once.
 import React, { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { Correction } from "@/features/tell/ReviewSheet";
 import { DatePane, KindPane, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { Person } from "@/store/repositories";
-import { MomentText, Pill, Provenance, Sheet, Small, Token, TokenRow } from "@/ui";
+import { MomentText, Pill, Provenance, Sheet, Small, Token, TokenRow, usePalette } from "@/ui";
 
 type Pane = "item" | "person" | "date" | "kind" | "words";
 
@@ -81,7 +81,7 @@ export function ItemSheet(props: ItemSheetProps) {
           <View style={{ marginTop: space.l }}>
             <Provenance line={it.provenance} onPress={it.noteId ? () => props.onSource(it.noteId as string) : undefined} />
           </View>
-          {line.edited ? <Small style={{ marginTop: space.xs }}>You edited this</Small> : null}
+          {line.edited ? <EditedFrom before={line.editedFrom ?? null} /> : null}
           {line.replaces ? <Small style={{ marginTop: space.xs }}>{`Before: ${line.replaces}`}</Small> : null}
           <Small style={{ marginTop: space.xl }}>{ITEM_COPY.tokens}</Small>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: space.m }}>
@@ -97,5 +97,17 @@ export function ItemSheet(props: ItemSheetProps) {
     <Sheet visible={props.visible && !!it} onDismiss={props.onDismiss} label="Change">
       {body}
     </Sheet>
+  );
+}
+
+/** "Edited by you", and quietly, what it said before (founder H30). Never a timeline. */
+function EditedFrom({ before }: { before: string | null }) {
+  const p = usePalette();
+  if (!before) return <Small style={{ marginTop: space.xs }}>Edited by you</Small>;
+  return (
+    <Small style={{ marginTop: space.xs }} accessibilityLabel={`Edited by you. Before: ${before}`}>
+      {"Edited by you · was: "}
+      <Text style={{ textDecorationLine: "line-through", color: p.inkQuiet }}>{before}</Text>
+    </Small>
   );
 }
