@@ -369,3 +369,41 @@ Screen: review sheet over People. KEPT FOR BEN OXNARD · Here's what I'll rememb
 | # | Area | Founder's feedback | What the code shows (code reading only) | Recommendation (not built) |
 |---|---|---|---|---|
 | G43 | One sheet, two kinds of line: unclear what needs what | Note: "Ben's dog Mochi has a vet appointment on Friday." Both parts were read correctly (good, and Friday → Fri, Oct 9). But it's unclear which item needs confirming or editing: the dog fact or the vet appointment. | The sheet mixes **a kept line** (already saved: ✕ to remove, underlines to edit) and **a held line** (not saved until "Remember"), each with its own controls, plus sheet-wide Undo / See the note / Done. Nothing says *why* the vet appointment is held. Likely the "sensitive" check (an appointment with a medical word, here a vet, is treated like a health appointment, which waits for a yes). It's also unclear what **Done** does to the unanswered question (today: it leaves it waiting, G19/G13). The heading says "Kept for Ben" while one item isn't kept. | **(1) One list, each line saying its state:** kept lines first ("Kept"), then lines waiting for you under a plain heading: "One to check". Same line style for both, with the state in words, not two different boxes. **(2) Say why it's waiting, in plain words:** "This looks like a health appointment. Keep it?" Or not at all for a **pet's** vet visit, which isn't sensitive: tune the check so animals' vet visits aren't held (it's Ben's dog, not Ben's health). **(3) Done means something clear:** "Done" keeps what's kept and leaves the waiting one on Today ("Still to check: Mochi's vet visit"), or the button reads "Keep both" when there's one waiting. Never silently. **(4) Heading tells the truth:** "About Ben" (not "Kept for Ben") when something is still waiting. **(5)** Ties into G10 (one consistent card) and G13 (waiting items on Today). Tests: this note → the dog fact kept, the vet visit kept too (not held, since it's a pet), dated Fri Oct 9; and a person's "doctor's appointment Friday" → held with the reason shown. |
+
+---
+
+## Status after the stabilization pass (6 Oct, branch `claude/awesome-edison-3cuf6z`)
+
+Built in response to the "Native Trust + Memory Stabilization Pass" brief. Nothing below is verified on a device yet: every row needs the founder's native rerun. "Server" rows need the migration (by merge) and an ai-gateway deploy before a phone can show them.
+
+| # | Status | Where |
+|---|---|---|
+| G1, G2 | Understanding… shows at once and stays until a result; send → understood → shown timings recorded (`tell_lifecycle`), so model and app latency can be told apart. Model latency itself unchanged. | Gate A, D |
+| G3 | Label drawn once. | `ReviewSheet.tsx` |
+| G4 | Every REST call now times out (20 s) and is retried, so a stalled request can't hang understanding. Root cause (stalled fetch) inferred, not reproduced on a device. | `lib/supabase.ts` |
+| G5, G14 | Freeze **not reproduced**. Mitigated: no sheet opens or closes on refresh, and never a sheet on a sheet. Needs a device run. | Gate A |
+| G6 | "See the note" parks the question; it comes back on the way out. | Gate A |
+| G7, G10, G22 | One contract: Understanding… → Kept card (stays until Got it / Undo / the next note) or "One thing to check" with its reason. "Kept" never shows before anything is kept. | Gate D |
+| G8 | Shared memories list everyone they're about ("Also about John"). | Gate F |
+| G9 | The Kept card shows only on the pages of the people it's about. | Gate A |
+| G11, G24 | "John and Ben are brothers" and the Warriors note were dropped by two guards (plural relation word; tradition anchor). Both fixed; a note with nothing to keep now says so. | Gate F, D (server) |
+| G12, G21 | Starts-today and good-news moments on Today ("Congratulate Ben"); a relative's news never becomes one. | Gate G |
+| G13, G16 | Pending notes and questions are named on Today and on the person's page. | Gate A, G |
+| G15 | Consent asks only once the account's answer is known; a swipe or tap outside is not an answer. | Gate C |
+| G17, G18 | Section spacing, a hairline, darker labels; Coming up leads with when; provenance once per run. | Gate H |
+| G19, G29 | Root cause found and reproduced: the old flow closed the sheet when the view went empty during a sync. Sheets are now views over the durable row; only the user closes one. | Gate A |
+| G20, G34 | Adding Michelle later asks "Is this the Michelle in 'Sam is married to Michelle'?" on her page; never merged silently. | Gate F |
+| G23 | Who-is-"he" offers Ben / John / Both / Not sure and quotes the sentence. | Gate F |
+| G25 | "Add Kaiya" files a new person by name, no phone needed, with the relationship the note states. | Gate F |
+| G26, G33, G37 | The user is always "you": stored lines repaired at display, the server repairs before writing, prompt v6 asks for "you". | Gate B |
+| G27 | Today's headline follows the brief's priority; no "Nothing needs you" above waiting work. | Gate G |
+| G28 | About You: **not built** (brief). Self-relations are stored where the note states them. | — |
+| G30, G31, G38 | Updates update: completion resolves, progress supersedes, cancellation closes across kinds; history kept with its source. Two equally good matches ask. | Gate E, C (server) |
+| G32 | After a who-answer the pronoun becomes the name, and the answer is compared with that person's memories. | Gate B, E |
+| G35 | Someone else's promise to you is theirs, Coming up, with its day. | Gate F |
+| G36 | Tentative wording kept; seasonal plans carry a season date ("Summer 2027") instead of stale "next summer". | Gate F |
+| G39 | Contacts are never called family from their saved name; only a leading family word with no possessive is offered as a hint. | Gate C |
+| G40 | Not a bug; superseded lines stay as history on the line. No timeline UI (brief). | — |
+| G41 | Held (ambiguous/sensitive) readings never save without a yes. A seen review with nothing asked is still settled as "left" after 10 minutes off screen, with items left unreviewed, so the server isn't kept waiting. | Gate A |
+| G42 | Related-person news keeps its subject ("Ana had a baby", about Ana, on Michelle's page). | Gate F |
+| G43 | "One thing to check" names which line and why. | Gate D |

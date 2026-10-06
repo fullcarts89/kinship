@@ -98,3 +98,18 @@ Every change below was asked for in the founder's recovery brief (the latest fou
 | Tell field | Unsent words fold to one "Draft · …" line when you leave, and stay with where they were started | F19/F21/F22 | Yes |
 
 Deferred in this pass (not removed): editing a person's name or birthday in 2.0 (the brief allows it "if required"; not needed for the loop); using the user's first name in understanding (the gateway would need it as input: a prompt-input change with its own eval).
+
+## Stabilization pass (6 Oct): what changed on approved surfaces
+
+All asked for in the founder's "Native Trust + Memory Stabilization Pass" brief (the latest founder decision). No approved surface was removed; nothing below is a redesign.
+
+| Surface | Change | Why | Founder approval |
+|---|---|---|---|
+| Tell › review | One post-Tell contract: Understanding… → a Kept card that stays until Got it / Undo / the next note, or "One thing to check" with its reason. No timers. | G7, G10, G19, G22 | Yes: brief Gate D |
+| Tell › questions | Who-is-"he" offers Both and quotes the sentence; "Add Kaiya" for someone not in People; "Does this replace one of these?" when two memories fit | G23, G25, G30 | Yes: brief Gates E, F |
+| 10 Today | Headline priority moment > pending input > first use > quiet; pending notes named; good-news and starts-today moments; "Did Josh send it?" for promises others made | G12, G13, G16, G21 | Yes: brief Gate G |
+| 12 Relationship page | Section spacing, hairline, darker labels; Coming up leads with when; provenance once per run; waiting notes and "Is this the Michelle…?" links | G17, G18, G20 | Yes: brief Gate H ("within Quiet Herbarium, no redesign") |
+| 14 What Kinship knows / item sheet | "Also about" for shared memories; "Before: …" for what a line replaced | G8, G40 | Yes: brief Gate E (history and provenance, no timeline UI) |
+| 3 Consent | Asked only once the account's answer is known; a swipe is not an answer | G15 | Yes: brief Gate C |
+
+Not built (brief "Do not build"): About You, Landscape, Garden, Ask, scores, timeline UI, task manager.
