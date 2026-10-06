@@ -24,6 +24,7 @@ import { SWITCHABLE_KINDS, takesDate } from "@/store/memoryDetail";
 import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
+import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
 
 export interface ReviewInput {
   row: UnderstandingRow;
@@ -406,7 +407,9 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
   const personInQuestion = !item.person_id || PERSON_FLAGS.some((f) => item.flags.includes(f));
   if (personInQuestion) {
     if (!item.person_id && item.new_person_name && item.flags.includes("new_person")) {
-      const name = item.new_person_name;
+      // Never "Add My daughter Kaiya" (founder H20): the name only, also for
+      // readings held before the server understood the phrase.
+      const name = selfRelationPhrase(item.new_person_name)?.name ?? item.new_person_name;
       needs.push({
         type: "new_person",
         group: `new:${fold(name)}`,

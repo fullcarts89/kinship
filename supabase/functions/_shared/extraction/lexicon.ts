@@ -285,6 +285,20 @@ function singularRelation(word: string): string {
 }
 
 /**
+ * "my daughter Kaiya", "our son Max", "my older brother, John": what the
+ * writer calls someone, then their name (founder H20). The phrase is
+ * structure (SELF → daughter → Kaiya), never a name: null for anything else.
+ */
+export function selfRelationPhrase(text: string): { relation: string; name: string } | null {
+  const m = text.normalize("NFC").trim().match(new RegExp(
+    `^(?:my|our)\\s+(?:(?:older|younger|little|big|baby|twin|oldest|youngest|eldest)\\s+)?(${REL_ALT})\\s*,?\\s+(${NAME_RE}(?:\\s+${NAME_RE})?)`,
+    "iu",
+  ));
+  if (!m || NOT_PEOPLE.has(fold(m[2]))) return null;
+  return { relation: singularRelation(m[1]), name: m[2].replace(/['’]s$/u, "") };
+}
+
+/**
  * Relationships to the writer that the note states outright, by the name it
  * gives: "Ben is my brother", "Ben and John are my brothers", "my daughter
  * Kaiya", "Kaiya, my daughter", "Ben is the youngest sibling of myself, John

@@ -152,4 +152,33 @@ describe("core trust closure", () => {
     const [michelle] = await people(w, "Michelle Lee");
     expect(await suggestionsFor(michelle)).toEqual(["Is this the Michelle in “Sam is married to Michelle”?"]);
   });
+
+  it("H20: 'My daughter Kaiya and I…' files to the Kaiya you already have; a newcomer is added as 'Kaiya', your daughter", async () => {
+    const w = await world();
+    const [kaiya] = await people(w, "Kaiya");
+    await w.store.update("people", kaiya.id, { relationship_label: "daughter" });
+    await w.engine.sync();
+    const note = "My daughter Kaiya and I are going to the zoo on Sunday.";
+    const zoo = (i: ExtractionInput): ModelProposal => ({
+      needs_clarification: null,
+      items: [item({ kind: "event", person: "new", person_mention: "My daughter Kaiya", subject: "shared",
+        statement: "My daughter Kaiya and I are going to the zoo", evidence: ["My daughter Kaiya and I are going to the zoo on Sunday"],
+        date_text: "Sunday", detail: { event_type: "other" } })],
+    });
+    const t = await tell(w, note, zoo);
+    expect(t.review.questions).toEqual([]);
+    expect(t.review.lines.map((l) => [l.statement, l.person?.label])).toEqual([["You and your daughter Kaiya are going to the zoo", "Kaiya"]]);
+    expect((await w.repos.people.list()).map((p) => p.display_name)).toEqual(["Kaiya"]);
+
+    // Someone not yet in People: "Add Kaiya", never "Add My daughter Kaiya".
+    const w2 = await world();
+    await people(w2, "Ben Oxnard");
+    const t2 = await tell(w2, note, zoo);
+    const [q] = t2.review.questions;
+    expect(q.prompt).toBe("Is Kaiya someone new?");
+    const add = q.choices.find((c) => c.label === "Add Kaiya")!;
+    await answer(w2, t2.id, [{ index: 0, ...("answer" in add ? add.answer : {}) }]);
+    const added = (await w2.repos.people.list()).find((p) => p.display_name !== "Ben Oxnard")!;
+    expect([added.display_name, added.relationship_label]).toEqual(["Kaiya", "daughter"]);
+  });
 });

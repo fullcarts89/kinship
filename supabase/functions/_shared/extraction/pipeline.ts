@@ -25,6 +25,7 @@ import {
   capCertainty,
   floorSensitivity,
   statedSelfRelations,
+  selfRelationPhrase,
   theyPromisedMe,
   fold,
   hasNegation,
@@ -730,6 +731,15 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   // Ben's page). The mention says nothing about who else it's about, so it's
   // treated as no mention: only the context person or a named one can be meant.
   if (SELF_WORDS.has(fold(mention).replace(/['’](re|ve|ll|d|m)$/u, ""))) return resolvePerson(ctx, { ...raw, person_mention: null }, flags);
+
+  // "My daughter Kaiya": the name, and the relation picks between namesakes (H20).
+  const phrase = selfRelationPhrase(mention);
+  if (phrase && ctx.inNote(phrase.name)) {
+    const named = ctx.candidatesFor(phrase.name);
+    const fits = named.filter((p) => p.relationship_label && wordsOf(p.relationship_label).some((w) => relationKey(w) === relationKey(phrase.relation)));
+    if (named.length > 1 && fits.length === 1) return pick(fits[0]);
+    return resolvePerson(ctx, { ...raw, person_mention: phrase.name }, flags);
+  }
 
   // "Chris, my neighbor" / "Chris (my neighbor)": the name; the label settles ties below.
   const labelled = mention.match(/^(.+?)\s*[,(]\s*(?:my|our)\s+[^,()]+[,)]?$/u);

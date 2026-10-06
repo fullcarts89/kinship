@@ -256,3 +256,40 @@ Deno.test("H28: someone else's commitment to you is theirs, in every common phra
   })]);
   eq([mine.items[0]?.subject_type, mine.items[0]?.detail.due_date], ["user", "2026-10-07"]);
 });
+
+Deno.test("H20: 'my daughter Kaiya' is SELF → daughter → Kaiya, never a person named 'My daughter Kaiya'", () => {
+  const note = "My daughter Kaiya and I are going to the zoo on Sunday.";
+  const reply = (mention: string, person = "new", statement = "My daughter Kaiya and I are going to the zoo") => item({
+    kind: "event", person, person_mention: mention, subject: "shared", statement,
+    evidence: ["My daughter Kaiya and I are going to the zoo on Sunday"], date_text: "Sunday", detail: { event_type: "other" },
+  });
+  // Kaiya already known, as your daughter: no question, no new person.
+  const known = input(note);
+  known.roster = [...known.roster, { key: "p8", id: "kaiya", display_name: "Kaiya", full_name: null, nicknames: [], relationship_label: "daughter" }];
+  for (const mention of ["My daughter Kaiya", "my daughter Kaiya", "Kaiya"]) {
+    const out = run(known, [reply(mention)]);
+    eq([out.items[0]?.person_id, out.items[0]?.new_person_name, out.items[0]?.flags.includes("new_person")], ["kaiya", null, false], mention);
+    eq(/my daughter/i.test(out.items[0]?.statement ?? ""), false, `statement: ${out.items[0]?.statement}`);
+  }
+  // Not known yet: "Add Kaiya" — the name only.
+  const fresh = run(input(note), [reply("My daughter Kaiya")]);
+  eq([fresh.items[0]?.new_person_name, fresh.items[0]?.flags.includes("new_person")], ["Kaiya", true]);
+  // Two Kaiyas: the one the note's relation fits.
+  const twins = input(note);
+  twins.roster = [...twins.roster,
+    { key: "p8", id: "kaiya-d", display_name: "Kaiya", full_name: "Kaiya Oxnard", nicknames: [], relationship_label: "daughter" },
+    { key: "p9", id: "kaiya-n", display_name: "Kaiya", full_name: "Kaiya Lim", nicknames: [], relationship_label: "neighbor" }];
+  eq(run(twins, [reply("My daughter Kaiya")]).items[0]?.person_id, "kaiya-d");
+  // The same shape for other relations.
+  for (const [n, mention, name] of [
+    ["My brother John is visiting Sunday.", "My brother John", "John Oxnard"],
+    ["Our son Max starts school Monday.", "Our son Max", "Max"],
+    ["My wife Michelle got promoted.", "My wife Michelle", "Michelle"],
+    ["My sister Ana had a baby.", "My sister Ana", "Ana"],
+  ] as const) {
+    const out = run(input(n), [item({ kind: "event", person: name === "John Oxnard" ? "p2" : "new", person_mention: mention, statement: n.replace(/\.$/, ""), evidence: [n.replace(/\.$/, "")] })]);
+    const it = out.items[0];
+    eq(it?.new_person_name ?? null, name === "John Oxnard" ? null : name, n);
+    if (name === "John Oxnard") eq(it?.person_id, "john", n);
+  }
+});
