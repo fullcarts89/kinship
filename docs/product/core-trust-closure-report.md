@@ -15,10 +15,10 @@ The canonical, living ledger is **`docs/product/bug-ledger.md`**. It covers F1â€
 
 | Status | Count | Notes |
 |---|---|---|
-| FIXED | 71 | Code changed. None of this pass's rows are device-verified. |
+| FIXED | 72 | Code changed. None of this pass's rows are device-verified. Includes N4 (dogfood telemetry, added after founder approval). |
 | VERIFIED | 3 | G19, G21, G38. You reproduced the original scenario on device in pass 3 and it behaved. |
 | STILL OPEN | 1 | **G5 freeze.** Not reproduced. Mitigated only. Blocks readiness until native-verified. |
-| DEFERRED | 12 | Design or roadmap items (H2, H3, H4, H15, H16, H22), H8 monitoring, F11, G28, G40, N3, N4. |
+| DEFERRED | 11 | Design or roadmap items (H2, H3, H4, H15, H16, H22: approved by the founder on 6 Oct, CC-17, for the next UX phase, not built), H8 monitoring, F11, G28, G40, N3. |
 | SUPERSEDED | 14 | Folded into another row, which carries the status. |
 
 Older F/G items still open after triage:

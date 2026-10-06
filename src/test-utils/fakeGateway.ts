@@ -68,6 +68,9 @@ export class FakeGateway implements GatewayTransport {
   loseNextReply: boolean | "and_go_offline" = false;
   /** Answer the next request with this HTTP failure instead of acting. */
   failNext: { status: number; error: string } | null = null;
+  /** ai-gateway's own time to report (Server-Timing), and a hook run while the request is "in flight". */
+  serverMs: number | null = null;
+  onCall: (() => void) | null = null;
 
   constructor(
     private readonly server: FakeServer,
@@ -101,6 +104,7 @@ export class FakeGateway implements GatewayTransport {
   async post(body: Record<string, unknown>): Promise<TransportReply> {
     const kind = body.action === "close_review" ? "close" : body.action === "resolve_review" ? "answer" : "understand";
     this.calls.push(kind);
+    this.onCall?.();
     if (this.offline) throw new GatewayUnreachable("offline");
     if (this.failNext) {
       const f = this.failNext;
@@ -116,7 +120,7 @@ export class FakeGateway implements GatewayTransport {
       this.loseNextReply = false;
       throw new GatewayUnreachable("reply lost");
     }
-    return reply;
+    return this.serverMs === null ? reply : { ...reply, serverMs: this.serverMs };
   }
 
   // ─── The gateway's behaviour ──────────────────────────────────────────

@@ -143,6 +143,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ANSWERS = 8;
 
 export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Response> {
+  const handle = handler(deps);
+  // Time spent here, for the app's content-free latency telemetry.
+  return async (req) => {
+    const started = performance.now();
+    const res = await handle(req);
+    res.headers.set("Server-Timing", `total;dur=${Math.round(performance.now() - started)}`);
+    return res;
+  };
+}
+
+function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
   const caps = deps.capabilities ?? CAPABILITIES;
   return async (req) => {
     const cors = corsHeaders(req, deps.allowedOrigins);

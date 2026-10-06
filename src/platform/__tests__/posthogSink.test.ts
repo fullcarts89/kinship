@@ -85,7 +85,7 @@ describe("global switch", () => {
     expect(startAnalytics({ EXPO_PUBLIC_ANALYTICS_ENABLED: "true" })).toBe(false);
   });
   it("is on only with both", () => {
-    expect(startAnalytics({ EXPO_PUBLIC_ANALYTICS_ENABLED: "true", EXPO_PUBLIC_POSTHOG_KEY: "phc_x" })).toBe(true);
+    expect(startAnalytics({ EXPO_PUBLIC_ANALYTICS_ENABLED: "true", EXPO_PUBLIC_POSTHOG_KEY: "phc_x" }, { stalls: false })).toBe(true);
     setAnalyticsSink();
   });
 });

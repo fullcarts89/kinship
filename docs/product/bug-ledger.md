@@ -62,7 +62,7 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
 | G2 | ~8 s to result | P2 | Latency | SUPERSEDED | → H8 | | | | |
 | G3 | "Kept for Ben" label twice | P2 | Review | FIXED | Label drawn twice | `ReviewSheet.tsx` | `reviewModel.test` | Not re-tested | |
 | G4 | Result never appeared (30 s) | P0 | Lifecycle | FIXED | Inferred: stalled fetch, no timeout | `lib/supabase.ts` 20 s timeout | | Not re-tested | Cause inferred, not reproduced |
-| G5 | App froze | P0 | Stability | STILL OPEN | Unknown | Mitigated: no sheet churn, never sheet-on-sheet | `lifecycle.test.tsx` | No freeze reported in pass 3 | Not confirmed fixed |
+| G5 | App froze | P0 | Stability | STILL OPEN | Unknown | Mitigated: no sheet churn, never sheet-on-sheet; `app_stall` telemetry now reports any ≥1 s JS-thread block in dogfood | `lifecycle.test.tsx` | No freeze reported in pass 3 | Not confirmed fixed |
 | G6 | "See the note" loses the question | P0 | Lifecycle | FIXED | Sheet closed on navigation | Gate A (park + return) | `lifecycle.test.tsx` | Not re-tested | |
 | G7 | No confirmation for a clear fact | P1 | Feedback | FIXED | Light tier had no card | Gate D | `lifecycle.test.tsx` | Seen working (pass 3) | |
 | G8 | Shared memory says nothing about others | P1 | Multi-person | FIXED | No `with_person_ids` | Gate F | `stabilizationProofs` | Seen working (pass 3) | H13 duplicates across notes |
@@ -107,28 +107,28 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
 | ID | Title | Sev | Area | Status | Root cause | Fix ref | Regression | Native | Notes / risk |
 |---|---|---|---|---|---|---|---|---|---|
 | H1 | Can't edit a person's name | P2 | Person | FIXED | Deferred in recovery | `3cde66f` rename (same id) | `trustClosureProofs` H1 | Not re-tested | Repair path for "My daughter Kaiya" |
-| H2 | Hard to inspect everything known | P3 | Person | DEFERRED | Design | Spec: `next-ux-proposals.md` | | | Needs approval |
+| H2 | Hard to inspect everything known | P3 | Person | DEFERRED | Design | Spec approved (CC-17); next UX phase | | | Approved, not built |
 | H3 | Demand for recall questions | P3 | Roadmap | DEFERRED | | CC-16: Ask Kinship → post-wife-dogfood / Alpha candidate | | | Not built |
-| H4 | Value of bring-back not obvious | P3 | Onboarding | DEFERRED | | Acceptance criteria in `next-ux-proposals.md` | | | Next UX phase |
+| H4 | Value of bring-back not obvious | P3 | Onboarding | DEFERRED | | Acceptance criteria approved (CC-17) | | | Approved, not built; next UX phase |
 | H5 | Anthony + Natalia wedding: only Anthony | P0 | Multi-person | SUPERSEDED | → H13 / H21 (data: two lines, one per person) | | `trustClosureProofs` H5 (with Sam/Meesh guard) | | |
 | H6 | No quick "did it get it right" feedback | P2 | Tooling | FIXED | | `ae4d596`; migration `20261007090000` | pgTAP 63, `keptFeedback.test.tsx`, `trustClosureProofs` H6 | Not re-tested | Never alters memory |
 | H7 | Dogfood notes → eval corpus | P2 | Process | FIXED | | `dogfood-feedback-to-evals.md`; 7 sanitized fixtures (v2.5) | oracle/replay | n/a | Manual review only |
-| H8 | Latency better, still improvable | P3 | Latency | DEFERRED | | Monitor: v6 model p50 3.2 s, p90 4.4 s (51 calls) | | Founder reported better | Client timings not collected (analytics off) |
+| H8 | Latency better, still improvable | P3 | Latency | DEFERRED | | Monitor: v6 model p50 3.2 s, p90 4.4 s (51 calls) | | Founder reported better | Phone-side stage timings now collected in dogfood (N4) |
 | H9 | First-use flashes on first sign-in | P1 | Activation | FIXED | Decided before the first sync brought the account's data | `36251cf` | `todayModel.test` H9 | Not re-tested | Cause from code, not reproduced on device |
 | H10 | Message handoff: card vanishes, nothing recorded | P1 | Loop | FIXED | Opening Messages counted as acted; return check only 10 min–12 h later | `bb85d9f` | `returnLoop.test.ts`, `todayModel.test` | Not re-tested | |
 | H11 | Moment returns after restart | P1 | Loop | FIXED | Likely: hand-off written after Messages opened (app suspended first) | `bb85d9f` (write before open) | `returnLoop.test.ts` (kill/reopen) | Not re-tested | Cause inferred, not reproduced |
 | H12 | Other Sam still asks about resolved items | P0 | Identity | FIXED | Link suggestions matched by first name, ignored the who-answer | `09699f1` | `trustClosureProofs` H12 | Not re-tested | Reproduced in test |
 | H13 | Tahoe duplicate across word order | P0 | Multi-person | FIXED | Exact-string dedupe; dossier lacked shared people | `b7e90f3` | `stabilization.test` H13, `trustClosureProofs` H13 | Not re-tested | Existing duplicates: cleanup plan §2 |
 | H14 | Memory without source after force-quit | P0 | Provenance | FIXED | Not lost: source line shared across same-text neighbours; plus mid-sync gap | `504a70a` | `trustClosureProofs` H14, `sourceLines.test.tsx` | Not re-tested | Server had the source (checked) |
-| H15 | Group knowledge into sections | P3 | Person | DEFERRED | Design | Spec: `next-ux-proposals.md` | | | Portrait unchanged |
-| H16 | Milestones + follow-ups | P3 | Reasons | DEFERRED | Design | Eligibility proposal; no interrogation | | | Needs approval |
+| H15 | Group knowledge into sections | P3 | Person | DEFERRED | Design | Spec approved with changes (CC-17) | | | Approved, not built; Portrait unchanged |
+| H16 | Milestones + follow-ups | P3 | Reasons | DEFERRED | Design | Eligibility approved (CC-17): ≤3 days + day-of, anchored to an established person | | | Approved, not built |
 | H17 | Known relationship treated as new | P1 | Identity | FIXED | No comparison with the person's relationship | `8a95e98` | `stabilization.test` H17, `trustClosureProofs` H17 | Not re-tested | Conflicts are asked |
 | H18 | "Did you reach out?" loses the reason | P1 | Loop | FIXED | Return copy never carried the reason | `bb85d9f` | `todayModel.test`, `returnLoop.test.ts` | Not re-tested | |
 | H19 | Kept card looks part of Coming up; headline contradicts | P1 | Today | FIXED | Card in the dock with a hairline; Today unaware | `36251cf` | `todayAttention.test.tsx` | Not re-tested | |
 | H19b | Shared source line across unrelated lines | P1 | Provenance | FIXED | Stabilization grouping by identical text | `504a70a` | `sourceLines.test.tsx` | Not re-tested | Now only same note |
 | H20 | "My daughter Kaiya" as a person name | P0 | Identity | FIXED | Mention resolved whole as a name | `ae8c18a` | `stabilization.test` H20, `resolve.test` H20, `trustClosureProofs` H20 | Not re-tested | Existing record: cleanup plan §1 |
 | H21 | Named participant (Pedro, Natalia) dropped | P0 | Multi-person | FIXED | Newcomers never offered; name only in the sentence | `5d69e7b` | `trustClosureProofs` H21 | Not re-tested | Shapes: married/engaged to, moving with, X and Y are… |
-| H22 | "August" became 2027 silently | P3 | Dates | DEFERRED | Reasonable reading | | | | Boundary rule proposed |
+| H22 | "August" became 2027 silently | P3 | Dates | DEFERRED | Reasonable reading | Founder: no change, monitor (CC-17) | | | Boundary rule recorded, not locked |
 | H23 | Cancellation too subtle; reads as news | P1 | Display | FIXED | Change not shown on the portrait | `d77587a` (+ Replaces in `27bb0b2`) | `trustClosureProofs` H23 | Not re-tested | |
 | H24 | Understanding card names the page's person | P2 | Lifecycle | FIXED | Label from where it was told, not what it says | `90b805f` | `reviewModel.test` | Not re-tested | |
 | H25 | Held sensitive cancellation doesn't replace | P0 | Threads | FIXED | Resolves never linked the new line; held question didn't say what it replaces | `27bb0b2` | `trustClosureProofs` H25 (held path) | Not re-tested | Confirmed in data; existing pair: cleanup §5 |
@@ -145,7 +145,7 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
 | N1 | Held update questions didn't say what a yes replaces | P1 | Review | FIXED | Held items' action never reached the app | `27bb0b2` | `trustClosureProofs` H25 | Not re-tested | Found reproducing H25 |
 | N2 | Source view would hide a replaced line | P0 | Provenance | FIXED | Note view skipped superseded items | `27bb0b2` ("Since updated") | `trustClosureProofs` H25 | Not re-tested | Found while fixing H25 |
 | N3 | Two "Anthony" people (Anthony, Anthony Lopez) | P2 | Identity | DEFERRED | Duplicate contact; no merge-people feature | | | | Cleanup plan §3; needs founder |
-| N4 | Phone lifecycle timings not collected in the dogfood build | P3 | Latency | DEFERRED | Analytics off in `dogfood-v2` | | | | Founder decision to enable |
+| N4 | Phone lifecycle timings not collected in the dogfood build | P3 | Latency | FIXED | Analytics off in `dogfood-v2` | Founder approved (CC-17): performance-only telemetry in `dogfood-v2`. Tell lifecycle by stage, failures, retries, stalls; content-free | `performanceTelemetry.test.ts`, `gateway.test.ts`, `handler.test.ts` | | Confirm events in PostHog Live events after the first native Tell |
 
 ## Older items still open (triage)
 

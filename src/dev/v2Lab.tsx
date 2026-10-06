@@ -103,7 +103,7 @@ function Phone({ children, nav, dock }: { children: React.ReactNode; nav?: NavKe
 
 function row(state: UnderstandingRow["state"], reading: Partial<Reading> | null, notice: UnderstandingRow["notice"] = null): UnderstandingRow {
   return {
-    capture_id: "c1", state, answer: null, notice, attempts: 0, next_at: null, seen_at: null, understood_at: null, shown_at: null,
+    capture_id: "c1", state, answer: null, notice, attempts: 0, next_at: null, seen_at: null, understood_at: null, shown_at: null, first_request_at: null, request_at: null, server_ms: null, retries: null,
     created_at: "2026-10-08T21:14:00.000Z", updated_at: "2026-10-08T21:14:00.000Z",
     reading: reading ? { tier: "confirm", saved: [], held: [], clarification: null, review_created_at: "t", settled: false, ...reading } : null,
   };

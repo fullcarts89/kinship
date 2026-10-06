@@ -145,6 +145,8 @@ export interface TransportReply {
   status: number;
   body: unknown;
   retryAfter: string | null;
+  /** ai-gateway's own time (its Server-Timing header), when it said. */
+  serverMs?: number | null;
 }
 
 /** Posts one JSON body to ai-gateway as the signed-in user. Throws GatewayUnreachable when nothing came back. */
@@ -154,6 +156,9 @@ export interface GatewayTransport {
 
 export class Gateway {
   constructor(private readonly transport: GatewayTransport) {}
+
+  /** ai-gateway's own time for the last reply, for latency telemetry only. */
+  lastServerMs: number | null = null;
 
   async understand(captureId: string): Promise<Understood> {
     const body = await this.send({ capability: "relationship_extract", input_ref: { capture_id: captureId } });
@@ -208,7 +213,9 @@ export class Gateway {
   }
 
   private async send(request: Record<string, unknown>): Promise<Record<string, unknown>> {
+    this.lastServerMs = null;
     const reply = await this.transport.post(request);
+    this.lastServerMs = reply.serverMs ?? null;
     const body = (reply.body && typeof reply.body === "object" ? reply.body : {}) as Record<string, unknown>;
     if (reply.status >= 200 && reply.status < 300) return body;
     const code = typeof body.error === "string" && (REFUSALS as readonly string[]).includes(body.error)
@@ -230,7 +237,8 @@ export function supabaseGatewayTransport(client: SupabaseClient, timeoutMs = 30_
   return {
     async post(body) {
       const { data, error, response } = await client.functions.invoke("ai-gateway", { body, timeout: timeoutMs });
-      if (!error) return { status: response?.status ?? 200, body: data, retryAfter: response?.headers.get("Retry-After") ?? null };
+      const serverMs = serverTiming(response?.headers.get("Server-Timing") ?? null);
+      if (!error) return { status: response?.status ?? 200, body: data, retryAfter: response?.headers.get("Retry-After") ?? null, serverMs };
       // An HTTP answer (any status) comes with its response; a relay error is the platform's.
       if (response && error.name === "FunctionsHttpError") {
         let parsed: unknown = null;
@@ -239,11 +247,19 @@ export function supabaseGatewayTransport(client: SupabaseClient, timeoutMs = 30_
         } catch {
           parsed = null;
         }
-        return { status: response.status, body: parsed, retryAfter: response.headers.get("Retry-After") };
+        return { status: response.status, body: parsed, retryAfter: response.headers.get("Retry-After"), serverMs };
       }
-      throw new GatewayUnreachable(error.name || "no answer");
+      // A request that ran out of time carries the abort as its context.
+      const cause = (error as { context?: { name?: unknown } }).context?.name;
+      throw new GatewayUnreachable(typeof cause === "string" && /timeout|abort/i.test(cause) ? "timeout" : error.name || "no answer");
     },
   };
+}
+
+/** `total;dur=1234` → 1234. */
+export function serverTiming(header: string | null): number | null {
+  const m = /(?:^|,)\s*total;dur=(\d+(?:\.\d+)?)/.exec(header ?? "");
+  return m ? Math.round(Number(m[1])) : null;
 }
 
 function arrayOf<T>(v: unknown): T[] {

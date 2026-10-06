@@ -130,4 +130,17 @@ All asked for in the founder's "Core Trust Closure + Return Loop Pass" brief (th
 | 14 What Kinship knows | "Edit name"; "Edited by you · was: ~~…~~" | H1, H30 | Yes: brief P0/P2 |
 | Source view | A line a later note replaced stays, marked "Since updated" | H25 | Yes: brief P0 (every statement has a source) |
 
-Designed but not built (founder approval needed): What Kinship knows sections (H15/H2), milestone eligibility (H16), bring-back in first use (H4); see `next-ux-proposals.md`.
+Designed but not built: What Kinship knows sections (H15/H2), milestone eligibility (H16), bring-back in first use (H4). Approved on 6 Oct (see below); details in `next-ux-proposals.md`.
+
+## Approved extensions for the next UX phase (founder, 6 Oct, CC-17)
+
+These are evidence-backed extensions of the approved product. They are approved, **not yet built**, so no current surface changes. Each must be built as specified here, or changed only with founder approval recorded in this file.
+
+| Surface | Approved extension | From | Guardrails |
+|---|---|---|---|
+| 14 What Kinship knows | Organised durable memory in sections: **Into · Background · Their people · Between you**, plus aspiration lines (final label open: "Hoping to" or "Plans & hopes") | H15/H2 | "Hoping to" only for real aspiration or `event_goal`, never every plan; Their people (label open, maybe "People & pets") here, **not** on the Portrait; empty sections disappear; no counts or completeness; newest first, no ranking; a source on every line; no goal tracking |
+| 12 Relationship page (Portrait) | **No change**: Lately · Coming up · You said you'd · Between you stays "what matters now" | H15/H2 | No family tree, no dossier |
+| 10 Today | Milestone moments: engagement, wedding, new job, promotion, baby, graduation, new home, retirement, move | H16 | Eligible ≤ 3 days before and on the day, only with a known day; Today's priority logic decides the slot; never daily nagging; never asks for missing fields; at least one participant must be an established person (others keep their names) |
+| First use (onboarding) | Tell → Remember → **Bring back**, one concrete example leading into Today | H4 | At most one extra screen; no carousel; no decorative motion; respects Reduce Motion; prefer the user's real first Tell when it makes an eligible Moment, else the Ben example; `firstRun.test.tsx` and `.maestro/fresh-install.yaml` gain the step |
+
+Roadmap only (not a surface yet): grounded **Ask Kinship** as an Alpha candidate (H3). No change: "August" (H22).

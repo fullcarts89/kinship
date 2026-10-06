@@ -197,7 +197,7 @@ Everything else serves that, or waits.
 | Calendar briefs / post-encounter prompt | Next | Adds a permission and entity resolution; valuable but separable |
 | Reconnect with openers | Next | Needs rhythm data and a reason corpus |
 | Siri / Action Button / widget / share extension | Next–Later | Native targets; test burden |
-| Ask Kinship | Next | Retrieval over the same store; low risk, low proof value |
+| Ask Kinship (grounded, `retrieval_answer`) | **Alpha candidate** (CC-16, CC-17): after core trust and UX hardening / wife dogfood | Real users asked recall questions unprompted; memory-only answers with sources, "I don't know" when unsupported, own evals, never a chatbot |
 | Monthly reflection | Next | Needs 4+ weeks of data anyway |
 | Rich history, night polish, photos in moments | Later | Delight, not proof |
 

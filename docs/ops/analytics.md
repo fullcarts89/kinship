@@ -105,3 +105,38 @@ Applied 2 Oct 2026 through the PostHog API with a short-lived personal key. The 
 - **Global switch:** `EXPO_PUBLIC_ANALYTICS_ENABLED`. Only the exact value `true` installs the sink, and only if `EXPO_PUBLIC_POSTHOG_KEY` is also set. Anything else, including unset, sends nothing.
 - **Emergency stop for already-installed builds:** rotate or delete the PostHog project API key. Events with an invalid key are rejected.
 - **Review before enabling:** after one internal build with analytics on, inspect PostHog's live events. Check every event against the payload above, then record the review here.
+
+## Performance-only telemetry (dogfood-v2), founder CC-17, 6 Oct 2026
+
+The `dogfood-v2` build sets `EXPO_PUBLIC_ANALYTICS_ENABLED=true` and `EXPO_PUBLIC_ANALYTICS_SCOPE=performance` (in `eas.json`). The PostHog key comes from the EAS environment variable `EXPO_PUBLIC_POSTHOG_KEY`, never the repo. No other build profile turns analytics on; `performanceTelemetry.test.ts` checks this.
+
+**Purpose:** latency, lifecycle failures, retries, timeouts and freeze investigation. **Not** behavioural analytics.
+
+**What the scope does:** it installs a filter (`performanceOnly` in `analyticsSetup.ts`) in front of the PostHog sink. Only the three events below can leave the phone.
+- All other events are dropped on the device: review, clarification, Today, hand-off, settings, deletion and so on.
+- That includes **`tell_feedback` ("Got it right / Not quite")**, which stays on the note only.
+
+Each event has the envelope shown in "Exactly what one event contains": `api_key`, `event`, a random per-install `distinct_id`, `timestamp`, `$process_person_profile: false`, `$geoip_disable: true`. The properties are exactly these:
+
+| Event | When | Properties (all closed values) |
+|---|---|---|
+| `tell_lifecycle` | Once per Tell, when its result is first on screen | `outcome` (kept / needs_input / nothing / failed)<br>`total_bucket`: Send → result visible<br>`sync_bucket`: Send → first gateway request (local save, note upload, queue)<br>`gateway_bucket`: the last request's round trip<br>`server_bucket`: time inside ai-gateway, from its `Server-Timing` header<br>`network_bucket`: round trip minus server<br>`render_bucket`: reading → on screen<br>`retries` (0–10)<br>`understood_bucket`, `shown_bucket`: the coarse originals |
+| `tell_failure` | Each failed attempt to understand a Tell | `stage` (offline / timeout / server / limited / gave_up), `attempt` (0–10) |
+| `app_stall` | The JavaScript thread was blocked ≥ 1 s while the app was in the foreground | `duration_bucket`, `tell_work` (boolean: was a Tell being processed) |
+
+**Duration buckets:** <0.5s · 0.5-1s · 1-2s · 2-3s · 3-5s · 5-8s · 8-13s · 13-20s · 20-60s · 1-10m · 10m+. A stage that can't be measured is `unknown`, e.g. a reply without a Server-Timing header.
+
+**What is never sent:** Tell text, memory text, names, contacts, relationship content, source content, location, ids of notes, people or memories, device name, screen names.
+- Tests: `performanceTelemetry.test.ts` asserts no words, names or ids are in any sent payload. `understanding.test.ts` asserts every property is a closed token.
+
+**Server side:** ai-gateway adds `Server-Timing: total;dur=<ms>` to every response. It carries no other information.
+
+**Retention:** the PostHog plan default, as recorded above (not configurable on the current plan). Acceptable for dogfood because the events are content-free.
+
+**Before enabling outside dogfood** (TestFlight, Alpha):
+- re-review this field list and retention;
+- record the review here.
+
+**To stop it:**
+- remove the two lines from `dogfood-v2` in `eas.json` and rebuild; or
+- for builds already installed, rotate or delete the PostHog project key.

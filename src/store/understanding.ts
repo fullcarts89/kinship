@@ -29,7 +29,17 @@
 // Analytics are content-free by construction (track's closed schema): tiers,
 // kinds and question types only, never text, names or ids.
 
-import { latencyBucketOf, smallCount, track, type ClarificationType, type MemoryKindName } from "@/platform/analytics";
+import {
+  durationBucketOf,
+  latencyBucketOf,
+  smallCount,
+  track,
+  type ClarificationType,
+  type DurationBucket,
+  type MemoryKindName,
+  type TellFailureStage,
+} from "@/platform/analytics";
+import { tellWork } from "@/platform/stallMonitor";
 import {
   Gateway,
   GatewayRefused,
@@ -87,6 +97,13 @@ export interface UnderstandingRow {
   understood_at: string | null;
   /** When the result was first in front of the user. */
   shown_at: string | null;
+  /** When the first and the latest request to the gateway started (latency telemetry). */
+  first_request_at: string | null;
+  request_at: string | null;
+  /** ai-gateway's own time for the reply, in ms (its Server-Timing header). */
+  server_ms: number | null;
+  /** Failed attempts before the reading arrived (attempts resets on success). */
+  retries: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -205,10 +222,24 @@ export class Understanding {
       : row.reading && questionWaiting(row.reading) ? "needs_input"
       : row.reading?.tier === "nothing" || (row.state === "done" && !row.reading?.saved.length) ? "nothing"
       : "kept";
+    const at = (iso: string | null) => (iso ? Date.parse(iso) : NaN);
+    const span = (from: number, to: number): DurationBucket | "unknown" =>
+      Number.isFinite(from) && Number.isFinite(to) && to >= from ? durationBucketOf(to - from) : "unknown";
+    const sent = at(row.created_at);
+    const understood = at(row.understood_at);
+    const shown = at(now);
+    const trip = at(row.understood_at) - at(row.request_at);
     track("tell_lifecycle", {
       outcome,
-      understood_bucket: latencyBucketOf(Date.parse(row.understood_at) - Date.parse(row.created_at)),
-      shown_bucket: latencyBucketOf(Date.parse(now) - Date.parse(row.understood_at)),
+      understood_bucket: latencyBucketOf(understood - sent),
+      shown_bucket: latencyBucketOf(shown - understood),
+      total_bucket: durationBucketOf(Math.max(0, shown - sent)),
+      sync_bucket: span(sent, at(row.first_request_at)),
+      gateway_bucket: span(at(row.request_at), understood),
+      server_bucket: row.server_ms === null ? "unknown" : durationBucketOf(row.server_ms),
+      network_bucket: row.server_ms === null || !Number.isFinite(trip) || trip < 0 ? "unknown" : durationBucketOf(Math.max(0, trip - row.server_ms)),
+      render_bucket: durationBucketOf(Math.max(0, shown - understood)),
+      retries: smallCount(row.retries ?? row.attempts),
     });
   }
 
@@ -408,6 +439,15 @@ export class Understanding {
   }
 
   private async pass(): Promise<void> {
+    tellWork(true);
+    try {
+      await this.passOnce();
+    } finally {
+      tellWork(false);
+    }
+  }
+
+  private async passOnce(): Promise<void> {
     await this.discover();
     const first = await this.sync();
     this.offline = first.offline;
@@ -485,16 +525,22 @@ export class Understanding {
       return false;
     }
     const started = this.clock();
+    const requestAt = this.store.now();
+    await this.save(id, { request_at: requestAt, ...(row.first_request_at ? {} : { first_request_at: requestAt }) });
     let reply: Understood;
     try {
       reply = await this.gateway.understand(id);
     } catch (err) {
       if (err instanceof GatewayRefused) return this.refusedUnderstanding(row, err);
+      if (err instanceof GatewayUnreachable) {
+        this.failure(/timeout|abort/i.test(err.message) ? "timeout" : "offline", row.attempts + 1);
+      }
       throw err;
     }
+    await this.save(id, { server_ms: this.gateway.lastServerMs });
     if (reply.status === "kept") {
       // The model declined this note: kept as written, quietly.
-      await this.save(id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now() });
+      await this.save(id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now(), retries: row.attempts });
       return false;
     }
     if (reply.status === "extracted") {
@@ -529,6 +575,7 @@ export class Understanding {
     await this.save(id, {
       state: nothing ? "done" : "review", reading, attempts: 0, next_at: null,
       understood_at: row.understood_at ?? this.store.now(),
+      retries: row.attempts,
     });
     return true;
   }
@@ -540,15 +587,22 @@ export class Understanding {
       case "invalid_request":
       case "not_found":
         // AI is off for this user, or the note isn't theirs to understand: kept as written.
-        await this.save(row.capture_id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now() });
+        await this.save(row.capture_id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now(), retries: row.attempts });
         return false;
       case "daily_limit_reached":
+        this.failure("limited", row.attempts + 1);
         await this.save(row.capture_id, { next_at: this.later((err.retryAfterS ?? 3600) * 1000) });
         return false;
       default:
+        this.failure("server", row.attempts + 1);
         await this.failed(row, "failed");
         return false;
     }
+  }
+
+  /** A failed attempt to understand a Tell, content-free. */
+  private failure(stage: TellFailureStage, attempt: number): void {
+    track("tell_failure", { stage, attempt: smallCount(attempt) });
   }
 
   // ─── Delivering the user's answer and "done" ──────────────────────────
@@ -692,6 +746,7 @@ export class Understanding {
   private async failed(row: UnderstandingRow, giveUp: UnderstandingState | null): Promise<void> {
     const attempts = row.attempts + 1;
     if (giveUp && attempts >= this.maxAttempts) {
+      if (giveUp === "failed") this.failure("gave_up", attempts);
       await this.save(row.capture_id, {
         state: giveUp, attempts, next_at: null,
         ...(giveUp === "failed" ? { understood_at: this.store.now() } : {}),
@@ -786,6 +841,10 @@ function parseRow(r: Record<string, SqlValue>): UnderstandingRow {
     seen_at: (r.seen_at as string | null) ?? null,
     understood_at: (r.understood_at as string | null) ?? null,
     shown_at: (r.shown_at as string | null) ?? null,
+    first_request_at: (r.first_request_at as string | null) ?? null,
+    request_at: (r.request_at as string | null) ?? null,
+    server_ms: (r.server_ms as number | null) ?? null,
+    retries: (r.retries as number | null) ?? null,
     created_at: r.created_at as string,
     updated_at: r.updated_at as string,
   };

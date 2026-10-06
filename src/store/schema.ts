@@ -20,7 +20,7 @@
 
 import type { SqlDb } from "./sql";
 
-export const LOCAL_SCHEMA_VERSION = 3;
+export const LOCAL_SCHEMA_VERSION = 4;
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS mirror (
@@ -80,6 +80,10 @@ CREATE TABLE IF NOT EXISTS understanding (
   seen_at     TEXT,
   understood_at TEXT,
   shown_at    TEXT,
+  first_request_at TEXT,
+  request_at  TEXT,
+  server_ms   INTEGER,
+  retries     INTEGER,
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL
 );
@@ -90,6 +94,11 @@ const ADDED: [string, string, string][] = [
   // Version 3 (stabilization pass, Gate A): content-free lifecycle times.
   ["understanding", "understood_at", "TEXT"],
   ["understanding", "shown_at", "TEXT"],
+  // Version 4 (Core Trust Closure): performance telemetry stage times.
+  ["understanding", "first_request_at", "TEXT"],
+  ["understanding", "request_at", "TEXT"],
+  ["understanding", "server_ms", "INTEGER"],
+  ["understanding", "retries", "INTEGER"],
 ];
 
 export class StoreOwnerMismatch extends Error {

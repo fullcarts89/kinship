@@ -25,6 +25,21 @@ export type CaptureSource =
   | "onboarding";
 export type CharsBucket = "0-50" | "51-200" | "201+";
 export type LatencyBucket = "<1s" | "1-3s" | "3-10s" | "10s+";
+/** Finer duration buckets for performance telemetry (p50/p90 without exact values). */
+export type DurationBucket =
+  | "<0.5s"
+  | "0.5-1s"
+  | "1-2s"
+  | "2-3s"
+  | "3-5s"
+  | "5-8s"
+  | "8-13s"
+  | "13-20s"
+  | "20-60s"
+  | "1-10m"
+  | "10m+";
+/** Where a Tell attempt failed: no answer (offline / timed out), the server refused or erred, the daily limit. */
+export type TellFailureStage = "offline" | "timeout" | "server" | "limited" | "gave_up";
 export type ScoreBucket = "low" | "mid" | "high";
 export type MinutesBucket = "<15" | "15-60" | "1-6h" | "6h+";
 export type ExtractionTier = "auto" | "light" | "clarify" | "none";
@@ -98,7 +113,25 @@ export interface AnalyticsEvents {
     outcome: "kept" | "needs_input" | "nothing" | "failed";
     understood_bucket: LatencyBucket;
     shown_bucket: LatencyBucket;
+    /** Send → the result visible: what the user waited, end to end. */
+    total_bucket: DurationBucket;
+    /** Send → the gateway request started (local save, note upload, queue). */
+    sync_bucket: DurationBucket | "unknown";
+    /** The last request's round trip (network + server + applying the reply). */
+    gateway_bucket: DurationBucket | "unknown";
+    /** Time spent in ai-gateway itself (its Server-Timing header). */
+    server_bucket: DurationBucket | "unknown";
+    /** The round trip minus the server: network and the phone's handling. */
+    network_bucket: DurationBucket | "unknown";
+    /** Reading → on screen: the phone presenting it. */
+    render_bucket: DurationBucket;
+    /** Failed attempts before this result (retries). */
+    retries: SmallCount;
   };
+  /** One failed attempt to understand a Tell: the stage only, never the note. */
+  tell_failure: { stage: TellFailureStage; attempt: SmallCount };
+  /** The app's JavaScript thread stopped responding while in the foreground (freeze investigation). */
+  app_stall: { duration_bucket: DurationBucket; tell_work: boolean };
   /** "Got it right / Not quite" on a Kept card (H6): the verdict and its fixed reason, never content. */
   tell_feedback: {
     verdict: "right" | "not_quite";
@@ -155,6 +188,27 @@ export function charsBucket(n: number): CharsBucket {
 export function latencyBucketOf(ms: number): LatencyBucket {
   return ms < 1000 ? "<1s" : ms < 3000 ? "1-3s" : ms < 10_000 ? "3-10s" : "10s+";
 }
+
+/** A duration as a fine performance bucket. */
+export function durationBucketOf(ms: number): DurationBucket {
+  if (ms < 500) return "<0.5s";
+  if (ms < 1000) return "0.5-1s";
+  if (ms < 2000) return "1-2s";
+  if (ms < 3000) return "2-3s";
+  if (ms < 5000) return "3-5s";
+  if (ms < 8000) return "5-8s";
+  if (ms < 13_000) return "8-13s";
+  if (ms < 20_000) return "13-20s";
+  if (ms < 60_000) return "20-60s";
+  return ms < 600_000 ? "1-10m" : "10m+";
+}
+
+/**
+ * The events performance-only telemetry may send (dogfood-v2): latency,
+ * lifecycle failures, retries and stalls. Nothing about what the user does
+ * with their memories, and never the "Got it right / Not quite" feedback.
+ */
+export const PERFORMANCE_EVENTS: readonly AnalyticsEventName[] = ["tell_lifecycle", "tell_failure", "app_stall"];
 
 /** Clamps a count into SmallCount. */
 export function smallCount(n: number): SmallCount {
