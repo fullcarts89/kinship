@@ -4,7 +4,7 @@
 // you. Every line says where it came from; tap a line to correct it, tap its
 // provenance for the note. Message, Call and Tell sit at the bottom.
 import React from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
 import { GUTTER, height, press, size, space } from "@/design/tokens";
@@ -18,6 +18,8 @@ export interface PortraitLineData {
   noteId: string | null;
   /** From the person's record (a contact's birthday): shown, not corrected here. */
   fixed?: boolean;
+  /** What it replaced: "was: Susan is moving to Oakland in August" (H23). */
+  was?: string | null;
 }
 
 export interface PortraitViewProps {
@@ -104,6 +106,12 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource }: {
                 <Line>{text}</Line>
               </Pressable>
             )}
+            {l.was ? (
+              <Small style={{ marginTop: space.xs }} accessibilityLabel={`Was: ${l.was}`}>
+                {"was: "}
+                <Text style={{ textDecorationLine: "line-through" }}>{l.was}</Text>
+              </Small>
+            ) : null}
             {/* Said once for the lines it covers: under the last of them. */}
             {nextShares ? null : (
               <View style={{ marginTop: space.xs }}>

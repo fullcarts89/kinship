@@ -376,4 +376,27 @@ describe("core trust closure", () => {
     expect(t.review.status).toBe("Already known: John is your brother; Ben is your brother.");
     expect(serverItems(w)).toEqual([]);
   });
+
+  it("H23: 'not moving to Oakland anymore' reads as a change on Susan's page: was: the move", async () => {
+    const w = await world();
+    const [susan] = await people(w, "Susan Oxnard");
+    const move = await tell(w, "Susan is moving to Oakland in August", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "event", person: key(i, "Susan"), person_mention: "Susan", statement: "Susan is moving to Oakland in August",
+        evidence: ["Susan is moving to Oakland in August"], date_text: "in August", detail: { event_type: "move" } })],
+    }));
+    await w.understanding.finish(move.id, "done");
+    await w.understanding.run();
+    const off = await tell(w, "Susan is not moving to Oakland anymore", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, "Susan"), person_mention: "Susan", statement: "Susan is not moving to Oakland anymore",
+        evidence: ["Susan is not moving to Oakland anymore"], detail: { category: "home" } })],
+    }));
+    expect(off.review.lines[0].replaces).toBe("Susan is moving to Oakland in August");
+    await w.understanding.finish(off.id, "done");
+    await w.understanding.run();
+    const { portrait } = await page(w, susan);
+    const shown = [...portrait.lately, ...portrait.comingUp];
+    expect(shown.map((l) => [l.statement, l.was ?? null])).toEqual([["Susan is not moving to Oakland anymore", "Susan is moving to Oakland in August"]]);
+  });
 });

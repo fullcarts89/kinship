@@ -540,7 +540,14 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
   const items: PortraitItem[] = [];
   const byItem = await repos.memory.sourcesByItem();
   const people = await repos.people.list();
-  for (const stored of await repos.memory.aboutPerson(person.id)) {
+  const all = (await repos.memory.aboutPerson(person.id));
+  const earlier = new Map<string, string>();
+  for (const m of all) {
+    if (typeof m.supersedes_id !== "string" || earlier.has(m.supersedes_id)) continue;
+    const prev = await repos.memory.get(m.supersedes_id);
+    if (prev && !prev.deleted_at) earlier.set(m.supersedes_id, voiced(prev, people).statement);
+  }
+  for (const stored of all) {
     const item = voiced(stored, people);
     // Plainly about someone else: not on this portrait (it stays in What Kinship knows).
     if (misfiledOn(item, person, people)) continue;
@@ -554,6 +561,8 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
       })), now, typeof item.origin === "string" ? item.origin : null),
       noteId: notes[0]?.capture_id ?? null,
+      // A change reads as a change (H23): what it replaced, quietly.
+      was: typeof item.supersedes_id === "string" ? (earlier.get(item.supersedes_id) ?? null) : null,
     });
   }
   // Their birthday, from their record, when it's within a month.

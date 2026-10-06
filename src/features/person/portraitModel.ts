@@ -26,6 +26,8 @@ export interface PortraitLine {
   noteId: string | null;
   /** Not correctable from the page (a birthday from Contacts). */
   fixed?: boolean;
+  /** What this line replaced, so a change reads as a change: "was: Susan is moving to Oakland in August" (H23). */
+  was?: string | null;
 }
 
 export interface Portrait {
@@ -62,6 +64,8 @@ export interface PortraitItem {
   provenance: string;
   noteId: string | null;
   when: string | null;
+  /** The earlier line this one replaced, in the user's terms. */
+  was?: string | null;
 }
 
 function utc(day: string): number {
@@ -107,6 +111,7 @@ export function buildPortrait(input: {
   };
   const line = (x: PortraitItem): PortraitLine => ({
     itemId: x.item.id, statement: x.item.statement, when: x.when, provenance: x.provenance, noteId: x.noteId,
+    ...(x.was ? { was: x.was } : {}),
   });
 
   const lately: { x: PortraitItem; at: string }[] = [];
