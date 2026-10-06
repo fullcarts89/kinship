@@ -15,6 +15,8 @@ import { Understanding } from "@/store/understanding";
 import { UserStore } from "@/store/userStore";
 import { FakeGateway } from "@/test-utils/fakeGateway";
 import { FakeRemote, FakeServer } from "@/test-utils/fakeRemote";
+import { RemoteError } from "@/store/remote";
+import type { MirroredTable } from "@/store/tables";
 import { openSqlJsDb } from "@/test-utils/sqljsDb";
 import type { ExtractionInput, ModelProposal, ProposedDetail, ProposedItem } from "../../../../supabase/functions/_shared/extraction/types";
 
@@ -293,5 +295,42 @@ describe("core trust closure", () => {
       const [m] = serverItems(w).filter((x) => x.status === "active");
       expect([m.person_id, ...(m.with_person_ids ?? [])].sort()).toEqual([pa.id, pb.id].sort());
     }
+  });
+
+  it("H14: killed before a memory's source reaches the phone, the line says 'Source syncing…', then 'You told Kinship' — never source-less", async () => {
+    // A phone whose sync is cut off after memories and before their sources.
+    class CutOff extends FakeRemote {
+      cut = false;
+      async changedSince(name: MirroredTable, ...rest: Parameters<FakeRemote["changedSince"]> extends [MirroredTable, ...infer R] ? R : never) {
+        if (this.cut && name === "memory_item_sources") throw new RemoteError("network", "the app was closed");
+        return super.changedSince(name, ...rest);
+      }
+    }
+    const w = await world();
+    const remote = new CutOff(w.server, A);
+    const engine = new SyncEngine(w.store, remote);
+    const understanding = new Understanding(w.store, () => engine.sync(), new Gateway(w.gateway), { clock: () => w.server.clock });
+    const [john] = await people(w, "John Oxnard");
+    await engine.sync();
+    w.gateway.propose("John is the second tallest in my family.", (i) => {
+      // The note is understood and written; the phone is closed before its sources sync.
+      remote.cut = true;
+      return {
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, "John"), person_mention: "John", statement: "John is the second tallest in your family",
+        evidence: ["John is the second tallest in my family"], detail: { category: "family" } })],
+      };
+    });
+    const c = await w.repos.captures.tell("John is the second tallest in my family.", { aiEnabled: true, timeZone: TZ });
+    await understanding.told(c.id);
+    await understanding.run();
+    const before = await portraitFor(w.repos, john, new Date(w.server.clock));
+    expect(before.lately.map((l) => [l.statement, l.provenance])).toEqual([["John is the second tallest in your family", "Source syncing…"]]);
+    // Reopened, online: the source arrives.
+    remote.cut = false;
+    await engine.sync();
+    const after = await portraitFor(w.repos, john, new Date(w.server.clock));
+    expect(after.lately[0].provenance).toMatch(/^You told Kinship · /);
+    expect(after.lately[0].noteId).toBe(c.id);
   });
 });

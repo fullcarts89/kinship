@@ -82,7 +82,11 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource }: {
       <Label tone={ochre ? "ochreText" : "inkBody"} accessibilityRole="header">{title}</Label>
       {lines.map((l, i) => {
         const text = withWhen(l, leadWithWhen);
-        const nextShares = i + 1 < lines.length && lines[i + 1].provenance === l.provenance && !lines[i + 1].fixed;
+        // One source line for several memories only when they came from the
+        // very same note; neighbours from different notes each say their own
+        // (founder H14, H19b).
+        const next = i + 1 < lines.length ? lines[i + 1] : null;
+        const nextShares = !!next && !next.fixed && !!l.noteId && next.noteId === l.noteId && next.provenance === l.provenance;
         return (
           <View key={l.itemId} style={{ marginTop: i === 0 ? space.m : space.s }}>
             {l.fixed ? (

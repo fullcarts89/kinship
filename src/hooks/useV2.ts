@@ -239,7 +239,7 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
       line: itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }),
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-      })), now),
+      })), now, typeof item.origin === "string" ? item.origin : null),
       noteId: notes[0]?.capture_id ?? null,
       conflict: conflict
         ? { id: conflict.id, title: CONFLICT_TITLE, choices: describeConflict(conflict, item), canUseMine: conflict.reason === "concurrent_edit" }
@@ -356,10 +356,11 @@ export function useToday(
       const sources = byItem.get(id) ?? [];
       const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
         .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      const origin = (await repos.memory.get(id))?.origin;
       prov.set(id, {
         line: provenanceLine(sources.map((s) => ({
           source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-        })), now),
+        })), now, typeof origin === "string" ? origin : null),
         noteId: notes[0]?.capture_id ?? null,
       });
     }
@@ -531,7 +532,7 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
       when: whenLabel(item.kind, (item.detail ?? {}) as Record<string, unknown>, today),
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-      })), now),
+      })), now, typeof item.origin === "string" ? item.origin : null),
       noteId: notes[0]?.capture_id ?? null,
     });
   }
@@ -576,7 +577,7 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
       line: itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }),
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-      })), now),
+      })), now, typeof item.origin === "string" ? item.origin : null),
       noteId: notes[0]?.capture_id ?? null,
     };
   }, [itemId]);

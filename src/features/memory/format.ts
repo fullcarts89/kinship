@@ -152,7 +152,10 @@ export interface SourceFacts {
  * "· and 2 other notes", "You edited this · Oct 9 (from your note, Oct 8)",
  * "From Contacts", "Combined from your notes".
  */
-export function provenanceLine(sources: SourceFacts[], now: Date): string {
+export function provenanceLine(sources: SourceFacts[], now: Date, origin?: string | null): string {
+  // Understood from a note whose source hasn't reached this phone yet (the
+  // app was closed mid-sync): never claimed as "You added this" (H14).
+  if (sources.length === 0 && origin === "extracted") return "Source syncing…";
   const live = [...sources].sort((a, b) => b.created_at.localeCompare(a.created_at));
   const notes = live.filter((s) => s.source_kind === "capture");
   const edits = live.filter((s) => s.source_kind === "user_edit");
