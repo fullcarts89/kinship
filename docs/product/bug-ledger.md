@@ -22,7 +22,7 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
   - **Re-seen (pass N)**: the problem happened again on device.
   - **Not re-tested**: no native evidence since the fix.
 
-*Last updated: 6 Oct 2026, at the start of the Core Trust Closure pass (before code changes).*
+*Last updated: 6 Oct 2026, end of the Core Trust Closure pass (branch `claude/awesome-edison-3cuf6z`, not merged). Nothing from this pass is VERIFIED yet: every FIXED row needs the founder's run of `native-regression-checklist.md`.*
 
 ---
 
@@ -84,15 +84,15 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
 | G24 | Warriors note dropped | P0 | Extraction | FIXED | Tradition anchor guard | Gate F (server) | `stabilization.test.ts` | Not re-tested | |
 | G25 | Own family not in Contacts | P1 | Identity | FIXED | Add needed phone | Gate F "Add Kaiya" | `stabilizationProofs` | Re-seen variant (H20) | H20: "My daughter Kaiya" as name |
 | G26 | "You and their daughter" | P0 | Voice | FIXED | voice.ts | Gate B | `voice.test.ts` | Not re-tested | |
-| G27 | (a) "Nothing needs you" above plan (b) Susan not in People (c) which line | P1 | Today | STILL OPEN | (a) headline ignores the Kept card | Gate G | `todayModel.test` | Re-seen (pass 3, H19) | (a) → H19; (b) → H21 |
+| G27 | (a) "Nothing needs you" above plan (b) Susan not in People (c) which line | P1 | Today | FIXED | (a) headline ignored the Kept card; (b) newcomers never offered | Gate G; H19 (`36251cf`); H21 (`5d69e7b`) | `todayAttention.test.tsx`, `trustClosureProofs` H21 | Re-seen (pass 3) before this fix | (c) fixed in Gate F |
 | G28 | Things about you should have a home | P3 | Direction | DEFERRED | | About You not built (brief) | | | |
 | G29 | After which-Sam, no confirmation | P0 | Lifecycle | SUPERSEDED | → G19 | | | | |
 | G30 | "Got the job" doesn't replace "interviewing" | P0 | Threads | FIXED | Answer path didn't re-compare | Gate E | `stabilization.test.ts` | Not re-tested | |
 | G31 | Ongoing update kept as second line | P1 | Threads | FIXED | No progress transition | Gate E | `stabilization.test.ts` | Not re-tested | |
-| G32 | (a) "He" after answer (b) plan as ongoing (c) past trip "No date yet" (d) not shared | P1 | Display | STILL OPEN | (c) undated past outing shown as upcoming | Gates B, E, F for a, b, d | | Re-seen (pass 3 screenshot, Oct 5 items) | (c) open; may be legacy data only |
+| G32 | (a) "He" after answer (b) plan as ongoing (c) past trip "No date yet" (d) not shared | P1 | Display | FIXED | (c) an undated past event was planned as an event to come | Gates B, E, F; (c) `bd2428e` | `stabilization.test.ts` G32c | Re-seen (pass 3) on Oct 5 data | Old "He wants…" row needs the cleanup plan §7 |
 | G33 | "Writer" back | P0 | Voice | FIXED | Prompt "third person" | Gate B + prompt v6 | `selfVoice.test.ts`, eval | No "writer" reported in pass 3 | |
 | G34 | Michelle's page doesn't know Sam | P1 | Identity | SUPERSEDED | → G20 | | | | |
-| G35 | Someone's promise to you as "ongoing" | P0 | Promises | STILL OPEN | Rule caught "said he'd send me" only | Gate F `theyPromisedMe` | `stabilization.test.ts` | Re-seen (pass 3, H28) | → H28 |
+| G35 | Someone's promise to you as "ongoing" | P0 | Promises | SUPERSEDED | → H28 | | | | |
 | G36 | Tentative plans stay tentative | P1 | Certainty | FIXED | | Gate F | | Not re-tested | H29: no visible marker |
 | G37 | People previews repeat bugs | P1 | Voice | SUPERSEDED | → G26/G33 | | | | |
 | G38 | Cancellation doesn't close plan | P0 | Threads | VERIFIED | Fact→event supersede blocked | Gate C/E | `stabilization.test.ts` | Pass 3: Oakland cancel closed the move | Presentation → H23 |
@@ -106,50 +106,53 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
 
 | ID | Title | Sev | Area | Status | Root cause | Fix ref | Regression | Native | Notes / risk |
 |---|---|---|---|---|---|---|---|---|---|
-| H1 | Can't edit a person's name | P2 | Person | STILL OPEN | Deferred in recovery | | | | |
-| H2 | Hard to inspect everything known | P3 | Person | DEFERRED | Design | Spec only this pass (with H15) | | | |
-| H3 | Demand for recall questions | P3 | Roadmap | DEFERRED | | Ask Kinship moved forward on roadmap; not built | | | |
-| H4 | Value of bring-back not obvious | P3 | Onboarding | DEFERRED | | Acceptance criteria this pass; build next UX phase | | | |
-| H5 | Anthony + Natalia wedding: only Anthony | P0 | Multi-person | SUPERSEDED | → H21 | | | | |
-| H6 | No quick "did it get it right" feedback | P2 | Tooling | STILL OPEN | | | | | |
-| H7 | Dogfood notes → eval corpus | P2 | Process | STILL OPEN | | Process doc this pass | | | |
-| H8 | Latency better, still improvable | P3 | Latency | DEFERRED | | Monitor via timings; no model change | | | |
-| H9 | First-use flashes on first sign-in | P1 | Activation | STILL OPEN | To reproduce | | | | |
-| H10 | Message handoff: card vanishes, nothing recorded | P1 | Loop | STILL OPEN | To reproduce | | | | |
-| H11 | Moment returns after restart | P1 | Loop | STILL OPEN | To reproduce | | | | |
-| H12 | Other Sam still asks about resolved items | P0 | Identity | STILL OPEN | To reproduce | | | | |
-| H13 | Tahoe duplicate across word order | P0 | Multi-person | STILL OPEN | To reproduce | | | | Data cleanup needs approval |
-| H14 | Memory without source after force-quit | P0 | Provenance | STILL OPEN | To reproduce | | | | |
-| H15 | Group knowledge into sections | P3 | Person | DEFERRED | Design | Spec only this pass | | | |
-| H16 | Milestones + follow-ups | P3 | Reasons | DEFERRED | Design | Proposal only; no missing-field questions | | | |
-| H17 | Known relationship treated as new | P1 | Identity | STILL OPEN | To reproduce | | | | |
-| H18 | "Did you reach out?" loses the reason | P1 | Loop | STILL OPEN | To reproduce | | | | |
-| H19 | Kept card looks part of Coming up; headline contradicts | P1 | Today | STILL OPEN | To reproduce | | | | Also G27a |
-| H19b | Shared source line across unrelated lines | P1 | Provenance | STILL OPEN | Stabilization Gate H change | | | | New ID (split from H19) |
-| H20 | "My daughter Kaiya" as a person name | P0 | Identity | STILL OPEN | To reproduce | | | | Data cleanup needs approval |
-| H21 | Named participant (Pedro, Natalia) dropped | P0 | Multi-person | STILL OPEN | To reproduce | | | | Sam + Meesh must not regress |
-| H22 | "August" became 2027 silently | P3 | Dates | DEFERRED | Reasonable reading | | | | Low priority |
-| H23 | Cancellation too subtle; reads as news | P1 | Display | STILL OPEN | | | | | |
-| H24 | Understanding card names the page's person | P2 | Lifecycle | STILL OPEN | To reproduce | | | | |
-| H25 | Held sensitive cancellation doesn't replace | P0 | Threads | STILL OPEN | To reproduce | | | | |
-| H26 | Your dated promise not in Coming up | P1 | Today | STILL OPEN | To reproduce | | | | |
-| H27 | Coming up item disappears when another added | P1 | Today | STILL OPEN | To reproduce | | | | |
-| H28 | Someone's promise filed as yours | P0 | Promises | STILL OPEN | To reproduce | | | | Regression of G35 |
-| H29 | Uncertain wording has no marker | P1 | Certainty | STILL OPEN | | | | | |
-| H30 | Edit loses original source/lineage | P0 | Provenance | STILL OPEN | To reproduce | | | | |
+| H1 | Can't edit a person's name | P2 | Person | FIXED | Deferred in recovery | `3cde66f` rename (same id) | `trustClosureProofs` H1 | Not re-tested | Repair path for "My daughter Kaiya" |
+| H2 | Hard to inspect everything known | P3 | Person | DEFERRED | Design | Spec: `next-ux-proposals.md` | | | Needs approval |
+| H3 | Demand for recall questions | P3 | Roadmap | DEFERRED | | CC-16: Ask Kinship → post-wife-dogfood / Alpha candidate | | | Not built |
+| H4 | Value of bring-back not obvious | P3 | Onboarding | DEFERRED | | Acceptance criteria in `next-ux-proposals.md` | | | Next UX phase |
+| H5 | Anthony + Natalia wedding: only Anthony | P0 | Multi-person | SUPERSEDED | → H13 / H21 (data: two lines, one per person) | | `trustClosureProofs` H5 (with Sam/Meesh guard) | | |
+| H6 | No quick "did it get it right" feedback | P2 | Tooling | FIXED | | `ae4d596`; migration `20261007090000` | pgTAP 63, `keptFeedback.test.tsx`, `trustClosureProofs` H6 | Not re-tested | Never alters memory |
+| H7 | Dogfood notes → eval corpus | P2 | Process | FIXED | | `dogfood-feedback-to-evals.md`; 7 sanitized fixtures (v2.5) | oracle/replay | n/a | Manual review only |
+| H8 | Latency better, still improvable | P3 | Latency | DEFERRED | | Monitor: v6 model p50 3.2 s, p90 4.4 s (51 calls) | | Founder reported better | Client timings not collected (analytics off) |
+| H9 | First-use flashes on first sign-in | P1 | Activation | FIXED | Decided before the first sync brought the account's data | `36251cf` | `todayModel.test` H9 | Not re-tested | Cause from code, not reproduced on device |
+| H10 | Message handoff: card vanishes, nothing recorded | P1 | Loop | FIXED | Opening Messages counted as acted; return check only 10 min–12 h later | `bb85d9f` | `returnLoop.test.ts`, `todayModel.test` | Not re-tested | |
+| H11 | Moment returns after restart | P1 | Loop | FIXED | Likely: hand-off written after Messages opened (app suspended first) | `bb85d9f` (write before open) | `returnLoop.test.ts` (kill/reopen) | Not re-tested | Cause inferred, not reproduced |
+| H12 | Other Sam still asks about resolved items | P0 | Identity | FIXED | Link suggestions matched by first name, ignored the who-answer | `09699f1` | `trustClosureProofs` H12 | Not re-tested | Reproduced in test |
+| H13 | Tahoe duplicate across word order | P0 | Multi-person | FIXED | Exact-string dedupe; dossier lacked shared people | `b7e90f3` | `stabilization.test` H13, `trustClosureProofs` H13 | Not re-tested | Existing duplicates: cleanup plan §2 |
+| H14 | Memory without source after force-quit | P0 | Provenance | FIXED | Not lost: source line shared across same-text neighbours; plus mid-sync gap | `504a70a` | `trustClosureProofs` H14, `sourceLines.test.tsx` | Not re-tested | Server had the source (checked) |
+| H15 | Group knowledge into sections | P3 | Person | DEFERRED | Design | Spec: `next-ux-proposals.md` | | | Portrait unchanged |
+| H16 | Milestones + follow-ups | P3 | Reasons | DEFERRED | Design | Eligibility proposal; no interrogation | | | Needs approval |
+| H17 | Known relationship treated as new | P1 | Identity | FIXED | No comparison with the person's relationship | `8a95e98` | `stabilization.test` H17, `trustClosureProofs` H17 | Not re-tested | Conflicts are asked |
+| H18 | "Did you reach out?" loses the reason | P1 | Loop | FIXED | Return copy never carried the reason | `bb85d9f` | `todayModel.test`, `returnLoop.test.ts` | Not re-tested | |
+| H19 | Kept card looks part of Coming up; headline contradicts | P1 | Today | FIXED | Card in the dock with a hairline; Today unaware | `36251cf` | `todayAttention.test.tsx` | Not re-tested | |
+| H19b | Shared source line across unrelated lines | P1 | Provenance | FIXED | Stabilization grouping by identical text | `504a70a` | `sourceLines.test.tsx` | Not re-tested | Now only same note |
+| H20 | "My daughter Kaiya" as a person name | P0 | Identity | FIXED | Mention resolved whole as a name | `ae8c18a` | `stabilization.test` H20, `resolve.test` H20, `trustClosureProofs` H20 | Not re-tested | Existing record: cleanup plan §1 |
+| H21 | Named participant (Pedro, Natalia) dropped | P0 | Multi-person | FIXED | Newcomers never offered; name only in the sentence | `5d69e7b` | `trustClosureProofs` H21 | Not re-tested | Shapes: married/engaged to, moving with, X and Y are… |
+| H22 | "August" became 2027 silently | P3 | Dates | DEFERRED | Reasonable reading | | | | Boundary rule proposed |
+| H23 | Cancellation too subtle; reads as news | P1 | Display | FIXED | Change not shown on the portrait | `d77587a` (+ Replaces in `27bb0b2`) | `trustClosureProofs` H23 | Not re-tested | |
+| H24 | Understanding card names the page's person | P2 | Lifecycle | FIXED | Label from where it was told, not what it says | `90b805f` | `reviewModel.test` | Not re-tested | |
+| H25 | Held sensitive cancellation doesn't replace | P0 | Threads | FIXED | Resolves never linked the new line; held question didn't say what it replaces | `27bb0b2` | `trustClosureProofs` H25 (held path) | Not re-tested | Confirmed in data; existing pair: cleanup §5 |
+| H26 | Your dated promise not in Coming up | P1 | Today | FIXED | Only others' promises qualified | `18fb7b8` | `todayModel.test` H26/H27 | Not re-tested | |
+| H27 | Coming up item disappears when another added | P1 | Today | FIXED | Two-line cap, one per person | `18fb7b8` | `todayModel.test` H26/H27 | Not re-tested | "and N more" |
+| H28 | Someone's promise filed as yours | P0 | Promises | FIXED | App labelled every promise "Your promise"; rule missed 3 phrasings | `500cadd` | `stabilization.test` H28, `trustClosureProofs` H28, evals core-134–136 | Not re-tested | "Whose promise?" correction |
+| H29 | Uncertain wording has no marker | P1 | Certainty | FIXED | Tentative stored, never shown | `5494f9e` | `trustClosureProofs` H29 | Not re-tested | No scores |
+| H30 | Edit loses original source/lineage | P0 | Provenance | FIXED | Edit overwrote words; prior wording only in server history | `29b6dfc` | `trustClosureProofs` H30 | Not re-tested | |
 
 ## New issues (N-series)
 
-None yet.
+| ID | Title | Sev | Area | Status | Root cause | Fix ref | Regression | Native | Notes / risk |
+|---|---|---|---|---|---|---|---|---|---|
+| N1 | Held update questions didn't say what a yes replaces | P1 | Review | FIXED | Held items' action never reached the app | `27bb0b2` | `trustClosureProofs` H25 | Not re-tested | Found reproducing H25 |
+| N2 | Source view would hide a replaced line | P0 | Provenance | FIXED | Note view skipped superseded items | `27bb0b2` ("Since updated") | `trustClosureProofs` H25 | Not re-tested | Found while fixing H25 |
+| N3 | Two "Anthony" people (Anthony, Anthony Lopez) | P2 | Identity | DEFERRED | Duplicate contact; no merge-people feature | | | | Cleanup plan §3; needs founder |
+| N4 | Phone lifecycle timings not collected in the dogfood build | P3 | Latency | DEFERRED | Analytics off in `dogfood-v2` | | | | Founder decision to enable |
 
 ## Older items still open (triage)
 
 | ID | Classification |
 |---|---|
-| G5 freeze | **Blocks readiness until native-verified.** No repro. Watch on every native pass. |
-| G27a headline over a Kept card | Required this pass, as H19. |
-| G27b Susan not in People | Required this pass, as H21. |
-| G32c undated past outing shown as "No date yet" | Investigate this pass. If it's only legacy data, propose cleanup; otherwise fix. |
-| G35 others' promises | Required this pass, as H28. |
+| G5 freeze | **Blocks readiness until native-verified.** Not reproduced; no freeze reported in pass 3. Row 26 of the checklist. |
+| G41 10-minute settle | By design: a seen review with nothing asked is settled as "left" after 10 minutes off screen; items stay unreviewed; questions never expire. Not a blocker. |
 | F11 carousel | Legitimately deferred; next UX hardening (with H4). |
 | G28 About You, G40 history | Legitimately deferred (brief). |
+| G27, G32, G35 | Fixed in this pass (see rows). |

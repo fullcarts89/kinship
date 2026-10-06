@@ -113,3 +113,21 @@ All asked for in the founder's "Native Trust + Memory Stabilization Pass" brief 
 | 3 Consent | Asked only once the account's answer is known; a swipe is not an answer | G15 | Yes: brief Gate C |
 
 Not built (brief "Do not build"): About You, Landscape, Garden, Ask, scores, timeline UI, task manager.
+
+## Core Trust Closure pass (6 Oct, round three): what changed on approved surfaces
+
+All asked for in the founder's "Core Trust Closure + Return Loop Pass" brief (the latest founder decision). No approved surface was removed; nothing below is a redesign.
+
+| Surface | Change | Why | Founder approval |
+|---|---|---|---|
+| Tell › review | "Tyler's promise" / "Your promise", and **Whose promise?** (Yours / Tyler's) | H28 | Yes: brief P0 |
+| Tell › review | **Add Pedro** under a kept line that names someone new | H21 | Yes: brief P0 |
+| Tell › review | "Replaces: ~~…~~" on saved lines and held questions (was "Updates:") | H23, H25 | Yes: brief P0/P1 |
+| Tell › review, line sheet, What Kinship knows | Quiet **Maybe** token for "might", "thinking about" | H29 | Yes: brief P1 |
+| Tell › Kept card | Its own raised surface; **Got it right · Not quite** (→ What was off?, five fixed reasons); "Already known: …" | H19, H6, H17 | Yes: brief P1/P2 |
+| 10 Today | Return question carries its reason ("Did you congratulate Ben on the promotion?"), right after returning; Yes / Not yet persist; Coming up shows the whole next week by date with "and N more"; never "Nothing needs you today" over a Kept card; no first-use flash before the first sync | H10, H11, H18, H26, H27, H19, H9 | Yes: brief P1 |
+| 12 Relationship page | "was: ~~…~~" under a line that replaced an earlier one; "You reached out · Oct 6" under the name; tap the name to correct it; one source line per note | H23, H10, H1, H14/H19b | Yes: brief P1/P2 |
+| 14 What Kinship knows | "Edit name"; "Edited by you · was: ~~…~~" | H1, H30 | Yes: brief P0/P2 |
+| Source view | A line a later note replaced stays, marked "Since updated" | H25 | Yes: brief P0 (every statement has a source) |
+
+Designed but not built (founder approval needed): What Kinship knows sections (H15/H2), milestone eligibility (H16), bring-back in first use (H4); see `next-ux-proposals.md`.
