@@ -112,6 +112,12 @@ export interface TodayInput {
   activated?: boolean;
   /** The user's first name, when Kinship knows it: "Good morning, Thor." */
   firstName?: string | null;
+  /**
+   * Whether this phone knows the account's data yet (its first sync is
+   * done, or the account's own record says it's new). Until then Today
+   * decides nothing about first use or a quiet day (founder H9). Default true.
+   */
+  dataKnown?: boolean;
   /** Notes waiting on the user (D1): a question, or understood while away. */
   questions: number;
   toLookAt: number;
@@ -197,6 +203,8 @@ export interface TodayView {
    * instead of a quiet day.
    */
   firstUse: { hasPeople: boolean } | null;
+  /** The account's data hasn't reached this phone yet: Today shows its paper, never a guess (H9). */
+  unknown?: boolean;
 }
 
 export const THRESHOLD = 55;
@@ -541,6 +549,11 @@ export function buildToday(input: TodayInput): TodayView {
   view.waiting = nothing && asking > 0 ? (asking === 1 ? "one" : "some") : null;
   view.firstUse = firstUse && nothing && !view.waiting ? { hasPeople: here.length > 0 } : null;
   view.quietDay = nothing && !firstUse && !view.waiting;
+  if (input.dataKnown === false) {
+    view.firstUse = null;
+    view.quietDay = false;
+    view.unknown = true;
+  }
   return view;
 }
 

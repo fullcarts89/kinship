@@ -262,3 +262,14 @@ describe("stabilization Gate G: Today reflects what's open, and good news", () =
       { kind: "waiting", label: "Waiting on Josh", text: "Did Josh send it?", personId: "josh", itemId: "w1" }]);
   });
 });
+
+it("first sign-in on a phone: until the account's data is here, Today guesses nothing (H9)", () => {
+  // An existing account, before its first sync: no people, no notes yet on this phone.
+  const before = buildToday(input({ reasons: [], items: [], people: [], told: 0, activated: false, dataKnown: false }));
+  expect([before.firstUse, before.quietDay, before.unknown]).toEqual([null, false, true]);
+  // After the first sync: its real Today.
+  const after = buildToday(input({ reasons: [], items: [race], told: 3, activated: true, dataKnown: true }));
+  expect([after.firstUse, after.unknown]).toEqual([null, undefined]);
+  // A genuinely new account (its own record says so) still gets first use.
+  expect(buildToday(input({ reasons: [], items: [], people: [], told: 0, activated: false })).firstUse).toEqual({ hasPeople: false });
+});

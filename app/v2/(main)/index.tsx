@@ -67,6 +67,7 @@ export default function TodayScreen() {
       <TodayView
         view={view}
         afterReturn={afterReturn}
+        attention={!!flow.card}
         onPrimary={() => {
           if (!moment) return;
           handoff.start({

@@ -7,7 +7,7 @@ import { ActivityIndicator, Keyboard, TextInput, View } from "react-native";
 import { X } from "lucide-react-native";
 import { Pressable } from "@/ui/Pressable";
 import { draftPreview } from "./drafts";
-import { press, size, space, TOUCH } from "@/design/tokens";
+import { press, radius, size, space, TOUCH } from "@/design/tokens";
 import { Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
 import { trackStarted, useTellFlow, type KeptCardState } from "./TellFlow";
@@ -73,9 +73,14 @@ export function KeptCard({
   const working = card.mode === "understanding";
   const opens = card.mode === "card" || card.mode === "sheet";
   return (
+    // Its own raised surface, apart from Today's lines (founder H19): what
+    // just happened to your note never reads as part of a Coming up line.
     <View
       accessibilityLiveRegion="polite"
-      style={{ paddingHorizontal: space.xs, paddingTop: space.s, paddingBottom: space.xs, borderTopWidth: 1, borderTopColor: p.hairline }}
+      style={{
+        marginTop: space.m, marginBottom: space.s, paddingHorizontal: space.m, paddingTop: space.s, paddingBottom: space.xs,
+        borderRadius: radius.inline, borderWidth: 1, borderColor: p.hairline, backgroundColor: p.surface,
+      }}
     >
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.s }}>
         <View style={{ flex: 1, gap: space.xs }}>

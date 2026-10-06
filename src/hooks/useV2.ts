@@ -356,6 +356,9 @@ export function useToday(
       .filter((m) => !misfiled(m, people));
     const told = (await repos.captures.list()).length;
     const local = await reasonLocal.read();
+    // H9: until the first sync, an existing account's people and notes aren't here yet.
+    const synced = !!(await getMeta(store.db, "last_sync_ok_at"));
+    const dataKnown = synced || (activation.activation !== null && !activation.activated);
     // Provenance only for what a reason cites (the moment's line).
     const cited = new Set(reasons.map(evidenceOf).filter((x): x is string => !!x));
     const prov = new Map<string, { line: string; noteId: string | null }>();
@@ -375,9 +378,9 @@ export function useToday(
     return buildToday({
       now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
       handoff: local.handoff, told, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
-      activated: activation.activated, firstName: activation.firstName, pending,
+      activated: activation.activated, firstName: activation.firstName, pending, dataKnown,
     });
-  }, [questions, toLookAt, minute, activation.activated, activation.firstName, JSON.stringify(pending ?? null)]);
+  }, [questions, toLookAt, minute, activation.activated, activation.firstName, activation.activation === null, JSON.stringify(pending ?? null)]);
   return q.data ?? null;
 }
 

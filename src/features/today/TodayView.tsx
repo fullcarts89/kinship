@@ -12,6 +12,11 @@ import type { QuietView, TodayView as TodayData } from "./todayModel";
 export interface TodayViewProps {
   view: TodayData;
   /** After "Yes" to the return check: offer to remember something from it. */
+  /**
+   * Something on screen wants the user's attention now (the Kept card of a
+   * note just told): Today never says "Nothing needs you today" over it (H19).
+   */
+  attention?: boolean;
   /** After "Yes": the same reason carried on ("Anything worth remembering from congratulating Ben?"). */
   afterReturn: { personId: string; personName: string; followUp?: string } | null;
   onPrimary: () => void;
@@ -98,7 +103,7 @@ export function TodayView(props: TodayViewProps) {
             }
           />
         </View>
-      ) : props.settling ? null : view.firstUse && !props.afterReturn ? (
+      ) : props.settling || view.unknown ? null : view.firstUse && !props.afterReturn ? (
         <View style={{ marginTop: space.x4 }}>
           <Display>{FIRST_USE_COPY.title}</Display>
           <Body style={{ marginTop: space.m }}>{view.firstUse.hasPeople ? FIRST_USE_COPY.withPeople : FIRST_USE_COPY.noPeople}</Body>
@@ -121,7 +126,7 @@ export function TodayView(props: TodayViewProps) {
         <View style={{ marginTop: space.x4 }}>
           <Display>{view.waiting === "one" ? "One thing to check." : "A few things to check."}</Display>
         </View>
-      ) : view.quietDay && !props.afterReturn ? (
+      ) : view.quietDay && !props.afterReturn && !props.attention ? (
         <View style={{ marginTop: space.x4 }}>
           <Display>Nothing needs you today.</Display>
         </View>
