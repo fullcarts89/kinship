@@ -35,7 +35,7 @@ The full analysis of each run is in `docs/phase1/checkpoint-c-ai-verification.md
 |---|---|---|---|---|---|---|---|---|
 | Stabilization, 6 Oct 2026 02:38 UTC ([Actions](https://github.com/fullcarts89/kinship/actions/runs/37404679229), PR #18 `run-evals-full`) | `692406963cacc59ecb16f10bc4724bae4329c163` | `relationship_extract/v6` | `extraction-v2.4`, `f024b189c62ba9657de0a00191492c44f79b8000947aa63d79a9c4e9b93d1ab9` | `claude-opus-5-5`, effort low | 400 | Every gated metric passes; wrong subject 0% (0/372); user promises 86.7% (13/15). Replayed through the follow-up pipeline fix ("you're" grounded, "We" never a new person): promises 15/15, merge 46/46, items 362/366 | $2.74 ($0.0069/call); p50 2.7 s, p95 5.8 s | `full/2026-10-06T02-38-45-opus-5-5-low-v6-run.json.gz` · `6ba8fb30c0a67e0cec46e2d1ff89a523857168044407a94b48a2c04f37878763` (rebuilt from the job log; the workflow artifact holds the original file) |
 
-CI keeps replaying the approved C.1 baseline until the founder approves this one.
+CI replays every `.json.gz` in `full/`, so this run is replayed alongside the approved C.1 baseline; it becomes the approved baseline only with the founder's yes.
 
 ## Kept for replay: smoke
 
