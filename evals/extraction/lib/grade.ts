@@ -339,7 +339,8 @@ function dateOf(i: PlannedItem): { date: string | null; end: string | null; prec
 }
 
 const COMMON = new Set([
-  "i", "the", "a", "an", "he", "she", "they", "his", "her", "their", "we", "our", "you", "your", "it", "this", "that",
+  "i", "the", "a", "an", "he", "she", "they", "his", "her", "their", "we", "our", "you", "you're", "you've", "you'll", "you'd",
+  "your", "yours", "yourself", "it", "this", "that",
   "user", "writer", "mom", "dad", "grandma",
 ]);
 

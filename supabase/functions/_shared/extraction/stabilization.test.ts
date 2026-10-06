@@ -209,3 +209,24 @@ Deno.test("relationships to the user are only ever what the note states", () => 
 function ok(cond: unknown, msg: string): void {
   if (!cond) throw new Error(msg);
 }
+
+Deno.test("v6 wording: 'We' is the user, never a new person; 'You're…' is grounded", () => {
+  // Told on Ben's page: "We" means you and Ben, never someone called "We".
+  const onBen = run(input("We're skiing Tahoe February 18.", [], "p1"), [item({
+    kind: "event", person: "p1", person_mention: "We", subject: "shared", statement: "You and Ben are skiing Tahoe February 18",
+    evidence: ["We're skiing Tahoe February 18."], date_text: "February 18", detail: { event_type: "trip" },
+  })]);
+  eq([onBen.items[0].person_id, onBen.items[0].new_person_name, onBen.items[0].flags.includes("new_person")], ["ben", null, false]);
+  // Nowhere to point: it's asked about, not filed under a person called "We".
+  const nowhere = run(input("We're skiing Tahoe February 18."), [item({
+    kind: "event", person: "unknown", person_mention: "We", subject: "shared", statement: "You're skiing Tahoe February 18",
+    evidence: ["We're skiing Tahoe February 18."], date_text: "February 18", detail: { event_type: "trip" },
+  })]);
+  eq(nowhere.items[0]?.new_person_name ?? null, null);
+  // A promise in v6's words is kept, not dropped as an invented name.
+  const promise = run(input("Dropping off a lasagna for John tomorrow."), [item({
+    kind: "promise", person: "p2", person_mention: "John", subject: "user", statement: "You're dropping off a lasagna for John",
+    evidence: ["Dropping off a lasagna for John tomorrow"], date_text: "tomorrow",
+  })]);
+  eq([promise.items.length, promise.dropped.length], [1, 0]);
+});

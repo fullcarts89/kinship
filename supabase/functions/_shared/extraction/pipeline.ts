@@ -601,9 +601,10 @@ function clamp01(n: number): number {
 // ─── Grounding checks ───────────────────────────────────────────────────────
 
 // "writer" is the prompt's own word for the user ("Writer thinks Anna said…"), never a name.
+// Prompt v6 says "you" for the user, so "You're dropping off a lasagna" is grounded.
 const ALWAYS_OK = new Set([
   "i", "i'm", "i've", "i'll", "i'd", "the", "a", "an", "he", "she", "they", "his", "her", "their", "we", "our",
-  "you", "your", "user", "writer", "writer's", "it", "this", "that", "there", "on", "in", "at", "for", "and", "but", "or", "to",
+  "you", "you're", "you've", "you'll", "you'd", "your", "yours", "yourself", "user", "writer", "writer's", "it", "this", "that", "there", "on", "in", "at", "for", "and", "but", "or", "to",
   "mom", "dad", "mum",
 ]);
 
@@ -703,6 +704,8 @@ function relatedByName(ctx: Context, raw: ProposedItem): { who: Who; related: Pl
   };
 }
 
+const SELF_WORDS = new Set(["i", "me", "my", "myself", "we", "us", "our", "ourselves", "you", "your", "yourself", "you and i", "me and you"]);
+
 type Who = { person_id: string | null; person_key: string | null; new_person_name: string | null } | { drop: DropReason };
 
 function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
@@ -722,6 +725,11 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
     if (ctx.byKey.has(modelKey) && ctx.namedInNote().some((p) => p.key === modelKey)) return pick(ctx.byKey.get(modelKey)!);
     return unresolved("person_ambiguous");
   }
+
+  // "We", "I", "you": the user, never a person's name ("We're skiing Tahoe" on
+  // Ben's page). The mention says nothing about who else it's about, so it's
+  // treated as no mention: only the context person or a named one can be meant.
+  if (SELF_WORDS.has(fold(mention).replace(/['’](re|ve|ll|d|m)$/u, ""))) return resolvePerson(ctx, { ...raw, person_mention: null }, flags);
 
   // "Chris, my neighbor" / "Chris (my neighbor)": the name; the label settles ties below.
   const labelled = mention.match(/^(.+?)\s*[,(]\s*(?:my|our)\s+[^,()]+[,)]?$/u);
