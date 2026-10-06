@@ -10,7 +10,9 @@ import { KeptCard } from "@/features/tell/TellDock";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TellSheet } from "@/features/tell/TellSheet";
 import { useHandoff } from "@/features/today/useHandoff";
-import { todayIso, useItemLine, usePeople, usePersonLinks, usePortrait, useUnderstanding } from "@/hooks/useV2";
+import { todayIso, useItemLine, usePeople, usePersonLinks, usePortrait, useUnderstanding, useV2Actions } from "@/hooks/useV2";
+import { NamePane } from "@/features/tell/Pickers";
+import { Sheet } from "@/ui";
 
 export default function PersonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,6 +25,8 @@ export default function PersonScreen() {
   const links = usePersonLinks(personId);
   const [itemId, setItemId] = useState<string | null>(null);
   const [telling, setTelling] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const { rename } = useV2Actions();
   const item = useItemLine(itemId);
   const name = portrait.person?.display_name ?? null;
   const first = name?.trim().split(/\s+/u)[0] ?? "";
@@ -38,6 +42,7 @@ export default function PersonScreen() {
       name={name}
       label={portrait.label}
       remembered={portrait.person?.state === "remembered"}
+      reachedOut={portrait.reachedOut ?? null}
       lately={portrait.lately}
       comingUp={portrait.comingUp}
       youSaid={portrait.youSaid}
@@ -50,10 +55,11 @@ export default function PersonScreen() {
       onMessage={reachOut}
       onCall={reachOut}
       onTell={() => setTelling(true)}
+      onRename={() => setRenaming(true)}
       hasDraft={!!flow.draft(personId).trim()}
       // The note just told about them, and only about them (never another person's card).
       kept={flow.card && flow.card.personIds.includes(personId)
-        ? <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} />
+        ? <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} onRate={flow.rateCard} />
         : null}
       waiting={flow.pending.filter((n) => n.personIds.includes(personId))}
       onWaiting={(captureId) => flow.openNote(captureId)}
@@ -80,6 +86,14 @@ export default function PersonScreen() {
         onDismiss={() => setItemId(null)}
       />
       {handoff.sheet}
+      <Sheet visible={renaming} onDismiss={() => setRenaming(false)} label="Their name">
+        {renaming && name ? (
+          <NamePane initial={name} onCancel={() => setRenaming(false)} onSave={(n) => {
+            fail(rename(personId, n));
+            setRenaming(false);
+          }} />
+        ) : null}
+      </Sheet>
       <TellSheet person={telling && name ? { id: personId, name: first } : null} onClose={() => setTelling(false)} />
     </PortraitView>
   );

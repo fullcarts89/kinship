@@ -4,7 +4,7 @@
 // you. Every line says where it came from; tap a line to correct it, tap its
 // provenance for the note. Message, Call and Tell sit at the bottom.
 import React from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
 import { GUTTER, height, press, size, space } from "@/design/tokens";
@@ -18,6 +18,8 @@ export interface PortraitLineData {
   noteId: string | null;
   /** From the person's record (a contact's birthday): shown, not corrected here. */
   fixed?: boolean;
+  /** What it replaced: "was: Susan is moving to Oakland in August" (H23). */
+  was?: string | null;
 }
 
 export interface PortraitViewProps {
@@ -25,6 +27,10 @@ export interface PortraitViewProps {
   name: string | null;
   label: string | null;
   remembered: boolean;
+  /** "You reached out · Oct 6" (H10). */
+  reachedOut?: string | null;
+  /** Tapping the name corrects it (H1). */
+  onRename?: () => void;
   lately: PortraitLineData[];
   comingUp: PortraitLineData[];
   youSaid: PortraitLineData[];
@@ -82,7 +88,11 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource }: {
       <Label tone={ochre ? "ochreText" : "inkBody"} accessibilityRole="header">{title}</Label>
       {lines.map((l, i) => {
         const text = withWhen(l, leadWithWhen);
-        const nextShares = i + 1 < lines.length && lines[i + 1].provenance === l.provenance && !lines[i + 1].fixed;
+        // One source line for several memories only when they came from the
+        // very same note; neighbours from different notes each say their own
+        // (founder H14, H19b).
+        const next = i + 1 < lines.length ? lines[i + 1] : null;
+        const nextShares = !!next && !next.fixed && !!l.noteId && next.noteId === l.noteId && next.provenance === l.provenance;
         return (
           <View key={l.itemId} style={{ marginTop: i === 0 ? space.m : space.s }}>
             {l.fixed ? (
@@ -98,6 +108,12 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource }: {
                 <Line>{text}</Line>
               </Pressable>
             )}
+            {l.was ? (
+              <Small style={{ marginTop: space.xs }} accessibilityLabel={`Was: ${l.was}`}>
+                {"was: "}
+                <Text style={{ textDecorationLine: "line-through" }}>{l.was}</Text>
+              </Small>
+            ) : null}
             {/* Said once for the lines it covers: under the last of them. */}
             {nextShares ? null : (
               <View style={{ marginTop: space.xs }}>
@@ -161,9 +177,20 @@ export function PortraitView(props: PortraitViewProps) {
     <Screen onBack={props.onBack} footer={footer}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: space.l }}>
         <View style={{ flex: 1, paddingTop: space.s }}>
-          <Name>{props.name}</Name>
+          {props.onRename ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={props.name ?? ""}
+              accessibilityHint="Double-tap to change their name"
+              onPress={props.onRename}
+              style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
+            >
+              <Name>{props.name}</Name>
+            </Pressable>
+          ) : <Name>{props.name}</Name>}
           {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
           {props.remembered ? <Small style={{ marginTop: space.xs }}>Remembered</Small> : null}
+          {props.reachedOut ? <Small style={{ marginTop: space.xs }}>{props.reachedOut}</Small> : null}
         </View>
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>

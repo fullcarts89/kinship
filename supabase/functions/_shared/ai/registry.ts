@@ -34,8 +34,8 @@ export interface Capability {
   fallbacks: boolean;
 }
 
-// v2.4: the stabilization corpus (v2.3 + updates, others' promises, self wording, pet health) (evals/extraction/MANIFEST.json).
-export const EXTRACTION_EVAL_VERSION = "extraction-v2.4";
+// v2.5: the trust-closure corpus (v2.4 + others' promises in three more phrasings, "my daughter Kaiya", both-named weddings and moves, a new participant) (evals/extraction/MANIFEST.json).
+export const EXTRACTION_EVAL_VERSION = "extraction-v2.5";
 
 export const CAPABILITIES: Record<string, Capability> = {
   relationship_extract: {

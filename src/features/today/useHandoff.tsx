@@ -14,8 +14,8 @@ export interface HandoffRequest {
   personName: string;
   heading: string;
   mention: string[];
-  /** Present when the hand-off acts on a reason (it gets a return check). */
-  reason?: { id: string; type: ReasonType };
+  /** Present when the hand-off acts on a reason (it gets a return check, with the reason). */
+  reason?: { id: string; type: ReasonType; ask?: string; about?: string | null; followUp?: string };
 }
 
 export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffRequest) => void } {
@@ -38,15 +38,22 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
   const open = async (channel: HandoffChannel) => {
     if (!req || !routes || opening.current) return;
     opening.current = true;
+    // Remembered before the other app opens (H11): once iOS moves to
+    // Messages this app may be suspended or closed, and the return question
+    // must be waiting when the user comes back, whatever happened meanwhile.
+    if (req.reason) {
+      await actions.handedOff({
+        reasonId: req.reason.id, personId: req.personId, channel, type: req.reason.type,
+        ask: req.reason.ask, about: req.reason.about ?? null, followUp: req.reason.followUp,
+      });
+    }
     const ok = await openChannel(channel, routes).finally(() => {
       opening.current = false;
     });
     if (!ok) {
+      if (req.reason) await actions.handoffFailed(req.reason.id);
       Alert.alert("That didn't open", channel === "whatsapp" ? "WhatsApp isn't on this phone." : "This phone couldn't open it.");
       return;
-    }
-    if (req.reason) {
-      await actions.handedOff({ reasonId: req.reason.id, personId: req.personId, channel, type: req.reason.type });
     }
     close();
   };

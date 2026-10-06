@@ -81,6 +81,12 @@ export interface Handoff {
   channel: "text" | "call" | "facetime" | "whatsapp" | "email";
   at: string;
   answered?: "yes" | "not_yet";
+  /** Why Kinship opened it, carried to the return (H18): "Did you congratulate Ben on the promotion?" */
+  ask?: string;
+  /** The memory it was about, in the user's words: "Ben got promoted". */
+  about?: string | null;
+  /** After a yes: "Anything worth remembering from congratulating Ben?" */
+  followUp?: string;
 }
 
 export interface TodayInput {
@@ -106,6 +112,12 @@ export interface TodayInput {
   activated?: boolean;
   /** The user's first name, when Kinship knows it: "Good morning, Thor." */
   firstName?: string | null;
+  /**
+   * Whether this phone knows the account's data yet (its first sync is
+   * done, or the account's own record says it's new). Until then Today
+   * decides nothing about first use or a quiet day (founder H9). Default true.
+   */
+  dataKnown?: boolean;
   /** Notes waiting on the user (D1): a question, or understood while away. */
   questions: number;
   toLookAt: number;
@@ -137,6 +149,10 @@ export interface MomentView {
   heading: string;
   /** Other things the user told Kinship about them, for "You could mention". */
   mention: string[];
+  /** The return question, with its reason (H10, H18). */
+  ask: string;
+  /** After a yes, the same reason: "Anything worth remembering from congratulating Ben?" */
+  followUp: string;
   /**
    * What they were hoping for, kept with the event itself (its event_goal,
    * in the note's words): "Ben was hoping to break four hours." Showing up
@@ -151,13 +167,20 @@ export type QuietView =
   | { kind: "waiting"; label: string; text: string; personId: string; itemId: string }
   | { kind: "understanding"; label: string; text: string; captureId: string }
   | { kind: "look"; label: string; text: string; action: string }
-  | { kind: "coming"; label: string; text: string; personId: string; itemId: string | null };
+  | { kind: "coming"; label: string; text: string; personId: string; itemId: string | null }
+  /** "and 2 more": the rest of the next seven days, folded, never dropped (H27). */
+  | { kind: "more"; label: string; text: string; rest: QuietView[] };
 
 export interface ReturnView {
   personId: string;
   personName: string;
   reasonId: string;
   channel: Handoff["channel"];
+  /** "Did you congratulate Ben on the promotion?": the reason, never a bare "Did you reach Ben?" (H18). */
+  ask: string;
+  /** What it was about: "Ben got promoted". */
+  about: string | null;
+  followUp: string;
 }
 
 export interface TodayView {
@@ -180,11 +203,19 @@ export interface TodayView {
    * instead of a quiet day.
    */
   firstUse: { hasPeople: boolean } | null;
+  /** The account's data hasn't reached this phone yet: Today shows its paper, never a guess (H9). */
+  unknown?: boolean;
 }
 
 export const THRESHOLD = 55;
-const RETURN_MIN_MS = 10 * 60 * 1000;
-const RETURN_MAX_MS = 12 * 60 * 60 * 1000;
+/** Coming up lines shown before the rest fold into "and N more". */
+const COMING_SHOWN = 3;
+/**
+ * The return question is there as soon as the user is back from the
+ * conversation Kinship opened (H10), and waits up to three days for an
+ * answer; opening an app is never taken as having reached someone.
+ */
+const RETURN_MAX_MS = 72 * 60 * 60 * 1000;
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -285,13 +316,19 @@ export function buildToday(input: TodayInput): TodayView {
     firstUse: null,
   };
 
-  // The return check: 10 minutes to 12 hours after a hand-off Kinship opened.
+  // The return check: from the moment the user is back, until answered (up to three days).
   const h = input.handoff;
   if (h && !h.answered) {
     const since = now.getTime() - Date.parse(h.at);
     const p = activePerson(h.personId);
-    if (p && since >= RETURN_MIN_MS && since <= RETURN_MAX_MS) {
-      view.returnCheck = { personId: p.id, personName: firstName(p), reasonId: h.reasonId, channel: h.channel };
+    if (p && since >= 0 && since <= RETURN_MAX_MS) {
+      const name = firstName(p);
+      view.returnCheck = {
+        personId: p.id, personName: name, reasonId: h.reasonId, channel: h.channel,
+        ask: h.ask ?? `Did you reach ${name}?`,
+        about: h.about ?? null,
+        followUp: h.followUp ?? `Anything worth remembering from talking with ${name}?`,
+      };
     }
   }
 
@@ -369,6 +406,7 @@ export function buildToday(input: TodayInput): TodayView {
         : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: local.type === "good_news" ? `Congratulate ${name}` : `Message ${name}`,
       mention: [],
+      ...returnCopy(local.type, name, local.item.statement),
     };
   } else if (birthday && (!best || birthday.score > best.score)) {
     const name = firstName(birthday.p);
@@ -386,6 +424,7 @@ export function buildToday(input: TodayInput): TodayView {
       score: birthday.score,
       primary: { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: `Wish ${name} a happy birthday`,
+      ...returnCopy("birthday", name, null),
       mention: input.items
         .filter((m) => m.person_id === birthday!.p.id && live(m) && ["fact", "thread", "event", "plan", "moment"].includes(m.kind))
         .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
@@ -420,6 +459,7 @@ export function buildToday(input: TodayInput): TodayView {
         : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: type === "event_followup" ? `Ask ${name} how it went` : `Message ${name}`,
       mention,
+      ...returnCopy(type, name, best.item.statement),
     };
   }
 
@@ -474,13 +514,17 @@ export function buildToday(input: TodayInput): TodayView {
     });
     seen.add(p.id);
   }
+  // Coming up (H26, H27): everything in the next seven days, by date. The
+  // user's own dated promises too ("You said you'd send Chris the
+  // restaurant"); nothing valid is dropped because something else arrived.
   const soon = (day: string) => daysBetween(today, day) >= 1 && daysBetween(today, day) <= 7;
+  const dueSoon = (day: string) => daysBetween(today, day) >= 0 && daysBetween(today, day) <= 7;
   const coming: { personId: string; day: string; text: string; itemId: string | null; key: string }[] = [
     ...input.items
-      .filter((m) => live(m) && (m.kind === "event" || m.kind === "plan" || (m.kind === "promise" && m.subject_type === "person")) &&
+      .filter((m) => live(m) && (m.kind === "event" || m.kind === "plan" || m.kind === "promise") &&
         m.id !== view.moment?.itemId && activePerson(m.person_id))
       .map((m) => ({ m, day: m.kind === "promise" ? dueDay(m) : eventDay(m) }))
-      .filter((x): x is { m: MemoryItem; day: string } => !!x.day && soon(x.day))
+      .filter((x): x is { m: MemoryItem; day: string } => !!x.day && (x.m.kind === "promise" ? dueSoon(x.day) : soon(x.day)))
       .map(({ m, day }) => ({ personId: m.person_id, day, text: m.statement, itemId: m.id, key: m.id })),
     ...input.people
       .filter((p) => activePerson(p.id) && p.birthday && p.birthday_source)
@@ -488,13 +532,13 @@ export function buildToday(input: TodayInput): TodayView {
       .filter(({ day }) => soon(day))
       .map(({ p, day }) => ({ personId: p.id, day, text: `${firstName(p)}'s birthday`, itemId: null, key: `b${p.id}` })),
   ].sort((a, b) => a.day.localeCompare(b.day) || a.key.localeCompare(b.key));
-  const comingRoom = pending ? view.quiet.length + 2 : 2;
-  for (const c of coming) {
-    if (view.quiet.length >= comingRoom || view.quiet.length >= 4) break;
-    if (seen.has(c.personId)) continue;
-    seen.add(c.personId);
-    view.quiet.push({ kind: "coming", label: relativeDay(c.day, today), text: c.text, personId: c.personId, itemId: c.itemId });
-  }
+  const comingLines: QuietView[] = coming
+    .filter((c) => !(view.moment && c.itemId === view.moment.itemId))
+    .map((c) => ({ kind: "coming", label: relativeDay(c.day, today), text: c.text, personId: c.personId, itemId: c.itemId }));
+  const shownComing = comingLines.slice(0, COMING_SHOWN);
+  view.quiet.push(...shownComing);
+  const rest = comingLines.slice(COMING_SHOWN);
+  if (rest.length) view.quiet.push({ kind: "more", label: "", text: `and ${rest.length} more`, rest });
 
   // First use is not a quiet day (contract §8).
   const here = input.people.filter((p) => !p.deleted_at && p.state !== "archived");
@@ -505,10 +549,51 @@ export function buildToday(input: TodayInput): TodayView {
   view.waiting = nothing && asking > 0 ? (asking === 1 ? "one" : "some") : null;
   view.firstUse = firstUse && nothing && !view.waiting ? { hasPeople: here.length > 0 } : null;
   view.quietDay = nothing && !firstUse && !view.waiting;
+  if (input.dataKnown === false) {
+    view.firstUse = null;
+    view.quietDay = false;
+    view.unknown = true;
+  }
   return view;
 }
 
 /** The day a moment counts as shown (for freshness and the person cap). */
 export function shownDay(now: Date): string {
   return isoDay(now);
+}
+
+// ─── The return question, with its reason (founder H10, H18) ───────────────
+
+/** What the good news was, said back: "on the promotion". Deterministic; nothing when unsure. */
+function newsTopic(statement: string): string | null {
+  const s = statement.toLocaleLowerCase();
+  if (/\bpromot/u.test(s)) return "on the promotion";
+  if (/\bengaged\b/u.test(s)) return "on the engagement";
+  if (/\bmarried\b|\bwedding\b/u.test(s)) return "on the wedding";
+  if (/\bbaby\b/u.test(s)) return "on the baby";
+  if (/\bgraduat/u.test(s)) return "on graduating";
+  if (/\b(?:house|home|place|apartment)\b/u.test(s) && /\b(?:bought|closed on|got)\b/u.test(s)) return "on the new place";
+  if (/\b(?:job|offer|role|position|hired)\b/u.test(s)) return "on the new job";
+  if (/\b(?:accepted|got into|got in)\b/u.test(s)) return "on getting in";
+  return null;
+}
+
+function returnCopy(type: ReasonType | "good_news" | "starts_today" | "birthday", name: string, statement: string | null): { ask: string; followUp: string } {
+  switch (type) {
+    case "good_news": {
+      const topic = statement ? newsTopic(statement) : null;
+      return {
+        ask: `Did you congratulate ${name}${topic ? ` ${topic}` : ""}?`,
+        followUp: `Anything worth remembering from congratulating ${name}?`,
+      };
+    }
+    case "starts_today":
+      return { ask: `Did you wish ${name} luck today?`, followUp: `Anything worth remembering from talking with ${name}?` };
+    case "birthday":
+      return { ask: `Did you wish ${name} a happy birthday?`, followUp: `Anything worth remembering from ${name}'s birthday?` };
+    case "event_followup":
+      return { ask: `Did you ask ${name} how it went?`, followUp: `How did it go for ${name}? Anything worth remembering?` };
+    default:
+      return { ask: `Did you reach ${name}?`, followUp: `Anything worth remembering from talking with ${name}?` };
+  }
 }

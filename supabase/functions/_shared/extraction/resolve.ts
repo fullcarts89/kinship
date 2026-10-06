@@ -19,7 +19,7 @@
 // No model is called: the model's proposal already passed pipeline.ts, and
 // the answer changes only who or when, never the words.
 
-import { fold, kinshipReference, relationKey, statedSelfRelations, wordsOf } from "./lexicon.ts";
+import { fold, kinshipReference, relationKey, selfRelationPhrase, statedSelfRelations, wordsOf } from "./lexicon.ts";
 import { withResolvedName, withResolvedNames } from "./voice.ts";
 import { threadTarget } from "./threads.ts";
 import type { Flag } from "./types.ts";
@@ -176,12 +176,16 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         if (offered && (offered.length > 60 || !new RegExp(`(^|[^\\p{L}])${escapeRe(offered)}([^\\p{L}]|$)`, "u").test(ctx.note))) {
           return { fail: "bad_answer" };
         }
-        const name = item.new_person_name?.trim() || offered;
+        // "My daughter Kaiya" is SELF → daughter → Kaiya: the person is "Kaiya"
+        // (founder H20), even for a reading held before that was understood.
+        const raw = item.new_person_name?.trim() || offered;
+        const phrase = raw ? selfRelationPhrase(raw) : null;
+        const name = phrase?.name ?? raw;
         if (!name) return { fail: "bad_answer" };
         let ref = newPeople.find((p) => fold(p.display_name) === fold(name))?.ref;
         if (!ref) {
           ref = `new:${newPeople.length}`;
-          const rel = stated.find((r) => fold(r.name) === fold(name))?.relation;
+          const rel = stated.find((r) => fold(r.name) === fold(name))?.relation ?? phrase?.relation;
           newPeople.push({ ref, display_name: name, ...(rel ? { relationship_label: rel } : {}) });
         }
         personId = ref;
@@ -293,8 +297,8 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         delete detail.transition;
       } else {
         if (!offeredTargets.includes(a.replaces)) return { fail: "bad_answer" };
-        const target = ctx.existing.find((m) => m.id === a.replaces);
-        action = { type: target && target.kind === "thread" && detail.transition === "completed" ? "resolves" : "supersede", target_id: a.replaces };
+        // A change of the story replaces the earlier line, linked (founder H25).
+        action = { type: "supersede", target_id: a.replaces };
       }
     } else if (a.replaces !== undefined) {
       return { fail: "bad_answer" };

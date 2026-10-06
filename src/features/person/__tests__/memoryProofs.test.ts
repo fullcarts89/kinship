@@ -156,13 +156,15 @@ describe("information that changes", () => {
     const items = [...w.server.table("memory_items").values()].filter((m) => m.person_id === anna.id);
     const thread = items.find((m) => m.kind === "thread")!;
     const job = items.find((m) => m.kind === "fact")!;
-    expect(thread.status).toBe("resolved"); // closed, not deleted
+    expect(thread.status).toBe("superseded"); // replaced, not deleted: history (H25)
+    expect(job.supersedes_id).toBe(thread.id); // and linked, so the change shows
     expect(job).toMatchObject({ statement: "Anna got the job at Stripe", status: "active" });
 
     const after = await portraitFor(w.repos, anna, now(w));
     expect(after.lately.map((l) => l.statement)).toEqual(["Anna got the job at Stripe"]); // the open question has left Lately
     const knows = await recordFor(w.repos, anna.id, now(w));
-    expect(knows.lines.map((l) => l.line.statement)).toEqual(["Anna got the job at Stripe", "Anna is interviewing at Stripe"]);
+    // One current line, saying what it replaced (H25): never both as current.
+    expect(knows.lines.map((l) => [l.line.statement, l.line.replaces])).toEqual([["Anna got the job at Stripe", "Anna is interviewing at Stripe"]]);
     // Both notes still say where each came from.
     expect((await noteFor(w.store, first.captureId, now(w)))!.items.map((i) => i.statement)).toEqual(["Anna is interviewing at Stripe"]);
     expect((await noteFor(w.store, second.captureId, now(w)))!.items.map((i) => i.statement)).toEqual(["Anna got the job at Stripe"]);

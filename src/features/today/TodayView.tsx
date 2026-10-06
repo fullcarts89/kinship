@@ -6,13 +6,19 @@ import React from "react";
 import { View } from "react-native";
 import { MessageCircle } from "lucide-react-native";
 import { space } from "@/design/tokens";
-import { Body, Display, Greeting, Label, Moment, MomentText, Pill, QuietLine, Screen, usePalette } from "@/ui";
+import { Body, Display, Greeting, Label, Moment, MomentText, Pill, QuietLine, Screen, Small, usePalette } from "@/ui";
 import type { QuietView, TodayView as TodayData } from "./todayModel";
 
 export interface TodayViewProps {
   view: TodayData;
   /** After "Yes" to the return check: offer to remember something from it. */
-  afterReturn: { personId: string; personName: string } | null;
+  /**
+   * Something on screen wants the user's attention now (the Kept card of a
+   * note just told): Today never says "Nothing needs you today" over it (H19).
+   */
+  attention?: boolean;
+  /** After "Yes": the same reason carried on ("Anything worth remembering from congratulating Ben?"). */
+  afterReturn: { personId: string; personName: string; followUp?: string } | null;
   onPrimary: () => void;
   onNotNow: () => void;
   onProvenance: () => void;
@@ -45,6 +51,9 @@ export const FIRST_USE_COPY = {
 export function TodayView(props: TodayViewProps) {
   const p = usePalette();
   const { view } = props;
+  // "and 2 more" opens in place; nothing in the next week is ever hidden for good.
+  const [allComing, setAllComing] = React.useState(false);
+  const quiet = view.quiet.flatMap((q) => (q.kind === "more" ? (allComing ? q.rest : [q]) : [q]));
   return (
     <Screen footer={props.footer}>
       <View style={{ paddingTop: space.x3 }}>
@@ -54,7 +63,7 @@ export function TodayView(props: TodayViewProps) {
 
       {props.afterReturn ? (
         <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
-          <Display>{`Anything worth remembering about ${props.afterReturn.personName}?`}</Display>
+          <Display>{props.afterReturn.followUp ?? `Anything worth remembering about ${props.afterReturn.personName}?`}</Display>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.xxl }}>
             <Pill variant="primary" label="Tell Kinship" onPress={props.onRemember} />
             <Pill variant="quiet" label="Nothing today" onPress={props.onNothing} />
@@ -62,7 +71,8 @@ export function TodayView(props: TodayViewProps) {
         </View>
       ) : view.returnCheck ? (
         <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
-          <MomentText>{`Did you reach ${view.returnCheck.personName}?`}</MomentText>
+          <MomentText>{view.returnCheck.ask}</MomentText>
+          {view.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{view.returnCheck.about}</Small> : null}
           <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
             <Pill size="small" label="Yes" onPress={() => props.onReturn("yes")} />
             <Pill size="small" label="Not yet" onPress={() => props.onReturn("not_yet")} />
@@ -93,7 +103,7 @@ export function TodayView(props: TodayViewProps) {
             }
           />
         </View>
-      ) : props.settling ? null : view.firstUse && !props.afterReturn ? (
+      ) : props.settling || view.unknown ? null : view.firstUse && !props.afterReturn ? (
         <View style={{ marginTop: space.x4 }}>
           <Display>{FIRST_USE_COPY.title}</Display>
           <Body style={{ marginTop: space.m }}>{view.firstUse.hasPeople ? FIRST_USE_COPY.withPeople : FIRST_USE_COPY.noPeople}</Body>
@@ -116,21 +126,21 @@ export function TodayView(props: TodayViewProps) {
         <View style={{ marginTop: space.x4 }}>
           <Display>{view.waiting === "one" ? "One thing to check." : "A few things to check."}</Display>
         </View>
-      ) : view.quietDay && !props.afterReturn ? (
+      ) : view.quietDay && !props.afterReturn && !props.attention ? (
         <View style={{ marginTop: space.x4 }}>
           <Display>Nothing needs you today.</Display>
         </View>
       ) : null}
 
-      {view.quiet.length ? (
+      {quiet.length ? (
         <View style={{ marginTop: space.x4, borderTopWidth: 1, borderTopColor: p.hairline, paddingTop: space.l, gap: space.l }}>
-          {view.quiet.map((q, i) => (
+          {quiet.map((q, i) => (
             <QuietLine
               key={`${q.kind}${i}`}
               label={q.label}
               text={q.text}
               action={q.kind === "question" || q.kind === "look" ? { label: q.action, onPress: () => props.onQuiet(q) } : undefined}
-              onPress={() => props.onQuiet(q)}
+              onPress={() => (q.kind === "more" ? setAllComing(true) : props.onQuiet(q))}
             />
           ))}
         </View>

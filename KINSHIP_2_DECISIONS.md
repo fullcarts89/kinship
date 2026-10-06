@@ -602,3 +602,40 @@ This is conditional on the PR #13 merge gates, the deploy with `ai_extraction` O
 - gated internal dogfood, only through the existing per-account flag mechanism.
 
 **Out of scope until founder review:** Today, reasons, Garden, Intentions, Landscape and the Opportunity Engine.
+
+## CC-16. Core Trust Closure pass: founder direction on round-three feedback (6 Oct 2026)
+From the founder's "Core Trust Closure + Return Loop Pass" brief.
+
+- **Ask Kinship (`retrieval_answer`, E25 / ASK-01)** moves forward on the roadmap. It becomes a post-wife-dogfood / Alpha candidate, not "Next" after everything. It is not built in this pass. When built, it must:
+  - answer only from stored memory, with sources;
+  - say `not_found` rather than guess;
+  - never become a chat.
+- **Milestones (H16)** may support grounded Today reasons. Kinship never interrogates for missing fields (no "when is the wedding? where?"). An eligibility proposal is in `docs/product/next-ux-proposals.md`.
+- **Portrait unchanged (H15/H2).** Lately · Coming up · You said you'd · Between you. A reorganised **What Kinship knows** (Into · Hoping to · Background · Their people · Between you) is design only until approved.
+- **Bring back in first use (H4)** goes to the next UX/onboarding hardening phase. The acceptance criteria are written; no onboarding redesign now.
+- **Dogfood feedback (H6/H7).** "Got it right / Not quite" is stored on the note for review. Real failures become fixtures only after consent, manual review and de-identification (`docs/product/dogfood-feedback-to-evals.md`).
+- **Master bug ledger.** `docs/product/bug-ledger.md` is the canonical quality ledger. VERIFIED means founder-reproduced on a physical iPhone, nothing less.
+
+## CC-17. Next-UX approvals and dogfood telemetry (6 Oct 2026)
+The founder's review of `docs/product/next-ux-proposals.md`. These are approved for the **next UX phase**. None are built yet.
+
+- **H15/H2 What Kinship knows, sections: APPROVED with two changes.** The Portrait stays "what matters now"; What Kinship knows becomes organised durable memory.
+  - **"Hoping to" is semantic, not a bucket for every plan.** A line goes there only when its source expresses aspiration or desire, or it carries an `event_goal`. Ordinary plans stay neutral: either under a plainer umbrella such as "Plans & hopes", or elsewhere. The final label is decided at build.
+  - **Their people** lives in What Kinship knows, **not** on the Portrait: no mini family tree on the main page. Whether pets belong under that label is open ("People & pets" or another plain alternative).
+  - Unchanged and approved: Into · Background · Between you; empty sections disappear; no counts or completeness; newest first without ranking; a source on every line; no goal tracking.
+- **H16 Milestones as Today reasons: APPROVED.**
+  - **V1 list:** engagement, wedding, new job, promotion, baby, graduation, new home, retirement, move.
+  - **Timing:** an upcoming milestone with a known day is *eligible* within 3 days before, and on the day. Eligibility is not a guarantee: Today's existing priority logic decides whether it takes one of the limited slots, and it is never surfaced every day.
+  - **Unknown dates:** a milestone with an unknown date stays remembered. Kinship never asks for missing fields.
+  - **Anchor rule:** a reason may include someone not yet in People (Natalia keeps her name in "Anthony and Natalia's wedding is Saturday"), but at least one participant must be an established person. No Moments about events involving only untracked people.
+- **H4 Bring back in first use: APPROVED** for onboarding hardening, with the written constraints: one example, at most one extra screen, no carousel, no decorative motion, leads into Today.
+  - Preference, not a requirement: if the user's real first Tell creates an eligible future Moment, show that instead of the canned Ben example ("You just told Kinship this → here's how something like that comes back"). Fall back to the example otherwise, and drop the preference if it complicates onboarding substantially.
+- **H3 Ask Kinship: APPROVED as roadmap movement only.** The sequence is: Core trust → UX hardening / wife dogfood → **grounded Ask Kinship as an Alpha candidate**. It is not implemented now.
+  - Requirements as written: answers from memory only, with sources; "I don't know" when memory doesn't support an answer; its own grounding, refusal and privacy evals; never a general chatbot.
+  - Better People search is useful but is not a substitute: "Find John" and "What is John into?" are different jobs.
+- **H22 "August": no change; monitor.** The possible boundary rule is recorded but **not** locked as product behaviour. Wait for real examples of users disliking the interpretation.
+- These approved extensions (H15/H2, H16, H4) are entered in `approved-design-coverage.md`.
+- **Dogfood telemetry (N4): ENABLED in `dogfood-v2` only**, scoped to content-free performance and reliability telemetry. It covers the complete Tell lifecycle (Send → visible result, split into sync, gateway round trip, server, network and render where distinguishable), lifecycle failures, retries, timeouts and JavaScript-thread stalls (freeze investigation).
+  - Never sent: Tell text, memory text, names, contacts, relationship content, source content or location.
+  - Kept separate from "Got it right / Not quite", which is never sent in this scope.
+  - Fields and retention are documented in `docs/ops/analytics.md`. This must be re-reviewed before enabling anywhere outside dogfood.

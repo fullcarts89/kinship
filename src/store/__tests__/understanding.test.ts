@@ -631,7 +631,7 @@ describe("analytics", () => {
           continue;
         }
         expect(typeof value).toBe("string");
-        expect(value).toMatch(/^[a-z_<>0-9+-]{1,16}$/);
+        expect(value).toMatch(/^[a-z_<>0-9.+-]{1,16}$/);
         for (const f of forbidden) expect(String(value)).not.toContain(f);
         if (key !== "model_id") expect(`${name}.${key}`).not.toMatch(/text|name|note|statement|quote|person|capture|_id$/);
       }

@@ -21,7 +21,7 @@ export default function TodayScreen() {
   const view = useToday(flow.questions.length, flow.toLookAt.length, now, flow.pending);
   const actions = useTodayActions();
   const handoff = useHandoff();
-  const [afterReturn, setAfterReturn] = useState<{ personId: string; personName: string } | null>(null);
+  const [afterReturn, setAfterReturn] = useState<{ personId: string; personName: string; followUp?: string } | null>(null);
   // Hold the empty states until the first refresh settles (never longer than SETTLE_MS).
   const [settling, setSettling] = useState(true);
   useEffect(() => {
@@ -67,11 +67,12 @@ export default function TodayScreen() {
       <TodayView
         view={view}
         afterReturn={afterReturn}
+        attention={!!flow.card}
         onPrimary={() => {
           if (!moment) return;
           handoff.start({
             personId: moment.personId, personName: moment.personName, heading: moment.heading, mention: moment.mention,
-            reason: { id: moment.reasonId, type: moment.type },
+            reason: { id: moment.reasonId, type: moment.type, ask: moment.ask, about: moment.statement, followUp: moment.followUp },
           });
         }}
         onNotNow={() => moment && void actions.notNow({ reasonId: moment.reasonId, type: moment.type })}
@@ -80,7 +81,7 @@ export default function TodayScreen() {
           const rc = view.returnCheck;
           if (answer === "yes") void reachedSomeone();
           void actions.returned(answer).then(() => {
-            if (answer === "yes" && rc) setAfterReturn({ personId: rc.personId, personName: rc.personName });
+            if (answer === "yes" && rc) setAfterReturn({ personId: rc.personId, personName: rc.personName, followUp: rc.followUp });
           });
         }}
         onRemember={() => {

@@ -25,6 +25,7 @@ import {
   capCertainty,
   floorSensitivity,
   statedSelfRelations,
+  selfRelationPhrase,
   theyPromisedMe,
   fold,
   hasNegation,
@@ -84,6 +85,7 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
   const ctx = new Context(input, text, proposal?.needs_clarification ?? null);
   const dropped: ExtractionOutcome["dropped"] = [];
   const items: PlannedItem[] = [];
+  const known: string[] = [];
 
   const proposed = Array.isArray(proposal?.items) ? proposal.items : [];
   for (const [i, raw] of proposed.entries()) {
@@ -92,13 +94,16 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
       continue;
     }
     const result = planItem(ctx, raw);
-    if ("drop" in result) dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null });
+    if ("drop" in result) {
+      dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null });
+      if (result.drop === "already_known" && result.known && !known.includes(result.known)) known.push(result.known);
+    }
     else {
-      // "Ben and John went to Tahoe", told once for each of them: one shared memory.
-      const shared = items.find((p) => p.kind === result.item.kind && fold(p.statement) === fold(result.item.statement) &&
-        ((!!result.item.person_id && (p.with_person_ids ?? []).includes(result.item.person_id)) ||
-          (!!p.person_id && (result.item.with_person_ids ?? []).includes(p.person_id))));
+      // "Ben and John went to Tahoe", told once for each of them, in either
+      // order: one shared memory (founder H13).
+      const shared = items.find((p) => sameSharedPlanned(p, result.item));
       const dup = shared ?? items.find((p) => sameItem(p, result.item));
+      if (!dup) sharedTwin(ctx, result.item);
       if (dup) {
         // Same thing twice in one note: keep one, with both spans.
         for (const s of result.item.spans) if (!dup.spans.some((d) => d.start === s.start)) dup.spans.push(s);
@@ -115,7 +120,7 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     : items.some((i) => i.tier === "confirm")
     ? "confirm"
     : "auto";
-  return { items, dropped, clarification, tier, injection_suspected: ctx.injection };
+  return { items, dropped, clarification, tier, injection_suspected: ctx.injection, ...(known.length ? { known } : {}) };
 }
 
 // ─── Context ────────────────────────────────────────────────────────────────
@@ -188,7 +193,7 @@ class Context {
 
 // ─── One item ───────────────────────────────────────────────────────────────
 
-type ItemResult = { item: PlannedItem } | { drop: DropReason };
+type ItemResult = { item: PlannedItem } | { drop: DropReason; known?: string };
 
 function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   let raw = proposed;
@@ -278,6 +283,17 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   // brother") is never left on the page the model chose (Ben's).
   if (subject === "person" && who.person_key && !knownRelated) who = refileBySubject(ctx, said, who, flags);
 
+  // A relationship to the user, said again (founder H17): already known is
+  // never a second fact; a different one is asked about, never overwritten.
+  if (raw.kind === "fact" && subject === "person" && who.person_key) {
+    const stated = relationIn(said);
+    const label = ctx.byKey.get(who.person_key)?.relationship_label?.trim();
+    if (stated && label) {
+      if (sameRelation(stated, label)) return { drop: "already_known", known: said };
+      flags.add("relation_conflict");
+    }
+  }
+
   // ── Related person ("Sarah's sister") ──
   let related: PlannedItem["related"] = null;
   if (knownRelated) {
@@ -336,6 +352,13 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
     // Date words that aren't in the note are ignored, never resolved.
   }
 
+  // Something the note says already happened, with no day at all ("John and
+  // Ben went to Tahoe"), isn't an undated event to come: it's a past fact,
+  // never shown as "No date yet · Something happening" (founder G32c).
+  // Sensitive ones stay events, held for the user's yes.
+  if (raw.kind === "event" && raw.date_direction === "past" && !resolution?.date && sensitivity === "none" && !raw.date_text?.trim()) {
+    raw = { ...raw, kind: "fact", detail: { ...raw.detail, category: raw.detail.category ?? "other" } };
+  }
   const detail = buildDetail(ctx, raw.kind, raw, resolution, sentence);
   if ("drop" in detail) return detail;
   if (raw.kind === "tradition") flags.add("tradition"); // plan §5: never inferred silently
@@ -496,7 +519,7 @@ function askConfirmed(ctx: Context, mention: string): boolean {
 
 // A pronoun that could point at two named people ("Ben and Josh went
 // climbing. He fell.") waits for the user, like any other ambiguity.
-const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check"];
+const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict"];
 
 function tierFor(flags: Set<Flag>): Tier {
   if (HOLD_FLAGS.some((f) => flags.has(f))) return "hold";
@@ -731,6 +754,15 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   // treated as no mention: only the context person or a named one can be meant.
   if (SELF_WORDS.has(fold(mention).replace(/['’](re|ve|ll|d|m)$/u, ""))) return resolvePerson(ctx, { ...raw, person_mention: null }, flags);
 
+  // "My daughter Kaiya": the name, and the relation picks between namesakes (H20).
+  const phrase = selfRelationPhrase(mention);
+  if (phrase && ctx.inNote(phrase.name)) {
+    const named = ctx.candidatesFor(phrase.name);
+    const fits = named.filter((p) => p.relationship_label && wordsOf(p.relationship_label).some((w) => relationKey(w) === relationKey(phrase.relation)));
+    if (named.length > 1 && fits.length === 1) return pick(fits[0]);
+    return resolvePerson(ctx, { ...raw, person_mention: phrase.name }, flags);
+  }
+
   // "Chris, my neighbor" / "Chris (my neighbor)": the name; the label settles ties below.
   const labelled = mention.match(/^(.+?)\s*[,(]\s*(?:my|our)\s+[^,()]+[,)]?$/u);
   if (labelled) return resolvePerson(ctx, { ...raw, person_mention: labelled[1].trim() }, flags);
@@ -947,6 +979,10 @@ interface Relation {
 function relate(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>): Relation {
   const transition = transitionOf(n.statement);
   const byModel = relateByModel(ctx, raw, n, flags, transition);
+  // A story that changed ("not interviewing anymore", "got the job") replaces
+  // the earlier line: one current truth, the old one kept as its history and
+  // linked to it (founder H25). "Resolved" stays for a question answered.
+  if (byModel.type === "resolves" && transition) return { action: { type: "supersede", target_id: byModel.target_id }, transition };
   if (byModel.type !== "new") return { action: byModel, transition };
   if (!transition || !n.person_key || flags.has("protected_target")) return { action: byModel, transition: null };
   // A hedge never updates anything ("might not move after all").
@@ -1111,3 +1147,87 @@ function possessiveRelationWord(sentence: string, person: RosterPerson): string 
 
 // Re-exported for tests.
 export const _internal = { inventedName: (input: ExtractionInput, s: string) => inventedName(new Context(input, input.capture.raw_text), s), addDays, localDay, iso };
+
+// ─── Shared memories, whatever the order of the names (founder H13) ─────────
+
+/** The words of a statement as a bag, so "Ben and John went…" = "John and Ben went…". */
+function wordBag(statement: string): string {
+  return wordsOf(fold(statement)).filter((w) => w !== "and" && w !== "&").sort().join(" ");
+}
+
+function participants(personKey: string | null, withKeys: string[] | undefined): string {
+  return [personKey ?? "", ...(withKeys ?? [])].filter(Boolean).sort().join(",");
+}
+
+/** Dates agree when both are missing, or both are the same day. */
+function sameWhen(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const da = typeof a.date === "string" ? a.date : null;
+  const db = typeof b.date === "string" ? b.date : null;
+  return !da || !db || da === db;
+}
+
+function sameSharedPlanned(a: PlannedItem, b: PlannedItem): boolean {
+  if (!sameKindFamily(a.kind, b.kind) || a.subject_type !== b.subject_type) return false;
+  const pa = [a.person_id ?? "", ...(a.with_person_ids ?? [])].filter(Boolean).sort().join(",");
+  const pb = [b.person_id ?? "", ...(b.with_person_ids ?? [])].filter(Boolean).sort().join(",");
+  return pa.includes(",") && pa === pb && wordBag(a.statement) === wordBag(b.statement) && sameWhen(a.detail, b.detail);
+}
+
+/**
+ * The same shared memory, already remembered for any of the people in it
+ * ("John and Ben went to Tahoe", on John), becomes one memory: this one is
+ * filed with it and merged, never a second current line. Different days or
+ * different words stay separate (silence beats a wrong merge).
+ */
+function sharedTwin(ctx: Context, item: PlannedItem): void {
+  if (item.action.type !== "new" || !item.person_key || !item.with_person_ids?.length) return;
+  const keyOfId = new Map(ctx.input.roster.map((r) => [r.id, r.key]));
+  const withKeys = item.with_person_ids.map((id) => keyOfId.get(id)).filter((k): k is string => !!k);
+  const mine = participants(item.person_key, withKeys);
+  const twin = ctx.input.dossier.find((t) =>
+    t.status === "active" && sameKindFamily(t.kind, item.kind) && t.subject_type === item.subject_type &&
+    t.user_state !== "edited" && t.user_state !== "user_authored" &&
+    participants(t.person_key, t.with_person_keys) === mine &&
+    wordBag(t.statement) === wordBag(item.statement) && sameWhen(t.detail, item.detail)
+  );
+  if (!twin) return;
+  const owner = ctx.byKey.get(twin.person_key);
+  if (!owner) return;
+  const others = [item.person_key, ...withKeys].filter((k) => k !== twin.person_key)
+    .map((k) => ctx.byKey.get(k)?.id).filter((id): id is string => !!id);
+  item.person_id = owner.id;
+  item.person_key = owner.key;
+  item.with_person_ids = others;
+  // Merged as what it already is ("went to Tahoe" kept as an event before).
+  if (item.kind !== twin.kind) {
+    item.kind = twin.kind;
+    item.detail = { ...twin.detail };
+  }
+  item.action = { type: "merge", target_id: twin.id };
+}
+
+/** Something that happened, however it was filed: an event, a fact or a moment. */
+function sameKindFamily(a: string, b: string): boolean {
+  const happened = ["event", "fact", "moment"];
+  return a === b || (happened.includes(a) && happened.includes(b));
+}
+
+// ─── Relationships said again (founder H17) ─────────────────────────────────
+
+/** "John is your brother", "Ben is your younger brother": the relation, for a statement that only says that. */
+function relationIn(statement: string): string | null {
+  const m = statement.normalize("NFC").trim().replace(/[.!]$/u, "")
+    .match(/^\p{Lu}[\p{L}\p{M}'’-]*(?:\s+\p{Lu}[\p{L}\p{M}'’-]*)?\s+is\s+your\s+(?:(?:older|younger|little|big|baby|twin|oldest|youngest|eldest)\s+)?([\p{L}-]+(?:\s+[\p{L}-]+)?)$/u);
+  return m ? m[1].toLocaleLowerCase() : null;
+}
+
+const SIBLING = new Set(["brother", "sister", "sibling"]);
+const PARENT = new Set(["mom", "mother", "dad", "father", "parent"]);
+const CHILD = new Set(["son", "daughter", "kid", "child"]);
+
+/** Same relationship, in the user's words or Kinship's ("sibling" fits "brother"). */
+function sameRelation(a: string, b: string): boolean {
+  const x = relationKey(a), y = relationKey(b);
+  if (x === y) return true;
+  return [SIBLING, PARENT, CHILD].some((g) => g.has(x) && g.has(y) && (x === "sibling" || y === "sibling" || x === "parent" || y === "parent" || x === "child" || y === "child" || x === "kid" || y === "kid"));
+}

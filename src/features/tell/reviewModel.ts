@@ -23,12 +23,13 @@ import type { HeldAnswer, HeldItem } from "@/store/gateway";
 import { SWITCHABLE_KINDS, takesDate } from "@/store/memoryDetail";
 import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
-import { kindLabel, whenLabel } from "../memory/format";
+import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
+import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
 
 export interface ReviewInput {
   row: UnderstandingRow;
   /** The note as told (raw_text is null once a "delete after" note settles). */
-  capture: { id: string; raw_text: string | null; context_person_id: string | null; status: string } | null;
+  capture: { id: string; raw_text: string | null; context_person_id: string | null; status: string; feedback?: unknown } | null;
   /** The live items this note saved (Understanding.itemsFor). */
   items: MemoryItem[];
   /** Items the reading saved that haven't reached this phone yet (sync in flight). */
@@ -70,9 +71,21 @@ export interface ItemLine {
   replaces: string | null;
   /** value: the exact day, when there is one (for the date picker). */
   when: { label: string; value: string | null; changeable: boolean } | null;
-  kind: { value: string; label: string; changeable: boolean };
+  kind: {
+    value: string;
+    label: string;
+    changeable: boolean;
+    /** Promises only: whose commitment it is, and the other person's first name. */
+    owner?: { value: "user" | "person"; name: string | null };
+  };
+  /** Someone the line names who isn't in People yet ("Pedro"), to add (H21). */
+  newcomers?: string[];
+  /** Said as a possibility ("might be moving"): a quiet "Maybe", never a score (H29). */
+  maybe?: boolean;
   /** The user already changed it. */
   edited: boolean;
+  /** The words before the user's first edit, kept with the edit (H30). */
+  editedFrom?: string | null;
 }
 
 /** "keep": a sensitive or ambiguous reading that is not memory until the user says yes. */
@@ -95,6 +108,8 @@ export interface Question {
   about: string[];
   /** Who and when, for a reading waiting for the user's yes ("Sarah · Thu, Oct 15"). */
   detail: string | null;
+  /** What a yes would replace, so the user knows Kinship is revising what it knew (H25). */
+  replaces: string | null;
   /** The held items it answers. */
   items: number[];
   choices: Choice[];
@@ -119,6 +134,8 @@ export interface ReviewView {
   canUndo: boolean;
   /** Everyone this note is about so far: who its card or question belongs with. */
   personIds: string[];
+  /** The user's "Got it right / Not quite" on this note, once given (H6). */
+  feedback?: { verdict: "right" | "not_quite"; off?: string } | null;
 }
 
 export const COPY = {
@@ -160,14 +177,21 @@ export function buildReview(input: ReviewInput): ReviewView {
   }
   if (row.state === "kept") return { ...empty, mode: "asWritten", status: COPY.kept, canUndo: true };
   if (row.state === "failed") return { ...empty, mode: "failed", status: COPY.failed, canUndo: true };
+  // A relationship said again that Kinship already holds (H17): said back, not kept twice.
+  const known = row.reading?.known?.length ? `Already known: ${row.reading.known.join("; ")}.` : null;
   if (row.state === "done" && row.reading && row.reading.saved.length === 0 && row.reading.held.length === 0) {
     // Understood, nothing to remember: said once, never silence.
-    return { ...empty, mode: "nothing", status: COPY.nothing, canUndo: true };
+    return { ...empty, mode: "nothing", status: known ?? COPY.nothing, canUndo: true };
   }
   if (row.state === "done" || row.state === "closing" || !row.reading) return empty;
 
   const reading = row.reading;
-  const lines = input.items.map((item) => itemLine(item, input));
+  const note = input.capture?.raw_text ?? "";
+  const lines = input.items.map((item) => {
+    const line = itemLine(item, input);
+    const newcomers = newcomersIn(line.statement, note, input.people);
+    return newcomers.length ? { ...line, newcomers } : line;
+  });
   const answering = row.state === "answering";
   // Held statements are read the way the user reads everything: as "you".
   const held = reading.held.map((h) => voiced(h));
@@ -180,13 +204,17 @@ export function buildReview(input: ReviewInput): ReviewView {
     ...held.map((h) => h.person_id).filter((x): x is string => !!x),
     ...questions.flatMap((q) => q.choices.flatMap((c) => ("answer" in c && c.answer.person_id ? [c.answer.person_id] : []))),
   ])];
+  const fb = input.capture?.feedback as { verdict?: unknown; off?: unknown } | null | undefined;
+  const feedback = fb && (fb.verdict === "right" || fb.verdict === "not_quite")
+    ? { verdict: fb.verdict as "right" | "not_quite", ...(typeof fb.off === "string" ? { off: fb.off } : {}) } : null;
   const base: ReviewView = {
     ...empty,
+    feedback,
     heading,
     lines,
     questions,
     answering,
-    status: answering ? (offline ? COPY.answeringOffline : COPY.answering) : null,
+    status: answering ? (offline ? COPY.answeringOffline : COPY.answering) : known,
     canUndo: true,
     personIds,
   };
@@ -194,7 +222,7 @@ export function buildReview(input: ReviewInput): ReviewView {
   // What the reading saved is still on its way here: understanding, not empty.
   if ((input.missing ?? 0) > 0) return { ...base, mode: "understanding", status: COPY.arriving };
   // Answered, and the answer kept nothing ("Don't keep this").
-  if (lines.length === 0) return { ...base, mode: "nothing", status: COPY.nothing };
+  if (lines.length === 0) return { ...base, mode: "nothing", status: known ?? COPY.nothing };
   return { ...base, mode: "card", summary: summaryFor(lines) };
 }
 
@@ -242,13 +270,31 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
     replaces: typeof item.supersedes_id === "string" ? input.earlier?.[item.supersedes_id] ?? null : null,
     // Shown only when there is a time to show (an event without one says so).
     when: when ? { label: when, value: exactDay(item), changeable: takesDate(item.kind) } : null,
-    kind: {
-      value: item.kind,
-      label: kindLabel(item.kind),
-      changeable: (SWITCHABLE_KINDS as readonly string[]).includes(item.kind) && item.subject_type !== "user",
-    },
+    kind: item.kind === "promise"
+      ? {
+        value: item.kind,
+        label: promiseLabel(ownerOf(item), person ? firstName(person.display_name) : null),
+        // Whose promise is the one thing about a promise the user can change (H28).
+        changeable: true,
+        owner: { value: ownerOf(item), name: person ? firstName(person.display_name) : null },
+      }
+      : {
+        value: item.kind,
+        label: kindLabel(item.kind),
+        changeable: (SWITCHABLE_KINDS as readonly string[]).includes(item.kind) && item.subject_type !== "user",
+      },
     edited: item.user_state === "edited",
+    ...(item.certainty === "tentative" || item.certainty === "wished" ? { maybe: true } : {}),
   };
+}
+
+/** A promise is the user's unless it's plainly someone else's commitment to them. */
+function ownerOf(item: MemoryItem): "user" | "person" {
+  return item.subject_type === "person" ? "person" : "user";
+}
+
+function firstName(name: string): string {
+  return name.trim().split(/\s+/u)[0] ?? name;
 }
 
 function exactDay(item: MemoryItem): string | null {
@@ -282,8 +328,9 @@ function headingFor(input: ReviewInput, lines: ItemLine[]): string {
     if (p) return `Kept for ${personLabel(p, input.people)}`;
   }
   if (lines.length) return COPY.remember;
-  const context = input.capture?.context_person_id ? input.people.find((x) => x.id === input.capture?.context_person_id) : null;
-  return context ? `About ${personLabel(context, input.people)}` : "Your note";
+  // Nothing kept yet: the note's subject isn't known, so never the page's
+  // person ("About Susan" for a note about Natalia, founder H24).
+  return "Your note";
 }
 
 function summaryFor(lines: ItemLine[]): string {
@@ -314,14 +361,17 @@ function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
   held.forEach((item, index) => {
     for (const need of needsOf(item, input)) {
       const about = need.about ?? item.statement;
+      const target = item.action && ["supersede", "resolves"].includes(item.action.type) ? item.action.target_id : null;
+      const replaces = target ? input.earlier?.[target] ?? null : null;
       const q = groups.get(need.group);
       if (q) {
         q.items.push(index);
         if (!q.about.includes(about)) q.about.push(about);
+        q.replaces = q.replaces ?? replaces;
       } else {
         groups.set(need.group, {
           key: `q${groups.size}`, type: need.type, prompt: need.prompt, reason: need.reason, about: [about], items: [index],
-          choices: need.choices, skip: { key: "skip", label: COPY.skip }, detail: need.detail ?? null,
+          choices: need.choices, skip: { key: "skip", label: COPY.skip }, detail: need.detail ?? null, replaces,
         });
       }
     }
@@ -370,6 +420,35 @@ function unknownNames(item: HeldItem, people: Person[]): string[] {
   return out;
 }
 
+/**
+ * Someone a kept line names alongside the person it's filed on, who isn't in
+ * People yet: "Susan is getting married to Pedro", "Anthony and Natalia are
+ * moving", "moving to Seattle with Dana" (founder H21/H5). Only the shapes
+ * that name a person, only names the note itself says, never a place or a
+ * company ("interviewing with Box", "moving to Austin").
+ */
+export function newcomersIn(statement: string, note: string, people: Person[]): string[] {
+  const known = new Set(people.flatMap((p) => wordsOf(p.display_name)));
+  const NAME = "(\\p{Lu}[\\p{Ll}\\p{M}'’-]+)";
+  const patterns = [
+    new RegExp(`\\b(?:married|marrying|engaged|wed|dating|seeing|divorcing|separated)\\s+(?:to|from)?\\s*${NAME}`, "gu"),
+    new RegExp(`\\b(?:moving|living|traveling|travelling|going|staying|having a baby|expecting)\\b[^.!?]{0,40}?\\bwith\\s+${NAME}`, "gu"),
+    new RegExp(`(?:^|[^\\p{L}])\\p{Lu}[\\p{Ll}\\p{M}'’-]+\\s+and\\s+${NAME}\\s+(?:are|were|have|had|got|just|will|went)\\b`, "gu"),
+    new RegExp(`(?:^|[^\\p{L}])${NAME}\\s+and\\s+\\p{Lu}[\\p{Ll}\\p{M}'’-]+\\s+(?:are|were|have|had|got|just|will|went)\\b`, "gu"),
+  ];
+  const out: string[] = [];
+  for (const re of patterns) {
+    for (const m of statement.matchAll(re)) {
+      const w = m[1].replace(/['’]s$/u, "");
+      const k = fold(w);
+      if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || out.some((o) => fold(o) === k)) continue;
+      if (!new RegExp(`(^|[^\\p{L}])${w}([^\\p{L}]|$)`, "u").test(note)) continue;
+      out.push(w);
+    }
+  }
+  return out;
+}
+
 /** Capitalised words that start sentences or name things, never people. */
 const NOT_NAMES = new Set([
   "i", "i'm", "i'd", "i'll", "i've", "my", "we", "our", "the", "a", "an", "and", "but", "so", "every", "each", "this", "that",
@@ -383,7 +462,9 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
   const personInQuestion = !item.person_id || PERSON_FLAGS.some((f) => item.flags.includes(f));
   if (personInQuestion) {
     if (!item.person_id && item.new_person_name && item.flags.includes("new_person")) {
-      const name = item.new_person_name;
+      // Never "Add My daughter Kaiya" (founder H20): the name only, also for
+      // readings held before the server understood the phrase.
+      const name = selfRelationPhrase(item.new_person_name)?.name ?? item.new_person_name;
       needs.push({
         type: "new_person",
         group: `new:${fold(name)}`,
@@ -480,7 +561,9 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       type: "keep",
       group: `keep:${item.statement}:${item.spans[0]?.start ?? 0}`,
       prompt: person ? `Remember this about ${person.display_name}?` : "Remember this?",
-      reason: ambiguousDay ? "That day could be read two ways."
+      reason: item.flags.includes("relation_conflict") && person && typeof person.relationship_label === "string" && person.relationship_label
+        ? `${person.display_name.split(/\s+/u)[0]} is your ${person.relationship_label} here. Keep this instead?`
+        : ambiguousDay ? "That day could be read two ways."
         : sensitive ? "This sounds personal, so I keep it only if you say so."
         : null,
       detail: [person ? personLabel(person, input.people) : null, when].filter(Boolean).join(" · ") || null,

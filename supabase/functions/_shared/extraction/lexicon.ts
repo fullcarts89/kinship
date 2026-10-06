@@ -285,6 +285,20 @@ function singularRelation(word: string): string {
 }
 
 /**
+ * "my daughter Kaiya", "our son Max", "my older brother, John": what the
+ * writer calls someone, then their name (founder H20). The phrase is
+ * structure (SELF → daughter → Kaiya), never a name: null for anything else.
+ */
+export function selfRelationPhrase(text: string): { relation: string; name: string } | null {
+  const m = text.normalize("NFC").trim().match(new RegExp(
+    `^(?:my|our)\\s+(?:(?:older|younger|little|big|baby|twin|oldest|youngest|eldest)\\s+)?(${REL_ALT})\\s*,?\\s+(${NAME_RE}(?:\\s+${NAME_RE})?)`,
+    "iu",
+  ));
+  if (!m || NOT_PEOPLE.has(fold(m[2]))) return null;
+  return { relation: singularRelation(m[1]), name: m[2].replace(/['’]s$/u, "") };
+}
+
+/**
  * Relationships to the writer that the note states outright, by the name it
  * gives: "Ben is my brother", "Ben and John are my brothers", "my daughter
  * Kaiya", "Kaiya, my daughter", "Ben is the youngest sibling of myself, John
@@ -326,11 +340,20 @@ export function statedSelfRelations(note: string): { name: string; relation: str
  * me", "he'll send me the link": a commitment by someone else, to the writer.
  * Kept as theirs (waiting on them), never under "You said you'd".
  */
+// What someone can commit to doing for the user.
+const FOR_ME = "send|get|give|bring|call|text|email|share|introduce|lend|drop off|pick up|show|forward|mail|return|pay|buy|make|lend|help|cover|set up|hook";
+
 export function theyPromisedMe(clause: string): boolean {
   const c = fold(clause);
+  // "Tyler said he'd send me…", "promised she would…"
   return /\b(?:said|says|promised|offered|told me)\b[^.!?]{0,20}\b(?:he|she|they)(?:'d|'ll| would| will| was going to| is going to)\b/u.test(c)
-    || /\b(?:promised|offered)\s+to\s+\w+\s+(?:me|us)\b/u.test(c)
-    || /\b(?:he|she|they)(?:'ll| will| is going to| are going to)\s+(?:send|get|give|bring|call|text|email|share|introduce|lend|drop off|pick up)\b[^.!?]{0,30}\b(?:me|us)\b/u.test(c);
+    // "Tyler promised to send me…", "offered to lend us…"
+    || /\b(?:promised|offered|agreed)\s+to\s+\w+(?:\s+\w+)?\s+(?:me|us)\b/u.test(c)
+    // "Tyler promised me his contractor's number", "owes me $20"
+    || /\b(?:promised|owes)\s+(?:me|us)\b/u.test(c)
+    // "Tyler will send me…", "Tyler's going to text me…", "he'll bring us…":
+    // anyone but the user ("I'll send him" is the user's own, caught first).
+    || new RegExp(`(?:^|[,;]\\s*|\\b(?:and|but|so|then)\\s+)(?!(?:i|we|i'll|we'll|i'm|we're)\\b)[\\p{L}'’-]+(?:\\s+[\\p{L}'’-]+)?(?:'ll| will|'s going to| is going to| are going to| is gonna)\\s+(?:${FOR_ME})\\b[^.!?]{0,40}\\b(?:me|us)\\b`, "u").test(c);
 }
 
 // ─── Pets ───────────────────────────────────────────────────────────────────

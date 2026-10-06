@@ -103,7 +103,24 @@ function capital(s: string): string {
  * Rewrites "the writer" (and "the user", "the author", "the note's writer")
  * into "you" / "your", fixing the verb that follows when it is the subject.
  */
+/**
+ * A statement the model left in the note's first person: "My daughter Kaiya
+ * and I are going to the zoo" → "You and your daughter Kaiya are going to
+ * the zoo" (founder H20). Only this lead shape; anything else is untouched.
+ */
+function firstPersonLead(statement: string): string {
+  return statement.replace(/^(?:my|our)\s+([\p{Ll}-]+(?:\s+[\p{Ll}-]+)?)\s+(\p{Lu}[\p{L}\p{M}'’-]*)\s+and\s+(?:I|we)\b/u,
+    (_m, rel: string, name: string) => `You and your ${rel} ${name}`)
+    .replace(/^(My|Our)\s+([\p{Ll}-]+)\s+(\p{Lu}[\p{L}\p{M}'’-]*)\s+and\s+(?:I|we)\b/u,
+      (_m, _my: string, rel: string, name: string) => `You and your ${rel} ${name}`);
+}
+
 export function yourVoice(statement: string): Voiced {
+  const led = firstPersonLead(statement);
+  if (led !== statement) {
+    const again = yourVoice(led);
+    return { ...again, changed: true };
+  }
   if (!mentionsInternalSelf(statement)) {
     // Already "you", from before this guard knew about "their" (stored rows):
     // "You and their daughter Kaiya", "You told Michelle they'd send her…".

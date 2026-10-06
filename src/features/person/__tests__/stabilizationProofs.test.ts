@@ -234,7 +234,7 @@ describe("round two, end to end", () => {
     const statuses = Object.fromEntries(serverItems(w).map((m) => [m.statement, m.status]));
     expect(statuses).toEqual({
       "John's knee has been bothering him": "superseded",
-      "John said his knee is getting better": "resolved",
+      "John said his knee is getting better": "superseded", // linked history (H25)
       "John's knee is better now": "active",
     });
   });

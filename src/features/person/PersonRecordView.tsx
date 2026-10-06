@@ -4,7 +4,7 @@
 // changeable only by tapping them, which nobody could see) and "Not this".
 // From plain data.
 import React from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { ItemLine } from "@/features/tell/reviewModel";
@@ -27,6 +27,8 @@ export interface PersonRecordViewProps {
   label: string | null;
   lines: RecordLine[];
   onBack: () => void;
+  /** "Edit name": a correction to the same person (H1). */
+  onRename?: () => void;
   onChange: (line: ItemLine, what: "person" | "date" | "kind" | "words") => void;
   onForget: (line: RecordLine) => void;
   onSource: (noteId: string) => void;
@@ -47,6 +49,11 @@ export function PersonRecordView(props: PersonRecordViewProps) {
   return (
     <Screen onBack={props.onBack}>
       <Title>{`What Kinship knows about ${first}`}</Title>
+      {props.onRename ? (
+        <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
+          <Pill variant="quiet" size="small" label="Edit name" accessibilityHint={`Change ${first}'s name`} onPress={props.onRename} />
+        </View>
+      ) : null}
       <Body style={{ marginTop: space.s }}>
         {props.lines.length
           ? "Everything you've told Kinship about them, and where each came from. Change or remove any of it."
@@ -74,11 +81,18 @@ export function PersonRecordView(props: PersonRecordViewProps) {
                 {r.line.when ? (
                   <Token what="When" value={r.line.when.label} onPress={r.line.when.changeable ? () => props.onChange(r.line, "date") : undefined} />
                 ) : null}
+                {r.line.maybe ? <Token what="How sure" value="Maybe" /> : null}
                 <Token what="What" value={r.line.kind.label} onPress={r.line.kind.changeable ? () => props.onChange(r.line, "kind") : undefined} />
               </TokenRow>
             </View>
             {/* Gate E: what this updated stays traceable. */}
             {r.line.replaces ? <Small style={{ marginTop: space.xs }}>{`Before: ${r.line.replaces}`}</Small> : null}
+            {r.line.editedFrom ? (
+              <Small style={{ marginTop: space.xs }} accessibilityLabel={`Edited by you. Before: ${r.line.editedFrom}`}>
+                {"Edited by you · was: "}
+                <Text style={{ textDecorationLine: "line-through" }}>{r.line.editedFrom}</Text>
+              </Small>
+            ) : null}
             <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
               <View style={{ flex: 1 }}>
                 <Provenance line={r.provenance} onPress={r.noteId ? () => props.onSource(r.noteId as string) : undefined} />

@@ -398,3 +398,12 @@ Deno.test("a sensitive reading is held for the user's yes, never saved because a
   eq(yes.body.status, "resolved");
   eq(w2.resolves[0].items.map((i) => [i.person_id, i.statement, i.sensitivity]), [["person-sarah", "Sarah has surgery", "health"]]);
 });
+
+Deno.test("every answer says how long the gateway took (Server-Timing), and nothing else about the request", async () => {
+  for (const req of [post(extract), post(extract, null), post("{not json")]) {
+    const res = await createGateway(world().deps)(req);
+    const timing = res.headers.get("Server-Timing") ?? "";
+    if (!/^total;dur=\d+$/.test(timing)) throw new Error(`no Server-Timing: ${timing}`);
+    await res.body?.cancel();
+  }
+});

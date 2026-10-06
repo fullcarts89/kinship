@@ -28,6 +28,7 @@ import { ReviewSheet, type Correction } from "@/features/tell/ReviewSheet";
 import { todayIso, useOpenNotes, usePending, usePeople, useReview, useTell, useTellDrafts, useUnderstanding, type PendingNote } from "@/hooks/useV2";
 import { draftKey } from "./drafts";
 import type { ReviewMode, ReviewView } from "./reviewModel";
+import type { FeedbackOff } from "@/store/repositories";
 import { useActivation } from "@/hooks/useActivation";
 import { charsBucket, track } from "@/platform/analytics";
 import { onSheetsChange, openSheets } from "@/ui/sheetStack";
@@ -45,6 +46,10 @@ export interface KeptCardState {
   status: string | null;
   /** Who it belongs with: shown on their page, never on someone else's. */
   personIds: string[];
+  /** Named in what was kept but not in People yet ("Pedro"): the card points to adding them (H21). */
+  newcomers?: string[];
+  /** The user's "Got it right / Not quite", once given (H6). */
+  feedback?: ReviewView["feedback"];
 }
 
 /** @deprecated kept for the lab: the one-line form of the card. */
@@ -64,6 +69,8 @@ export interface TellFlow {
   /** Opens what was kept (or the question), to look over or correct. */
   openCard: () => void;
   undoCard: () => void;
+  /** "Got it right / Not quite" on what the card kept (H6). */
+  rateCard: (verdict: "right" | "not_quite", off?: FeedbackOff) => void;
   /** "Got it": the user has seen what was kept. */
   dismissCard: () => void;
   /** Every other note still open: understanding, or waiting on the user. */
@@ -105,8 +112,13 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     heading: view.mode === "card" ? view.heading : null,
     lines: lines.slice(0, 3),
     more: Math.max(0, lines.length - 3),
-    status: view.mode === "card" ? null : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
+    status: view.mode === "card" ? view.status : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
     personIds: view.personIds,
+    feedback: view.feedback ?? null,
+    ...(() => {
+      const names = [...new Set(view.lines.flatMap((l) => l.newcomers ?? []))];
+      return names.length ? { newcomers: names } : {};
+    })(),
   };
 }
 
@@ -232,6 +244,10 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
       if (!card) return;
       if (card.mode === "card" || card.mode === "sheet" || card.mode === "nothing") openSheet(card.captureId, false);
     },
+    rateCard: (verdict, off) => {
+      if (!card) return;
+      void u.feedback(card.captureId, verdict, off);
+    },
     undoCard: () => {
       if (!card) return;
       setDismissed((d) => ({ ...d, [card.captureId]: true }));
@@ -288,6 +304,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
           }}
           onReject={(itemId) => fail(u.reject(itemId, showing))}
           onCorrect={(itemId: string, change: Correction) => fail(u.correct(itemId, change))}
+          onAddPerson={(itemId: string, name: string) => fail(u.addParticipant(itemId, name).then(() => undefined))}
           onAnswer={(answers) => fail(u.answer(showing, answers))}
           onOpenNote={() => {
             // Looking at the note never decides anything: the sheet steps

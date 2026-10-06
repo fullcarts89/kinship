@@ -4,19 +4,19 @@ import React, { useState } from "react";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { FORGET_COPY, PersonRecordView } from "@/features/person/PersonRecordView";
-import { DatePane, KindPane, PersonPane, WordsPane } from "@/features/tell/Pickers";
+import { DatePane, KindPane, NamePane, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import { todayIso, usePeople, usePersonRecord, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { Sheet } from "@/ui";
 
-type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine };
+type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine } | { kind: "name" };
 
 export default function KnowsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { person, lines } = usePersonRecord(String(id));
   const people = usePeople();
   const u = useUnderstanding();
-  const { settleConflict } = useV2Actions();
+  const { settleConflict, rename } = useV2Actions();
   const [pane, setPane] = useState<Pane | null>(null);
   const today = todayIso();
   const fail = (what: Promise<unknown>) =>
@@ -27,6 +27,7 @@ export default function KnowsScreen() {
     <PersonRecordView
       name={person?.display_name ?? null}
       label={typeof person?.relationship_label === "string" && person.relationship_label ? person.relationship_label : null}
+      onRename={() => setPane({ kind: "name" })}
       lines={lines}
       onBack={() => router.back()}
       onChange={(line, kind) => setPane({ kind, line })}
@@ -39,7 +40,12 @@ export default function KnowsScreen() {
       onSettle={(conflictId, choice) => fail(settleConflict(conflictId, choice))}
     >
       <Sheet visible={!!pane} onDismiss={close} label="Change">
-        {pane?.kind === "person" ? (
+        {pane?.kind === "name" && person ? (
+          <NamePane initial={person.display_name} onCancel={close} onSave={(n) => {
+            fail(rename(person.id, n));
+            close();
+          }} />
+        ) : pane?.kind === "person" ? (
           <PersonPane people={people} title="Who is this about?" current={pane.line.person?.id ?? null} onCancel={close}
             onPick={(pid) => {
               fail(u.correct(pane.line.id, { person_id: pid }));
@@ -52,8 +58,11 @@ export default function KnowsScreen() {
               close();
             }} />
         ) : pane?.kind === "kind" ? (
-          <KindPane current={pane.line.kind.value} onCancel={close} onPick={(k) => {
+          <KindPane current={pane.line.kind.value} owner={pane.line.kind.owner} onCancel={close} onPick={(k) => {
             fail(u.correct(pane.line.id, { kind: k }));
+            close();
+          }} onOwner={(o) => {
+            fail(u.correct(pane.line.id, { owner: o }));
             close();
           }} />
         ) : pane?.kind === "words" ? (

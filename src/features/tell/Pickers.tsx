@@ -74,13 +74,62 @@ export function PersonPane({
   );
 }
 
-export function KindPane({ current, onPick, onCancel }: { current: string; onPick: (k: SwitchableKind) => void; onCancel: () => void }) {
+export function KindPane({
+  current,
+  owner,
+  onPick,
+  onOwner,
+  onCancel,
+}: {
+  current: string;
+  /** For a promise: whose it is. The only thing about a promise that changes (H28). */
+  owner?: { value: "user" | "person"; name: string | null };
+  onPick: (k: SwitchableKind) => void;
+  onOwner?: (owner: "user" | "person") => void;
+  onCancel: () => void;
+}) {
+  if (current === "promise" && owner && onOwner) {
+    return (
+      <View>
+        <PaneHeader title="Whose promise?" onCancel={onCancel} />
+        <Row first title="Yours" selected={owner.value === "user"} onPress={() => onOwner("user")} />
+        <Row title={owner.name ? `${owner.name}'s` : "Theirs"} selected={owner.value === "person"} onPress={() => onOwner("person")} />
+      </View>
+    );
+  }
   return (
     <View>
       <PaneHeader title="What is it?" onCancel={onCancel} />
       {SWITCHABLE_KINDS.map((k, i) => (
         <Row key={k} first={i === 0} title={kindLabel(k)} selected={k === current} onPress={() => onPick(k)} />
       ))}
+    </View>
+  );
+}
+
+/** "Their name": a correction, never a new person (founder H1). */
+export function NamePane({ initial, onSave, onCancel }: { initial: string; onSave: (name: string) => void; onCancel: () => void }) {
+  const p = usePalette();
+  const [name, setName] = useState(initial);
+  return (
+    <View>
+      <PaneHeader title="Their name" onCancel={onCancel} />
+      <TextInput
+        value={name}
+        onChangeText={setName}
+        maxLength={100}
+        autoFocus
+        autoCapitalize="words"
+        accessibilityLabel="Their name"
+        maxFontSizeMultiplier={maxScale.text}
+        style={[type.field, {
+          color: p.ink, minHeight: height.search, paddingHorizontal: space.l, borderRadius: radius.inline, borderWidth: 1,
+          borderColor: p.hairline, backgroundColor: p.paper,
+        }]}
+      />
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.m }}>
+        <Pill variant="primary" label="Save" disabled={!name.trim() || name.trim() === initial} onPress={() => onSave(name)} />
+      </View>
     </View>
   );
 }

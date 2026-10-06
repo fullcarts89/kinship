@@ -87,6 +87,22 @@ export class PeopleRepo {
   }
 
   /**
+   * The user corrects a name ("Thors" → "Thor", "My daughter Kaiya" →
+   * "Kaiya"; founder H1). Same person: same id, every memory, relationship
+   * and source stays theirs. Never a new person.
+   */
+  async rename(id: string, name: string): Promise<Person> {
+    const clean = name.normalize("NFC").replace(/\s+/gu, " ").trim();
+    if (!clean || clean.length > 100) throw new StoreWriteError("say their name");
+    const person = await this.get(id);
+    if (!person) throw new StoreWriteError("that person isn't here any more");
+    if (clean === person.display_name) return person;
+    // A full name that only repeated the old name follows it.
+    const full = typeof person.full_name === "string" && person.full_name === person.display_name ? { full_name: clean } : {};
+    return (await this.store.update("people", id, { display_name: clean, ...full })) as Person;
+  }
+
+  /**
    * Someone the user picked from their contacts (plan E16, T8): the name, the
    * device's contact id (never the address book), and the contact's own
    * birthday, which says it came from Contacts (CA-5).
@@ -145,8 +161,24 @@ export interface RelatedPerson extends Data {
   name: string | null;
 }
 
+export type FeedbackOff = "wrong_person" | "missed_something" | "wrong_relationship" | "wrong_wording" | "other";
+export interface CaptureFeedback {
+  verdict: "right" | "not_quite";
+  off?: FeedbackOff;
+  at: string;
+}
+
 export class CaptureRepo {
   constructor(private readonly store: UserStore) {}
+
+  /**
+   * "Got it right / Not quite" on what was understood (founder H6). Kept on
+   * the note, for review; it never changes a memory and holds no content.
+   */
+  feedback(captureId: string, verdict: CaptureFeedback["verdict"], off?: FeedbackOff): Promise<Data> {
+    const value: CaptureFeedback = { verdict, ...(verdict === "not_quite" && off ? { off } : {}), at: this.store.now() };
+    return this.store.update("captures", captureId, { feedback: value });
+  }
 
   /** Records exactly what the user said (NFC), queued for sync and, with AI on, for extraction. */
   tell(
@@ -237,9 +269,15 @@ export class MemoryRepo {
   }
 
   /** The user's correction wins, and says so (a user_edit source; plan §5). */
-  async correct(id: string, patch: Partial<Pick<MemoryItem, "statement" | "detail" | "kind" | "person_id" | "certainty">>): Promise<Data> {
+  async correct(id: string, patch: Partial<Pick<MemoryItem, "statement" | "detail" | "kind" | "person_id" | "certainty" | "subject_type">>): Promise<Data> {
+    // An edit is a correction, not a rewrite of history (founder H30): the
+    // words it replaced stay with the edit, next to the note's own source.
+    const before = typeof patch.statement === "string" ? (await this.get(id))?.statement : undefined;
     const updated = await this.store.update("memory_items", id, { ...patch, user_state: "edited" });
-    await this.store.create("memory_item_sources", { memory_item_id: id, source_kind: "user_edit" });
+    await this.store.create("memory_item_sources", {
+      memory_item_id: id, source_kind: "user_edit",
+      ...(typeof before === "string" && before !== patch.statement ? { meta: { before: before.slice(0, 500) } } : {}),
+    });
     return updated;
   }
 

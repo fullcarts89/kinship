@@ -92,7 +92,7 @@ Deno.test("E: the knee story moves: bothering → getting better → better", ()
     kind: "fact", person: "p2", person_mention: "John", statement: "John's knee is better now",
     evidence: ["John's knee is better now"], detail: { category: "health" },
   })]);
-  eq(done.items[0].action, { type: "resolves", target_id: "id-m2" });
+  eq(done.items[0].action, { type: "supersede", target_id: "id-m2" }); // linked, so the change shows and can be undone (H25)
   eq(done.items[0].detail.transition, "completed");
 });
 
@@ -229,4 +229,124 @@ Deno.test("v6 wording: 'We' is the user, never a new person; 'You're…' is grou
     evidence: ["Dropping off a lasagna for John tomorrow"], date_text: "tomorrow",
   })]);
   eq([promise.items.length, promise.dropped.length], [1, 0]);
+});
+
+// ─── Core trust closure ────────────────────────────────────────────────────
+
+Deno.test("H28: someone else's commitment to you is theirs, in every common phrasing, with its day", () => {
+  const notes = [
+    "Tyler promised to send me his contractor's number Friday.",
+    "Tyler promised me his contractor's number Friday.",
+    "Tyler will send me his contractor's number Friday.",
+    "Tyler is going to send me his contractor's number Friday.",
+    "Tyler said he'd send me his contractor's number Friday.",
+  ];
+  for (const note of notes) {
+    // The model's usual reading: a promise, filed as the user's.
+    const out = run(input(note), [item({
+      kind: "promise", person: "p4", person_mention: "Tyler", subject: "user", statement: note.replace(/\.$/, ""),
+      evidence: [note.replace(/\.$/, "")], date_text: "Friday", detail: {},
+    })]);
+    eq([out.items[0]?.kind, out.items[0]?.subject_type, out.items[0]?.detail.due_date], ["promise", "person", "2026-10-09"], note);
+  }
+  // The user's own promise stays theirs.
+  const mine = run(input("I'll send Tyler the restaurant Wednesday."), [item({
+    kind: "promise", person: "p4", person_mention: "Tyler", subject: "user", statement: "You'll send Tyler the restaurant",
+    evidence: ["I'll send Tyler the restaurant Wednesday"], date_text: "Wednesday",
+  })]);
+  eq([mine.items[0]?.subject_type, mine.items[0]?.detail.due_date], ["user", "2026-10-07"]);
+});
+
+Deno.test("H20: 'my daughter Kaiya' is SELF → daughter → Kaiya, never a person named 'My daughter Kaiya'", () => {
+  const note = "My daughter Kaiya and I are going to the zoo on Sunday.";
+  const reply = (mention: string, person = "new", statement = "My daughter Kaiya and I are going to the zoo") => item({
+    kind: "event", person, person_mention: mention, subject: "shared", statement,
+    evidence: ["My daughter Kaiya and I are going to the zoo on Sunday"], date_text: "Sunday", detail: { event_type: "other" },
+  });
+  // Kaiya already known, as your daughter: no question, no new person.
+  const known = input(note);
+  known.roster = [...known.roster, { key: "p8", id: "kaiya", display_name: "Kaiya", full_name: null, nicknames: [], relationship_label: "daughter" }];
+  for (const mention of ["My daughter Kaiya", "my daughter Kaiya", "Kaiya"]) {
+    const out = run(known, [reply(mention)]);
+    eq([out.items[0]?.person_id, out.items[0]?.new_person_name, out.items[0]?.flags.includes("new_person")], ["kaiya", null, false], mention);
+    eq(/my daughter/i.test(out.items[0]?.statement ?? ""), false, `statement: ${out.items[0]?.statement}`);
+  }
+  // Not known yet: "Add Kaiya" — the name only.
+  const fresh = run(input(note), [reply("My daughter Kaiya")]);
+  eq([fresh.items[0]?.new_person_name, fresh.items[0]?.flags.includes("new_person")], ["Kaiya", true]);
+  // Two Kaiyas: the one the note's relation fits.
+  const twins = input(note);
+  twins.roster = [...twins.roster,
+    { key: "p8", id: "kaiya-d", display_name: "Kaiya", full_name: "Kaiya Oxnard", nicknames: [], relationship_label: "daughter" },
+    { key: "p9", id: "kaiya-n", display_name: "Kaiya", full_name: "Kaiya Lim", nicknames: [], relationship_label: "neighbor" }];
+  eq(run(twins, [reply("My daughter Kaiya")]).items[0]?.person_id, "kaiya-d");
+  // The same shape for other relations.
+  for (const [n, mention, name] of [
+    ["My brother John is visiting Sunday.", "My brother John", "John Oxnard"],
+    ["Our son Max starts school Monday.", "Our son Max", "Max"],
+    ["My wife Michelle got promoted.", "My wife Michelle", "Michelle"],
+    ["My sister Ana had a baby.", "My sister Ana", "Ana"],
+  ] as const) {
+    const out = run(input(n), [item({ kind: "event", person: name === "John Oxnard" ? "p2" : "new", person_mention: mention, statement: n.replace(/\.$/, ""), evidence: [n.replace(/\.$/, "")] })]);
+    const it = out.items[0];
+    eq(it?.new_person_name ?? null, name === "John Oxnard" ? null : name, n);
+    if (name === "John Oxnard") eq(it?.person_id, "john", n);
+  }
+});
+
+Deno.test("H13: a shared memory is one memory whatever the order of the names, across notes and within one", () => {
+  const tahoe = { ...mem("m1", "p2", "event", "John and Ben went to Tahoe", { event_type: "trip" }), with_person_keys: ["p1"] };
+  const reply = (statement: string, person = "p1", extra: Partial<ProposedItem> = {}) => item({
+    kind: "event", person, person_mention: person === "p1" ? "Ben" : "John", statement, evidence: [statement],
+    date_direction: "past", detail: { event_type: "trip" }, ...extra,
+  });
+  // Told again, the other way round, on another day: merged into John's, still about both.
+  const again = run(input("Ben and John went to Tahoe.", [tahoe]), [reply("Ben and John went to Tahoe")]);
+  eq([again.items[0].action, again.items[0].person_id, again.items[0].with_person_ids], [{ type: "merge", target_id: "id-m1" }, "john", ["ben"]]);
+  // Within one note, once for each of them in either order: one memory.
+  const once = run(input("Ben and John went to Tahoe. John and Ben went to Tahoe."), [
+    reply("Ben and John went to Tahoe"), reply("John and Ben went to Tahoe", "p2"),
+  ]);
+  eq(once.items.length, 1);
+  // Not blindly: a different trip (other words, or another day) stays its own.
+  const other = run(input("Ben and John went to Tahoe again in March.", [{ ...tahoe, detail: { event_type: "trip", date: "2026-02-01" } }]), [
+    reply("Ben and John went to Tahoe again in March", "p1", { date_text: "in March" }),
+  ]);
+  eq(other.items[0].action.type, "new");
+});
+
+Deno.test("H17: a relationship said again is already known, never a second fact; a different one is asked", () => {
+  const note = "John and Ben are my brothers.";
+  const both = (i: ExtractionInput) => [
+    item({ kind: "fact", person: "p2", person_mention: "John", statement: "John is your brother", evidence: ["John and Ben are my brothers"], detail: { category: "family" } }),
+    item({ kind: "fact", person: "p1", person_mention: "Ben", statement: "Ben is your brother", evidence: ["John and Ben are my brothers"], detail: { category: "family" } }),
+  ];
+  const known = input(note);
+  known.roster = known.roster.map((r) => (r.key === "p1" || r.key === "p2" ? { ...r, relationship_label: r.key === "p1" ? "sibling" : "brother" } : r));
+  const out = run(known, both(known));
+  eq(out.items.length, 0);
+  eq(out.known, ["John is your brother", "Ben is your brother"]);
+  // Not known yet: kept, as before.
+  const fresh = run(input(note), both(input(note)));
+  eq(fresh.items.map((i) => i.statement), ["John is your brother", "Ben is your brother"]);
+  // Kinship has John as your cousin: asked, never overwritten.
+  const conflict = input(note);
+  conflict.roster = conflict.roster.map((r) => (r.key === "p2" ? { ...r, relationship_label: "cousin" } : r));
+  const asked = run(conflict, both(conflict));
+  const john = asked.items.find((i) => i.person_id === "john")!;
+  eq([john.tier, john.flags.includes("relation_conflict")], ["hold", true]);
+});
+
+Deno.test("G32c: a trip that already happened, with no day, is a past fact, never an undated event to come", () => {
+  const out = run(input("John and Ben went to Tahoe."), [item({
+    kind: "event", person: "p2", person_mention: "John", statement: "John and Ben went to Tahoe", evidence: ["John and Ben went to Tahoe"],
+    date_direction: "past", detail: { event_type: "trip" },
+  })]);
+  eq([out.items[0].kind, out.items[0].detail.event_type ?? null], ["fact", null]);
+  // With a day it stays an event; a sensitive one stays an event too (held).
+  const dated = run(input("John and Ben went to Tahoe last weekend."), [item({
+    kind: "event", person: "p2", person_mention: "John", statement: "John and Ben went to Tahoe", evidence: ["John and Ben went to Tahoe last weekend"],
+    date_direction: "past", date_text: "last weekend", detail: { event_type: "trip" },
+  })]);
+  eq(dated.items[0].kind, "event");
 });

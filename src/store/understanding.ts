@@ -29,7 +29,17 @@
 // Analytics are content-free by construction (track's closed schema): tiers,
 // kinds and question types only, never text, names or ids.
 
-import { latencyBucketOf, smallCount, track, type ClarificationType, type MemoryKindName } from "@/platform/analytics";
+import {
+  durationBucketOf,
+  latencyBucketOf,
+  smallCount,
+  track,
+  type ClarificationType,
+  type DurationBucket,
+  type MemoryKindName,
+  type TellFailureStage,
+} from "@/platform/analytics";
+import { tellWork } from "@/platform/stallMonitor";
 import {
   Gateway,
   GatewayRefused,
@@ -40,7 +50,7 @@ import {
   type Understood,
 } from "./gateway";
 import { detailForKind, withDate, type SwitchableKind } from "./memoryDetail";
-import { repositoriesFor, type MemoryItem, type MemorySource } from "./repositories";
+import { repositoriesFor, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
 import type { SyncReport } from "./syncEngine";
 import { StoreWriteError, type Data, type UserStore } from "./userStore";
 import type { SqlValue } from "./sql";
@@ -60,6 +70,8 @@ export interface Reading {
   review_created_at: string | null;
   /** Nothing waits on the server for this note any more. */
   settled: boolean;
+  /** Relationships said again that Kinship already holds: said back, never kept twice (H17). */
+  known?: string[];
   /** The answer that settled it, to check it landed after "already_resolved". */
   answered?: HeldAnswer[];
 }
@@ -85,6 +97,13 @@ export interface UnderstandingRow {
   understood_at: string | null;
   /** When the result was first in front of the user. */
   shown_at: string | null;
+  /** When the first and the latest request to the gateway started (latency telemetry). */
+  first_request_at: string | null;
+  request_at: string | null;
+  /** ai-gateway's own time for the reply, in ms (its Server-Timing header). */
+  server_ms: number | null;
+  /** Failed attempts before the reading arrived (attempts resets on success). */
+  retries: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -203,10 +222,24 @@ export class Understanding {
       : row.reading && questionWaiting(row.reading) ? "needs_input"
       : row.reading?.tier === "nothing" || (row.state === "done" && !row.reading?.saved.length) ? "nothing"
       : "kept";
+    const at = (iso: string | null) => (iso ? Date.parse(iso) : NaN);
+    const span = (from: number, to: number): DurationBucket | "unknown" =>
+      Number.isFinite(from) && Number.isFinite(to) && to >= from ? durationBucketOf(to - from) : "unknown";
+    const sent = at(row.created_at);
+    const understood = at(row.understood_at);
+    const shown = at(now);
+    const trip = at(row.understood_at) - at(row.request_at);
     track("tell_lifecycle", {
       outcome,
-      understood_bucket: latencyBucketOf(Date.parse(row.understood_at) - Date.parse(row.created_at)),
-      shown_bucket: latencyBucketOf(Date.parse(now) - Date.parse(row.understood_at)),
+      understood_bucket: latencyBucketOf(understood - sent),
+      shown_bucket: latencyBucketOf(shown - understood),
+      total_bucket: durationBucketOf(Math.max(0, shown - sent)),
+      sync_bucket: span(sent, at(row.first_request_at)),
+      gateway_bucket: span(at(row.request_at), understood),
+      server_bucket: row.server_ms === null ? "unknown" : durationBucketOf(row.server_ms),
+      network_bucket: row.server_ms === null || !Number.isFinite(trip) || trip < 0 ? "unknown" : durationBucketOf(Math.max(0, trip - row.server_ms)),
+      render_bucket: durationBucketOf(Math.max(0, shown - understood)),
+      retries: smallCount(row.retries ?? row.attempts),
     });
   }
 
@@ -284,12 +317,13 @@ export class Understanding {
       | { statement: string }
       | { person_id: string }
       | { kind: SwitchableKind }
+      | { owner: "user" | "person" }
       | { date: string | null },
   ): Promise<void> {
     const memory = repositoriesFor(this.store).memory;
     const item = (await this.store.get("memory_items", itemId)) as MemoryItem | null;
     if (!item) throw new StoreWriteError("that memory isn't here any more");
-    let correction: "statement" | "person" | "kind" | "date";
+    let correction: "statement" | "person" | "kind" | "owner" | "date";
     if ("statement" in change) {
       const statement = change.statement.normalize("NFC").trim();
       if (!statement) throw new StoreWriteError("say what to remember");
@@ -303,6 +337,14 @@ export class Understanding {
       if (!(await this.store.get("people", change.person_id))) throw new StoreWriteError("that person isn't here any more");
       await memory.correct(itemId, { person_id: change.person_id });
       correction = "person";
+    } else if ("owner" in change) {
+      // Whose promise it is (H28): yours, or theirs to you. Only the meaning
+      // changes; the words and their source stay as told.
+      if (item.kind !== "promise") throw new StoreWriteError("only a promise has an owner");
+      const subject = change.owner === "user" ? "user" : "person";
+      if ((item.subject_type ?? "user") === subject) return;
+      await memory.correct(itemId, { subject_type: subject });
+      correction = "owner";
     } else if ("kind" in change) {
       if (change.kind === item.kind) return;
       if (item.kind === "promise" || item.subject_type === "user") throw new StoreWriteError("a promise stays a promise");
@@ -316,6 +358,37 @@ export class Understanding {
       correction = "date";
     }
     if (item.origin === "extracted") track("extraction_corrected", { correction, item_kind: kindName(item.kind) });
+  }
+
+  /**
+   * "Add Pedro" (founder H21): someone the kept line names who isn't in
+   * People yet becomes a person by name (no phone needed), and the memory is
+   * about them too. One memory, one source; never merged with anyone else.
+   */
+  async addParticipant(itemId: string, name: string): Promise<string> {
+    const item = (await this.store.get("memory_items", itemId)) as MemoryItem | null;
+    if (!item) throw new StoreWriteError("that memory isn't here any more");
+    const clean = name.normalize("NFC").trim();
+    if (!clean || clean.length > 60 || !new RegExp(`(^|[^\\p{L}])${clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}]|$)`, "u").test(item.statement)) {
+      throw new StoreWriteError("only someone this memory names");
+    }
+    const repos = repositoriesFor(this.store);
+    const person = await repos.people.add({ display_name: clean });
+    const others = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
+    await this.store.update("memory_items", itemId, { with_person_ids: [...new Set([...others, person.id])] });
+    this.kick();
+    return person.id;
+  }
+
+  /**
+   * "Got it right / Not quite" (founder H6): on the note, for review. It
+   * changes no memory and holds no content.
+   */
+  async feedback(captureId: string, verdict: "right" | "not_quite", off?: FeedbackOff): Promise<void> {
+    if (!(await this.store.get("captures", captureId))) return;
+    await repositoriesFor(this.store).captures.feedback(captureId, verdict, off);
+    track("tell_feedback", { verdict, off: off ?? "none" });
+    this.kick();
   }
 
   /** "Not this": retracted and removed. */
@@ -366,6 +439,15 @@ export class Understanding {
   }
 
   private async pass(): Promise<void> {
+    tellWork(true);
+    try {
+      await this.passOnce();
+    } finally {
+      tellWork(false);
+    }
+  }
+
+  private async passOnce(): Promise<void> {
     await this.discover();
     const first = await this.sync();
     this.offline = first.offline;
@@ -443,16 +525,22 @@ export class Understanding {
       return false;
     }
     const started = this.clock();
+    const requestAt = this.store.now();
+    await this.save(id, { request_at: requestAt, ...(row.first_request_at ? {} : { first_request_at: requestAt }) });
     let reply: Understood;
     try {
       reply = await this.gateway.understand(id);
     } catch (err) {
       if (err instanceof GatewayRefused) return this.refusedUnderstanding(row, err);
+      if (err instanceof GatewayUnreachable) {
+        this.failure(/timeout|abort/i.test(err.message) ? "timeout" : "offline", row.attempts + 1);
+      }
       throw err;
     }
+    await this.save(id, { server_ms: this.gateway.lastServerMs });
     if (reply.status === "kept") {
       // The model declined this note: kept as written, quietly.
-      await this.save(id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now() });
+      await this.save(id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now(), retries: row.attempts });
       return false;
     }
     if (reply.status === "extracted") {
@@ -471,6 +559,7 @@ export class Understanding {
           clarification: reply.clarification,
           review_created_at: reply.review_created_at,
           settled: reply.held.length === 0 && (reply.tier === "auto" || reply.tier === "nothing"),
+          ...(reply.known?.length ? { known: reply.known } : {}),
         }
       : {
           tier: "unknown",
@@ -486,6 +575,7 @@ export class Understanding {
     await this.save(id, {
       state: nothing ? "done" : "review", reading, attempts: 0, next_at: null,
       understood_at: row.understood_at ?? this.store.now(),
+      retries: row.attempts,
     });
     return true;
   }
@@ -497,15 +587,22 @@ export class Understanding {
       case "invalid_request":
       case "not_found":
         // AI is off for this user, or the note isn't theirs to understand: kept as written.
-        await this.save(row.capture_id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now() });
+        await this.save(row.capture_id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now(), retries: row.attempts });
         return false;
       case "daily_limit_reached":
+        this.failure("limited", row.attempts + 1);
         await this.save(row.capture_id, { next_at: this.later((err.retryAfterS ?? 3600) * 1000) });
         return false;
       default:
+        this.failure("server", row.attempts + 1);
         await this.failed(row, "failed");
         return false;
     }
+  }
+
+  /** A failed attempt to understand a Tell, content-free. */
+  private failure(stage: TellFailureStage, attempt: number): void {
+    track("tell_failure", { stage, attempt: smallCount(attempt) });
   }
 
   // ─── Delivering the user's answer and "done" ──────────────────────────
@@ -649,6 +746,7 @@ export class Understanding {
   private async failed(row: UnderstandingRow, giveUp: UnderstandingState | null): Promise<void> {
     const attempts = row.attempts + 1;
     if (giveUp && attempts >= this.maxAttempts) {
+      if (giveUp === "failed") this.failure("gave_up", attempts);
       await this.save(row.capture_id, {
         state: giveUp, attempts, next_at: null,
         ...(giveUp === "failed" ? { understood_at: this.store.now() } : {}),
@@ -743,6 +841,10 @@ function parseRow(r: Record<string, SqlValue>): UnderstandingRow {
     seen_at: (r.seen_at as string | null) ?? null,
     understood_at: (r.understood_at as string | null) ?? null,
     shown_at: (r.shown_at as string | null) ?? null,
+    first_request_at: (r.first_request_at as string | null) ?? null,
+    request_at: (r.request_at as string | null) ?? null,
+    server_ms: (r.server_ms as number | null) ?? null,
+    retries: (r.retries as number | null) ?? null,
     created_at: r.created_at as string,
     updated_at: r.updated_at as string,
   };

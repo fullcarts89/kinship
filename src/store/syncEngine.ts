@@ -42,6 +42,8 @@ export interface SyncReport {
   reconciled: { fetched: number; dropped: number } | null;
   fullResync: boolean;
   offline: boolean;
+  /** This phone's first successful sync for the account. */
+  firstSync?: boolean;
 }
 
 const DEFAULTS: Required<SyncOptions> = {
@@ -88,12 +90,16 @@ export class SyncEngine {
       if (report.fullResync || (await this.reconcileDue())) {
         report.reconciled = await this.reconcile();
       }
+      const firstTime = !(await getMeta(this.store.db, "last_sync_ok_at"));
       await setMeta(this.store.db, "last_sync_ok_at", this.store.now());
+      // The first sync tells screens the account's data is here, even when it
+      // brought nothing (Today waits for it before choosing first use, H9).
+      if (firstTime) report.firstSync = true;
     } catch (err) {
       if (!(err instanceof RemoteError && err.kind === "network")) throw err;
       report.offline = true;
     } finally {
-      if (changedAnything(report)) this.store.notify();
+      if (changedAnything(report) || report.firstSync) this.store.notify();
     }
     return report;
   }

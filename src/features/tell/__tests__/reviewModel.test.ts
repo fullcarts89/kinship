@@ -18,7 +18,7 @@ const SARAH = person("sarah", "Sarah");
 
 function row(state: UnderstandingRow["state"], reading: Partial<Reading> | null, extra: Partial<UnderstandingRow> = {}): UnderstandingRow {
   return {
-    capture_id: "c1", state, answer: null, notice: null, attempts: 0, next_at: null, seen_at: null, understood_at: null, shown_at: null,
+    capture_id: "c1", state, answer: null, notice: null, attempts: 0, next_at: null, seen_at: null, understood_at: null, shown_at: null, first_request_at: null, request_at: null, server_ms: null, retries: null,
     created_at: "2026-10-08T21:14:00.000Z", updated_at: "2026-10-08T21:14:00.000Z",
     reading: reading ? { tier: "auto", saved: [], held: [], clarification: null, review_created_at: null, settled: true, ...reading } : null,
     ...extra,
@@ -194,7 +194,7 @@ describe("dates and sources in the user's terms", () => {
     expect(provenanceLine([note("2026-09-29T10:00:00"), note("2026-10-08T21:14:00"), note("2026-10-01T09:00:00")], now))
       .toBe("You told Kinship · Oct 8 · and 2 other notes");
     expect(provenanceLine([note("2026-09-29T10:00:00"), { source_kind: "user_edit", capture_id: null, created_at: "2026-10-03T08:00:00" }], now))
-      .toBe("You edited this · Oct 3 (from your note, Sep 29)");
+      .toBe("Edited by you · Oct 3 · from your note, Sep 29");
     expect(provenanceLine([{ source_kind: "contacts", capture_id: null, created_at: "2026-10-03T08:00:00" }], now)).toBe("From Contacts");
   });
 });
@@ -241,7 +241,7 @@ describe("stabilization Gate A/D: a view over the note, never blank, never \"Kep
     expect(v.heading).toBe("Kept for Sam (neighbor)");
   });
 
-  it("a note told from someone's page is about them until it's understood: \"About Ben\", and it belongs on Ben's page", () => {
+  it("a note told from someone's page isn't named for them before it's understood (H24): \"Your note\", still shown on Ben's page", () => {
     const sam = held({ statement: "He wants to go back in December", flags: ["pronoun_multiple"],
       spans: [{ start: 28, end: 59, quote: "He wants to go back in December" }] });
     const john = person("john", "John");
@@ -250,7 +250,7 @@ describe("stabilization Gate A/D: a view over the note, never blank, never \"Kep
       capture: { id: "c1", raw_text: "Ben and John went to Tahoe. He wants to go back in December.", context_person_id: "ben", status: "needs_review" },
       items: [], people: [BEN, john], related: [], offline: false, today: TODAY,
     });
-    expect(v.heading).toBe("About Ben");
+    expect(v.heading).toBe("Your note");
     expect(v.personIds).toEqual(expect.arrayContaining(["ben", "john"]));
   });
 

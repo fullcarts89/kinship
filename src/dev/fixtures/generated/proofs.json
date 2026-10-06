@@ -68,7 +68,11 @@
       "label": "A plan",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "maybe": true,
+     "newcomers": [
+      "Jess"
+     ]
     },
     {
      "id": "f0000000-0000-4000-8000-000000000007",
@@ -85,9 +89,14 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Matt"
+      }
      },
-     "edited": false
+     "edited": false,
+     "maybe": true
     }
    ],
    "questions": [],
@@ -95,7 +104,8 @@
    "canUndo": true,
    "personIds": [
     "00000001-0000-4000-8000-000000000001"
-   ]
+   ],
+   "feedback": null
   },
   "portrait": {
    "person": {
@@ -158,9 +168,15 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Matt"
+      }
      },
-     "edited": false
+     "edited": false,
+     "maybe": true,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Oct 5",
     "noteId": "00000001-0000-4000-8000-000000000003",
@@ -188,7 +204,9 @@
       "label": "A plan",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "maybe": true,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Oct 5",
     "noteId": "00000001-0000-4000-8000-000000000003",
@@ -212,7 +230,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Oct 5",
     "noteId": "00000001-0000-4000-8000-000000000003",
@@ -236,7 +255,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Oct 5",
     "noteId": "00000001-0000-4000-8000-000000000003",
@@ -361,14 +381,15 @@
      "statement": "Anna got the job at Stripe",
      "when": null,
      "provenance": "You told Kinship · Oct 26",
-     "noteId": "00000002-0000-4000-8000-000000000006"
+     "noteId": "00000002-0000-4000-8000-000000000006",
+     "was": "Anna is interviewing at Stripe"
     }
    ],
    "comingUp": [],
    "youSaid": [],
    "between": [],
-   "total": 2,
-   "more": true
+   "total": 1,
+   "more": false
   },
   "knowsAfter": [
    {
@@ -382,41 +403,18 @@
      },
      "about": null,
      "also": [],
-     "replaces": null,
+     "replaces": "Anna is interviewing at Stripe",
      "when": null,
      "kind": {
       "value": "fact",
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Oct 26",
     "noteId": "00000002-0000-4000-8000-000000000006",
-    "conflict": null
-   },
-   {
-    "line": {
-     "id": "f0000000-0000-4000-8000-000000000009",
-     "statement": "Anna is interviewing at Stripe",
-     "person": {
-      "id": "00000002-0000-4000-8000-000000000001",
-      "label": "Anna",
-      "changeable": true
-     },
-     "about": null,
-     "also": [],
-     "replaces": null,
-     "when": null,
-     "kind": {
-      "value": "thread",
-      "label": "Something ongoing",
-      "changeable": true
-     },
-     "edited": false
-    },
-    "provenance": "You told Kinship · Oct 5",
-    "noteId": "00000002-0000-4000-8000-000000000003",
     "conflict": null
    }
   ],
@@ -474,7 +472,8 @@
      "statement": "Ben's knee is better",
      "when": null,
      "provenance": "You told Kinship · Nov 4",
-     "noteId": "00000003-0000-4000-8000-000000000005"
+     "noteId": "00000003-0000-4000-8000-000000000005",
+     "was": "Ben's knee has been bothering him"
     }
    ],
    "comingUp": [],
@@ -502,7 +501,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Nov 4",
     "noteId": "00000003-0000-4000-8000-000000000005",
@@ -674,7 +674,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Aug 1",
     "noteId": "00000004-0000-4000-8000-000000000076",
@@ -696,9 +697,14 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Priya"
+      }
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jul 31",
     "noteId": "00000004-0000-4000-8000-000000000073",
@@ -722,7 +728,8 @@
       "label": "Background",
       "changeable": false
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jul 30",
     "noteId": "00000004-0000-4000-8000-000000000070",
@@ -746,7 +753,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jul 29",
     "noteId": "00000004-0000-4000-8000-000000000067",
@@ -774,7 +782,8 @@
       "label": "Something happening",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jul 27",
     "noteId": "00000004-0000-4000-8000-000000000064",
@@ -802,7 +811,8 @@
       "label": "Something happening",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jul 25",
     "noteId": "00000004-0000-4000-8000-000000000061",
@@ -826,7 +836,9 @@
       "label": "A plan",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "maybe": true,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jul 22",
     "noteId": "00000004-0000-4000-8000-000000000058",
@@ -848,9 +860,14 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Priya"
+      }
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jul 18",
     "noteId": "00000004-0000-4000-8000-000000000055",
@@ -874,7 +891,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jul 12",
     "noteId": "00000004-0000-4000-8000-000000000052",
@@ -898,7 +916,8 @@
       "label": "Something ongoing",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jul 7",
     "noteId": "00000004-0000-4000-8000-000000000049",
@@ -926,7 +945,9 @@
       "label": "A plan",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "maybe": true,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jul 2",
     "noteId": "00000004-0000-4000-8000-000000000046",
@@ -948,9 +969,14 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Priya"
+      }
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jun 22",
     "noteId": "00000004-0000-4000-8000-000000000043",
@@ -974,7 +1000,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jun 17",
     "noteId": "00000004-0000-4000-8000-000000000040",
@@ -998,7 +1025,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jun 2",
     "noteId": "00000004-0000-4000-8000-000000000037",
@@ -1020,9 +1048,14 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Priya"
+      }
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · May 18",
     "noteId": "00000004-0000-4000-8000-000000000034",
@@ -1046,7 +1079,8 @@
       "label": "Something ongoing",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · May 3",
     "noteId": "00000004-0000-4000-8000-000000000031",
@@ -1070,7 +1104,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Apr 13",
     "noteId": "00000004-0000-4000-8000-000000000028",
@@ -1094,7 +1129,8 @@
       "label": "A moment",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Mar 4",
     "noteId": "00000004-0000-4000-8000-000000000025",
@@ -1118,7 +1154,8 @@
       "label": "Something ongoing",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Feb 12",
     "noteId": "00000004-0000-4000-8000-000000000022",
@@ -1142,7 +1179,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Jan 13",
     "noteId": "00000004-0000-4000-8000-000000000019",
@@ -1166,7 +1204,8 @@
       "label": "Background",
       "changeable": false
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Dec 4, 2026",
     "noteId": "00000004-0000-4000-8000-000000000016",
@@ -1190,7 +1229,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Nov 14, 2026",
     "noteId": "00000004-0000-4000-8000-000000000013",
@@ -1214,7 +1254,8 @@
       "label": "Something true",
       "changeable": true
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Oct 25, 2026",
     "noteId": "00000004-0000-4000-8000-000000000010",
@@ -1238,7 +1279,8 @@
       "label": "Background",
       "changeable": false
      },
-     "edited": false
+     "edited": false,
+     "editedFrom": null
     },
     "provenance": "You told Kinship · Oct 5, 2026",
     "noteId": "00000004-0000-4000-8000-000000000007",

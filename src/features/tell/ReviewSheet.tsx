@@ -6,7 +6,7 @@
 // sheet.
 
 import React, { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { X } from "lucide-react-native";
 import { press, radius, size, space, TOUCH } from "@/design/tokens";
@@ -17,7 +17,12 @@ import { Body, Label, Line, Pill, Sheet, Small, Title, Token, TokenRow, usePalet
 import { DatePane, KindPane, PersonPane, WordsPane } from "./Pickers";
 import { answersFor, COPY, type ItemLine, type Question, type ReviewView } from "./reviewModel";
 
-export type Correction = { statement: string } | { person_id: string } | { kind: SwitchableKind } | { date: string | null };
+export type Correction =
+  | { statement: string }
+  | { person_id: string }
+  | { kind: SwitchableKind }
+  | { owner: "user" | "person" }
+  | { date: string | null };
 
 type Pane =
   | { kind: "review" }
@@ -36,6 +41,8 @@ export interface ReviewSheetProps {
   onUndo: () => void;
   onReject: (itemId: string) => void;
   onCorrect: (itemId: string, change: Correction) => void;
+  /** "Add Pedro": someone a kept line names, added by name and linked (H21). */
+  onAddPerson?: (itemId: string, name: string) => void;
   onAnswer: (answers: HeldAnswer[]) => void;
   onOpenNote: () => void;
   /** Any touch: the sheet isn't idle. */
@@ -99,8 +106,11 @@ export function ReviewSheet(props: ReviewSheetProps) {
       />
     );
   } else if (pane.kind === "kind") {
-    body = <KindPane current={pane.line.kind.value} onCancel={back} onPick={(k) => {
+    body = <KindPane current={pane.line.kind.value} owner={pane.line.kind.owner} onCancel={back} onPick={(k) => {
       props.onCorrect(pane.line.id, { kind: k });
+      back();
+    }} onOwner={(o) => {
+      props.onCorrect(pane.line.id, { owner: o });
       back();
     }} />;
   } else if (pane.kind === "words") {
@@ -136,6 +146,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
                   props.onActivity();
                   setPane(what === "kind" ? { kind: "kind", line } : what === "words" ? { kind: "words", line } : { kind: what, line });
                 }}
+                onAddPerson={props.onAddPerson ? (id, name) => { props.onActivity(); props.onAddPerson!(id, name); } : undefined}
               />
             ))}
           </View>
@@ -183,10 +194,12 @@ function ReviewLine({
   line,
   onReject,
   onOpen,
+  onAddPerson,
 }: {
   line: ItemLine;
   onReject: () => void;
   onOpen: (what: "person" | "date" | "kind" | "words") => void;
+  onAddPerson?: (itemId: string, name: string) => void;
 }) {
   const p = usePalette();
   return (
@@ -207,12 +220,23 @@ function ReviewLine({
             {line.about ? <Token what="About" value={line.about} /> : null}
             {line.also?.length ? <Token what="Also about" value={line.also.join(", ")} /> : null}
             {line.when ? <Token what="When" value={line.when.label} onPress={line.when.changeable ? () => onOpen("date") : undefined} /> : null}
+            {line.maybe ? <Token what="How sure" value="Maybe" /> : null}
             <Token what="What" value={line.kind.label} onPress={line.kind.changeable ? () => onOpen("kind") : undefined} />
           </TokenRow>
         </View>
-        {line.edited ? <Small style={{ marginTop: space.xs }}>You edited this</Small> : null}
+        {line.edited ? <Small style={{ marginTop: space.xs }}>Edited by you</Small> : null}
         {/* Gate E: an update says what it replaces, so the user can say no. */}
-        {line.replaces ? <Small style={{ marginTop: space.xs }}>{`Updates: ${line.replaces}`}</Small> : null}
+        {line.replaces ? <Replaces text={line.replaces} /> : null}
+        {line.newcomers?.length && onAddPerson ? (
+          <View style={{ marginTop: space.xs, gap: space.xs }}>
+            {line.newcomers.map((name) => (
+              <View key={name} style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: space.s }}>
+                <Small>{`${name} isn't in your people yet.`}</Small>
+                <Pill variant="quiet" size="small" label={`Add ${name}`} onPress={() => onAddPerson(line.id, name)} />
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
       <Pressable
         accessibilityRole="button"
@@ -264,6 +288,7 @@ function QuestionBlock({
         <Line key={a} tone="inkBody" style={{ marginTop: space.s }}>{`“${a}”`}</Line>
       ))}
       {q.detail ? <Small style={{ marginTop: space.xs }}>{q.detail}</Small> : null}
+      {q.replaces ? <Replaces text={q.replaces} /> : null}
     </>
   );
   if (!boxed) {
@@ -292,5 +317,16 @@ function QuestionBlock({
         <Pill variant="quiet" label={q.skip.label} onPress={onSkip} />
       </View>
     </View>
+  );
+}
+
+/** "Replaces: ~~Susan is moving to Oakland in August~~": Kinship revised what it knew (H23, H25). */
+function Replaces({ text }: { text: string }) {
+  const p = usePalette();
+  return (
+    <Small style={{ marginTop: space.xs }} accessibilityLabel={`Replaces: ${text}`}>
+      {"Replaces: "}
+      <Text style={{ textDecorationLine: "line-through", color: p.inkQuiet }}>{text}</Text>
+    </Small>
   );
 }

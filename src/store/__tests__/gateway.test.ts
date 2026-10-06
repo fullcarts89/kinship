@@ -80,14 +80,20 @@ describe("over supabase-js", () => {
     const { invoke, client: c } = client({ data: { status: "kept" }, error: null, response: new Response("{}", { status: 200 }) });
     const reply = await supabaseGatewayTransport(c, 5000).post({ a: 1 });
     expect(invoke).toHaveBeenCalledWith("ai-gateway", { body: { a: 1 }, timeout: 5000 });
-    expect(reply).toEqual({ status: 200, body: { status: "kept" }, retryAfter: null });
+    expect(reply).toEqual({ status: 200, body: { status: "kept" }, retryAfter: null, serverMs: null });
+  });
+
+  it("passes ai-gateway's own time (Server-Timing) through for latency telemetry", async () => {
+    const response = new Response("{}", { status: 200, headers: { "Server-Timing": "total;dur=3150" } });
+    const { client: c } = client({ data: { status: "kept" }, error: null, response });
+    expect((await supabaseGatewayTransport(c).post({})).serverMs).toBe(3150);
   });
 
   it("reads an HTTP refusal's body and Retry-After", async () => {
     const response = new Response(JSON.stringify({ error: "daily_limit_reached" }), { status: 429, headers: { "Retry-After": "120" } });
     const err = Object.assign(new Error("non-2xx"), { name: "FunctionsHttpError" });
     const { client: c } = client({ data: null, error: err, response });
-    expect(await supabaseGatewayTransport(c).post({})).toEqual({ status: 429, body: { error: "daily_limit_reached" }, retryAfter: "120" });
+    expect(await supabaseGatewayTransport(c).post({})).toEqual({ status: 429, body: { error: "daily_limit_reached" }, retryAfter: "120", serverMs: null });
   });
 
   it("no answer at all (offline, timeout, relay) is GatewayUnreachable", async () => {
@@ -95,5 +101,11 @@ describe("over supabase-js", () => {
       const { client: c } = client({ data: null, error: Object.assign(new Error("x"), { name }), response: undefined });
       await expect(supabaseGatewayTransport(c).post({})).rejects.toBeInstanceOf(GatewayUnreachable);
     }
+  });
+
+  it("a request that ran out of time is told apart from no connection", async () => {
+    const timedOut = Object.assign(new Error("x"), { name: "FunctionsFetchError", context: { name: "TimeoutError" } });
+    const { client: c } = client({ data: null, error: timedOut, response: undefined });
+    await expect(supabaseGatewayTransport(c).post({})).rejects.toThrow("timeout");
   });
 });

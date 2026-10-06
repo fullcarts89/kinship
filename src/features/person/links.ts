@@ -51,8 +51,13 @@ export function linkSuggestions(input: {
   // A memory on someone else that names them ("Sam is married to Michelle").
   for (const m of input.items) {
     if (m.person_id === person.id || m.status !== "active" || m.deleted_at) continue;
-    if (Array.isArray(m.with_person_ids) && m.with_person_ids.includes(person.id)) continue;
+    const involved = [m.person_id, ...(Array.isArray(m.with_person_ids) ? m.with_person_ids : [])];
+    if (involved.includes(person.id)) continue;
     if (!statementNames(m.statement, [name])) continue;
+    // The name already belongs to someone on the memory: "Sam got the Stripe
+    // job", filed to Sam Eden by the user's own "which Sam?" answer, is never
+    // asked about on Sam Doughty's page (founder H12).
+    if (involved.some((id) => fold(first(input.people.find((p) => p.id === id)?.display_name ?? "")) === fold(name))) continue;
     const key = `item:${m.id}:${person.id}`;
     if (input.answered.has(key)) continue;
     out.push({ key, kind: "item", targetId: m.id, prompt: `Is this the ${name} in “${m.statement}”?` });

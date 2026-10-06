@@ -1,6 +1,6 @@
 // Today (plan §13): one moment at most, chosen deterministically; silence is
 // a valid answer; quiet lines are at most two, from different people; the
-// return check appears only 10 minutes to 12 hours after a hand-off; copy is
+// return check is there as soon as the user is back, with its reason; copy is
 // templates plus the user's own words.
 import { buildToday, evidenceOf, relativeDay, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
 import type { MemoryItem, Person } from "@/store/repositories";
@@ -94,24 +94,49 @@ it("evidence weighs in: a reading the user confirmed outranks an unreviewed one"
   expect(v.moment?.reasonId).toBe("r2");
 });
 
-it("at most two quiet lines, a question first, then the week ahead, never the moment's person twice", () => {
-  const plan = item("m3", { kind: "plan", person_id: "sarah", statement: "Dinner with Sarah Friday", detail: { date: "2026-10-16" } });
-  const benMore = item("m4", { statement: "Ben flies to Denver Thursday", detail: { date: "2026-10-15", date_precision: "day", followup_policy: "none" } });
-  const v = buildToday(input({ items: [race, interview, plan, benMore], questions: 1 }));
-  expect(v.quiet).toEqual([
-    { kind: "question", label: "A question", text: "About something you told me", action: "Answer" },
-    { kind: "coming", label: "Tomorrow", text: "Josh has his interview Tuesday", personId: "josh", itemId: "m2" },
+it("Coming up: everything in the next seven days by date, your promises too; past three, 'and N more', never dropped (H26, H27)", () => {
+  const promise = (id: string, person: string, subject: "user" | "person", statement: string, due: string) =>
+    item(id, { kind: "promise", person_id: person, subject_type: subject, statement, detail: { due_date: due } });
+  const yours = promise("p1", "sarah", "user", "You said you'd send Sarah the restaurant", "2026-10-14");
+  const tylers = promise("p2", "josh", "person", "Josh promised to send you his contractor's number", "2026-10-16");
+  const games = item("e1", { person_id: "sarah", statement: "Sarah wants to play games with you Saturday", detail: { date: "2026-10-17", date_precision: "day" } });
+  const zoo = item("e2", { person_id: "ben", statement: "You and Ben are going to the zoo", detail: { date: "2026-10-18", date_precision: "day" } });
+  const v = buildToday(input({ reasons: [], items: [interview, yours, tylers, games, zoo], questions: 1 }));
+  const [question, ...rest] = v.quiet;
+  expect(question).toMatchObject({ kind: "question" });
+  expect(rest.slice(0, 3).map((q) => q.text)).toEqual([
+    "Josh has his interview Tuesday",                     // Tue
+    "You said you'd send Sarah the restaurant",           // Wed: the user's own promise
+    "Josh promised to send you his contractor's number",  // Fri: the same person twice is fine
   ]);
-  expect(v.quiet.length).toBeLessThanOrEqual(2);
+  const more = rest[3];
+  expect(more).toMatchObject({ kind: "more", text: "and 2 more" });
+  expect(more.kind === "more" ? more.rest.map((q) => q.text) : []).toEqual([
+    "Sarah wants to play games with you Saturday",
+    "You and Ben are going to the zoo", // still there after Tyler's promise arrived
+  ]);
 });
 
-it("the return check: only 10 minutes to 12 hours after a hand-off Kinship opened, and only until answered", () => {
+it("the return check: there as soon as the user is back, with its reason, until answered (H10, H18)", () => {
   const at = (mins: number) => new Date(NOW.getTime() - mins * 60_000).toISOString();
-  const h = (mins: number, answered?: "yes") => ({ reasonId: "r1", personId: "ben", channel: "text" as const, at: at(mins), answered });
-  expect(buildToday(input({ handoff: h(5) })).returnCheck).toBeNull();
-  expect(buildToday(input({ handoff: h(40) })).returnCheck).toEqual({ personId: "ben", personName: "Ben", reasonId: "r1", channel: "text" });
-  expect(buildToday(input({ handoff: h(13 * 60) })).returnCheck).toBeNull();
-  expect(buildToday(input({ handoff: h(40, "yes") })).returnCheck).toBeNull();
+  const h = (mins: number, answered?: "yes") => ({
+    reasonId: "news:n1", personId: "ben", channel: "text" as const, at: at(mins), answered,
+    ask: "Did you congratulate Ben on the promotion?", about: "Ben was promoted", followUp: "Anything worth remembering from congratulating Ben?",
+  });
+  expect(buildToday(input({ handoff: h(0) })).returnCheck).toEqual({
+    personId: "ben", personName: "Ben", reasonId: "news:n1", channel: "text",
+    ask: "Did you congratulate Ben on the promotion?", about: "Ben was promoted", followUp: "Anything worth remembering from congratulating Ben?",
+  });
+  expect(buildToday(input({ handoff: h(48 * 60) })).returnCheck?.ask).toBe("Did you congratulate Ben on the promotion?");
+  expect(buildToday(input({ handoff: h(73 * 60) })).returnCheck).toBeNull();
+  expect(buildToday(input({ handoff: h(0, "yes") })).returnCheck).toBeNull();
+});
+
+it("every moment knows how to ask about itself afterwards, without guessing", () => {
+  const promoted = item("n1", { kind: "fact", statement: "Ben was promoted", detail: { category: "work", date: "2026-10-11", date_precision: "day" } });
+  const v = buildToday(input({ reasons: [], items: [promoted] }));
+  expect([v.moment?.ask, v.moment?.followUp]).toEqual(["Did you congratulate Ben on the promotion?", "Anything worth remembering from congratulating Ben?"]);
+  expect(buildToday(input()).moment?.ask).toBe("Did you ask Ben how it went?");
 });
 
 it("reads the evidence id from the reason's dedupe key", () => {
@@ -236,4 +261,15 @@ describe("stabilization Gate G: Today reflects what's open, and good news", () =
     expect(quiet({ items: [promise("2026-10-10")] }).quiet).toEqual([
       { kind: "waiting", label: "Waiting on Josh", text: "Did Josh send it?", personId: "josh", itemId: "w1" }]);
   });
+});
+
+it("first sign-in on a phone: until the account's data is here, Today guesses nothing (H9)", () => {
+  // An existing account, before its first sync: no people, no notes yet on this phone.
+  const before = buildToday(input({ reasons: [], items: [], people: [], told: 0, activated: false, dataKnown: false }));
+  expect([before.firstUse, before.quietDay, before.unknown]).toEqual([null, false, true]);
+  // After the first sync: its real Today.
+  const after = buildToday(input({ reasons: [], items: [race], told: 3, activated: true, dataKnown: true }));
+  expect([after.firstUse, after.unknown]).toEqual([null, undefined]);
+  // A genuinely new account (its own record says so) still gets first use.
+  expect(buildToday(input({ reasons: [], items: [], people: [], told: 0, activated: false })).firstUse).toEqual({ hasPeople: false });
 });

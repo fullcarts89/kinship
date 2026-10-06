@@ -184,3 +184,15 @@ Deno.test("Gate B: once the user says who \"he\" is, the line names him", () => 
   if ("fail" in r) throw new Error(r.fail);
   eq(r.items[0].statement, "John wants to go back to Tahoe in December");
 });
+
+Deno.test("H20: a reading held as 'My daughter Kaiya' adds 'Kaiya', your daughter", () => {
+  const note = "My daughter Kaiya and I are going to the zoo on Sunday.";
+  const held: HeldItem = {
+    ...samHeld, kind: "event", subject_type: "shared", statement: "You and Kaiya are going to the zoo", new_person_name: "My daughter Kaiya",
+    flags: ["new_person"], detail: { event_type: "other", date: "2026-10-11", date_precision: "day" },
+    spans: [{ start: 0, end: 54, quote: "My daughter Kaiya and I are going to the zoo on Sunday" }],
+  };
+  const r = resolveHeld([held], [{ index: 0, new_person: true }], ctx({ note }));
+  if ("fail" in r) throw new Error(r.fail);
+  eq(r.newPeople.map((p) => [p.display_name, p.relationship_label]), [["Kaiya", "daughter"]]);
+});

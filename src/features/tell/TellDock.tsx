@@ -3,11 +3,12 @@
 // ("Understanding…", then "Kept for Ben" and what was kept, with Undo), and
 // stays until the user is done with it (stabilization Gate D).
 import React, { useEffect, useRef, useState } from "react";
+import type { FeedbackOff } from "@/store/repositories";
 import { ActivityIndicator, Keyboard, TextInput, View } from "react-native";
 import { X } from "lucide-react-native";
 import { Pressable } from "@/ui/Pressable";
 import { draftPreview } from "./drafts";
-import { press, size, space, TOUCH } from "@/design/tokens";
+import { press, radius, size, space, TOUCH } from "@/design/tokens";
 import { Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
 import { trackStarted, useTellFlow, type KeptCardState } from "./TellFlow";
@@ -58,24 +59,42 @@ function Working() {
  * remember in that one", "Couldn't understand this one". No timer: it stays
  * until the user is done with it.
  */
+/** What can be off about a reading: fixed reasons, never free text (H6). */
+export const FEEDBACK_OFF: { key: FeedbackOff; label: string }[] = [
+  { key: "wrong_person", label: "Wrong person" },
+  { key: "missed_something", label: "Missed something" },
+  { key: "wrong_relationship", label: "Wrong relationship" },
+  { key: "wrong_wording", label: "Wrong wording" },
+  { key: "other", label: "Other" },
+];
+
 export function KeptCard({
   card,
   onOpen,
   onUndo,
   onDismiss,
+  onRate,
 }: {
   card: KeptCardState;
   onOpen: () => void;
   onUndo: () => void;
   onDismiss: () => void;
+  /** "Got it right / Not quite" (H6): quiet, after what was kept. */
+  onRate?: (verdict: "right" | "not_quite", off?: FeedbackOff) => void;
 }) {
   const p = usePalette();
+  const [asking, setAsking] = React.useState(false);
   const working = card.mode === "understanding";
   const opens = card.mode === "card" || card.mode === "sheet";
   return (
+    // Its own raised surface, apart from Today's lines (founder H19): what
+    // just happened to your note never reads as part of a Coming up line.
     <View
       accessibilityLiveRegion="polite"
-      style={{ paddingHorizontal: space.xs, paddingTop: space.s, paddingBottom: space.xs, borderTopWidth: 1, borderTopColor: p.hairline }}
+      style={{
+        marginTop: space.m, marginBottom: space.s, paddingHorizontal: space.m, paddingTop: space.s, paddingBottom: space.xs,
+        borderRadius: radius.inline, borderWidth: 1, borderColor: p.hairline, backgroundColor: p.surface,
+      }}
     >
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.s }}>
         <View style={{ flex: 1, gap: space.xs }}>
@@ -105,6 +124,16 @@ export function KeptCard({
             </Pressable>
           ))}
           {card.more > 0 ? <Small>{`and ${card.more} more`}</Small> : null}
+          {card.newcomers?.length ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${card.newcomers.join(" and ")} isn't in your people yet. Add`}
+              onPress={onOpen}
+              style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.surface : 1 })}
+            >
+              <Small tone="inkBody">{`${card.newcomers.join(" and ")} ${card.newcomers.length > 1 ? "aren't" : "isn't"} in your people yet · Add`}</Small>
+            </Pressable>
+          ) : null}
           {card.mode === "card" ? <Small>{"Tap a line to correct it."}</Small> : null}
         </View>
         {working ? null : (
@@ -124,6 +153,25 @@ export function KeptCard({
           <Pill variant="quiet" label="Undo" accessibilityHint="Forgets this note and what came from it" onPress={onUndo} />
         </View>
       )}
+      {card.mode === "card" && onRate ? (
+        card.feedback ? (
+          <Small style={{ paddingHorizontal: space.xs, paddingBottom: space.xs }}>{"Thanks. Noted."}</Small>
+        ) : asking ? (
+          <View style={{ paddingBottom: space.xs, gap: space.xs }}>
+            <Small tone="inkBody" style={{ paddingHorizontal: space.xs }}>{"What was off?"}</Small>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+              {FEEDBACK_OFF.map((o) => (
+                <Pill key={o.key} variant="quiet" size="small" label={o.label} onPress={() => { onRate("not_quite", o.key); setAsking(false); }} />
+              ))}
+            </View>
+          </View>
+        ) : (
+          <View style={{ flexDirection: "row", gap: space.xs, paddingBottom: space.xs }}>
+            <Pill variant="quiet" size="small" label="Got it right" onPress={() => onRate("right")} />
+            <Pill variant="quiet" size="small" label="Not quite" onPress={() => setAsking(true)} />
+          </View>
+        )
+      ) : null}
     </View>
   );
 }
@@ -219,7 +267,7 @@ export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to
 
   let line: React.ReactNode = null;
   if (flow.card) {
-    line = <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} />;
+    line = <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} onRate={flow.rateCard} />;
   } else if (flow.waitingOffline) {
     line = <KeptLine text={OFFLINE_LINE} />;
   }

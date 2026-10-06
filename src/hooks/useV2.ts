@@ -23,6 +23,7 @@ import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { isOn } from "@/store/flags";
 import { repositoriesFor, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
+import type { HeldItem } from "@/store/gateway";
 import { questionWaiting } from "@/store/understanding";
 import type { UserStore } from "@/store/userStore";
 import { useFlags } from "./useFlags";
@@ -69,15 +70,27 @@ export function useTell() {
  * What each superseded memory said, for the ones these items update (Gate E:
  * history stays traceable: "Updates: Sam is interviewing at Stripe").
  */
-async function earlierOf(repos: Repositories, items: MemoryItem[]): Promise<Record<string, string>> {
+export async function earlierOf(repos: Repositories, items: MemoryItem[], held: HeldItem[] = []): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  for (const m of items) {
-    const id = typeof m.supersedes_id === "string" ? m.supersedes_id : null;
+  // Saved lines that replaced something, and held ones that would on a yes (H25).
+  const targets = [
+    ...items.map((m) => (typeof m.supersedes_id === "string" ? m.supersedes_id : null)),
+    ...held.map((h) => (h.action && ["supersede", "resolves"].includes(h.action.type) ? h.action.target_id : null)),
+  ];
+  for (const id of targets) {
     if (!id || out[id]) continue;
     const prev = await repos.memory.get(id);
     if (prev && !prev.deleted_at) out[id] = voiced(prev).statement;
   }
   return out;
+}
+
+/** The words a memory had before the user's first edit, from that edit's source (H30). */
+export function editedFrom(sources: { source_kind: string; created_at?: unknown; meta?: unknown }[]): string | null {
+  const edits = sources
+    .filter((s) => s.source_kind === "user_edit" && s.meta && typeof (s.meta as Record<string, unknown>).before === "string")
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  return edits.length ? String((edits[0].meta as Record<string, unknown>).before) : null;
 }
 
 // ─── The review ─────────────────────────────────────────────────────────
@@ -94,10 +107,10 @@ export function useReview(captureId: string | null): ReviewView | null {
     return buildReview({
       row,
       capture: capture
-        ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status }
+        ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status, feedback: capture.feedback }
         : null,
       items,
-      earlier: await earlierOf(repos, items),
+      earlier: await earlierOf(repos, items, row.reading?.held ?? []),
       missing: await understanding.arriving(row.reading),
       people,
       related: await repos.people.related(),
@@ -154,7 +167,6 @@ export function usePending(): PendingNote[] {
         capture: { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status },
         items: [], missing: 0, people, related, offline: understanding.offline, today: todayIso(),
       });
-      const about = capture.context_person_id ? people.find((p) => p.id === capture.context_person_id)?.display_name.split(/\s+/u)[0] : null;
       if (view.questions.length) {
         const [first] = view.questions;
         out.push({
@@ -167,7 +179,9 @@ export function usePending(): PendingNote[] {
           captureId: row.capture_id, kind: "understanding", label: row.state === "answering" ? "Saving your answer" : "Understanding",
           text: row.state === "waiting" && row.attempts > 0
             ? "Couldn't understand a note yet. It's saved, and I'll try again."
-            : about ? `A note about ${about}` : "A note you told me",
+            // Never the page's person before the note is understood: told on
+            // Susan's page, it may be about Natalia (founder H24).
+            : "Your note",
           action: null, personIds: view.personIds, createdAt: row.created_at,
         });
       }
@@ -231,10 +245,10 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
     lines.push({
-      line: itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }),
+      line: { ...itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }), editedFrom: editedFrom(sources) },
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-      })), now),
+      })), now, typeof item.origin === "string" ? item.origin : null),
       noteId: notes[0]?.capture_id ?? null,
       conflict: conflict
         ? { id: conflict.id, title: CONFLICT_TITLE, choices: describeConflict(conflict, item), canUseMine: conflict.reason === "concurrent_edit" }
@@ -264,10 +278,14 @@ export async function noteFor(store: UserStore, captureId: string, now: Date): P
   const quotes: string[] = [];
   for (const s of all) {
     const item = (await store.get("memory_items", String(s.memory_item_id))) as MemoryItem | null;
-    if (!item || item.status === "retracted" || item.status === "superseded") continue;
+    // A line a later note replaced still came from this note: it stays, marked (H25).
+    if (!item || item.status === "retracted" || item.deleted_at) continue;
     if (!items.some((i) => i.id === item.id)) {
       const p = people.find((x) => x.id === item.person_id);
-      items.push({ id: item.id, statement: voiced(item, people).statement, person: p?.display_name ?? "", personId: item.person_id });
+      items.push({
+        id: item.id, statement: voiced(item, people).statement, person: p?.display_name ?? "", personId: item.person_id,
+        ...(item.status === "superseded" ? { updated: true } : {}),
+      });
     }
     if (typeof s.span_start === "number" && typeof s.span_end === "number") spans.push({ start: s.span_start, end: s.span_end });
     if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
@@ -317,6 +335,8 @@ export function useV2Actions() {
       track("deletion_completed", { scope: "capture" });
     },
     settleConflict: (id: number, choice: "keep_current" | "use_mine") => repositoriesFor(store).conflicts.resolve(id, choice),
+    /** Correct a person's name: same person, same memories (H1). */
+    rename: (personId: string, name: string) => repositoriesFor(store).people.rename(personId, name),
   };
 }
 
@@ -339,6 +359,9 @@ export function useToday(
       .filter((m) => !misfiled(m, people));
     const told = (await repos.captures.list()).length;
     const local = await reasonLocal.read();
+    // H9: until the first sync, an existing account's people and notes aren't here yet.
+    const synced = !!(await getMeta(store.db, "last_sync_ok_at"));
+    const dataKnown = synced || (activation.activation !== null && !activation.activated);
     // Provenance only for what a reason cites (the moment's line).
     const cited = new Set(reasons.map(evidenceOf).filter((x): x is string => !!x));
     const prov = new Map<string, { line: string; noteId: string | null }>();
@@ -347,19 +370,20 @@ export function useToday(
       const sources = byItem.get(id) ?? [];
       const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
         .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      const origin = (await repos.memory.get(id))?.origin;
       prov.set(id, {
         line: provenanceLine(sources.map((s) => ({
           source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-        })), now),
+        })), now, typeof origin === "string" ? origin : null),
         noteId: notes[0]?.capture_id ?? null,
       });
     }
     return buildToday({
       now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
       handoff: local.handoff, told, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
-      activated: activation.activated, firstName: activation.firstName, pending,
+      activated: activation.activated, firstName: activation.firstName, pending, dataKnown,
     });
-  }, [questions, toLookAt, minute, activation.activated, activation.firstName, JSON.stringify(pending ?? null)]);
+  }, [questions, toLookAt, minute, activation.activated, activation.firstName, activation.activation === null, JSON.stringify(pending ?? null)]);
   return q.data ?? null;
 }
 
@@ -381,11 +405,19 @@ export function useTodayActions() {
       if (!isLocalReason(m.reasonId)) reasons.record(m.reasonId, "dismissed_not_now");
       track("reason_dismissed", { reason_type: reasonTypeName(m.type), mode: "not_now" });
     },
-    handedOff: async (h: { reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType }) => {
-      await reasonLocal.handedOff({ reasonId: h.reasonId, personId: h.personId, channel: h.channel, at: new Date().toISOString() });
+    handedOff: async (h: {
+      reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType;
+      ask?: string; about?: string | null; followUp?: string;
+    }) => {
+      await reasonLocal.handedOff({
+        reasonId: h.reasonId, personId: h.personId, channel: h.channel, at: new Date().toISOString(),
+        ...(h.ask ? { ask: h.ask } : {}), ...(h.about ? { about: h.about } : {}), ...(h.followUp ? { followUp: h.followUp } : {}),
+      });
       if (!isLocalReason(h.reasonId)) reasons.record(h.reasonId, "acted", h.channel);
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
     },
+    /** The app didn't open: nothing was handed off after all. */
+    handoffFailed: (reasonId: string) => reasonLocal.cancel(reasonId),
     /** "Yes": the one place a connection is recorded (plan §15). */
     returned: async (answer: "yes" | "not_yet") => {
       const h = await reasonLocal.answered(answer, new Date().toISOString());
@@ -510,7 +542,14 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
   const items: PortraitItem[] = [];
   const byItem = await repos.memory.sourcesByItem();
   const people = await repos.people.list();
-  for (const stored of await repos.memory.aboutPerson(person.id)) {
+  const all = (await repos.memory.aboutPerson(person.id));
+  const earlier = new Map<string, string>();
+  for (const m of all) {
+    if (typeof m.supersedes_id !== "string" || earlier.has(m.supersedes_id)) continue;
+    const prev = await repos.memory.get(m.supersedes_id);
+    if (prev && !prev.deleted_at) earlier.set(m.supersedes_id, voiced(prev, people).statement);
+  }
+  for (const stored of all) {
     const item = voiced(stored, people);
     // Plainly about someone else: not on this portrait (it stays in What Kinship knows).
     if (misfiledOn(item, person, people)) continue;
@@ -522,8 +561,10 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
       when: whenLabel(item.kind, (item.detail ?? {}) as Record<string, unknown>, today),
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-      })), now),
+      })), now, typeof item.origin === "string" ? item.origin : null),
       noteId: notes[0]?.capture_id ?? null,
+      // A change reads as a change (H23): what it replaced, quietly.
+      was: typeof item.supersedes_id === "string" ? (earlier.get(item.supersedes_id) ?? null) : null,
     });
   }
   // Their birthday, from their record, when it's within a month.
@@ -546,7 +587,12 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
       };
     }
   }
-  return buildPortrait({ person, items, today, birthday, birthdayDay });
+  // The last time the user said they reached them: a quiet line, never a count or a streak.
+  const contacts = (await repos.contacts.forPerson(person.id)) as { occurred_at?: unknown; deleted_at?: unknown }[];
+  const last = contacts.filter((c) => !c.deleted_at && typeof c.occurred_at === "string")
+    .map((c) => String(c.occurred_at)).sort().pop();
+  const portrait = buildPortrait({ person, items, today, birthday, birthdayDay });
+  return last ? { ...portrait, reachedOut: `You reached out · ${momentLabel(last, now, false)}` } : portrait;
 }
 
 /** One remembered item, for its correction sheet. */
@@ -564,10 +610,10 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const now = new Date();
     return {
-      line: itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }),
+      line: { ...itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }), editedFrom: editedFrom(sources) },
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-      })), now),
+      })), now, typeof item.origin === "string" ? item.origin : null),
       noteId: notes[0]?.capture_id ?? null,
     };
   }, [itemId]);

@@ -13,7 +13,8 @@ export interface NoteData {
   /** The kept excerpts when the note's text is gone. */
   quotes: string[];
   arrived: string;
-  items: { id: string; statement: string; person: string; personId: string }[];
+  /** What came of it; a line since replaced by a later note stays, marked (H25). */
+  items: { id: string; statement: string; person: string; personId: string; updated?: boolean }[];
 }
 
 export function NoteView({
@@ -76,7 +77,7 @@ export function NoteView({
           first={n === 0}
           leading={<Sprig personId={i.personId} width={size.sprig.row} />}
           title={i.statement}
-          subtitle={i.person}
+          subtitle={i.updated ? `${i.person} · Since updated` : i.person}
           accessibilityHint={`Opens ${i.person}`}
           onPress={() => onPerson(i.personId)}
         />

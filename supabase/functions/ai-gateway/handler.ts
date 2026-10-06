@@ -143,6 +143,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ANSWERS = 8;
 
 export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Response> {
+  const handle = handler(deps);
+  // Time spent here, for the app's content-free latency telemetry.
+  return async (req) => {
+    const started = performance.now();
+    const res = await handle(req);
+    res.headers.set("Server-Timing", `total;dur=${Math.round(performance.now() - started)}`);
+    return res;
+  };
+}
+
+function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
   const caps = deps.capabilities ?? CAPABILITIES;
   return async (req) => {
     const cors = corsHeaders(req, deps.allowedOrigins);
@@ -242,6 +253,7 @@ export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Resp
         held: held.map(present),
         clarification: outcome.clarification,
         review_created_at: stored?.created_at ?? null,
+        ...(outcome.known?.length ? { known: outcome.known } : {}),
       }, 200, cors);
     } catch (err) {
       if (claimed) await deps.service.release(claimed.userId, claimed.captureId, "failed").catch(() => undefined);
