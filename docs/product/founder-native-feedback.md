@@ -407,3 +407,20 @@ Built in response to the "Native Trust + Memory Stabilization Pass" brief. Nothi
 | G41 | Held (ambiguous/sensitive) readings never save without a yes. A seen review with nothing asked is still settled as "left" after 10 minutes off screen, with items left unreviewed, so the server isn't kept waiting. | Gate A |
 | G42 | Related-person news keeps its subject ("Ana had a baby", about Ana, on Michelle's page). | Gate F |
 | G43 | "One thing to check" names which line and why. | Gate D |
+
+---
+
+## Round three: after the stabilization pass (6 Oct, logged only)
+
+Founder's classification as given. Notes are from what's already known about the code, without new investigation; nothing below is built.
+
+| # | Feedback | Founder's classification | Notes (not investigated, not built) |
+|---|---|---|---|
+| H1 | Cannot edit a person's name after creation | Bug / High | Known gap: editing a person's name or birthday in 2.0 was deferred in the recovery pass ("not needed for the loop"). Now needed. |
+| H2 | The relationship page doesn't make everything Kinship knows easy enough to inspect | UX / High for wife-dogfood hardening | Relates to "What Kinship knows" (board 14) and the history kept by the stabilization pass, which shows per line ("Before: …") but has no overview. Within the approved design; no timeline UI. |
+| H3 | Natural demand for memory recall questions | Product evidence / candidate to accelerate Ask Kinship | Ask Kinship is on the brief's "do not build" list. Moving it up needs a founder decision. |
+| H4 | The value of "surfacing" isn't obvious without explanation | Activation / onboarding issue | First-use guidance explains Tell and memory; it doesn't yet show what bringing something back looks like. Onboarding redesign was out of scope for the last pass. |
+| H5 | "Anthony + Natalia" wedding only captured Anthony | Correctness bug / High | Likely cause to check: shared memories (`with_person_ids`) are only formed when every person is already in People; someone not in People isn't offered as "Add Natalia" for a shared event. Needs the note and its reading to confirm. |
+| H6 | Need an easy way to say whether Kinship understood correctly | Dogfood tooling / recommended | Today the Kept card allows tap-to-correct and Undo, but there's no lightweight "right / not quite" signal that's recorded for review. |
+| H7 | Dogfood notes should feed the eval corpus | Engineering / product process / recommended | Would need consent and a de-identification step before any real note becomes a fixture; fixtures are frozen and versioned (`MANIFEST.json`). |
+| H8 | Latency feels substantially better, though still improvable | Positive signal / monitor, don't optimize prematurely | The new `tell_lifecycle` timings (sent, understood, shown) can separate model time from app time. The eval run measured the model at p50 2.7 s, p95 5.8 s. |
