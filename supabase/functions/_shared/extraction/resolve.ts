@@ -297,8 +297,8 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         delete detail.transition;
       } else {
         if (!offeredTargets.includes(a.replaces)) return { fail: "bad_answer" };
-        const target = ctx.existing.find((m) => m.id === a.replaces);
-        action = { type: target && target.kind === "thread" && detail.transition === "completed" ? "resolves" : "supersede", target_id: a.replaces };
+        // A change of the story replaces the earlier line, linked (founder H25).
+        action = { type: "supersede", target_id: a.replaces };
       }
     } else if (a.replaces !== undefined) {
       return { fail: "bad_answer" };

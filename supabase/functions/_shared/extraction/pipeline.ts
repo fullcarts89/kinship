@@ -957,6 +957,10 @@ interface Relation {
 function relate(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>): Relation {
   const transition = transitionOf(n.statement);
   const byModel = relateByModel(ctx, raw, n, flags, transition);
+  // A story that changed ("not interviewing anymore", "got the job") replaces
+  // the earlier line: one current truth, the old one kept as its history and
+  // linked to it (founder H25). "Resolved" stays for a question answered.
+  if (byModel.type === "resolves" && transition) return { action: { type: "supersede", target_id: byModel.target_id }, transition };
   if (byModel.type !== "new") return { action: byModel, transition };
   if (!transition || !n.person_key || flags.has("protected_target")) return { action: byModel, transition: null };
   // A hedge never updates anything ("might not move after all").

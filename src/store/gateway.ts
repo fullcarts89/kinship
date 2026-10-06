@@ -48,7 +48,10 @@ export interface SavedItem extends GatewayItem {
 }
 
 /** Waiting on the user's answer; never memory until they answer. */
-export type HeldItem = GatewayItem;
+export type HeldItem = GatewayItem & {
+  /** What it would do to an existing memory once the user says yes (the gateway sends it). */
+  action?: { type: string; target_id: string | null } | null;
+};
 
 export interface Clarification {
   about: "person" | "subject" | "new_person" | "date";

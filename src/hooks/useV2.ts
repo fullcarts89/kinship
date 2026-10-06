@@ -23,6 +23,7 @@ import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { isOn } from "@/store/flags";
 import { repositoriesFor, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
+import type { HeldItem } from "@/store/gateway";
 import { questionWaiting } from "@/store/understanding";
 import type { UserStore } from "@/store/userStore";
 import { useFlags } from "./useFlags";
@@ -69,10 +70,14 @@ export function useTell() {
  * What each superseded memory said, for the ones these items update (Gate E:
  * history stays traceable: "Updates: Sam is interviewing at Stripe").
  */
-async function earlierOf(repos: Repositories, items: MemoryItem[]): Promise<Record<string, string>> {
+export async function earlierOf(repos: Repositories, items: MemoryItem[], held: HeldItem[] = []): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  for (const m of items) {
-    const id = typeof m.supersedes_id === "string" ? m.supersedes_id : null;
+  // Saved lines that replaced something, and held ones that would on a yes (H25).
+  const targets = [
+    ...items.map((m) => (typeof m.supersedes_id === "string" ? m.supersedes_id : null)),
+    ...held.map((h) => (h.action && ["supersede", "resolves"].includes(h.action.type) ? h.action.target_id : null)),
+  ];
+  for (const id of targets) {
     if (!id || out[id]) continue;
     const prev = await repos.memory.get(id);
     if (prev && !prev.deleted_at) out[id] = voiced(prev).statement;
@@ -97,7 +102,7 @@ export function useReview(captureId: string | null): ReviewView | null {
         ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status }
         : null,
       items,
-      earlier: await earlierOf(repos, items),
+      earlier: await earlierOf(repos, items, row.reading?.held ?? []),
       missing: await understanding.arriving(row.reading),
       people,
       related: await repos.people.related(),
@@ -264,10 +269,14 @@ export async function noteFor(store: UserStore, captureId: string, now: Date): P
   const quotes: string[] = [];
   for (const s of all) {
     const item = (await store.get("memory_items", String(s.memory_item_id))) as MemoryItem | null;
-    if (!item || item.status === "retracted" || item.status === "superseded") continue;
+    // A line a later note replaced still came from this note: it stays, marked (H25).
+    if (!item || item.status === "retracted" || item.deleted_at) continue;
     if (!items.some((i) => i.id === item.id)) {
       const p = people.find((x) => x.id === item.person_id);
-      items.push({ id: item.id, statement: voiced(item, people).statement, person: p?.display_name ?? "", personId: item.person_id });
+      items.push({
+        id: item.id, statement: voiced(item, people).statement, person: p?.display_name ?? "", personId: item.person_id,
+        ...(item.status === "superseded" ? { updated: true } : {}),
+      });
     }
     if (typeof s.span_start === "number" && typeof s.span_end === "number") spans.push({ start: s.span_start, end: s.span_end });
     if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);

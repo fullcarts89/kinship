@@ -85,7 +85,11 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Matt"
+      }
      },
      "edited": false
     }
@@ -158,7 +162,11 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Matt"
+      }
      },
      "edited": false
     },
@@ -367,8 +375,8 @@
    "comingUp": [],
    "youSaid": [],
    "between": [],
-   "total": 2,
-   "more": true
+   "total": 1,
+   "more": false
   },
   "knowsAfter": [
    {
@@ -382,7 +390,7 @@
      },
      "about": null,
      "also": [],
-     "replaces": null,
+     "replaces": "Anna is interviewing at Stripe",
      "when": null,
      "kind": {
       "value": "fact",
@@ -393,30 +401,6 @@
     },
     "provenance": "You told Kinship · Oct 26",
     "noteId": "00000002-0000-4000-8000-000000000006",
-    "conflict": null
-   },
-   {
-    "line": {
-     "id": "f0000000-0000-4000-8000-000000000009",
-     "statement": "Anna is interviewing at Stripe",
-     "person": {
-      "id": "00000002-0000-4000-8000-000000000001",
-      "label": "Anna",
-      "changeable": true
-     },
-     "about": null,
-     "also": [],
-     "replaces": null,
-     "when": null,
-     "kind": {
-      "value": "thread",
-      "label": "Something ongoing",
-      "changeable": true
-     },
-     "edited": false
-    },
-    "provenance": "You told Kinship · Oct 5",
-    "noteId": "00000002-0000-4000-8000-000000000003",
     "conflict": null
    }
   ],
@@ -696,7 +680,11 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Priya"
+      }
      },
      "edited": false
     },
@@ -848,7 +836,11 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Priya"
+      }
      },
      "edited": false
     },
@@ -948,7 +940,11 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Priya"
+      }
      },
      "edited": false
     },
@@ -1020,7 +1016,11 @@
      "kind": {
       "value": "promise",
       "label": "Your promise",
-      "changeable": false
+      "changeable": true,
+      "owner": {
+       "value": "user",
+       "name": "Priya"
+      }
      },
      "edited": false
     },

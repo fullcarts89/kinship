@@ -102,6 +102,8 @@ export interface Question {
   about: string[];
   /** Who and when, for a reading waiting for the user's yes ("Sarah · Thu, Oct 15"). */
   detail: string | null;
+  /** What a yes would replace, so the user knows Kinship is revising what it knew (H25). */
+  replaces: string | null;
   /** The held items it answers. */
   items: number[];
   choices: Choice[];
@@ -338,14 +340,17 @@ function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
   held.forEach((item, index) => {
     for (const need of needsOf(item, input)) {
       const about = need.about ?? item.statement;
+      const target = item.action && ["supersede", "resolves"].includes(item.action.type) ? item.action.target_id : null;
+      const replaces = target ? input.earlier?.[target] ?? null : null;
       const q = groups.get(need.group);
       if (q) {
         q.items.push(index);
         if (!q.about.includes(about)) q.about.push(about);
+        q.replaces = q.replaces ?? replaces;
       } else {
         groups.set(need.group, {
           key: `q${groups.size}`, type: need.type, prompt: need.prompt, reason: need.reason, about: [about], items: [index],
-          choices: need.choices, skip: { key: "skip", label: COPY.skip }, detail: need.detail ?? null,
+          choices: need.choices, skip: { key: "skip", label: COPY.skip }, detail: need.detail ?? null, replaces,
         });
       }
     }

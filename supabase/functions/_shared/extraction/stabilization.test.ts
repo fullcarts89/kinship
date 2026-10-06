@@ -92,7 +92,7 @@ Deno.test("E: the knee story moves: bothering → getting better → better", ()
     kind: "fact", person: "p2", person_mention: "John", statement: "John's knee is better now",
     evidence: ["John's knee is better now"], detail: { category: "health" },
   })]);
-  eq(done.items[0].action, { type: "resolves", target_id: "id-m2" });
+  eq(done.items[0].action, { type: "supersede", target_id: "id-m2" }); // linked, so the change shows and can be undone (H25)
   eq(done.items[0].detail.transition, "completed");
 });
 

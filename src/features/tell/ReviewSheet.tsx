@@ -6,7 +6,7 @@
 // sheet.
 
 import React, { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { X } from "lucide-react-native";
 import { press, radius, size, space, TOUCH } from "@/design/tokens";
@@ -220,7 +220,7 @@ function ReviewLine({
         </View>
         {line.edited ? <Small style={{ marginTop: space.xs }}>You edited this</Small> : null}
         {/* Gate E: an update says what it replaces, so the user can say no. */}
-        {line.replaces ? <Small style={{ marginTop: space.xs }}>{`Updates: ${line.replaces}`}</Small> : null}
+        {line.replaces ? <Replaces text={line.replaces} /> : null}
       </View>
       <Pressable
         accessibilityRole="button"
@@ -272,6 +272,7 @@ function QuestionBlock({
         <Line key={a} tone="inkBody" style={{ marginTop: space.s }}>{`“${a}”`}</Line>
       ))}
       {q.detail ? <Small style={{ marginTop: space.xs }}>{q.detail}</Small> : null}
+      {q.replaces ? <Replaces text={q.replaces} /> : null}
     </>
   );
   if (!boxed) {
@@ -300,5 +301,16 @@ function QuestionBlock({
         <Pill variant="quiet" label={q.skip.label} onPress={onSkip} />
       </View>
     </View>
+  );
+}
+
+/** "Replaces: ~~Susan is moving to Oakland in August~~": Kinship revised what it knew (H23, H25). */
+function Replaces({ text }: { text: string }) {
+  const p = usePalette();
+  return (
+    <Small style={{ marginTop: space.xs }} accessibilityLabel={`Replaces: ${text}`}>
+      {"Replaces: "}
+      <Text style={{ textDecorationLine: "line-through", color: p.inkQuiet }}>{text}</Text>
+    </Small>
   );
 }

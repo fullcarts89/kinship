@@ -155,6 +155,7 @@ export function threadTarget(statement: string, candidates: ThreadCandidate[], n
   const top = scored.filter((x) => x.score === scored[0].score && x.proper === scored[0].proper);
   if (top.length > 1) return { ambiguous: top.slice(0, 3).map((x) => x.c.id), transition };
   const target = top[0].c;
-  const action = transition !== "progress" && target.kind === "thread" ? "resolves" : "supersede";
-  return { target: target.id, action, transition };
+  // Every change of the story replaces the earlier line and links to it, so
+  // the change can be shown and undone (founder H25).
+  return { target: target.id, action: "supersede", transition };
 }

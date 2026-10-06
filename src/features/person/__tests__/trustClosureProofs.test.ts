@@ -3,7 +3,7 @@
 // path (resolve.ts), the write rules, sync, Understanding, the review, the
 // relationship page and What Kinship knows. Only the model's reply is written
 // by hand. Each case first failed on the code before this pass.
-import { portraitFor, recordFor, todayIso } from "@/hooks/useV2";
+import { earlierOf, noteFor, portraitFor, recordFor, todayIso } from "@/hooks/useV2";
 import { buildReview, type ReviewView } from "@/features/tell/reviewModel";
 import { linkSuggestions } from "@/features/person/links";
 import { voiced } from "@/features/memory/statements";
@@ -74,6 +74,7 @@ async function review(w: World, id: string): Promise<ReviewView> {
     row,
     capture: { id, raw_text: (await w.repos.captures.get(id))!.raw_text, context_person_id: null, status: String((await w.repos.captures.get(id))?.status) },
     items: await w.understanding.itemsFor(id, row.reading),
+    earlier: await earlierOf(w.repos, await w.understanding.itemsFor(id, row.reading), row.reading?.held ?? []),
     people: ppl, related: await w.repos.people.related(), offline: false, today: todayIso(new Date(w.server.clock)),
   });
 }
@@ -180,5 +181,43 @@ describe("core trust closure", () => {
     await answer(w2, t2.id, [{ index: 0, ...("answer" in add ? add.answer : {}) }]);
     const added = (await w2.repos.people.list()).find((p) => p.display_name !== "Ben Oxnard")!;
     expect([added.display_name, added.relationship_label]).toEqual(["Kaiya", "daughter"]);
+  });
+
+  it("H25: a sensitive 'no longer interviewing' confirmed by you replaces the old line, linked; one current truth; both sources stay", async () => {
+    const w = await world();
+    const [natalia] = await people(w, "Natalia Ruiz");
+    const first = await tell(w, "Natalia is interviewing with Box", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "thread", person: key(i, "Natalia"), person_mention: "Natalia", statement: "Natalia is interviewing with Box",
+        evidence: ["Natalia is interviewing with Box"], detail: { topic: "interviewing with Box" } })],
+    }));
+    await w.understanding.finish(first.id, "done");
+    await w.understanding.run();
+    // The model's actual reading (founder's data): a fact, money-sensitive, the model proposing "resolves".
+    const second = await tell(w, "Natalia is no longer interviewing with Box because she got rejected", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, "Natalia"), person_mention: "Natalia", sensitivity: "money",
+        statement: "Natalia is no longer interviewing with Box because she got rejected",
+        evidence: ["Natalia is no longer interviewing with Box because she got rejected"], detail: { category: "work" },
+        existing: { action: "resolves", target: i.dossier[0]?.key ?? null } })],
+    }));
+    // Held for the user's yes (personal), and it says what it replaces.
+    // Held: nothing changes until the user's yes; the question says what a yes replaces.
+    expect(second.review.lines).toEqual([]);
+    expect(second.review.questions.map((q) => [q.type, q.replaces])).toEqual([["keep", "Natalia is interviewing with Box"]]);
+    expect(serverItems(w).find((m) => m.statement === "Natalia is interviewing with Box")!.status).toBe("active");
+    await answer(w, second.id, [{ index: 0, accept: true }]);
+
+    const items = serverItems(w).filter((m) => m.person_id === natalia.id);
+    const old = items.find((m) => m.statement === "Natalia is interviewing with Box")!;
+    const now = items.find((m) => m.statement.startsWith("Natalia is no longer"))!;
+    expect([old.status, now.status, now.supersedes_id]).toEqual(["superseded", "active", old.id]);
+    const knows = await recordFor(w.repos, natalia.id, new Date(w.server.clock));
+    expect(knows.lines.map((l) => [l.line.statement, l.line.replaces])).toEqual([
+      ["Natalia is no longer interviewing with Box because she got rejected", "Natalia is interviewing with Box"],
+    ]);
+    // The first note still shows what came of it, marked as since updated.
+    const src = await noteFor(w.store, first.id, new Date(w.server.clock));
+    expect(src!.items.map((i) => [i.statement, i.updated ?? false])).toEqual([["Natalia is interviewing with Box", true]]);
   });
 });
