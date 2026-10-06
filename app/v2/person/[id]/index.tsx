@@ -59,7 +59,7 @@ export default function PersonScreen() {
       hasDraft={!!flow.draft(personId).trim()}
       // The note just told about them, and only about them (never another person's card).
       kept={flow.card && flow.card.personIds.includes(personId)
-        ? <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} />
+        ? <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} onRate={flow.rateCard} />
         : null}
       waiting={flow.pending.filter((n) => n.personIds.includes(personId))}
       onWaiting={(captureId) => flow.openNote(captureId)}

@@ -74,7 +74,7 @@ async function review(w: World, id: string): Promise<ReviewView> {
   const ppl = await w.repos.people.list();
   return buildReview({
     row,
-    capture: { id, raw_text: (await w.repos.captures.get(id))!.raw_text, context_person_id: null, status: String((await w.repos.captures.get(id))?.status) },
+    capture: { id, raw_text: (await w.repos.captures.get(id))!.raw_text, context_person_id: null, status: String((await w.repos.captures.get(id))?.status), feedback: (await w.repos.captures.get(id))?.feedback },
     items: await w.understanding.itemsFor(id, row.reading),
     earlier: await earlierOf(w.repos, await w.understanding.itemsFor(id, row.reading), row.reading?.held ?? []),
     people: ppl, related: await w.repos.people.related(), offline: false, today: todayIso(new Date(w.server.clock)),
@@ -438,5 +438,23 @@ describe("core trust closure", () => {
     expect(knows.lines.map((l) => l.line.id)).toEqual([line.id]);
     expect(sourcesOf(w, line.id).map((s) => s.id).sort()).toEqual(before);
     await expect(w.repos.people.rename(thors.id, "   ")).rejects.toThrow();
+  });
+
+  it("H6: 'Not quite · Wrong person' is kept on the note for review; it changes no memory and holds no content", async () => {
+    const w = await world();
+    await people(w, "Tyler Shaffer");
+    const t = await tell(w, "Tyler promised to send me his contractor's number Friday.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "promise", person: key(i, "Tyler"), person_mention: "Tyler", subject: "user",
+        statement: "Tyler promised to send you his contractor's number", evidence: ["Tyler promised to send me his contractor's number Friday"], date_text: "Friday" })],
+    }));
+    const before = JSON.stringify(serverItems(w));
+    await w.understanding.feedback(t.id, "not_quite", "wrong_person");
+    await w.understanding.run();
+    await w.engine.sync();
+    const fb = w.server.table("captures").get(t.id)?.feedback as Record<string, unknown>;
+    expect([fb.verdict, fb.off, Object.keys(fb).sort()]).toEqual(["not_quite", "wrong_person", ["at", "off", "verdict"]]);
+    expect(JSON.stringify(serverItems(w))).toBe(before); // no memory changed
+    expect((await review(w, t.id)).feedback).toEqual({ verdict: "not_quite", off: "wrong_person" });
   });
 });

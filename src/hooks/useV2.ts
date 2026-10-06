@@ -107,7 +107,7 @@ export function useReview(captureId: string | null): ReviewView | null {
     return buildReview({
       row,
       capture: capture
-        ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status }
+        ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status, feedback: capture.feedback }
         : null,
       items,
       earlier: await earlierOf(repos, items, row.reading?.held ?? []),

@@ -40,7 +40,7 @@ import {
   type Understood,
 } from "./gateway";
 import { detailForKind, withDate, type SwitchableKind } from "./memoryDetail";
-import { repositoriesFor, type MemoryItem, type MemorySource } from "./repositories";
+import { repositoriesFor, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
 import type { SyncReport } from "./syncEngine";
 import { StoreWriteError, type Data, type UserStore } from "./userStore";
 import type { SqlValue } from "./sql";
@@ -347,6 +347,17 @@ export class Understanding {
     await this.store.update("memory_items", itemId, { with_person_ids: [...new Set([...others, person.id])] });
     this.kick();
     return person.id;
+  }
+
+  /**
+   * "Got it right / Not quite" (founder H6): on the note, for review. It
+   * changes no memory and holds no content.
+   */
+  async feedback(captureId: string, verdict: "right" | "not_quite", off?: FeedbackOff): Promise<void> {
+    if (!(await this.store.get("captures", captureId))) return;
+    await repositoriesFor(this.store).captures.feedback(captureId, verdict, off);
+    track("tell_feedback", { verdict, off: off ?? "none" });
+    this.kick();
   }
 
   /** "Not this": retracted and removed. */

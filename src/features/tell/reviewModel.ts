@@ -29,7 +29,7 @@ import { selfRelationPhrase } from "../../../supabase/functions/_shared/extracti
 export interface ReviewInput {
   row: UnderstandingRow;
   /** The note as told (raw_text is null once a "delete after" note settles). */
-  capture: { id: string; raw_text: string | null; context_person_id: string | null; status: string } | null;
+  capture: { id: string; raw_text: string | null; context_person_id: string | null; status: string; feedback?: unknown } | null;
   /** The live items this note saved (Understanding.itemsFor). */
   items: MemoryItem[];
   /** Items the reading saved that haven't reached this phone yet (sync in flight). */
@@ -134,6 +134,8 @@ export interface ReviewView {
   canUndo: boolean;
   /** Everyone this note is about so far: who its card or question belongs with. */
   personIds: string[];
+  /** The user's "Got it right / Not quite" on this note, once given (H6). */
+  feedback?: { verdict: "right" | "not_quite"; off?: string } | null;
 }
 
 export const COPY = {
@@ -202,8 +204,12 @@ export function buildReview(input: ReviewInput): ReviewView {
     ...held.map((h) => h.person_id).filter((x): x is string => !!x),
     ...questions.flatMap((q) => q.choices.flatMap((c) => ("answer" in c && c.answer.person_id ? [c.answer.person_id] : []))),
   ])];
+  const fb = input.capture?.feedback as { verdict?: unknown; off?: unknown } | null | undefined;
+  const feedback = fb && (fb.verdict === "right" || fb.verdict === "not_quite")
+    ? { verdict: fb.verdict as "right" | "not_quite", ...(typeof fb.off === "string" ? { off: fb.off } : {}) } : null;
   const base: ReviewView = {
     ...empty,
+    feedback,
     heading,
     lines,
     questions,

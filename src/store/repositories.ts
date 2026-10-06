@@ -161,8 +161,24 @@ export interface RelatedPerson extends Data {
   name: string | null;
 }
 
+export type FeedbackOff = "wrong_person" | "missed_something" | "wrong_relationship" | "wrong_wording" | "other";
+export interface CaptureFeedback {
+  verdict: "right" | "not_quite";
+  off?: FeedbackOff;
+  at: string;
+}
+
 export class CaptureRepo {
   constructor(private readonly store: UserStore) {}
+
+  /**
+   * "Got it right / Not quite" on what was understood (founder H6). Kept on
+   * the note, for review; it never changes a memory and holds no content.
+   */
+  feedback(captureId: string, verdict: CaptureFeedback["verdict"], off?: FeedbackOff): Promise<Data> {
+    const value: CaptureFeedback = { verdict, ...(verdict === "not_quite" && off ? { off } : {}), at: this.store.now() };
+    return this.store.update("captures", captureId, { feedback: value });
+  }
 
   /** Records exactly what the user said (NFC), queued for sync and, with AI on, for extraction. */
   tell(

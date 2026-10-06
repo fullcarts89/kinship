@@ -99,6 +99,11 @@ export interface AnalyticsEvents {
     understood_bucket: LatencyBucket;
     shown_bucket: LatencyBucket;
   };
+  /** "Got it right / Not quite" on a Kept card (H6): the verdict and its fixed reason, never content. */
+  tell_feedback: {
+    verdict: "right" | "not_quite";
+    off: "wrong_person" | "missed_something" | "wrong_relationship" | "wrong_wording" | "other" | "none";
+  };
   capture_abandoned: { chars_bucket: CharsBucket };
   undo_capture: Record<string, never>;
   reason_surfaced: { reason_type: ReasonType; surface: "today" | "push" | "brief"; score_bucket: ScoreBucket };
