@@ -220,4 +220,29 @@ describe("core trust closure", () => {
     const src = await noteFor(w.store, first.id, new Date(w.server.clock));
     expect(src!.items.map((i) => [i.statement, i.updated ?? false])).toEqual([["Natalia is interviewing with Box", true]]);
   });
+
+  it("H13: 'John and Ben went to Tahoe' then 'Ben and John went to Tahoe' is one shared memory, on both pages once", async () => {
+    const w = await world();
+    const [ben, john] = await people(w, "Ben Oxnard", "John Oxnard");
+    const trip = (who: "Ben" | "John", statement: string) => (i: ExtractionInput): ModelProposal => ({
+      needs_clarification: null,
+      items: [item({ kind: "event", person: key(i, who), person_mention: who, statement, evidence: [statement],
+        date_direction: "past", detail: { event_type: "trip" } })],
+    });
+    const a = await tell(w, "John and Ben went to Tahoe.", trip("John", "John and Ben went to Tahoe"));
+    await w.understanding.finish(a.id, "done");
+    await w.understanding.run();
+    const b = await tell(w, "Ben and John went to Tahoe.", trip("Ben", "Ben and John went to Tahoe"), ben);
+    await w.understanding.finish(b.id, "done");
+    await w.understanding.run();
+    await w.engine.sync();
+    const live = serverItems(w).filter((m) => /Tahoe/.test(m.statement) && m.status === "active" && !m.deleted_at);
+    expect(live).toHaveLength(1);
+    // Both notes are its sources.
+    expect(sourcesOf(w, live[0].id).map((s) => s.capture_id).sort()).toEqual([a.id, b.id].sort());
+    for (const p of [ben, john]) {
+      const { knows } = await page(w, p);
+      expect(knows.lines.filter((l) => /Tahoe/.test(l.line.statement))).toHaveLength(1);
+    }
+  });
 });

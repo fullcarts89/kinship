@@ -55,6 +55,8 @@ export interface DossierItem {
   status: "active" | "resolved";
   user_state: "unreviewed" | "confirmed" | "edited" | "user_authored";
   detail: Record<string, unknown>;
+  /** Roster keys of the others this memory is also about (shared memories). Code only; never in the prompt. */
+  with_person_keys?: string[];
 }
 
 export interface CaptureContext {

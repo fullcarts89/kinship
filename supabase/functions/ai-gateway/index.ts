@@ -83,7 +83,7 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
     async loadItems(personIds) {
       if (personIds.length === 0) return [];
       const { data, error } = await db.from("memory_items")
-        .select("id, person_id, kind, subject_type, subject_related_id, statement, certainty, status, user_state, detail, updated_at")
+        .select("id, person_id, kind, subject_type, subject_related_id, statement, certainty, status, user_state, detail, updated_at, with_person_ids")
         .in("person_id", personIds).is("deleted_at", null).in("status", ["active", "resolved"])
         .order("updated_at", { ascending: false }).limit(40);
       if (error) throw new Error("dossier read failed");

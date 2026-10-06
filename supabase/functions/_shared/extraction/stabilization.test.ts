@@ -293,3 +293,24 @@ Deno.test("H20: 'my daughter Kaiya' is SELF → daughter → Kaiya, never a pers
     if (name === "John Oxnard") eq(it?.person_id, "john", n);
   }
 });
+
+Deno.test("H13: a shared memory is one memory whatever the order of the names, across notes and within one", () => {
+  const tahoe = { ...mem("m1", "p2", "event", "John and Ben went to Tahoe", { event_type: "trip" }), with_person_keys: ["p1"] };
+  const reply = (statement: string, person = "p1", extra: Partial<ProposedItem> = {}) => item({
+    kind: "event", person, person_mention: person === "p1" ? "Ben" : "John", statement, evidence: [statement],
+    date_direction: "past", detail: { event_type: "trip" }, ...extra,
+  });
+  // Told again, the other way round, on another day: merged into John's, still about both.
+  const again = run(input("Ben and John went to Tahoe.", [tahoe]), [reply("Ben and John went to Tahoe")]);
+  eq([again.items[0].action, again.items[0].person_id, again.items[0].with_person_ids], [{ type: "merge", target_id: "id-m1" }, "john", ["ben"]]);
+  // Within one note, once for each of them in either order: one memory.
+  const once = run(input("Ben and John went to Tahoe. John and Ben went to Tahoe."), [
+    reply("Ben and John went to Tahoe"), reply("John and Ben went to Tahoe", "p2"),
+  ]);
+  eq(once.items.length, 1);
+  // Not blindly: a different trip (other words, or another day) stays its own.
+  const other = run(input("Ben and John went to Tahoe again in March.", [{ ...tahoe, detail: { event_type: "trip", date: "2026-02-01" } }]), [
+    reply("Ben and John went to Tahoe again in March", "p1", { date_text: "in March" }),
+  ]);
+  eq(other.items[0].action.type, "new");
+});

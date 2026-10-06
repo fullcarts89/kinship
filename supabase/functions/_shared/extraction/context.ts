@@ -46,6 +46,7 @@ export interface ItemRow {
   user_state: DossierItem["user_state"];
   detail: Record<string, unknown>;
   updated_at?: string;
+  with_person_ids?: string[] | null;
 }
 export interface CaptureRow {
   id: string;
@@ -144,6 +145,9 @@ export function buildInput(capture: CaptureRow, people: PersonRow[], related: Re
       status: m.status as "active" | "resolved",
       user_state: m.user_state,
       detail: m.detail ?? {},
+      ...(Array.isArray(m.with_person_ids) && m.with_person_ids.some((id) => keyOf.has(id))
+        ? { with_person_keys: m.with_person_ids.filter((id) => keyOf.has(id)).map((id) => keyOf.get(id)!) }
+        : {}),
     }));
 
   return {

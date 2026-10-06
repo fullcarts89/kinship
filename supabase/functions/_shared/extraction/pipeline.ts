@@ -95,11 +95,11 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     const result = planItem(ctx, raw);
     if ("drop" in result) dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null });
     else {
-      // "Ben and John went to Tahoe", told once for each of them: one shared memory.
-      const shared = items.find((p) => p.kind === result.item.kind && fold(p.statement) === fold(result.item.statement) &&
-        ((!!result.item.person_id && (p.with_person_ids ?? []).includes(result.item.person_id)) ||
-          (!!p.person_id && (result.item.with_person_ids ?? []).includes(p.person_id))));
+      // "Ben and John went to Tahoe", told once for each of them, in either
+      // order: one shared memory (founder H13).
+      const shared = items.find((p) => sameSharedPlanned(p, result.item));
       const dup = shared ?? items.find((p) => sameItem(p, result.item));
+      if (!dup) sharedTwin(ctx, result.item);
       if (dup) {
         // Same thing twice in one note: keep one, with both spans.
         for (const s of result.item.spans) if (!dup.spans.some((d) => d.start === s.start)) dup.spans.push(s);
@@ -1125,3 +1125,56 @@ function possessiveRelationWord(sentence: string, person: RosterPerson): string 
 
 // Re-exported for tests.
 export const _internal = { inventedName: (input: ExtractionInput, s: string) => inventedName(new Context(input, input.capture.raw_text), s), addDays, localDay, iso };
+
+// ─── Shared memories, whatever the order of the names (founder H13) ─────────
+
+/** The words of a statement as a bag, so "Ben and John went…" = "John and Ben went…". */
+function wordBag(statement: string): string {
+  return wordsOf(fold(statement)).filter((w) => w !== "and" && w !== "&").sort().join(" ");
+}
+
+function participants(personKey: string | null, withKeys: string[] | undefined): string {
+  return [personKey ?? "", ...(withKeys ?? [])].filter(Boolean).sort().join(",");
+}
+
+/** Dates agree when both are missing, or both are the same day. */
+function sameWhen(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const da = typeof a.date === "string" ? a.date : null;
+  const db = typeof b.date === "string" ? b.date : null;
+  return !da || !db || da === db;
+}
+
+function sameSharedPlanned(a: PlannedItem, b: PlannedItem): boolean {
+  if (a.kind !== b.kind || a.subject_type !== b.subject_type) return false;
+  const pa = [a.person_id ?? "", ...(a.with_person_ids ?? [])].filter(Boolean).sort().join(",");
+  const pb = [b.person_id ?? "", ...(b.with_person_ids ?? [])].filter(Boolean).sort().join(",");
+  return pa.includes(",") && pa === pb && wordBag(a.statement) === wordBag(b.statement) && sameWhen(a.detail, b.detail);
+}
+
+/**
+ * The same shared memory, already remembered for any of the people in it
+ * ("John and Ben went to Tahoe", on John), becomes one memory: this one is
+ * filed with it and merged, never a second current line. Different days or
+ * different words stay separate (silence beats a wrong merge).
+ */
+function sharedTwin(ctx: Context, item: PlannedItem): void {
+  if (item.action.type !== "new" || !item.person_key || !item.with_person_ids?.length) return;
+  const keyOfId = new Map(ctx.input.roster.map((r) => [r.id, r.key]));
+  const withKeys = item.with_person_ids.map((id) => keyOfId.get(id)).filter((k): k is string => !!k);
+  const mine = participants(item.person_key, withKeys);
+  const twin = ctx.input.dossier.find((t) =>
+    t.status === "active" && t.kind === item.kind && t.subject_type === item.subject_type &&
+    t.user_state !== "edited" && t.user_state !== "user_authored" &&
+    participants(t.person_key, t.with_person_keys) === mine &&
+    wordBag(t.statement) === wordBag(item.statement) && sameWhen(t.detail, item.detail)
+  );
+  if (!twin) return;
+  const owner = ctx.byKey.get(twin.person_key);
+  if (!owner) return;
+  const others = [item.person_key, ...withKeys].filter((k) => k !== twin.person_key)
+    .map((k) => ctx.byKey.get(k)?.id).filter((id): id is string => !!id);
+  item.person_id = owner.id;
+  item.person_key = owner.key;
+  item.with_person_ids = others;
+  item.action = { type: "merge", target_id: twin.id };
+}
