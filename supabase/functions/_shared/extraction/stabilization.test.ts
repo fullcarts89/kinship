@@ -230,3 +230,29 @@ Deno.test("v6 wording: 'We' is the user, never a new person; 'You're…' is grou
   })]);
   eq([promise.items.length, promise.dropped.length], [1, 0]);
 });
+
+// ─── Core trust closure ────────────────────────────────────────────────────
+
+Deno.test("H28: someone else's commitment to you is theirs, in every common phrasing, with its day", () => {
+  const notes = [
+    "Tyler promised to send me his contractor's number Friday.",
+    "Tyler promised me his contractor's number Friday.",
+    "Tyler will send me his contractor's number Friday.",
+    "Tyler is going to send me his contractor's number Friday.",
+    "Tyler said he'd send me his contractor's number Friday.",
+  ];
+  for (const note of notes) {
+    // The model's usual reading: a promise, filed as the user's.
+    const out = run(input(note), [item({
+      kind: "promise", person: "p4", person_mention: "Tyler", subject: "user", statement: note.replace(/\.$/, ""),
+      evidence: [note.replace(/\.$/, "")], date_text: "Friday", detail: {},
+    })]);
+    eq([out.items[0]?.kind, out.items[0]?.subject_type, out.items[0]?.detail.due_date], ["promise", "person", "2026-10-09"], note);
+  }
+  // The user's own promise stays theirs.
+  const mine = run(input("I'll send Tyler the restaurant Wednesday."), [item({
+    kind: "promise", person: "p4", person_mention: "Tyler", subject: "user", statement: "You'll send Tyler the restaurant",
+    evidence: ["I'll send Tyler the restaurant Wednesday"], date_text: "Wednesday",
+  })]);
+  eq([mine.items[0]?.subject_type, mine.items[0]?.detail.due_date], ["user", "2026-10-07"]);
+});

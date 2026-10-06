@@ -74,7 +74,29 @@ export function PersonPane({
   );
 }
 
-export function KindPane({ current, onPick, onCancel }: { current: string; onPick: (k: SwitchableKind) => void; onCancel: () => void }) {
+export function KindPane({
+  current,
+  owner,
+  onPick,
+  onOwner,
+  onCancel,
+}: {
+  current: string;
+  /** For a promise: whose it is. The only thing about a promise that changes (H28). */
+  owner?: { value: "user" | "person"; name: string | null };
+  onPick: (k: SwitchableKind) => void;
+  onOwner?: (owner: "user" | "person") => void;
+  onCancel: () => void;
+}) {
+  if (current === "promise" && owner && onOwner) {
+    return (
+      <View>
+        <PaneHeader title="Whose promise?" onCancel={onCancel} />
+        <Row first title="Yours" selected={owner.value === "user"} onPress={() => onOwner("user")} />
+        <Row title={owner.name ? `${owner.name}'s` : "Theirs"} selected={owner.value === "person"} onPress={() => onOwner("person")} />
+      </View>
+    );
+  }
   return (
     <View>
       <PaneHeader title="What is it?" onCancel={onCancel} />

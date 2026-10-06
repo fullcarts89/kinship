@@ -284,12 +284,13 @@ export class Understanding {
       | { statement: string }
       | { person_id: string }
       | { kind: SwitchableKind }
+      | { owner: "user" | "person" }
       | { date: string | null },
   ): Promise<void> {
     const memory = repositoriesFor(this.store).memory;
     const item = (await this.store.get("memory_items", itemId)) as MemoryItem | null;
     if (!item) throw new StoreWriteError("that memory isn't here any more");
-    let correction: "statement" | "person" | "kind" | "date";
+    let correction: "statement" | "person" | "kind" | "owner" | "date";
     if ("statement" in change) {
       const statement = change.statement.normalize("NFC").trim();
       if (!statement) throw new StoreWriteError("say what to remember");
@@ -303,6 +304,14 @@ export class Understanding {
       if (!(await this.store.get("people", change.person_id))) throw new StoreWriteError("that person isn't here any more");
       await memory.correct(itemId, { person_id: change.person_id });
       correction = "person";
+    } else if ("owner" in change) {
+      // Whose promise it is (H28): yours, or theirs to you. Only the meaning
+      // changes; the words and their source stay as told.
+      if (item.kind !== "promise") throw new StoreWriteError("only a promise has an owner");
+      const subject = change.owner === "user" ? "user" : "person";
+      if ((item.subject_type ?? "user") === subject) return;
+      await memory.correct(itemId, { subject_type: subject });
+      correction = "owner";
     } else if ("kind" in change) {
       if (change.kind === item.kind) return;
       if (item.kind === "promise" || item.subject_type === "user") throw new StoreWriteError("a promise stays a promise");

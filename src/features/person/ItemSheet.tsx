@@ -49,7 +49,9 @@ export function ItemSheet(props: ItemSheetProps) {
       body = <DatePane title="When is it?" initial={line.when?.value ?? null} today={props.today} allowNone onCancel={back}
         onPick={(day) => { props.onCorrect(line.id, { date: day }); back(); }} />;
     } else if (pane === "kind") {
-      body = <KindPane current={line.kind.value} onCancel={back} onPick={(k) => { props.onCorrect(line.id, { kind: k }); back(); }} />;
+      body = <KindPane current={line.kind.value} owner={line.kind.owner} onCancel={back}
+        onPick={(k) => { props.onCorrect(line.id, { kind: k }); back(); }}
+        onOwner={(o) => { props.onCorrect(line.id, { owner: o }); back(); }} />;
     } else if (pane === "words") {
       body = <WordsPane initial={line.statement} onCancel={back} onSave={(w) => { props.onCorrect(line.id, { statement: w }); back(); }} />;
     } else {

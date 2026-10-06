@@ -52,8 +52,11 @@ export default function KnowsScreen() {
               close();
             }} />
         ) : pane?.kind === "kind" ? (
-          <KindPane current={pane.line.kind.value} onCancel={close} onPick={(k) => {
+          <KindPane current={pane.line.kind.value} owner={pane.line.kind.owner} onCancel={close} onPick={(k) => {
             fail(u.correct(pane.line.id, { kind: k }));
+            close();
+          }} onOwner={(o) => {
+            fail(u.correct(pane.line.id, { owner: o }));
             close();
           }} />
         ) : pane?.kind === "words" ? (

@@ -23,7 +23,7 @@ import type { HeldAnswer, HeldItem } from "@/store/gateway";
 import { SWITCHABLE_KINDS, takesDate } from "@/store/memoryDetail";
 import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
-import { kindLabel, whenLabel } from "../memory/format";
+import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 
 export interface ReviewInput {
   row: UnderstandingRow;
@@ -70,7 +70,13 @@ export interface ItemLine {
   replaces: string | null;
   /** value: the exact day, when there is one (for the date picker). */
   when: { label: string; value: string | null; changeable: boolean } | null;
-  kind: { value: string; label: string; changeable: boolean };
+  kind: {
+    value: string;
+    label: string;
+    changeable: boolean;
+    /** Promises only: whose commitment it is, and the other person's first name. */
+    owner?: { value: "user" | "person"; name: string | null };
+  };
   /** The user already changed it. */
   edited: boolean;
 }
@@ -242,13 +248,30 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
     replaces: typeof item.supersedes_id === "string" ? input.earlier?.[item.supersedes_id] ?? null : null,
     // Shown only when there is a time to show (an event without one says so).
     when: when ? { label: when, value: exactDay(item), changeable: takesDate(item.kind) } : null,
-    kind: {
-      value: item.kind,
-      label: kindLabel(item.kind),
-      changeable: (SWITCHABLE_KINDS as readonly string[]).includes(item.kind) && item.subject_type !== "user",
-    },
+    kind: item.kind === "promise"
+      ? {
+        value: item.kind,
+        label: promiseLabel(ownerOf(item), person ? firstName(person.display_name) : null),
+        // Whose promise is the one thing about a promise the user can change (H28).
+        changeable: true,
+        owner: { value: ownerOf(item), name: person ? firstName(person.display_name) : null },
+      }
+      : {
+        value: item.kind,
+        label: kindLabel(item.kind),
+        changeable: (SWITCHABLE_KINDS as readonly string[]).includes(item.kind) && item.subject_type !== "user",
+      },
     edited: item.user_state === "edited",
   };
+}
+
+/** A promise is the user's unless it's plainly someone else's commitment to them. */
+function ownerOf(item: MemoryItem): "user" | "person" {
+  return item.subject_type === "person" ? "person" : "user";
+}
+
+function firstName(name: string): string {
+  return name.trim().split(/\s+/u)[0] ?? name;
 }
 
 function exactDay(item: MemoryItem): string | null {

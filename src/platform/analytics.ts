@@ -78,7 +78,7 @@ export interface AnalyticsEvents {
     model_id: "primary" | "fallback";
   };
   extraction_corrected: {
-    correction: "person" | "date" | "kind" | "relation" | "statement";
+    correction: "person" | "date" | "kind" | "owner" | "relation" | "statement";
     item_kind: MemoryKindName;
   };
   clarification_shown: { type: ClarificationType };

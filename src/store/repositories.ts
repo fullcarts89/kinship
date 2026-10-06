@@ -237,7 +237,7 @@ export class MemoryRepo {
   }
 
   /** The user's correction wins, and says so (a user_edit source; plan §5). */
-  async correct(id: string, patch: Partial<Pick<MemoryItem, "statement" | "detail" | "kind" | "person_id" | "certainty">>): Promise<Data> {
+  async correct(id: string, patch: Partial<Pick<MemoryItem, "statement" | "detail" | "kind" | "person_id" | "certainty" | "subject_type">>): Promise<Data> {
     const updated = await this.store.update("memory_items", id, { ...patch, user_state: "edited" });
     await this.store.create("memory_item_sources", { memory_item_id: id, source_kind: "user_edit" });
     return updated;

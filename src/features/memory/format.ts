@@ -120,6 +120,16 @@ export function kindLabel(kind: string): string {
   return KIND_LABELS[kind] ?? "Something to remember";
 }
 
+/**
+ * Whose promise it is, in the user's terms (founder H28). Someone else's
+ * commitment to you ("Tyler promised to send me…") is "Tyler's promise",
+ * never "Your promise".
+ */
+export function promiseLabel(owner: "user" | "person", name: string | null): string {
+  if (owner === "user") return KIND_LABELS.promise;
+  return name ? `${name}'s promise` : "Their promise";
+}
+
 /** A local-time timestamp as "Oct 8, 9:14 pm" (with the year when it isn't this year). */
 export function momentLabel(timestamp: string, now: Date, withTime = true): string {
   const t = new Date(timestamp);

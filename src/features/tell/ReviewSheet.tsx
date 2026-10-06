@@ -17,7 +17,12 @@ import { Body, Label, Line, Pill, Sheet, Small, Title, Token, TokenRow, usePalet
 import { DatePane, KindPane, PersonPane, WordsPane } from "./Pickers";
 import { answersFor, COPY, type ItemLine, type Question, type ReviewView } from "./reviewModel";
 
-export type Correction = { statement: string } | { person_id: string } | { kind: SwitchableKind } | { date: string | null };
+export type Correction =
+  | { statement: string }
+  | { person_id: string }
+  | { kind: SwitchableKind }
+  | { owner: "user" | "person" }
+  | { date: string | null };
 
 type Pane =
   | { kind: "review" }
@@ -99,8 +104,11 @@ export function ReviewSheet(props: ReviewSheetProps) {
       />
     );
   } else if (pane.kind === "kind") {
-    body = <KindPane current={pane.line.kind.value} onCancel={back} onPick={(k) => {
+    body = <KindPane current={pane.line.kind.value} owner={pane.line.kind.owner} onCancel={back} onPick={(k) => {
       props.onCorrect(pane.line.id, { kind: k });
+      back();
+    }} onOwner={(o) => {
+      props.onCorrect(pane.line.id, { owner: o });
       back();
     }} />;
   } else if (pane.kind === "words") {
