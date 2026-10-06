@@ -104,8 +104,8 @@ describe("the founder's note, through the real pipeline", () => {
     await person(w, "Tyler Shaffer");
     const { captureId, row, review } = await tell(w, foundersReply);
 
-    // The review shows the move for a yes (never silently): John's line, John's name on it.
-    expect(review.mode).toBe("sheet");
+    // The Kept card shows the move (never silently): John's line, John's name on it.
+    expect(review.mode).toBe("card");
     const lines = review.lines.map((l) => [l.statement, l.person?.label]);
     expect(lines).toEqual(expect.arrayContaining([
       ["Ben wants to play the new warhammer game with you and John on weekends", "Ben Oxnard"],
@@ -119,7 +119,9 @@ describe("the founder's note, through the real pipeline", () => {
     const johnPage = await portraitFor(w.repos, john, now(w));
     const shown = [...benPage.lately, ...benPage.comingUp, ...benPage.youSaid, ...benPage.between].map((l) => l.statement);
     expect(shown).toEqual(["Ben wants to play the new warhammer game with you and John on weekends"]);
-    expect([...johnPage.lately, ...johnPage.comingUp].map((l) => l.statement)).toEqual(["John is your brother"]);
+    // The plan names John too, so it's one shared memory, on his page as well (stabilization Gate F).
+    expect([...johnPage.lately, ...johnPage.comingUp].map((l) => l.statement)).toEqual([
+      "John is your brother", "Ben wants to play the new warhammer game with you and John on weekends"]);
 
     // Nothing anywhere says "the writer": pages, records, the Source view, the stored rows.
     const benKnows = await recordFor(w.repos, ben.id, now(w));

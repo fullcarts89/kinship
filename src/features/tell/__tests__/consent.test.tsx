@@ -34,3 +34,19 @@ it("Settings repeats it beside the switch", () => {
   const t = texts(<SettingsSheetView visible understanding onUnderstanding={() => undefined} onSignOut={() => undefined} onDismiss={() => undefined} />);
   expect(t).toEqual(expect.arrayContaining([D2, "Understanding what you tell Kinship", "Sign out"]));
 });
+
+describe("stabilization Gate C: consent is an explicit choice", () => {
+  it("a swipe, a tap outside or Back is never an answer", () => {
+    const onAllow = jest.fn();
+    const onDecline = jest.fn();
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(<ConsentSheetView visible busy={false} onAllow={onAllow} onDecline={onDecline} />);
+    });
+    // The Sheet's own dismiss (drag, scrim, Back) does nothing.
+    const sheet = tree.root.findAll((n) => typeof n.props.onDismiss === "function")[0];
+    act(() => sheet.props.onDismiss());
+    expect(onDecline).not.toHaveBeenCalled();
+    expect(onAllow).not.toHaveBeenCalled();
+  });
+});

@@ -169,7 +169,11 @@ Deno.test("instructions in the note are never memory", () => {
 });
 
 Deno.test("someone else's promise is not the user's promise", () => {
-  eq(run(input("Ben said he'd pick up the cake."), [item({ kind: "promise", evidence: ["Ben said he'd pick up the cake"], statement: "Pick up the cake" })]).dropped[0].reason, "not_a_user_promise");
+  // Kept as Ben's (waiting on him, stabilization Gate F), never the user's.
+  const ben = run(input("Ben said he'd pick up the cake."), [item({ kind: "promise", evidence: ["Ben said he'd pick up the cake"], statement: "Ben said he'd pick up the cake" })]);
+  eq([ben.items[0]?.kind, ben.items[0]?.subject_type], ["promise", "person"]);
+  // Neither the user's nor anyone's commitment: still dropped.
+  eq(run(input("Ben's cake is ready."), [item({ kind: "promise", evidence: ["Ben's cake is ready"], statement: "Ben's cake is ready" })]).dropped[0].reason, "not_a_user_promise");
   eq(run(input("Dropping off a lasagna for Ben tomorrow."), [item({ kind: "promise", evidence: ["Dropping off a lasagna for Ben tomorrow"], statement: "Drop off a lasagna for Ben", date_text: "tomorrow" })]).items[0].detail, { due_hint: "tomorrow", due_date: "2026-10-09" });
 });
 
@@ -615,7 +619,7 @@ Deno.test("'the writer' never survives into a statement; what can't be said as '
   ]);
   eq(out.items.map((i) => i.statement), [
     "You and Sarah always get dumplings after the Lyric opera",
-    "Tom is coming to your birthday dinner Friday",
+    "Tom is coming to your birthday dinner", // "Friday" is kept as the date (stabilization)
   ]);
 });
 

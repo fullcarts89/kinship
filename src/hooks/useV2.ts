@@ -7,7 +7,7 @@ import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
-import { buildToday, evidenceOf, isBirthdayReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayView } from "@/features/today/todayModel";
+import { buildToday, evidenceOf, isBirthdayReason, isLocalReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { buildPortrait, PORTRAIT_RULES, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
 import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
 import { legacyActivation, NO_ACTIVATION, nextStep, setupFinished, setupStepsFor, type SetupNeeds } from "@/features/setup/activation";
@@ -15,6 +15,7 @@ import { useActivation, type ActivationState } from "./useActivation";
 import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
 import { parseDrafts, withDraft, type Drafts } from "@/features/tell/drafts";
 import { misfiledOn, voiced } from "@/features/memory/statements";
+import { linkSuggestions, type LinkSuggestion } from "@/features/person/links";
 import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
 import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, track } from "@/platform/analytics";
@@ -64,6 +65,21 @@ export function useTell() {
   return { keep, ai, tellOn: isOn(flags, "tell"), extractionOn: isOn(flags, "ai_extraction") };
 }
 
+/**
+ * What each superseded memory said, for the ones these items update (Gate E:
+ * history stays traceable: "Updates: Sam is interviewing at Stripe").
+ */
+async function earlierOf(repos: Repositories, items: MemoryItem[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const m of items) {
+    const id = typeof m.supersedes_id === "string" ? m.supersedes_id : null;
+    if (!id || out[id]) continue;
+    const prev = await repos.memory.get(id);
+    if (prev && !prev.deleted_at) out[id] = voiced(prev).statement;
+  }
+  return out;
+}
+
 // ─── The review ─────────────────────────────────────────────────────────
 
 export function useReview(captureId: string | null): ReviewView | null {
@@ -73,19 +89,25 @@ export function useReview(captureId: string | null): ReviewView | null {
     const row = await understanding.get(captureId);
     if (!row) return null;
     const capture = await repos.captures.get(captureId);
+    const people = await repos.people.list();
+    const items = (await understanding.itemsFor(captureId, row.reading)).map((m) => voiced(m, people));
     return buildReview({
       row,
       capture: capture
         ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status }
         : null,
-      items: (await understanding.itemsFor(captureId, row.reading)).map(voiced),
-      people: await repos.people.list(),
+      items,
+      earlier: await earlierOf(repos, items),
+      missing: await understanding.arriving(row.reading),
+      people,
       related: await repos.people.related(),
       offline: understanding.offline,
       today: todayIso(),
     });
   }, [captureId]);
-  return q.data ?? null;
+  // Only ever the note asked for: while a new id loads, the previous note's
+  // view must not stand in for it.
+  return q.data && q.data.captureId === captureId ? q.data : null;
 }
 
 export interface OpenNotes {
@@ -96,6 +118,63 @@ export interface OpenNotes {
   /** Understood while the user was elsewhere, not looked at yet. */
   toLookAt: string[];
   offline: boolean;
+}
+
+/**
+ * A note still open, as a quiet line (stabilization Gate A): Today and the
+ * person's page always account for every note until it's finished. Never a
+ * count or a badge: what it is, in words.
+ */
+export interface PendingNote {
+  captureId: string;
+  kind: "understanding" | "question";
+  /** The quiet line's label ("A question", "Understanding"). */
+  label: string;
+  text: string;
+  action: string | null;
+  /** Who it's about so far (the person it was told from, the people it names). */
+  personIds: string[];
+  createdAt: string;
+}
+
+export function usePending(): PendingNote[] {
+  const { store, understanding } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const rows = await understanding.open();
+    if (rows.length === 0) return [];
+    const people = await repos.people.list();
+    const related = await repos.people.related();
+    const out: PendingNote[] = [];
+    for (const row of rows) {
+      if (row.state === "closing") continue;
+      const capture = await repos.captures.get(row.capture_id);
+      if (!capture) continue;
+      const view = buildReview({
+        row,
+        capture: { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status },
+        items: [], missing: 0, people, related, offline: understanding.offline, today: todayIso(),
+      });
+      const about = capture.context_person_id ? people.find((p) => p.id === capture.context_person_id)?.display_name.split(/\s+/u)[0] : null;
+      if (view.questions.length) {
+        const [first] = view.questions;
+        out.push({
+          captureId: row.capture_id, kind: "question", label: "A question",
+          text: first.type === "keep" ? `${first.prompt.replace(/\?$/u, "")}: “${first.about[0]}”?` : first.prompt,
+          action: "Answer", personIds: view.personIds, createdAt: row.created_at,
+        });
+      } else if (row.state === "waiting" || row.state === "answering") {
+        out.push({
+          captureId: row.capture_id, kind: "understanding", label: row.state === "answering" ? "Saving your answer" : "Understanding",
+          text: row.state === "waiting" && row.attempts > 0
+            ? "Couldn't understand a note yet. It's saved, and I'll try again."
+            : about ? `A note about ${about}` : "A note you told me",
+          action: null, personIds: view.personIds, createdAt: row.created_at,
+        });
+      }
+    }
+    return out;
+  });
+  return q.data ?? [];
 }
 
 export function useOpenNotes(): OpenNotes {
@@ -140,9 +219,9 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
   const person = people.find((p) => p.id === personId) ?? null;
   if (!person) return { person: null, lines: [] as RecordLine[] };
   const related = await repos.people.related();
-  const items = (await repos.memory.forPerson(personId))
+  const items = (await repos.memory.aboutPerson(personId))
     .filter((m) => m.status === "active" || m.status === "resolved")
-    .map(voiced)
+    .map((m) => voiced(m, people))
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   const lines: RecordLine[] = [];
   const byItem = await repos.memory.sourcesByItem();
@@ -152,7 +231,7 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
     lines.push({
-      line: itemLine(item, { people, related, today: todayIso(now) }),
+      line: itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }),
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
       })), now),
@@ -188,7 +267,7 @@ export async function noteFor(store: UserStore, captureId: string, now: Date): P
     if (!item || item.status === "retracted" || item.status === "superseded") continue;
     if (!items.some((i) => i.id === item.id)) {
       const p = people.find((x) => x.id === item.person_id);
-      items.push({ id: item.id, statement: voiced(item).statement, person: p?.display_name ?? "", personId: item.person_id });
+      items.push({ id: item.id, statement: voiced(item, people).statement, person: p?.display_name ?? "", personId: item.person_id });
     }
     if (typeof s.span_start === "number" && typeof s.span_end === "number") spans.push({ start: s.span_start, end: s.span_end });
     if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
@@ -244,14 +323,19 @@ export function useV2Actions() {
 // ─── Today ──────────────────────────────────────────────────────────────
 
 /** Today's view: the one moment, the return check, at most two quiet lines. */
-export function useToday(questions: number, toLookAt: number, now: Date): TodayView | null {
+export function useToday(
+  questions: number,
+  toLookAt: number,
+  now: Date,
+  pending?: TodayInput["pending"],
+): TodayView | null {
   const { store, reasonLocal } = useV2Session();
   const activation = useActivation();
   const minute = Math.floor(now.getTime() / 60_000);
   const q = useStoreQuery(store, async (repos) => {
     const reasons = (await store.list("reasons")) as unknown as ReasonRow[];
     const people = await repos.people.list();
-    const items = ((await store.list("memory_items")) as MemoryItem[]).map(voiced)
+    const items = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people))
       .filter((m) => !misfiled(m, people));
     const told = (await repos.captures.list()).length;
     const local = await reasonLocal.read();
@@ -273,9 +357,9 @@ export function useToday(questions: number, toLookAt: number, now: Date): TodayV
     return buildToday({
       now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
       handoff: local.handoff, told, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
-      activated: activation.activated, firstName: activation.firstName,
+      activated: activation.activated, firstName: activation.firstName, pending,
     });
-  }, [questions, toLookAt, minute, activation.activated, activation.firstName]);
+  }, [questions, toLookAt, minute, activation.activated, activation.firstName, JSON.stringify(pending ?? null)]);
   return q.data ?? null;
 }
 
@@ -288,31 +372,31 @@ export function useTodayActions() {
       const before = (await reasonLocal.read()).local[m.reasonId]?.firstShown;
       await reasonLocal.shown(m.reasonId, m.personId, todayIso());
       if (!before) {
-        if (!isBirthdayReason(m.reasonId)) reasons.record(m.reasonId, "shown");
+        if (!isLocalReason(m.reasonId)) reasons.record(m.reasonId, "shown");
         track("reason_surfaced", { reason_type: reasonTypeName(m.type), surface: "today", score_bucket: scoreBucket(m.score) });
       }
     },
     notNow: async (m: { reasonId: string; type: TodayReasonType }) => {
       await reasonLocal.dismissed(m.reasonId, new Date().toISOString());
-      if (!isBirthdayReason(m.reasonId)) reasons.record(m.reasonId, "dismissed_not_now");
+      if (!isLocalReason(m.reasonId)) reasons.record(m.reasonId, "dismissed_not_now");
       track("reason_dismissed", { reason_type: reasonTypeName(m.type), mode: "not_now" });
     },
     handedOff: async (h: { reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType }) => {
       await reasonLocal.handedOff({ reasonId: h.reasonId, personId: h.personId, channel: h.channel, at: new Date().toISOString() });
-      if (!isBirthdayReason(h.reasonId)) reasons.record(h.reasonId, "acted", h.channel);
+      if (!isLocalReason(h.reasonId)) reasons.record(h.reasonId, "acted", h.channel);
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
     },
     /** "Yes": the one place a connection is recorded (plan §15). */
     returned: async (answer: "yes" | "not_yet") => {
       const h = await reasonLocal.answered(answer, new Date().toISOString());
       if (!h) return null;
-      if (!isBirthdayReason(h.reasonId)) reasons.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
+      if (!isLocalReason(h.reasonId)) reasons.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
       track("return_check_answered", { answer, minutes_since_handoff_bucket: minutesBucket(Date.now() - Date.parse(h.at)) });
       if (answer === "yes") {
         // A birthday moment is worked out on this phone and has no server
         // reason to name, so its "Yes" is recorded as the user's own word
         // (manual). Server birthday reasons (RSN-05) will carry the reason.
-        await repositoriesFor(store).contacts.confirm(isBirthdayReason(h.reasonId)
+        await repositoriesFor(store).contacts.confirm(isLocalReason(h.reasonId)
           ? { person_id: h.personId, channel: h.channel, source: "manual" }
           : { person_id: h.personId, channel: h.channel, source: "return_check", reason_id: h.reasonId });
       }
@@ -352,7 +436,11 @@ export function usePeopleRows(): PeopleRowData[] {
       .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
     const all = await repos.people.list();
     const newest = new Map<string, string>();
-    for (const m of items) if (!newest.has(m.person_id) && !misfiled(m, all)) newest.set(m.person_id, voiced(m).statement);
+    // A person's row shows their own news first; a relative's ("Michelle's
+    // sister Ana had a baby") only when there's nothing else (founder G42).
+    const own = (m: MemoryItem) => m.subject_type !== "related";
+    for (const m of items) if (own(m) && !newest.has(m.person_id) && !misfiled(m, all)) newest.set(m.person_id, voiced(m, all).statement);
+    for (const m of items) if (!newest.has(m.person_id) && !misfiled(m, all)) newest.set(m.person_id, voiced(m, all).statement);
     return people
       .sort((a, b) => a.display_name.localeCompare(b.display_name))
       .map((p) => ({ person: p, label: personLabel(p, people), line: newest.get(p.id) ?? null }));
@@ -377,6 +465,44 @@ export function usePortrait(personId: string): Portrait {
   return q.data ?? buildPortrait({ person: null, items: [], today: todayIso() });
 }
 
+// ─── Someone added after they were mentioned (G20) ──────────────────────
+
+const LINKS_ANSWERED = "person_links_answered";
+
+/** "Is this the Michelle in 'Sam is married to Michelle'?" on Michelle's page, once. */
+export function usePersonLinks(personId: string) {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const people = await repos.people.list();
+    const person = people.find((p) => p.id === personId && !p.deleted_at);
+    if (!person) return [];
+    const answered = new Set<string>(JSON.parse((await getMeta(store.db, LINKS_ANSWERED)) ?? "[]") as string[]);
+    const items = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people));
+    return linkSuggestions({ person, people, items, related: await repos.people.related(), answered });
+  }, [personId]);
+  const remember = async (key: string) => {
+    const answered = JSON.parse((await getMeta(store.db, LINKS_ANSWERED)) ?? "[]") as string[];
+    await setMeta(store.db, LINKS_ANSWERED, JSON.stringify([...new Set([...answered, key])]));
+    store.notify();
+  };
+  return {
+    suggestions: q.data ?? [],
+    yes: async (s: LinkSuggestion) => {
+      if (s.kind === "related") {
+        await store.update("related_people", s.targetId, { promoted_person_id: personId });
+      } else {
+        const item = (await store.get("memory_items", s.targetId)) as MemoryItem | null;
+        if (item) {
+          const others = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
+          await store.update("memory_items", s.targetId, { with_person_ids: [...new Set([...others, personId])] });
+        }
+      }
+      await remember(s.key);
+    },
+    no: (s: LinkSuggestion) => remember(s.key),
+  };
+}
+
 /** The portrait from the store (also used by tests and the dense-Tell proof). */
 export async function portraitFor(repos: Repositories, person: Person | null, now: Date): Promise<Portrait> {
   const today = todayIso(now);
@@ -384,8 +510,8 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
   const items: PortraitItem[] = [];
   const byItem = await repos.memory.sourcesByItem();
   const people = await repos.people.list();
-  for (const stored of await repos.memory.forPerson(person.id)) {
-    const item = voiced(stored);
+  for (const stored of await repos.memory.aboutPerson(person.id)) {
+    const item = voiced(stored, people);
     // Plainly about someone else: not on this portrait (it stays in What Kinship knows).
     if (misfiledOn(item, person, people)) continue;
     const sources = byItem.get(item.id) ?? [];
@@ -430,15 +556,15 @@ export function useItemLine(itemId: string | null): { line: ItemLine; provenance
     if (!itemId) return null;
     const stored = (await store.get("memory_items", itemId)) as MemoryItem | null;
     if (!stored || !liveItem(stored)) return null;
-    const item = voiced(stored);
     const people = await repos.people.list();
+    const item = voiced(stored, people);
     const related = await repos.people.related();
     const sources = await repos.memory.sourcesFor(item.id);
     const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const now = new Date();
     return {
-      line: itemLine(item, { people, related, today: todayIso(now) }),
+      line: itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }),
       provenance: provenanceLine(sources.map((s) => ({
         source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
       })), now),
@@ -500,12 +626,15 @@ export function useConsentAsk(): { ask: boolean; answer: (allow: boolean) => Pro
     const allowed = s?.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
     // "Keep notes as written", said on another phone, is an answer too.
     const declined = s?.ai_consent === false && !!s?.ai_consent_updated_at;
-    return { allowed, asked: declined || (await getMeta(store.db, CONSENT_ASKED)) === "1" };
+    // The account's own answer isn't on this phone yet (signed in, first sync
+    // still on its way): never ask on a guess (stabilization Gate C).
+    const known = !!s;
+    return { allowed, known, asked: declined || (await getMeta(store.db, CONSENT_ASKED)) === "1" };
   });
   return {
     // Setup asks first (recovery Gate 3); this only catches a choice that
     // couldn't be saved then, or understanding offered after setup.
-    ask: extractionOn && q.data !== undefined && !q.data.allowed && !q.data.asked,
+    ask: extractionOn && q.data !== undefined && q.data.known && !q.data.allowed && !q.data.asked,
     answer: async (allow: boolean) => {
       await setAIEnabled(allow);
       await setMeta(store.db, CONSENT_ASKED, "1");

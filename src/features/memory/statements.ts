@@ -8,13 +8,30 @@
 //     brother", kept on Ben) stays off Ben's portrait and his People line
 //     (silence beats a wrong detail). It still shows in What Kinship knows,
 //     where the user can move it to John or change its words.
-import { aboutSomeoneElse, displayStatement } from "../../../supabase/functions/_shared/extraction/voice";
+//   * (stabilization Gate B) a line whose "he" the user already resolved names
+//     the person ("He wants to go back…" on John → "John wants to go back…");
+//     a promise the user made reads as their own to-do ("Send Michelle that
+//     restaurant").
+import { aboutSomeoneElse, displayStatement, promiseLine, withResolvedName } from "../../../supabase/functions/_shared/extraction/voice";
 
 export { displayStatement };
 
-/** The item with its statement as the user should read it. */
-export function voiced<T extends { statement: string }>(item: T): T {
-  const statement = displayStatement(item.statement);
+/**
+ * The item with its statement as the user should read it. Pass the user's
+ * people to name a leading "He"/"She" by the person it's filed on.
+ */
+export function voiced<T extends { statement: string; kind?: unknown; subject_type?: unknown; person_id?: unknown }>(
+  item: T,
+  people?: unknown,
+): T {
+  let statement = displayStatement(item.statement);
+  if (Array.isArray(people) && typeof item.person_id === "string" && /^(He|She|His|Her)\b/u.test(statement)) {
+    const p = (people as Named[]).find((x) => x.id === item.person_id);
+    if (p && (item.subject_type === undefined || item.subject_type === "person" || item.subject_type === "shared")) {
+      statement = withResolvedName(statement, p.display_name);
+    }
+  }
+  if (item.kind === "promise" && (item.subject_type === undefined || item.subject_type === "user")) statement = promiseLine(statement);
   return statement === item.statement ? item : { ...item, statement };
 }
 

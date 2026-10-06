@@ -40,7 +40,7 @@ const race = {
 } as unknown as MemoryItem;
 
 const row = (tier: "auto" | "confirm"): UnderstandingRow => ({
-  capture_id: "c1", state: "review", answer: null, notice: null, attempts: 0, next_at: null, seen_at: null,
+  capture_id: "c1", state: "review", answer: null, notice: null, attempts: 0, next_at: null, seen_at: null, understood_at: null, shown_at: null,
   created_at: "2026-10-08T21:14:00.000Z", updated_at: "2026-10-08T21:14:00.000Z",
   reading: { tier, saved: [{ id: "m1", tier }], held: [], clarification: null, review_created_at: null, settled: tier === "auto" },
 });

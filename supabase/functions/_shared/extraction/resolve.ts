@@ -19,7 +19,9 @@
 // No model is called: the model's proposal already passed pipeline.ts, and
 // the answer changes only who or when, never the words.
 
-import { fold, kinshipReference, relationKey, wordsOf } from "./lexicon.ts";
+import { fold, kinshipReference, relationKey, statedSelfRelations, wordsOf } from "./lexicon.ts";
+import { withResolvedName, withResolvedNames } from "./voice.ts";
+import { threadTarget } from "./threads.ts";
 import type { Flag } from "./types.ts";
 
 /** A held item as stored in capture_reviews (the gateway's presentation of a PlannedItem). */
@@ -38,6 +40,8 @@ export interface HeldItem {
   tier: string;
   flags: Flag[];
   spans: { start: number; end: number; quote: string }[];
+  with_person_ids?: string[];
+  self_relations?: Record<string, string>;
 }
 
 /** The user's answer for one held item. */
@@ -47,8 +51,14 @@ export interface HeldAnswer {
   skip?: boolean;
   /** Which of the user's people it is about. */
   person_id?: string;
+  /** "Both": the others it is also about (the user's own people); one memory, one source. */
+  also_person_ids?: string[];
   /** Add the person the note named (only the name the note gave). */
   new_person?: boolean;
+  /** The name to add when the reading didn't name them itself; it must be in the note. */
+  new_person_name?: string;
+  /** Which earlier memory this replaces (one of those offered), or null for "keep both". */
+  replaces?: string | null;
   /** About the person, or about the person's relative. */
   subject?: "person" | "related";
   /** The relation word, from the user's own words ("sister"). */
@@ -78,6 +88,8 @@ export interface ResolveExisting {
   subject_related_id: string | null;
   statement: string;
   status: string;
+  /** Edited or written by the user: never updated by a reading. */
+  user_state?: string;
 }
 
 export interface ResolveContext {
@@ -102,11 +114,14 @@ export interface ResolvedItem {
   confidence: number | null;
   spans: { start: number; end: number; quote: string }[];
   action: { type: string; target_id: string | null };
+  with_person_ids?: string[];
+  self_relations?: Record<string, string>;
 }
 
 export interface Resolution {
   items: ResolvedItem[];
-  newPeople: { ref: string; display_name: string }[];
+  /** People to add; relationship_label only when the note states it to the user ("my daughter Kaiya"). */
+  newPeople: { ref: string; display_name: string; relationship_label?: string }[];
   skipped: number;
 }
 
@@ -129,14 +144,16 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
   }
 
   const items: ResolvedItem[] = [];
-  const newPeople: { ref: string; display_name: string }[] = [];
+  const newPeople: Resolution["newPeople"] = [];
+  const stated = statedSelfRelations(ctx.note);
   let skipped = 0;
 
   for (const [index, item] of held.entries()) {
     const a = byIndex.get(index);
     if (!a) return { fail: "unanswered" };
     if (a.skip === true) {
-      if (a.person_id !== undefined || a.new_person !== undefined || a.subject !== undefined || a.date !== undefined || a.accept !== undefined) return { fail: "bad_answer" };
+      if (a.person_id !== undefined || a.new_person !== undefined || a.subject !== undefined || a.date !== undefined || a.accept !== undefined ||
+          a.also_person_ids !== undefined || a.replaces !== undefined) return { fail: "bad_answer" };
       skipped++;
       continue;
     }
@@ -145,7 +162,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     const needsPerson = item.person_id === null || PERSON_FLAGS.some((f) => flags.has(f));
     // Held only for the user's yes (a sensitive or ambiguous reading): nothing is
     // written on silence or on an empty answer.
-    const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive");
+    const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive") || flags.has("update_check");
     if (a.accept !== undefined && a.accept !== true) return { fail: "bad_answer" };
     if (!asksSomething && a.accept !== true) return { fail: "bad_answer" };
 
@@ -154,12 +171,18 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     if (needsPerson) {
       if ((a.person_id === undefined) === (a.new_person !== true)) return { fail: "bad_answer" }; // exactly one
       if (a.new_person === true) {
-        const name = item.new_person_name?.trim();
+        // The name the reading gave, or one the user picked from the note's own words ("Add Kaiya").
+        const offered = typeof a.new_person_name === "string" ? a.new_person_name.trim() : "";
+        if (offered && (offered.length > 60 || !new RegExp(`(^|[^\\p{L}])${escapeRe(offered)}([^\\p{L}]|$)`, "u").test(ctx.note))) {
+          return { fail: "bad_answer" };
+        }
+        const name = item.new_person_name?.trim() || offered;
         if (!name) return { fail: "bad_answer" };
         let ref = newPeople.find((p) => fold(p.display_name) === fold(name))?.ref;
         if (!ref) {
           ref = `new:${newPeople.length}`;
-          newPeople.push({ ref, display_name: name });
+          const rel = stated.find((r) => fold(r.name) === fold(name))?.relation;
+          newPeople.push({ ref, display_name: name, ...(rel ? { relationship_label: rel } : {}) });
         }
         personId = ref;
       } else {
@@ -169,7 +192,9 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       }
     } else {
       // The pipeline already knew who; the answer may only repeat it.
-      if (a.new_person !== undefined || (a.person_id !== undefined && a.person_id !== item.person_id)) return { fail: "bad_answer" };
+      if (a.new_person !== undefined || a.also_person_ids !== undefined || (a.person_id !== undefined && a.person_id !== item.person_id)) {
+        return { fail: "bad_answer" };
+      }
       const p = ctx.people.find((x) => x.id === item.person_id);
       if (!p || p.state === "archived") return { fail: "unknown_person" };
       personId = p.id;
@@ -226,6 +251,30 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       return { fail: "bad_answer" };
     }
 
+    // ── Also about ("Both") ──
+    let withPeople = (item.with_person_ids ?? []).filter((id) => id !== personId);
+    if (a.also_person_ids !== undefined) {
+      if (!Array.isArray(a.also_person_ids) || a.also_person_ids.length > 7 || personId.startsWith("new:")) return { fail: "bad_answer" };
+      for (const id of a.also_person_ids) {
+        const p = ctx.people.find((x) => x.id === id);
+        if (!p || p.state === "archived") return { fail: "unknown_person" };
+      }
+      withPeople = [...new Set([...withPeople, ...a.also_person_ids])].filter((id) => id !== personId);
+    }
+
+    // The user just said who "he" is: the line says so ("John wants to go
+    // back…"), never a "He" the page can't explain (Gate B).
+    const chosenName = needsPerson
+      ? (personId.startsWith("new:")
+        ? newPeople.find((p) => p.ref === personId)?.display_name
+        : ctx.people.find((p) => p.id === personId)?.display_name)
+      : null;
+    // The user said who: the line names them ("Ben and John want to go back…" for Both).
+    const alsoNames = (a.also_person_ids ?? []).map((id) => ctx.people.find((p) => p.id === id)?.display_name).filter((n): n is string => !!n);
+    const statement = chosenName && subjectType !== "related"
+      ? (alsoNames.length ? withResolvedNames(item.statement, [chosenName, ...alsoNames]) : withResolvedName(item.statement, chosenName))
+      : item.statement;
+
     // ── Existing memory ──
     // A merge or supersede was worked out for the item as held; once the
     // person or subject changes, it no longer applies.
@@ -234,6 +283,39 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     let action = unchanged && item.action && ["new", "merge", "supersede", "resolves"].includes(item.action.type)
       ? { type: item.action.type, target_id: item.action.target_id ?? null }
       : { type: "new", target_id: null };
+    // "Which one does this replace?" (Gate E): one of those offered, or neither.
+    const offeredTargets = Array.isArray(detail._replaces) ? (detail._replaces as { id: string }[]).map((r) => r.id) : [];
+    delete detail._replaces;
+    if (flags.has("update_check")) {
+      if (a.replaces === undefined) return { fail: "bad_answer" };
+      if (a.replaces === null) {
+        action = { type: "new", target_id: null };
+        delete detail.transition;
+      } else {
+        if (!offeredTargets.includes(a.replaces)) return { fail: "bad_answer" };
+        const target = ctx.existing.find((m) => m.id === a.replaces);
+        action = { type: target && target.kind === "thread" && detail.transition === "completed" ? "resolves" : "supersede", target_id: a.replaces };
+      }
+    } else if (a.replaces !== undefined) {
+      return { fail: "bad_answer" };
+    }
+    // Who it's about was only just settled ("which Sam?"): does it update one
+    // of that person's memories? ("Sam got the Stripe job" after "Sam is
+    // interviewing at Stripe"), checked now that it's known (Gate E).
+    if (action.type === "new" && needsPerson && !personId.startsWith("new:") && !flags.has("update_check")) {
+      const p = ctx.people.find((x) => x.id === personId);
+      const candidates = ctx.existing.filter((m) =>
+        m.person_id === personId && m.subject_type === subjectType && (m.subject_related_id ?? null) === (related?.id ?? null) &&
+        m.user_state !== "edited" && m.user_state !== "user_authored"
+      );
+      const match = item.certainty === "tentative" || item.certainty === "wished"
+        ? null
+        : threadTarget(item.statement, candidates, p ? [p.display_name] : []);
+      if (match && !("ambiguous" in match)) {
+        action = { type: match.action, target_id: match.target };
+        detail = { ...detail, transition: match.transition };
+      }
+    }
     if (action.type === "new" && !personId.startsWith("new:")) {
       // The same thing, already remembered for this person, is one memory.
       const twin = ctx.existing.find((m) =>
@@ -248,16 +330,22 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       person_id: personId,
       subject_type: subjectType,
       related: subjectType === "related" ? related : null,
-      statement: item.statement,
+      statement,
       detail,
       certainty: item.certainty,
       sensitivity: item.sensitivity,
       confidence: typeof item.confidence === "number" ? item.confidence : null,
       spans: item.spans.map((s) => ({ start: s.start, end: s.end, quote: s.quote })),
       action,
+      ...(withPeople.length ? { with_person_ids: withPeople } : {}),
+      ...(item.self_relations && !personId.startsWith("new:") ? { self_relations: item.self_relations } : {}),
     });
   }
   return { items, newPeople, skipped };
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function validDay(s: string): boolean {

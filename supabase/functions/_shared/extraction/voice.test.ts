@@ -16,7 +16,7 @@ const CASES: [string, string][] = [
   ["Mike and the writer are thinking of doing a Japan trip next year", "You and Mike are thinking of doing a Japan trip next year"],
   ["Emma came out to the writer, the first person she's told", "Emma came out to you, the first person she's told"],
   ["Grandma wants the writer to visit at Christmas", "Grandma wants you to visit at Christmas"],
-  ["Kenji introduced the writer to their current job", "Kenji introduced you to their current job"],
+  ["Kenji introduced the writer to their current job", "Kenji introduced you to your current job"],
   ["Mike said he'd send the writer the playlist", "Mike said he'd send you the playlist"],
   ["The writer and Ben are skiing Tahoe February 18", "You and Ben are skiing Tahoe February 18"],
   ["The writer met Rafa at climbing", "You met Rafa at climbing"],

@@ -89,6 +89,16 @@ export interface AnalyticsEvents {
   review_item_rejected: { tier: ReviewTier; item_kind: MemoryKindName };
   review_left: { how: "done" | "idle" | "dismissed"; question_waiting: boolean };
   review_reopened: { question_waiting: boolean };
+  /**
+   * A Tell's lifecycle, timed (stabilization Gate A): sent → understood
+   * (server and model) and understood → shown (the phone presenting it), so
+   * a slow model and a slow screen can be told apart. Buckets only.
+   */
+  tell_lifecycle: {
+    outcome: "kept" | "needs_input" | "nothing" | "failed";
+    understood_bucket: LatencyBucket;
+    shown_bucket: LatencyBucket;
+  };
   capture_abandoned: { chars_bucket: CharsBucket };
   undo_capture: Record<string, never>;
   reason_surfaced: { reason_type: ReasonType; surface: "today" | "push" | "brief"; score_bucket: ScoreBucket };
@@ -136,6 +146,11 @@ export function charsBucket(n: number): CharsBucket {
   return n <= 50 ? "0-50" : n <= 200 ? "51-200" : "201+";
 }
 
+/** A duration as a latency bucket. */
+export function latencyBucketOf(ms: number): LatencyBucket {
+  return ms < 1000 ? "<1s" : ms < 3000 ? "1-3s" : ms < 10_000 ? "3-10s" : "10s+";
+}
+
 /** Clamps a count into SmallCount. */
 export function smallCount(n: number): SmallCount {
   return Math.max(0, Math.min(10, Math.floor(n))) as SmallCount;
@@ -153,7 +168,9 @@ export function minutesBucket(ms: number): MinutesBucket {
 }
 
 /** The analytics name for a Today reason type. */
-export function reasonTypeName(type: "upcoming_event" | "event_followup" | "birthday"): ReasonType {
+export function reasonTypeName(type: "upcoming_event" | "event_followup" | "birthday" | "good_news" | "starts_today"): ReasonType {
   if (type === "birthday") return "birthday";
+  if (type === "good_news") return "other";
+  if (type === "starts_today") return "upcoming";
   return type === "event_followup" ? "follow_up" : "upcoming";
 }

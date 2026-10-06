@@ -174,7 +174,10 @@ export function relationKey(word: string): string {
 /** Relation words used in `generated` that appear neither in the note nor in known labels. */
 export function inventedRelations(generated: string, source: string, known: string[]): string[] {
   const g = fold(generated);
-  const allowed = new Set([...wordsOf(source), ...known.flatMap((k) => wordsOf(k))].map(relationKey));
+  // "brothers" in the note allows "brother" (founder G11: "John and Ben are
+  // brothers" was dropped for inventing the singular).
+  const singular = (w: string) => [w, w.replace(/ies$/u, "y"), w.replace(/ren$/u, ""), w.replace(/s$/u, "")];
+  const allowed = new Set([...wordsOf(source), ...known.flatMap((k) => wordsOf(k))].flatMap(singular).map(relationKey));
   const out: string[] = [];
   for (const w of RELATION_WORDS) {
     if (w === "friend" || w === "baby") continue; // too generic to police
@@ -250,4 +253,101 @@ export function sentenceAround(text: string, from: number, to: number): string {
   let b = to > from && boundary.test(text[to - 1]) ? to - 1 : to;
   while (b < text.length && !boundary.test(text[b])) b++;
   return text.slice(a, Math.min(text.length, b + 1));
+}
+
+// ─── Relationships to the user, as the note states them ─────────────────────
+
+/** The relations a note can state to its writer ("my brother"), singular. */
+const SELF_RELATIONS = [
+  "brother", "sister", "sibling", "mom", "mother", "dad", "father", "son", "daughter", "kid", "child", "wife", "husband",
+  "partner", "girlfriend", "boyfriend", "fiance", "fiancé", "fiancee", "fiancée", "grandma", "grandmother", "grandpa",
+  "grandfather", "grandson", "granddaughter", "aunt", "uncle", "cousin", "niece", "nephew", "stepmom", "stepdad",
+  "stepson", "stepdaughter", "mother-in-law", "father-in-law", "sister-in-law", "brother-in-law", "best friend",
+  "boss", "coworker", "colleague", "roommate", "neighbor", "neighbour",
+];
+const REL_ALT = [...SELF_RELATIONS].sort((a, b) => b.length - a.length).join("|");
+const NAME_RE = "\\p{Lu}[\\p{L}\\p{M}'’-]*";
+
+/** Capitalised words that are never a person ("Every Christmas, my daughter Kaiya"). */
+const NOT_PEOPLE = new Set([
+  "i", "my", "our", "we", "the", "and", "but", "so", "every", "each", "also", "today", "tomorrow", "yesterday",
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "january", "february", "march", "april",
+  "may", "june", "july", "august", "september", "october", "november", "december", "christmas", "thanksgiving",
+  "easter", "halloween", "hanukkah", "diwali", "eid", "new", "spring", "summer", "fall", "autumn", "winter",
+]);
+
+function singularRelation(word: string): string {
+  const w = fold(word).trim();
+  if (w === "children") return "child";
+  if (SELF_RELATIONS.includes(w)) return w;
+  const s = w.replace(/s$/u, "");
+  return SELF_RELATIONS.includes(s) ? s : w;
+}
+
+/**
+ * Relationships to the writer that the note states outright, by the name it
+ * gives: "Ben is my brother", "Ben and John are my brothers", "my daughter
+ * Kaiya", "Kaiya, my daughter", "Ben is the youngest sibling of myself, John
+ * and Susan". Never inferred ("Ben's mom" is not the writer's mom; "Bryce
+ * Lara's hubby" is Lara's). Names are as written; the caller matches them.
+ */
+export function statedSelfRelations(note: string): { name: string; relation: string }[] {
+  const text = note.normalize("NFC");
+  const out: { name: string; relation: string }[] = [];
+  const add = (name: string, rel: string) => {
+    if (NOT_PEOPLE.has(fold(name).replace(/['’]s$/u, ""))) return;
+    const relation = singularRelation(rel);
+    if (!out.some((o) => fold(o.name) === fold(name))) out.push({ name: name.replace(/['’]s$/u, ""), relation });
+  };
+  // "Ben is my brother", "Ben and John are my brothers", "Ben, John and Susan are my siblings".
+  const listIs = new RegExp(`((?:${NAME_RE})(?:\\s*,\\s*${NAME_RE})*(?:\\s*,?\\s+and\\s+${NAME_RE})?)\\s+(?:is|are|was|were)\\s+(?:both\\s+|all\\s+)?(?:my|our)\\s+(?:(?:older|younger|little|big|baby|twin|oldest|youngest|eldest)\\s+)?(${REL_ALT})s?\\b`, "gu");
+  for (const m of text.matchAll(listIs)) {
+    for (const n of m[1].split(/\s*,\s*|\s+and\s+/u)) if (n && /^\p{Lu}/u.test(n)) add(n, m[2]);
+  }
+  // "my daughter Kaiya", "my brother, Ben".
+  for (const m of text.matchAll(new RegExp(`\\b(?:my|our)\\s+(?:(?:older|younger|little|big|baby|twin)\\s+)?(${REL_ALT})\\s*,?\\s+(${NAME_RE})`, "giu"))) {
+    if (/^\p{Lu}/u.test(m[2])) add(m[2], m[1]);
+  }
+  // "Kaiya, my daughter".
+  for (const m of text.matchAll(new RegExp(`(${NAME_RE}),\\s+(?:my|our)\\s+(${REL_ALT})\\b`, "gu"))) add(m[1], m[2]);
+  // "Ben is the youngest sibling of myself, John and Susan": everyone in the list shares it.
+  const of = new RegExp(`(${NAME_RE})\\s+is\\s+(?:the|a|an)\\s+(?:\\w+\\s+)?(${REL_ALT})\\s+of\\s+(?:myself|me)\\b((?:\\s*,\\s*${NAME_RE})*(?:\\s*,?\\s+and\\s+${NAME_RE})?)`, "gu");
+  for (const m of text.matchAll(of)) {
+    add(m[1], m[2]);
+    for (const n of m[3].split(/\s*,\s*|\s+and\s+/u)) if (n && /^\p{Lu}/u.test(n)) add(n, m[2]);
+  }
+  return out;
+}
+
+// ─── Someone else's promise to the writer ───────────────────────────────────
+
+/**
+ * "Tyler said he'd send me his contractor's number", "she promised to call
+ * me", "he'll send me the link": a commitment by someone else, to the writer.
+ * Kept as theirs (waiting on them), never under "You said you'd".
+ */
+export function theyPromisedMe(clause: string): boolean {
+  const c = fold(clause);
+  return /\b(?:said|says|promised|offered|told me)\b[^.!?]{0,20}\b(?:he|she|they)(?:'d|'ll| would| will| was going to| is going to)\b/u.test(c)
+    || /\b(?:promised|offered)\s+to\s+\w+\s+(?:me|us)\b/u.test(c)
+    || /\b(?:he|she|they)(?:'ll| will| is going to| are going to)\s+(?:send|get|give|bring|call|text|email|share|introduce|lend|drop off|pick up)\b[^.!?]{0,30}\b(?:me|us)\b/u.test(c);
+}
+
+// ─── Pets ───────────────────────────────────────────────────────────────────
+
+const ANIMAL = /\b(dog|dogs|puppy|pup|cat|cats|kitten|kitty|pet|pets|horse|pony|bunny|rabbit|bird|parrot|hamster|guinea pig|ferret|lizard|turtle|tortoise|fish)\b/u;
+const VET = /\b(vet|vets|veterinarian|veterinary|animal hospital)\b/u;
+
+/**
+ * A pet's health, not a person's: "Ben's dog Mochi has a vet appointment
+ * Friday". Pet visits aren't the protected human health that waits for a yes
+ * (stabilization: pet health). A person's own health words, or a death, still
+ * count.
+ */
+export function aboutAnimalHealth(text: string): boolean {
+  const t = fold(text);
+  if (VET.test(t)) return true;
+  if (!ANIMAL.test(t)) return false;
+  // "the dog had surgery", "his cat is sick": the health word follows the animal closely.
+  return /\b(dog|dogs|puppy|pup|cat|cats|kitten|kitty|pet|pets|horse|pony|bunny|rabbit|bird|parrot|hamster|ferret)\b(?:\s+\p{L}+){0,4}\s+(?:has|had|is|was|needs|got|going for|getting)\b/u.test(t);
 }

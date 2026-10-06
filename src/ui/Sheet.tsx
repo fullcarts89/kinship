@@ -12,6 +12,7 @@ import { Pressable } from "./Pressable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GUTTER, motion, radius, shadow, size, space } from "@/design/tokens";
 import { useReduceMotion, usePalette } from "./theme";
+import { sheetClosed, sheetOpened } from "./sheetStack";
 
 /** How far to drag before letting go closes the sheet. */
 const DRAG_CLOSE = 96;
@@ -46,6 +47,13 @@ export function Sheet({
   useEffect(() => {
     if (visible) setMounted(true);
   }, [visible]);
+
+  // Counted from the moment it's up until it has fully left (sheetStack.ts).
+  useEffect(() => {
+    if (!mounted) return;
+    sheetOpened();
+    return () => sheetClosed();
+  }, [mounted]);
 
   useEffect(() => {
     if (!mounted) return;

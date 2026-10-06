@@ -16,6 +16,7 @@ import type { FakeServer } from "./fakeRemote";
 import { needsAcceptance } from "../../supabase/functions/_shared/extraction/acceptance";
 import { buildInput, type CaptureRow, type ItemRow, type PersonRow, type RelatedRow } from "../../supabase/functions/_shared/extraction/context";
 import { planExtraction } from "../../supabase/functions/_shared/extraction/pipeline";
+import { resolveHeld, type HeldItem as ResolveHeldItem } from "../../supabase/functions/_shared/extraction/resolve";
 import type { ExtractionInput, ModelProposal } from "../../supabase/functions/_shared/extraction/types";
 
 export interface ScriptedItem {
@@ -159,7 +160,7 @@ export class FakeGateway implements GatewayTransport {
       : planned.every((p) => p.tier === "auto") ? "auto" : "confirm";
     this.write("captures", captureId, {
       status: tier === "auto" || tier === "nothing" ? "extracted" : "needs_review",
-      extraction_version: "relationship_extract/v5+model",
+      extraction_version: "relationship_extract/v6+model",
     });
     let createdAt: string | null = null;
     if (held.length) {
@@ -190,6 +191,9 @@ export class FakeGateway implements GatewayTransport {
     }
     const answers = body.answers as HeldAnswer[];
     if (!Array.isArray(answers) || answers.length !== review.items.length) return refuse(400, "invalid_answer", "unanswered");
+    // A note read by the real pipeline is answered by the real resolve.ts,
+    // as the gateway does (resolve_review), and written like write_extraction.
+    if (this.proposals.has(note)) return this.realAnswer(captureId, note, review, answers);
     const created: Record<string, string> = {};
     const out: Record<string, unknown>[] = [];
     let skipped = 0;
@@ -235,6 +239,34 @@ export class FakeGateway implements GatewayTransport {
     return ok({ status: "resolved", saved: out, new_people: Object.values(created), skipped });
   }
 
+  private realAnswer(captureId: string, note: string, review: StoredReview, answers: HeldAnswer[]): TransportReply {
+    const people = this.rows<PersonRow & { state: string }>("people");
+    const r = resolveHeld(review.items as unknown as ResolveHeldItem[], answers as never, {
+      note,
+      people: people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state ?? "active" })),
+      related: this.rows<RelatedRow & { person_id: string }>("related_people").map((x) => ({ id: x.id, person_id: x.person_id, relation: x.relation, name: x.name ?? null })),
+      existing: this.rows<Record<string, unknown>>("memory_items").filter((m) => m.status === "active").map((m) => ({
+        id: String(m.id), person_id: String(m.person_id), kind: String(m.kind), subject_type: String(m.subject_type),
+        subject_related_id: (m.subject_related_id as string | null) ?? null, statement: String(m.statement), status: String(m.status),
+        user_state: String(m.user_state),
+      })),
+    });
+    if ("fail" in r) return refuse(400, "invalid_answer", r.fail);
+    const created: Record<string, string> = {};
+    for (const np of r.newPeople) {
+      created[np.ref] = this.writeNew("people", { display_name: np.display_name, state: "active", relationship_label: np.relationship_label ?? null });
+    }
+    const out: Record<string, unknown>[] = [];
+    for (const it of r.items) {
+      const personId = it.person_id.startsWith("new:") ? created[it.person_id] : it.person_id;
+      const resolved = { ...it, person_id: personId };
+      out.push({ ...resolved, id: this.writeItem(captureId, resolved as unknown as Record<string, unknown>), action: it.action.type });
+    }
+    this.reviews.delete(captureId);
+    this.settle(captureId);
+    return ok({ status: "resolved", saved: out, new_people: Object.values(created), skipped: r.skipped });
+  }
+
   // ─── Writes, as write_extraction makes them ──────────────────────────
 
   private plan(note: string, it: ScriptedItem): Record<string, unknown> & { tier: string; person_id: string | null } {
@@ -277,11 +309,19 @@ export class FakeGateway implements GatewayTransport {
     if (type === "merge") {
       itemId = String(target!.id);
     } else {
+      // A new relative is created on its person, as write_extraction does.
+      const rel = p.related as { id: string | null; relation: string; name: string | null } | null;
+      let relatedId = rel?.id ?? null;
+      if (p.subject_type === "related" && rel && !relatedId) {
+        relatedId = id("c");
+        this.server.serverWrite("related_people", relatedId, this.userId, { person_id: p.person_id, relation: rel.relation, name: rel.name, promoted_person_id: null, deleted_at: null });
+      }
       itemId = this.writeNew("memory_items", {
-        kind: p.kind, person_id: p.person_id, subject_type: p.subject_type, subject_related_id: null,
+        kind: p.kind, person_id: p.person_id, subject_type: p.subject_type, subject_related_id: p.subject_type === "related" ? relatedId : null,
         statement: p.statement, detail: p.detail, certainty: p.certainty, sensitivity: p.sensitivity,
         extraction_confidence: p.confidence, status: "active", user_state: "unreviewed", origin: "extracted",
         supersedes_id: type === "supersede" ? target!.id : null, valid_from: null, valid_to: null, deleted_at: null,
+        with_person_ids: Array.isArray(p.with_person_ids) ? p.with_person_ids : [],
       });
       if (type === "supersede") {
         this.write("memory_items", String(target!.id), {
@@ -289,6 +329,13 @@ export class FakeGateway implements GatewayTransport {
         });
       }
       if (type === "resolves") this.write("memory_items", String(target!.id), { status: "resolved" });
+    }
+    // A relationship the note states, never over the user's own (write_extraction).
+    for (const [pid, rel] of Object.entries((p.self_relations as Record<string, string> | undefined) ?? {})) {
+      const person = this.server.table("people").get(pid);
+      if (person && person.user_id === this.userId && !String(person.relationship_label ?? "").trim()) {
+        this.server.serverWrite("people", pid, this.userId, { relationship_label: rel });
+      }
     }
     for (const s of p.spans as { start: number; end: number; quote: string }[]) {
       this.writeNew("memory_item_sources", {

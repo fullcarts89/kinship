@@ -67,9 +67,12 @@ SELECT throws_ok($$ INSERT INTO public.memory_items (kind, person_id, subject_ty
   VALUES ('event', '00000000-0000-0000-0000-000000001302', 'related', '00000000-0000-0000-0000-000000001303', 'x',
           '{"date_precision": "day", "event_type": "surgery", "followup_policy": "both"}', 'user') $$,
   '23503', NULL, 'Sarah''s sister cannot be the subject of an item filed under Mike');
+-- Since stabilization (20261006090000) a promise is the user's own (subject
+-- 'user') or someone's promise to the user (subject 'person'); never shared
+-- or a relative's.
 SELECT throws_ok($$ INSERT INTO public.memory_items (kind, person_id, subject_type, statement, detail, origin)
-  VALUES ('promise', '00000000-0000-0000-0000-000000001301', 'person', 'Send Sarah the link', '{}', 'user') $$,
-  '23514', NULL, 'a promise is always the user''s own');
+  VALUES ('promise', '00000000-0000-0000-0000-000000001301', 'shared', 'Send Sarah the link', '{}', 'user') $$,
+  '23514', NULL, 'a promise is the user''s own, or someone''s to the user');
 SELECT throws_ok($$ INSERT INTO public.memory_items (kind, person_id, statement, detail, certainty, origin)
   VALUES ('fact', '00000000-0000-0000-0000-000000001302', 'x', '{"category": "work"}', 'certain', 'user') $$,
   '23514', NULL, 'certainty is one of the five known values');

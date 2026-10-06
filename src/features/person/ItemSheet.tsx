@@ -71,6 +71,7 @@ export function ItemSheet(props: ItemSheetProps) {
             <TokenRow>
               {line.person?.changeable ? <Token what="Who" value={line.person.label} onPress={() => setPane("person")} /> : null}
               {line.about ? <Token what="About" value={line.about} /> : null}
+              {line.also?.length ? <Token what="Also about" value={line.also.join(", ")} /> : null}
               {line.when ? <Token what="When" value={line.when.label} onPress={line.when.changeable ? () => setPane("date") : undefined} /> : null}
               <Token what="What" value={line.kind.label} onPress={line.kind.changeable ? () => setPane("kind") : undefined} />
             </TokenRow>
@@ -79,6 +80,7 @@ export function ItemSheet(props: ItemSheetProps) {
             <Provenance line={it.provenance} onPress={it.noteId ? () => props.onSource(it.noteId as string) : undefined} />
           </View>
           {line.edited ? <Small style={{ marginTop: space.xs }}>You edited this</Small> : null}
+          {line.replaces ? <Small style={{ marginTop: space.xs }}>{`Before: ${line.replaces}`}</Small> : null}
           <Small style={{ marginTop: space.xl }}>{ITEM_COPY.tokens}</Small>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: space.m }}>
             <Pill variant="danger" size="small" label="Not this" accessibilityHint="Kinship forgets this" onPress={() => props.onForget(line.id)} />

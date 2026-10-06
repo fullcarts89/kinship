@@ -71,7 +71,7 @@ it("a sheet that was never opened renders nothing; an open one shows its content
 });
 
 const quiet: TodayData = {
-  dateLabel: "Monday, 12 October", greeting: "Good morning.", returnCheck: null, moment: null, quiet: [], quietDay: true, firstUse: null,
+  dateLabel: "Monday, 12 October", greeting: "Good morning.", returnCheck: null, moment: null, quiet: [], quietDay: true, waiting: null, firstUse: null,
 };
 const noop = () => undefined;
 const handlers = { afterReturn: null, onPrimary: noop, onNotNow: noop, onProvenance: noop, onReturn: noop, onRemember: noop, onNothing: noop, onQuiet: noop };

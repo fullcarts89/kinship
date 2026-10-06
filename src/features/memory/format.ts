@@ -53,6 +53,12 @@ function str(v: unknown): string | null {
 export function whenLabel(kind: string, detail: Detail, today: string): string | null {
   if (kind === "plan") {
     const date = str(detail.date);
+    // A season is said as a season ("Summer 2027"), never its first day.
+    const seasonal = str(detail.date_precision) === "season" || (!!str(detail.season) && !str(detail.date_precision));
+    if (date && seasonal) {
+      const p = parts(date);
+      if (p) return `${seasonOf(p.m)}${p.y === yearOf(today) ? "" : ` ${p.y}`}`;
+    }
     if (date) return dayLabel(date, today);
     const hint = str(detail.when_hint);
     if (hint) return quoted(hint);
@@ -65,7 +71,8 @@ export function whenLabel(kind: string, detail: Detail, today: string): string |
     const hint = str(detail.due_hint);
     return hint ? quoted(hint) : null;
   }
-  if (!["fact", "event", "moment", "milestone"].includes(kind)) return null;
+  // Threads keep a resolved time too now ("thinking about moving next summer").
+  if (!["fact", "event", "moment", "milestone", "thread"].includes(kind)) return null;
   const date = str(detail.date);
   const end = str(detail.date_end);
   const precision = str(detail.date_precision) ?? (date ? "day" : "unknown");
@@ -84,7 +91,8 @@ export function whenLabel(kind: string, detail: Detail, today: string): string |
     case "month":
       return `${MONTHS_LONG[p.m]}${thisYear ? "" : ` ${p.y}`}`;
     case "season":
-      return hint ? quoted(hint) : `${seasonOf(p.m)}${thisYear ? "" : ` ${p.y}`}`;
+      // "Summer 2027", not the words "next summer", which go stale.
+      return `${seasonOf(p.m)}${thisYear ? "" : ` ${p.y}`}`;
     case "year":
       return String(p.y);
     default:

@@ -20,7 +20,7 @@ const people = [
 ] as unknown as Person[];
 
 const row = (reading: Partial<NonNullable<UnderstandingRow["reading"]>>): UnderstandingRow => ({
-  capture_id: "c1", state: "review", answer: null, notice: null, attempts: 0, next_at: null, seen_at: null,
+  capture_id: "c1", state: "review", answer: null, notice: null, attempts: 0, next_at: null, seen_at: null, understood_at: null, shown_at: null,
   created_at: "2026-10-08T21:14:00.000Z", updated_at: "2026-10-08T21:14:00.000Z",
   reading: { tier: "confirm", saved: [], held: [], clarification: null, review_created_at: "t", settled: false, ...reading },
 });

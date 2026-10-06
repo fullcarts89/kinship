@@ -185,3 +185,55 @@ it("an account in use with nothing to say: Nothing needs you today", () => {
   expect(v.firstUse).toBeNull();
   expect(v.quietDay).toBe(true);
 });
+
+describe("stabilization Gate G: Today reflects what's open, and good news", () => {
+  const quiet = (over: Partial<TodayInput> = {}) => buildToday(input({ reasons: [], items: [], ...over }));
+
+  it("never 'Nothing needs you today' while Kinship waits on the user; each question by name", () => {
+    const v = quiet({
+      activated: true,
+      pending: [
+        { captureId: "c1", kind: "question", label: "A question", text: "Which Sam do you mean?", action: "Answer" },
+        { captureId: "c2", kind: "understanding", label: "Understanding", text: "A note about Tyler", action: null },
+      ],
+    });
+    expect(v.quietDay).toBe(false);
+    expect(v.waiting).toBe("one");
+    expect(v.quiet.map((q) => [q.kind, q.text])).toEqual([["question", "Which Sam do you mean?"], ["understanding", "A note about Tyler"]]);
+    expect(quiet({ activated: true, pending: [] }).quietDay).toBe(true);
+  });
+
+  it("a moment still comes first; then what's waiting; first use only when nothing waits", () => {
+    const withMoment = buildToday(input({ pending: [{ captureId: "c1", kind: "question", label: "A question", text: "Which Sam do you mean?", action: "Answer" }] }));
+    expect(withMoment.moment).not.toBeNull();
+    expect(withMoment.waiting).toBeNull();
+    const firstUse = quiet({ activated: false, pending: [{ captureId: "c1", kind: "question", label: "A question", text: "Is Kaiya someone new?", action: "Answer" }] });
+    expect([firstUse.firstUse, firstUse.waiting]).toEqual([null, "one"]);
+  });
+
+  it("good news from yesterday: 'Congratulate Ben'; never a relative's news, never a negation", () => {
+    const promoted = item("n1", { kind: "fact", statement: "Ben was promoted", detail: { category: "work", date: "2026-10-11", date_precision: "day" } });
+    const v = quiet({ items: [promoted] });
+    expect(v.moment).toMatchObject({ type: "good_news", statement: "Ben was promoted", context: "Yesterday", primary: { label: "Congratulate Ben" } });
+    const anas = item("n2", { kind: "event", subject_type: "related", statement: "Ben's sister Ana had a baby", detail: { event_type: "birth", date: "2026-10-12", date_precision: "day" } });
+    expect(quiet({ items: [anas] }).moment).toBeNull();
+    const notIt = item("n3", { kind: "fact", statement: "Ben didn't get promoted", detail: { category: "work", date: "2026-10-11", date_precision: "day" } });
+    expect(quiet({ items: [notIt] }).moment).toBeNull();
+    const old = item("n4", { kind: "fact", statement: "Ben was promoted", detail: { category: "work", date: "2026-10-01", date_precision: "day" } });
+    expect(quiet({ items: [old] }).moment).toBeNull();
+  });
+
+  it("a first day, on the day: 'Message Josh'", () => {
+    const start = item("s1", { person_id: "josh", statement: "Josh starts his new job", detail: { event_type: "job_start", followup_policy: "after", date: "2026-10-12", date_precision: "day" } });
+    expect(quiet({ items: [start] }).moment).toMatchObject({ type: "starts_today", statement: "Josh starts his new job", context: "Today · Mon, Oct 12", primary: { label: "Message Josh" } });
+  });
+
+  it("someone's promise: coming up on its day, then one gentle 'Did Josh send it?'", () => {
+    const promise = (due: string) => item("w1", { kind: "promise", person_id: "josh", subject_type: "person",
+      statement: "Josh said he'd send you his contractor's number", detail: { due_date: due } });
+    expect(quiet({ items: [promise("2026-10-14")] }).quiet).toEqual([
+      { kind: "coming", label: "Wednesday", text: "Josh said he'd send you his contractor's number", personId: "josh", itemId: "w1" }]);
+    expect(quiet({ items: [promise("2026-10-10")] }).quiet).toEqual([
+      { kind: "waiting", label: "Waiting on Josh", text: "Did Josh send it?", personId: "josh", itemId: "w1" }]);
+  });
+});

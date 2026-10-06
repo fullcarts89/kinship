@@ -47,6 +47,13 @@ export interface MemoryItem extends Data {
   certainty: string;
   status: string;
   user_state: string;
+  /** Others in People this one memory is also about ("Ben and John went to Tahoe"). */
+  with_person_ids?: string[] | null;
+}
+
+/** Everyone a memory is about: the person it's filed on, and anyone it's shared with. */
+export function peopleOf(item: Pick<MemoryItem, "person_id" | "with_person_ids">): string[] {
+  return [item.person_id, ...(Array.isArray(item.with_person_ids) ? item.with_person_ids : [])];
 }
 
 export interface MemorySource extends Data {
@@ -177,6 +184,28 @@ export class MemoryRepo {
 
   forPerson(personId: string): Promise<MemoryItem[]> {
     return this.store.list("memory_items", { personId }) as Promise<MemoryItem[]>;
+  }
+
+  get(id: string): Promise<MemoryItem | null> {
+    return this.store.get("memory_items", id) as Promise<MemoryItem | null>;
+  }
+
+  /**
+   * Everything about this person: filed on them, or shared with them ("Ben
+   * and John went to Tahoe" is on John's page too). One memory, one source.
+   */
+  async aboutPerson(personId: string): Promise<MemoryItem[]> {
+    const own = await this.forPerson(personId);
+    const ids = new Set(own.map((m) => m.id));
+    // A relative once remembered on someone else, since linked to this person
+    // ("Sam's wife Michelle" → Michelle): what was said about her is hers too.
+    const promoted = new Set(((await this.store.list("related_people")) as RelatedPerson[])
+      .filter((r) => r.promoted_person_id === personId).map((r) => r.id));
+    const shared = ((await this.store.list("memory_items")) as MemoryItem[])
+      .filter((m) => !ids.has(m.id) && (
+        (Array.isArray(m.with_person_ids) && m.with_person_ids.includes(personId)) ||
+        (typeof m.subject_related_id === "string" && promoted.has(m.subject_related_id))));
+    return [...own, ...shared];
   }
 
   /** Every live source, grouped by the item it supports (one read for a whole page). */

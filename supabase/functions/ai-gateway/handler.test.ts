@@ -187,7 +187,7 @@ Deno.test("the vertical slice end to end: model → pipeline → one write → c
   eq(body.saved[0].id, "item-0");
   eq(w.writes.length, 1);
   eq(w.writes[0].needsReview, false);
-  eq(w.writes[0].version, "relationship_extract/v5+claude-opus-5-5");
+  eq(w.writes[0].version, "relationship_extract/v6+claude-opus-5-5");
   eq(w.writes[0].items[0].spans, [{ start: 0, end: 23 }, { start: 25, end: 56 }]);
   eq(w.writes[0].items[0].person_id, "person-ben");
   // The model saw the server's data, never the request body's.
@@ -382,7 +382,7 @@ Deno.test("a sensitive reading is held for the user's yes, never saved because a
   const { status, body } = await call(w, post(extract));
   eq(status, 200);
   eq(body.saved, [], "nothing became memory");
-  eq(body.held.map((i: { statement: string; tier: string }) => [i.statement, i.tier]), [["Sarah has surgery Thursday", "confirm"]]);
+  eq(body.held.map((i: { statement: string; tier: string }) => [i.statement, i.tier]), [["Sarah has surgery", "confirm"]]);
   eq(w.writes[0].items, [], "no memory item written");
   eq(w.writes[0].needsReview, true);
   eq(w.writes[0].review?.items.length, 1, "kept as a pending review, so it survives a restart");
@@ -396,5 +396,5 @@ Deno.test("a sensitive reading is held for the user's yes, never saved because a
   // "Remember this" writes it, as proposed.
   const yes = await call(w2, post(resolveBody([{ index: 0, accept: true }])));
   eq(yes.body.status, "resolved");
-  eq(w2.resolves[0].items.map((i) => [i.person_id, i.statement, i.sensitivity]), [["person-sarah", "Sarah has surgery Thursday", "health"]]);
+  eq(w2.resolves[0].items.map((i) => [i.person_id, i.statement, i.sensitivity]), [["person-sarah", "Sarah has surgery", "health"]]);
 });

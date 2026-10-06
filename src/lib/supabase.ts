@@ -38,6 +38,27 @@ const ExpoSecureStoreAdapter = {
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
+// ─── Requests never hang ─────────────────────────────────────────────────────
+
+/**
+ * Every request gives up after this long (stabilization Gate A). Understanding
+ * runs one pass at a time, so a single request that never answers (a dropped
+ * connection the OS didn't report) used to hold every later note: the server
+ * had the answer and the phone never asked again. A timeout turns that into an
+ * ordinary "offline" pass that the next one retries. Requests that pass their
+ * own signal (the gateway, with its own 30 s) keep it.
+ */
+export const REQUEST_TIMEOUT_MS = 20_000;
+
+export function fetchWithTimeout(timeoutMs = REQUEST_TIMEOUT_MS): typeof fetch {
+  return (input, init) => {
+    if (init?.signal) return fetch(input, init);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+  };
+}
+
 // ─── Client ──────────────────────────────────────────────────────────────────
 
 export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured
@@ -48,6 +69,7 @@ export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured
         persistSession: true,
         detectSessionInUrl: false, // Required for React Native
       },
+      global: { fetch: fetchWithTimeout() },
     })
   : null;
 

@@ -8,7 +8,7 @@ import { View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
 import { GUTTER, height, press, size, space } from "@/design/tokens";
-import { Body, Label, Line, Name, Pill, Provenance, Screen, Small, Sprig, usePalette } from "@/ui";
+import { Body, Label, Line, Name, Pill, Provenance, QuietLine, Screen, Small, Sprig, usePalette } from "@/ui";
 
 export interface PortraitLineData {
   itemId: string;
@@ -37,50 +37,76 @@ export interface PortraitViewProps {
   onMessage: () => void;
   onCall: () => void;
   onTell: () => void;
-  /** What happened to a note just told from here ("Kept: …", Undo). */
+  /** What happened to a note just told about them (the Kept card). */
   kept?: React.ReactNode;
+  /**
+   * Notes about them still open (stabilization Gate A): a question waiting on
+   * the user, or a note still being understood. Quiet lines, never a badge.
+   */
+  waiting?: { captureId: string; label: string; text: string; action: string | null }[];
+  onWaiting?: (captureId: string) => void;
+  /** Someone added after they were mentioned: "Is this the Michelle in …?" (Yes / No). */
+  links?: { key: string; prompt: string }[];
+  onLink?: (key: string, yes: boolean) => void;
   /** An unsent note about them is waiting (Tell reopens it). */
   hasDraft?: boolean;
   children?: React.ReactNode;
 }
 
-function withWhen(l: PortraitLineData): string {
+function withWhen(l: PortraitLineData, leading = false): string {
   if (!l.when || l.when === "No date yet") return l.statement;
   const plain = l.when.replace(/[“”]/gu, "");
-  return l.statement.toLocaleLowerCase().includes(plain.toLocaleLowerCase()) ? l.statement : `${l.statement} · ${l.when}`;
+  if (l.statement.toLocaleLowerCase().includes(plain.toLocaleLowerCase())) return l.statement;
+  // Coming up leads with when it is (stabilization Gate H).
+  return leading ? `${l.when} · ${l.statement}` : `${l.statement} · ${l.when}`;
 }
 
-function Section({ title, lines, ochre, onLine, onSource }: {
+/**
+ * Sections read as groups (Gate H, within the approved look): more space
+ * between sections than between lines, a hairline above each label, labels a
+ * step darker. "You told Kinship · Oct 5" is shown once per run of lines that
+ * share it, not under every line (the line's sheet always has it).
+ */
+function Section({ title, lines, ochre, leadWithWhen, onLine, onSource }: {
   title: string;
   lines: PortraitLineData[];
   ochre?: boolean;
+  leadWithWhen?: boolean;
   onLine: (id: string) => void;
   onSource: (noteId: string) => void;
 }) {
+  const p = usePalette();
   if (!lines.length) return null;
   return (
-    <View style={{ marginTop: space.xl }}>
-      <Label tone={ochre ? "ochreText" : "inkQuiet"} accessibilityRole="header">{title}</Label>
-      {lines.map((l) => (
-        <View key={l.itemId} style={{ marginTop: space.s }}>
-          {l.fixed ? (
-            <Line>{withWhen(l)}</Line>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={withWhen(l)}
-              accessibilityHint="Double-tap to correct it"
-              onPress={() => onLine(l.itemId)}
-              style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
-            >
-              <Line>{withWhen(l)}</Line>
-            </Pressable>
-          )}
-          <View style={{ marginTop: space.xs }}>
-            <Provenance line={l.provenance} onPress={l.noteId ? () => onSource(l.noteId as string) : undefined} />
+    <View style={{ marginTop: space.x3, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline }}>
+      <Label tone={ochre ? "ochreText" : "inkBody"} accessibilityRole="header">{title}</Label>
+      {lines.map((l, i) => {
+        const text = withWhen(l, leadWithWhen);
+        const nextShares = i + 1 < lines.length && lines[i + 1].provenance === l.provenance && !lines[i + 1].fixed;
+        return (
+          <View key={l.itemId} style={{ marginTop: i === 0 ? space.m : space.s }}>
+            {l.fixed ? (
+              <Line>{text}</Line>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={text}
+                accessibilityHint="Double-tap to correct it"
+                onPress={() => onLine(l.itemId)}
+                style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
+              >
+                <Line>{text}</Line>
+              </Pressable>
+            )}
+            {/* Said once for the lines it covers: under the last of them. */}
+            {nextShares ? null : (
+              <View style={{ marginTop: space.xs }}>
+                <Provenance line={l.provenance} onPress={l.noteId ? () => onSource(l.noteId as string) : undefined} />
+              </View>
+            )}
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -142,9 +168,38 @@ export function PortraitView(props: PortraitViewProps) {
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>
 
+      {props.links?.length ? (
+        <View style={{ marginTop: space.xl, gap: space.m }}>
+          {props.links.map((l) => (
+            <View key={l.key} accessibilityLabel={l.prompt}>
+              <Label>{"One thing to check"}</Label>
+              <Body tone="ink" style={{ marginTop: space.xs }}>{l.prompt}</Body>
+              <View style={{ flexDirection: "row", gap: space.s, marginTop: space.s }}>
+                <Pill size="small" label="Yes" onPress={() => props.onLink?.(l.key, true)} />
+                <Pill size="small" variant="quiet" label="No, someone else" onPress={() => props.onLink?.(l.key, false)} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {props.waiting?.length ? (
+        <View style={{ marginTop: space.xl, gap: space.m }}>
+          {props.waiting.map((w) => (
+            <QuietLine
+              key={w.captureId}
+              label={w.label}
+              text={w.text}
+              action={w.action ? { label: w.action, onPress: () => props.onWaiting?.(w.captureId) } : undefined}
+              onPress={w.action ? () => props.onWaiting?.(w.captureId) : undefined}
+            />
+          ))}
+        </View>
+      ) : null}
+
 
       <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} />
-      <Section title="Coming up" lines={props.comingUp} onLine={props.onLine} onSource={props.onSource} />
+      <Section title="Coming up" lines={props.comingUp} leadWithWhen onLine={props.onLine} onSource={props.onSource} />
       <Section title="You said you'd" lines={props.youSaid} ochre onLine={props.onLine} onSource={props.onSource} />
       <Section title="Between you" lines={props.between} onLine={props.onLine} onSource={props.onSource} />
       {empty ? (

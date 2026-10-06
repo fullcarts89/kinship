@@ -29,7 +29,7 @@ SELECT ok(NOT public.memory_detail_ok('fact', '{"category": "home", "date_end": 
 SELECT ok(NOT public.memory_detail_ok('fact', '{"category": "home", "date": "2026-09-30", "date_end": "2026-09-01"}'), 'a range cannot run backwards');
 SELECT ok(NOT public.memory_detail_ok('fact', '{"category": "home", "date": "last month"}'), 'a date is a calendar date, never words');
 SELECT ok(NOT public.memory_detail_ok('milestone', '{"milestone_type": "x", "anniversary": false, "date_precision": "decade"}'), 'precision is one the resolver produces');
-SELECT ok(NOT public.memory_detail_ok('thread', '{"topic": "t", "followup_after_days": 42, "date": "2026-10-16"}'), 'a thread keeps words, not a date');
+SELECT ok(NOT public.memory_detail_ok('thread', '{"topic": "t", "followup_after_days": 42, "date": "next summer"}'), 'a thread''s date is a calendar date, never words');
 SELECT ok(NOT public.memory_detail_ok('context', '{"aspect": "place", "date_hint": "since college"}'), 'context holds no time');
 
 -- ── End to end: the gateway writes a dated fact ──
