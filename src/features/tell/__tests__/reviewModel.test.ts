@@ -241,7 +241,7 @@ describe("stabilization Gate A/D: a view over the note, never blank, never \"Kep
     expect(v.heading).toBe("Kept for Sam (neighbor)");
   });
 
-  it("a note told from someone's page is about them until it's understood: \"About Ben\", and it belongs on Ben's page", () => {
+  it("a note told from someone's page isn't named for them before it's understood (H24): \"Your note\", still shown on Ben's page", () => {
     const sam = held({ statement: "He wants to go back in December", flags: ["pronoun_multiple"],
       spans: [{ start: 28, end: 59, quote: "He wants to go back in December" }] });
     const john = person("john", "John");
@@ -250,7 +250,7 @@ describe("stabilization Gate A/D: a view over the note, never blank, never \"Kep
       capture: { id: "c1", raw_text: "Ben and John went to Tahoe. He wants to go back in December.", context_person_id: "ben", status: "needs_review" },
       items: [], people: [BEN, john], related: [], offline: false, today: TODAY,
     });
-    expect(v.heading).toBe("About Ben");
+    expect(v.heading).toBe("Your note");
     expect(v.personIds).toEqual(expect.arrayContaining(["ben", "john"]));
   });
 

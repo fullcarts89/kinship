@@ -319,8 +319,9 @@ function headingFor(input: ReviewInput, lines: ItemLine[]): string {
     if (p) return `Kept for ${personLabel(p, input.people)}`;
   }
   if (lines.length) return COPY.remember;
-  const context = input.capture?.context_person_id ? input.people.find((x) => x.id === input.capture?.context_person_id) : null;
-  return context ? `About ${personLabel(context, input.people)}` : "Your note";
+  // Nothing kept yet: the note's subject isn't known, so never the page's
+  // person ("About Susan" for a note about Natalia, founder H24).
+  return "Your note";
 }
 
 function summaryFor(lines: ItemLine[]): string {

@@ -167,7 +167,6 @@ export function usePending(): PendingNote[] {
         capture: { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status },
         items: [], missing: 0, people, related, offline: understanding.offline, today: todayIso(),
       });
-      const about = capture.context_person_id ? people.find((p) => p.id === capture.context_person_id)?.display_name.split(/\s+/u)[0] : null;
       if (view.questions.length) {
         const [first] = view.questions;
         out.push({
@@ -180,7 +179,9 @@ export function usePending(): PendingNote[] {
           captureId: row.capture_id, kind: "understanding", label: row.state === "answering" ? "Saving your answer" : "Understanding",
           text: row.state === "waiting" && row.attempts > 0
             ? "Couldn't understand a note yet. It's saved, and I'll try again."
-            : about ? `A note about ${about}` : "A note you told me",
+            // Never the page's person before the note is understood: told on
+            // Susan's page, it may be about Natalia (founder H24).
+            : "Your note",
           action: null, personIds: view.personIds, createdAt: row.created_at,
         });
       }
