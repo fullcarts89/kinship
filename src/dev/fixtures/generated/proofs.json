@@ -533,7 +533,7 @@
    "label": null,
    "lately": [
     {
-     "itemId": "f0000000-0000-4000-8000-000000000065",
+     "itemId": "f0000000-0000-4000-8000-000000000067",
      "statement": "Lena moved to Oakland",
      "when": null,
      "provenance": "You told Kinship · Aug 1",
@@ -543,7 +543,7 @@
    "comingUp": [],
    "youSaid": [
     {
-     "itemId": "f0000000-0000-4000-8000-000000000067",
+     "itemId": "f0000000-0000-4000-8000-000000000069",
      "statement": "Help Lena hang shelves",
      "when": null,
      "provenance": "You told Kinship · Aug 1",
@@ -562,21 +562,21 @@
    "label": null,
    "lately": [
     {
-     "itemId": "f0000000-0000-4000-8000-000000000063",
+     "itemId": "f0000000-0000-4000-8000-000000000065",
      "statement": "Priya's dog Miso had a good vet checkup",
      "when": null,
      "provenance": "You told Kinship · Aug 1",
      "noteId": "00000004-0000-4000-8000-000000000076"
     },
     {
-     "itemId": "f0000000-0000-4000-8000-000000000057",
+     "itemId": "f0000000-0000-4000-8000-000000000059",
      "statement": "Priya is reading Piranesi",
      "when": null,
      "provenance": "You told Kinship · Jul 29",
      "noteId": "00000004-0000-4000-8000-000000000067"
     },
     {
-     "itemId": "f0000000-0000-4000-8000-000000000047",
+     "itemId": "f0000000-0000-4000-8000-000000000048",
      "statement": "Priya's team at Figma shipped the new editor",
      "when": null,
      "provenance": "You told Kinship · Jul 12",
@@ -585,21 +585,21 @@
    ],
    "comingUp": [
     {
-     "itemId": "f0000000-0000-4000-8000-000000000055",
+     "itemId": "f0000000-0000-4000-8000-000000000057",
      "statement": "Priya's mom is visiting from Pune",
      "when": "Week of Aug 2",
      "provenance": "You told Kinship · Jul 27",
      "noteId": "00000004-0000-4000-8000-000000000064"
     },
     {
-     "itemId": "f0000000-0000-4000-8000-000000000053",
+     "itemId": "f0000000-0000-4000-8000-000000000054",
      "statement": "Priya's pottery show is on October 24",
      "when": "Sun, Oct 24",
      "provenance": "You told Kinship · Jul 25",
      "noteId": "00000004-0000-4000-8000-000000000061"
     },
     {
-     "itemId": "f0000000-0000-4000-8000-000000000043",
+     "itemId": "f0000000-0000-4000-8000-000000000044",
      "statement": "Priya and Dev are thinking about a trip to Japan in the spring",
      "when": "Spring 2028",
      "provenance": "You told Kinship · Jul 2",
@@ -608,21 +608,21 @@
    ],
    "youSaid": [
     {
-     "itemId": "f0000000-0000-4000-8000-000000000061",
+     "itemId": "f0000000-0000-4000-8000-000000000063",
      "statement": "Send Priya the Piranesi audiobook link",
      "when": null,
      "provenance": "You told Kinship · Jul 31",
      "noteId": "00000004-0000-4000-8000-000000000073"
     },
     {
-     "itemId": "f0000000-0000-4000-8000-000000000049",
+     "itemId": "f0000000-0000-4000-8000-000000000050",
      "statement": "Come to Priya's pottery show",
      "when": null,
      "provenance": "You told Kinship · Jul 18",
      "noteId": "00000004-0000-4000-8000-000000000055"
     },
     {
-     "itemId": "f0000000-0000-4000-8000-000000000041",
+     "itemId": "f0000000-0000-4000-8000-000000000042",
      "statement": "Lend Priya your tent",
      "when": null,
      "provenance": "You told Kinship · Jun 22",
@@ -631,7 +631,7 @@
    ],
    "between": [
     {
-     "itemId": "f0000000-0000-4000-8000-000000000059",
+     "itemId": "f0000000-0000-4000-8000-000000000061",
      "statement": "You and Priya have watched every Ghibli film together",
      "when": null,
      "provenance": "You told Kinship · Jul 30",
@@ -658,7 +658,7 @@
   "richKnows": [
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000063",
+     "id": "f0000000-0000-4000-8000-000000000065",
      "statement": "Priya's dog Miso had a good vet checkup",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -682,7 +682,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000061",
+     "id": "f0000000-0000-4000-8000-000000000063",
      "statement": "Send Priya the Piranesi audiobook link",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -706,7 +706,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000059",
+     "id": "f0000000-0000-4000-8000-000000000061",
      "statement": "You and Priya have watched every Ghibli film together",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -730,7 +730,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000057",
+     "id": "f0000000-0000-4000-8000-000000000059",
      "statement": "Priya is reading Piranesi",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -754,14 +754,14 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000055",
+     "id": "f0000000-0000-4000-8000-000000000057",
      "statement": "Priya's mom is visiting from Pune",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
       "label": "Priya",
       "changeable": false
      },
-     "about": null,
+     "about": "Priya's mom",
      "also": [],
      "replaces": null,
      "when": {
@@ -782,7 +782,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000053",
+     "id": "f0000000-0000-4000-8000-000000000054",
      "statement": "Priya's pottery show is on October 24",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -810,7 +810,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000051",
+     "id": "f0000000-0000-4000-8000-000000000052",
      "statement": "You and Priya talked about doing the Dipsea hike again",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -834,7 +834,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000049",
+     "id": "f0000000-0000-4000-8000-000000000050",
      "statement": "Come to Priya's pottery show",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -858,7 +858,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000047",
+     "id": "f0000000-0000-4000-8000-000000000048",
      "statement": "Priya's team at Figma shipped the new editor",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -882,7 +882,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000045",
+     "id": "f0000000-0000-4000-8000-000000000046",
      "statement": "Priya is redoing her kitchen",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -906,7 +906,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000043",
+     "id": "f0000000-0000-4000-8000-000000000044",
      "statement": "Priya and Dev are thinking about a trip to Japan in the spring",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -934,7 +934,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000041",
+     "id": "f0000000-0000-4000-8000-000000000042",
      "statement": "Lend Priya your tent",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -958,7 +958,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000039",
+     "id": "f0000000-0000-4000-8000-000000000040",
      "statement": "Priya's book club is reading Middlemarch",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -982,7 +982,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000037",
+     "id": "f0000000-0000-4000-8000-000000000038",
      "statement": "Priya started at Figma",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -1006,7 +1006,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000035",
+     "id": "f0000000-0000-4000-8000-000000000036",
      "statement": "Send Priya the Lisbon restaurant list",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -1030,7 +1030,7 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000033",
+     "id": "f0000000-0000-4000-8000-000000000034",
      "statement": "Priya is learning ceramics",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
@@ -1054,14 +1054,14 @@
    },
    {
     "line": {
-     "id": "f0000000-0000-4000-8000-000000000031",
+     "id": "f0000000-0000-4000-8000-000000000032",
      "statement": "Priya's sister Ana moved to Lisbon",
      "person": {
       "id": "00000004-0000-4000-8000-000000000005",
       "label": "Priya",
       "changeable": false
      },
-     "about": null,
+     "about": "Ana (Priya's sister)",
      "also": [],
      "replaces": null,
      "when": null,

@@ -187,7 +187,7 @@ Deno.test("the vertical slice end to end: model → pipeline → one write → c
   eq(body.saved[0].id, "item-0");
   eq(w.writes.length, 1);
   eq(w.writes[0].needsReview, false);
-  eq(w.writes[0].version, "relationship_extract/v5+claude-opus-5-5");
+  eq(w.writes[0].version, "relationship_extract/v6+claude-opus-5-5");
   eq(w.writes[0].items[0].spans, [{ start: 0, end: 23 }, { start: 25, end: 56 }]);
   eq(w.writes[0].items[0].person_id, "person-ben");
   // The model saw the server's data, never the request body's.

@@ -160,7 +160,7 @@ export class FakeGateway implements GatewayTransport {
       : planned.every((p) => p.tier === "auto") ? "auto" : "confirm";
     this.write("captures", captureId, {
       status: tier === "auto" || tier === "nothing" ? "extracted" : "needs_review",
-      extraction_version: "relationship_extract/v5+model",
+      extraction_version: "relationship_extract/v6+model",
     });
     let createdAt: string | null = null;
     if (held.length) {
