@@ -424,3 +424,56 @@ Founder's classification as given. Notes are from what's already known about the
 | H6 | Need an easy way to say whether Kinship understood correctly | Dogfood tooling / recommended | Today the Kept card allows tap-to-correct and Undo, but there's no lightweight "right / not quite" signal that's recorded for review. |
 | H7 | Dogfood notes should feed the eval corpus | Engineering / product process / recommended | Would need consent and a de-identification step before any real note becomes a fixture; fixtures are frozen and versioned (`MANIFEST.json`). |
 | H8 | Latency feels substantially better, though still improvable | Positive signal / monitor, don't optimize prematurely | The new `tell_lifecycle` timings (sent, understood, shown) can separate model time from app time. The eval run measured the model at p50 2.7 s, p95 5.8 s. |
+
+## Round three, continued: native pass on the stabilization build (6 Oct, logged only)
+
+From the founder's native pass after the ai-gateway deploy. Screenshots to follow. Notes are first guesses from what's known about the code, **not investigated and not built**. Nothing was changed.
+
+**What worked (founder's words, paraphrased):**
+- A fact told on Susan's page about Natalia was filed to Natalia.
+- "Natalia got rejected" was held as a personal fact for confirmation, which the founder called a good privacy callout.
+- "August" wasn't assumed to be August 2026.
+- "Not moving to Oakland anymore" correctly closed the earlier move.
+- The "which Sam?" question was asked.
+- Lately and Coming up are liked.
+
+### Lifecycle and Today
+
+| # | Feedback | Notes (not investigated) |
+|---|---|---|
+| H9 | On first sign-in, a "tell Kinship something" first-use screen flashes, then Today replaces it. | Looks like first-use is decided before the account's existing data has synced. Same family as the consent flash (G15): a screen deciding before the account's state is known. |
+| H10 | "Congratulate Ben" → Message → come back: the card is gone, with no "did you reach out?" and nothing logged. Same for "Congratulate Sam" (Stripe). Without knowing whether a message was sent, Kinship learns nothing. | There's no confirmation loop after an action opens another app. Product question: what counts as "reached out", and is it recorded? |
+| H11 | After a force quit, the Congratulate prompts for Ben (promotion), Sam (Stripe) and the Oakland home are back, though each was opened earlier. | The dismissal from H10 looks session-only, not stored. Inconsistent with H10: gone, then back. |
+| H18 | Later, Today asks "Did you reach out to Ben?" with no context: which reason (promotion, his miserable job, games on Saturday)? The follow-up "anything to tell Kinship about Ben?" is unclear: is it about the reach-out, or any fact? | The follow-up line doesn't carry the reason it came from. The delay is by design (a day or so later), but the copy needs the reason. |
+| H26 | "I told Chris I'd send him that restaurant Wednesday" was captured correctly but didn't show in Today's Coming up, unlike the zoo (Sunday) and games (Saturday). | Your promises with a date may not be feeding Coming up the way events are. |
+| H27 | After "Tyler promised to send me his contractor's number Friday" appeared in Coming up, the zoo with Kaiya (Sunday) disappeared from it. | Likely a cap on how many Coming up lines show, or one replacing another. Should not silently drop. |
+
+### Who and what (correctness)
+
+| # | Feedback | Notes (not investigated) |
+|---|---|---|
+| H12 | Sam Doughty's page still asks to confirm items already answered as Sam Eden (Stripe job, married to Michelle). The Oakland house was the one for Doughty. | Questions or link suggestions are likely matched by first name, not cleared once the who-answer files the item to the other Sam. **Trust issue.** |
+| H13 | John's page shows "Ben and John went to Tahoe" and "John and Ben went to Tahoe" as two lines. | Two notes, or items saved before shared memories existed, weren't merged; word order defeats the duplicate check. |
+| H17 | "John and Ben are my brothers" said it will remember John is your brother. It should already know: you'd said Ben is the youngest brother of you and John. It should show what's already known and ask if anything changed, or follow up later on Today. | An earlier relationship isn't surfaced against a new statement of it. |
+| H20 | "My daughter Kaiya and I are going to the zoo Sunday" didn't connect to the existing Kaiya, and saved "My daughter Kaiya…", although Kaiya is already your daughter. | Two problems: (a) "my daughter Kaiya" isn't matched to the known Kaiya; (b) the statement keeps "My", which should read "You and Kaiya…". Voice regression for first-person relation phrases. |
+| H21 | "Susan is getting married to Pedro in the fall" was logged correctly, but it didn't ask who Pedro is or offer to add him; Pedro isn't a contact. | Same family as H5 (Natalia in the wedding): a named person not in People isn't offered "Add Pedro". |
+| H25 | "Natalia is interviewing with Box", then "Natalia is no longer interviewing with Box because she got rejected": the older line wasn't removed. | The update was held for confirmation (sensitive). The replace-the-earlier-line step may not run when a held item is confirmed. |
+| H28 | "Tyler promised to send me his contractor's number Friday" was filed as **your** promise, and the review sheet can't change whose promise it is. | **Regression of G35**: "promised to send me" isn't caught by the someone-else's-promise rule (it caught "said he'd send me"). There's no "whose promise" correction in the review. |
+| H29 | "Wifey … said she might be moving to Seattle with a friend from work" was separated correctly from the promotion, but nothing marked it uncertain: no "One thing to check" and no follow-up. | Hedged items ("might") keep their wording but get no visible marker or follow-up. Product question: should tentative items be checked? |
+
+### Showing changes and provenance
+
+| # | Feedback | Notes (not investigated) |
+|---|---|---|
+| H14 | Force-quit right after telling "John is the second tallest in my family": the fact was kept, but John's page has no "You told Kinship · Oct 6" line under it. | Provenance probably can't find the note when the app was killed before it synced locally. |
+| H19 | "Ben is happy about the promotion, no longer nervous" sits right under "Ben wants to play video games Saturday", so two unrelated lines look like one. | Likely the last pass's "provenance once per group" change: lines from the same day share one source line and read as one block. |
+| H23 | The cancellation (Susan not moving to Oakland) is correct but too subtle in the UI. | Superseded lines show only as "Before: …" on the line. |
+| H24 | On Susan's page, a note about Natalia: filed to Natalia correctly, but the "Understanding…" card said Susan. | The card names the page's person while it waits, before the reading is known. Minor. |
+| H30 | Editing "Ben is really happy…" to "Ben is really not happy…": the new line was saved and the replacement noted, but the source didn't keep the original Tell or show that it was corrected. Wants a strike-through or other highlight of the change. | An edit keeps the replaced text but not the original source on the new line. Needs a design for showing corrections. |
+
+### Product direction (needs founder decision)
+
+| # | Feedback | Notes |
+|---|---|---|
+| H15 | Group what's known about a person into logical sections, e.g. "John's interests" (Vietnamese food, volleyball) and something for aspirations (construction job, robotics; a better word than "goals"). Keep Lately and Coming up. | A change to the approved person page: needs a design decision and an entry in `approved-design-coverage.md`. |
+| H16 | Recognise major milestones (getting married, buying a home, a new job), even with no details, and follow up: when, where. Big moments are the chance to show up. Could be deterministic to save model cost. | A deterministic milestone list with follow-up questions on Today is plausible. Ties to H18's need to carry the reason. |
