@@ -602,3 +602,16 @@ This is conditional on the PR #13 merge gates, the deploy with `ai_extraction` O
 - gated internal dogfood, only through the existing per-account flag mechanism.
 
 **Out of scope until founder review:** Today, reasons, Garden, Intentions, Landscape and the Opportunity Engine.
+
+## CC-16. Core Trust Closure pass: founder direction on round-three feedback (6 Oct 2026)
+From the founder's "Core Trust Closure + Return Loop Pass" brief.
+
+- **Ask Kinship (`retrieval_answer`, E25 / ASK-01)** moves forward on the roadmap. It becomes a post-wife-dogfood / Alpha candidate, not "Next" after everything. It is not built in this pass. When built, it must:
+  - answer only from stored memory, with sources;
+  - say `not_found` rather than guess;
+  - never become a chat.
+- **Milestones (H16)** may support grounded Today reasons. Kinship never interrogates for missing fields (no "when is the wedding? where?"). An eligibility proposal is in `docs/product/next-ux-proposals.md`.
+- **Portrait unchanged (H15/H2).** Lately · Coming up · You said you'd · Between you. A reorganised **What Kinship knows** (Into · Hoping to · Background · Their people · Between you) is design only until approved.
+- **Bring back in first use (H4)** goes to the next UX/onboarding hardening phase. The acceptance criteria are written; no onboarding redesign now.
+- **Dogfood feedback (H6/H7).** "Got it right / Not quite" is stored on the note for review. Real failures become fixtures only after consent, manual review and de-identification (`docs/product/dogfood-feedback-to-evals.md`).
+- **Master bug ledger.** `docs/product/bug-ledger.md` is the canonical quality ledger. VERIFIED means founder-reproduced on a physical iPhone, nothing less.
