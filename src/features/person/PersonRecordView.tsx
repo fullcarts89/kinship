@@ -74,6 +74,7 @@ export function PersonRecordView(props: PersonRecordViewProps) {
                 {r.line.when ? (
                   <Token what="When" value={r.line.when.label} onPress={r.line.when.changeable ? () => props.onChange(r.line, "date") : undefined} />
                 ) : null}
+                {r.line.maybe ? <Token what="How sure" value="Maybe" /> : null}
                 <Token what="What" value={r.line.kind.label} onPress={r.line.kind.changeable ? () => props.onChange(r.line, "kind") : undefined} />
               </TokenRow>
             </View>

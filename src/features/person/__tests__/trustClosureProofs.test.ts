@@ -399,4 +399,19 @@ describe("core trust closure", () => {
     const shown = [...portrait.lately, ...portrait.comingUp];
     expect(shown.map((l) => [l.statement, l.was ?? null])).toEqual([["Susan is not moving to Oakland anymore", "Susan is moving to Oakland in August"]]);
   });
+
+  it("H29: 'might be moving to Seattle' keeps its words and shows a quiet 'Maybe'; no score, no taxonomy", async () => {
+    const w = await world();
+    await people(w, "Wifey");
+    const t = await tell(w, "Wifey said she might be moving to Seattle with her friend from work", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "thread", person: key(i, "Wifey"), person_mention: "Wifey", certainty: "tentative",
+        statement: "Wifey said she might be moving to Seattle with her friend from work",
+        evidence: ["Wifey said she might be moving to Seattle with her friend from work"], detail: { topic: "moving to Seattle" } })],
+    }));
+    const [line] = t.review.lines;
+    expect(line.statement).toMatch(/might be moving to Seattle/);
+    expect(line.maybe).toBe(true);
+    expect(JSON.stringify(t.review)).not.toMatch(/confidence|tentative|0\.\d/);
+  });
 });

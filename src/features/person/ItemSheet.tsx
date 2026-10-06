@@ -75,6 +75,7 @@ export function ItemSheet(props: ItemSheetProps) {
               {line.about ? <Token what="About" value={line.about} /> : null}
               {line.also?.length ? <Token what="Also about" value={line.also.join(", ")} /> : null}
               {line.when ? <Token what="When" value={line.when.label} onPress={line.when.changeable ? () => setPane("date") : undefined} /> : null}
+              {line.maybe ? <Token what="How sure" value="Maybe" /> : null}
               <Token what="What" value={line.kind.label} onPress={line.kind.changeable ? () => setPane("kind") : undefined} />
             </TokenRow>
           </View>

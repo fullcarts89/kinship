@@ -80,6 +80,8 @@ export interface ItemLine {
   };
   /** Someone the line names who isn't in People yet ("Pedro"), to add (H21). */
   newcomers?: string[];
+  /** Said as a possibility ("might be moving"): a quiet "Maybe", never a score (H29). */
+  maybe?: boolean;
   /** The user already changed it. */
   edited: boolean;
   /** The words before the user's first edit, kept with the edit (H30). */
@@ -276,6 +278,7 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
         changeable: (SWITCHABLE_KINDS as readonly string[]).includes(item.kind) && item.subject_type !== "user",
       },
     edited: item.user_state === "edited",
+    ...(item.certainty === "tentative" || item.certainty === "wished" ? { maybe: true } : {}),
   };
 }
 
