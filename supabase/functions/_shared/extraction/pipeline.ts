@@ -352,6 +352,13 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
     // Date words that aren't in the note are ignored, never resolved.
   }
 
+  // Something the note says already happened, with no day at all ("John and
+  // Ben went to Tahoe"), isn't an undated event to come: it's a past fact,
+  // never shown as "No date yet · Something happening" (founder G32c).
+  // Sensitive ones stay events, held for the user's yes.
+  if (raw.kind === "event" && raw.date_direction === "past" && !resolution?.date && sensitivity === "none" && !raw.date_text?.trim()) {
+    raw = { ...raw, kind: "fact", detail: { ...raw.detail, category: raw.detail.category ?? "other" } };
+  }
   const detail = buildDetail(ctx, raw.kind, raw, resolution, sentence);
   if ("drop" in detail) return detail;
   if (raw.kind === "tradition") flags.add("tradition"); // plan §5: never inferred silently
@@ -1160,7 +1167,7 @@ function sameWhen(a: Record<string, unknown>, b: Record<string, unknown>): boole
 }
 
 function sameSharedPlanned(a: PlannedItem, b: PlannedItem): boolean {
-  if (a.kind !== b.kind || a.subject_type !== b.subject_type) return false;
+  if (!sameKindFamily(a.kind, b.kind) || a.subject_type !== b.subject_type) return false;
   const pa = [a.person_id ?? "", ...(a.with_person_ids ?? [])].filter(Boolean).sort().join(",");
   const pb = [b.person_id ?? "", ...(b.with_person_ids ?? [])].filter(Boolean).sort().join(",");
   return pa.includes(",") && pa === pb && wordBag(a.statement) === wordBag(b.statement) && sameWhen(a.detail, b.detail);
@@ -1178,7 +1185,7 @@ function sharedTwin(ctx: Context, item: PlannedItem): void {
   const withKeys = item.with_person_ids.map((id) => keyOfId.get(id)).filter((k): k is string => !!k);
   const mine = participants(item.person_key, withKeys);
   const twin = ctx.input.dossier.find((t) =>
-    t.status === "active" && t.kind === item.kind && t.subject_type === item.subject_type &&
+    t.status === "active" && sameKindFamily(t.kind, item.kind) && t.subject_type === item.subject_type &&
     t.user_state !== "edited" && t.user_state !== "user_authored" &&
     participants(t.person_key, t.with_person_keys) === mine &&
     wordBag(t.statement) === wordBag(item.statement) && sameWhen(t.detail, item.detail)
@@ -1191,7 +1198,18 @@ function sharedTwin(ctx: Context, item: PlannedItem): void {
   item.person_id = owner.id;
   item.person_key = owner.key;
   item.with_person_ids = others;
+  // Merged as what it already is ("went to Tahoe" kept as an event before).
+  if (item.kind !== twin.kind) {
+    item.kind = twin.kind;
+    item.detail = { ...twin.detail };
+  }
   item.action = { type: "merge", target_id: twin.id };
+}
+
+/** Something that happened, however it was filed: an event, a fact or a moment. */
+function sameKindFamily(a: string, b: string): boolean {
+  const happened = ["event", "fact", "moment"];
+  return a === b || (happened.includes(a) && happened.includes(b));
 }
 
 // ─── Relationships said again (founder H17) ─────────────────────────────────

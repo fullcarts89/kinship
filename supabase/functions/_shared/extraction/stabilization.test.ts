@@ -336,3 +336,17 @@ Deno.test("H17: a relationship said again is already known, never a second fact;
   const john = asked.items.find((i) => i.person_id === "john")!;
   eq([john.tier, john.flags.includes("relation_conflict")], ["hold", true]);
 });
+
+Deno.test("G32c: a trip that already happened, with no day, is a past fact, never an undated event to come", () => {
+  const out = run(input("John and Ben went to Tahoe."), [item({
+    kind: "event", person: "p2", person_mention: "John", statement: "John and Ben went to Tahoe", evidence: ["John and Ben went to Tahoe"],
+    date_direction: "past", detail: { event_type: "trip" },
+  })]);
+  eq([out.items[0].kind, out.items[0].detail.event_type ?? null], ["fact", null]);
+  // With a day it stays an event; a sensitive one stays an event too (held).
+  const dated = run(input("John and Ben went to Tahoe last weekend."), [item({
+    kind: "event", person: "p2", person_mention: "John", statement: "John and Ben went to Tahoe", evidence: ["John and Ben went to Tahoe last weekend"],
+    date_direction: "past", date_text: "last weekend", detail: { event_type: "trip" },
+  })]);
+  eq(dated.items[0].kind, "event");
+});
