@@ -173,9 +173,11 @@ export function buildReview(input: ReviewInput): ReviewView {
   }
   if (row.state === "kept") return { ...empty, mode: "asWritten", status: COPY.kept, canUndo: true };
   if (row.state === "failed") return { ...empty, mode: "failed", status: COPY.failed, canUndo: true };
+  // A relationship said again that Kinship already holds (H17): said back, not kept twice.
+  const known = row.reading?.known?.length ? `Already known: ${row.reading.known.join("; ")}.` : null;
   if (row.state === "done" && row.reading && row.reading.saved.length === 0 && row.reading.held.length === 0) {
     // Understood, nothing to remember: said once, never silence.
-    return { ...empty, mode: "nothing", status: COPY.nothing, canUndo: true };
+    return { ...empty, mode: "nothing", status: known ?? COPY.nothing, canUndo: true };
   }
   if (row.state === "done" || row.state === "closing" || !row.reading) return empty;
 
@@ -204,7 +206,7 @@ export function buildReview(input: ReviewInput): ReviewView {
     lines,
     questions,
     answering,
-    status: answering ? (offline ? COPY.answeringOffline : COPY.answering) : null,
+    status: answering ? (offline ? COPY.answeringOffline : COPY.answering) : known,
     canUndo: true,
     personIds,
   };
@@ -212,7 +214,7 @@ export function buildReview(input: ReviewInput): ReviewView {
   // What the reading saved is still on its way here: understanding, not empty.
   if ((input.missing ?? 0) > 0) return { ...base, mode: "understanding", status: COPY.arriving };
   // Answered, and the answer kept nothing ("Don't keep this").
-  if (lines.length === 0) return { ...base, mode: "nothing", status: COPY.nothing };
+  if (lines.length === 0) return { ...base, mode: "nothing", status: known ?? COPY.nothing };
   return { ...base, mode: "card", summary: summaryFor(lines) };
 }
 
@@ -549,7 +551,9 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       type: "keep",
       group: `keep:${item.statement}:${item.spans[0]?.start ?? 0}`,
       prompt: person ? `Remember this about ${person.display_name}?` : "Remember this?",
-      reason: ambiguousDay ? "That day could be read two ways."
+      reason: item.flags.includes("relation_conflict") && person && typeof person.relationship_label === "string" && person.relationship_label
+        ? `${person.display_name.split(/\s+/u)[0]} is your ${person.relationship_label} here. Keep this instead?`
+        : ambiguousDay ? "That day could be read two ways."
         : sensitive ? "This sounds personal, so I keep it only if you say so."
         : null,
       detail: [person ? personLabel(person, input.people) : null, when].filter(Boolean).join(" · ") || null,

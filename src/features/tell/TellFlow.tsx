@@ -107,7 +107,7 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     heading: view.mode === "card" ? view.heading : null,
     lines: lines.slice(0, 3),
     more: Math.max(0, lines.length - 3),
-    status: view.mode === "card" ? null : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
+    status: view.mode === "card" ? view.status : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
     personIds: view.personIds,
     ...(() => {
       const names = [...new Set(view.lines.flatMap((l) => l.newcomers ?? []))];

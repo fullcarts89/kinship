@@ -85,6 +85,7 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
   const ctx = new Context(input, text, proposal?.needs_clarification ?? null);
   const dropped: ExtractionOutcome["dropped"] = [];
   const items: PlannedItem[] = [];
+  const known: string[] = [];
 
   const proposed = Array.isArray(proposal?.items) ? proposal.items : [];
   for (const [i, raw] of proposed.entries()) {
@@ -93,7 +94,10 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
       continue;
     }
     const result = planItem(ctx, raw);
-    if ("drop" in result) dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null });
+    if ("drop" in result) {
+      dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null });
+      if (result.drop === "already_known" && result.known && !known.includes(result.known)) known.push(result.known);
+    }
     else {
       // "Ben and John went to Tahoe", told once for each of them, in either
       // order: one shared memory (founder H13).
@@ -116,7 +120,7 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     : items.some((i) => i.tier === "confirm")
     ? "confirm"
     : "auto";
-  return { items, dropped, clarification, tier, injection_suspected: ctx.injection };
+  return { items, dropped, clarification, tier, injection_suspected: ctx.injection, ...(known.length ? { known } : {}) };
 }
 
 // ─── Context ────────────────────────────────────────────────────────────────
@@ -189,7 +193,7 @@ class Context {
 
 // ─── One item ───────────────────────────────────────────────────────────────
 
-type ItemResult = { item: PlannedItem } | { drop: DropReason };
+type ItemResult = { item: PlannedItem } | { drop: DropReason; known?: string };
 
 function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   let raw = proposed;
@@ -278,6 +282,17 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   // A statement that plainly leads with someone else ("John is your
   // brother") is never left on the page the model chose (Ben's).
   if (subject === "person" && who.person_key && !knownRelated) who = refileBySubject(ctx, said, who, flags);
+
+  // A relationship to the user, said again (founder H17): already known is
+  // never a second fact; a different one is asked about, never overwritten.
+  if (raw.kind === "fact" && subject === "person" && who.person_key) {
+    const stated = relationIn(said);
+    const label = ctx.byKey.get(who.person_key)?.relationship_label?.trim();
+    if (stated && label) {
+      if (sameRelation(stated, label)) return { drop: "already_known", known: said };
+      flags.add("relation_conflict");
+    }
+  }
 
   // ── Related person ("Sarah's sister") ──
   let related: PlannedItem["related"] = null;
@@ -497,7 +512,7 @@ function askConfirmed(ctx: Context, mention: string): boolean {
 
 // A pronoun that could point at two named people ("Ben and Josh went
 // climbing. He fell.") waits for the user, like any other ambiguity.
-const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check"];
+const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict"];
 
 function tierFor(flags: Set<Flag>): Tier {
   if (HOLD_FLAGS.some((f) => flags.has(f))) return "hold";
@@ -1177,4 +1192,24 @@ function sharedTwin(ctx: Context, item: PlannedItem): void {
   item.person_key = owner.key;
   item.with_person_ids = others;
   item.action = { type: "merge", target_id: twin.id };
+}
+
+// ─── Relationships said again (founder H17) ─────────────────────────────────
+
+/** "John is your brother", "Ben is your younger brother": the relation, for a statement that only says that. */
+function relationIn(statement: string): string | null {
+  const m = statement.normalize("NFC").trim().replace(/[.!]$/u, "")
+    .match(/^\p{Lu}[\p{L}\p{M}'’-]*(?:\s+\p{Lu}[\p{L}\p{M}'’-]*)?\s+is\s+your\s+(?:(?:older|younger|little|big|baby|twin|oldest|youngest|eldest)\s+)?([\p{L}-]+(?:\s+[\p{L}-]+)?)$/u);
+  return m ? m[1].toLocaleLowerCase() : null;
+}
+
+const SIBLING = new Set(["brother", "sister", "sibling"]);
+const PARENT = new Set(["mom", "mother", "dad", "father", "parent"]);
+const CHILD = new Set(["son", "daughter", "kid", "child"]);
+
+/** Same relationship, in the user's words or Kinship's ("sibling" fits "brother"). */
+function sameRelation(a: string, b: string): boolean {
+  const x = relationKey(a), y = relationKey(b);
+  if (x === y) return true;
+  return [SIBLING, PARENT, CHILD].some((g) => g.has(x) && g.has(y) && (x === "sibling" || y === "sibling" || x === "parent" || y === "parent" || x === "child" || y === "child" || x === "kid" || y === "kid"));
 }

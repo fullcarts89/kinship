@@ -142,7 +142,10 @@ export type DropReason =
   | "contact_detail"
   // "the writer" left in a statement in a way that couldn't be turned into
   // "you" with certainty (founder native pass F4/F6).
-  | "internal_reference";
+  | "internal_reference"
+  // A relationship Kinship already holds, said again ("John is your
+  // brother" when John is already your brother): never a second fact (H17).
+  | "already_known";
 
 export type Flag =
   | "new_person"
@@ -169,6 +172,8 @@ export type Flag =
   // Stabilization Gate E: this reads as an update to an earlier memory, but
   // two fit equally well; the user says which one it replaces (or neither).
   | "update_check"
+  // A stated relationship that differs from the one Kinship holds: asked (H17).
+  | "relation_conflict"
   // Stabilization Gate F: also about others in People (one memory, one source).
   | "shared_people";
 
@@ -217,6 +222,8 @@ export interface ExtractionOutcome {
   /** What the capture needs: auto-save, a light confirmation, one question, or nothing found. */
   tier: "auto" | "confirm" | "clarify" | "nothing";
   injection_suspected: boolean;
+  /** Relationships said again that Kinship already holds, in the user's terms ("John is your brother"). */
+  known?: string[];
 }
 
 export type { DatePrecision, Direction };

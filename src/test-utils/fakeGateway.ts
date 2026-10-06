@@ -87,7 +87,7 @@ export class FakeGateway implements GatewayTransport {
     return [...this.server.table(table).values()].filter((r) => r.user_id === this.userId && !r.deleted_at) as unknown as T[];
   }
 
-  private pipeline(captureId: string, reply: (input: ExtractionInput) => ModelProposal): Script & { planned: Record<string, unknown>[] } {
+  private pipeline(captureId: string, reply: (input: ExtractionInput) => ModelProposal): Script & { planned: Record<string, unknown>[]; known?: string[] } {
     const c = this.capture(captureId)!;
     const capture: CaptureRow = {
       id: captureId, raw_text: String(c.raw_text), occurred_at: String(c.occurred_at),
@@ -95,7 +95,7 @@ export class FakeGateway implements GatewayTransport {
     };
     const input = buildInput(capture, this.rows<PersonRow>("people"), this.rows<RelatedRow>("related_people"), this.rows<ItemRow>("memory_items"));
     const outcome = planExtraction(input, reply(input));
-    return { items: [], clarification: outcome.clarification, planned: outcome.items as unknown as Record<string, unknown>[] };
+    return { items: [], clarification: outcome.clarification, planned: outcome.items as unknown as Record<string, unknown>[], known: outcome.known };
   }
 
   async post(body: Record<string, unknown>): Promise<TransportReply> {
@@ -174,6 +174,7 @@ export class FakeGateway implements GatewayTransport {
       held,
       clarification: held.length ? (script.clarification ?? null) : null,
       review_created_at: createdAt,
+      ...(knownOf(script).length ? { known: knownOf(script) } : {}),
     });
   }
 
@@ -377,4 +378,9 @@ function ok(body: unknown): TransportReply {
 
 function refuse(status: number, error: string, reason?: string): TransportReply {
   return { status, body: reason ? { error, reason } : { error }, retryAfter: null };
+}
+
+function knownOf(script: unknown): string[] {
+  const k = (script as { known?: unknown }).known;
+  return Array.isArray(k) ? k.filter((x): x is string => typeof x === "string") : [];
 }

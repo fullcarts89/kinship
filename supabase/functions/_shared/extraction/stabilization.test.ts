@@ -314,3 +314,25 @@ Deno.test("H13: a shared memory is one memory whatever the order of the names, a
   ]);
   eq(other.items[0].action.type, "new");
 });
+
+Deno.test("H17: a relationship said again is already known, never a second fact; a different one is asked", () => {
+  const note = "John and Ben are my brothers.";
+  const both = (i: ExtractionInput) => [
+    item({ kind: "fact", person: "p2", person_mention: "John", statement: "John is your brother", evidence: ["John and Ben are my brothers"], detail: { category: "family" } }),
+    item({ kind: "fact", person: "p1", person_mention: "Ben", statement: "Ben is your brother", evidence: ["John and Ben are my brothers"], detail: { category: "family" } }),
+  ];
+  const known = input(note);
+  known.roster = known.roster.map((r) => (r.key === "p1" || r.key === "p2" ? { ...r, relationship_label: r.key === "p1" ? "sibling" : "brother" } : r));
+  const out = run(known, both(known));
+  eq(out.items.length, 0);
+  eq(out.known, ["John is your brother", "Ben is your brother"]);
+  // Not known yet: kept, as before.
+  const fresh = run(input(note), both(input(note)));
+  eq(fresh.items.map((i) => i.statement), ["John is your brother", "Ben is your brother"]);
+  // Kinship has John as your cousin: asked, never overwritten.
+  const conflict = input(note);
+  conflict.roster = conflict.roster.map((r) => (r.key === "p2" ? { ...r, relationship_label: "cousin" } : r));
+  const asked = run(conflict, both(conflict));
+  const john = asked.items.find((i) => i.person_id === "john")!;
+  eq([john.tier, john.flags.includes("relation_conflict")], ["hold", true]);
+});

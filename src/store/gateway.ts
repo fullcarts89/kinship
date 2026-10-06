@@ -86,6 +86,8 @@ export type Understood =
       held: HeldItem[];
       clarification: Clarification | null;
       review_created_at: string | null;
+      /** Relationships said again that Kinship already holds ("John is your brother"). */
+      known?: string[];
     }
   | { status: "done"; held: HeldItem[]; clarification: Clarification | null; review_created_at: string | null }
   | { status: "kept" };
@@ -164,6 +166,7 @@ export class Gateway {
         held: arrayOf<HeldItem>(body.held),
         clarification: (body.clarification as Clarification | null) ?? null,
         review_created_at: typeof body.review_created_at === "string" ? body.review_created_at : null,
+        ...(Array.isArray(body.known) ? { known: (body.known as unknown[]).filter((k): k is string => typeof k === "string").slice(0, 5) } : {}),
       };
     }
     if (status === "done") {

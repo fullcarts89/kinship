@@ -360,4 +360,20 @@ describe("core trust closure", () => {
     expect(r.provenance).toMatch(/^Edited by you · .* · from your note, /);
     expect(r.noteId).toBe(t.id); // the source opens the original note
   });
+
+  it("H17: 'John and Ben are my brothers' when Kinship already knows: 'Already known', no duplicate fact", async () => {
+    const w = await world();
+    const [ben, john] = await people(w, "Ben Oxnard", "John Oxnard");
+    for (const p of [ben, john]) await w.store.update("people", p.id, { relationship_label: "brother" });
+    await w.engine.sync();
+    const t = await tell(w, "John and Ben are my brothers.", (i) => ({
+      needs_clarification: null,
+      items: [
+        item({ kind: "fact", person: key(i, "John"), person_mention: "John", statement: "John is your brother", evidence: ["John and Ben are my brothers"], detail: { category: "family" } }),
+        item({ kind: "fact", person: key(i, "Ben"), person_mention: "Ben", statement: "Ben is your brother", evidence: ["John and Ben are my brothers"], detail: { category: "family" } }),
+      ],
+    }));
+    expect(t.review.status).toBe("Already known: John is your brother; Ben is your brother.");
+    expect(serverItems(w)).toEqual([]);
+  });
 });

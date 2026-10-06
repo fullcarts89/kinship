@@ -242,6 +242,7 @@ export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Resp
         held: held.map(present),
         clarification: outcome.clarification,
         review_created_at: stored?.created_at ?? null,
+        ...(outcome.known?.length ? { known: outcome.known } : {}),
       }, 200, cors);
     } catch (err) {
       if (claimed) await deps.service.release(claimed.userId, claimed.captureId, "failed").catch(() => undefined);

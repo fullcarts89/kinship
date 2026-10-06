@@ -60,6 +60,8 @@ export interface Reading {
   review_created_at: string | null;
   /** Nothing waits on the server for this note any more. */
   settled: boolean;
+  /** Relationships said again that Kinship already holds: said back, never kept twice (H17). */
+  known?: string[];
   /** The answer that settled it, to check it landed after "already_resolved". */
   answered?: HeldAnswer[];
 }
@@ -500,6 +502,7 @@ export class Understanding {
           clarification: reply.clarification,
           review_created_at: reply.review_created_at,
           settled: reply.held.length === 0 && (reply.tier === "auto" || reply.tier === "nothing"),
+          ...(reply.known?.length ? { known: reply.known } : {}),
         }
       : {
           tier: "unknown",
