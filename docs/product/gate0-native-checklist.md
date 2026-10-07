@@ -6,6 +6,8 @@
 
 Gate 0 has **no database migrations** (production stays at `20261007090000`), so there is **no `db push`**.
 
+**I8 follow-up (7 Oct):** the first Gate 0 build (`b60b84c`) still opened 1.0 on a cold start. The fix (`099f47e`) is in the app only: after it is merged, pull `main` and build again (no ai-gateway deploy needed for it). Row 1 counts only on that build.
+
 1. Merge the branch into `main` with a merge commit, when you're happy to (no PR is open; ask me to open one if you want it reviewed first).
 2. Redeploy ai-gateway (I10, I12b, I3 and the spoken-name fix run there):
    ```
