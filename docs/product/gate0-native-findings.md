@@ -223,3 +223,38 @@ The founder notes Pedro has no phone number in the app.
 **Severity:** P1. Not a dead end (Done, and a tap above the sheet, still close it), but the most basic native gesture fails on the most-used surfaces.
 
 **Related:** I6 (keyboard and drag-to-dismiss behaviour, approved for Phase 4), I9 (returning to the confirmation).
+
+---
+
+## 7 Oct, 4:04 pm
+
+### J6 — "and 1 more" on the Kept card can't be opened
+
+**Screenshot:** `screens/feedback4/g0-j6-kept-and-1-more.png`.
+
+**What happened.**
+- Tell: "John and Ben like to play dress up but are thinking about quitting the hobby."
+- The Kept card ("HERE'S WHAT I'LL REMEMBER") lists:
+  - "John likes to play dress up";
+  - "Ben likes to play dress up";
+  - "John is thinking about quitting dress up";
+  - then **"and 1 more"**.
+- The founder assumes the fourth is Ben's, but can't tap "and 1 more" to check.
+
+**Cause (confirmed in the code):**
+- The Kept card (`KeptCard`, `src/features/tell/TellDock.tsx`) shows the first **three** lines.
+- **"and N more" is plain text, not a control.**
+- Tapping one of the three *shown* lines does open the full review with every line, but nothing on the card says so. The only visible hint is "Tap a line to correct it.", which reads as editing, not viewing.
+
+**Expected:**
+- **"and 1 more" is a real control** with a proper tap target. It either expands the card in place to show the rest (as Today's Coming up "and N more" does, H27) or opens the full review with every line.
+- The card is where the user checks what was kept, so **no kept line may be unreachable from it**.
+
+**Severity:** P1. The user can't verify what Kinship kept, which is the card's whole job.
+
+**Related:** I4 (the Kept-card hierarchy, Phase 4; "Tap a line to correct it" is still here), H27 (Coming up's "and N more" expands in place).
+
+**Also noticed (a product question, not a bug).**
+- The note was kept as **four one-person lines**: John likes…, Ben likes…, John is thinking about quitting…, (Ben is thinking about quitting…).
+- It was not kept as **two shared lines** ("John and Ben like to play dress up", "…are thinking about quitting"), each on both pages, which is the H5 shape used for "Anthony and Natalia are getting married".
+- **Question for the founder:** is a hobby two people share one shared line on both pages, or each person's own line? Per-person suits What Kinship knows › Into (H15); shared halves the lines on the card.
