@@ -71,6 +71,8 @@ export class FakeGateway implements GatewayTransport {
   /** ai-gateway's own time to report (Server-Timing), and a hook run while the request is "in flight". */
   serverMs: number | null = null;
   onCall: (() => void) | null = null;
+  /** Holds every request until it resolves: a slow network. */
+  pause: Promise<void> | null = null;
 
   constructor(
     private readonly server: FakeServer,
@@ -105,6 +107,7 @@ export class FakeGateway implements GatewayTransport {
     const kind = body.action === "close_review" ? "close" : body.action === "resolve_review" ? "answer" : "understand";
     this.calls.push(kind);
     this.onCall?.();
+    if (this.pause) await this.pause;
     if (this.offline) throw new GatewayUnreachable("offline");
     if (this.failNext) {
       const f = this.failNext;

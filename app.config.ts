@@ -10,8 +10,12 @@ const NIGHT = "#121513"; // color.night.paper
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   if (process.env.EXPO_PUBLIC_V2_ENTRY !== "1") return config as ExpoConfig;
+  // The build's short commit, from EAS, for dogfood performance telemetry
+  // (founder CC-18: coarse build version). Absent outside an EAS build.
+  const commit = (process.env.EAS_BUILD_GIT_COMMIT_HASH ?? "").slice(0, 7);
   return {
     ...config,
+    extra: { ...(config.extra ?? {}), ...(/^[0-9a-f]{7}$/u.test(commit) ? { build: commit } : {}) },
     splash: { image: "./assets/images/v2/splash-sprig.png", resizeMode: "contain", backgroundColor: PAPER },
     plugins: [
       ...(config.plugins ?? []),

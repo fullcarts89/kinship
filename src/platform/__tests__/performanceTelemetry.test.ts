@@ -29,9 +29,25 @@ describe("performance scope", () => {
     track("review_item_accepted", { tier: "auto", item_kind: "event" });
     track("capture_started", { source: "text" });
     track("handoff_opened", { channel: "text" });
-    track("tell_failure", { stage: "timeout", attempt: 1 });
+    track("tell_failure", { stage: "timeout", attempt: 1, backgrounded: false });
     track("app_stall", { duration_bucket: "1-2s", tell_work: false });
     expect(inner.map(([e]) => e)).toEqual(["tell_failure", "app_stall"]);
+  });
+
+  it("CC-18: every performance event carries the coarse build and platform, nothing finer", () => {
+    const inner: [string, Record<string, unknown>][] = [];
+    setAnalyticsSink(performanceOnly({ send: (e, p) => inner.push([e, p]) }, { app_version: "1.0.0", build: "2e3e71a", platform: "ios", os_version: "26" }));
+    track("app_stall", { duration_bucket: "1-2s", tell_work: false });
+    track("tell_feedback", { verdict: "right", off: "none" });
+    expect(inner).toEqual([["app_stall", { duration_bucket: "1-2s", tell_work: false, app_version: "1.0.0", build: "2e3e71a", platform: "ios", os_version: "26" }]]);
+  });
+
+  it("reads the build: the app version, the build's short commit (EAS), the platform and its major version only", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { buildInfo } = require("@/platform/buildInfo") as typeof import("@/platform/buildInfo");
+    const info = buildInfo({ version: "1.0.0", extra: { build: "2e3e71a" } }, { OS: "ios", Version: "26.0.1" });
+    expect(info).toEqual({ app_version: "1.0.0", build: "2e3e71a", platform: "ios", os_version: "26" });
+    expect(buildInfo(null, { OS: "android", Version: 35 })).toEqual({ app_version: "unknown", build: "unknown", platform: "android", os_version: "35" });
   });
 
   it("is chosen by EXPO_PUBLIC_ANALYTICS_SCOPE=performance, and analytics stays off without the switch", () => {
@@ -111,8 +127,9 @@ describe("a Tell's lifecycle, by stage", () => {
     await prepareSchema(db, A);
     const store = new UserStore(db, A, { now, newId: randomUUID });
     const engine = new SyncEngine(store, new FakeRemote(server, A));
-    const understanding = new Understanding(store, () => engine.sync(), new Gateway(gateway), { clock: () => clock });
-    return { gateway, understanding, repos: repositoriesFor(store), engine };
+    const away = { n: 0 };
+    const understanding = new Understanding(store, () => engine.sync(), new Gateway(gateway), { clock: () => clock, away: () => away.n });
+    return { gateway, understanding, repos: repositoriesFor(store), engine, away };
   }
 
   it("times send → request → reply → on screen, splits server from network, and carries no content", async () => {
@@ -146,10 +163,50 @@ describe("a Tell's lifecycle, by stage", () => {
       network_bucket: "0.5-1s",
       render_bucket: "<0.5s",
       retries: 0,
+      // Not told through this phone's Tell field in this test: unknown, never guessed.
+      understanding_bucket: "unknown",
+      backgrounded: "unknown",
     }]]);
     // Content-free: no words, names or ids in anything sent.
     const wire = JSON.stringify(sent);
     for (const s of ["Ben", "Chicago", c.id, ben.id]) expect(wire).not.toContain(s);
+  });
+
+  it("CC-18: times Send → 'Understanding…' on screen, and says whether the app went to the background while the Tell was processing", async () => {
+    const d = await device();
+    const ben = await d.repos.people.add({ display_name: "Ben" });
+    await d.engine.sync();
+    const note = "Ben runs Chicago Sunday.";
+    d.gateway.script(note, { items: [{
+      kind: "event", statement: "Ben runs Chicago Sunday", quote: "Ben runs Chicago Sunday.", tier: "auto", person_id: ben.id,
+      detail: { date: "2026-10-11", date_precision: "day", date_hint: "Sunday", event_type: "race", followup_policy: "after" },
+    }] });
+    const tapped = clock;
+    clock += 120; // saved on the phone
+    const c = await d.repos.captures.tell(note, { aiEnabled: true, timeZone: "America/Chicago" });
+    d.understanding.sent(c.id, tapped);
+    await d.understanding.told(c.id);
+    clock += 200; // "Understanding…" painted
+    d.understanding.understandingVisible(c.id);
+    d.away.n += 1; // the user switched apps while it was understood
+    clock += 2500;
+    await d.understanding.run();
+    const row = await d.understanding.get(c.id);
+    await d.understanding.markShown(row!);
+    const [, props] = sent.find(([e]) => e === "tell_lifecycle")!;
+    expect(props).toMatchObject({ understanding_bucket: "<0.5s", backgrounded: true });
+
+    // Another Tell that stayed in the foreground.
+    const note2 = "Ben runs Boston in April.";
+    d.gateway.script(note2, { items: [] });
+    const c2 = await d.repos.captures.tell(note2, { aiEnabled: true, timeZone: "America/Chicago" });
+    d.understanding.sent(c2.id, clock);
+    await d.understanding.told(c2.id);
+    await d.understanding.run();
+    await d.understanding.markShown((await d.understanding.get(c2.id))!);
+    const second = sent.filter(([e]) => e === "tell_lifecycle")[1][1];
+    // The result came before "Understanding…" was ever painted.
+    expect(second).toMatchObject({ understanding_bucket: "not_shown", backgrounded: false });
   });
 
   it("reports each failed attempt by stage, and the retries on the eventual result", async () => {
@@ -158,11 +215,11 @@ describe("a Tell's lifecycle, by stage", () => {
     await d.understanding.told(c.id);
     d.gateway.failNext = { status: 503, error: "try_later" };
     await d.understanding.run();
-    expect(sent.filter(([e]) => e === "tell_failure")).toEqual([["tell_failure", { stage: "server", attempt: 1 }]]);
+    expect(sent.filter(([e]) => e === "tell_failure")).toEqual([["tell_failure", { stage: "server", attempt: 1, backgrounded: "unknown" }]]);
     d.gateway.offline = true;
     clock += 60 * 60_000;
     await d.understanding.run();
-    expect(sent.filter(([e]) => e === "tell_failure").at(-1)).toEqual(["tell_failure", { stage: "offline", attempt: 2 }]);
+    expect(sent.filter(([e]) => e === "tell_failure").at(-1)).toEqual(["tell_failure", { stage: "offline", attempt: 2, backgrounded: "unknown" }]);
     d.gateway.offline = false;
     await d.understanding.run();
     const row = await d.understanding.get(c.id);

@@ -212,6 +212,41 @@ it("I9: opening the Kept card's details and closing them (any way) comes back to
   r.unmount();
 });
 
+it("CC-18 telemetry: a Tell sent from the field reports Send → 'Understanding…' on screen, content-free", async () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const analytics = require("@/platform/analytics") as typeof import("@/platform/analytics");
+  const events: [string, Record<string, unknown>][] = [];
+  analytics.setAnalyticsSink({ send: (e, p) => events.push([e, p]) });
+  try {
+    const w = await world();
+    const r = await mount();
+    // A slow network: "Understanding…" is on screen while the request is out.
+    let release!: () => void;
+    w.gateway.pause = new Promise((done) => {
+      release = done;
+    });
+    await act(async () => {
+      await flow.current!.keep(BEN_NOTE, null);
+    });
+    await settle();
+    expect(flow.current!.card).toMatchObject({ mode: "understanding" });
+    w.gateway.pause = null;
+    await act(async () => {
+      release();
+      await w.understanding.run();
+    });
+    await settle();
+    expect(flow.current!.card).toMatchObject({ mode: "card" });
+    const lifecycle = events.find(([e]) => e === "tell_lifecycle")?.[1];
+    expect(lifecycle?.understanding_bucket).toEqual(expect.stringMatching(/^(<0\.5s|0\.5-1s|1-2s)$/u));
+    expect(lifecycle?.backgrounded).toBe(false);
+    expect(JSON.stringify(events)).not.toContain("Chicago");
+    r.unmount();
+  } finally {
+    analytics.setAnalyticsSink();
+  }
+});
+
 it("closing a question's sheet keeps the question: it waits on Today and the person's page, and another Tell doesn't lose it", async () => {
   const w = await world();
   const r = await mount();

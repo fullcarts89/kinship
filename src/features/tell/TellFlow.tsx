@@ -225,8 +225,11 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
 
   const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text") => {
     if (!text.trim()) return false;
+    // When Send was tapped, before anything is saved (CC-18 telemetry, content-free).
+    const tapped = u.now();
     try {
       const id = await keepNote(text, contextPersonId ?? null, source);
+      u.sent(id, tapped);
       // Telling something else is the end of the last card: what it kept stays kept.
       if (current && current !== id && !dismissed[current] && currentView?.mode === "card") finishCard(current, "idle");
       setCurrent(id);
@@ -237,7 +240,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
       Alert.alert("That wasn't kept", "Something went wrong saving it on this phone. Your words are still here.");
       return false;
     }
-  }, [keepNote, ai, activate, current, dismissed, currentView?.mode, finishCard]);
+  }, [keepNote, ai, activate, current, dismissed, currentView?.mode, finishCard, u]);
 
   const fail = (what: Promise<unknown>) => {
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
@@ -250,6 +253,10 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   const waiting = others(open.waiting);
   const pending = pendingAll.filter((n) => n.captureId !== showing && !(card && n.captureId === card.captureId));
   const asking = !!showing && !!sheetView && sheetView.questions.length > 0;
+  // "Understanding…" is on screen (CC-18 telemetry): once per note, after it paints.
+  useEffect(() => {
+    if (card?.mode === "understanding") u.understandingVisible(card.captureId);
+  }, [card?.mode, card?.captureId, u]);
 
   const value = useMemo<TellFlow>(() => ({
     tellOn,

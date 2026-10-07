@@ -40,6 +40,7 @@ import {
   type TellFailureStage,
 } from "@/platform/analytics";
 import { tellWork } from "@/platform/stallMonitor";
+import { awayCount } from "@/platform/appPresence";
 import {
   Gateway,
   GatewayRefused,
@@ -116,6 +117,8 @@ export interface UnderstandingOptions {
   backoffMs?: (failures: number) => number;
   /** Monotonic milliseconds, for latency buckets only. */
   clock?: () => number;
+  /** Trips to the background since launch (platform/appPresence), for telemetry only. */
+  away?: () => number;
 }
 
 const BACKOFF = [15_000, 60_000, 180_000, 600_000, 1_800_000, 3_600_000];
@@ -131,6 +134,13 @@ export class Understanding {
   private readonly maxAttempts: number;
   private readonly backoffMs: (failures: number) => number;
   private readonly clock: () => number;
+  private readonly away: () => number;
+  /**
+   * This launch's own view of a Tell, for content-free telemetry only (CC-18):
+   * when Send was tapped (clock), when "Understanding…" was first on screen,
+   * and the background count at Send. Not persisted: a relaunch says "unknown".
+   */
+  private readonly sends = new Map<string, { tapped: number; away: number; visible?: number }>();
   /** The last pass couldn't reach the server. */
   offline = false;
 
@@ -143,6 +153,29 @@ export class Understanding {
     this.maxAttempts = opts.maxAttempts ?? 6;
     this.backoffMs = opts.backoffMs ?? ((n) => BACKOFF[Math.min(n, BACKOFF.length) - 1] ?? BACKOFF[0]);
     this.clock = opts.clock ?? (() => Date.now());
+    this.away = opts.away ?? awayCount;
+  }
+
+  /** This.clock's time now (for the Send tap, CC-18 telemetry). */
+  now(): number {
+    return this.clock();
+  }
+
+  /** Send was tapped for this note at `tappedAt` (this.clock's time), before it was saved (CC-18). */
+  sent(captureId: string, tappedAt: number): void {
+    this.sends.set(captureId, { tapped: tappedAt, away: this.away() });
+  }
+
+  /** "Understanding…" is on screen for this note (first time only, CC-18). */
+  understandingVisible(captureId: string): void {
+    const s = this.sends.get(captureId);
+    if (s && s.visible === undefined) s.visible = this.clock();
+  }
+
+  /** Whether the app went to the background since Send (content-free). */
+  private backgrounded(captureId: string): boolean | "unknown" {
+    const s = this.sends.get(captureId);
+    return s ? this.away() > s.away : "unknown";
   }
 
   // ─── Reads ────────────────────────────────────────────────────────────
@@ -241,7 +274,16 @@ export class Understanding {
       network_bucket: row.server_ms === null || !Number.isFinite(trip) || trip < 0 ? "unknown" : durationBucketOf(Math.max(0, trip - row.server_ms)),
       render_bucket: durationBucketOf(Math.max(0, shown - understood)),
       retries: smallCount(row.retries ?? row.attempts),
+      understanding_bucket: this.understandingBucket(row.capture_id),
+      backgrounded: this.backgrounded(row.capture_id),
     });
+    this.sends.delete(row.capture_id);
+  }
+
+  private understandingBucket(captureId: string): DurationBucket | "not_shown" | "unknown" {
+    const s = this.sends.get(captureId);
+    if (!s) return "unknown";
+    return s.visible === undefined ? "not_shown" : durationBucketOf(Math.max(0, s.visible - s.tapped));
   }
 
   /** Lets go of a review on screen without deciding anything (the sheet was hidden, not answered). */
@@ -573,7 +615,7 @@ export class Understanding {
     } catch (err) {
       if (err instanceof GatewayRefused) return this.refusedUnderstanding(row, err);
       if (err instanceof GatewayUnreachable) {
-        this.failure(/timeout|abort/i.test(err.message) ? "timeout" : "offline", row.attempts + 1);
+        this.failure(/timeout|abort/i.test(err.message) ? "timeout" : "offline", row.attempts + 1, row.capture_id);
       }
       throw err;
     }
@@ -630,19 +672,19 @@ export class Understanding {
         await this.save(row.capture_id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now(), retries: row.attempts });
         return false;
       case "daily_limit_reached":
-        this.failure("limited", row.attempts + 1);
+        this.failure("limited", row.attempts + 1, row.capture_id);
         await this.save(row.capture_id, { next_at: this.later((err.retryAfterS ?? 3600) * 1000) });
         return false;
       default:
-        this.failure("server", row.attempts + 1);
+        this.failure("server", row.attempts + 1, row.capture_id);
         await this.failed(row, "failed");
         return false;
     }
   }
 
   /** A failed attempt to understand a Tell, content-free. */
-  private failure(stage: TellFailureStage, attempt: number): void {
-    track("tell_failure", { stage, attempt: smallCount(attempt) });
+  private failure(stage: TellFailureStage, attempt: number, captureId: string): void {
+    track("tell_failure", { stage, attempt: smallCount(attempt), backgrounded: this.backgrounded(captureId) });
   }
 
   // ─── Delivering the user's answer and "done" ──────────────────────────
@@ -786,7 +828,7 @@ export class Understanding {
   private async failed(row: UnderstandingRow, giveUp: UnderstandingState | null): Promise<void> {
     const attempts = row.attempts + 1;
     if (giveUp && attempts >= this.maxAttempts) {
-      if (giveUp === "failed") this.failure("gave_up", attempts);
+      if (giveUp === "failed") this.failure("gave_up", attempts, row.capture_id);
       await this.save(row.capture_id, {
         state: giveUp, attempts, next_at: null,
         ...(giveUp === "failed" ? { understood_at: this.store.now() } : {}),
