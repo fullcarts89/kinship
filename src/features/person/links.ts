@@ -6,6 +6,7 @@
 // relative remembered on someone else ("Sam's wife Michelle"), links that
 // record to her. No is remembered and never asked again. Pure: the hook
 // supplies people, memory and what was already answered.
+import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 import { statementNames } from "../../../supabase/functions/_shared/extraction/voice";
 import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 
@@ -39,7 +40,10 @@ export function linkSuggestions(input: {
   const name = first(person.display_name);
   if (!name) return [];
   const out: LinkSuggestion[] = [];
-  const nameOf = (id: string) => input.people.find((p) => p.id === id)?.display_name.split(/\s+/u)[0] ?? "someone";
+  const nameOf = (id: string) => {
+    const p = input.people.find((x) => x.id === id);
+    return p ? shortName(p) : "someone";
+  };
   // A relative remembered by name on someone else ("Sam's wife Michelle").
   for (const r of input.related) {
     if (r.person_id === person.id || !r.name || fold(first(r.name)) !== fold(name)) continue;

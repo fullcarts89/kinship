@@ -25,6 +25,8 @@ export interface PortraitLineData {
 export interface PortraitViewProps {
   personId: string;
   name: string | null;
+  /** The name Kinship says (names.ts shortName): "Michelle" from Contacts, a chosen "Cutie Pie" whole (founder I12). */
+  short?: string | null;
   label: string | null;
   remembered: boolean;
   /** "You reached out · Oct 6" (H10). */
@@ -136,7 +138,7 @@ export function PortraitView(props: PortraitViewProps) {
       </Screen>
     );
   }
-  const first = props.name.trim().split(/\s+/u)[0];
+  const first = props.short?.trim() || props.name.trim().split(/\s+/u)[0];
   // Nothing told about them yet (a birthday from Contacts doesn't count).
   const empty = !props.lately.length && !props.comingUp.some((l) => !l.fixed) && !props.youSaid.length && !props.between.length;
   const footer = (

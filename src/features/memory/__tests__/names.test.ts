@@ -37,7 +37,9 @@ describe("I13: moving a line to the right person", () => {
 describe("I12: the name a person goes by now", () => {
   it("a name as Contacts gave it is said by its first name; a name typed or chosen is said whole", () => {
     expect(shortName(person("m", "Michelle Lee", { full_name: "Michelle Lee" }))).toBe("Michelle");
-    expect(shortName(person("a", "Aunt Linda"))).toBe("Aunt Linda");
+    expect(shortName(person("a", "Aunt Linda", { full_name: null }))).toBe("Aunt Linda");
+    // A record that doesn't say where its name came from reads as before.
+    expect(shortName(person("b", "Ben Carter"))).toBe("Ben");
     expect(shortName(person("c", "Cutie Pie", { full_name: "Cutie Pie", nicknames: ["Wifey Liu", "Wifey"] }))).toBe("Cutie Pie");
   });
 

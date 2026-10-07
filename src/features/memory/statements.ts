@@ -12,23 +12,33 @@
 //     the person ("He wants to go back…" on John → "John wants to go back…");
 //     a promise the user made reads as their own to-do ("Send Michelle that
 //     restaurant").
-import { aboutSomeoneElse, displayStatement, promiseLine, withResolvedName } from "../../../supabase/functions/_shared/extraction/voice";
+import { aboutSomeoneElse, displayStatement, promiseLine, withSpokenName } from "../../../supabase/functions/_shared/extraction/voice";
+import { shortName, withCurrentNames } from "../../../supabase/functions/_shared/extraction/names";
 
 export { displayStatement };
 
 /**
  * The item with its statement as the user should read it. Pass the user's
- * people to name a leading "He"/"She" by the person it's filed on.
+ * people to name a leading "He"/"She" by the person it's filed on, and to
+ * show the people it's about by the names they go by now (founder I12): an
+ * earlier name of theirs, written as a whole word, reads as the current one.
+ * Only the people this memory is linked to; nothing stored changes.
  */
-export function voiced<T extends { statement: string; kind?: unknown; subject_type?: unknown; person_id?: unknown }>(
+export function voiced<T extends { statement: string; kind?: unknown; subject_type?: unknown; person_id?: unknown; with_person_ids?: unknown }>(
   item: T,
   people?: unknown,
 ): T {
   let statement = displayStatement(item.statement);
+  if (Array.isArray(people)) {
+    const everyone = people as Named[];
+    const shared = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
+    const linked = everyone.filter((p) => p.id === item.person_id || shared.includes(p.id));
+    if (linked.length) statement = withCurrentNames(statement, linked, everyone);
+  }
   if (Array.isArray(people) && typeof item.person_id === "string" && /^(He|She|His|Her)\b/u.test(statement)) {
     const p = (people as Named[]).find((x) => x.id === item.person_id);
     if (p && (item.subject_type === undefined || item.subject_type === "person" || item.subject_type === "shared")) {
-      statement = withResolvedName(statement, p.display_name);
+      statement = withSpokenName(statement, shortName(p));
     }
   }
   if (item.kind === "promise" && (item.subject_type === undefined || item.subject_type === "user")) statement = promiseLine(statement);

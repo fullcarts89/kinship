@@ -9,6 +9,7 @@
 //   * "Not this" retracts and removes (§5).
 
 import { codePointLength, locateEvidence, utf16ToCodePoint } from "../../supabase/functions/_shared/spans";
+import { aliasesAfterRename } from "../../supabase/functions/_shared/extraction/names";
 import type { MirroredTable } from "./tables";
 import { StoreWriteError, type Conflict, type Data, type UserStore } from "./userStore";
 
@@ -83,7 +84,8 @@ export class PeopleRepo {
   }
 
   add(fields: { display_name: string; full_name?: string; relationship_label?: string }): Promise<Person> {
-    return this.store.create("people", { state: "active", nicknames: [], ...fields }) as Promise<Person>;
+    // A typed name has no full name: Kinship says it whole ("Aunt Linda", founder I12).
+    return this.store.create("people", { state: "active", nicknames: [], full_name: null, ...fields }) as Promise<Person>;
   }
 
   /**
@@ -99,7 +101,15 @@ export class PeopleRepo {
     if (clean === person.display_name) return person;
     // A full name that only repeated the old name follows it.
     const full = typeof person.full_name === "string" && person.full_name === person.display_name ? { full_name: clean } : {};
-    return (await this.store.update("people", id, { display_name: clean, ...full })) as Person;
+    // The earlier name stays as another name they go by (founder I12): their
+    // memories show the new name where the old one was written, and a later
+    // note that still says it finds them. Its first name too, only where a
+    // memory of theirs used it ("Wifey" from "Wifey Liu").
+    const theirs = ((await this.store.list("memory_items")) as MemoryItem[])
+      .filter((m) => m.person_id === id || (Array.isArray(m.with_person_ids) && m.with_person_ids.includes(id)))
+      .map((m) => m.statement);
+    const nicknames = aliasesAfterRename(person, clean, theirs);
+    return (await this.store.update("people", id, { display_name: clean, ...full, nicknames })) as Person;
   }
 
   /**
@@ -120,7 +130,8 @@ export class PeopleRepo {
       state: "active",
       nicknames: [],
       display_name: name,
-      full_name: name,
+      // Only Contacts gives a full name; one typed at setup is said whole (founder I12).
+      full_name: fields.contactId ? name : null,
       contact_ref: fields.contactId,
       ...(fields.birthday
         ? { birthday: fields.birthday, birthday_year_known: fields.birthdayYearKnown, birthday_source: "contacts" }

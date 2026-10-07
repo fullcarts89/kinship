@@ -25,6 +25,7 @@ import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
+import { aliasesOf, shortName } from "../../../supabase/functions/_shared/extraction/names";
 
 export interface ReviewInput {
   row: UnderstandingRow;
@@ -273,10 +274,10 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
     kind: item.kind === "promise"
       ? {
         value: item.kind,
-        label: promiseLabel(ownerOf(item), person ? firstName(person.display_name) : null),
+        label: promiseLabel(ownerOf(item), person ? shortName(person) : null),
         // Whose promise is the one thing about a promise the user can change (H28).
         changeable: true,
-        owner: { value: ownerOf(item), name: person ? firstName(person.display_name) : null },
+        owner: { value: ownerOf(item), name: person ? shortName(person) : null },
       }
       : {
         value: item.kind,
@@ -291,10 +292,6 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
 /** A promise is the user's unless it's plainly someone else's commitment to them. */
 function ownerOf(item: MemoryItem): "user" | "person" {
   return item.subject_type === "person" ? "person" : "user";
-}
-
-function firstName(name: string): string {
-  return name.trim().split(/\s+/u)[0] ?? name;
 }
 
 function exactDay(item: MemoryItem): string | null {
@@ -398,7 +395,7 @@ function pronounIn(item: HeldItem): string | null {
  * relation word, or alongside "I"/"me". "Spirited Away" is never a name.
  */
 function unknownNames(item: HeldItem, people: Person[]): string[] {
-  const known = new Set(people.flatMap((p) => wordsOf(p.display_name)));
+  const known = new Set(people.flatMap(knownWords));
   const text = [item.statement, ...item.spans.map((s) => s.quote)].join(" . ");
   const NAME = "(\\p{Lu}[\\p{Ll}\\p{M}'’-]+)";
   const REL = "(?:daughter|son|kid|child|baby|wife|husband|partner|girlfriend|boyfriend|fianc[eé]e?|sister|brother|mom|mother|dad|father|grandma|grandpa|aunt|uncle|cousin|niece|nephew|friend|neighbou?r|boss|coworker|colleague|roommate)";
@@ -428,7 +425,8 @@ function unknownNames(item: HeldItem, people: Person[]): string[] {
  * company ("interviewing with Box", "moving to Austin").
  */
 export function newcomersIn(statement: string, note: string, people: Person[]): string[] {
-  const known = new Set(people.flatMap((p) => wordsOf(p.display_name)));
+  // Every name they go by, earlier names included ("Wifey" after a rename, founder I12).
+  const known = new Set(people.flatMap(knownWords));
   const NAME = "(\\p{Lu}[\\p{Ll}\\p{M}'’-]+)";
   const patterns = [
     new RegExp(`\\b(?:married|marrying|engaged|wed|dating|seeing|divorcing|separated)\\s+(?:to|from)?\\s*${NAME}`, "gu"),
@@ -565,7 +563,7 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       group: `keep:${item.statement}:${item.spans[0]?.start ?? 0}`,
       prompt: person ? `Remember this about ${person.display_name}?` : "Remember this?",
       reason: item.flags.includes("relation_conflict") && person && typeof person.relationship_label === "string" && person.relationship_label
-        ? `${person.display_name.split(/\s+/u)[0]} is your ${person.relationship_label} here. Keep this instead?`
+        ? `${shortName(person)} is your ${person.relationship_label} here. Keep this instead?`
         : ambiguousDay ? "That day could be read two ways."
         : sensitive ? "This sounds personal, so I keep it only if you say so."
         : null,
@@ -620,6 +618,11 @@ function relationFor(item: HeldItem, input: ReviewInput, note: string): string |
 
 function fold(s: string): string {
   return s.normalize("NFKC").toLowerCase();
+}
+
+/** The words of every name a person goes by. */
+function knownWords(p: Person): string[] {
+  return [p.display_name, typeof p.full_name === "string" ? p.full_name : "", ...aliasesOf(p)].flatMap(wordsOf);
 }
 
 /** A person's names as word runs: display name, full name, other names. */

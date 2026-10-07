@@ -4,7 +4,9 @@
 // Understanding, the review, the relationship page and What Kinship knows.
 // Only the model's reply is written by hand. Each case first failed on the
 // code before this pass.
-import { earlierOf, portraitFor, recordFor, todayIso } from "@/hooks/useV2";
+import { earlierOf, noteFor, portraitFor, recordFor, todayIso } from "@/hooks/useV2";
+import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
+import { voiced } from "@/features/memory/statements";
 import { buildReview, type ReviewView } from "@/features/tell/reviewModel";
 import { Gateway, type HeldAnswer } from "@/store/gateway";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
@@ -65,14 +67,16 @@ async function tell(w: World, note: string, reply: (i: ExtractionInput) => Model
   return { id: c.id, review: await review(w, c.id) };
 }
 
+/** The review as the app builds it (useReview): items read the way the user reads them. */
 async function review(w: World, id: string): Promise<ReviewView> {
   const row = (await w.understanding.get(id))!;
   const ppl = await w.repos.people.list();
+  const items = (await w.understanding.itemsFor(id, row.reading)).map((m) => voiced(m, ppl));
   return buildReview({
     row,
     capture: { id, raw_text: (await w.repos.captures.get(id))!.raw_text, context_person_id: null, status: String((await w.repos.captures.get(id))?.status), feedback: (await w.repos.captures.get(id))?.feedback },
-    items: await w.understanding.itemsFor(id, row.reading),
-    earlier: await earlierOf(w.repos, await w.understanding.itemsFor(id, row.reading), row.reading?.held ?? []),
+    items,
+    earlier: await earlierOf(w.repos, items, row.reading?.held ?? []),
     people: ppl, related: await w.repos.people.related(), offline: false, today: todayIso(new Date(w.server.clock)),
   });
 }
@@ -177,5 +181,59 @@ describe("Gate 0", () => {
       await w.engine.sync();
       expect(w.server.table("memory_items").get(line.id)).toMatchObject({ person_id: c.to.id, statement: c.expect });
     }
+  });
+
+  it("I12 (option A): after renaming Wifey Liu → Cutie Pie, her lines show 'Cutie Pie' wherever 'Wifey' was written; Source keeps the note's words; titles use the whole chosen name", async () => {
+    const w = await world();
+    const [wifey, ben] = await people(w, "Wifey Liu", "Ben Oxnard");
+    const note = "Wifey has a new job she's really excited about. Wifey got promoted Monday.";
+    const t = await tell(w, note, (i) => ({
+      needs_clarification: null,
+      items: [
+        item({ kind: "fact", person: key(i, "Wifey"), person_mention: "Wifey", statement: "Wifey has a new job she's really excited about",
+          evidence: ["Wifey has a new job she's really excited about"], detail: { category: "work" } }),
+        item({ kind: "fact", person: key(i, "Wifey"), person_mention: "Wifey", statement: "Wifey's promotion was Monday",
+          evidence: ["Wifey got promoted Monday"], detail: { category: "work" } }),
+      ],
+    }));
+    await w.understanding.finish(t.id, "done");
+    await w.understanding.run();
+    expect(shortName((await w.repos.people.get(wifey.id))!)).toBe("Wifey");
+
+    await w.repos.people.rename(wifey.id, "Cutie Pie");
+    await w.engine.sync();
+    const renamed = w.server.table("people").get(wifey.id)!;
+    // The earlier full name, and the short name her lines actually used: other names she goes by.
+    expect(renamed).toMatchObject({ display_name: "Cutie Pie", nicknames: ["Wifey Liu", "Wifey"] });
+    expect(shortName((await w.repos.people.get(wifey.id))!)).toBe("Cutie Pie");
+
+    const p = await page(w, wifey);
+    expect(p.shown.sort()).toEqual(["Cutie Pie has a new job she's really excited about", "Cutie Pie's promotion was Monday"]);
+    expect(p.knows.lines.map((l) => l.line.statement).sort()).toEqual(["Cutie Pie has a new job she's really excited about", "Cutie Pie's promotion was Monday"]);
+    // Nothing stored was rewritten, and Source keeps the note's own words.
+    expect(serverItems(w).map((m) => m.statement).sort()).toEqual(["Wifey has a new job she's really excited about", "Wifey's promotion was Monday"]);
+    const source = (await noteFor(w.store, t.id, new Date(w.server.clock)))!;
+    expect(source.runs!.map((r) => r.text).join("")).toBe(note);
+    // Someone else's memory is never renamed.
+    expect((await page(w, ben)).knows.lines).toHaveLength(0);
+  });
+
+  it("I12: a later note that still says 'Wifey' finds Cutie Pie, and shows her current name", async () => {
+    const w = await world();
+    const [wifey] = await people(w, "Wifey Liu");
+    const first = await tell(w, "Wifey has a new job.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, "Wifey"), person_mention: "Wifey", statement: "Wifey has a new job", evidence: ["Wifey has a new job"], detail: { category: "work" } })],
+    }));
+    await w.understanding.finish(first.id, "done");
+    await w.understanding.run();
+    await w.repos.people.rename(wifey.id, "Cutie Pie");
+    await w.engine.sync();
+    const later = await tell(w, "Wifey got a raise.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: i.roster.find((r) => r.id === wifey.id)?.key ?? "unknown", person_mention: "Wifey",
+        statement: "Wifey got a raise", evidence: ["Wifey got a raise"], detail: { category: "work" } })],
+    }));
+    expect(later.review.lines.map((l) => [l.statement, l.person?.id])).toEqual([["Cutie Pie got a raise", wifey.id]]);
   });
 });

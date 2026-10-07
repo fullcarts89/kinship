@@ -4,7 +4,7 @@
 // Run: deno test supabase/functions
 import { planExtraction } from "./pipeline.ts";
 import { resolveHeld, type HeldItem, type ResolveExisting } from "./resolve.ts";
-import type { ExtractionInput, ModelProposal, PlannedItem, ProposedItem } from "./types.ts";
+import type { ExtractionInput, ModelProposal, PlannedItem, ProposedItem, RosterPerson } from "./types.ts";
 
 function eq<T>(actual: T, expected: T, msg = ""): void {
   const a = JSON.stringify(actual);
@@ -20,7 +20,7 @@ const ROSTER = [
 ];
 const PEOPLE = ROSTER.map((p) => ({ id: p.id, display_name: p.display_name, state: "active" }));
 
-function input(note: string, roster = ROSTER): ExtractionInput {
+function input(note: string, roster: RosterPerson[] = ROSTER): ExtractionInput {
   return {
     capture: { id: "c1", raw_text: note, occurred_at: "2026-10-07T17:00:00Z", time_zone: "America/Los_Angeles", context_person_key: null },
     roster, related: [], dossier: [],
@@ -118,4 +118,41 @@ Deno.test("I10: not a mirror (other words, another sentence): no twin, as before
   const held = out.items.filter((i) => i.tier === "hold");
   eq(held.length, 1);
   eq(held[0].twin_person_id ?? null, null);
+});
+
+// ─── I12: a renamed person's earlier names find them; never on a guess ───────
+
+const CUTIE = { key: "p1", id: "cutie", display_name: "Cutie Pie", full_name: "Cutie Pie", nicknames: ["Wifey Liu", "Wifey"], relationship_label: "wife" };
+
+Deno.test("I12: a later note that still says 'Wifey' finds Cutie Pie, and a 'She' line names her whole", () => {
+  const out = run(input("Wifey got a raise.", [CUTIE]), [item({
+    person: "p1", person_mention: "Wifey", statement: "Wifey got a raise", evidence: ["Wifey got a raise"], detail: { category: "work" },
+  })]);
+  eq(out.items.map((i) => [i.person_id, i.tier !== "hold"]), [["cutie", true]]);
+  const ctx = { ...input("She got a raise.", [CUTIE]), capture: { ...input("x").capture, raw_text: "She got a raise.", context_person_key: "p1" } };
+  const she = run(ctx, [item({ person: "p1", person_mention: "She", statement: "She got a raise", evidence: ["She got a raise"], detail: { category: "work" } })]);
+  eq(she.items[0].statement, "Cutie Pie got a raise");
+});
+
+Deno.test("I12: an earlier name that two people go by is asked about, never resolved silently", () => {
+  const other = { key: "p2", id: "wifey-2", display_name: "Wifey", full_name: "Wifey", nicknames: [], relationship_label: null };
+  const out = run(input("Wifey got a raise.", [CUTIE, other]), [item({
+    person: "p1", person_mention: "Wifey", statement: "Wifey got a raise", evidence: ["Wifey got a raise"], detail: { category: "work" },
+  })]);
+  eq(out.items.map((i) => [i.person_id, i.tier]), [[null, "hold"]]);
+  eq(out.items[0].flags.includes("person_ambiguous"), true);
+});
+
+Deno.test("I12: the answer to 'who is she?' names a renamed person whole", () => {
+  const held: HeldItem = {
+    kind: "fact", person_id: null, new_person_name: null, subject_type: "person", related: null, statement: "She got a raise",
+    detail: { category: "work" }, certainty: "stated", sensitivity: "none", confidence: 0.8, action: { type: "new", target_id: null },
+    tier: "hold", flags: ["pronoun_multiple"], spans: [{ start: 0, end: 15, quote: "She got a raise" }],
+  };
+  const r = resolveHeld([held], [{ index: 0, person_id: "cutie" }], {
+    note: "She got a raise.", related: [], existing: [],
+    people: [{ id: "cutie", display_name: "Cutie Pie", state: "active", full_name: "Cutie Pie", nicknames: ["Wifey Liu", "Wifey"] }],
+  });
+  if ("fail" in r) throw new Error(r.fail);
+  eq(r.items[0].statement, "Cutie Pie got a raise");
 });

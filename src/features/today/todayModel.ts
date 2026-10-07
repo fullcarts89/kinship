@@ -13,6 +13,7 @@
 // and a date label computed from the event's day. There is no model and no
 // event-type vocabulary in it.
 
+import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 import { dayLabel, whenLabel } from "@/features/memory/format";
 import { nextBirthday } from "@/features/setup/setupModel";
 import type { MemoryItem, Person } from "@/store/repositories";
@@ -248,8 +249,9 @@ export function relativeDay(day: string, today: string): string {
   return dayLabel(day, today);
 }
 
+/** How Today says their name: a first name from Contacts, a chosen name whole (founder I12). */
 function firstName(p: Person): string {
-  return p.display_name.trim().split(/\s+/u)[0] || p.display_name;
+  return shortName(p) || p.display_name;
 }
 
 function eventDay(item: MemoryItem): string | null {

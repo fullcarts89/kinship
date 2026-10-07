@@ -338,6 +338,7 @@
    "person": {
     "state": "active",
     "nicknames": [],
+    "full_name": null,
     "display_name": "Anna",
     "id": "00000002-0000-4000-8000-000000000001",
     "user_id": "aaaaaaaa-0000-4000-8000-00000000a011",
@@ -366,6 +367,7 @@
    "person": {
     "state": "active",
     "nicknames": [],
+    "full_name": null,
     "display_name": "Anna",
     "id": "00000002-0000-4000-8000-000000000001",
     "user_id": "aaaaaaaa-0000-4000-8000-00000000a011",
@@ -429,6 +431,7 @@
    "person": {
     "state": "active",
     "nicknames": [],
+    "full_name": null,
     "display_name": "Ben",
     "id": "00000003-0000-4000-8000-000000000001",
     "user_id": "aaaaaaaa-0000-4000-8000-00000000a011",
@@ -457,6 +460,7 @@
    "person": {
     "state": "active",
     "nicknames": [],
+    "full_name": null,
     "display_name": "Ben",
     "id": "00000003-0000-4000-8000-000000000001",
     "user_id": "aaaaaaaa-0000-4000-8000-00000000a011",

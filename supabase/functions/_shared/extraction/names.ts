@@ -33,14 +33,17 @@ export function firstName(name: string): string {
 }
 
 /**
- * The name Kinship says in a sentence. Only a name exactly as Contacts gave
- * it (the full name is the name, and it was never renamed) is shortened to
- * its first word.
+ * The name Kinship says in a sentence. A name exactly as Contacts gave it
+ * (the full name is the name, never renamed) is shortened to its first word;
+ * a name the user typed (no full name) or chose by renaming is said whole. A
+ * record that doesn't say (no full_name field at all) reads as before: the
+ * first word.
  */
 export function shortName(p: NamedPerson): string {
   const name = p.display_name.trim();
-  const asContactsGaveIt = typeof p.full_name === "string" && p.full_name.trim() === name && aliasesOf(p).length === 0;
-  return asContactsGaveIt ? firstName(name) : name;
+  if (aliasesOf(p).length) return name;
+  if (p.full_name === undefined) return firstName(name);
+  return typeof p.full_name === "string" && p.full_name.trim() === name ? firstName(name) : name;
 }
 
 function fold(s: string): string {

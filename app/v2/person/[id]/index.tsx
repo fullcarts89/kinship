@@ -13,6 +13,7 @@ import { useHandoff } from "@/features/today/useHandoff";
 import { todayIso, useItemLine, usePeople, usePersonLinks, usePortrait, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { NamePane } from "@/features/tell/Pickers";
 import { Sheet } from "@/ui";
+import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
 export default function PersonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,7 +30,8 @@ export default function PersonScreen() {
   const { rename } = useV2Actions();
   const item = useItemLine(itemId);
   const name = portrait.person?.display_name ?? null;
-  const first = name?.trim().split(/\s+/u)[0] ?? "";
+  // Said the way Kinship says their name everywhere (founder I12).
+  const first = portrait.person ? shortName(portrait.person) : "";
   const fail = (what: Promise<unknown>) =>
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
   const reachOut = () => handoff.start({
@@ -40,6 +42,7 @@ export default function PersonScreen() {
     <PortraitView
       personId={personId}
       name={name}
+      short={first}
       label={portrait.label}
       remembered={portrait.person?.state === "remembered"}
       reachedOut={portrait.reachedOut ?? null}

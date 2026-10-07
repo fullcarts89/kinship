@@ -17,7 +17,8 @@
 //             wrote or edited; a hedged item never replaces a firm one
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
-import { leadingName, statementNames, withResolvedName, yourVoice } from "./voice.ts";
+import { leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
+import { shortName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
@@ -444,7 +445,7 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
       // A leading "He"/"She" the pipeline is sure about names the person (Gate B);
       // one still in question keeps it until the user answers (resolve.ts).
       statement: who.person_key && subject !== "related" && !unsure
-        ? withResolvedName(timeless, ctx.byKey.get(who.person_key)?.display_name ?? "")
+        ? withSpokenName(timeless, spokenName(ctx.byKey.get(who.person_key)))
         : timeless,
       detail: detail.detail,
       certainty,
@@ -1233,6 +1234,11 @@ function markHeldMirrors(ctx: Context, items: PlannedItem[]): void {
     h.twin_person_id = twin.person_id;
     h.mention = mention;
   }
+}
+
+/** A person's name as Kinship says it: "Ben" from "Ben Oxnard", a chosen "Cutie Pie" whole (founder I12). */
+function spokenName(p: RosterPerson | undefined): string {
+  return p ? shortName(p) : "";
 }
 
 function namesPerson(statement: string, p: RosterPerson | undefined): boolean {

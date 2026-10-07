@@ -20,7 +20,8 @@
 // the answer changes only who or when, never the words.
 
 import { fold, kinshipReference, mirrorBag, relationKey, selfRelationPhrase, statedSelfRelations, wordsOf } from "./lexicon.ts";
-import { withResolvedName, withResolvedNames } from "./voice.ts";
+import { withSpokenName, withSpokenNames } from "./voice.ts";
+import { shortName } from "./names.ts";
 import { threadTarget } from "./threads.ts";
 import type { Flag } from "./types.ts";
 
@@ -77,6 +78,9 @@ export interface ResolvePerson {
   id: string;
   display_name: string;
   state: string;
+  /** For saying their name as Kinship does (names.ts shortName). */
+  full_name?: string | null;
+  nicknames?: string[] | null;
 }
 export interface ResolveRelated {
   id: string;
@@ -274,15 +278,18 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
 
     // The user just said who "he" is: the line says so ("John wants to go
     // back…"), never a "He" the page can't explain (Gate B).
+    // Said as Kinship says each name: "Ben" from "Ben Oxnard", a chosen "Cutie Pie" whole (founder I12).
+    const spoken = (id: string) => {
+      const p = ctx.people.find((x) => x.id === id);
+      return p ? shortName(p) : undefined;
+    };
     const chosenName = needsPerson
-      ? (personId.startsWith("new:")
-        ? newPeople.find((p) => p.ref === personId)?.display_name
-        : ctx.people.find((p) => p.id === personId)?.display_name)
+      ? (personId.startsWith("new:") ? newPeople.find((p) => p.ref === personId)?.display_name : spoken(personId))
       : null;
     // The user said who: the line names them ("Ben and John want to go back…" for Both).
-    const alsoNames = (a.also_person_ids ?? []).map((id) => ctx.people.find((p) => p.id === id)?.display_name).filter((n): n is string => !!n);
+    const alsoNames = (a.also_person_ids ?? []).map(spoken).filter((n): n is string => !!n);
     const statement = chosenName && subjectType !== "related"
-      ? (alsoNames.length ? withResolvedNames(item.statement, [chosenName, ...alsoNames]) : withResolvedName(item.statement, chosenName))
+      ? (alsoNames.length ? withSpokenNames(item.statement, [chosenName, ...alsoNames]) : withSpokenName(item.statement, chosenName))
       : item.statement;
 
     // ── Existing memory ──

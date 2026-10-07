@@ -2,6 +2,7 @@
 // repositories). Everything re-reads when the user's store changes: a local
 // write, a sync, or a step of Understanding.
 
+import { shortName } from "../../supabase/functions/_shared/extraction/names";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
@@ -574,7 +575,7 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
     const next = nextBirthday(String(person.birthday), today);
     const days = Math.round((Date.parse(`${next}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
     if (days <= PORTRAIT_RULES.birthdayDays) {
-      const first = person.display_name.trim().split(/\s+/u)[0] || person.display_name;
+      const first = shortName(person) || person.display_name;
       birthdayDay = next;
       birthday = {
         itemId: "birthday",

@@ -8,6 +8,7 @@ import { DatePane, KindPane, NamePane, PersonPane, WordsPane } from "@/features/
 import type { ItemLine } from "@/features/tell/reviewModel";
 import { todayIso, usePeople, usePersonRecord, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { Sheet } from "@/ui";
+import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
 type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine } | { kind: "name" };
 
@@ -26,6 +27,7 @@ export default function KnowsScreen() {
   return (
     <PersonRecordView
       name={person?.display_name ?? null}
+      short={person ? shortName(person) : null}
       label={typeof person?.relationship_label === "string" && person.relationship_label ? person.relationship_label : null}
       onRename={() => setPane({ kind: "name" })}
       lines={lines}

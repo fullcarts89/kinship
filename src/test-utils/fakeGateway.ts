@@ -248,7 +248,7 @@ export class FakeGateway implements GatewayTransport {
     const people = this.rows<PersonRow & { state: string }>("people");
     const r = resolveHeld(review.items as unknown as ResolveHeldItem[], answers as never, {
       note,
-      people: people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state ?? "active" })),
+      people: people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state ?? "active", full_name: p.full_name, nicknames: p.nicknames })),
       related: this.rows<RelatedRow & { person_id: string }>("related_people").map((x) => ({ id: x.id, person_id: x.person_id, relation: x.relation, name: x.name ?? null })),
       existing: this.rows<Record<string, unknown>>("memory_items").filter((m) => m.status === "active").map((m) => ({
         id: String(m.id), person_id: String(m.person_id), kind: String(m.kind), subject_type: String(m.subject_type),
