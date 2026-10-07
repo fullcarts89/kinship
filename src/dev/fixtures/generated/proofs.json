@@ -99,8 +99,7 @@
        "name": "Matt"
       }
      },
-     "edited": false,
-     "maybe": true
+     "edited": false
     }
    ],
    "questions": [],
@@ -180,7 +179,6 @@
       }
      },
      "edited": false,
-     "maybe": true,
      "editedFrom": null
     },
     "provenance": "You told Kinship · Oct 5",
