@@ -36,6 +36,9 @@ export function SettingsSheetView(props: {
   onOpenSettings?: () => void;
   onSignOut: () => void;
   onDismiss: () => void;
+  /** People removed from People (founder I3): shown only when there are some, each with Bring back. */
+  removed?: { id: string; name: string }[];
+  onBringBack?: (personId: string) => void;
 }) {
   const p = usePalette();
   return (
@@ -68,6 +71,18 @@ export function SettingsSheetView(props: {
           {contactsActions(props).map((a) => <Pill key={a.label} variant="quiet" label={a.label} onPress={a.onPress} />)}
         </View>
       </View>
+      {props.removed?.length && props.onBringBack ? (
+        <View style={{ paddingVertical: space.l, borderBottomWidth: 1, borderColor: p.hairline }}>
+          <Body tone="ink">Removed from People</Body>
+          <Small style={{ marginTop: space.xs }}>Their notes are kept. Bring someone back and everything you told Kinship about them returns.</Small>
+          {props.removed.map((r) => (
+            <View key={r.id} style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginTop: space.s }}>
+              <Body style={{ flex: 1 }}>{r.name}</Body>
+              <Pill variant="quiet" size="small" label="Bring back" accessibilityLabel={`Bring back ${r.name}`} onPress={() => props.onBringBack?.(r.id)} />
+            </View>
+          ))}
+        </View>
+      ) : null}
       <Label style={{ marginTop: space.xl }}>Account</Label>
       <View style={{ alignItems: "flex-start", marginTop: space.s }}>
         <Pill size="small" label="Sign out" onPress={props.onSignOut} />
@@ -96,13 +111,15 @@ function contactsActions(props: Parameters<typeof SettingsSheetView>[0]): { labe
   return out;
 }
 
-export function SettingsSheet({ visible, onDismiss, understanding, setUnderstanding, signOut, onAddFromContacts }: {
+export function SettingsSheet({ visible, onDismiss, understanding, setUnderstanding, signOut, onAddFromContacts, removed, onBringBack }: {
   visible: boolean;
   onDismiss: () => void;
   understanding: boolean | null;
   setUnderstanding: (on: boolean) => Promise<void>;
   signOut: () => Promise<void>;
   onAddFromContacts: () => void;
+  removed?: { id: string; name: string }[];
+  onBringBack?: (personId: string) => void;
 }) {
   const [saving, setSaving] = useState(false);
   const [contacts, setContacts] = useState<ContactsAccess | null>(null);
@@ -125,6 +142,8 @@ export function SettingsSheet({ visible, onDismiss, understanding, setUnderstand
       onAllowContacts={() => void requestContactsAccess().then(setContacts)}
       onShareMore={() => void shareMoreContacts().then(check)}
       onOpenSettings={openAppSettings}
+      removed={removed}
+      onBringBack={onBringBack}
       understanding={saving ? null : understanding}
       onUnderstanding={(on) => {
         setSaving(true);

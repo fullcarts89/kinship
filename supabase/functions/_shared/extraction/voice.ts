@@ -298,12 +298,17 @@ export function aboutSomeoneElse<P extends { names: string[] }>(statement: strin
  * becomes the name; anything else is left as it is.
  */
 export function withResolvedName(statement: string, name: string): string {
-  const first = name.trim().split(/\s+/u)[0];
-  if (!first) return statement;
+  return withSpokenName(statement, name.trim().split(/\s+/u)[0] ?? "");
+}
+
+/** As withResolvedName, with the name exactly as Kinship says it ("Cutie Pie"; names.ts shortName). */
+export function withSpokenName(statement: string, spoken: string): string {
+  const name = spoken.trim();
+  if (!name) return statement;
   return statement
-    .replace(/^(He|She)(\s)/u, `${first}$2`)
-    .replace(/^(He|She)['’]s(\s)/u, `${first}'s$2`)
-    .replace(/^(His|Her)(\s)/u, `${first}'s$2`);
+    .replace(/^(He|She)(\s)/u, `${name}$2`)
+    .replace(/^(He|She)['’]s(\s)/u, `${name}'s$2`)
+    .replace(/^(His|Her)(\s)/u, `${name}'s$2`);
 }
 
 /**
@@ -312,8 +317,13 @@ export function withResolvedName(statement: string, name: string): string {
  * that can't be made to agree is left as it was (never a wrong sentence).
  */
 export function withResolvedNames(statement: string, names: string[]): string {
-  const firsts = names.map((n) => n.trim().split(/\s+/u)[0]).filter(Boolean);
-  if (firsts.length < 2) return firsts.length ? withResolvedName(statement, firsts[0]) : statement;
+  return withSpokenNames(statement, names.map((n) => n.trim().split(/\s+/u)[0] ?? ""));
+}
+
+/** As withResolvedNames, with each name exactly as Kinship says it (names.ts shortName). */
+export function withSpokenNames(statement: string, spoken: string[]): string {
+  const firsts = spoken.map((n) => n.trim()).filter(Boolean);
+  if (firsts.length < 2) return firsts.length ? withSpokenName(statement, firsts[0]) : statement;
   const who = firsts.length === 2 ? `${firsts[0]} and ${firsts[1]}` : `${firsts.slice(0, -1).join(", ")} and ${firsts[firsts.length - 1]}`;
   const m = statement.match(/^(He|She)\s+([\p{L}'’]+)(.*)$/su);
   if (!m) return statement;

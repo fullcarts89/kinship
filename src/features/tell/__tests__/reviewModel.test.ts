@@ -280,3 +280,40 @@ describe("stabilization Gate A/D: a view over the note, never blank, never \"Kep
     expect("answer" in add ? add.answer : null).toEqual({ new_person: true, new_person_name: "Kaiya" });
   });
 });
+
+it("I5: a memory shared by several people names them all: 'Kept for Susan Oxnard and Michelle Lee'", () => {
+  const susan = person("susan", "Susan Oxnard");
+  const michelle = person("michelle", "Michelle Lee");
+  const trip = item("m9", { person_id: "susan", with_person_ids: ["michelle"], statement: "Susan and Michelle went to Disneyland", kind: "event", detail: { event_type: "trip" } });
+  const v = view("Susan and Michelle went to Disneyland.", row("review", { tier: "auto", saved: [{ id: "m9", tier: "auto" }], settled: true }), [trip], [susan, michelle]);
+  expect(v.mode).toBe("card");
+  expect(v.heading).toBe("Kept for Susan Oxnard and Michelle Lee");
+  // One person: as before.
+  const solo = item("m10", { person_id: "susan", statement: "Susan went to Disneyland", kind: "event", detail: { event_type: "trip" } });
+  expect(view("Susan went to Disneyland.", row("review", { tier: "auto", saved: [{ id: "m10", tier: "auto" }], settled: true }), [solo], [susan, michelle]).heading)
+    .toBe("Kept for Susan Oxnard");
+});
+
+it("I11: a line whose own words name several people can be about all of them; a line naming one stays a single choice", () => {
+  const susan = person("susan", "Susan Oxnard", { full_name: "Susan Oxnard" });
+  const michelle = person("michelle", "Michelle Lee", { full_name: "Michelle Lee" });
+  const trip = item("m11", { person_id: "susan", statement: "Susan and Michelle went to Disneyland", kind: "event", detail: { event_type: "trip" } });
+  const v = view("Susan and Michelle went to Disneyland.", row("review", { tier: "auto", saved: [{ id: "m11", tier: "auto" }], settled: true }), [trip], [susan, michelle, BEN]);
+  expect(v.lines[0].named).toEqual(["susan", "michelle"]);
+  expect(v.lines[0].alsoIds).toEqual([]);
+  const solo = item("m12", { person_id: "susan", statement: "Susan went to Disneyland", kind: "event", detail: { event_type: "trip" } });
+  const one = view("Susan went to Disneyland.", row("review", { tier: "auto", saved: [{ id: "m12", tier: "auto" }], settled: true }), [solo], [susan, michelle, BEN]);
+  expect(one.lines[0].named).toBeUndefined();
+});
+
+it("I3: a name that fits someone here and someone removed asks which, offering the removed one back; never 'Add'", () => {
+  const kaiya2 = person("kaiya-2", "Kaiya", { relationship_label: "niece" });
+  const removed = person("kaiya", "Kaiya", { relationship_label: "daughter", state: "archived" });
+  const h = held({ statement: "Kaiya lost her first tooth", flags: ["person_ambiguous"], mention: "Kaiya", archived_ids: ["kaiya"],
+    spans: [{ start: 0, end: 26, quote: "Kaiya lost her first tooth" }] });
+  const v = view("Kaiya lost her first tooth.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], [kaiya2, removed, BEN]);
+  const q = v.questions[0];
+  expect(q.prompt).toBe("Which Kaiya do you mean?");
+  expect(q.choices.map((c) => c.label)).toEqual(["Kaiya (niece)", "Bring back Kaiya (daughter)", "Someone else"]);
+  expect(q.choices[1]).toMatchObject({ answer: { person_id: "kaiya" }, restore: "kaiya" });
+});

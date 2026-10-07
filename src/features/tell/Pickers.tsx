@@ -5,13 +5,13 @@
 import React, { useMemo, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { height, maxScale, press, radius, size, space, TOUCH, type } from "@/design/tokens";
 import { kindLabel, monthName, spokenDay } from "@/features/memory/format";
 import { SWITCHABLE_KINDS, type SwitchableKind } from "@/store/memoryDetail";
 import type { Person } from "@/store/repositories";
 import { Body, Heading, IconButton, Pill, Row, Small, Sprig, usePalette } from "@/ui";
-import { personLabel } from "./reviewModel";
+import { personLabel, type ItemLine } from "./reviewModel";
 
 function PaneHeader({ title, onCancel }: { title: string; onCancel: () => void }) {
   return (
@@ -22,7 +22,88 @@ function PaneHeader({ title, onCancel }: { title: string; onCancel: () => void }
   );
 }
 
+/**
+ * For a line whose own words name several people (founder I11): those
+ * people, who it's about now, and where the choice goes. Nothing for a line
+ * that names one person: that stays the one-person list.
+ */
+export function namedChoices(line: ItemLine, people: Person[], onPickMany: (ids: string[]) => void):
+  { named: Person[]; chosen: string[]; onPickMany: (ids: string[]) => void } | Record<string, never> {
+  const named = (line.named ?? []).map((id) => people.find((x) => x.id === id)).filter((x): x is Person => !!x);
+  if (named.length < 2 || !line.person) return {};
+  return { named, chosen: [line.person.id, ...(line.alsoIds ?? [])], onPickMany };
+}
+
 export function PersonPane({
+  people,
+  title,
+  current,
+  onPick,
+  onCancel,
+  named,
+  chosen,
+  onPickMany,
+}: {
+  people: Person[];
+  title: string;
+  current?: string | null;
+  onPick: (personId: string) => void;
+  onCancel: () => void;
+  /**
+   * The people the memory's own words name, when more than one (founder
+   * I11): each can be chosen, and it becomes one memory about all of them.
+   * Kinship proposes only these; "Someone else" is the one-person list.
+   */
+  named?: Person[];
+  chosen?: string[];
+  onPickMany?: (personIds: string[]) => void;
+}) {
+  const [anyone, setAnyone] = useState(false);
+  if (named && named.length > 1 && onPickMany && !anyone) {
+    return <NamedPane people={people} title={title} named={named} chosen={chosen ?? []} onDone={onPickMany}
+      onSomeoneElse={() => setAnyone(true)} onCancel={onCancel} />;
+  }
+  return <AnyonePane people={people} title={title} current={current} onPick={onPick} onCancel={onCancel} />;
+}
+
+function NamedPane({ people, title, named, chosen, onDone, onSomeoneElse, onCancel }: {
+  people: Person[];
+  title: string;
+  named: Person[];
+  chosen: string[];
+  onDone: (ids: string[]) => void;
+  onSomeoneElse: () => void;
+  onCancel: () => void;
+}) {
+  const p = usePalette();
+  const [picked, setPicked] = useState<string[]>(() => named.map((x) => x.id).filter((id) => chosen.includes(id)));
+  const toggle = (id: string) => setPicked((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  // Filed on whoever it was filed on, if still chosen; else the first chosen.
+  const ordered = () => [...picked].sort((a, b) => (a === chosen[0] ? -1 : b === chosen[0] ? 1 : 0));
+  return (
+    <View>
+      <PaneHeader title={title} onCancel={onCancel} />
+      <Body style={{ marginBottom: space.m }}>{"Choose everyone it's about."}</Body>
+      {named.map((x, i) => (
+        <Row
+          key={x.id}
+          first={i === 0}
+          leading={<Sprig personId={x.id} width={size.sprig.row} />}
+          title={personLabel(x, people)}
+          selected={picked.includes(x.id)}
+          trailing={picked.includes(x.id) ? <Check size={20} strokeWidth={1.8} color={p.ochreText} /> : null}
+          onPress={() => toggle(x.id)}
+        />
+      ))}
+      <Row title="Someone else" onPress={onSomeoneElse} />
+      <View style={{ flexDirection: "row", marginTop: space.l }}>
+        <Pill label="Done" disabled={picked.length === 0} onPress={() => onDone(ordered())} />
+      </View>
+    </View>
+  );
+}
+
+function AnyonePane({
   people,
   title,
   current,
@@ -108,7 +189,13 @@ export function KindPane({
 }
 
 /** "Their name": a correction, never a new person (founder H1). */
-export function NamePane({ initial, onSave, onCancel }: { initial: string; onSave: (name: string) => void; onCancel: () => void }) {
+export function NamePane({ initial, onSave, onCancel, onRemove }: {
+  initial: string;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+  /** "Remove from People" (founder I3), asked to confirm by the screen. */
+  onRemove?: () => void;
+}) {
   const p = usePalette();
   const [name, setName] = useState(initial);
   return (
@@ -130,6 +217,11 @@ export function NamePane({ initial, onSave, onCancel }: { initial: string; onSav
       <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.m }}>
         <Pill variant="primary" label="Save" disabled={!name.trim() || name.trim() === initial} onPress={() => onSave(name)} />
       </View>
+      {onRemove ? (
+        <View style={{ alignItems: "flex-start", marginTop: space.xl }}>
+          <Pill variant="quiet" size="small" label="Remove from People" onPress={onRemove} />
+        </View>
+      ) : null}
     </View>
   );
 }

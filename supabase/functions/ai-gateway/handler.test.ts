@@ -1,6 +1,7 @@
 // ai-gateway guard rails (Checkpoint C), with fake auth, data, model and
 // writes. Run: deno test supabase/functions
 import type { StructuredRequest, StructuredResult } from "../_shared/ai/model.ts";
+import type { ItemRow } from "../_shared/extraction/context.ts";
 import type { ResolvedItem } from "../_shared/extraction/resolve.ts";
 import {
   type CallLog,
@@ -63,6 +64,8 @@ function world(opts: {
   review?: StoredReview | null;
   resolveResult?: Awaited<ReturnType<ServiceOps["resolve"]>> | ServiceError;
   closes?: boolean;
+  /** Memory already kept, per person (loadItems answers for the ids asked). */
+  items?: ItemRow[];
 } = {}): World {
   const w: World = { modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, deps: undefined as unknown as GatewayDeps };
   const caller: GatewayCaller = {
@@ -81,7 +84,7 @@ function world(opts: {
       people: opts.people ?? [{ id: "person-ben", display_name: "Ben", full_name: "Ben Ortiz", nicknames: [], relationship_label: "college roommate", state: "active" }],
       related: [],
     }),
-    loadItems: () => Promise.resolve([]),
+    loadItems: (ids) => Promise.resolve((opts.items ?? []).filter((m) => ids.includes(m.person_id))),
     loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
     closeReview: (id) => {
       w.closes.push(id);
@@ -304,6 +307,35 @@ Deno.test("an answer is checked, written and closed in one step, with no model c
   eq(w.resolves[0].createdAt, STORED_AT);
   eq(w.resolves[0].items[0].spans, [{ start: 0, end: 15, quote: "Sam got the job" }]);
   eq([w.modelCalls.length, w.quota, w.logs.length], [0, 0, 0], "no model, no quota, nothing to log");
+});
+
+Deno.test("I10: the answer to a held mirror's 'which Sam' joins the line kept for its twin (loaded for the answer), never a second copy", async () => {
+  const note = "Michelle and Sam might be moving to Australia.";
+  const quote = "Michelle and Sam might be moving to Australia";
+  const people = [
+    { id: "person-michelle", display_name: "Michelle Lee", full_name: "Michelle Lee", nicknames: [], relationship_label: null, state: "active" },
+    ...SAMS,
+  ];
+  const mirror: StoredReview = {
+    items: [{
+      kind: "thread", person_id: null, new_person_name: null, subject_type: "person", related: null,
+      statement: "Sam might be moving to Australia with Michelle", detail: { topic: "moving to Australia" }, certainty: "tentative",
+      sensitivity: "none", confidence: 0.9, action: { type: "new", target_id: null }, tier: "hold", flags: ["person_ambiguous"],
+      spans: [{ start: 0, end: quote.length, quote }], twin_person_id: "person-michelle", mention: "Sam",
+    }],
+    clarification: { about: "person", question: "Which Sam do you mean?", options: ["Sam", "Sam", "Someone else"] },
+    created_at: STORED_AT,
+  };
+  const kept: ItemRow = {
+    id: "item-michelle", person_id: "person-michelle", kind: "thread", subject_type: "person", subject_related_id: null,
+    statement: "Michelle might be moving to Australia with Sam", certainty: "tentative", status: "active", user_state: "unreviewed",
+    detail: { topic: "moving to Australia" },
+  };
+  const w = world({ note, people, review: mirror, items: [kept] });
+  const { status } = await call(w, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }])));
+  eq(status, 200);
+  const [it] = w.resolves[0].items;
+  eq([it.person_id, it.action, it.with_person_ids], ["person-michelle", { type: "merge", target_id: "item-michelle" }, ["person-sam-lee"]]);
 });
 
 Deno.test("someone new is added only when the user says so", async () => {

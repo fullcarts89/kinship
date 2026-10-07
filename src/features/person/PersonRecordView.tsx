@@ -24,6 +24,8 @@ export interface RecordLine {
 
 export interface PersonRecordViewProps {
   name: string | null;
+  /** The name Kinship says (names.ts shortName): "Michelle" from Contacts, a chosen "Cutie Pie" whole (founder I12). */
+  short?: string | null;
   label: string | null;
   lines: RecordLine[];
   onBack: () => void;
@@ -45,7 +47,7 @@ export function PersonRecordView(props: PersonRecordViewProps) {
       </Screen>
     );
   }
-  const first = props.name.trim().split(/\s+/u)[0];
+  const first = props.short?.trim() || props.name.trim().split(/\s+/u)[0];
   return (
     <Screen onBack={props.onBack}>
       <Title>{`What Kinship knows about ${first}`}</Title>

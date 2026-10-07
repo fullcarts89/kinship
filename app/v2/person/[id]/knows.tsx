@@ -4,10 +4,11 @@ import React, { useState } from "react";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { FORGET_COPY, PersonRecordView } from "@/features/person/PersonRecordView";
-import { DatePane, KindPane, NamePane, PersonPane, WordsPane } from "@/features/tell/Pickers";
+import { DatePane, KindPane, NamePane, namedChoices, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import { todayIso, usePeople, usePersonRecord, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { Sheet } from "@/ui";
+import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
 type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine } | { kind: "name" };
 
@@ -26,6 +27,7 @@ export default function KnowsScreen() {
   return (
     <PersonRecordView
       name={person?.display_name ?? null}
+      short={person ? shortName(person) : null}
       label={typeof person?.relationship_label === "string" && person.relationship_label ? person.relationship_label : null}
       onRename={() => setPane({ kind: "name" })}
       lines={lines}
@@ -47,6 +49,10 @@ export default function KnowsScreen() {
           }} />
         ) : pane?.kind === "person" ? (
           <PersonPane people={people} title="Who is this about?" current={pane.line.person?.id ?? null} onCancel={close}
+            {...namedChoices(pane.line, people, (ids) => {
+              fail(u.correct(pane.line.id, { person_ids: ids }));
+              close();
+            })}
             onPick={(pid) => {
               fail(u.correct(pane.line.id, { person_id: pid }));
               close();

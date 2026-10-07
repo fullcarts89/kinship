@@ -169,6 +169,84 @@ it("the Tell flow has no timers at all: backgrounding the app can't use one up",
   expect(src).not.toMatch(/setTimeout|setInterval/);
 });
 
+it("I10: while a question's sheet is open, Today knows something is waiting (never 'Nothing needs you today.' behind it)", async () => {
+  const w = await world();
+  const r = await mount();
+  await tell(w, SAM_NOTE);
+  expect(sheetQuestion()).toBe("Which Sam do you mean?");
+  // The note in the sheet is neither the card nor on Today's list: the flow still says it's asking.
+  expect(flow.current!.card).toBeNull();
+  expect(flow.current!.asking).toBe(true);
+  // Answered: nothing is asking any more.
+  await act(async () => mockSheet.current!.onAnswer([{ index: 0, person_id: w.lee.id }]));
+  await act(async () => {
+    await w.understanding.run();
+  });
+  await settle();
+  expect(flow.current!.asking).toBe(false);
+  r.unmount();
+});
+
+it("I9: opening the Kept card's details and closing them (any way) comes back to the same card, Got it right / Not quite still there", async () => {
+  const w = await world();
+  const r = await mount();
+  await tell(w, BEN_NOTE);
+  expect(flow.current!.card).toMatchObject({ mode: "card", heading: "Kept for Ben" });
+  const id = flow.current!.card!.captureId;
+
+  for (const close of ["dismissed", "done"] as const) {
+    await act(async () => flow.current!.openCard());
+    await settle();
+    expect(sheetOpen()).toBe(true);
+    // A swipe, a tap outside, or Done in the details: back to the card, never both closed.
+    await act(async () => (close === "done" ? mockSheet.current!.onDone() : mockSheet.current!.onDismiss()));
+    mockSheet.current = null;
+    await settle();
+    expect(sheetOpen()).toBe(false);
+    expect(flow.current!.card).toMatchObject({ captureId: id, mode: "card", heading: "Kept for Ben" });
+  }
+  // The feedback is still there to give, and it lands on the note.
+  await act(async () => flow.current!.rateCard("right"));
+  await settle();
+  expect(flow.current!.card?.feedback).toMatchObject({ verdict: "right" });
+  r.unmount();
+});
+
+it("CC-18 telemetry: a Tell sent from the field reports Send → 'Understanding…' on screen, content-free", async () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const analytics = require("@/platform/analytics") as typeof import("@/platform/analytics");
+  const events: [string, Record<string, unknown>][] = [];
+  analytics.setAnalyticsSink({ send: (e, p) => events.push([e, p]) });
+  try {
+    const w = await world();
+    const r = await mount();
+    // A slow network: "Understanding…" is on screen while the request is out.
+    let release!: () => void;
+    w.gateway.pause = new Promise((done) => {
+      release = done;
+    });
+    await act(async () => {
+      await flow.current!.keep(BEN_NOTE, null);
+    });
+    await settle();
+    expect(flow.current!.card).toMatchObject({ mode: "understanding" });
+    w.gateway.pause = null;
+    await act(async () => {
+      release();
+      await w.understanding.run();
+    });
+    await settle();
+    expect(flow.current!.card).toMatchObject({ mode: "card" });
+    const lifecycle = events.find(([e]) => e === "tell_lifecycle")?.[1];
+    expect(lifecycle?.understanding_bucket).toEqual(expect.stringMatching(/^(<0\.5s|0\.5-1s|1-2s)$/u));
+    expect(lifecycle?.backgrounded).toBe(false);
+    expect(JSON.stringify(events)).not.toContain("Chicago");
+    r.unmount();
+  } finally {
+    analytics.setAnalyticsSink();
+  }
+});
+
 it("closing a question's sheet keeps the question: it waits on Today and the person's page, and another Tell doesn't lose it", async () => {
   const w = await world();
   const r = await mount();

@@ -279,6 +279,9 @@ function toWriteItem(i: PlannedItem): WriteItem {
     action: i.action,
     ...(i.with_person_ids?.length ? { with_person_ids: i.with_person_ids } : {}),
     ...(i.self_relations && Object.keys(i.self_relations).length ? { self_relations: i.self_relations } : {}),
+    ...(i.twin_person_id ? { twin_person_id: i.twin_person_id } : {}),
+    ...(i.mention ? { mention: i.mention } : {}),
+    ...(i.archived_ids?.length ? { archived_ids: i.archived_ids } : {}),
   };
 }
 
@@ -306,6 +309,9 @@ function present(i: PlannedItem) {
     spans: i.spans,
     ...(i.with_person_ids?.length ? { with_person_ids: i.with_person_ids } : {}),
     ...(i.self_relations && Object.keys(i.self_relations).length ? { self_relations: i.self_relations } : {}),
+    ...(i.twin_person_id ? { twin_person_id: i.twin_person_id } : {}),
+    ...(i.mention ? { mention: i.mention } : {}),
+    ...(i.archived_ids?.length ? { archived_ids: i.archived_ids } : {}),
   };
 }
 
@@ -333,10 +339,12 @@ async function resolveReview(
   const chosen = new Set<string>();
   for (const a of answers as HeldAnswer[]) if (typeof a?.person_id === "string") chosen.add(a.person_id);
   for (const i of review.items) if (i.person_id) chosen.add(i.person_id);
+  // A held mirror joins the line kept for its twin (founder I10): load that line too.
+  for (const i of review.items) if (typeof i.twin_person_id === "string") chosen.add(i.twin_person_id);
   const existing = chosen.size ? await caller.loadItems([...chosen].filter((id) => people.some((p) => p.id === id))) : [];
   const resolution = resolveHeld(review.items, answers as HeldAnswer[], {
     note: capture.raw_text.normalize("NFC"),
-    people: people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state })),
+    people: people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state, full_name: p.full_name, nicknames: p.nicknames })),
     related,
     existing: existing.map((m) => ({
       id: m.id, person_id: m.person_id, kind: m.kind, subject_type: m.subject_type,

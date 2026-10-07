@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { useColorScheme } from "react-native";
 import { color } from "@/design/tokens";
-import { Stack, router } from "expo-router";
+import { Stack, router, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
@@ -23,7 +23,9 @@ import { GrowthToastOverlay } from "@/components/ui/GrowthToast";
 import {
   setupNotificationHandler,
   addNotificationResponseListener,
+  notificationRoute,
 } from "@/lib/notificationService";
+import { legacyRoutesAllowed } from "@/hooks/useFlags";
 import "../global.css";
 import { startCrashReporting } from "@/platform/crashReporting";
 import { startAnalytics } from "@/platform/analyticsSetup";
@@ -86,23 +88,12 @@ export default function RootLayout() {
     setupNotificationHandler();
 
     const subscription = addNotificationResponseListener((response) => {
-      const data = response.notification.request.content.data;
-      const type = data.type as string | undefined;
-      const personId = data.personId as string | undefined;
-      const memoryId = data.memoryId as string | undefined;
-
-      // Land the user on the surface the notification promised
-      if (type === "memory_capture_prompt" && personId) {
-        router.push(`/memory/add?personId=${personId}`);
-      } else if (type === "memory_resurface" && memoryId) {
-        router.push(`/memory/${memoryId}`);
-      } else if (type === "weekly_digest") {
-        router.push("/activity");
-      } else if (type === "garden_walk") {
-        router.push("/garden-walk");
-      } else if (personId) {
-        router.push(`/person/${personId}`);
-      }
+      // Land the user on the surface the notification promised. These are
+      // 1.0's notifications: in a 2.0 session (or the 2.0 build still
+      // deciding) they just open the app, never a 1.0 screen (founder I8).
+      if (!legacyRoutesAllowed()) return;
+      const href = notificationRoute(response.notification.request.content.data);
+      if (href) router.push(href as Href);
     });
 
     return () => {

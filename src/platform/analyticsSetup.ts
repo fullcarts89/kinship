@@ -9,6 +9,8 @@
  */
 
 import { PERFORMANCE_EVENTS, setAnalyticsSink, type AnalyticsSink } from "@/platform/analytics";
+import { watchPresence } from "@/platform/appPresence";
+import { buildInfo, type BuildInfo } from "@/platform/buildInfo";
 import { createPostHogSink } from "@/platform/posthogSink";
 import { startStallMonitor } from "@/platform/stallMonitor";
 
@@ -29,15 +31,21 @@ export function startAnalytics(env: Record<string, string | undefined> = {
   }
   const posthog = createPostHogSink({ apiKey: key, host: env.EXPO_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com" });
   setAnalyticsSink(env.EXPO_PUBLIC_ANALYTICS_SCOPE === "performance" ? performanceOnly(posthog) : posthog);
-  if (options.stalls !== false) stopStalls = startStallMonitor();
+  if (options.stalls !== false) {
+    stopStalls = startStallMonitor();
+    watchPresence();
+  }
   return true;
 }
 
-/** Drops every event that isn't performance telemetry. */
-export function performanceOnly(inner: AnalyticsSink): AnalyticsSink {
+/**
+ * Drops every event that isn't performance telemetry, and gives each one the
+ * coarse build and platform (founder CC-18, dogfood scope only).
+ */
+export function performanceOnly(inner: AnalyticsSink, build: BuildInfo = buildInfo()): AnalyticsSink {
   return {
     send(event, props) {
-      if (PERFORMANCE_EVENTS.includes(event)) inner.send(event, props);
+      if (PERFORMANCE_EVENTS.includes(event)) inner.send(event, { ...props, ...build });
     },
   };
 }

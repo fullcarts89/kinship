@@ -25,6 +25,7 @@ import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
+import { aliasesOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
 
 export interface ReviewInput {
   row: UnderstandingRow;
@@ -67,6 +68,14 @@ export interface ItemLine {
   about: string | null;
   /** Others in People this one memory is also about ("John Oxnard"). */
   also: string[];
+  /** Their ids, in the same order. */
+  alsoIds?: string[];
+  /**
+   * When its own words name more than one person in People ("Susan and
+   * Michelle went to Disneyland"), who it can be about: those people and
+   * anyone it's about now. The correction offers only them (founder I11).
+   */
+  named?: string[];
   /** The earlier memory this one updates, in its words ("Sam is interviewing at Stripe"). */
   replaces: string | null;
   /** value: the exact day, when there is one (for the date picker). */
@@ -92,7 +101,8 @@ export interface ItemLine {
 export type QuestionType = "which_person" | "about_whom" | "new_person" | "replace" | "date" | "keep";
 
 export type Choice =
-  | { key: string; label: string; answer: Omit<HeldAnswer, "index"> }
+  /** restore: someone removed from People, brought back before the answer is sent (founder I3). */
+  | { key: string; label: string; answer: Omit<HeldAnswer, "index">; restore?: string }
   /** Opens the person list; the answer is { person_id }. */
   | { key: string; label: string; pick: "person" }
   /** Opens a date picker; the answer is { date }. */
@@ -160,7 +170,7 @@ export const COPY = {
   kept1: "Kept",
 } as const;
 
-const PERSON_FLAGS = ["person_ambiguous", "person_disagreement", "pronoun_multiple", "new_person"];
+const PERSON_FLAGS = ["person_ambiguous", "person_disagreement", "pronoun_multiple", "new_person", "person_archived"];
 
 export function buildReview(input: ReviewInput): ReviewView {
   const { row, capture, offline } = input;
@@ -256,6 +266,16 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
   const person = input.people.find((p) => p.id === item.person_id);
   const related = item.subject_related_id ? input.related.find((r) => r.id === item.subject_related_id) : null;
   const when = whenLabel(item.kind, (item.detail ?? {}) as Record<string, unknown>, input.today);
+  // Someone removed from People isn't shown with the others (founder I3).
+  const alsoPeople = (Array.isArray(item.with_person_ids) ? item.with_person_ids : [])
+    .map((id) => input.people.find((p) => p.id === id))
+    .filter((p): p is Person => !!p && p.state !== "archived");
+  // Who it can be about (founder I11): the people its words name, and anyone it's about now.
+  const named = item.subject_type === "related" ? [] : [...new Set([
+    ...(person ? [person.id] : []),
+    ...alsoPeople.map((p) => p.id),
+    ...input.people.filter((p) => p.state !== "archived" && namesIn(item.statement, p)).map((p) => p.id),
+  ])];
   return {
     id: item.id,
     statement: item.statement,
@@ -263,20 +283,19 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
       ? { id: person.id, label: personLabel(person, input.people), changeable: item.subject_type !== "related" }
       : null,
     about: related && person ? aboutLabel(person.display_name, related) : null,
-    also: (Array.isArray(item.with_person_ids) ? item.with_person_ids : [])
-      .map((id) => input.people.find((p) => p.id === id))
-      .filter((p): p is Person => !!p)
-      .map((p) => personLabel(p, input.people)),
+    also: alsoPeople.map((p) => personLabel(p, input.people)),
+    alsoIds: alsoPeople.map((p) => p.id),
+    ...(named.length > 1 ? { named } : {}),
     replaces: typeof item.supersedes_id === "string" ? input.earlier?.[item.supersedes_id] ?? null : null,
     // Shown only when there is a time to show (an event without one says so).
     when: when ? { label: when, value: exactDay(item), changeable: takesDate(item.kind) } : null,
     kind: item.kind === "promise"
       ? {
         value: item.kind,
-        label: promiseLabel(ownerOf(item), person ? firstName(person.display_name) : null),
+        label: promiseLabel(ownerOf(item), person ? shortName(person) : null),
         // Whose promise is the one thing about a promise the user can change (H28).
         changeable: true,
-        owner: { value: ownerOf(item), name: person ? firstName(person.display_name) : null },
+        owner: { value: ownerOf(item), name: person ? shortName(person) : null },
       }
       : {
         value: item.kind,
@@ -291,10 +310,6 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
 /** A promise is the user's unless it's plainly someone else's commitment to them. */
 function ownerOf(item: MemoryItem): "user" | "person" {
   return item.subject_type === "person" ? "person" : "user";
-}
-
-function firstName(name: string): string {
-  return name.trim().split(/\s+/u)[0] ?? name;
 }
 
 function exactDay(item: MemoryItem): string | null {
@@ -325,12 +340,22 @@ function headingFor(input: ReviewInput, lines: ItemLine[]): string {
   const ids = new Set(lines.map((l) => l.person?.id).filter((x): x is string => !!x));
   if (ids.size === 1) {
     const p = input.people.find((x) => ids.has(x.id));
-    if (p) return `Kept for ${personLabel(p, input.people)}`;
+    // A memory shared by several people is kept for all of them (founder I5).
+    const shared = [...new Set(input.items.filter((m) => m.person_id === p?.id)
+      .flatMap((m) => (Array.isArray(m.with_person_ids) ? m.with_person_ids : [])))]
+      .map((id) => input.people.find((x) => x.id === id))
+      .filter((x): x is Person => !!x && x.id !== p?.id);
+    if (p) return `Kept for ${listOf([p, ...shared].map((x) => personLabel(x, input.people)))}`;
   }
   if (lines.length) return COPY.remember;
   // Nothing kept yet: the note's subject isn't known, so never the page's
   // person ("About Susan" for a note about Natalia, founder H24).
   return "Your note";
+}
+
+/** "Susan", "Susan and Michelle", "Susan, Michelle and Sam". */
+function listOf(names: string[]): string {
+  return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
 function summaryFor(lines: ItemLine[]): string {
@@ -398,7 +423,7 @@ function pronounIn(item: HeldItem): string | null {
  * relation word, or alongside "I"/"me". "Spirited Away" is never a name.
  */
 function unknownNames(item: HeldItem, people: Person[]): string[] {
-  const known = new Set(people.flatMap((p) => wordsOf(p.display_name)));
+  const known = new Set(people.flatMap(knownWords));
   const text = [item.statement, ...item.spans.map((s) => s.quote)].join(" . ");
   const NAME = "(\\p{Lu}[\\p{Ll}\\p{M}'’-]+)";
   const REL = "(?:daughter|son|kid|child|baby|wife|husband|partner|girlfriend|boyfriend|fianc[eé]e?|sister|brother|mom|mother|dad|father|grandma|grandpa|aunt|uncle|cousin|niece|nephew|friend|neighbou?r|boss|coworker|colleague|roommate)";
@@ -428,7 +453,8 @@ function unknownNames(item: HeldItem, people: Person[]): string[] {
  * company ("interviewing with Box", "moving to Austin").
  */
 export function newcomersIn(statement: string, note: string, people: Person[]): string[] {
-  const known = new Set(people.flatMap((p) => wordsOf(p.display_name)));
+  // Every name they go by, earlier names included ("Wifey" after a rename, founder I12).
+  const known = new Set(people.flatMap(knownWords));
   const NAME = "(\\p{Lu}[\\p{Ll}\\p{M}'’-]+)";
   const patterns = [
     new RegExp(`\\b(?:married|marrying|engaged|wed|dating|seeing|divorcing|separated)\\s+(?:to|from)?\\s*${NAME}`, "gu"),
@@ -475,17 +501,39 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
           { key: "pick", label: "Someone already here", pick: "person" },
         ],
       });
+    } else if (item.flags.includes("person_archived") && item.archived_ids?.length) {
+      // Someone the user removed from People (founder I3): offered back by
+      // name, never "Add Kaiya" (a second Kaiya), never filed on a guess.
+      const removed = item.archived_ids.map((id) => input.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
+      const name = item.mention ?? (removed[0] ? shortName(removed[0]) : "They");
+      needs.push({
+        type: "which_person",
+        group: `removed:${item.archived_ids.join(",")}`,
+        prompt: `${name} was removed from People.`,
+        reason: null,
+        choices: [
+          ...removed.map((p) => ({
+            key: `back:${p.id}`, label: removed.length > 1 ? `Bring back ${personLabel(p, input.people)}` : `Bring back ${shortName(p)}`,
+            answer: { person_id: p.id }, restore: p.id,
+          })),
+          { key: "pick", label: COPY.someoneElse, pick: "person" as const },
+        ],
+      });
     } else {
       const candidates = candidatesFor(item, note, input.people);
+      // Someone removed from People the name also fits (founder I3): asked, offered back.
+      const removedToo = (item.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
       const first = (p: Person) => p.display_name.trim().split(/\s+/u)[0];
-      const shared = candidates.length > 1 && candidates.every((p) => fold(first(p)) === fold(first(candidates[0])))
-        ? first(candidates[0])
+      const named = [...candidates, ...removedToo];
+      const shared = named.length > 1 && named.every((p) => fold(first(p)) === fold(first(named[0])))
+        ? first(named[0])
         : null;
       const pronoun = item.flags.includes("pronoun_multiple") ? pronounIn(item) : null;
       // Someone the note names who isn't here yet ("my daughter Kaiya"): offered by name.
       const newNames = candidates.length === 0 ? unknownNames(item, input.people) : [];
       const choices: Choice[] = [
         ...candidates.map((p) => ({ key: `p:${p.id}`, label: personLabel(p, input.people), answer: { person_id: p.id } })),
+        ...removedToo.map((p) => ({ key: `back:${p.id}`, label: `Bring back ${personLabel(p, input.people)}`, answer: { person_id: p.id }, restore: p.id })),
         // A pronoun that could be either of two people may be both of them.
         ...(pronoun && candidates.length === 2 && !shared
           ? [{ key: "both", label: "Both", answer: { person_id: candidates[0].id, also_person_ids: [candidates[1].id] } }]
@@ -503,8 +551,11 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
           : newNames.length ? `${newNames.join(" and ")} ${newNames.length > 1 ? "aren't" : "isn't"} in your people yet.`
           : "I couldn't tell who this is about.",
         choices,
-        // The exact sentence being clarified, in the note's own words.
-        about: pronoun && sentence ? sentence : undefined,
+        // The exact sentence being clarified, in the note's own words: for an
+        // unclear "he", and for the mirror of a line already kept ("Which
+        // Sam?" about "Michelle and Sam might be moving…", founder I10),
+        // which is one memory, never shown as a second.
+        about: (pronoun || item.twin_person_id) && sentence ? sentence : undefined,
       });
     }
   }
@@ -562,7 +613,7 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       group: `keep:${item.statement}:${item.spans[0]?.start ?? 0}`,
       prompt: person ? `Remember this about ${person.display_name}?` : "Remember this?",
       reason: item.flags.includes("relation_conflict") && person && typeof person.relationship_label === "string" && person.relationship_label
-        ? `${person.display_name.split(/\s+/u)[0]} is your ${person.relationship_label} here. Keep this instead?`
+        ? `${shortName(person)} is your ${person.relationship_label} here. Keep this instead?`
         : ambiguousDay ? "That day could be read two ways."
         : sensitive ? "This sounds personal, so I keep it only if you say so."
         : null,
@@ -576,9 +627,21 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
   return needs;
 }
 
-/** The people the note could mean: those whose name is in the item's words, else anyone named in the note. */
+/**
+ * The people the note could mean: when the reading names who it asks about
+ * ("Sam" with two Sams), only the people that name can mean, never someone
+ * else the sentence names (founder I10: never "Michelle Lee" for "which
+ * Sam?"); else those whose name is in the item's words, else anyone named in
+ * the note.
+ */
 function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[] {
   const live = people.filter((p) => p.state !== "archived");
+  const mention = item.mention ? wordsOf(item.mention).join(" ") : "";
+  if (mention) {
+    const meant = live.filter((p) => nameForms(p).some((f) => f === mention || f.split(" ")[0] === mention));
+    // With someone removed who fits too (founder I3), even one person here is a choice.
+    if (meant.length > 1 || (meant.length === 1 && item.archived_ids?.length)) return meant.slice(0, 4);
+  }
   const inWords = (text: string) => {
     const words = new Set(wordsOf(text));
     return live.filter((p) => {
@@ -606,6 +669,24 @@ function relationFor(item: HeldItem, input: ReviewInput, note: string): string |
 
 function fold(s: string): string {
   return s.normalize("NFKC").toLowerCase();
+}
+
+/** Whether a statement names this person: any name they go by, or its first word, as a whole capitalised word. */
+function namesIn(statement: string, p: Person): boolean {
+  const forms = [p.display_name, typeof p.full_name === "string" ? p.full_name : "", ...aliasesOf(p)].filter(Boolean);
+  return forms.some((f) => usesName(statement, f) || usesName(statement, f.trim().split(/\s+/u)[0] ?? ""));
+}
+
+/** The words of every name a person goes by. */
+function knownWords(p: Person): string[] {
+  return [p.display_name, typeof p.full_name === "string" ? p.full_name : "", ...aliasesOf(p)].flatMap(wordsOf);
+}
+
+/** A person's names as word runs: display name, full name, other names. */
+function nameForms(p: Person): string[] {
+  const others = Array.isArray(p.nicknames) ? p.nicknames.filter((n): n is string => typeof n === "string") : [];
+  return [p.display_name, typeof p.full_name === "string" ? p.full_name : "", ...others]
+    .map((n) => wordsOf(n).join(" ")).filter(Boolean);
 }
 
 function wordsOf(s: string): string[] {

@@ -6,7 +6,8 @@
 import { useEffect, useState } from "react";
 import { AppState } from "react-native";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { FlagRepo, isOn, secureStoreFlagCache, supabaseFlagSource, type Flags } from "@/store/flags";
+import { buildEntryShell, type EntryShell } from "@/platform/entryShell";
+import { FlagRepo, secureStoreFlagCache, supabaseFlagSource, type Flags } from "@/store/flags";
 
 let repo: FlagRepo | null = null;
 let launch: { userId: string; flags: Flags } | null = null;
@@ -53,10 +54,34 @@ export async function forgetFlags(): Promise<void> {
   }
 }
 
-/** Which shell this launch uses; null while deciding. 1.0 unless shell_v2 is on for this account. */
+/**
+ * The shell for an account's flags: 2.0 when shell_v2 is on. In the 2.0
+ * build (EXPO_PUBLIC_V2_ENTRY=1) an unknown answer (no server answer in time,
+ * an error, nothing kept on this phone) is 2.0 too: only the server's
+ * explicit "off" opens 1.0 there, so rollout stays per account and a slow
+ * start never drops a 2.0 account into 1.0 (founder I8). Elsewhere unknown
+ * stays 1.0.
+ */
+export function shellFor(flags: Flags | null, build: EntryShell | null = buildEntryShell()): EntryShell {
+  if (flags?.shell_v2 === true) return "v2";
+  if (build === "v2" && flags?.shell_v2 !== false) return "v2";
+  return "v1";
+}
+
+/**
+ * Whether a 1.0 deep link (a notification 1.0's Home scheduled) may open a
+ * 1.0 screen now: only in a 1.0 session. In the 2.0 build, never while the
+ * launch is still deciding (founder I8).
+ */
+export function legacyRoutesAllowed(build: EntryShell | null = buildEntryShell()): boolean {
+  if (launch) return shellFor(launch.flags, build) === "v1";
+  return build !== "v2";
+}
+
+/** Which shell this launch uses; null while deciding (see shellFor). */
 export function useLaunchShell(userId: string | null): "v1" | "v2" | null {
   const [shell, setShell] = useState<"v1" | "v2" | null>(() =>
-    !userId ? "v1" : launch?.userId === userId ? (isOn(launch.flags, "shell_v2") ? "v2" : "v1") : null);
+    !userId ? "v1" : launch?.userId === userId ? shellFor(launch.flags) : null);
   useEffect(() => {
     if (!userId) {
       setShell("v1");
@@ -64,8 +89,8 @@ export function useLaunchShell(userId: string | null): "v1" | "v2" | null {
     }
     let cancelled = false;
     launchFlags(userId).then(
-      (f) => !cancelled && setShell(isOn(f, "shell_v2") ? "v2" : "v1"),
-      () => !cancelled && setShell("v1"),
+      (f) => !cancelled && setShell(shellFor(f)),
+      () => !cancelled && setShell(shellFor(null)),
     );
     return () => {
       cancelled = true;

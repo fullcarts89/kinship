@@ -109,7 +109,8 @@ describe("a dense note: Matt", () => {
       ["fact", "Matt is excited but nervous about managing people", "stated"],
       // The hedge stays; "next summer" is kept as a season, not words that go stale (stabilization).
       ["plan", "Matt and Jess are thinking about moving to Marin", "tentative"],
-      ["promise", "Introduce Matt to Alex", "tentative"],
+      // A promise said firmly; the Marin plan's "thinking about" is that line's own word (founder I12b).
+      ["promise", "Introduce Matt to Alex", "stated"],
     ]));
     expect(kept).toHaveLength(4);
 

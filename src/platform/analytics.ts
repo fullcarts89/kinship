@@ -127,9 +127,17 @@ export interface AnalyticsEvents {
     render_bucket: DurationBucket;
     /** Failed attempts before this result (retries). */
     retries: SmallCount;
+    /**
+     * Send tapped → "Understanding…" on screen (CC-18): how soon the user saw
+     * it was taken. "not_shown" when the result came first; "unknown" when
+     * this launch didn't see the Send (another device, a relaunch).
+     */
+    understanding_bucket: DurationBucket | "not_shown" | "unknown";
+    /** The app went to the background while it was being understood (CC-18). */
+    backgrounded: boolean | "unknown";
   };
   /** One failed attempt to understand a Tell: the stage only, never the note. */
-  tell_failure: { stage: TellFailureStage; attempt: SmallCount };
+  tell_failure: { stage: TellFailureStage; attempt: SmallCount; backgrounded: boolean | "unknown" };
   /** The app's JavaScript thread stopped responding while in the foreground (freeze investigation). */
   app_stall: { duration_bucket: DurationBucket; tell_work: boolean };
   /** "Got it right / Not quite" on a Kept card (H6): the verdict and its fixed reason, never content. */

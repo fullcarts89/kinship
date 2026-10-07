@@ -17,7 +17,8 @@
 //             wrote or edited; a hedged item never replaces a firm one
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
-import { leadingName, statementNames, withResolvedName, yourVoice } from "./voice.ts";
+import { leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
+import { shortName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
@@ -35,6 +36,7 @@ import {
   userIsActor,
   kinshipReference,
   looksLikeInstruction,
+  mirrorBag,
   nameKey,
   PRONOUNS,
   relationKey,
@@ -67,7 +69,7 @@ export const DROP_BELOW_CONFIDENCE = 0.6;
 const CONTACT_DETAIL = /\b(phone|cell|mobile|landline)\b|\bnew number\b|\bnumber (?:ends|ending) in\b|[\w.+-]+@[\w-]+\.[a-z]{2,}|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b/i;
 /** Floor for items held because code confirms the person or subject is ambiguous. */
 export const HOLD_FLOOR_CONFIDENCE = 0.3;
-const WHO_AMBIGUITY: Flag[] = ["person_ambiguous", "pronoun_multiple", "subject_check"];
+const WHO_AMBIGUITY: Flag[] = ["person_ambiguous", "pronoun_multiple", "subject_check", "person_archived"];
 export const THREAD_FOLLOWUP_DAYS = 42;
 const QUOTE_MAX = 200;
 
@@ -88,12 +90,14 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
   const known: string[] = [];
 
   const proposed = Array.isArray(proposal?.items) ? proposal.items : [];
+  // Every line's own words, so a hedge in one never hedges another (founder I12b).
+  ctx.evidence = proposed.slice(0, MAX_ITEMS).map((raw) => evidenceSpans(text, raw));
   for (const [i, raw] of proposed.entries()) {
     if (i >= MAX_ITEMS) {
       dropped.push({ reason: "too_many_items", kind: null });
       continue;
     }
-    const result = planItem(ctx, raw);
+    const result = planItem(ctx, raw, i);
     if ("drop" in result) {
       dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null });
       if (result.drop === "already_known" && result.known && !known.includes(result.known)) known.push(result.known);
@@ -112,6 +116,7 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     }
   }
 
+  markHeldMirrors(ctx, items);
   const clarification = chooseClarification(ctx, items);
   const tier = items.length === 0
     ? "nothing"
@@ -127,6 +132,8 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
 
 class Context {
   readonly byKey = new Map<string, RosterPerson>();
+  /** Each proposed line's evidence, by its place in the proposal (founder I12b). */
+  evidence: PlannedSpan[][] = [];
   readonly dossier = new Map<string, DossierItem>();
   readonly folded: string;
   readonly knownNames: Set<string>;
@@ -171,6 +178,18 @@ class Context {
     });
   }
 
+  /** People removed from People a name could mean (founder I3): never the model's, never guessed. */
+  archivedFor(mention: string): string[] {
+    const k = nameKey(mention).replace(/^(my |our |the )?((aunt|auntie|uncle|cousin|friend|neighbou?r|coworker|boss|dr|doctor|mr|mrs|ms|miss|coach|pastor)\.? )+/, "");
+    if (!k) return [];
+    return (this.input.archived ?? []).filter((p) =>
+      [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean).some((f) => {
+        const fk = nameKey(f);
+        return fk === k || fk.split(/\s+/)[0] === k;
+      })
+    ).map((p) => p.id);
+  }
+
   /** People on the roster whose name appears in the note. */
   namedInNote(): RosterPerson[] {
     const words = new Set(wordsOf(this.text).map(nameKey));
@@ -195,7 +214,7 @@ class Context {
 
 type ItemResult = { item: PlannedItem } | { drop: DropReason; known?: string };
 
-function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
+function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult {
   let raw = proposed;
   // "Sarah and I always get dumplings after the opera" recurs, but on no
   // calendar we model: keep it as shared context (still confirmed) rather
@@ -324,7 +343,11 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   }
 
   // ── Certainty: wording can only lower it ──
-  const cap = capCertainty(raw.certainty, wordingCertainty(certaintyText(text, spans, raw)));
+  // "Wifey got promoted on Monday and said she might be moving to Seattle":
+  // the "might" is the Seattle line's own word, so it never hedges the
+  // promotion (founder I12b). A hedge on this line, or outside every line
+  // ("I think…"), still holds.
+  const cap = capCertainty(raw.certainty, wordingCertainty(certaintyText(withoutOtherLines(ctx, text, spans, index), spans, raw)));
   const certainty = cap.certainty;
   if (cap.lowered) flags.add("certainty_lowered");
   if (certainty === "reported") flags.add("reported");
@@ -442,7 +465,7 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
       // A leading "He"/"She" the pipeline is sure about names the person (Gate B);
       // one still in question keeps it until the user answers (resolve.ts).
       statement: who.person_key && subject !== "related" && !unsure
-        ? withResolvedName(timeless, ctx.byKey.get(who.person_key)?.display_name ?? "")
+        ? withSpokenName(timeless, spokenName(ctx.byKey.get(who.person_key)))
         : timeless,
       detail: detail.detail,
       certainty,
@@ -455,6 +478,8 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
       date_rule: resolution?.rule ?? null,
       ...(withPeople.length ? { with_person_ids: withPeople.map((p) => p.id) } : {}),
       ...(Object.keys(selfRelations).length ? { self_relations: selfRelations } : {}),
+      // Someone removed from People the name fits (founder I3): offered back.
+      ...(who.archived_ids?.length ? { archived_ids: who.archived_ids, ...(who.mention ? { mention: who.mention } : {}) } : {}),
     },
   };
 }
@@ -519,7 +544,7 @@ function askConfirmed(ctx: Context, mention: string): boolean {
 
 // A pronoun that could point at two named people ("Ben and Josh went
 // climbing. He fell.") waits for the user, like any other ambiguity.
-const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict"];
+const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict", "person_archived"];
 
 function tierFor(flags: Set<Flag>): Tier {
   if (HOLD_FLAGS.some((f) => flags.has(f))) return "hold";
@@ -572,6 +597,27 @@ function certaintyText(text: string, spans: PlannedSpan[], raw: ProposedItem): s
   const next = sentenceAfter(text, spans[0]);
   if (next && wordsOf(next).length <= 4) parts.push(next);
   return parts.join(" ");
+}
+
+/** Where a proposed line's evidence is in the note (the same grounding planItem does). */
+function evidenceSpans(text: string, raw: ProposedItem): PlannedSpan[] {
+  const out: PlannedSpan[] = [];
+  for (const quote of Array.isArray(raw?.evidence) ? raw.evidence.slice(0, 3) : []) {
+    if (typeof quote !== "string" || !quote.trim()) continue;
+    const found = locateEvidence(text, quote.trim());
+    if (found.ok) out.push(toPlannedSpan(text, found.span));
+  }
+  return out;
+}
+
+/** The note with the other lines' own words blanked out (never words this line shares). */
+function withoutOtherLines(ctx: Context, text: string, own: PlannedSpan[], index: number): string {
+  const others = ctx.evidence.flatMap((spans, j) => (j === index ? [] : spans))
+    .filter((s) => !own.some((t) => s.start < t.end && t.start < s.end));
+  if (!others.length) return text;
+  const chars = Array.from(text);
+  for (const s of others) for (let i = s.start; i < s.end && i < chars.length; i++) chars[i] = " ";
+  return chars.join("");
 }
 
 /** The sentence that follows the one holding `span`, or null. */
@@ -686,9 +732,9 @@ function namesFor(p: RosterPerson): string[] {
 function refileBySubject(
   ctx: Context,
   statement: string,
-  who: { person_id: string | null; person_key: string | null; new_person_name: string | null },
+  who: { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string },
   flags: Set<Flag>,
-): { person_id: string | null; person_key: string | null; new_person_name: string | null } {
+): { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string } {
   const filed = who.person_key ? ctx.byKey.get(who.person_key) : null;
   const lead = leadingName(statement);
   if (!filed || !lead || statementNames(statement, namesFor(filed))) return who;
@@ -699,6 +745,12 @@ function refileBySubject(
   if (!said) return who;
   let candidates = ctx.candidatesFor(said);
   if (candidates.length === 0 && said !== firstOnly) candidates = ctx.candidatesFor(firstOnly);
+  // Someone removed from People: offered back, never re-created (founder I3).
+  const removed = ctx.archivedFor(said).length ? ctx.archivedFor(said) : ctx.archivedFor(firstOnly);
+  if (removed.length) {
+    flags.add(candidates.length ? "person_ambiguous" : "person_archived");
+    return { person_id: null, person_key: null, new_person_name: null, archived_ids: removed, mention: said };
+  }
   if (candidates.length === 1) {
     if (candidates[0].key === filed.key) return who;
     flags.add("subject_moved");
@@ -729,7 +781,7 @@ function relatedByName(ctx: Context, raw: ProposedItem): { who: Who; related: Pl
 
 const SELF_WORDS = new Set(["i", "me", "my", "myself", "we", "us", "our", "ourselves", "you", "your", "yourself", "you and i", "me and you"]);
 
-type Who = { person_id: string | null; person_key: string | null; new_person_name: string | null } | { drop: DropReason };
+type Who = { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string } | { drop: DropReason };
 
 function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   const mention = (raw.person_mention ?? "").trim();
@@ -806,6 +858,13 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
 
   // A name.
   const candidates = ctx.candidatesFor(mention);
+  // Someone the user removed from People (founder I3): offered back, never
+  // added again as someone new; with someone here who fits too, asked.
+  const removed = ctx.archivedFor(mention.replace(/['’]s$/, ""));
+  if (removed.length) {
+    flags.add(candidates.length ? "person_ambiguous" : "person_archived");
+    return { person_id: null, person_key: null, new_person_name: null, archived_ids: removed, mention: mention.replace(/['’]s$/, "") };
+  }
   if (candidates.length === 0) {
     // Someone not on the roster. Must look like a name and be in the note.
     if (!/^\p{Lu}/u.test(mention)) return unresolved("person_ambiguous");
@@ -1104,6 +1163,10 @@ function chooseClarification(ctx: Context, items: PlannedItem[]): Clarification 
       options: [...options, "Someone else"],
     };
   }
+  const removed = held.find((i) => i.flags.includes("person_archived") && i.mention);
+  if (removed?.mention) {
+    return { about: "person", question: `${removed.mention} was removed from People.`, options: [`Bring back ${removed.mention}`, "Someone else"] };
+  }
   const subject = held.find((i) => i.flags.includes("subject_check"));
   if (subject && subject.person_key) {
     const p = ctx.byKey.get(subject.person_key)!;
@@ -1204,6 +1267,42 @@ function sharedTwin(ctx: Context, item: PlannedItem): void {
     item.detail = { ...twin.detail };
   }
   item.action = { type: "merge", target_id: twin.id };
+}
+
+/**
+ * "Michelle and Sam might be moving to Australia" with two Sams: the model
+ * mirrors it, one line for each of them. Michelle's is kept; Sam's is held
+ * only because two people are called Sam. It is the same memory, so the held
+ * line asks only which Sam (its mention), knows the kept line it mirrors, and
+ * its answer joins that line (resolve.ts), never a second copy (founder I10,
+ * reopening H13). Only a true mirror: same words in any order, the same
+ * sentence of the note, the same kind of thing on the same day, each line
+ * naming the other's person.
+ */
+function markHeldMirrors(ctx: Context, items: PlannedItem[]): void {
+  for (const h of items) {
+    if (h.tier !== "hold" || h.person_id || !h.flags.includes("person_ambiguous") || h.with_person_ids?.length) continue;
+    const mention = mentionFor(ctx, h);
+    if (!mention || ctx.candidatesFor(mention).length < 2) continue;
+    const twin = items.find((p) =>
+      p !== h && p.person_id && p.person_key && sameKindFamily(p.kind, h.kind) && p.subject_type === h.subject_type &&
+      sameWhen(p.detail, h.detail) && mirrorBag(p.statement) === mirrorBag(h.statement) &&
+      p.spans.some((s) => h.spans.some((t) => s.start < t.end && t.start < s.end)) &&
+      statementNames(p.statement, [mention]) && namesPerson(h.statement, ctx.byKey.get(p.person_key))
+    );
+    if (!twin?.person_id) continue;
+    h.twin_person_id = twin.person_id;
+    h.mention = mention;
+  }
+}
+
+/** A person's name as Kinship says it: "Ben" from "Ben Oxnard", a chosen "Cutie Pie" whole (founder I12). */
+function spokenName(p: RosterPerson | undefined): string {
+  return p ? shortName(p) : "";
+}
+
+function namesPerson(statement: string, p: RosterPerson | undefined): boolean {
+  return !!p && statementNames(statement, [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])]);
 }
 
 /** Something that happened, however it was filed: an event, a fact or a moment. */

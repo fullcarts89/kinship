@@ -9,6 +9,7 @@
 //   * "Not this" retracts and removes (§5).
 
 import { codePointLength, locateEvidence, utf16ToCodePoint } from "../../supabase/functions/_shared/spans";
+import { aliasesAfterRename } from "../../supabase/functions/_shared/extraction/names";
 import type { MirroredTable } from "./tables";
 import { StoreWriteError, type Conflict, type Data, type UserStore } from "./userStore";
 
@@ -83,7 +84,8 @@ export class PeopleRepo {
   }
 
   add(fields: { display_name: string; full_name?: string; relationship_label?: string }): Promise<Person> {
-    return this.store.create("people", { state: "active", nicknames: [], ...fields }) as Promise<Person>;
+    // A typed name has no full name: Kinship says it whole ("Aunt Linda", founder I12).
+    return this.store.create("people", { state: "active", nicknames: [], full_name: null, ...fields }) as Promise<Person>;
   }
 
   /**
@@ -99,7 +101,15 @@ export class PeopleRepo {
     if (clean === person.display_name) return person;
     // A full name that only repeated the old name follows it.
     const full = typeof person.full_name === "string" && person.full_name === person.display_name ? { full_name: clean } : {};
-    return (await this.store.update("people", id, { display_name: clean, ...full })) as Person;
+    // The earlier name stays as another name they go by (founder I12): their
+    // memories show the new name where the old one was written, and a later
+    // note that still says it finds them. Its first name too, only where a
+    // memory of theirs used it ("Wifey" from "Wifey Liu").
+    const theirs = ((await this.store.list("memory_items")) as MemoryItem[])
+      .filter((m) => m.person_id === id || (Array.isArray(m.with_person_ids) && m.with_person_ids.includes(id)))
+      .map((m) => m.statement);
+    const nicknames = aliasesAfterRename(person, clean, theirs);
+    return (await this.store.update("people", id, { display_name: clean, ...full, nicknames })) as Person;
   }
 
   /**
@@ -120,7 +130,8 @@ export class PeopleRepo {
       state: "active",
       nicknames: [],
       display_name: name,
-      full_name: name,
+      // Only Contacts gives a full name; one typed at setup is said whole (founder I12).
+      full_name: fields.contactId ? name : null,
       contact_ref: fields.contactId,
       ...(fields.birthday
         ? { birthday: fields.birthday, birthday_year_known: fields.birthdayYearKnown, birthday_source: "contacts" }
@@ -135,6 +146,33 @@ export class PeopleRepo {
   /** D13: only the user sets remembered/paused, and both are reversible. */
   setState(id: string, state: PersonState): Promise<Data> {
     return this.store.update("people", id, { state });
+  }
+
+  /**
+   * "Remove from People" (founder I3): a soft archive, never a delete. Their
+   * notes, sources, relationships and memories all stay; restore() brings
+   * back the same person. What is only about them leaves with them. A memory
+   * shared with others stays with the others: filed on the first of them
+   * still here, and still shared with this person for when they come back.
+   */
+  async archive(id: string): Promise<void> {
+    const person = await this.get(id);
+    if (!person || person.deleted_at) throw new StoreWriteError("that person isn't here any more");
+    const here = new Set((await this.list()).filter((p) => p.state !== "archived" && !p.deleted_at && p.id !== id).map((p) => p.id));
+    for (const m of (await this.store.list("memory_items", { personId: id })) as MemoryItem[]) {
+      const others = (Array.isArray(m.with_person_ids) ? m.with_person_ids : []).filter((pid) => here.has(pid));
+      if (!others.length || m.subject_type === "related") continue;
+      const [owner, ...rest] = others;
+      await this.store.update("memory_items", m.id, { person_id: owner, with_person_ids: [...rest, id] });
+    }
+    await this.store.update("people", id, { state: "archived" });
+  }
+
+  /** "Bring back" (founder I3): the same person, with everything they had. */
+  async restore(id: string): Promise<void> {
+    const person = await this.get(id);
+    if (!person || person.deleted_at) throw new StoreWriteError("that person isn't here any more");
+    if (person.state === "archived") await this.store.update("people", id, { state: "active" });
   }
 
   /** CA-5: a birthday always says where it came from. */
@@ -269,7 +307,7 @@ export class MemoryRepo {
   }
 
   /** The user's correction wins, and says so (a user_edit source; plan §5). */
-  async correct(id: string, patch: Partial<Pick<MemoryItem, "statement" | "detail" | "kind" | "person_id" | "certainty" | "subject_type">>): Promise<Data> {
+  async correct(id: string, patch: Partial<Pick<MemoryItem, "statement" | "detail" | "kind" | "person_id" | "certainty" | "subject_type" | "with_person_ids">>): Promise<Data> {
     // An edit is a correction, not a rewrite of history (founder H30): the
     // words it replaced stay with the edit, next to the note's own source.
     const before = typeof patch.statement === "string" ? (await this.get(id))?.statement : undefined;

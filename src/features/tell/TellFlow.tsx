@@ -77,6 +77,12 @@ export interface TellFlow {
   pending: PendingNote[];
   /** Notes waiting on the user: a question, or understood while away. */
   questions: string[];
+  /**
+   * A question is open in the sheet right now. That note is neither the card
+   * nor on Today's list, so Today must not call the day quiet behind it
+   * (founder I10, as H19 did for the Kept card).
+   */
+  asking: boolean;
   toLookAt: string[];
   waitingOffline: boolean;
   openNote: (captureId: string) => void;
@@ -133,6 +139,9 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   const [showing, setShowing] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Record<string, true>>({});
   const [parked, setParked] = useState<string | null>(null);
+  // The note whose details were opened from its Kept card: closing them goes
+  // back to that card, never both at once (founder I9).
+  const [fromCard, setFromCard] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState<TellFlow["focusRequest"]>(null);
   const currentView = useReview(current);
   const sheetView = useReview(showing);
@@ -200,18 +209,27 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     const id = showing;
     if (!id) return;
     setShowing(null);
+    if (fromCard === id) {
+      // Back to the Kept card it was opened from, as it was (founder I9):
+      // its lines, corrections and "Got it right / Not quite" are all still there.
+      setFromCard(null);
+      return;
+    }
     // What the sheet showed is memory now (held items never are until answered).
     if (sheetView && sheetView.lines.length > 0) void activate?.();
     void u.finish(id, how);
     // Seen in full: no card for it afterwards. A question left waiting is
     // still on Today and the person's page.
     if (how === "done") setDismissed((d) => ({ ...d, [id]: true }));
-  }, [showing, u, sheetView, activate]);
+  }, [showing, fromCard, u, sheetView, activate]);
 
   const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text") => {
     if (!text.trim()) return false;
+    // When Send was tapped, before anything is saved (CC-18 telemetry, content-free).
+    const tapped = u.now();
     try {
       const id = await keepNote(text, contextPersonId ?? null, source);
+      u.sent(id, tapped);
       // Telling something else is the end of the last card: what it kept stays kept.
       if (current && current !== id && !dismissed[current] && currentView?.mode === "card") finishCard(current, "idle");
       setCurrent(id);
@@ -222,7 +240,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
       Alert.alert("That wasn't kept", "Something went wrong saving it on this phone. Your words are still here.");
       return false;
     }
-  }, [keepNote, ai, activate, current, dismissed, currentView?.mode, finishCard]);
+  }, [keepNote, ai, activate, current, dismissed, currentView?.mode, finishCard, u]);
 
   const fail = (what: Promise<unknown>) => {
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
@@ -234,6 +252,11 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   const toLookAt = others(open.toLookAt);
   const waiting = others(open.waiting);
   const pending = pendingAll.filter((n) => n.captureId !== showing && !(card && n.captureId === card.captureId));
+  const asking = !!showing && !!sheetView && sheetView.questions.length > 0;
+  // "Understanding…" is on screen (CC-18 telemetry): once per note, after it paints.
+  useEffect(() => {
+    if (card?.mode === "understanding") u.understandingVisible(card.captureId);
+  }, [card?.mode, card?.captureId, u]);
 
   const value = useMemo<TellFlow>(() => ({
     tellOn,
@@ -242,7 +265,10 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     card,
     openCard: () => {
       if (!card) return;
-      if (card.mode === "card" || card.mode === "sheet" || card.mode === "nothing") openSheet(card.captureId, false);
+      if (card.mode === "card" || card.mode === "sheet" || card.mode === "nothing") {
+        setFromCard(card.captureId);
+        openSheet(card.captureId, false);
+      }
     },
     rateCard: (verdict, off) => {
       if (!card) return;
@@ -263,6 +289,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     },
     pending,
     questions,
+    asking,
     toLookAt,
     waitingOffline: waiting.length > 0 && open.offline && currentView?.mode !== "understanding",
     openNote: (id) => openSheet(id),
@@ -276,7 +303,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     draft: (personId) => drafts.drafts[draftKey(personId)] ?? "",
     setDraft: (personId, text) => drafts.set(draftKey(personId), text),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked]);
+  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), asking, toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked]);
 
   // The sheet shows its own view, or the last one while the next arrives.
   const shown = sheetView && SHEET_CONTENT.includes(sheetView.mode)
@@ -299,12 +326,14 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
           onUndo={() => {
             const id = showing;
             setShowing(null);
+            setFromCard(null);
             setDismissed((d) => ({ ...d, [id]: true }));
             void u.undo(id);
           }}
           onReject={(itemId) => fail(u.reject(itemId, showing))}
           onCorrect={(itemId: string, change: Correction) => fail(u.correct(itemId, change))}
           onAddPerson={(itemId: string, name: string) => fail(u.addParticipant(itemId, name).then(() => undefined))}
+          onRestore={(personId) => fail(u.restorePerson(personId))}
           onAnswer={(answers) => fail(u.answer(showing, answers))}
           onOpenNote={() => {
             // Looking at the note never decides anything: the sheet steps

@@ -144,3 +144,34 @@ These are evidence-backed extensions of the approved product. They are approved,
 | First use (onboarding) | Tell → Remember → **Bring back**, one concrete example leading into Today | H4 | At most one extra screen; no carousel; no decorative motion; respects Reduce Motion; prefer the user's real first Tell when it makes an eligible Moment, else the Ben example; `firstRun.test.tsx` and `.maestro/fresh-install.yaml` gain the step |
 
 Roadmap only (not a surface yet): grounded **Ask Kinship** as an Alpha candidate (H3). No change: "August" (H22).
+
+## Round-4 approvals (founder, 7 Oct, CC-18): approved, not built
+
+| Surface | Approved change | From | Phase | Guardrails |
+|---|---|---|---|---|
+| 10 Today → **Moment detail** (new contextual surface) | Tapping a Moment opens its detail: the grounded reason, why now, timing, Source, Message / Call; "View Ben" is secondary with a deep link and quiet emphasis | I1 | 4 | Tap a reason → the reason; tap a person → the person. Not a field-heavy page |
+| 12 Relationship page › **Between you** | Lightweight interaction trail: "You messaged · Oct 6 · About …" | I2 | 4 | Know → infer → ask; one tap usually; type ≠ reason ≠ shared experience; never counts, "last contacted", streaks or health |
+| Tell › **Kept card** | Sections: kept → needs attention ([Add Pedro] [Not now]) → Correct this · Undo → feedback | I4 | 4 | Real controls and tap targets; Quiet Herbarium; no card stack |
+| Tell field / all inputs | Done accessory, drag-to-dismiss, nav usable with the keyboard open, draft kept | I6 | 4 | Bottom navigation stays |
+| 14 What Kinship knows › **Background** | Clearly-past history ("Previously interviewed with Box · Ended Oct 6") | I7 (with H15) | 4 | Never alongside current state as if true; declined sensitive outcomes stay out |
+| 12 Relationship page / 14 What Kinship knows | Visible **Edit** for the name; soft **Remove from People** | I3 | Gate 0 | Archive, restorable; notes and sources kept. **BUILT in Gate 0** (see below); native pending |
+
+## Gate 0 Final Trust Closure (7 Oct, CC-18): what changed on approved surfaces
+
+All asked for in CC-18 and the founder's Gate 0 answers of 7 Oct (I12 guardrails; I3 semantics, plus "never re-create a removed person"). No approved surface was removed; nothing below is a redesign. Native: none verified yet (the targeted gate is `gate0-native-checklist.md`).
+
+| Surface | Change | Why | Founder approval |
+|---|---|---|---|
+| 12 Relationship page | A visible quiet **Edit** under the name (the name stays tappable); it opens the name sheet, which ends with **Remove from People** and a confirm: "Remove Kaiya from People? Kaiya won't appear in People or Today. Your notes stay, and you can bring Kaiya back from Settings." | I3 | Yes: Gate 0 answer (7 Oct) |
+| 23 Privacy / settings | **Removed from People**, shown only when someone was removed: each name with **Bring back** | I3 | Yes: Gate 0 answer (7 Oct) |
+| 11 People | Add by name with a removed person's name asks first: Bring back · Add someone new · Cancel | I3 ("never a duplicate by accident") | Yes: Gate 0 answer (7 Oct) |
+| Tell › review / clarification | "Which Sam do you mean? · You have more than one Sam." for a held mirror, quoting the note's words, only the people the name can mean (never someone already resolved); "Kaiya was removed from People." with **Bring back Kaiya** (never "Add Kaiya"); a name that fits someone here and someone removed is asked about | I10, I3 | Yes: CC-18 / Gate 0 answer |
+| Tell › Kept card | "Kept for Susan Oxnard and Michelle Lee" for a shared memory; closing the details opened from the card returns to the same card | I5, I9 | Yes: CC-18 |
+| Correction (person picker) | When a line's own words name several people in People, "Who is this about?" shows just them to choose (Choose everyone it's about · Someone else · Done); otherwise the one-person list as before | I11 | Yes: CC-18 ("never a generic People form") |
+| Correction (person) | Moving a line to the right person renames its subject in the words, with "was:" history | I13 | Yes: CC-18 |
+| 12 / 14 / Today / review | A renamed person's lines show the current name where an earlier one was written (option A); titles and sentences use the whole chosen name ("What Kinship knows about Cutie Pie"); names from Contacts stay first names | I12 | Yes: CC-18 option A + Gate 0 guardrails (7 Oct) |
+| 10 Today | Never "Nothing needs you today." behind an open question | I10 (as H19 for the Kept card) | Yes: CC-18 |
+| Review / line tokens | No "Maybe" on a line whose own words aren't hedged when another line of the same note is | I12b | Yes: CC-18 (check, then fix) |
+
+Not built in Gate 0 (Phase 4, approved): I1 Moment detail, I2 interaction history, I4 Kept hierarchy, I6 keyboard, H15/H2 with I7, H16, H4.
+

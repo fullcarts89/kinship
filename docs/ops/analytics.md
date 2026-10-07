@@ -34,6 +34,7 @@ Guards:
 ```
 
 - **Nothing else is sent.** That includes names, emails, phone numbers, note or memory text, contact names, relationship content, free-form values, AI prompts or outputs, device names, app versions and screen names. `src/platform/__tests__/posthogSink.test.ts` asserts the exact payload.
+  - **One exception, dogfood performance scope only (founder CC-18, 7 Oct 2026):** performance events also carry the coarse build and platform (see below). Product analytics never do.
 - **`distinct_id`** is a random UUID stored in the on-device store. The sign-out wipe deletes it, so two accounts on one phone never share an id. It is never linked to the Supabase user id.
 - **`$process_person_profile: false`** means no person profiles. **`$geoip_disable: true`** means no location enrichment.
 
@@ -120,9 +121,16 @@ Each event has the envelope shown in "Exactly what one event contains": `api_key
 
 | Event | When | Properties (all closed values) |
 |---|---|---|
-| `tell_lifecycle` | Once per Tell, when its result is first on screen | `outcome` (kept / needs_input / nothing / failed)<br>`total_bucket`: Send → result visible<br>`sync_bucket`: Send → first gateway request (local save, note upload, queue)<br>`gateway_bucket`: the last request's round trip<br>`server_bucket`: time inside ai-gateway, from its `Server-Timing` header<br>`network_bucket`: round trip minus server<br>`render_bucket`: reading → on screen<br>`retries` (0–10)<br>`understood_bucket`, `shown_bucket`: the coarse originals |
-| `tell_failure` | Each failed attempt to understand a Tell | `stage` (offline / timeout / server / limited / gave_up), `attempt` (0–10) |
+| `tell_lifecycle` | Once per Tell, when its result is first on screen | `outcome` (kept / needs_input / nothing / failed)<br>`total_bucket`: Send → result visible<br>`sync_bucket`: Send → first gateway request (local save, note upload, queue)<br>`gateway_bucket`: the last request's round trip<br>`server_bucket`: time inside ai-gateway, from its `Server-Timing` header<br>`network_bucket`: round trip minus server<br>`render_bucket`: reading → on screen<br>`retries` (0–10)<br>`understood_bucket`, `shown_bucket`: the coarse originals<br>`understanding_bucket` (CC-18): Send tapped → "Understanding…" on screen; `not_shown` when the result came first; `unknown` when this launch didn't see the Send<br>`backgrounded` (CC-18): the app went to the background between Send and the result (`true` / `false` / `unknown`) |
+| `tell_failure` | Each failed attempt to understand a Tell | `stage` (offline / timeout / server / limited / gave_up), `attempt` (0–10), `backgrounded` (CC-18, as above) |
 | `app_stall` | The JavaScript thread was blocked ≥ 1 s while the app was in the foreground | `duration_bucket`, `tell_work` (boolean: was a Tell being processed) |
+
+**On every performance event (CC-18, dogfood scope only):** the coarse build and platform, so a fix can be told from the build before it.
+- `app_version`: the app's version (`1.0.0`);
+- `build`: the build's short git commit, baked in by `app.config.ts` from EAS (`EAS_BUILD_GIT_COMMIT_HASH`), else `unknown`;
+- `platform`: `ios` or `android`;
+- `os_version`: the major OS version only (`26`).
+- Never the device model or name, the exact OS build, or anything about the user. Added by `performanceOnly` (`src/platform/buildInfo.ts`); product analytics never carry them.
 
 **Duration buckets:** <0.5s · 0.5-1s · 1-2s · 2-3s · 3-5s · 5-8s · 8-13s · 13-20s · 20-60s · 1-10m · 10m+. A stage that can't be measured is `unknown`, e.g. a reply without a Server-Timing header.
 

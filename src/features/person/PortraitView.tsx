@@ -22,9 +22,23 @@ export interface PortraitLineData {
   was?: string | null;
 }
 
+/** "Remove from People" (founder I3): a soft archive; the confirm says what stays and where they come back from. */
+export const REMOVE_COPY = { action: "Remove from People", cancel: "Cancel", remove: "Remove" } as const;
+
+export function removeCopy(name: string): { title: string; body: string; cancel: string; remove: string } {
+  return {
+    title: `Remove ${name} from People?`,
+    body: `${name} won't appear in People or Today. Your notes stay, and you can bring ${name} back from Settings.`,
+    cancel: REMOVE_COPY.cancel,
+    remove: REMOVE_COPY.remove,
+  };
+}
+
 export interface PortraitViewProps {
   personId: string;
   name: string | null;
+  /** The name Kinship says (names.ts shortName): "Michelle" from Contacts, a chosen "Cutie Pie" whole (founder I12). */
+  short?: string | null;
   label: string | null;
   remembered: boolean;
   /** "You reached out · Oct 6" (H10). */
@@ -136,7 +150,7 @@ export function PortraitView(props: PortraitViewProps) {
       </Screen>
     );
   }
-  const first = props.name.trim().split(/\s+/u)[0];
+  const first = props.short?.trim() || props.name.trim().split(/\s+/u)[0];
   // Nothing told about them yet (a birthday from Contacts doesn't count).
   const empty = !props.lately.length && !props.comingUp.some((l) => !l.fixed) && !props.youSaid.length && !props.between.length;
   const footer = (
@@ -189,6 +203,12 @@ export function PortraitView(props: PortraitViewProps) {
             </Pressable>
           ) : <Name>{props.name}</Name>}
           {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
+          {/* A visible Edit beside the name (founder I3): the name, and Remove from People. */}
+          {props.onRename ? (
+            <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
+              <Pill variant="quiet" size="small" label="Edit" accessibilityHint={`Change ${first}'s name, or remove them from People`} onPress={props.onRename} />
+            </View>
+          ) : null}
           {props.remembered ? <Small style={{ marginTop: space.xs }}>Remembered</Small> : null}
           {props.reachedOut ? <Small style={{ marginTop: space.xs }}>{props.reachedOut}</Small> : null}
         </View>

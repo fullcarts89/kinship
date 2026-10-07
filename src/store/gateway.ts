@@ -51,6 +51,14 @@ export interface SavedItem extends GatewayItem {
 export type HeldItem = GatewayItem & {
   /** What it would do to an existing memory once the user says yes (the gateway sends it). */
   action?: { type: string; target_id: string | null } | null;
+  /** Others in People it is also about. */
+  with_person_ids?: string[];
+  /** The mirror of a line kept for this person from the same sentence: the answer joins it (founder I10). */
+  twin_person_id?: string;
+  /** The name it asks about ("Sam" with two Sams). */
+  mention?: string;
+  /** People removed from People the name fits: offered back, never re-created (founder I3). */
+  archived_ids?: string[];
 };
 
 export interface Clarification {

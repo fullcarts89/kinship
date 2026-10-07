@@ -71,6 +71,8 @@ export class FakeGateway implements GatewayTransport {
   /** ai-gateway's own time to report (Server-Timing), and a hook run while the request is "in flight". */
   serverMs: number | null = null;
   onCall: (() => void) | null = null;
+  /** Holds every request until it resolves: a slow network. */
+  pause: Promise<void> | null = null;
 
   constructor(
     private readonly server: FakeServer,
@@ -105,6 +107,7 @@ export class FakeGateway implements GatewayTransport {
     const kind = body.action === "close_review" ? "close" : body.action === "resolve_review" ? "answer" : "understand";
     this.calls.push(kind);
     this.onCall?.();
+    if (this.pause) await this.pause;
     if (this.offline) throw new GatewayUnreachable("offline");
     if (this.failNext) {
       const f = this.failNext;
@@ -248,7 +251,7 @@ export class FakeGateway implements GatewayTransport {
     const people = this.rows<PersonRow & { state: string }>("people");
     const r = resolveHeld(review.items as unknown as ResolveHeldItem[], answers as never, {
       note,
-      people: people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state ?? "active" })),
+      people: people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state ?? "active", full_name: p.full_name, nicknames: p.nicknames })),
       related: this.rows<RelatedRow & { person_id: string }>("related_people").map((x) => ({ id: x.id, person_id: x.person_id, relation: x.relation, name: x.name ?? null })),
       existing: this.rows<Record<string, unknown>>("memory_items").filter((m) => m.status === "active").map((m) => ({
         id: String(m.id), person_id: String(m.person_id), kind: String(m.kind), subject_type: String(m.subject_type),
@@ -313,6 +316,10 @@ export class FakeGateway implements GatewayTransport {
     let itemId: string;
     if (type === "merge") {
       itemId = String(target!.id);
+      // A merge adds its people to the memory merged into (write_extraction).
+      const add = (Array.isArray(p.with_person_ids) ? p.with_person_ids as string[] : []).filter((x) => x !== target!.person_id);
+      const had = Array.isArray(target!.with_person_ids) ? target!.with_person_ids as string[] : [];
+      if (add.some((x) => !had.includes(x))) this.write("memory_items", itemId, { with_person_ids: [...new Set([...had, ...add])] });
     } else {
       // A new relative is created on its person, as write_extraction does.
       const rel = p.related as { id: string | null; relation: string; name: string | null } | null;

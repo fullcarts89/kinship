@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { ItemSheet } from "@/features/person/ItemSheet";
-import { PortraitView } from "@/features/person/PortraitView";
+import { PortraitView, removeCopy } from "@/features/person/PortraitView";
 import { KeptCard } from "@/features/tell/TellDock";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TellSheet } from "@/features/tell/TellSheet";
@@ -13,6 +13,7 @@ import { useHandoff } from "@/features/today/useHandoff";
 import { todayIso, useItemLine, usePeople, usePersonLinks, usePortrait, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { NamePane } from "@/features/tell/Pickers";
 import { Sheet } from "@/ui";
+import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
 export default function PersonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,10 +27,11 @@ export default function PersonScreen() {
   const [itemId, setItemId] = useState<string | null>(null);
   const [telling, setTelling] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const { rename } = useV2Actions();
+  const { rename, removePerson } = useV2Actions();
   const item = useItemLine(itemId);
   const name = portrait.person?.display_name ?? null;
-  const first = name?.trim().split(/\s+/u)[0] ?? "";
+  // Said the way Kinship says their name everywhere (founder I12).
+  const first = portrait.person ? shortName(portrait.person) : "";
   const fail = (what: Promise<unknown>) =>
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
   const reachOut = () => handoff.start({
@@ -40,6 +42,7 @@ export default function PersonScreen() {
     <PortraitView
       personId={personId}
       name={name}
+      short={first}
       label={portrait.label}
       remembered={portrait.person?.state === "remembered"}
       reachedOut={portrait.reachedOut ?? null}
@@ -91,6 +94,18 @@ export default function PersonScreen() {
           <NamePane initial={name} onCancel={() => setRenaming(false)} onSave={(n) => {
             fail(rename(personId, n));
             setRenaming(false);
+          }} onRemove={() => {
+            // "Remove from People" (founder I3): asked first; a soft archive, never a delete.
+            const copy = removeCopy(first);
+            Alert.alert(copy.title, copy.body, [
+              { text: copy.cancel, style: "cancel" },
+              {
+                text: copy.remove, style: "destructive", onPress: () => {
+                  setRenaming(false);
+                  removePerson(personId).then(() => router.back(), () => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
+                },
+              },
+            ]);
           }} />
         ) : null}
       </Sheet>
