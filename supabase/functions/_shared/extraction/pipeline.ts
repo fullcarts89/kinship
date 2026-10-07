@@ -90,12 +90,14 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
   const known: string[] = [];
 
   const proposed = Array.isArray(proposal?.items) ? proposal.items : [];
+  // Every line's own words, so a hedge in one never hedges another (founder I12b).
+  ctx.evidence = proposed.slice(0, MAX_ITEMS).map((raw) => evidenceSpans(text, raw));
   for (const [i, raw] of proposed.entries()) {
     if (i >= MAX_ITEMS) {
       dropped.push({ reason: "too_many_items", kind: null });
       continue;
     }
-    const result = planItem(ctx, raw);
+    const result = planItem(ctx, raw, i);
     if ("drop" in result) {
       dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null });
       if (result.drop === "already_known" && result.known && !known.includes(result.known)) known.push(result.known);
@@ -130,6 +132,8 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
 
 class Context {
   readonly byKey = new Map<string, RosterPerson>();
+  /** Each proposed line's evidence, by its place in the proposal (founder I12b). */
+  evidence: PlannedSpan[][] = [];
   readonly dossier = new Map<string, DossierItem>();
   readonly folded: string;
   readonly knownNames: Set<string>;
@@ -210,7 +214,7 @@ class Context {
 
 type ItemResult = { item: PlannedItem } | { drop: DropReason; known?: string };
 
-function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
+function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult {
   let raw = proposed;
   // "Sarah and I always get dumplings after the opera" recurs, but on no
   // calendar we model: keep it as shared context (still confirmed) rather
@@ -339,7 +343,11 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
   }
 
   // ── Certainty: wording can only lower it ──
-  const cap = capCertainty(raw.certainty, wordingCertainty(certaintyText(text, spans, raw)));
+  // "Wifey got promoted on Monday and said she might be moving to Seattle":
+  // the "might" is the Seattle line's own word, so it never hedges the
+  // promotion (founder I12b). A hedge on this line, or outside every line
+  // ("I think…"), still holds.
+  const cap = capCertainty(raw.certainty, wordingCertainty(certaintyText(withoutOtherLines(ctx, text, spans, index), spans, raw)));
   const certainty = cap.certainty;
   if (cap.lowered) flags.add("certainty_lowered");
   if (certainty === "reported") flags.add("reported");
@@ -589,6 +597,27 @@ function certaintyText(text: string, spans: PlannedSpan[], raw: ProposedItem): s
   const next = sentenceAfter(text, spans[0]);
   if (next && wordsOf(next).length <= 4) parts.push(next);
   return parts.join(" ");
+}
+
+/** Where a proposed line's evidence is in the note (the same grounding planItem does). */
+function evidenceSpans(text: string, raw: ProposedItem): PlannedSpan[] {
+  const out: PlannedSpan[] = [];
+  for (const quote of Array.isArray(raw?.evidence) ? raw.evidence.slice(0, 3) : []) {
+    if (typeof quote !== "string" || !quote.trim()) continue;
+    const found = locateEvidence(text, quote.trim());
+    if (found.ok) out.push(toPlannedSpan(text, found.span));
+  }
+  return out;
+}
+
+/** The note with the other lines' own words blanked out (never words this line shares). */
+function withoutOtherLines(ctx: Context, text: string, own: PlannedSpan[], index: number): string {
+  const others = ctx.evidence.flatMap((spans, j) => (j === index ? [] : spans))
+    .filter((s) => !own.some((t) => s.start < t.end && t.start < s.end));
+  if (!others.length) return text;
+  const chars = Array.from(text);
+  for (const s of others) for (let i = s.start; i < s.end && i < chars.length; i++) chars[i] = " ";
+  return chars.join("");
 }
 
 /** The sentence that follows the one holding `span`, or null. */

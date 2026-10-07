@@ -196,3 +196,38 @@ Deno.test("I3: the answer may name the removed person it offered (brought back),
   eq(ok.items[0].person_id, "kaiya");
   eq(resolveHeld([held], [{ index: 0, person_id: "gone" }], { note: "Kaiya lost her first tooth.", people, related: [], existing: [] }), { fail: "unknown_person" });
 });
+
+// ─── I12b: "Wifey got promoted" showed Maybe ─────────────────────────────────
+
+const WIFEY = { key: "p1", id: "wifey", display_name: "Wifey Liu", full_name: "Wifey Liu", nicknames: [], relationship_label: "wife" };
+const PROMOTED = "Wifey got promoted on Monday and said she might be moving to Seattle with her friend from work.";
+
+Deno.test("I12b: a hedge that belongs to another line from the same note never hedges this one", () => {
+  const out = run(input(PROMOTED, [WIFEY]), [
+    item({
+      kind: "moment", person: "p1", person_mention: "Wifey", statement: "Wifey got promoted", evidence: ["Wifey got promoted on Monday"],
+      certainty: "stated", date_text: "Monday", date_direction: "past", detail: { milestone_type: "promotion" },
+    }),
+    item({
+      kind: "thread", person: "p1", person_mention: "she", statement: "Wifey said she might be moving to Seattle with her friend from work",
+      evidence: ["said she might be moving to Seattle with her friend from work"], certainty: "tentative", detail: { topic: "moving to Seattle" },
+    }),
+  ]);
+  const by = (s: string) => out.items.find((i) => i.statement.includes(s))!;
+  eq(by("promoted").certainty, "stated", "the promotion was said as fact");
+  eq(by("promoted").flags.includes("certainty_lowered"), false);
+  eq(by("Seattle").certainty, "tentative", "the move keeps its 'might'");
+});
+
+Deno.test("I12b: a hedge on the line itself, or outside every line, still holds", () => {
+  const think = run(input("I think Wifey got promoted on Monday.", [WIFEY]), [item({
+    kind: "moment", person: "p1", person_mention: "Wifey", statement: "Wifey got promoted", evidence: ["Wifey got promoted on Monday"],
+    certainty: "stated", date_text: "Monday", date_direction: "past", detail: { milestone_type: "promotion" },
+  })]);
+  eq(think.items[0].certainty === "stated", false);
+  const might = run(input("Wifey might have gotten promoted on Monday.", [WIFEY]), [item({
+    kind: "moment", person: "p1", person_mention: "Wifey", statement: "Wifey got promoted", evidence: ["Wifey might have gotten promoted on Monday"],
+    certainty: "stated", date_text: "Monday", date_direction: "past", detail: { milestone_type: "promotion" },
+  })]);
+  eq(might.items[0].certainty, "tentative");
+});
