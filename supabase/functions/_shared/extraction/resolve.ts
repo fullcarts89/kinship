@@ -19,7 +19,7 @@
 // No model is called: the model's proposal already passed pipeline.ts, and
 // the answer changes only who or when, never the words.
 
-import { fold, kinshipReference, relationKey, selfRelationPhrase, statedSelfRelations, wordsOf } from "./lexicon.ts";
+import { fold, kinshipReference, mirrorBag, relationKey, selfRelationPhrase, statedSelfRelations, wordsOf } from "./lexicon.ts";
 import { withResolvedName, withResolvedNames } from "./voice.ts";
 import { threadTarget } from "./threads.ts";
 import type { Flag } from "./types.ts";
@@ -42,6 +42,10 @@ export interface HeldItem {
   spans: { start: number; end: number; quote: string }[];
   with_person_ids?: string[];
   self_relations?: Record<string, string>;
+  /** The kept line from the same sentence this one mirrors, by its person (founder I10). */
+  twin_person_id?: string;
+  /** The name it asks about ("Sam"). */
+  mention?: string;
 }
 
 /** The user's answer for one held item. */
@@ -147,6 +151,8 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
   const newPeople: Resolution["newPeople"] = [];
   const stated = statedSelfRelations(ctx.note);
   let skipped = 0;
+  // Mirrors whose kept line is waiting in this same review: joined at the end.
+  const joins: { owner: string; bag: string; people: string[]; alone: ResolvedItem }[] = [];
 
   for (const [index, item] of held.entries()) {
     const a = byIndex.get(index);
@@ -329,7 +335,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       if (twin) action = { type: "merge", target_id: twin.id };
     }
 
-    items.push({
+    const resolved: ResolvedItem = {
       kind: item.kind,
       person_id: personId,
       subject_type: subjectType,
@@ -343,9 +349,56 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       action,
       ...(withPeople.length ? { with_person_ids: withPeople } : {}),
       ...(item.self_relations && !personId.startsWith("new:") ? { self_relations: item.self_relations } : {}),
-    });
+    };
+
+    // ── The mirror of a kept line (founder I10, H13) ──
+    // "Sam might be moving… with Michelle", held only for which Sam, next to
+    // "Michelle might be moving… with Sam" kept from the same sentence: the
+    // answer joins that line, one memory, never a second copy.
+    const owner = needsPerson && typeof item.twin_person_id === "string" && !personId.startsWith("new:") &&
+        item.twin_person_id !== personId && ctx.people.some((p) => p.id === item.twin_person_id && p.state !== "archived")
+      ? item.twin_person_id
+      : null;
+    if (owner) {
+      const bag = mirrorBag(item.statement);
+      const joiners = [...new Set([personId, ...withPeople])].filter((id) => id !== owner);
+      const kept = ctx.existing.find((m) =>
+        m.person_id === owner && m.status === "active" && m.subject_type === subjectType && sameFamily(m.kind, item.kind) &&
+        m.user_state !== "edited" && m.user_state !== "user_authored" && mirrorBag(m.statement) === bag
+      );
+      // Standing alone (the kept line is gone, or was edited), it is still shared with them.
+      const alone: ResolvedItem = { ...resolved, with_person_ids: [...new Set([...withPeople, owner])].filter((id) => id !== personId) };
+      if (kept) {
+        items.push({
+          ...resolved, kind: kept.kind, person_id: owner, statement: kept.statement,
+          action: { type: "merge", target_id: kept.id }, with_person_ids: joiners,
+        });
+      } else if (held.some((g, gi) => gi !== index && g.person_id === owner && mirrorBag(g.statement) === bag && byIndex.get(gi)?.skip !== true)) {
+        joins.push({ owner, bag, people: joiners, alone });
+      } else {
+        items.push(alone);
+      }
+      continue;
+    }
+    items.push(resolved);
+  }
+
+  // The kept line was itself waiting for a yes in this review: one memory.
+  for (const j of joins) {
+    const line = items.find((i) => i.person_id === j.owner && mirrorBag(i.statement) === j.bag);
+    if (!line) {
+      items.push(j.alone);
+      continue;
+    }
+    line.with_person_ids = [...new Set([...(line.with_person_ids ?? []), ...j.people])].filter((id) => id !== line.person_id);
   }
   return { items, newPeople, skipped };
+}
+
+/** Something that happened, however it was filed (as the pipeline's twin check). */
+function sameFamily(a: string, b: string): boolean {
+  const happened = ["event", "fact", "moment"];
+  return a === b || (happened.includes(a) && happened.includes(b));
 }
 
 function escapeRe(s: string): string {

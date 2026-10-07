@@ -207,6 +207,15 @@ export interface PlannedItem {
   with_person_ids?: string[];
   /** Relationships to the user the note states outright, by person id ("Ben is my brother"). */
   self_relations?: Record<string, string>;
+  /**
+   * Held only for which person, as the mirror of a line kept for this person
+   * from the same sentence ("Sam might be moving… with Michelle", next to
+   * "Michelle might be moving… with Sam"): the answer joins that line,
+   * never a second copy (founder I10, H13).
+   */
+  twin_person_id?: string;
+  /** The name a held line asks about ("Sam" with two Sams): its choices are only the people it can mean. */
+  mention?: string;
 }
 
 export interface Clarification {

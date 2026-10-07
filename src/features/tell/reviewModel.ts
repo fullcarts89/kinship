@@ -503,8 +503,11 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
           : newNames.length ? `${newNames.join(" and ")} ${newNames.length > 1 ? "aren't" : "isn't"} in your people yet.`
           : "I couldn't tell who this is about.",
         choices,
-        // The exact sentence being clarified, in the note's own words.
-        about: pronoun && sentence ? sentence : undefined,
+        // The exact sentence being clarified, in the note's own words: for an
+        // unclear "he", and for the mirror of a line already kept ("Which
+        // Sam?" about "Michelle and Sam might be moving…", founder I10),
+        // which is one memory, never shown as a second.
+        about: (pronoun || item.twin_person_id) && sentence ? sentence : undefined,
       });
     }
   }
@@ -576,9 +579,20 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
   return needs;
 }
 
-/** The people the note could mean: those whose name is in the item's words, else anyone named in the note. */
+/**
+ * The people the note could mean: when the reading names who it asks about
+ * ("Sam" with two Sams), only the people that name can mean, never someone
+ * else the sentence names (founder I10: never "Michelle Lee" for "which
+ * Sam?"); else those whose name is in the item's words, else anyone named in
+ * the note.
+ */
 function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[] {
   const live = people.filter((p) => p.state !== "archived");
+  const mention = item.mention ? wordsOf(item.mention).join(" ") : "";
+  if (mention) {
+    const meant = live.filter((p) => nameForms(p).some((f) => f === mention || f.split(" ")[0] === mention));
+    if (meant.length > 1) return meant.slice(0, 4);
+  }
   const inWords = (text: string) => {
     const words = new Set(wordsOf(text));
     return live.filter((p) => {
@@ -606,6 +620,13 @@ function relationFor(item: HeldItem, input: ReviewInput, note: string): string |
 
 function fold(s: string): string {
   return s.normalize("NFKC").toLowerCase();
+}
+
+/** A person's names as word runs: display name, full name, other names. */
+function nameForms(p: Person): string[] {
+  const others = Array.isArray(p.nicknames) ? p.nicknames.filter((n): n is string => typeof n === "string") : [];
+  return [p.display_name, typeof p.full_name === "string" ? p.full_name : "", ...others]
+    .map((n) => wordsOf(n).join(" ")).filter(Boolean);
 }
 
 function wordsOf(s: string): string[] {

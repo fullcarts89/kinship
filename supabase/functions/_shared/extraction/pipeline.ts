@@ -35,6 +35,7 @@ import {
   userIsActor,
   kinshipReference,
   looksLikeInstruction,
+  mirrorBag,
   nameKey,
   PRONOUNS,
   relationKey,
@@ -112,6 +113,7 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     }
   }
 
+  markHeldMirrors(ctx, items);
   const clarification = chooseClarification(ctx, items);
   const tier = items.length === 0
     ? "nothing"
@@ -1204,6 +1206,37 @@ function sharedTwin(ctx: Context, item: PlannedItem): void {
     item.detail = { ...twin.detail };
   }
   item.action = { type: "merge", target_id: twin.id };
+}
+
+/**
+ * "Michelle and Sam might be moving to Australia" with two Sams: the model
+ * mirrors it, one line for each of them. Michelle's is kept; Sam's is held
+ * only because two people are called Sam. It is the same memory, so the held
+ * line asks only which Sam (its mention), knows the kept line it mirrors, and
+ * its answer joins that line (resolve.ts), never a second copy (founder I10,
+ * reopening H13). Only a true mirror: same words in any order, the same
+ * sentence of the note, the same kind of thing on the same day, each line
+ * naming the other's person.
+ */
+function markHeldMirrors(ctx: Context, items: PlannedItem[]): void {
+  for (const h of items) {
+    if (h.tier !== "hold" || h.person_id || !h.flags.includes("person_ambiguous") || h.with_person_ids?.length) continue;
+    const mention = mentionFor(ctx, h);
+    if (!mention || ctx.candidatesFor(mention).length < 2) continue;
+    const twin = items.find((p) =>
+      p !== h && p.person_id && p.person_key && sameKindFamily(p.kind, h.kind) && p.subject_type === h.subject_type &&
+      sameWhen(p.detail, h.detail) && mirrorBag(p.statement) === mirrorBag(h.statement) &&
+      p.spans.some((s) => h.spans.some((t) => s.start < t.end && t.start < s.end)) &&
+      statementNames(p.statement, [mention]) && namesPerson(h.statement, ctx.byKey.get(p.person_key))
+    );
+    if (!twin?.person_id) continue;
+    h.twin_person_id = twin.person_id;
+    h.mention = mention;
+  }
+}
+
+function namesPerson(statement: string, p: RosterPerson | undefined): boolean {
+  return !!p && statementNames(statement, [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])]);
 }
 
 /** Something that happened, however it was filed: an event, a fact or a moment. */

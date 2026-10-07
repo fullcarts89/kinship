@@ -169,6 +169,24 @@ it("the Tell flow has no timers at all: backgrounding the app can't use one up",
   expect(src).not.toMatch(/setTimeout|setInterval/);
 });
 
+it("I10: while a question's sheet is open, Today knows something is waiting (never 'Nothing needs you today.' behind it)", async () => {
+  const w = await world();
+  const r = await mount();
+  await tell(w, SAM_NOTE);
+  expect(sheetQuestion()).toBe("Which Sam do you mean?");
+  // The note in the sheet is neither the card nor on Today's list: the flow still says it's asking.
+  expect(flow.current!.card).toBeNull();
+  expect(flow.current!.asking).toBe(true);
+  // Answered: nothing is asking any more.
+  await act(async () => mockSheet.current!.onAnswer([{ index: 0, person_id: w.lee.id }]));
+  await act(async () => {
+    await w.understanding.run();
+  });
+  await settle();
+  expect(flow.current!.asking).toBe(false);
+  r.unmount();
+});
+
 it("closing a question's sheet keeps the question: it waits on Today and the person's page, and another Tell doesn't lose it", async () => {
   const w = await world();
   const r = await mount();

@@ -14,6 +14,15 @@ export function nameKey(text: string): string {
   return fold(text).normalize("NFD").replace(/\p{M}+/gu, "").replace(/'s$/, "").trim();
 }
 
+/**
+ * A statement's words as a bag, ignoring "and", "&" and "with", so a mirrored
+ * reading of one shared memory matches: "Michelle might be moving to
+ * Australia with Sam" = "Sam might be moving to Australia with Michelle".
+ */
+export function mirrorBag(statement: string): string {
+  return wordsOf(fold(statement)).filter((w) => w !== "and" && w !== "&" && w !== "with").sort().join(" ");
+}
+
 // ─── Certainty ──────────────────────────────────────────────────────────────
 
 const TENTATIVE = /\b(may|might|maybe|possibly|perhaps|probably|could|thinking (about|of)|considering|weighing|toying with|hoping|hopes to|wants to|wanna|plans? to maybe|not sure|unsure|undecided|on the fence|i guess|i think|i believe|i suspect|potentially|likely|unlikely|rumou?red?|if)\b/;

@@ -313,6 +313,10 @@ export class FakeGateway implements GatewayTransport {
     let itemId: string;
     if (type === "merge") {
       itemId = String(target!.id);
+      // A merge adds its people to the memory merged into (write_extraction).
+      const add = (Array.isArray(p.with_person_ids) ? p.with_person_ids as string[] : []).filter((x) => x !== target!.person_id);
+      const had = Array.isArray(target!.with_person_ids) ? target!.with_person_ids as string[] : [];
+      if (add.some((x) => !had.includes(x))) this.write("memory_items", itemId, { with_person_ids: [...new Set([...had, ...add])] });
     } else {
       // A new relative is created on its person, as write_extraction does.
       const rel = p.related as { id: string | null; relation: string; name: string | null } | null;

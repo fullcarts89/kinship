@@ -77,6 +77,12 @@ export interface TellFlow {
   pending: PendingNote[];
   /** Notes waiting on the user: a question, or understood while away. */
   questions: string[];
+  /**
+   * A question is open in the sheet right now. That note is neither the card
+   * nor on Today's list, so Today must not call the day quiet behind it
+   * (founder I10, as H19 did for the Kept card).
+   */
+  asking: boolean;
   toLookAt: string[];
   waitingOffline: boolean;
   openNote: (captureId: string) => void;
@@ -234,6 +240,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   const toLookAt = others(open.toLookAt);
   const waiting = others(open.waiting);
   const pending = pendingAll.filter((n) => n.captureId !== showing && !(card && n.captureId === card.captureId));
+  const asking = !!showing && !!sheetView && sheetView.questions.length > 0;
 
   const value = useMemo<TellFlow>(() => ({
     tellOn,
@@ -263,6 +270,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     },
     pending,
     questions,
+    asking,
     toLookAt,
     waitingOffline: waiting.length > 0 && open.offline && currentView?.mode !== "understanding",
     openNote: (id) => openSheet(id),
@@ -276,7 +284,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     draft: (personId) => drafts.drafts[draftKey(personId)] ?? "",
     setDraft: (personId, text) => drafts.set(draftKey(personId), text),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked]);
+  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), asking, toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked]);
 
   // The sheet shows its own view, or the last one while the next arrives.
   const shown = sheetView && SHEET_CONTENT.includes(sheetView.mode)
