@@ -258,3 +258,31 @@ The founder notes Pedro has no phone number in the app.
 - The note was kept as **four one-person lines**: John likes…, Ben likes…, John is thinking about quitting…, (Ben is thinking about quitting…).
 - It was not kept as **two shared lines** ("John and Ben like to play dress up", "…are thinking about quitting"), each on both pages, which is the H5 shape used for "Anthony and Natalia are getting married".
 - **Question for the founder:** is a hobby two people share one shared line on both pages, or each person's own line? Per-person suits What Kinship knows › Into (H15); shared halves the lines on the card.
+
+---
+
+## 7 Oct, 4:12 pm
+
+### I13 — re-seen on another path: answering "which person?" with someone else keeps the old name
+
+**Screenshot:** `screens/feedback4/g0-i13-dbz-chris.png`.
+
+**What happened:**
+1. The founder told **"Anthony and Sam love watching Dragon Ball Z"**.
+2. People has two Anthonys ("Anthony", "Anthony Lopez", N3) and two Sams (Sam Doughty, Sam Eden).
+3. The content-free call log shows the note came back **held** twice, at 4:08 and 4:09 pm: result *clarify*, 2 held, 0 saved.
+4. The founder answered with **Someone else → Chris**.
+5. The confirmation now reads "KEPT FOR CHRIS", with **"Anthony loves watching Dragonball Z"** and **"Sam loves watching Dragonball Z"**, both on Chris.
+
+**Status: I13 → STILL OPEN** (re-seen on device; ledger updated).
+
+**Cause (confirmed in the code):**
+- The I13 fix (`d5f4586`) renames the subject only when a **saved line** is moved to another person (`Understanding.correct` → `withSubjectMoved`).
+- Answering a **held** "who is this about?" question goes through the server's answer path instead (`resolve.ts`). There, the line's words change only when they start with **He / She / His / Her** (`withSpokenName`, `voice.ts`). A leading **name** that isn't the chosen person ("Anthony…") is kept.
+
+**Expected (CC-18 I13 rule, on every path that sets who a line is about):**
+- The line stops naming the wrong person: **"Chris loves watching Dragon Ball Z"**. The earlier words are kept as history, and the note is untouched.
+- **If the person chosen goes by the name in the line** (e.g. "Sam" → Samantha Lee, who goes by Sam), the name stays.
+- **When two lines become the same line on the same person** (both are now "Chris loves watching Dragon Ball Z"), they collapse into one.
+
+**Native check after the fix:** repeat exactly this. Expect one line on Chris that names Chris, with "was:" history on the line's sheet.
