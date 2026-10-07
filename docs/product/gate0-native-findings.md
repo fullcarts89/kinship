@@ -141,3 +141,40 @@ The founder notes Pedro has no phone number in the app.
 - **Her record only, if wanted sooner:** add "Wifey" as one of her earlier names. That is a change to the founder's data, so it needs an explicit yes. The no-data-change workaround is the checklist step: rename her to Wifey, then back to Loo Loo.
 
 **Native check after the fix:** with **no manual step**, her page, What Kinship knows and Today read "Loo Loo got promoted" (and "Congratulate Loo Loo"); Source still shows the original "Wifey…".
+
+---
+
+## 7 Oct, 3:49 pm
+
+### J4 — "Wifey got a raise" → "Nothing to remember in that one." The memory was silently dropped
+
+**Screenshot:** `screens/feedback4/g0-j4-wifey-raise-nothing.png`.
+
+**What happened.** The founder told **"Wifey got a raise"**. This is the second half of checklist row 4 (I12). Kinship answered **"Nothing to remember in that one. Your note is saved."** and kept nothing.
+
+**What the gateway did.** I made one read-only query of the **content-free** call log (`ai_calls`: no user id, no text, no names), for 7 Oct 22:30–23:05 UTC.
+- The 3:49 pm call (22:49:22 UTC) shows: result **nothing**, items saved 0, held 0, **dropped 1**, drop reason **`invented_relation`**.
+- Another call at 3:53 pm (22:53 UTC) was dropped the same way, presumably a retry. The log can't say what it said.
+
+**Cause** (from that log and the code):
+1. "Wifey" is no longer a name Kinship knows. That's the I12 gap above: the pre-fix rename erased it from her record, and the later renames never learned it.
+2. With no "Wifey" among her names, the model read "Wifey" as the word **wife** ("your wife got a raise").
+3. The pipeline's guard against made-up relationships (`inventedRelations`, `pipeline.ts`) saw "wife" stated nowhere in the note and in no relationship on record. So it dropped the item.
+4. One dropped item and nothing else means the user is told "Nothing to remember".
+
+**Why it's P0.**
+- A real, meaningful memory was lost.
+- The app told the user something false ("nothing to remember").
+- The guard did its job (it didn't save an invented "wife"), but dropping the *whole* memory is the wrong fallback. "Silence beats a wrong detail" means not saving a wrong detail. It never means losing the right one without a word.
+
+**Expected:**
+- **With I12 done properly** (Wifey as one of her earlier names, or a structured mention), the note is filed on her as "Loo Loo got a raise", with Source "Wifey got a raise".
+- **Whatever the name situation**, a memory whose person can't be resolved is **never dropped as "nothing"**. Kinship keeps the words as said ("Wifey got a raise") and asks **"Who is Wifey?"**: the people it could be, Someone new (Add Wifey), and Don't keep this.
+- A relation word the model invented is removed from the wording, not used as a reason to throw the memory away.
+- **Copy:** "Nothing to remember" is only for notes with genuinely nothing in them. It must never follow a dropped memory.
+
+**Related:**
+- **I12:** the same root cause, now proven by the checklist's own row 4.
+- **J1:** a person-resolution miss on Pedro's page.
+- **J2:** no way to add someone new while correcting.
+- **The drop guards** (`invented_name`, `invented_relation`): when a guard drops the only memory in a note, it should become a question instead.
