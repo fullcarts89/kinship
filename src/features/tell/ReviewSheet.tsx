@@ -14,12 +14,14 @@ import type { HeldAnswer } from "@/store/gateway";
 import type { SwitchableKind } from "@/store/memoryDetail";
 import type { Person } from "@/store/repositories";
 import { Body, Label, Line, Pill, Sheet, Small, Title, Token, TokenRow, usePalette } from "@/ui";
-import { DatePane, KindPane, PersonPane, WordsPane } from "./Pickers";
+import { DatePane, KindPane, namedChoices, PersonPane, WordsPane } from "./Pickers";
 import { answersFor, COPY, type ItemLine, type Question, type ReviewView } from "./reviewModel";
 
 export type Correction =
   | { statement: string }
   | { person_id: string }
+  /** Several people, when the memory names them (founder I11): the first is whose page it's filed on. */
+  | { person_ids: string[] }
   | { kind: SwitchableKind }
   | { owner: "user" | "person" }
   | { date: string | null };
@@ -82,6 +84,10 @@ export function ReviewSheet(props: ReviewSheetProps) {
         people={props.people}
         title={pane.question ? pane.question.prompt : "Who is this about?"}
         current={pane.line?.person?.id ?? null}
+        {...(pane.line ? namedChoices(pane.line, props.people, (ids) => {
+          if (pane.line) props.onCorrect(pane.line.id, { person_ids: ids });
+          back();
+        }) : {})}
         onCancel={back}
         onPick={(id) => {
           if (pane.question) choose(pane.question, { person_id: id });

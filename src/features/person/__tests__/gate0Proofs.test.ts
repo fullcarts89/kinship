@@ -236,4 +236,26 @@ describe("Gate 0", () => {
     }));
     expect(later.review.lines.map((l) => [l.statement, l.person?.id])).toEqual([["Cutie Pie got a raise", wifey.id]]);
   });
+
+  it("I11: correcting who 'Susan and Michelle went to Disneyland' is about to both makes one shared memory, on both pages once", async () => {
+    const w = await world();
+    const [susan] = await people(w, "Susan Oxnard");
+    const said = "Susan and Michelle went to Disneyland";
+    // Told before Michelle was in People: kept on Susan alone.
+    const t = await tell(w, `${said}.`, (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "event", person: key(i, "Susan"), person_mention: "Susan", statement: said, evidence: [said], date_direction: "past", detail: { event_type: "trip" } })],
+    }));
+    await w.understanding.finish(t.id, "done");
+    const [line] = t.review.lines;
+    const [michelle] = await people(w, "Michelle Lee");
+    expect(w.server.table("memory_items").get(line.id)).toMatchObject({ person_id: susan.id, with_person_ids: [] });
+    // Now its words name two people in People: the correction offers both.
+    expect((await page(w, susan)).knows.lines[0].line.named).toEqual([susan.id, michelle.id]);
+    await w.understanding.correct(line.id, { person_ids: [susan.id, michelle.id] });
+    await w.understanding.run();
+    await w.engine.sync();
+    expect(w.server.table("memory_items").get(line.id)).toMatchObject({ person_id: susan.id, with_person_ids: [michelle.id], statement: said });
+    for (const p of [susan, michelle]) expect((await page(w, p)).knows.lines.map((l) => l.line.statement)).toEqual([said]);
+  });
 });

@@ -139,6 +139,9 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   const [showing, setShowing] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Record<string, true>>({});
   const [parked, setParked] = useState<string | null>(null);
+  // The note whose details were opened from its Kept card: closing them goes
+  // back to that card, never both at once (founder I9).
+  const [fromCard, setFromCard] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState<TellFlow["focusRequest"]>(null);
   const currentView = useReview(current);
   const sheetView = useReview(showing);
@@ -206,13 +209,19 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     const id = showing;
     if (!id) return;
     setShowing(null);
+    if (fromCard === id) {
+      // Back to the Kept card it was opened from, as it was (founder I9):
+      // its lines, corrections and "Got it right / Not quite" are all still there.
+      setFromCard(null);
+      return;
+    }
     // What the sheet showed is memory now (held items never are until answered).
     if (sheetView && sheetView.lines.length > 0) void activate?.();
     void u.finish(id, how);
     // Seen in full: no card for it afterwards. A question left waiting is
     // still on Today and the person's page.
     if (how === "done") setDismissed((d) => ({ ...d, [id]: true }));
-  }, [showing, u, sheetView, activate]);
+  }, [showing, fromCard, u, sheetView, activate]);
 
   const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text") => {
     if (!text.trim()) return false;
@@ -249,7 +258,10 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     card,
     openCard: () => {
       if (!card) return;
-      if (card.mode === "card" || card.mode === "sheet" || card.mode === "nothing") openSheet(card.captureId, false);
+      if (card.mode === "card" || card.mode === "sheet" || card.mode === "nothing") {
+        setFromCard(card.captureId);
+        openSheet(card.captureId, false);
+      }
     },
     rateCard: (verdict, off) => {
       if (!card) return;
@@ -307,6 +319,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
           onUndo={() => {
             const id = showing;
             setShowing(null);
+            setFromCard(null);
             setDismissed((d) => ({ ...d, [id]: true }));
             void u.undo(id);
           }}

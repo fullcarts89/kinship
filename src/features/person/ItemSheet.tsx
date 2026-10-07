@@ -7,7 +7,7 @@ import { Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { Correction } from "@/features/tell/ReviewSheet";
-import { DatePane, KindPane, PersonPane, WordsPane } from "@/features/tell/Pickers";
+import { DatePane, KindPane, namedChoices, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { Person } from "@/store/repositories";
 import { MomentText, Pill, Provenance, Sheet, Small, Token, TokenRow, usePalette } from "@/ui";
@@ -44,6 +44,7 @@ export function ItemSheet(props: ItemSheetProps) {
     const { line } = it;
     if (pane === "person") {
       body = <PersonPane people={props.people} title="Who is this about?" current={line.person?.id ?? null} onCancel={back}
+        {...namedChoices(line, props.people, (ids) => { props.onCorrect(line.id, { person_ids: ids }); back(); })}
         onPick={(id) => { props.onCorrect(line.id, { person_id: id }); back(); }} />;
     } else if (pane === "date") {
       body = <DatePane title="When is it?" initial={line.when?.value ?? null} today={props.today} allowNone onCancel={back}

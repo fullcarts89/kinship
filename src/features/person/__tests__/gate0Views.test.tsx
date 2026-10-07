@@ -43,3 +43,40 @@ describe("I12: titles use the whole chosen name", () => {
     expect(shown.some((t) => /about Cutie →|about Cutie$/u.test(t))).toBe(false);
   });
 });
+
+describe("I11: choosing several people, only those the memory names", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { PersonPane } = require("@/features/tell/Pickers") as typeof import("@/features/tell/Pickers");
+  const ppl = [
+    { id: "susan", display_name: "Susan Oxnard", state: "active", birthday: null, birthday_source: null, version: 1 },
+    { id: "michelle", display_name: "Michelle Lee", state: "active", birthday: null, birthday_source: null, version: 1 },
+    { id: "ben", display_name: "Ben Oxnard", state: "active", birthday: null, birthday_source: null, version: 1 },
+  ] as import("@/store/repositories").Person[];
+
+  function pane(props: Partial<React.ComponentProps<typeof PersonPane>>) {
+    let r!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      r = TestRenderer.create(<PersonPane people={ppl} title="Who is this about?" current="susan" onPick={noop} onCancel={noop} {...props} />);
+    });
+    return r;
+  }
+  const labels = (r: TestRenderer.ReactTestRenderer) => r.root.findAll((n) => typeof n.props.accessibilityLabel === "string" && typeof n.props.onPress === "function")
+    .map((n) => String(n.props.accessibilityLabel));
+
+  it("offers the people its words name, as choices, with Someone else and Done; never everyone in People", () => {
+    const picked = jest.fn();
+    const r = pane({ named: [ppl[0], ppl[1]], chosen: ["susan"], onPickMany: picked });
+    const shown = labels(r);
+    expect(shown).toEqual(expect.arrayContaining(["Susan Oxnard", "Michelle Lee", "Someone else", "Done"]));
+    expect(shown).not.toContain("Ben Oxnard");
+    act(() => r.root.findAll((n) => n.props.accessibilityLabel === "Michelle Lee" && typeof n.props.onPress === "function")[0].props.onPress());
+    act(() => r.root.findAll((n) => n.props.accessibilityLabel === "Done" && typeof n.props.onPress === "function")[0].props.onPress());
+    expect(picked).toHaveBeenCalledWith(["susan", "michelle"]);
+  });
+
+  it("without several named people it is the one-person list, as before", () => {
+    const r = pane({});
+    expect(labels(r)).toEqual(expect.arrayContaining(["Susan Oxnard", "Michelle Lee", "Ben Oxnard"]));
+    expect(labels(r)).not.toContain("Done");
+  });
+});

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { FORGET_COPY, PersonRecordView } from "@/features/person/PersonRecordView";
-import { DatePane, KindPane, NamePane, PersonPane, WordsPane } from "@/features/tell/Pickers";
+import { DatePane, KindPane, NamePane, namedChoices, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import { todayIso, usePeople, usePersonRecord, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { Sheet } from "@/ui";
@@ -49,6 +49,10 @@ export default function KnowsScreen() {
           }} />
         ) : pane?.kind === "person" ? (
           <PersonPane people={people} title="Who is this about?" current={pane.line.person?.id ?? null} onCancel={close}
+            {...namedChoices(pane.line, people, (ids) => {
+              fail(u.correct(pane.line.id, { person_ids: ids }));
+              close();
+            })}
             onPick={(pid) => {
               fail(u.correct(pane.line.id, { person_id: pid }));
               close();

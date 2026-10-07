@@ -187,6 +187,31 @@ it("I10: while a question's sheet is open, Today knows something is waiting (nev
   r.unmount();
 });
 
+it("I9: opening the Kept card's details and closing them (any way) comes back to the same card, Got it right / Not quite still there", async () => {
+  const w = await world();
+  const r = await mount();
+  await tell(w, BEN_NOTE);
+  expect(flow.current!.card).toMatchObject({ mode: "card", heading: "Kept for Ben" });
+  const id = flow.current!.card!.captureId;
+
+  for (const close of ["dismissed", "done"] as const) {
+    await act(async () => flow.current!.openCard());
+    await settle();
+    expect(sheetOpen()).toBe(true);
+    // A swipe, a tap outside, or Done in the details: back to the card, never both closed.
+    await act(async () => (close === "done" ? mockSheet.current!.onDone() : mockSheet.current!.onDismiss()));
+    mockSheet.current = null;
+    await settle();
+    expect(sheetOpen()).toBe(false);
+    expect(flow.current!.card).toMatchObject({ captureId: id, mode: "card", heading: "Kept for Ben" });
+  }
+  // The feedback is still there to give, and it lands on the note.
+  await act(async () => flow.current!.rateCard("right"));
+  await settle();
+  expect(flow.current!.card?.feedback).toMatchObject({ verdict: "right" });
+  r.unmount();
+});
+
 it("closing a question's sheet keeps the question: it waits on Today and the person's page, and another Tell doesn't lose it", async () => {
   const w = await world();
   const r = await mount();

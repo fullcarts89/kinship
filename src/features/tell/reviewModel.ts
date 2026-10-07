@@ -25,7 +25,7 @@ import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
-import { aliasesOf, shortName } from "../../../supabase/functions/_shared/extraction/names";
+import { aliasesOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
 
 export interface ReviewInput {
   row: UnderstandingRow;
@@ -68,6 +68,14 @@ export interface ItemLine {
   about: string | null;
   /** Others in People this one memory is also about ("John Oxnard"). */
   also: string[];
+  /** Their ids, in the same order. */
+  alsoIds?: string[];
+  /**
+   * When its own words name more than one person in People ("Susan and
+   * Michelle went to Disneyland"), who it can be about: those people and
+   * anyone it's about now. The correction offers only them (founder I11).
+   */
+  named?: string[];
   /** The earlier memory this one updates, in its words ("Sam is interviewing at Stripe"). */
   replaces: string | null;
   /** value: the exact day, when there is one (for the date picker). */
@@ -257,6 +265,15 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
   const person = input.people.find((p) => p.id === item.person_id);
   const related = item.subject_related_id ? input.related.find((r) => r.id === item.subject_related_id) : null;
   const when = whenLabel(item.kind, (item.detail ?? {}) as Record<string, unknown>, input.today);
+  const alsoPeople = (Array.isArray(item.with_person_ids) ? item.with_person_ids : [])
+    .map((id) => input.people.find((p) => p.id === id))
+    .filter((p): p is Person => !!p);
+  // Who it can be about (founder I11): the people its words name, and anyone it's about now.
+  const named = item.subject_type === "related" ? [] : [...new Set([
+    ...(person ? [person.id] : []),
+    ...alsoPeople.map((p) => p.id),
+    ...input.people.filter((p) => p.state !== "archived" && namesIn(item.statement, p)).map((p) => p.id),
+  ])];
   return {
     id: item.id,
     statement: item.statement,
@@ -264,10 +281,9 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
       ? { id: person.id, label: personLabel(person, input.people), changeable: item.subject_type !== "related" }
       : null,
     about: related && person ? aboutLabel(person.display_name, related) : null,
-    also: (Array.isArray(item.with_person_ids) ? item.with_person_ids : [])
-      .map((id) => input.people.find((p) => p.id === id))
-      .filter((p): p is Person => !!p)
-      .map((p) => personLabel(p, input.people)),
+    also: alsoPeople.map((p) => personLabel(p, input.people)),
+    alsoIds: alsoPeople.map((p) => p.id),
+    ...(named.length > 1 ? { named } : {}),
     replaces: typeof item.supersedes_id === "string" ? input.earlier?.[item.supersedes_id] ?? null : null,
     // Shown only when there is a time to show (an event without one says so).
     when: when ? { label: when, value: exactDay(item), changeable: takesDate(item.kind) } : null,
@@ -322,12 +338,22 @@ function headingFor(input: ReviewInput, lines: ItemLine[]): string {
   const ids = new Set(lines.map((l) => l.person?.id).filter((x): x is string => !!x));
   if (ids.size === 1) {
     const p = input.people.find((x) => ids.has(x.id));
-    if (p) return `Kept for ${personLabel(p, input.people)}`;
+    // A memory shared by several people is kept for all of them (founder I5).
+    const shared = [...new Set(input.items.filter((m) => m.person_id === p?.id)
+      .flatMap((m) => (Array.isArray(m.with_person_ids) ? m.with_person_ids : [])))]
+      .map((id) => input.people.find((x) => x.id === id))
+      .filter((x): x is Person => !!x && x.id !== p?.id);
+    if (p) return `Kept for ${listOf([p, ...shared].map((x) => personLabel(x, input.people)))}`;
   }
   if (lines.length) return COPY.remember;
   // Nothing kept yet: the note's subject isn't known, so never the page's
   // person ("About Susan" for a note about Natalia, founder H24).
   return "Your note";
+}
+
+/** "Susan", "Susan and Michelle", "Susan, Michelle and Sam". */
+function listOf(names: string[]): string {
+  return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
 function summaryFor(lines: ItemLine[]): string {
@@ -618,6 +644,12 @@ function relationFor(item: HeldItem, input: ReviewInput, note: string): string |
 
 function fold(s: string): string {
   return s.normalize("NFKC").toLowerCase();
+}
+
+/** Whether a statement names this person: any name they go by, or its first word, as a whole capitalised word. */
+function namesIn(statement: string, p: Person): boolean {
+  const forms = [p.display_name, typeof p.full_name === "string" ? p.full_name : "", ...aliasesOf(p)].filter(Boolean);
+  return forms.some((f) => usesName(statement, f) || usesName(statement, f.trim().split(/\s+/u)[0] ?? ""));
 }
 
 /** The words of every name a person goes by. */

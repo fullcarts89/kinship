@@ -317,6 +317,7 @@ export class Understanding {
     change:
       | { statement: string }
       | { person_id: string }
+      | { person_ids: string[] }
       | { kind: SwitchableKind }
       | { owner: "user" | "person" }
       | { date: string | null },
@@ -331,6 +332,26 @@ export class Understanding {
       if (statement === item.statement) return;
       await memory.correct(itemId, { statement });
       correction = "statement";
+    } else if ("person_ids" in change) {
+      // Several people, when the memory names them (founder I11): one shared
+      // memory, filed on the first, never a copy each.
+      const ids = [...new Set(change.person_ids)];
+      if (ids.length === 0 || ids.length > 8) throw new StoreWriteError("choose who it's about");
+      if (item.subject_type === "related") throw new StoreWriteError("this one is about someone close to them");
+      const chosen: NamedPerson[] = [];
+      for (const id of ids) {
+        const p = (await this.store.get("people", id)) as (NamedPerson & { state?: string }) | null;
+        if (!p || p.state === "archived") throw new StoreWriteError("that person isn't here any more");
+        chosen.push(p);
+      }
+      const [to, ...others] = chosen;
+      const was = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
+      const withIds = others.map((p) => p.id);
+      if (to.id === item.person_id && withIds.length === was.length && withIds.every((id) => was.includes(id))) return;
+      const from = item.person_id && !ids.includes(item.person_id) ? (await this.store.get("people", item.person_id)) as NamedPerson | null : null;
+      const moved = from ? withSubjectMoved(item.statement, from, to) : null;
+      await memory.correct(itemId, { person_id: to.id, with_person_ids: withIds, ...(moved ? { statement: moved } : {}) });
+      correction = "person";
     } else if ("person_id" in change) {
       if (change.person_id === item.person_id) return;
       // "Sarah's sister" belongs on Sarah's page: moving it would orphan the relation.
