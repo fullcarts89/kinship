@@ -259,3 +259,28 @@ What Kinship knows is "where a person's story has some continuity", not a dump o
 **Related.** G23 added a **Both** choice for an ambiguous he/she between two people. It isn't a general "choose several people".
 
 **Expected.** Where Kinship asks who a memory is about, the user can pick more than one person. The memory is then shared across them, like H5/H13 shared memories.
+
+---
+
+## Batch 4
+
+### I12 — After a rename, the old name stays in every line
+
+**Observed.** Screenshots: `screens/feedback4/i12-rename-portrait.png`, `i12-rename-knows.png`.
+- The founder renamed **Wifey → Cutie Pie** (H1). The page title changed.
+- Every remembered line still says the old name, on the Portrait (Lately) and in What Kinship knows:
+  - "Wifey has a new job she's really excited about";
+  - "Wifey got promoted";
+  - "Wifey said she might be moving to Seattle with her friend from work";
+  - "Wifey is thinking about moving to Marin next summer".
+
+**Cause.** A line's words are stored as written when it was understood. Rename (H1) changes only the person's name, not the lines that mention the old one.
+
+**Options for triage (founder to choose):**
+- **(a) Display-time (recommended).** Lines show the person's current name wherever their previous name appears as a whole word. The stored words and the original note are untouched, so it's reversible, nothing is rewritten, and the note keeps what was actually said.
+- **(b) Rewrite on rename.** Lines are updated to the new name, each with the "Edited by you · was: …" lineage (H30). This is permanent and makes a lot of edits the user didn't individually make.
+- **Not acceptable:** asking the user to edit each line by hand.
+
+**Also visible in the screenshots (to check at triage):**
+- **The title truncates to the first word:** "What Kinship knows about **Cutie**". The first-name rule doesn't suit nicknames like "Cutie Pie". It should use the whole name when that is what the user chose.
+- **"Wifey got promoted · Mon, Oct 5" carries a Maybe token** (H29). A promotion stated as fact shouldn't be marked uncertain unless the note hedged it. Check the source note.
