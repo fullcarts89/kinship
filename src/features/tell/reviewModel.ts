@@ -521,15 +521,16 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       });
     } else {
       const candidates = candidatesFor(item, note, input.people);
+      // Someone removed from People the name also fits (founder I3): asked, offered back.
+      const removedToo = (item.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
       const first = (p: Person) => p.display_name.trim().split(/\s+/u)[0];
-      const shared = candidates.length > 1 && candidates.every((p) => fold(first(p)) === fold(first(candidates[0])))
-        ? first(candidates[0])
+      const named = [...candidates, ...removedToo];
+      const shared = named.length > 1 && named.every((p) => fold(first(p)) === fold(first(named[0])))
+        ? first(named[0])
         : null;
       const pronoun = item.flags.includes("pronoun_multiple") ? pronounIn(item) : null;
       // Someone the note names who isn't here yet ("my daughter Kaiya"): offered by name.
       const newNames = candidates.length === 0 ? unknownNames(item, input.people) : [];
-      // Someone removed from People the name also fits (founder I3): asked, offered back.
-      const removedToo = (item.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
       const choices: Choice[] = [
         ...candidates.map((p) => ({ key: `p:${p.id}`, label: personLabel(p, input.people), answer: { person_id: p.id } })),
         ...removedToo.map((p) => ({ key: `back:${p.id}`, label: `Bring back ${personLabel(p, input.people)}`, answer: { person_id: p.id }, restore: p.id })),

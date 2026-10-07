@@ -305,3 +305,15 @@ it("I11: a line whose own words name several people can be about all of them; a 
   const one = view("Susan went to Disneyland.", row("review", { tier: "auto", saved: [{ id: "m12", tier: "auto" }], settled: true }), [solo], [susan, michelle, BEN]);
   expect(one.lines[0].named).toBeUndefined();
 });
+
+it("I3: a name that fits someone here and someone removed asks which, offering the removed one back; never 'Add'", () => {
+  const kaiya2 = person("kaiya-2", "Kaiya", { relationship_label: "niece" });
+  const removed = person("kaiya", "Kaiya", { relationship_label: "daughter", state: "archived" });
+  const h = held({ statement: "Kaiya lost her first tooth", flags: ["person_ambiguous"], mention: "Kaiya", archived_ids: ["kaiya"],
+    spans: [{ start: 0, end: 26, quote: "Kaiya lost her first tooth" }] });
+  const v = view("Kaiya lost her first tooth.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], [kaiya2, removed, BEN]);
+  const q = v.questions[0];
+  expect(q.prompt).toBe("Which Kaiya do you mean?");
+  expect(q.choices.map((c) => c.label)).toEqual(["Kaiya (niece)", "Bring back Kaiya (daughter)", "Someone else"]);
+  expect(q.choices[1]).toMatchObject({ answer: { person_id: "kaiya" }, restore: "kaiya" });
+});
