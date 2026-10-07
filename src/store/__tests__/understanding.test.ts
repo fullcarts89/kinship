@@ -190,7 +190,9 @@ describe("Ben runs Chicago Sunday", () => {
     await d.understanding.run();
 
     const onServer = server.table("memory_items").get(race.id)!;
-    expect(onServer).toMatchObject({ kind: "plan", person_id: josh.id, statement: "Ben runs Chicago this Sunday", user_state: "edited" });
+    // Moved to Josh, the line stops naming Ben (founder I13, CC-18); the words
+    // it had stay as the edit's history.
+    expect(onServer).toMatchObject({ kind: "plan", person_id: josh.id, statement: "Josh runs Chicago this Sunday", user_state: "edited" });
     // The user's day carried over into the plan; the old "Sunday" went with the date change.
     expect(onServer.detail).toEqual({ firmness: "intended", date: "2026-10-12" });
     const edits = (await d.repos.memory.sourcesFor(race.id)).filter((s) => s.source_kind === "user_edit");

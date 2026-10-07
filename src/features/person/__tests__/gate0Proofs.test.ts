@@ -131,4 +131,51 @@ describe("Gate 0", () => {
     for (const p of [michelle, samEden]) expect((await page(w, p)).knows.lines).toHaveLength(1);
     expect((await page(w, samD)).knows.lines).toHaveLength(0);
   });
+
+  it("I13: moving 'Wifey has a new job…' from Wifey to Kaiya reads 'Kaiya has a new job…', keeps 'was: Wifey has…' as history, and the note is untouched", async () => {
+    const w = await world();
+    const [wifey] = await people(w, "Wifey Liu");
+    const kaiya = await w.repos.people.add({ display_name: "Kaiya", relationship_label: "daughter" });
+    await w.engine.sync();
+    const note = "Wifey has a new job she's really excited about.";
+    const said = "Wifey has a new job she's really excited about";
+    const t = await tell(w, note, (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, "Wifey"), person_mention: "Wifey", statement: said, evidence: [said], detail: { category: "work" } })],
+    }));
+    const [line] = t.review.lines;
+    await w.understanding.correct(line.id, { person_id: kaiya.id });
+    await w.understanding.run();
+    await w.engine.sync();
+
+    const row = w.server.table("memory_items").get(line.id)!;
+    expect(row).toMatchObject({ person_id: kaiya.id, statement: "Kaiya has a new job she's really excited about", user_state: "edited" });
+    const k = await page(w, kaiya);
+    expect(k.shown).toContain("Kaiya has a new job she's really excited about");
+    expect(k.knows.lines[0].line.editedFrom).toBe(said);
+    expect((await page(w, wifey)).knows.lines).toHaveLength(0);
+    // The note itself is never rewritten.
+    expect((await w.repos.captures.get(t.id))!.raw_text).toBe(note);
+  });
+
+  it("I13: the wrong person's name is moved where they are the subject: 'Ben's new job', 'Ben and Sarah went…'", async () => {
+    const w = await world();
+    const [ben, josh] = await people(w, "Ben Oxnard", "Josh Patel");
+    const cases: { note: string; said: string; from: Person; to: Person; expect: string }[] = [
+      { note: "Ben's new job starts Monday.", said: "Ben's new job starts Monday", from: ben, to: josh, expect: "Josh's new job starts Monday" },
+      { note: "Ben and Sarah went to Tahoe.", said: "Ben and Sarah went to Tahoe", from: ben, to: josh, expect: "Josh and Sarah went to Tahoe" },
+    ];
+    for (const c of cases) {
+      const fromKey = c.from.display_name.split(" ")[0];
+      const t = await tell(w, c.note, (i) => ({
+        needs_clarification: null,
+        items: [item({ kind: "fact", person: key(i, fromKey), person_mention: fromKey, statement: c.said, evidence: [c.said], detail: { category: "other" } })],
+      }));
+      const [line] = t.review.lines;
+      await w.understanding.finish(t.id, "done");
+      await w.understanding.correct(line.id, { person_id: c.to.id });
+      await w.engine.sync();
+      expect(w.server.table("memory_items").get(line.id)).toMatchObject({ person_id: c.to.id, statement: c.expect });
+    }
+  });
 });

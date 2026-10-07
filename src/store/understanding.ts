@@ -50,6 +50,7 @@ import {
   type Understood,
 } from "./gateway";
 import { detailForKind, withDate, type SwitchableKind } from "./memoryDetail";
+import { withSubjectMoved, type NamedPerson } from "../../supabase/functions/_shared/extraction/names";
 import { repositoriesFor, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
 import type { SyncReport } from "./syncEngine";
 import { StoreWriteError, type Data, type UserStore } from "./userStore";
@@ -334,8 +335,20 @@ export class Understanding {
       if (change.person_id === item.person_id) return;
       // "Sarah's sister" belongs on Sarah's page: moving it would orphan the relation.
       if (item.subject_type === "related") throw new StoreWriteError("this one is about someone close to them");
-      if (!(await this.store.get("people", change.person_id))) throw new StoreWriteError("that person isn't here any more");
-      await memory.correct(itemId, { person_id: change.person_id });
+      const to = (await this.store.get("people", change.person_id)) as NamedPerson | null;
+      if (!to) throw new StoreWriteError("that person isn't here any more");
+      const from = item.person_id ? (await this.store.get("people", item.person_id)) as NamedPerson | null : null;
+      // The line stops naming the wrong person where they are its subject
+      // ("Wifey has a new job" → "Kaiya has a new job"); the words it had stay
+      // as the edit's history, and the note is never touched (founder I13, H30).
+      const moved = from ? withSubjectMoved(item.statement, from, to) : null;
+      // The right person may have been one of those it was shared with.
+      const shared = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
+      await memory.correct(itemId, {
+        person_id: change.person_id,
+        ...(moved ? { statement: moved } : {}),
+        ...(shared.includes(change.person_id) ? { with_person_ids: shared.filter((id) => id !== change.person_id) } : {}),
+      });
       correction = "person";
     } else if ("owner" in change) {
       // Whose promise it is (H28): yours, or theirs to you. Only the meaning
