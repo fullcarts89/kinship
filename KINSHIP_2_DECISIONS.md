@@ -639,3 +639,91 @@ The founder's review of `docs/product/next-ux-proposals.md`. These are approved 
   - Never sent: Tell text, memory text, names, contacts, relationship content, source content or location.
   - Kept separate from "Got it right / Not quite", which is never sent in this scope.
   - Fields and retention are documented in `docs/ops/analytics.md`. This must be re-reviewed before enabling anywhere outside dogfood.
+
+## CC-18. Round-4 decisions and the next build plan (7 Oct 2026)
+From the founder's review of the round-4 findings (`docs/product/founder-feedback-summary-4.md`). Where this conflicts with CC-16 or CC-17, this is newer.
+
+### Gate 0 decisions (trust)
+- **I12 rename: option A.**
+  - Displayed memory text uses the person's **current** display name wherever the structured memory references that person. Prefer structured person references over loose string replacement.
+  - The original Tell and the stored interpretation are not rewritten. Source keeps the original words ("Wifey").
+  - Full chosen names and nicknames are kept in titles: "What Kinship knows about Cutie Pie", not "…Cutie".
+- **I13 is different from I12.** When the user corrects the *subject* from the wrong person to the right one, the displayed statement must stop naming the wrong person. The original wording is kept as prior / corrected history under the provenance rules (H30).
+- **I11 multi-person.** Correction may choose several people when the memory is genuinely shared. Ambiguity flows must **not** become a generic People multi-select form. *Kinship proposes what it can know; the user decides only what Kinship genuinely cannot know.*
+
+### Phase 4 decisions (UX)
+- **I1 Moment detail: approved.** *Tap a reason → see the reason. Tap a person → see the person.*
+  - A Today / Coming up Moment opens a focused surface: the grounded reason or memory, why now, timing, Source, and human actions (Message / Call).
+  - "View Ben" is secondary. It deep-links to the relevant memory on the relationship page with brief, quiet emphasis.
+  - Not a generic, field-heavy detail page.
+- **I2 interaction history: approved. Not a CRM communication log.** It is a lightweight trail under **Between you**, built on *know it → infer it → ask it*:
+  - **Known channel:** a Message launched from a Moment plus **Yes** records "You messaged · Oct 6 · About getting together this weekend". It never asks "How did you connect?".
+  - **Inferred:** a grounded plan ("Did you end up playing games with Ben and Susan?") plus **Yes** may record an in-person interaction / game night.
+  - **Unknown:** a manual Add interaction gives one tap of **Message · Call · Video · In person**.
+  - **Keep three things separate:** interaction **type** (message, call, video, in person); **reason** (promotion, weekend plans…); **shared experience** (game night, dinner, a hike; these are contextual memories). The type picker never grows an activity taxonomy.
+  - **Provenance:** every durable interaction record has one — a confirmed hand-off, an explicit return answer, a manual entry, or another legitimate source.
+  - **Never:** counts, streaks, "last contacted", frequency pressure, relationship health, or ranking.
+  - **"Anything worth remembering?"** becomes optional and non-blocking. It shows after meaningful interactions and is omitted after routine logistics.
+  - **Target:** completing the loop usually takes **one tap** after the real-world action, and **two** only when Kinship genuinely lacks information.
+- **I4 Kept confirmation hierarchy: approved.**
+  - The order is:
+    1. what was kept;
+    2. something needing attention (e.g. "Pedro isn't in People yet. Add him so this can appear on his page too." **[Add Pedro] [Not now]**);
+    3. correction (**Correct this · Undo**);
+    4. dogfood feedback (**Did Kinship get this right? Got it right · Not quite**).
+  - "Add Pedro" is a real accessible control. Remove "Tap a line to correct it."
+  - Still Quiet Herbarium; no dashboard or card-stack feel.
+- **I6 keyboard: approved.**
+  - Native Done / dismiss accessory.
+  - Interactive drag-down dismissal.
+  - Today / People navigable with the keyboard open.
+  - Unsent draft preserved.
+  - Never needing to tap blank space or content to dismiss.
+  - **Bottom navigation stays.** Do not move primary navigation to the top. Any bottom-chrome change while editing is solved locally.
+- **H15/H2 What Kinship knows** (CC-17 confirmed, with refinements):
+  - "Hoping to" / aspirational wording only when the source expresses hope, desire, a goal or aspiration. Ordinary plans get neutral treatment.
+  - "Their people" lives in the reference view, not the portrait. If pets are included, the final label must read naturally.
+  - Empty sections disappear. No completeness, counts, rankings, goal tracking, checkboxes or CRM fields.
+  - Source and correction on every line.
+  - **I7 folds in:** meaningful superseded facts remain as clearly-past Background ("Previously interviewed with Box · Ended Oct 6"). They are never presented as current alongside the current state. A declined sensitive outcome stays out; only the allowed less-sensitive history is kept.
+- **H16 milestones:** confirmed as CC-17.
+  - The vocabulary is engagement, wedding, new job, promotion, baby, graduation, new home, retirement, move.
+  - Recognise, don't interrogate.
+  - A grounded date is eligible about 3 days before and on the day; Today priority decides, with no repetition just because it is eligible.
+  - No date: remember it, never ask.
+  - Anchored to at least one established person.
+- **H4 Bring back in first use:** confirmed as CC-17.
+  - Acceptance test: a new user can explain what Today is for without coaching.
+- **H3 Ask Kinship:** roadmap only (post-wife-dogfood / Alpha candidate). **H22:** no work; monitor.
+
+### Telemetry
+- Content-free dogfood performance and reliability telemetry is **approved and already enabled** in `dogfood-v2` (PR #19; fields in `docs/ops/analytics.md`). Explicit "Got it right / Not quite" stays separate from passive telemetry.
+- **Approved additions, not built (carry into Gate 0):**
+  - time from Send to "Understanding…" visible;
+  - whether the app went to the background while a Tell was processing;
+  - coarse build version and platform for debugging.
+  
+  This reverses the earlier "no app version" line for the dogfood scope only.
+- Record retention and sampling before any non-dogfood rollout.
+
+### Build plan
+The plan moves out of repeated broad stabilization:
+1. **Gate 0 — Final Trust Closure:**
+   - P0: I8, I10 (+ H13), I13, I12A;
+   - with it: I5, I9, I11, I3, I12b check, and the telemetry additions.
+   - Then a **short targeted** founder native gate, not another broad exploratory cycle.
+   - Old F/G items need not all become VERIFIED before UX work unless they block trust or the core loop. The ledger is kept accurate instead.
+2. **Phase 4 — UX Hardening & Relationship Loop Completion** (when Gate 0 passes):
+   - I4, I6;
+   - I1, H16;
+   - I2 with conditional "Anything worth remembering?";
+   - H15/H2 with I7;
+   - H4.
+   
+   It makes the existing product coherent. It is **not** speculative feature expansion.
+3. **Wife dogfood:** low-coaching.
+4. **Alpha candidates:** Ask Kinship first.
+
+This sits on top of `KINSHIP_2_COMPLETE_PLAN.md` §28: the plan's "Phase 4: Alpha" now comes after the wife dogfood.
+
+**Still not to build:** About You UI, Garden, Relationship Landscape, a generic graph, a broad Opportunity Engine, Intentions, a full timeline / "Your story together", a generic task manager, relationship scoring, health indicators, streaks, importance ranking, personality onboarding, a chatbot, subscriptions, broad model benchmark / model-swap work.

@@ -144,3 +144,14 @@ These are evidence-backed extensions of the approved product. They are approved,
 | First use (onboarding) | Tell → Remember → **Bring back**, one concrete example leading into Today | H4 | At most one extra screen; no carousel; no decorative motion; respects Reduce Motion; prefer the user's real first Tell when it makes an eligible Moment, else the Ben example; `firstRun.test.tsx` and `.maestro/fresh-install.yaml` gain the step |
 
 Roadmap only (not a surface yet): grounded **Ask Kinship** as an Alpha candidate (H3). No change: "August" (H22).
+
+## Round-4 approvals (founder, 7 Oct, CC-18): approved, not built
+
+| Surface | Approved change | From | Phase | Guardrails |
+|---|---|---|---|---|
+| 10 Today → **Moment detail** (new contextual surface) | Tapping a Moment opens its detail: the grounded reason, why now, timing, Source, Message / Call; "View Ben" is secondary with a deep link and quiet emphasis | I1 | 4 | Tap a reason → the reason; tap a person → the person. Not a field-heavy page |
+| 12 Relationship page › **Between you** | Lightweight interaction trail: "You messaged · Oct 6 · About …" | I2 | 4 | Know → infer → ask; one tap usually; type ≠ reason ≠ shared experience; never counts, "last contacted", streaks or health |
+| Tell › **Kept card** | Sections: kept → needs attention ([Add Pedro] [Not now]) → Correct this · Undo → feedback | I4 | 4 | Real controls and tap targets; Quiet Herbarium; no card stack |
+| Tell field / all inputs | Done accessory, drag-to-dismiss, nav usable with the keyboard open, draft kept | I6 | 4 | Bottom navigation stays |
+| 14 What Kinship knows › **Background** | Clearly-past history ("Previously interviewed with Box · Ended Oct 6") | I7 (with H15) | 4 | Never alongside current state as if true; declined sensitive outcomes stay out |
+| 12 Relationship page / 14 What Kinship knows | Visible **Edit** for the name; soft **Remove from People** | I3 | Gate 0 | Archive, restorable; notes and sources kept |

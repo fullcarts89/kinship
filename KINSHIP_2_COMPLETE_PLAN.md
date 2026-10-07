@@ -1075,6 +1075,8 @@ The domain code shared between the app and Deno lives in `packages/domain/` (pla
 
 ### 28. Build sequence
 
+> **Current sequence (founder, CC-18, 7 Oct 2026):** Gate 0 Final Trust Closure → Phase 4 UX Hardening & Relationship Loop Completion → wife dogfood → Alpha (with Ask Kinship as the first Alpha candidate). The "Phase 4: Alpha" row below now comes after the wife dogfood. See `KINSHIP_2_DECISIONS.md` CC-18 and `docs/product/HANDOFF.md`.
+
 The design direction's order starts with the look (tokens → sprig → Tell). The audit's order starts with trust. The dependencies say: trust and schema first, then **one vertical slice through everything**, then breadth. Visual language ships *with* the first surfaces, never as a separate reskin. The Garden never blocks validation.
 
 ```

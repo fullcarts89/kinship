@@ -1,6 +1,6 @@
 # Kinship 2.0 — Master bug ledger
 
-The single, living quality ledger for founder native-pass feedback. It covers F1–F23 (pass 1, recovery), G1–G43 (pass 2, stabilization), H1–H30 (pass 3) and any new issues (N-series). Source detail for every item is in `founder-native-feedback.md`; this file records **status**.
+The single, living quality ledger for founder native-pass feedback. It covers F1–F23 (pass 1, recovery), G1–G43 (pass 2, stabilization), H1–H30 (pass 3), the N-series (found while fixing) and I1–I13 (round 4, native testing of the PR #19 build). Source detail for every item is in `founder-native-feedback.md`; this file records **status**.
 
 ## Status values
 
@@ -62,7 +62,7 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
 | G2 | ~8 s to result | P2 | Latency | SUPERSEDED | → H8 | | | | |
 | G3 | "Kept for Ben" label twice | P2 | Review | FIXED | Label drawn twice | `ReviewSheet.tsx` | `reviewModel.test` | Not re-tested | |
 | G4 | Result never appeared (30 s) | P0 | Lifecycle | FIXED | Inferred: stalled fetch, no timeout | `lib/supabase.ts` 20 s timeout | | Not re-tested | Cause inferred, not reproduced |
-| G5 | App froze | P0 | Stability | STILL OPEN | Unknown | Mitigated: no sheet churn, never sheet-on-sheet; `app_stall` telemetry now reports any ≥1 s JS-thread block in dogfood | `lifecycle.test.tsx` | No freeze reported in pass 3 | Not confirmed fixed |
+| G5 | App froze | P0 | Stability | STILL OPEN | Unknown | Mitigated: no sheet churn, never sheet-on-sheet. `app_stall` telemetry (dogfood-v2, merged in PR #19) reports any JavaScript-thread block of 1 s or more while the app is in the foreground, as `duration_bucket` plus `tell_work` | `lifecycle.test.tsx`, `performanceTelemetry.test.ts` | No freeze reported in passes 3 and 4 | **How to close:** the founder reports no freeze through the Gate 0 native pass, **and** PostHog shows no `app_stall` of 3 s or more across the dogfood-v2 sessions in that window. Then VERIFIED on the founder's say-so. Any freeze or a 3 s+ stall keeps it open, with the time noted |
 | G6 | "See the note" loses the question | P0 | Lifecycle | FIXED | Sheet closed on navigation | Gate A (park + return) | `lifecycle.test.tsx` | Not re-tested | |
 | G7 | No confirmation for a clear fact | P1 | Feedback | FIXED | Light tier had no card | Gate D | `lifecycle.test.tsx` | Seen working (pass 3) | |
 | G8 | Shared memory says nothing about others | P1 | Multi-person | FIXED | No `with_person_ids` | Gate F | `stabilizationProofs` | Seen working (pass 3) | H13 duplicates across notes |
@@ -118,7 +118,7 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
 | H10 | Message handoff: card vanishes, nothing recorded | P1 | Loop | FIXED | Opening Messages counted as acted; return check only 10 min–12 h later | `bb85d9f` | `returnLoop.test.ts`, `todayModel.test` | Not re-tested | |
 | H11 | Moment returns after restart | P1 | Loop | FIXED | Likely: hand-off written after Messages opened (app suspended first) | `bb85d9f` (write before open) | `returnLoop.test.ts` (kill/reopen) | Not re-tested | Cause inferred, not reproduced |
 | H12 | Other Sam still asks about resolved items | P0 | Identity | FIXED | Link suggestions matched by first name, ignored the who-answer | `09699f1` | `trustClosureProofs` H12 | Not re-tested | Reproduced in test |
-| H13 | Tahoe duplicate across word order | P0 | Multi-person | FIXED | Exact-string dedupe; dossier lacked shared people | `b7e90f3` | `stabilization.test` H13, `trustClosureProofs` H13 | Not re-tested | Existing duplicates: cleanup plan §2 |
+| H13 | Tahoe duplicate across word order | P0 | Multi-person | STILL OPEN | Exact-string dedupe; dossier lacked shared people. **Reopened in round 4:** the saved-twin case is fixed, but a mirror that is *held* (ambiguous person) is never compared with its saved twin (I10) | `b7e90f3` | `stabilization.test` H13, `trustClosureProofs` H13 | Round 4: mirror reproduced as held ("Michelle and Sam… Australia") | Fixed with I10 in Gate 0; existing duplicates: cleanup plan §2 |
 | H14 | Memory without source after force-quit | P0 | Provenance | FIXED | Not lost: source line shared across same-text neighbours; plus mid-sync gap | `504a70a` | `trustClosureProofs` H14, `sourceLines.test.tsx` | Not re-tested | Server had the source (checked) |
 | H15 | Group knowledge into sections | P3 | Person | DEFERRED | Design | Spec approved with changes (CC-17) | | | Approved, not built; Portrait unchanged |
 | H16 | Milestones + follow-ups | P3 | Reasons | DEFERRED | Design | Eligibility approved (CC-17): ≤3 days + day-of, anchored to an established person | | | Approved, not built |
@@ -146,6 +146,31 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
 | N2 | Source view would hide a replaced line | P0 | Provenance | FIXED | Note view skipped superseded items | `27bb0b2` ("Since updated") | `trustClosureProofs` H25 | Not re-tested | Found while fixing H25 |
 | N3 | Two "Anthony" people (Anthony, Anthony Lopez) | P2 | Identity | DEFERRED | Duplicate contact; no merge-people feature | | | | Cleanup plan §3; needs founder |
 | N4 | Phone lifecycle timings not collected in the dogfood build | P3 | Latency | FIXED | Analytics off in `dogfood-v2` | Founder approved (CC-17): performance-only telemetry in `dogfood-v2`. Tell lifecycle by stage, failures, retries, stalls; content-free | `performanceTelemetry.test.ts`, `gateway.test.ts`, `handler.test.ts` | | Confirm events in PostHog Live events after the first native Tell |
+
+## Round 4 (I-series): native testing of the PR #19 build, 7 Oct 2026
+
+Source detail: `founder-feedback-4.md`; summary and recommended fixes: `founder-feedback-summary-4.md`; screenshots: `screens/feedback4/`. Founder decisions: `KINSHIP_2_DECISIONS.md` CC-18.
+
+**Status rules for this table:**
+- Gate 0 items are **STILL OPEN** (to be fixed now).
+- Approved Phase 4 UX work is **DEFERRED** to Phase 4, which is not the same as rejected.
+
+| ID | Title | Sev | Area | Status | Root cause | Fix ref | Regression | Native | Notes / risk |
+|---|---|---|---|---|---|---|---|---|---|
+| I1 | Tapping a Today / Coming up Moment opens the whole person page; the action gets lost | P1 | Today | DEFERRED | No reason detail surface exists | | | | Phase 4. Approved (CC-18): Moment detail; "View Ben" is secondary and deep-links with quiet emphasis |
+| I2 | No lightweight interaction history; the return loop risks CRM ceremony | P2 | Relationship | DEFERRED | Only "You reached out · date" exists (H10) | | | | Phase 4. Approved (CC-18): know it → infer it → ask it; trail under Between you; no counts or "last contacted" |
+| I3 | No way to remove a person; editing a name isn't discoverable | P1 | People | STILL OPEN | No archive-person path in 2.0; rename only via a tappable title (H1) | | | | Gate 0: visible Edit + soft "Remove from People" (archive, restorable; notes and sources kept) |
+| I4 | Kept card: same-weight grey text; "Add Pedro" tiny | P1 | Review | DEFERRED | One text style for five jobs | | | | Phase 4. Approved hierarchy (CC-18). H21 behaviour itself is correct |
+| I5 | Shared memory's Kept card names only one person ("Kept for Susan") | P1 | Review | STILL OPEN | Likely: the Kept label uses `person_id` only, not `with_person_ids` (data is shared correctly: on Michelle's page) | | | | Gate 0. Confirm against data |
+| I6 | Keyboard hard to dismiss; tapping content to dismiss opens things | P1 | Input | DEFERRED | No accessory, no interactive dismiss | | | | Phase 4. Approved: Done accessory, drag-to-dismiss, nav usable, draft kept, bottom nav stays |
+| I7 | Superseded facts vanish from the person's story | P2 | Person | DEFERRED | Superseded lines shown only as "was:" under the current line | | | | Phase 4, folded into H15 (Background history; sensitive outcomes stay private if declined) |
+| I8 | dogfood-v2 can reopen into the old 1.0 app | P0 | Launch | STILL OPEN | Likely (read, not reproduced): `useLaunchShell` treats a launch flag check that times out (4 s) or fails as `shell_v2` off, which means 1.0 | | | | Gate 0: the 2.0 build never falls back to 1.0 for a signed-in account |
+| I9 | After opening a line's details from the confirmation, can't get back to it | P1 | Review | STILL OPEN | Line sheet closes the review with it | | | | Gate 0 |
+| I10 | "Michelle and Sam might be moving to Australia": mirrored line held for Sam offers Michelle and says "couldn't tell who" | P0 | Multi-person | STILL OPEN | Saved line on Michelle + a mirrored *held* line for ambiguous Sam; the H13 twin merge skips held items | | | Screenshot `i10-michelle-sam-australia.png` | Gate 0: one shared line; ask only "Which Sam?". Reopens H13. Also hide "Nothing needs you today." behind a waiting question |
+| I11 | Can't choose several people when correcting who a memory is about | P1 | Multi-person | STILL OPEN | Picker is single-choice (G23's "Both" covers one ambiguous pronoun only) | | | | Gate 0: multi-person when genuinely shared; never a generic People form |
+| I12 | Rename (Wifey → Cutie Pie) leaves the old name in every line; title cut to "Cutie" | P0 | Person | STILL OPEN | Lines store words as understood; the title uses the first word | | | Screenshots `i12-rename-*.png` | Gate 0: **option A** (CC-18): display the current name via structured person references; Source keeps original words; full name in titles |
+| I12b | "Wifey got promoted" shows Maybe | P2 | Certainty | STILL OPEN | Unconfirmed: check whether the source note hedged it | | | | Gate 0: check. Not a bug if the note hedged, otherwise fix the rule plus an eval case |
+| I13 | Correcting a line's person (Wifey → Kaiya) keeps "Wifey" in its words | P0 | Correction | STILL OPEN | Person correction changes `person_id` only | | | Screenshot `i13-person-correction-kaiya.png` | Gate 0: the statement stops naming the wrong person; the original wording is kept as history (H30) |
 
 ## Older items still open (triage)
 

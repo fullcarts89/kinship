@@ -1,6 +1,8 @@
 # Founder native-pass feedback (dogfood-v2 build)
 
 > **Status of every item lives in `bug-ledger.md`** (the canonical ledger). This file is the original feedback, as logged.
+>
+> Round 4 (I1–I13, 7 Oct 2026) is logged in `founder-feedback-4.md`, with the summary in `founder-feedback-summary-4.md`.
 
 The founder's notes from using the build on their iPhone, logged as they arrive.
 **Status: logged only.** Nothing gets acted on until the founder says so.
