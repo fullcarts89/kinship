@@ -394,6 +394,12 @@ export class Understanding {
     if (item.origin === "extracted") track("extraction_corrected", { correction, item_kind: kindName(item.kind) });
   }
 
+  /** "Bring back Kaiya" from a question (founder I3): the same person, back in People, before the answer is sent. */
+  async restorePerson(personId: string): Promise<void> {
+    await repositoriesFor(this.store).people.restore(personId);
+    this.kick();
+  }
+
   /**
    * "Add Pedro" (founder H21): someone the kept line names who isn't in
    * People yet becomes a person by name (no phone needed), and the memory is

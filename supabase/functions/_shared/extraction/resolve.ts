@@ -47,6 +47,8 @@ export interface HeldItem {
   twin_person_id?: string;
   /** The name it asks about ("Sam"). */
   mention?: string;
+  /** People removed from People the name fits: the answer may bring one back (founder I3). */
+  archived_ids?: string[];
 }
 
 /** The user's answer for one held item. */
@@ -140,7 +142,7 @@ export type ResolveFailure =
   | "relation_not_in_note" // the relation isn't the user's own word
   | "bad_date";
 
-const PERSON_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple"];
+const PERSON_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "person_archived"];
 const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: ResolveContext): Resolution | { fail: ResolveFailure } {
@@ -201,7 +203,9 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         personId = ref;
       } else {
         const p = ctx.people.find((x) => x.id === a.person_id);
-        if (!p || p.state === "archived") return { fail: "unknown_person" };
+        // Someone removed from People only when this item offered them back (founder I3).
+        const offeredBack = !!p && (item.archived_ids ?? []).includes(p.id);
+        if (!p || (p.state === "archived" && !offeredBack)) return { fail: "unknown_person" };
         personId = p.id;
       }
     } else {

@@ -45,6 +45,8 @@ export interface ReviewSheetProps {
   onCorrect: (itemId: string, change: Correction) => void;
   /** "Add Pedro": someone a kept line names, added by name and linked (H21). */
   onAddPerson?: (itemId: string, name: string) => void;
+  /** "Bring back Kaiya": someone removed from People, back before the answer goes (founder I3). */
+  onRestore?: (personId: string) => void;
   onAnswer: (answers: HeldAnswer[]) => void;
   onOpenNote: () => void;
   /** Any touch: the sheet isn't idle. */
@@ -162,7 +164,10 @@ export function ReviewSheet(props: ReviewSheetProps) {
             q={question}
             boxed={!questionOnly}
             label={questionOnly ? label : null}
-            onChoose={(answer) => choose(question, answer)}
+            onChoose={(answer, restore) => {
+              if (restore) props.onRestore?.(restore);
+              choose(question, answer);
+            }}
             onPick={(what) => {
               props.onActivity();
               setPane({ kind: what, question });
@@ -269,7 +274,7 @@ function QuestionBlock({
   /** Under kept lines: an inline surface (board 1). Alone: the sheet's own title. */
   boxed: boolean;
   label: string | null;
-  onChoose: (answer: Omit<HeldAnswer, "index">) => void;
+  onChoose: (answer: Omit<HeldAnswer, "index">, restore?: string) => void;
   onPick: (what: "person" | "date") => void;
   onSkip: () => void;
 }) {
@@ -282,7 +287,7 @@ function QuestionBlock({
           size="small"
           variant={!boxed && i === 0 && "answer" in c ? "primary" : "ghost"}
           label={c.label}
-          onPress={() => ("answer" in c ? onChoose(c.answer) : onPick(c.pick))}
+          onPress={() => ("answer" in c ? onChoose(c.answer, c.restore) : onPick(c.pick))}
         />
       ))}
     </View>

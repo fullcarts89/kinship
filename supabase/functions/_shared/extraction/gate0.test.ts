@@ -156,3 +156,43 @@ Deno.test("I12: the answer to 'who is she?' names a renamed person whole", () =>
   if ("fail" in r) throw new Error(r.fail);
   eq(r.items[0].statement, "Cutie Pie got a raise");
 });
+
+// ─── I3: someone removed from People is never re-created, never guessed ─────
+
+const REMOVED = [{ id: "kaiya", display_name: "Kaiya", full_name: null, nicknames: [] }];
+
+Deno.test("I3: a note about removed Kaiya asks to bring her back (never 'someone new'), with her id offered", () => {
+  const inp = { ...input("Kaiya lost her first tooth.", [ROSTER[3]]), archived: REMOVED };
+  const out = run(inp, [item({
+    kind: "moment", person: "new", person_mention: "Kaiya", statement: "Kaiya lost her first tooth", evidence: ["Kaiya lost her first tooth"],
+    date_direction: "past", detail: { milestone_type: "other" },
+  })]);
+  eq(out.items.map((i) => [i.person_id, i.tier, i.new_person_name]), [[null, "hold", null]]);
+  eq(out.items[0].flags.includes("person_archived"), true);
+  eq(out.items[0].flags.includes("new_person"), false);
+  eq(out.items[0].archived_ids, ["kaiya"]);
+});
+
+Deno.test("I3: a name that fits someone here and someone removed is asked about, never guessed", () => {
+  const roster: RosterPerson[] = [{ key: "p1", id: "kaiya-2", display_name: "Kaiya", full_name: null, nicknames: [], relationship_label: "niece" }];
+  const out = run({ ...input("Kaiya lost her first tooth.", roster), archived: REMOVED }, [item({
+    kind: "moment", person: "p1", person_mention: "Kaiya", statement: "Kaiya lost her first tooth", evidence: ["Kaiya lost her first tooth"],
+    date_direction: "past", detail: { milestone_type: "other" },
+  })]);
+  eq(out.items.map((i) => [i.person_id, i.tier]), [[null, "hold"]]);
+  eq(out.items[0].flags.includes("person_ambiguous"), true);
+  eq(out.items[0].archived_ids, ["kaiya"]);
+});
+
+Deno.test("I3: the answer may name the removed person it offered (brought back), and nobody else removed", () => {
+  const held: HeldItem = {
+    kind: "moment", person_id: null, new_person_name: null, subject_type: "person", related: null, statement: "Kaiya lost her first tooth",
+    detail: {}, certainty: "stated", sensitivity: "none", confidence: 0.9, action: { type: "new", target_id: null }, tier: "hold",
+    flags: ["person_archived"], spans: [{ start: 0, end: 26, quote: "Kaiya lost her first tooth" }], archived_ids: ["kaiya"], mention: "Kaiya",
+  };
+  const people = [{ id: "kaiya", display_name: "Kaiya", state: "archived" }, { id: "gone", display_name: "Old", state: "archived" }];
+  const ok = resolveHeld([held], [{ index: 0, person_id: "kaiya" }], { note: "Kaiya lost her first tooth.", people, related: [], existing: [] });
+  if ("fail" in ok) throw new Error(ok.fail);
+  eq(ok.items[0].person_id, "kaiya");
+  eq(resolveHeld([held], [{ index: 0, person_id: "gone" }], { note: "Kaiya lost her first tooth.", people, related: [], existing: [] }), { fail: "unknown_person" });
+});

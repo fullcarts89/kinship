@@ -258,4 +258,78 @@ describe("Gate 0", () => {
     expect(w.server.table("memory_items").get(line.id)).toMatchObject({ person_id: susan.id, with_person_ids: [michelle.id], statement: said });
     for (const p of [susan, michelle]) expect((await page(w, p)).knows.lines.map((l) => l.line.statement)).toEqual([said]);
   });
+
+  it("I3: Remove from People archives Kaiya, never deletes: her own memories leave with her, a shared one stays with Ben, and Bring back restores the same person, relationship, memories and sources", async () => {
+    const w = await world();
+    const [ben] = await people(w, "Ben Oxnard");
+    const kaiya = await w.repos.people.add({ display_name: "Kaiya", relationship_label: "daughter" });
+    await w.engine.sync();
+    const swim = await tell(w, "Kaiya is learning to swim.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "thread", person: key(i, "Kaiya"), person_mention: "Kaiya", statement: "Kaiya is learning to swim", evidence: ["Kaiya is learning to swim"], detail: { topic: "learning to swim" } })],
+    }));
+    const zoo = await tell(w, "Kaiya and Ben went to the zoo.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "event", person: key(i, "Kaiya"), person_mention: "Kaiya", statement: "Kaiya and Ben went to the zoo", evidence: ["Kaiya and Ben went to the zoo"], date_direction: "past", detail: { event_type: "trip" } })],
+    }));
+    for (const t of [swim, zoo]) await w.understanding.finish(t.id, "done");
+    await w.understanding.run();
+    const zooId = zoo.review.lines[0].id;
+    expect(w.server.table("memory_items").get(zooId)).toMatchObject({ person_id: kaiya.id, with_person_ids: [ben.id] });
+    const before = { items: serverItems(w).length, sources: w.server.table("memory_item_sources").size };
+
+    await w.repos.people.archive(kaiya.id);
+    await w.engine.sync();
+    const removed = w.server.table("people").get(kaiya.id)!;
+    expect(removed).toMatchObject({ state: "archived", deleted_at: null, relationship_label: "daughter" });
+    // Nothing deleted: every memory and every source is still there.
+    expect(serverItems(w).filter((m) => !m.deleted_at)).toHaveLength(before.items);
+    expect(w.server.table("memory_item_sources").size).toBe(before.sources);
+    // The shared memory stays with Ben (filed on him, still shared with her); hers alone stays hers, out of sight.
+    expect(w.server.table("memory_items").get(zooId)).toMatchObject({ person_id: ben.id, with_person_ids: [kaiya.id] });
+    const benPage = await page(w, ben);
+    expect(benPage.knows.lines.map((l) => [l.line.statement, l.line.also])).toEqual([["Kaiya and Ben went to the zoo", []]]);
+    expect((await w.repos.people.list()).filter((p) => p.state !== "archived").map((p) => p.id)).toEqual([ben.id]);
+    // The note stays (Source keeps it); what came of it about her alone is out of sight with her.
+    const note = (await noteFor(w.store, swim.id, new Date(w.server.clock)))!;
+    expect(note.runs!.map((r) => r.text).join("")).toBe("Kaiya is learning to swim.");
+    expect(note.items).toEqual([]);
+
+    await w.repos.people.restore(kaiya.id);
+    await w.engine.sync();
+    expect(w.server.table("people").get(kaiya.id)).toMatchObject({ id: kaiya.id, state: "active", relationship_label: "daughter" });
+    const back = await page(w, kaiya);
+    expect(back.knows.lines.map((l) => l.line.statement).sort()).toEqual(["Kaiya and Ben went to the zoo", "Kaiya is learning to swim"]);
+    expect(back.knows.lines.every((l) => l.noteId)).toBe(true);
+    expect((await noteFor(w.store, swim.id, new Date(w.server.clock)))!.items.map((i) => i.statement)).toEqual(["Kaiya is learning to swim"]);
+    expect((await w.repos.people.list()).length).toBe(2);
+  });
+
+  it("I3: a later Tell about removed Kaiya offers 'Kaiya was removed from People · Bring back', never 'Add Kaiya'; bringing her back files it on the same person", async () => {
+    const w = await world();
+    const kaiya = await w.repos.people.add({ display_name: "Kaiya", relationship_label: "daughter" });
+    await w.engine.sync();
+    await w.repos.people.archive(kaiya.id);
+    await w.engine.sync();
+    // The model doesn't see removed people: it reads Kaiya as someone new.
+    const t = await tell(w, "Kaiya lost her first tooth.", () => ({
+      needs_clarification: null,
+      items: [item({ kind: "moment", person: "new", person_mention: "Kaiya", statement: "Kaiya lost her first tooth", evidence: ["Kaiya lost her first tooth"], date_direction: "past", detail: { milestone_type: "other" } })],
+    }));
+    expect(t.review.questions).toHaveLength(1);
+    const q = t.review.questions[0];
+    expect(q.prompt).toBe("Kaiya was removed from People.");
+    const labels = q.choices.map((c) => c.label);
+    expect(labels).toContain("Bring back Kaiya");
+    expect(labels.some((l) => /^Add /u.test(l))).toBe(false);
+    const bring = q.choices.find((c) => c.label === "Bring back Kaiya")!;
+    expect(bring).toMatchObject({ restore: kaiya.id });
+
+    await w.understanding.restorePerson(kaiya.id);
+    await answer(w, t.id, [{ index: 0, ...("answer" in bring ? bring.answer : {}) }]);
+    const active = serverItems(w).filter((m) => m.status === "active");
+    expect(active.map((m) => [m.person_id, m.statement])).toEqual([[kaiya.id, "Kaiya lost her first tooth"]]);
+    expect([...w.server.table("people").values()]).toHaveLength(1);
+    expect(w.server.table("people").get(kaiya.id)).toMatchObject({ state: "active" });
+  });
 });

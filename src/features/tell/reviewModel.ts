@@ -101,7 +101,8 @@ export interface ItemLine {
 export type QuestionType = "which_person" | "about_whom" | "new_person" | "replace" | "date" | "keep";
 
 export type Choice =
-  | { key: string; label: string; answer: Omit<HeldAnswer, "index"> }
+  /** restore: someone removed from People, brought back before the answer is sent (founder I3). */
+  | { key: string; label: string; answer: Omit<HeldAnswer, "index">; restore?: string }
   /** Opens the person list; the answer is { person_id }. */
   | { key: string; label: string; pick: "person" }
   /** Opens a date picker; the answer is { date }. */
@@ -169,7 +170,7 @@ export const COPY = {
   kept1: "Kept",
 } as const;
 
-const PERSON_FLAGS = ["person_ambiguous", "person_disagreement", "pronoun_multiple", "new_person"];
+const PERSON_FLAGS = ["person_ambiguous", "person_disagreement", "pronoun_multiple", "new_person", "person_archived"];
 
 export function buildReview(input: ReviewInput): ReviewView {
   const { row, capture, offline } = input;
@@ -265,9 +266,10 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
   const person = input.people.find((p) => p.id === item.person_id);
   const related = item.subject_related_id ? input.related.find((r) => r.id === item.subject_related_id) : null;
   const when = whenLabel(item.kind, (item.detail ?? {}) as Record<string, unknown>, input.today);
+  // Someone removed from People isn't shown with the others (founder I3).
   const alsoPeople = (Array.isArray(item.with_person_ids) ? item.with_person_ids : [])
     .map((id) => input.people.find((p) => p.id === id))
-    .filter((p): p is Person => !!p);
+    .filter((p): p is Person => !!p && p.state !== "archived");
   // Who it can be about (founder I11): the people its words name, and anyone it's about now.
   const named = item.subject_type === "related" ? [] : [...new Set([
     ...(person ? [person.id] : []),
@@ -499,6 +501,24 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
           { key: "pick", label: "Someone already here", pick: "person" },
         ],
       });
+    } else if (item.flags.includes("person_archived") && item.archived_ids?.length) {
+      // Someone the user removed from People (founder I3): offered back by
+      // name, never "Add Kaiya" (a second Kaiya), never filed on a guess.
+      const removed = item.archived_ids.map((id) => input.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
+      const name = item.mention ?? (removed[0] ? shortName(removed[0]) : "They");
+      needs.push({
+        type: "which_person",
+        group: `removed:${item.archived_ids.join(",")}`,
+        prompt: `${name} was removed from People.`,
+        reason: null,
+        choices: [
+          ...removed.map((p) => ({
+            key: `back:${p.id}`, label: removed.length > 1 ? `Bring back ${personLabel(p, input.people)}` : `Bring back ${shortName(p)}`,
+            answer: { person_id: p.id }, restore: p.id,
+          })),
+          { key: "pick", label: COPY.someoneElse, pick: "person" as const },
+        ],
+      });
     } else {
       const candidates = candidatesFor(item, note, input.people);
       const first = (p: Person) => p.display_name.trim().split(/\s+/u)[0];
@@ -508,8 +528,11 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       const pronoun = item.flags.includes("pronoun_multiple") ? pronounIn(item) : null;
       // Someone the note names who isn't here yet ("my daughter Kaiya"): offered by name.
       const newNames = candidates.length === 0 ? unknownNames(item, input.people) : [];
+      // Someone removed from People the name also fits (founder I3): asked, offered back.
+      const removedToo = (item.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
       const choices: Choice[] = [
         ...candidates.map((p) => ({ key: `p:${p.id}`, label: personLabel(p, input.people), answer: { person_id: p.id } })),
+        ...removedToo.map((p) => ({ key: `back:${p.id}`, label: `Bring back ${personLabel(p, input.people)}`, answer: { person_id: p.id }, restore: p.id })),
         // A pronoun that could be either of two people may be both of them.
         ...(pronoun && candidates.length === 2 && !shared
           ? [{ key: "both", label: "Both", answer: { person_id: candidates[0].id, also_person_ids: [candidates[1].id] } }]
@@ -615,7 +638,8 @@ function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[]
   const mention = item.mention ? wordsOf(item.mention).join(" ") : "";
   if (mention) {
     const meant = live.filter((p) => nameForms(p).some((f) => f === mention || f.split(" ")[0] === mention));
-    if (meant.length > 1) return meant.slice(0, 4);
+    // With someone removed who fits too (founder I3), even one person here is a choice.
+    if (meant.length > 1 || (meant.length === 1 && item.archived_ids?.length)) return meant.slice(0, 4);
   }
   const inWords = (text: string) => {
     const words = new Set(wordsOf(text));

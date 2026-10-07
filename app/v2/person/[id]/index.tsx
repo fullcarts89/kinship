@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { ItemSheet } from "@/features/person/ItemSheet";
-import { PortraitView } from "@/features/person/PortraitView";
+import { PortraitView, removeCopy } from "@/features/person/PortraitView";
 import { KeptCard } from "@/features/tell/TellDock";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TellSheet } from "@/features/tell/TellSheet";
@@ -27,7 +27,7 @@ export default function PersonScreen() {
   const [itemId, setItemId] = useState<string | null>(null);
   const [telling, setTelling] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const { rename } = useV2Actions();
+  const { rename, removePerson } = useV2Actions();
   const item = useItemLine(itemId);
   const name = portrait.person?.display_name ?? null;
   // Said the way Kinship says their name everywhere (founder I12).
@@ -94,6 +94,18 @@ export default function PersonScreen() {
           <NamePane initial={name} onCancel={() => setRenaming(false)} onSave={(n) => {
             fail(rename(personId, n));
             setRenaming(false);
+          }} onRemove={() => {
+            // "Remove from People" (founder I3): asked first; a soft archive, never a delete.
+            const copy = removeCopy(first);
+            Alert.alert(copy.title, copy.body, [
+              { text: copy.cancel, style: "cancel" },
+              {
+                text: copy.remove, style: "destructive", onPress: () => {
+                  setRenaming(false);
+                  removePerson(personId).then(() => router.back(), () => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
+                },
+              },
+            ]);
           }} />
         ) : null}
       </Sheet>

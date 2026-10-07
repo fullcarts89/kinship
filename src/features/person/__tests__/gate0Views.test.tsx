@@ -80,3 +80,63 @@ describe("I11: choosing several people, only those the memory names", () => {
     expect(labels(r)).not.toContain("Done");
   });
 });
+
+describe("I3: a visible Edit, Remove from People inside it, Bring back in Settings", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { NamePane } = require("@/features/tell/Pickers") as typeof import("@/features/tell/Pickers");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { SettingsSheetView } = require("@/features/people/SettingsSheet") as typeof import("@/features/people/SettingsSheet");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { REMOVE_COPY, removeCopy } = require("@/features/person/PortraitView") as typeof import("@/features/person/PortraitView");
+  const pressables = (r: TestRenderer.ReactTestRenderer) => r.root.findAll((n) => typeof n.props.accessibilityLabel === "string" && typeof n.props.onPress === "function");
+
+  it("the person's page shows Edit beside the name, which opens the name", () => {
+    const onRename = jest.fn();
+    let r!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      r = TestRenderer.create(
+        <PortraitView personId="k" name="Kaiya" short="Kaiya" label="daughter" remembered={false} comingUp={[]} youSaid={[]} between={[]} total={0}
+          lately={[]} onRename={onRename} onBack={noop} onLine={noop} onSource={noop} onKnows={noop} onMessage={noop} onCall={noop} onTell={noop} />,
+      );
+    });
+    const edit = pressables(r).find((n) => n.props.accessibilityLabel === "Edit");
+    expect(edit).toBeTruthy();
+    act(() => edit!.props.onPress());
+    expect(onRename).toHaveBeenCalled();
+  });
+
+  it("the name sheet offers Remove from People; the confirm says what stays and how to bring them back", () => {
+    const onRemove = jest.fn();
+    let r!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      r = TestRenderer.create(<NamePane initial="Kaiya" onSave={noop} onCancel={noop} onRemove={onRemove} />);
+    });
+    const remove = pressables(r).find((n) => n.props.accessibilityLabel === "Remove from People");
+    act(() => remove!.props.onPress());
+    expect(onRemove).toHaveBeenCalled();
+    expect(removeCopy("Kaiya")).toEqual({
+      title: "Remove Kaiya from People?",
+      body: "Kaiya won't appear in People or Today. Your notes stay, and you can bring Kaiya back from Settings.",
+      cancel: "Cancel",
+      remove: "Remove",
+    });
+    expect(REMOVE_COPY.action).toBe("Remove from People");
+  });
+
+  it("Settings lists who was removed, with Bring back, only when someone was", () => {
+    const back = jest.fn();
+    const render = (removed: { id: string; name: string }[]) => {
+      let r!: TestRenderer.ReactTestRenderer;
+      act(() => {
+        r = TestRenderer.create(<SettingsSheetView visible understanding onUnderstanding={noop} onSignOut={noop} onDismiss={noop} removed={removed} onBringBack={back} />);
+      });
+      return r;
+    };
+    expect(texts(<SettingsSheetView visible understanding onUnderstanding={noop} onSignOut={noop} onDismiss={noop} removed={[]} onBringBack={back} />))
+      .not.toContain("Removed from People");
+    const r = render([{ id: "k", name: "Kaiya" }]);
+    expect(r.root.findAllByType(Text).map((t) => [t.props.children].flat().join(""))).toContain("Removed from People");
+    act(() => pressables(r).find((n) => n.props.accessibilityLabel === "Bring back Kaiya")!.props.onPress());
+    expect(back).toHaveBeenCalledWith("k");
+  });
+});

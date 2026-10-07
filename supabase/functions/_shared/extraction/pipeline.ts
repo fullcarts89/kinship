@@ -69,7 +69,7 @@ export const DROP_BELOW_CONFIDENCE = 0.6;
 const CONTACT_DETAIL = /\b(phone|cell|mobile|landline)\b|\bnew number\b|\bnumber (?:ends|ending) in\b|[\w.+-]+@[\w-]+\.[a-z]{2,}|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b/i;
 /** Floor for items held because code confirms the person or subject is ambiguous. */
 export const HOLD_FLOOR_CONFIDENCE = 0.3;
-const WHO_AMBIGUITY: Flag[] = ["person_ambiguous", "pronoun_multiple", "subject_check"];
+const WHO_AMBIGUITY: Flag[] = ["person_ambiguous", "pronoun_multiple", "subject_check", "person_archived"];
 export const THREAD_FOLLOWUP_DAYS = 42;
 const QUOTE_MAX = 200;
 
@@ -172,6 +172,18 @@ class Context {
         return fk === k || fk.split(/\s+/)[0] === k || (k.includes(" ") && fk === k);
       });
     });
+  }
+
+  /** People removed from People a name could mean (founder I3): never the model's, never guessed. */
+  archivedFor(mention: string): string[] {
+    const k = nameKey(mention).replace(/^(my |our |the )?((aunt|auntie|uncle|cousin|friend|neighbou?r|coworker|boss|dr|doctor|mr|mrs|ms|miss|coach|pastor)\.? )+/, "");
+    if (!k) return [];
+    return (this.input.archived ?? []).filter((p) =>
+      [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean).some((f) => {
+        const fk = nameKey(f);
+        return fk === k || fk.split(/\s+/)[0] === k;
+      })
+    ).map((p) => p.id);
   }
 
   /** People on the roster whose name appears in the note. */
@@ -458,6 +470,8 @@ function planItem(ctx: Context, proposed: ProposedItem): ItemResult {
       date_rule: resolution?.rule ?? null,
       ...(withPeople.length ? { with_person_ids: withPeople.map((p) => p.id) } : {}),
       ...(Object.keys(selfRelations).length ? { self_relations: selfRelations } : {}),
+      // Someone removed from People the name fits (founder I3): offered back.
+      ...(who.archived_ids?.length ? { archived_ids: who.archived_ids, ...(who.mention ? { mention: who.mention } : {}) } : {}),
     },
   };
 }
@@ -522,7 +536,7 @@ function askConfirmed(ctx: Context, mention: string): boolean {
 
 // A pronoun that could point at two named people ("Ben and Josh went
 // climbing. He fell.") waits for the user, like any other ambiguity.
-const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict"];
+const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict", "person_archived"];
 
 function tierFor(flags: Set<Flag>): Tier {
   if (HOLD_FLAGS.some((f) => flags.has(f))) return "hold";
@@ -689,9 +703,9 @@ function namesFor(p: RosterPerson): string[] {
 function refileBySubject(
   ctx: Context,
   statement: string,
-  who: { person_id: string | null; person_key: string | null; new_person_name: string | null },
+  who: { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string },
   flags: Set<Flag>,
-): { person_id: string | null; person_key: string | null; new_person_name: string | null } {
+): { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string } {
   const filed = who.person_key ? ctx.byKey.get(who.person_key) : null;
   const lead = leadingName(statement);
   if (!filed || !lead || statementNames(statement, namesFor(filed))) return who;
@@ -702,6 +716,12 @@ function refileBySubject(
   if (!said) return who;
   let candidates = ctx.candidatesFor(said);
   if (candidates.length === 0 && said !== firstOnly) candidates = ctx.candidatesFor(firstOnly);
+  // Someone removed from People: offered back, never re-created (founder I3).
+  const removed = ctx.archivedFor(said).length ? ctx.archivedFor(said) : ctx.archivedFor(firstOnly);
+  if (removed.length) {
+    flags.add(candidates.length ? "person_ambiguous" : "person_archived");
+    return { person_id: null, person_key: null, new_person_name: null, archived_ids: removed, mention: said };
+  }
   if (candidates.length === 1) {
     if (candidates[0].key === filed.key) return who;
     flags.add("subject_moved");
@@ -732,7 +752,7 @@ function relatedByName(ctx: Context, raw: ProposedItem): { who: Who; related: Pl
 
 const SELF_WORDS = new Set(["i", "me", "my", "myself", "we", "us", "our", "ourselves", "you", "your", "yourself", "you and i", "me and you"]);
 
-type Who = { person_id: string | null; person_key: string | null; new_person_name: string | null } | { drop: DropReason };
+type Who = { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string } | { drop: DropReason };
 
 function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   const mention = (raw.person_mention ?? "").trim();
@@ -809,6 +829,13 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
 
   // A name.
   const candidates = ctx.candidatesFor(mention);
+  // Someone the user removed from People (founder I3): offered back, never
+  // added again as someone new; with someone here who fits too, asked.
+  const removed = ctx.archivedFor(mention.replace(/['’]s$/, ""));
+  if (removed.length) {
+    flags.add(candidates.length ? "person_ambiguous" : "person_archived");
+    return { person_id: null, person_key: null, new_person_name: null, archived_ids: removed, mention: mention.replace(/['’]s$/, "") };
+  }
   if (candidates.length === 0) {
     // Someone not on the roster. Must look like a name and be in the note.
     if (!/^\p{Lu}/u.test(mention)) return unresolved("person_ambiguous");
@@ -1106,6 +1133,10 @@ function chooseClarification(ctx: Context, items: PlannedItem[]): Clarification 
       question: mention && /^\p{Lu}/u.test(mention) ? `Which ${mention} do you mean?` : "Who is this about?",
       options: [...options, "Someone else"],
     };
+  }
+  const removed = held.find((i) => i.flags.includes("person_archived") && i.mention);
+  if (removed?.mention) {
+    return { about: "person", question: `${removed.mention} was removed from People.`, options: [`Bring back ${removed.mention}`, "Someone else"] };
   }
   const subject = held.find((i) => i.flags.includes("subject_check"));
   if (subject && subject.person_key) {

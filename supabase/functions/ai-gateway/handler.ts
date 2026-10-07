@@ -281,6 +281,7 @@ function toWriteItem(i: PlannedItem): WriteItem {
     ...(i.self_relations && Object.keys(i.self_relations).length ? { self_relations: i.self_relations } : {}),
     ...(i.twin_person_id ? { twin_person_id: i.twin_person_id } : {}),
     ...(i.mention ? { mention: i.mention } : {}),
+    ...(i.archived_ids?.length ? { archived_ids: i.archived_ids } : {}),
   };
 }
 
@@ -310,6 +311,7 @@ function present(i: PlannedItem) {
     ...(i.self_relations && Object.keys(i.self_relations).length ? { self_relations: i.self_relations } : {}),
     ...(i.twin_person_id ? { twin_person_id: i.twin_person_id } : {}),
     ...(i.mention ? { mention: i.mention } : {}),
+    ...(i.archived_ids?.length ? { archived_ids: i.archived_ids } : {}),
   };
 }
 

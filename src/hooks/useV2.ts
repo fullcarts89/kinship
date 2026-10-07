@@ -281,8 +281,11 @@ export async function noteFor(store: UserStore, captureId: string, now: Date): P
     const item = (await store.get("memory_items", String(s.memory_item_id))) as MemoryItem | null;
     // A line a later note replaced still came from this note: it stays, marked (H25).
     if (!item || item.status === "retracted" || item.deleted_at) continue;
+    const p = people.find((x) => x.id === item.person_id);
+    // Removed from People (founder I3): what was only about them is out of
+    // sight with them; the note itself stays.
+    if (p?.state === "archived") continue;
     if (!items.some((i) => i.id === item.id)) {
-      const p = people.find((x) => x.id === item.person_id);
       items.push({
         id: item.id, statement: voiced(item, people).statement, person: p?.display_name ?? "", personId: item.person_id,
         ...(item.status === "superseded" ? { updated: true } : {}),
@@ -338,7 +341,21 @@ export function useV2Actions() {
     settleConflict: (id: number, choice: "keep_current" | "use_mine") => repositoriesFor(store).conflicts.resolve(id, choice),
     /** Correct a person's name: same person, same memories (H1). */
     rename: (personId: string, name: string) => repositoriesFor(store).people.rename(personId, name),
+    /** "Remove from People" (founder I3): a soft archive; nothing is deleted. */
+    removePerson: (personId: string) => repositoriesFor(store).people.archive(personId),
+    /** "Bring back": the same person, with everything they had (I3). */
+    bringBack: (personId: string) => repositoriesFor(store).people.restore(personId),
   };
+}
+
+/** People removed from People (founder I3), for Settings' Bring back; never anywhere else. */
+export function useRemovedPeople(): Person[] {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) =>
+    (await repos.people.list())
+      .filter((p) => p.state === "archived" && !p.deleted_at)
+      .sort((a, b) => a.display_name.localeCompare(b.display_name)));
+  return q.data ?? [];
 }
 
 // ─── Today ──────────────────────────────────────────────────────────────
@@ -510,7 +527,9 @@ export function usePersonLinks(personId: string) {
     const person = people.find((p) => p.id === personId && !p.deleted_at);
     if (!person) return [];
     const answered = new Set<string>(JSON.parse((await getMeta(store.db, LINKS_ANSWERED)) ?? "[]") as string[]);
-    const items = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people));
+    // Never asked about memories that left with someone removed from People (I3).
+    const removed = new Set(people.filter((p) => p.state === "archived").map((p) => p.id));
+    const items = ((await store.list("memory_items")) as MemoryItem[]).filter((m) => !removed.has(m.person_id)).map((m) => voiced(m, people));
     return linkSuggestions({ person, people, items, related: await repos.people.related(), answered });
   }, [personId]);
   const remember = async (key: string) => {

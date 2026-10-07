@@ -326,6 +326,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
           onReject={(itemId) => fail(u.reject(itemId, showing))}
           onCorrect={(itemId: string, change: Correction) => fail(u.correct(itemId, change))}
           onAddPerson={(itemId: string, name: string) => fail(u.addParticipant(itemId, name).then(() => undefined))}
+          onRestore={(personId) => fail(u.restorePerson(personId))}
           onAnswer={(answers) => fail(u.answer(showing, answers))}
           onOpenNote={() => {
             // Looking at the note never decides anything: the sheet steps

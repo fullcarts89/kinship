@@ -114,6 +114,9 @@ export function buildInput(capture: CaptureRow, people: PersonRow[], related: Re
   const text = capture.raw_text.normalize("NFC");
   const ordered = orderRoster(capture, people, related);
 
+  // Removed from People (founder I3): never the model's; code checks names against them.
+  const archived = people.filter((p) => p.state === "archived")
+    .map((p) => ({ id: p.id, display_name: p.display_name, full_name: p.full_name, nicknames: p.nicknames ?? [] }));
   const roster: RosterPerson[] = ordered.map((p, i) => ({
     key: `p${i + 1}`,
     id: p.id,
@@ -161,5 +164,6 @@ export function buildInput(capture: CaptureRow, people: PersonRow[], related: Re
     roster,
     related: rosterRelated,
     dossier,
+    ...(archived.length ? { archived } : {}),
   };
 }

@@ -189,7 +189,13 @@ export function KindPane({
 }
 
 /** "Their name": a correction, never a new person (founder H1). */
-export function NamePane({ initial, onSave, onCancel }: { initial: string; onSave: (name: string) => void; onCancel: () => void }) {
+export function NamePane({ initial, onSave, onCancel, onRemove }: {
+  initial: string;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+  /** "Remove from People" (founder I3), asked to confirm by the screen. */
+  onRemove?: () => void;
+}) {
   const p = usePalette();
   const [name, setName] = useState(initial);
   return (
@@ -211,6 +217,11 @@ export function NamePane({ initial, onSave, onCancel }: { initial: string; onSav
       <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.m }}>
         <Pill variant="primary" label="Save" disabled={!name.trim() || name.trim() === initial} onPress={() => onSave(name)} />
       </View>
+      {onRemove ? (
+        <View style={{ alignItems: "flex-start", marginTop: space.xl }}>
+          <Pill variant="quiet" size="small" label="Remove from People" onPress={onRemove} />
+        </View>
+      ) : null}
     </View>
   );
 }

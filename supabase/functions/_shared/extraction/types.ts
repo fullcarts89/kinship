@@ -73,6 +73,19 @@ export interface ExtractionInput {
   roster: RosterPerson[];
   related: RosterRelated[];
   dossier: DossierItem[];
+  /**
+   * People the user removed from People (founder I3). Never shown to the
+   * model; code checks a name against them so a removed person is offered
+   * back, never re-created as someone new or guessed.
+   */
+  archived?: ArchivedPerson[];
+}
+
+export interface ArchivedPerson {
+  id: string;
+  display_name: string;
+  full_name?: string | null;
+  nicknames?: string[] | null;
 }
 
 // ─── The model's proposal (structured output; untrusted) ────────────────────
@@ -175,7 +188,10 @@ export type Flag =
   // A stated relationship that differs from the one Kinship holds: asked (H17).
   | "relation_conflict"
   // Stabilization Gate F: also about others in People (one memory, one source).
-  | "shared_people";
+  | "shared_people"
+  // Founder I3: the name is someone the user removed from People. Held to
+  // bring them back, never added again as someone new.
+  | "person_archived";
 
 export interface PlannedSpan {
   start: number;
@@ -216,6 +232,8 @@ export interface PlannedItem {
   twin_person_id?: string;
   /** The name a held line asks about ("Sam" with two Sams): its choices are only the people it can mean. */
   mention?: string;
+  /** People removed from People that the name fits: offered back, never re-created (founder I3). */
+  archived_ids?: string[];
 }
 
 export interface Clarification {

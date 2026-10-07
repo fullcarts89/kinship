@@ -22,6 +22,18 @@ export interface PortraitLineData {
   was?: string | null;
 }
 
+/** "Remove from People" (founder I3): a soft archive; the confirm says what stays and where they come back from. */
+export const REMOVE_COPY = { action: "Remove from People", cancel: "Cancel", remove: "Remove" } as const;
+
+export function removeCopy(name: string): { title: string; body: string; cancel: string; remove: string } {
+  return {
+    title: `Remove ${name} from People?`,
+    body: `${name} won't appear in People or Today. Your notes stay, and you can bring ${name} back from Settings.`,
+    cancel: REMOVE_COPY.cancel,
+    remove: REMOVE_COPY.remove,
+  };
+}
+
 export interface PortraitViewProps {
   personId: string;
   name: string | null;
@@ -191,6 +203,12 @@ export function PortraitView(props: PortraitViewProps) {
             </Pressable>
           ) : <Name>{props.name}</Name>}
           {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
+          {/* A visible Edit beside the name (founder I3): the name, and Remove from People. */}
+          {props.onRename ? (
+            <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
+              <Pill variant="quiet" size="small" label="Edit" accessibilityHint={`Change ${first}'s name, or remove them from People`} onPress={props.onRename} />
+            </View>
+          ) : null}
           {props.remembered ? <Small style={{ marginTop: space.xs }}>Remembered</Small> : null}
           {props.reachedOut ? <Small style={{ marginTop: space.xs }}>{props.reachedOut}</Small> : null}
         </View>

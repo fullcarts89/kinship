@@ -57,6 +57,8 @@ export type HeldItem = GatewayItem & {
   twin_person_id?: string;
   /** The name it asks about ("Sam" with two Sams). */
   mention?: string;
+  /** People removed from People the name fits: offered back, never re-created (founder I3). */
+  archived_ids?: string[];
 };
 
 export interface Clarification {

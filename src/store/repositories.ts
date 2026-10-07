@@ -148,6 +148,33 @@ export class PeopleRepo {
     return this.store.update("people", id, { state });
   }
 
+  /**
+   * "Remove from People" (founder I3): a soft archive, never a delete. Their
+   * notes, sources, relationships and memories all stay; restore() brings
+   * back the same person. What is only about them leaves with them. A memory
+   * shared with others stays with the others: filed on the first of them
+   * still here, and still shared with this person for when they come back.
+   */
+  async archive(id: string): Promise<void> {
+    const person = await this.get(id);
+    if (!person || person.deleted_at) throw new StoreWriteError("that person isn't here any more");
+    const here = new Set((await this.list()).filter((p) => p.state !== "archived" && !p.deleted_at && p.id !== id).map((p) => p.id));
+    for (const m of (await this.store.list("memory_items", { personId: id })) as MemoryItem[]) {
+      const others = (Array.isArray(m.with_person_ids) ? m.with_person_ids : []).filter((pid) => here.has(pid));
+      if (!others.length || m.subject_type === "related") continue;
+      const [owner, ...rest] = others;
+      await this.store.update("memory_items", m.id, { person_id: owner, with_person_ids: [...rest, id] });
+    }
+    await this.store.update("people", id, { state: "archived" });
+  }
+
+  /** "Bring back" (founder I3): the same person, with everything they had. */
+  async restore(id: string): Promise<void> {
+    const person = await this.get(id);
+    if (!person || person.deleted_at) throw new StoreWriteError("that person isn't here any more");
+    if (person.state === "archived") await this.store.update("people", id, { state: "active" });
+  }
+
   /** CA-5: a birthday always says where it came from. */
   setBirthday(id: string, birthday: string | null, source: "contacts" | "user_edit" = "user_edit"): Promise<Data> {
     return this.store.update("people", id, {
