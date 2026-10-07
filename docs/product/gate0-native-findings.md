@@ -178,3 +178,22 @@ The founder notes Pedro has no phone number in the app.
 - **J1:** a person-resolution miss on Pedro's page.
 - **J2:** no way to add someone new while correcting.
 - **The drop guards** (`invented_name`, `invented_relation`): when a guard drops the only memory in a note, it should become a question instead.
+
+### J4 (continued, 3:54 pm) — founder's additions
+
+**Screenshot:** `screens/feedback4/g0-j4-nothing-again.png`. The same "Nothing to remember in that one. Your note is saved." on the 3:53 pm note, which the call log shows was also dropped as `invented_relation`.
+
+**1. Even if Wifey really were someone new, there must be a way to add her.**
+- A note naming someone Kinship doesn't know never ends without **Add Wifey**.
+- Same rule as H21 ("Add Pedro") and J2 ("Add Josh" while correcting).
+
+**2. "Your note is saved" is wrong here (founder).**
+- The words are stored on the server, but in practice nothing is saved from the user's point of view:
+  - the card offers only **Undo**;
+  - once closed, the note is attached to no one;
+  - the 2.0 app has **no place to find a note** that produced no memory (checked: no notes list in the app; Source opens only from a memory's line).
+- So the sentence claims something the user can't see or verify.
+
+**Recommended (copy needs the founder's yes, since it's part of the approved post-Tell contract):**
+- **When a memory was dropped by a guard, or its person is unknown:** never this card. Ask instead ("Who is Wifey?", with Add Wifey, the people it could be, and Don't keep this). See J4 above.
+- **When a note genuinely holds nothing to remember** (e.g. "testing"), say only **"Nothing to remember in that one."**. Either drop "Your note is saved", or keep it only together with a **See the note** link that opens the note, so the claim is true and checkable.
