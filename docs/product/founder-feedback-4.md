@@ -200,3 +200,45 @@ This gives three properties at once: **one current truth; historical context not
 > Superseded memories remain available in What Kinship knows when they are meaningful background, but are clearly presented as past state and never alongside current state in a way that implies both are true.
 
 What Kinship knows is "where a person's story has some continuity", not a dump of active facts.
+
+---
+
+## Batch 3
+
+### I8 — The app opens in the old (1.0) app
+
+**Observed.** Reopening Kinship regularly lands in the old app. Getting back to 2.0 means signing out and in again.
+
+**Ask.** Remove that path: this build should always start in 2.0.
+
+**For triage (read-only look, nothing changed):**
+- After sign-in, the shell is chosen per account from the `shell_v2` flag (`useLaunchShell`, `app/index.tsx`).
+- That flag is fetched at launch with a 4-second limit, falling back to the copy on the device. When neither answers, it is treated as off, and **off means 1.0**.
+- So a slow or failed flag check at cold start (e.g. the session still refreshing) can drop a 2.0 account into 1.0.
+- **Likely fix:** in the `dogfood-v2` build (`EXPO_PUBLIC_V2_ENTRY=1`), a signed-in account always opens 2.0 and never falls back to 1.0. This is to be confirmed on device; the exact cause isn't reproduced yet.
+
+### I9 — Can't get back to the confirmation after opening a line's details
+
+**Observed:**
+1. After a Tell, the founder tapped into a line's details to see what's underlined.
+2. After confirming there, they couldn't return to the original confirmation view.
+3. So they couldn't give feedback on anything else (other lines, Got it right / Not quite).
+
+**Expected.** Closing a line's details returns to the same confirmation, with everything else still actionable.
+
+### I10 — Asked "is this about Michelle?" after already saying it would keep it for Michelle
+
+**Observed:**
+- Tell: "Michelle and Sam might be moving to Australia".
+- **Correct:** the confirmation asked which of the two Sams was meant, and said it would keep it for Michelle.
+- **Wrong:** it *also* asked whether it was about Michelle, a question already answered on the same screen. A screenshot is to follow.
+
+**Expected.** One question: which Sam. Michelle is already resolved.
+
+### I11 — Still no way to choose more than one person
+
+**Observed.** The founder still can't multi-select the people a memory is about.
+
+**Related.** G23 added a **Both** choice for an ambiguous he/she between two people. It isn't a general "choose several people".
+
+**Expected.** Where Kinship asks who a memory is about, the user can pick more than one person. The memory is then shared across them, like H5/H13 shared memories.
