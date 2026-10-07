@@ -286,3 +286,34 @@ The founder notes Pedro has no phone number in the app.
 - **When two lines become the same line on the same person** (both are now "Chris loves watching Dragon Ball Z"), they collapse into one.
 
 **Native check after the fix:** repeat exactly this. Expect one line on Chris that names Chris, with "was:" history on the line's sheet.
+
+---
+
+## 7 Oct, 4:19 pm
+
+### J7 — Sam's page asks "Is this the Sam…?" about a line the founder already said is about Chris
+
+**Screenshot:** `screens/feedback4/g0-j7-sam-eden-dbz.png` (Sam Eden's page).
+
+**What happened.**
+1. After answering "which Sam?" with **Someone else → Chris** (I13 entry above), the founder opened **Sam Eden's** page.
+2. It asked whether this was the Sam who loves Dragon Ball Z.
+3. In the screenshot the line "Sam loves watching Dragonball Z" now shows in **Sam Eden's Lately**, so it is linked to him. The founder can say whether that came from answering the prompt.
+
+**Cause (confirmed in the code):**
+- The person page's "Is this the Sam in '…'?" suggestions (`src/features/person/links.ts`, added for G20/G34) look for any memory filed on someone else **whose words name this person's first name**.
+- They skip it only if the name already belongs to someone on the memory.
+- Because the line still says "Sam" (the I13 answer-path gap), and Chris isn't a Sam, the suggestion fires on **both** Sams' pages. "Anthony loves…" will do the same on both Anthonys'.
+
+**Why it matters (trust).**
+- The user's decision wins (contract §7, invariant 4).
+- The founder said explicitly that this line isn't about a Sam; Kinship asks again anyway.
+- One tap on Yes pulls the memory onto a person the user already ruled out.
+
+**Expected:**
+- **With I13 fixed on the answer path,** the line reads "Chris loves…", and nothing names a Sam.
+- **Independently:** once the user has said who a line is about (answered a "who" question, picked Someone else, or corrected the person), name-matching suggestions never re-ask about it on another person's page.
+
+**Severity:** P1.
+
+**Related:** I13 (answer path), H12 (the other Sam's page), G20/G34 (the purpose of the link prompt: someone added after they were mentioned).
