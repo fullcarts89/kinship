@@ -109,3 +109,35 @@ The founder notes Pedro has no phone number in the app.
   - **Question:** should a pet's vet appointment count as sensitive health? Probably not; a person's medical appointment would.
 - **"Nothing needs you today." shows behind the "Here's what I'll remember" sheet** (3:37 screenshot). G27(a) / H19 removed it behind the inline Kept card. This sheet may need the same treatment. It's a possible re-sighting of G27(a); its status is not changed until the founder confirms.
 - **"Tap any underlined word to change it."** is still on the confirmation. This is instructional copy that I4 (Phase 4) replaces with "Correct this"; not new.
+
+---
+
+## 7 Oct, 3:43–3:44 pm
+
+### I12 — re-seen: after two more renames, every line still says "Wifey"
+
+**Screenshots:** `screens/feedback4/g0-i12-boo-boo.png`, `g0-i12-loo-loo.png`.
+
+**What happened.** On the Gate 0 build the founder renamed **Cutie Pie → Boo Boo**, then **Boo Boo → Loo Loo**.
+- **Works:** the page title and "What Kinship knows about Loo Loo" show the full new name. That half of the I12 fix holds: full names in titles.
+- **Fails:** every line still says **"Wifey"**: "Wifey got promoted · Mon, Oct 5", "Wifey said she might be moving to Seattle…", "Wifey is thinking about moving to Marin next summer".
+
+**Status: I12 → STILL OPEN** (re-seen on device; ledger updated). This also answers the earlier 2:23 pm entry: the founder didn't do the rename-to-Wifey-and-back step, and shouldn't have to.
+
+**Cause** (from reading the code; no data was queried):
+1. Before the fix, her contact name was **"Wifey Liu"** and her notes said "Wifey".
+2. The **pre-fix** rename to "Cutie Pie" overwrote both her display name and her full name, so "Wifey" no longer exists anywhere in her record. It survives only inside her lines' words.
+3. The fix (`8d43264`) learns earlier names **only at rename time, from the record**. Renaming Cutie Pie → Boo Boo → Loo Loo recorded "Cutie Pie" and "Boo Boo", never "Wifey". So nothing tells the app that "Wifey" in her lines means her.
+
+**This isn't only old data.** The same gap hits any nickname used only in notes.
+- Example: a contact "Elizabeth Chen", whose notes say "Liz got promoted".
+- Renaming her to "Lizzie" records "Elizabeth Chen" and "Elizabeth", never "Liz".
+- So "Liz got promoted" never updates.
+- Learning names at rename time can't cover words the record never held.
+
+**Recommended direction (for the next Gate 0 iteration; CC-18 already prefers structured references):**
+- **Going forward:** each line keeps, as structured data, the words it used for its person (e.g. "Wifey"), recorded when it's understood. Display swaps exactly those words for the person's current name, whatever the rename history. Source keeps the original note.
+- **Lines already stored:** fill that in once from what is already known. Candidates are her own lines' leading name (guarded: never a word that is another person's name, never a pronoun or "You"), or the stored review data, whichever is reliable. This needs its own tests and never guesses across people.
+- **Her record only, if wanted sooner:** add "Wifey" as one of her earlier names. That is a change to the founder's data, so it needs an explicit yes. The no-data-change workaround is the checklist step: rename her to Wifey, then back to Loo Loo.
+
+**Native check after the fix:** with **no manual step**, her page, What Kinship knows and Today read "Loo Loo got promoted" (and "Congratulate Loo Loo"); Source still shows the original "Wifey…".
