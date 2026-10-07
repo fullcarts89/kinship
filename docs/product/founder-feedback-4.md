@@ -284,3 +284,20 @@ What Kinship knows is "where a person's story has some continuity", not a dump o
 **Also visible in the screenshots (to check at triage):**
 - **The title truncates to the first word:** "What Kinship knows about **Cutie**". The first-name rule doesn't suit nicknames like "Cutie Pie". It should use the whole name when that is what the user chose.
 - **"Wifey got promoted · Mon, Oct 5" carries a Maybe token** (H29). A promotion stated as fact shouldn't be marked uncertain unless the note hedged it. Check the source note.
+
+### I13 — Moving a line to another person keeps the wrong name in its words
+
+**Observed.** Screenshot: `screens/feedback4/i13-person-correction-kaiya.png`.
+1. On a Kept card, the founder corrected the person on "Wifey has a new job she's really excited about" from **Wifey** to **Kaiya**.
+2. The memory moved to Kaiya's page correctly ("Edited by you · Oct 7 · from your note, Oct 6").
+3. Its words still say **"Wifey** has a new job…" on Kaiya's page.
+
+**Expected.** Correcting the person corrects the name in the line: "Kaiya has a new job she's really excited about". The lineage is kept ("was: ~~Wifey has…~~", H30) and the original note is untouched.
+
+**Difference from I12:**
+- **I12 (rename):** the person is the same and only their name changed, so a display-time substitution is enough.
+- **I13 (person correction):** the user said the *person* was wrong, so the words naming them are wrong too. A real edit with lineage is justified.
+
+**Care needed:**
+- Replace only the wrong person's name as a whole word, e.g. not inside "Wifey's friend…" when that names someone else.
+- When the old name doesn't appear in the line ("She has a new job"), leave the words alone.
