@@ -235,6 +235,23 @@ What Kinship knows is "where a person's story has some continuity", not a dump o
 
 **Expected.** One question: which Sam. Michelle is already resolved.
 
+**Screenshot:** `screens/feedback4/i10-michelle-sam-australia.png`. It shows that this is really the **H5/H13 mirrored-duplicate pattern**, not only a redundant question:
+- **Two lines came back for one shared memory:**
+  - "Michelle might be moving to Australia with Sam", kept on Michelle Lee (Maybe · Something ongoing);
+  - a second, mirrored line, "Sam might be moving to Australia with Michelle", held because Sam is ambiguous.
+- **The held question offers Michelle Lee as a choice** ("Sam Doughty · Michelle Lee · Sam Eden · Someone else"), because she is named in the note.
+- **Its reason, "I couldn't tell who this is about.", is wrong.** Kinship knew exactly who; it just didn't know *which Sam*.
+
+**Expected:**
+- **One** shared line, "Michelle and Sam might be moving to Australia", on Michelle.
+- **One** question: *Which Sam?* Sam Doughty · Sam Eden (Both / Someone else as today).
+- The answer adds that Sam to the same memory.
+- The same flow handles I11: choosing more than one person.
+
+**Why the H13 fix didn't catch it.** The twin check merges a mirrored line into one that is *saved*. Here the mirror is *held* (ambiguous person), so it is never compared. This is to be confirmed when fixing.
+
+**Also visible:** "Nothing needs you today." shows behind the sheet while a question is waiting. H19 removed the quiet headline behind a Kept card; a waiting question should get the same treatment.
+
 ### I11 — Still no way to choose more than one person
 
 **Observed.** The founder still can't multi-select the people a memory is about.
