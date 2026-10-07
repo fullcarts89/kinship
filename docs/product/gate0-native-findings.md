@@ -197,3 +197,29 @@ The founder notes Pedro has no phone number in the app.
 **Recommended (copy needs the founder's yes, since it's part of the approved post-Tell contract):**
 - **When a memory was dropped by a guard, or its person is unknown:** never this card. Ask instead ("Who is Wifey?", with Add Wifey, the people it could be, and Don't keep this). See J4 above.
 - **When a note genuinely holds nothing to remember** (e.g. "testing"), say only **"Nothing to remember in that one."**. Either drop "Your note is saved", or keep it only together with a **See the note** link that opens the note, so the claim is true and checkable.
+
+---
+
+## 7 Oct, 4:01 pm
+
+### J5 — Swiping down doesn't close a line's detail sheet
+
+**Screenshot:** `screens/feedback4/g0-j5-line-sheet-swipe.png`. The "Ben starts a new job" sheet ("Edit the words", who · when · what, Not this / Done), opened from Ben's page.
+
+**What happened.** The sheet shows a grabber at the top, which promises drag-to-close, but swiping down doesn't close it.
+
+**Likely cause** (from the code, not checked on a device):
+- In the shared sheet (`src/ui/Sheet.tsx`), the drag-to-close gesture listens **only on the thin strip around the grabber**, roughly the top 50 pt.
+- A downward swipe that starts anywhere else (on the line, its tokens, or the buttons) goes to the sheet's scroll area, which takes the drag and does nothing.
+- iOS sheets close on a downward drag from anywhere while their content is scrolled to the top.
+- Because every sheet uses this component, the same likely applies to the review, the hand-off, the pickers, and the others.
+- **If it also fails when dragging from the grabber itself,** there's a second problem. Worth checking in the native pass.
+
+**Expected:**
+- A downward drag from anywhere on a sheet closes it, as long as its content is at the top. A drag inside scrolled content scrolls first.
+- The sheet follows the finger and springs back on a short drag, as it does now from the grabber.
+- Closing a line's sheet opened from a confirmation returns to that confirmation (I9).
+
+**Severity:** P1. Not a dead end (Done, and a tap above the sheet, still close it), but the most basic native gesture fails on the most-used surfaces.
+
+**Related:** I6 (keyboard and drag-to-dismiss behaviour, approved for Phase 4), I9 (returning to the confirmation).
