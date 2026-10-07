@@ -371,6 +371,45 @@ export async function cancelAllNotifications(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
+/** The payload types 1.0 schedules (this file); 2.0 schedules none. */
+const LEGACY_TYPES = new Set([
+  "garden_walk", "birthday", "memory_resurface", "weekly_digest", "memory_capture_prompt", "contextual_nudge",
+]);
+
+function isLegacy(data: Record<string, unknown>): boolean {
+  return (typeof data.type === "string" && LEGACY_TYPES.has(data.type)) ||
+    typeof data.personId === "string" || typeof data.memoryId === "string";
+}
+
+/**
+ * The 2.0 shell drops 1.0's notifications still scheduled on this phone (a
+ * weekly digest, a memory resurfacing): each would open a 1.0 screen, and
+ * 1.0's Home schedules more whenever it loads (founder I8). Anything else
+ * scheduled is left alone.
+ */
+export async function cancelLegacyNotifications(): Promise<void> {
+  const Notifications = getNotifications();
+  if (!Notifications) return;
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of scheduled) {
+    const data = (n.content.data ?? {}) as Record<string, unknown>;
+    if (isLegacy(data)) await Notifications.cancelScheduledNotificationAsync(n.identifier);
+  }
+}
+
+/** Where a tapped 1.0 notification leads (a 1.0 screen), or null. */
+export function notificationRoute(data: Record<string, unknown>): string | null {
+  const type = typeof data.type === "string" ? data.type : undefined;
+  const personId = typeof data.personId === "string" ? data.personId : undefined;
+  const memoryId = typeof data.memoryId === "string" ? data.memoryId : undefined;
+  if (type === "memory_capture_prompt" && personId) return `/memory/add?personId=${personId}`;
+  if (type === "memory_resurface" && memoryId) return `/memory/${memoryId}`;
+  if (type === "weekly_digest") return "/activity";
+  if (type === "garden_walk") return "/garden-walk";
+  if (personId) return `/person/${personId}`;
+  return null;
+}
+
 // ─── Handler Setup ───────────────────────────────────────────────────────────
 
 /**

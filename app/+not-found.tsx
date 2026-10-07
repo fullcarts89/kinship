@@ -15,7 +15,8 @@ export default function NotFoundScreen() {
         <Text className="font-sans text-base text-warm-gray text-center mb-xl">
           This screen doesn&apos;t exist in your garden yet.
         </Text>
-        <Link href="/(tabs)" className="mt-lg">
+        {/* Through the launch route, which opens the shell this account uses (founder I8). */}
+        <Link href="/" className="mt-lg">
           <Text className="font-sans text-base text-sage font-semibold">
             Return to Garden
           </Text>

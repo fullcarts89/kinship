@@ -9,6 +9,7 @@ import { StatusBar } from "expo-status-bar";
 import { GUTTER } from "@/design/tokens";
 import { TellFlowProvider } from "@/features/tell/TellFlow";
 import { useLaunchShell } from "@/hooks/useFlags";
+import { cancelLegacyNotifications } from "@/lib/notificationService";
 import { useAuth } from "@/providers";
 import { V2SessionProvider } from "@/providers/V2SessionProvider";
 import { Body, useNight, usePalette, Waiting } from "@/ui";
@@ -25,6 +26,12 @@ export default function V2Layout() {
     if (shell !== "v2") return;
     followSystemAppearance(true);
     return () => followSystemAppearance(false);
+  }, [shell]);
+
+  // 1.0's notifications still scheduled on this phone would each open a 1.0
+  // screen: 2.0 drops them (founder I8). 2.0 schedules none of its own.
+  useEffect(() => {
+    if (shell === "v2") void cancelLegacyNotifications().catch(() => undefined);
   }, [shell]);
 
   if (isLoading || shell === null) return <View style={{ flex: 1, backgroundColor: p.paper }} />;
