@@ -78,25 +78,29 @@ export function legacyRoutesAllowed(build: EntryShell | null = buildEntryShell()
   return build !== "v2";
 }
 
-/** Which shell this launch uses; null while deciding (see shellFor). */
+/**
+ * Which shell this launch uses; null while deciding (see shellFor). Signed
+ * out is "v1" (the routes send sign-in first). A decision belongs to the
+ * account it was made for: on a cold start the saved session is restored
+ * after the launch route first renders, and that account is deciding until
+ * its own answer, never handed the signed-out "v1" (founder I8, reopened).
+ */
 export function useLaunchShell(userId: string | null): "v1" | "v2" | null {
-  const [shell, setShell] = useState<"v1" | "v2" | null>(() =>
-    !userId ? "v1" : launch?.userId === userId ? shellFor(launch.flags) : null);
+  const [decided, setDecided] = useState<{ userId: string; shell: EntryShell } | null>(null);
   useEffect(() => {
-    if (!userId) {
-      setShell("v1");
-      return;
-    }
+    if (!userId) return;
     let cancelled = false;
     launchFlags(userId).then(
-      (f) => !cancelled && setShell(shellFor(f)),
-      () => !cancelled && setShell(shellFor(null)),
+      (f) => !cancelled && setDecided({ userId, shell: shellFor(f) }),
+      () => !cancelled && setDecided({ userId, shell: shellFor(null) }),
     );
     return () => {
       cancelled = true;
     };
   }, [userId]);
-  return shell;
+  if (!userId) return "v1";
+  if (decided?.userId === userId) return decided.shell;
+  return launch?.userId === userId ? shellFor(launch.flags) : null;
 }
 
 /** This account's flags, refreshed on returning to the foreground. Unknown is off. */
