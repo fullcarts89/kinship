@@ -36,7 +36,7 @@ This pass has **one database migration**, `20261008090000_v2_person_mentions` (I
    - `used_once`: the earlier name appears in one line only.
    - `used_for_others`: the word is used on other people's lines.
 
-4. **Redeploy ai-gateway.** J4, J1, I12 and I13 run there.
+4. **Redeploy ai-gateway.** J4, J1, J11, I12 and I13 run there.
    ```
    export SUPABASE_ACCESS_TOKEN=sbp_…
    npx supabase functions deploy ai-gateway --project-ref kddpxiiyxgvjrtpdkvio
@@ -76,6 +76,8 @@ This pass has **one database migration**, `20261008090000_v2_person_mentions` (I
 | 8 | J5 | Open a line's sheet on Ben's page; swipe down from the middle of it. Then open a long review, scroll down, and swipe down. Then open the Kept card's details and swipe down | The line's sheet closes from anywhere. In the long review the content scrolls back up first, and a swipe from the top closes it. The Kept card's details close back to the same card (I9). With the keyboard up, a swipe first puts it away |
 | 9 | Today headline (J8) | Look at Today with a Kept card up, with its details open, and with a question open | Never "Nothing needs you today." behind any of them |
 | 10 | Mochi (J9) | Tell "Ben's dog Mochi has a vet appointment Friday." (or look at the existing one, if it's within the next 7 days) | It's on Today's Coming up, as on Ben's page, with no question for your yes. A person's own medical appointment still never shows on Today |
-| 11 | G5 / app_stall | Use the app normally through this gate | No freeze; note the time of any. PostHog shows no `app_stall` of 3 s or more |
+| 11 | J11 | Tell "Anna asked me to water her plants while she's away." (with an Anna in People), then answer Yours | Never "Nothing to remember". "Whose promise?" with Yours · Anna's · Don't keep this, quoting the line. After Yours it's under "You said you'd" on Anna's page |
+| 11b | J11 | Tell "I got the job! Can't wait to tell Ben." | Never "Nothing to remember", and no to-do. The line is kept for Ben, shown on the card for a glance, and sits in Coming up on Ben's page (never on Today) |
+| 12 | G5 / app_stall | Use the app normally through this gate | No freeze; note the time of any. PostHog shows no `app_stall` of 3 s or more |
 
 If every row passes, tell me which ones you consider confirmed and I'll mark them VERIFIED in the ledger. Then Gate 0 closes and Phase 4 starts. Any new P0 trust failure goes back into this gate, not into a new stabilization phase.

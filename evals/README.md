@@ -73,8 +73,8 @@ fixed in `smoke.json` before any run and never changed after seeing output.
 
 ### The frozen corpus
 
-`MANIFEST.json` records each file's SHA-256 and the counts (413 fixtures,
-`extraction-v2.8`). CI fails if the corpus changes without a deliberate
+`MANIFEST.json` records each file's SHA-256 and the counts (416 fixtures,
+`extraction-v2.9`). CI fails if the corpus changes without a deliberate
 re-freeze (`manifest.ts --write <version>`, with the reason in the commit).
 CI also runs a **realistic oracle** (`--realistic`): perfect answers phrased
 the way the live model phrases them, which catches guard over-reach for free.
