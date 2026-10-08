@@ -85,6 +85,12 @@ export interface TellFlow {
    * (founder I10, as H19 did for the Kept card).
    */
   asking: boolean;
+  /**
+   * Something from Tell is on screen or open: a Kept card, the review or its
+   * details, a question (founder J8). Today never says "Nothing needs you
+   * today." behind it.
+   */
+  attention: boolean;
   toLookAt: string[];
   waitingOffline: boolean;
   openNote: (captureId: string) => void;
@@ -293,6 +299,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     pending,
     questions,
     asking,
+    attention: !!card || !!showing,
     toLookAt,
     waitingOffline: waiting.length > 0 && open.offline && currentView?.mode !== "understanding",
     openNote: (id) => openSheet(id),
@@ -306,7 +313,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     draft: (personId) => drafts.drafts[draftKey(personId)] ?? "",
     setDraft: (personId, text) => drafts.set(draftKey(personId), text),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), asking, toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked]);
+  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), asking, showing, toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked]);
 
   // The sheet shows its own view, or the last one while the next arrives.
   const shown = sheetView && SHEET_CONTENT.includes(sheetView.mode)

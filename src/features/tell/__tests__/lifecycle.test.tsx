@@ -358,3 +358,28 @@ it("never a sheet on a sheet: a question that arrives while another sheet is up 
   expect(sheetQuestion()).toBe("Which Sam do you mean?");
   r.unmount();
 });
+
+it("J8: Today's quiet headline never shows behind a Kept card, its details or a question (attention stays on while any is open)", async () => {
+  const w = await world();
+  const r = await mount();
+  expect(flow.current!.attention).toBe(false);
+  await tell(w, BEN_NOTE);
+  expect(flow.current!.card?.mode).toBe("card");
+  expect(flow.current!.attention).toBe(true);
+  // The card's details ("Here's what I'll remember", 3:37 pm): the card steps aside, the sheet is up.
+  await act(async () => flow.current!.openCard());
+  await settle();
+  expect(flow.current!.card).toBeNull();
+  expect(flow.current!.attention).toBe(true);
+  // Back to the card, then done with it: nothing left open.
+  await act(async () => mockSheet.current!.onDismiss());
+  await settle();
+  expect(flow.current!.attention).toBe(true);
+  await act(async () => flow.current!.dismissCard());
+  await settle();
+  expect(flow.current!.attention).toBe(false);
+  // A question on its sheet.
+  await tell(w, SAM_NOTE);
+  expect(flow.current!.attention).toBe(true);
+  r.unmount();
+});

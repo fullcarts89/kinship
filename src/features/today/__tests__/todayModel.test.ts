@@ -273,3 +273,22 @@ it("first sign-in on a phone: until the account's data is here, Today guesses no
   // A genuinely new account (its own record says so) still gets first use.
   expect(buildToday(input({ reasons: [], items: [], people: [], told: 0, activated: false })).firstUse).toEqual({ hasPeople: false });
 });
+
+describe("J9: a pet's vet visit is not a person's health (founder, 8 Oct)", () => {
+  const mochi = item("p1", { statement: "Ben's dog Mochi has a vet appointment", sensitivity: "health", subject_type: "related",
+    detail: { date: "2026-10-16", date_precision: "day", event_type: "medical", followup_policy: "both" } });
+  const bens = item("p2", { statement: "Ben has a doctor's appointment", sensitivity: "health",
+    detail: { date: "2026-10-15", date_precision: "day", event_type: "medical", followup_policy: "both" } });
+
+  it("Mochi's vet appointment is on Today's Coming up, as on Ben's page, even kept as health before the pet rule", () => {
+    const v = buildToday(input({ items: [mochi, bens], reasons: [] }));
+    expect(v.quiet.map((q) => q.text)).toEqual(["Ben's dog Mochi has a vet appointment"]);
+  });
+
+  it("it can be Today's moment too, like anything else; a person's own appointment never", () => {
+    const pet = buildToday(input({ items: [mochi], reasons: [reason("r5", "upcoming_event", "ben", "p1", 12, 16)] }));
+    expect(pet.moment?.statement).toBe("Ben's dog Mochi has a vet appointment");
+    const own = buildToday(input({ items: [bens], reasons: [reason("r6", "upcoming_event", "ben", "p2", 12, 15)] }));
+    expect(own.moment).toBeNull();
+  });
+});

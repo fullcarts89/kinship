@@ -34,7 +34,7 @@ A candidate becomes the moment only if its score is **≥ 55**. Score = base wei
 - **Freshness:** 0.5 once it was shown on an earlier day.
 
 **Never a moment:**
-- sensitive events (health, loss);
+- sensitive events (a person's health, loss). A pet's vet visit or health is not a person's health (founder J9, 8 Oct): it takes part in Today like anything else, also a line kept as "health" before the pipeline's pet rule (G43);
 - events about a relative ("Priya's mom is visiting");
 - coarse dates ("next week", "in the spring");
 - plans, promises, facts, threads;
@@ -62,7 +62,7 @@ These appear only on the relationship page and What Kinship knows:
 - promises, until promise reasons (RSN-06);
 - plans and seasonal plans (RSN-08);
 - shared context, traditions, moments;
-- sensitive events (hard-time rules, RSN-09);
+- sensitive events (hard-time rules, RSN-09), never a pet's vet visit (J9);
 - events about relatives;
 - events with coarse dates;
 - "a year ago" (RSN-10, not built).
