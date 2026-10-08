@@ -17,11 +17,18 @@
 //     person already has merges into it instead.
 //
 // No model is called: the model's proposal already passed pipeline.ts, and
-// the answer changes only who or when, never the words.
+// the answer changes only who or when. The words change only to say who the
+// user chose (founder I13): a pronoun becomes their name; a name that was
+// another person's ("Sam", answered Someone else → Chris) becomes theirs; a
+// word that is nobody's name ("Liz", answered Elizabeth) stays the user's own
+// word for them. Two lines the answer makes the same on one person are one.
 
 import { fold, kinshipReference, mirrorBag, relationKey, selfRelationPhrase, statedSelfRelations, wordsOf } from "./lexicon.ts";
 import { withSpokenName, withSpokenNames } from "./voice.ts";
-import { shortName } from "./names.ts";
+import {
+  goesBy, MAX_MENTIONS, type MentionSubject, mentionsOf, type PersonMention, recordMentions, shortName,
+  withSubjectReassigned,
+} from "./names.ts";
 import { threadTarget } from "./threads.ts";
 import type { Flag } from "./types.ts";
 
@@ -49,6 +56,8 @@ export interface HeldItem {
   mention?: string;
   /** People removed from People the name fits: the answer may bring one back (founder I3). */
   archived_ids?: string[];
+  /** Which words name whom; the open "who?" has the asked-about words with no person (founder I13). */
+  person_mentions?: PersonMention[];
 }
 
 /** The user's answer for one held item. */
@@ -83,6 +92,9 @@ export interface ResolvePerson {
   /** For saying their name as Kinship does (names.ts shortName). */
   full_name?: string | null;
   nicknames?: string[] | null;
+  /** Words their own lines use for them, and those of them that are earlier names (founder I12). */
+  mention_names?: string[] | null;
+  earlier_names?: string[] | null;
 }
 export interface ResolveRelated {
   id: string;
@@ -126,6 +138,8 @@ export interface ResolvedItem {
   action: { type: string; target_id: string | null };
   with_person_ids?: string[];
   self_relations?: Record<string, string>;
+  /** Which words name whom (founder I12/I13); "new:<n>" for someone the answer adds. */
+  person_mentions?: PersonMention[];
 }
 
 export interface Resolution {
@@ -280,21 +294,41 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       withPeople = [...new Set([...withPeople, ...a.also_person_ids])].filter((id) => id !== personId);
     }
 
-    // The user just said who "he" is: the line says so ("John wants to go
-    // back…"), never a "He" the page can't explain (Gate B).
+    // ── The words: the line names who the user chose (Gate B, founder I13) ──
     // Said as Kinship says each name: "Ben" from "Ben Oxnard", a chosen "Cutie Pie" whole (founder I12).
-    const spoken = (id: string) => {
+    const subjectFor = (id: string): MentionSubject | null => {
+      if (id.startsWith("new:")) {
+        const np = newPeople.find((p) => p.ref === id);
+        return np ? { person: { id, display_name: np.display_name, full_name: null } } : null;
+      }
       const p = ctx.people.find((x) => x.id === id);
-      return p ? shortName(p) : undefined;
+      return p ? { person: p, also: p.mention_names ?? [], earlier: p.earlier_names ?? [] } : null;
     };
-    const chosenName = needsPerson
-      ? (personId.startsWith("new:") ? newPeople.find((p) => p.ref === personId)?.display_name : spoken(personId))
-      : null;
-    // The user said who: the line names them ("Ben and John want to go back…" for Both).
-    const alsoNames = (a.also_person_ids ?? []).map(spoken).filter((n): n is string => !!n);
-    const statement = chosenName && subjectType !== "related"
-      ? (alsoNames.length ? withSpokenNames(item.statement, [chosenName, ...alsoNames]) : withSpokenName(item.statement, chosenName))
-      : item.statement;
+    let statement = item.statement;
+    let mentions = mentionsOf(item.person_mentions);
+    const chosen = needsPerson && subjectType !== "related" ? subjectFor(personId) : null;
+    if (chosen) {
+      const asked = mentions.find((m) => m.person_id === null);
+      if (asked) {
+        // "Which Sam?" → Someone else → Chris: "Sam" was another person's name, and
+        // the line now says Chris. "Who is Liz?" → Elizabeth: "Liz" is nobody else's
+        // name, so it is the user's own word for her and stays (decision 1b).
+        const someoneElses = ctx.people.some((p) => p.id !== personId && goesBy(p, asked.text, p.mention_names ?? []));
+        const theirs = someoneElses ? chosen : { ...chosen, also: [...(chosen.also ?? []), asked.text] };
+        ({ statement, mentions } = withSubjectReassigned(statement, mentions, null, theirs));
+      } else {
+        // "Who is 'he'?": the line names who it is ("Ben and John want to go back…" for Both).
+        const others = (a.also_person_ids ?? []).map(subjectFor).filter((x): x is MentionSubject => !!x);
+        const names = [shortName(chosen.person), ...others.map((o) => shortName(o.person))];
+        statement = names.length > 1 ? withSpokenNames(statement, names) : withSpokenName(statement, names[0]);
+      }
+    }
+    // Words for everyone it is about now, and for no one else.
+    const about = [personId, ...withPeople];
+    mentions = mentions.filter((m) => m.person_id !== null && about.includes(m.person_id));
+    const unnamed = about.filter((id) => !mentions.some((m) => m.person_id === id))
+      .map(subjectFor).filter((x): x is MentionSubject => !!x);
+    mentions = [...mentions, ...recordMentions(statement, unnamed)].slice(0, MAX_MENTIONS);
 
     // ── Existing memory ──
     // A merge or supersede was worked out for the item as held; once the
@@ -331,7 +365,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       );
       const match = item.certainty === "tentative" || item.certainty === "wished"
         ? null
-        : threadTarget(item.statement, candidates, p ? [p.display_name] : []);
+        : threadTarget(statement, candidates, p ? [p.display_name] : []);
       if (match && !("ambiguous" in match)) {
         action = { type: match.action, target_id: match.target };
         detail = { ...detail, transition: match.transition };
@@ -341,7 +375,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       // The same thing, already remembered for this person, is one memory.
       const twin = ctx.existing.find((m) =>
         m.person_id === personId && m.status === "active" && m.kind === item.kind && m.subject_type === subjectType &&
-        (m.subject_related_id ?? null) === (related?.id ?? null) && fold(m.statement).trim() === fold(item.statement).trim()
+        (m.subject_related_id ?? null) === (related?.id ?? null) && fold(m.statement).trim() === fold(statement).trim()
       );
       if (twin) action = { type: "merge", target_id: twin.id };
     }
@@ -360,6 +394,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       action,
       ...(withPeople.length ? { with_person_ids: withPeople } : {}),
       ...(item.self_relations && !personId.startsWith("new:") ? { self_relations: item.self_relations } : {}),
+      ...(mentions.length ? { person_mentions: mentions } : {}),
     };
 
     // ── The mirror of a kept line (founder I10, H13) ──
@@ -380,9 +415,13 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       // Standing alone (the kept line is gone, or was edited), it is still shared with them.
       const alone: ResolvedItem = { ...resolved, with_person_ids: [...new Set([...withPeople, owner])].filter((id) => id !== personId) };
       if (kept) {
+        // Their words in the kept line, for the people joining it.
+        const joining = recordMentions(kept.statement, joiners.map(subjectFor).filter((x): x is MentionSubject => !!x));
+        const { person_mentions: _own, ...rest } = resolved;
         items.push({
-          ...resolved, kind: kept.kind, person_id: owner, statement: kept.statement,
+          ...rest, kind: kept.kind, person_id: owner, statement: kept.statement,
           action: { type: "merge", target_id: kept.id }, with_person_ids: joiners,
+          ...(joining.length ? { person_mentions: joining } : {}),
         });
       } else if (held.some((g, gi) => gi !== index && g.person_id === owner && mirrorBag(g.statement) === bag && byIndex.get(gi)?.skip !== true)) {
         joins.push({ owner, bag, people: joiners, alone });
@@ -403,7 +442,35 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     }
     line.with_person_ids = [...new Set([...(line.with_person_ids ?? []), ...j.people])].filter((id) => id !== line.person_id);
   }
-  return { items, newPeople, skipped };
+  return { items: oneEach(items), newPeople, skipped };
+}
+
+/**
+ * Two answers that make the same line on the same person are one memory
+ * with both sources ("Anthony and Sam love Dragon Ball Z", both answered
+ * Someone else → Chris: one "Chris loves watching Dragon Ball Z").
+ */
+function oneEach(items: ResolvedItem[]): ResolvedItem[] {
+  const out: ResolvedItem[] = [];
+  for (const it of items) {
+    const same = out.find((o) =>
+      o.person_id === it.person_id && o.kind === it.kind && o.subject_type === it.subject_type &&
+      (o.related?.id ?? null) === (it.related?.id ?? null) && o.related?.relation === it.related?.relation &&
+      o.action.type === it.action.type && o.action.target_id === it.action.target_id &&
+      fold(o.statement).trim() === fold(it.statement).trim()
+    );
+    if (!same) {
+      out.push(it);
+      continue;
+    }
+    for (const sp of it.spans) if (!same.spans.some((x) => x.start === sp.start && x.end === sp.end)) same.spans.push(sp);
+    const withIds = [...new Set([...(same.with_person_ids ?? []), ...(it.with_person_ids ?? [])])].filter((id) => id !== same.person_id);
+    if (withIds.length) same.with_person_ids = withIds.slice(0, 7);
+    const words = [...(same.person_mentions ?? [])];
+    for (const m of it.person_mentions ?? []) if (!words.some((w) => w.person_id === m.person_id)) words.push(m);
+    if (words.length) same.person_mentions = words.slice(0, MAX_MENTIONS);
+  }
+  return out;
 }
 
 /** Something that happened, however it was filed (as the pipeline's twin check). */

@@ -18,7 +18,7 @@
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
 import { leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
-import { shortName } from "./names.ts";
+import { findMention, MAX_MENTIONS, type MentionSubject, recordMentions, shortName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
@@ -118,6 +118,7 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
 
   markHeldMirrors(ctx, items);
   const clarification = chooseClarification(ctx, items);
+  recordItemMentions(ctx, items);
   const tier = items.length === 0
     ? "nothing"
     : items.some((i) => i.tier === "hold")
@@ -146,7 +147,7 @@ class Context {
     for (const d of input.dossier) this.dossier.set(d.key, d);
     this.folded = fold(text);
     this.knownNames = new Set(
-      input.roster.flatMap((p) => [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])])
+      input.roster.flatMap((p) => namesFor(p))
         .concat(input.related.map((r) => r.name ?? ""))
         .flatMap((n) => wordsOf(n))
         .map(nameKey),
@@ -170,7 +171,7 @@ class Context {
     const k = nameKey(mention).replace(/^(my |our |the )?((aunt|auntie|uncle|cousin|friend|neighbou?r|coworker|boss|dr|doctor|mr|mrs|ms|miss|coach|pastor)\.? )+/, "");
     if (!k) return [];
     return this.input.roster.filter((p) => {
-      const forms = [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean);
+      const forms = namesFor(p);
       return forms.some((f) => {
         const fk = nameKey(f);
         return fk === k || fk.split(/\s+/)[0] === k || (k.includes(" ") && fk === k);
@@ -201,7 +202,7 @@ class Context {
       (this.text.normalize("NFC").match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).filter((w) => /^\p{Lu}/u.test(w)).map(nameKey),
     );
     return this.input.roster.filter((p) =>
-      [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean).some((f) => {
+      namesFor(p).some((f) => {
         const fk = nameKey(f);
         if (!fk.includes(" ")) return words.has(fk);
         return joined.includes(` ${fk} `) || capitalised.has(fk.split(/\s+/)[0]);
@@ -480,8 +481,51 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
       ...(Object.keys(selfRelations).length ? { self_relations: selfRelations } : {}),
       // Someone removed from People the name fits (founder I3): offered back.
       ...(who.archived_ids?.length ? { archived_ids: who.archived_ids, ...(who.mention ? { mention: who.mention } : {}) } : {}),
+      ...(subjectWords(raw, who) ? { subject_words: subjectWords(raw, who)! } : {}),
     },
   };
+}
+
+/** The note's own words for who a line is about, as a name ("my daughter Kaiya" → Kaiya; "Ben's" → Ben). */
+function subjectWords(raw: ProposedItem, who: { new_person_name: string | null; mention?: string }): string | null {
+  const words = who.mention ?? who.new_person_name ?? (raw.person_mention ?? "")
+    .split(/\s*[,(]/u)[0]
+    .replace(/^(?:my|our)\s+\S+\s+/iu, "")
+    .replace(/['’]s$/u, "")
+    .trim();
+  return words || null;
+}
+
+const UNSETTLED: Flag[] = ["person_ambiguous", "pronoun_multiple", "person_disagreement", "new_person", "person_archived"];
+
+/**
+ * Which words in each line name which of its people (founder I12/I13), once
+ * its words and people are settled: what a later rename shows the new name
+ * in place of, and what a correction moves. A line still waiting on "who?"
+ * keeps the asked-about words for no one yet: the answer puts the chosen
+ * person there (resolve.ts).
+ */
+function recordItemMentions(ctx: Context, items: PlannedItem[]): void {
+  const subject = (p: RosterPerson, words?: string): MentionSubject => ({
+    person: p,
+    also: [...(p.line_names ?? []), ...(words ? [words] : [])],
+    earlier: p.earlier_names,
+  });
+  for (const item of items) {
+    const settled = !!item.person_key && !item.flags.some((f) => UNSETTLED.includes(f));
+    const person = settled ? ctx.byKey.get(item.person_key!) : undefined;
+    const subjects: MentionSubject[] = person ? [subject(person, item.subject_words)] : [];
+    for (const id of item.with_person_ids ?? []) {
+      const p = ctx.input.roster.find((r) => r.id === id);
+      if (p) subjects.push(subject(p));
+    }
+    const mentions = recordMentions(item.statement, subjects);
+    if (!person) {
+      const asked = findMention(item.statement, [item.mention, item.subject_words].filter((w): w is string => !!w));
+      if (asked && !mentions.some((m) => m.text === asked)) mentions.unshift({ person_id: null, text: asked, name: null });
+    }
+    if (mentions.length) item.person_mentions = mentions.slice(0, MAX_MENTIONS);
+  }
 }
 
 /** Whether every content word of `v` is the user's own. */
@@ -503,7 +547,7 @@ function alsoAbout(ctx: Context, statement: string, spans: PlannedSpan[], person
   const out: RosterPerson[] = [];
   for (const p of ctx.namedInNote()) {
     if (p.key === personKey || out.some((o) => o.id === p.id)) continue;
-    const names = [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean);
+    const names = namesFor(p);
     if (!statementNames(statement, names) || !statementNames(quotes, names)) continue;
     // A name two people share ("Sam") is never guessed onto both.
     const first = names[0].split(/\s+/u)[0];
@@ -703,7 +747,7 @@ function inventedNumber(statement: string, text: string): boolean {
 
 function possessiveRelation(sentence: string, person: RosterPerson): boolean {
   const s = fold(sentence);
-  const names = [person.display_name, person.full_name ?? "", ...(person.nicknames ?? [])].filter(Boolean);
+  const names = namesFor(person);
   return names.some((n) => {
     const first = fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`\\b${first}'s (?:\\w+ )?(mom|mother|mum|dad|father|sister|brother|son|daughter|kid|kids|wife|husband|partner|boyfriend|girlfriend|fianc\\S*|grandma|grandmother|grandpa|grandfather|aunt|uncle|cousin|niece|nephew|boss|roommate|friend|baby|parents?)\\b`).test(s);
@@ -717,8 +761,9 @@ const DATEISH = new Set([
 
 // ─── Whose statement is it? ─────────────────────────────────────────────────
 
+/** Every name someone goes by: display, full, kept earlier names, and the words their own lines use for them (founder I12). */
 function namesFor(p: RosterPerson): string[] {
-  return [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean);
+  return [p.display_name, p.full_name ?? "", ...(p.nicknames ?? []), ...(p.line_names ?? [])].filter(Boolean);
 }
 
 /**
@@ -1052,7 +1097,7 @@ function relate(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>):
     t.user_state !== "edited" && t.user_state !== "user_authored" &&
     (n.subject !== "related" || (t.related_key ? ctx.input.related.find((r) => r.key === t.related_key)?.id === n.related_id : false))
   );
-  const names = person ? [person.display_name, person.full_name ?? "", ...(person.nicknames ?? [])] : [];
+  const names = person ? namesFor(person) : [];
   const match = threadTarget(n.statement, candidates.map((c) => ({ id: c.id, kind: c.kind, statement: c.statement, status: c.status })), names);
   if (!match) return { action: byModel, transition: null };
   if ("ambiguous" in match) {
@@ -1302,7 +1347,7 @@ function spokenName(p: RosterPerson | undefined): string {
 }
 
 function namesPerson(statement: string, p: RosterPerson | undefined): boolean {
-  return !!p && statementNames(statement, [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])]);
+  return !!p && statementNames(statement, namesFor(p));
 }
 
 /** Something that happened, however it was filed: an event, a fact or a moment. */

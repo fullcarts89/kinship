@@ -31,6 +31,7 @@ import { type Capability, CAPABILITIES } from "../_shared/ai/registry.ts";
 import { buildInput, type CaptureRow, dossierPeople, type ItemRow, type PersonRow, type RelatedRow } from "../_shared/extraction/context.ts";
 import { needsAcceptance } from "../_shared/extraction/acceptance.ts";
 import { type HeldAnswer, type HeldItem, resolveHeld, type ResolvedItem } from "../_shared/extraction/resolve.ts";
+import { type PersonMention, storableMention } from "../_shared/extraction/names.ts";
 import { runExtraction } from "../_shared/extraction/run.ts";
 import type { DropReason, ExtractionOutcome, PlannedItem } from "../_shared/extraction/types.ts";
 
@@ -83,6 +84,8 @@ export interface WriteItem {
   action: PlannedItem["action"];
   with_person_ids?: string[];
   self_relations?: Record<string, string>;
+  /** Which words name which of its people (founder I12/I13). */
+  person_mentions?: PersonMention[];
 }
 
 export interface CallLog {
@@ -282,6 +285,7 @@ function toWriteItem(i: PlannedItem): WriteItem {
     ...(i.twin_person_id ? { twin_person_id: i.twin_person_id } : {}),
     ...(i.mention ? { mention: i.mention } : {}),
     ...(i.archived_ids?.length ? { archived_ids: i.archived_ids } : {}),
+    ...(i.person_mentions?.some(storableMention) ? { person_mentions: i.person_mentions.filter(storableMention) } : {}),
   };
 }
 
@@ -312,6 +316,8 @@ function present(i: PlannedItem) {
     ...(i.twin_person_id ? { twin_person_id: i.twin_person_id } : {}),
     ...(i.mention ? { mention: i.mention } : {}),
     ...(i.archived_ids?.length ? { archived_ids: i.archived_ids } : {}),
+    // A held line's open "who?" keeps its words with no one yet (resolve.ts).
+    ...(i.person_mentions?.length ? { person_mentions: i.person_mentions } : {}),
   };
 }
 
@@ -344,7 +350,10 @@ async function resolveReview(
   const existing = chosen.size ? await caller.loadItems([...chosen].filter((id) => people.some((p) => p.id === id))) : [];
   const resolution = resolveHeld(review.items, answers as HeldAnswer[], {
     note: capture.raw_text.normalize("NFC"),
-    people: people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state, full_name: p.full_name, nicknames: p.nicknames })),
+    people: people.map((p) => ({
+      id: p.id, display_name: p.display_name, state: p.state, full_name: p.full_name, nicknames: p.nicknames,
+      mention_names: p.mention_names ?? null, earlier_names: p.earlier_names ?? null,
+    })),
     related,
     existing: existing.map((m) => ({
       id: m.id, person_id: m.person_id, kind: m.kind, subject_type: m.subject_type,

@@ -13,6 +13,7 @@
 // which proposes "new"; the pipeline then asks rather than guessing.
 
 import { fold, kinshipReference, nameKey, relationKey, wordsOf } from "./lexicon.ts";
+import { mentionsOf } from "./names.ts";
 import type { DossierItem, ExtractionInput, RosterPerson, RosterRelated } from "./types.ts";
 
 export const ROSTER_MAX = 30;
@@ -27,6 +28,57 @@ export interface PersonRow {
   relationship_label: string | null;
   state: string;
   updated_at?: string;
+  /**
+   * Words this person's own lines use for them (memory_items.person_mentions,
+   * founder I12): "Wifey" for someone since renamed "Loo Loo". A later note
+   * that says them finds this person; never anyone else's.
+   */
+  mention_names?: string[];
+  /** Of those, the words recorded under an earlier name of theirs. */
+  earlier_names?: string[];
+}
+
+/** The names a person goes by, or that their lines use for them. */
+function namesOf(p: PersonRow): string[] {
+  return [p.display_name, p.full_name ?? "", ...(p.nicknames ?? []), ...(p.mention_names ?? [])].filter(Boolean);
+}
+
+/**
+ * The people, each with the words their own lines use for them (founder
+ * I12), from those lines' recorded mentions: all of them, and those recorded
+ * under an earlier name (the name they went by then isn't theirs now).
+ */
+export function withLineNames<P extends PersonRow>(people: P[], rows: { person_mentions?: unknown }[]): P[] {
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const found = new Map<string, { names: Map<string, string>; earlier: Map<string, string> }>();
+  for (const row of rows) {
+    for (const m of mentionsOf(row.person_mentions)) {
+      const p = m.person_id ? byId.get(m.person_id) : undefined;
+      if (!p) continue;
+      const entry = found.get(p.id) ?? { names: new Map<string, string>(), earlier: new Map<string, string>() };
+      const k = fold(m.text.trim());
+      entry.names.set(k, m.text.trim());
+      if (m.name === null || m.name !== p.display_name.trim()) entry.earlier.set(k, m.text.trim());
+      found.set(p.id, entry);
+    }
+  }
+  return people.map((p) => {
+    const e = found.get(p.id);
+    return e ? { ...p, mention_names: [...e.names.values()].slice(0, 10), earlier_names: [...e.earlier.values()].slice(0, 10) } : p;
+  });
+}
+
+/** The words their lines use for them that aren't already a name of theirs (for matching and "also called"). */
+function lineNames(p: PersonRow): string[] {
+  const own = new Set([p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean)
+    .flatMap((n) => [fold(n.trim()), fold(n.trim().split(/\s+/u)[0])]));
+  const out = new Map<string, string>();
+  for (const n of p.mention_names ?? []) {
+    const k = fold(n.trim());
+    if (!k || own.has(k) || out.has(k)) continue;
+    out.set(k, n.trim());
+  }
+  return [...out.values()].slice(0, 10);
 }
 export interface RelatedRow {
   id: string;
@@ -59,7 +111,7 @@ export interface CaptureRow {
 function namedIn(text: string): (p: PersonRow) => boolean {
   const noteWords = new Set(wordsOf(text).map(nameKey));
   return (p: PersonRow) =>
-    [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean).some((n) => {
+    namesOf(p).some((n) => {
       const k = nameKey(n);
       return noteWords.has(k) || noteWords.has(k.split(/\s+/)[0]) || (k.includes(" ") && fold(text).includes(k));
     });
@@ -87,7 +139,7 @@ function orderRoster(capture: CaptureRow, people: PersonRow[], related: RelatedR
   const named = (p: PersonRow) => nameMatch(p) || viaRelated.has(p.id);
   const kin = kinWords(text);
   const kinMatch = (p: PersonRow) =>
-    kin.size > 0 && [p.display_name, ...(p.nicknames ?? []), ...wordsOf(p.relationship_label ?? "")]
+    kin.size > 0 && [p.display_name, ...(p.nicknames ?? []), ...(p.mention_names ?? []), ...wordsOf(p.relationship_label ?? "")]
       .some((n) => kin.has(relationKey(n)));
   // Archived people are out of the conversation; everyone else may be meant.
   const score = (p: PersonRow) => (p.id === capture.context_person_id ? 4 : 0) + (named(p) ? 2 : 0) + (kinMatch(p) ? 1 : 0);
@@ -117,14 +169,20 @@ export function buildInput(capture: CaptureRow, people: PersonRow[], related: Re
   // Removed from People (founder I3): never the model's; code checks names against them.
   const archived = people.filter((p) => p.state === "archived")
     .map((p) => ({ id: p.id, display_name: p.display_name, full_name: p.full_name, nicknames: p.nicknames ?? [] }));
-  const roster: RosterPerson[] = ordered.map((p, i) => ({
-    key: `p${i + 1}`,
-    id: p.id,
-    display_name: p.display_name,
-    full_name: p.full_name,
-    nicknames: p.nicknames ?? [],
-    relationship_label: p.relationship_label,
-  }));
+  const roster: RosterPerson[] = ordered.map((p, i) => {
+    const lines = lineNames(p);
+    const earlier = [...new Set([...(p.nicknames ?? []), ...(p.earlier_names ?? [])])];
+    return {
+      key: `p${i + 1}`,
+      id: p.id,
+      display_name: p.display_name,
+      full_name: p.full_name,
+      nicknames: p.nicknames ?? [],
+      relationship_label: p.relationship_label,
+      ...(lines.length ? { line_names: lines } : {}),
+      ...(earlier.length ? { earlier_names: earlier } : {}),
+    };
+  });
   const keyOf = new Map(roster.map((r) => [r.id, r.key]));
   const rosterRelated: RosterRelated[] = related
     .filter((r) => keyOf.has(r.person_id))

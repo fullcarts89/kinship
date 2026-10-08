@@ -41,6 +41,7 @@ BEGIN
   INSERT INTO public.notification_log (user_id, device_id, reason_id, tier, status)
     VALUES (u, d, r, 'quiet', 'sent');
   INSERT INTO public.user_flag_overrides (user_id, flag_key, enabled) VALUES (u, 'shell_v2', true);
+  INSERT INTO public.person_mentions_backfill_report (memory_item_id, user_id, reason) VALUES (i, u, 'used_once');
 END $$;
 CREATE FUNCTION pg_temp.seed(u uuid) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE p uuid := gen_random_uuid(); s uuid := gen_random_uuid();
@@ -63,7 +64,7 @@ SELECT is(
   (SELECT count(*)::int FROM information_schema.columns c
    JOIN information_schema.tables t USING (table_schema, table_name)
    WHERE c.table_schema = 'public' AND c.column_name = 'user_id' AND t.table_type = 'BASE TABLE'),
-  24, 'all 24 user-owned tables are seeded by this test');
+  25, 'all 25 user-owned tables are seeded by this test');
 
 -- Users and anon can't call it.
 SELECT tests.as_user(:A);
@@ -83,7 +84,7 @@ SELECT is(
     "seasons": 1, "user_settings": 1, "captures": 1, "contact_events": 1, "consents": 1, "devices": 1,
     "memory_item_history": 1, "memory_item_sources": 1, "memory_items": 1, "notification_log": 1,
     "people": 1, "person_identities": 1, "reason_events": 1, "reason_evidence": 1, "reasons": 1,
-    "related_people": 1, "user_flag_overrides": 1, "capture_reviews": 1}'::jsonb,
+    "related_people": 1, "user_flag_overrides": 1, "capture_reviews": 1, "person_mentions_backfill_report": 1}'::jsonb,
   'returns what it removed from every table');
 SELECT tests.reset_role();
 

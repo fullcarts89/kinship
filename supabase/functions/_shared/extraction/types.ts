@@ -3,6 +3,8 @@
 
 import type { DatePrecision, Direction } from "./dates.ts";
 
+import type { PersonMention } from "./names.ts";
+
 export const KINDS = ["fact", "event", "promise", "plan", "thread", "moment", "milestone", "tradition", "context"] as const;
 export type Kind = (typeof KINDS)[number];
 export const SUBJECTS = ["person", "related", "user", "shared"] as const;
@@ -33,6 +35,17 @@ export interface RosterPerson {
   full_name?: string | null;
   nicknames?: string[];
   relationship_label?: string | null;
+  /**
+   * Other words their own lines use for them ("Wifey" for someone now called
+   * "Loo Loo"; founder I12): matched like a nickname, and shown to the model
+   * as another name they're called.
+   */
+  line_names?: string[];
+  /**
+   * Names they were called before: kept at a rename, or recorded in their
+   * lines under an earlier name (founder I12). Code only; never in the prompt.
+   */
+  earlier_names?: string[];
 }
 
 export interface RosterRelated {
@@ -234,6 +247,14 @@ export interface PlannedItem {
   mention?: string;
   /** People removed from People that the name fits: offered back, never re-created (founder I3). */
   archived_ids?: string[];
+  /** The note's own words for who this is about, as resolved ("Wifey", "Sam", "Zed"). Code only. */
+  subject_words?: string;
+  /**
+   * Which words in the statement name which of its people (founder I12/I13).
+   * A line still waiting on "who?" has the asked-about words with no person:
+   * the answer puts the chosen person there.
+   */
+  person_mentions?: PersonMention[];
 }
 
 export interface Clarification {

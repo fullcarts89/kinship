@@ -14,7 +14,8 @@
 import { GatewayUnreachable, type Clarification, type GatewayTransport, type HeldAnswer, type TransportReply } from "@/store/gateway";
 import type { FakeServer } from "./fakeRemote";
 import { needsAcceptance } from "../../supabase/functions/_shared/extraction/acceptance";
-import { buildInput, type CaptureRow, type ItemRow, type PersonRow, type RelatedRow } from "../../supabase/functions/_shared/extraction/context";
+import { buildInput, type CaptureRow, type ItemRow, type PersonRow, type RelatedRow, withLineNames } from "../../supabase/functions/_shared/extraction/context";
+import { mentionsOf, type PersonMention } from "../../supabase/functions/_shared/extraction/names";
 import { planExtraction } from "../../supabase/functions/_shared/extraction/pipeline";
 import { resolveHeld, type HeldItem as ResolveHeldItem } from "../../supabase/functions/_shared/extraction/resolve";
 import type { ExtractionInput, ModelProposal } from "../../supabase/functions/_shared/extraction/types";
@@ -98,7 +99,9 @@ export class FakeGateway implements GatewayTransport {
       id: captureId, raw_text: String(c.raw_text), occurred_at: String(c.occurred_at),
       time_zone: (c.time_zone as string | null) ?? null, context_person_id: (c.context_person_id as string | null) ?? null,
     };
-    const input = buildInput(capture, this.rows<PersonRow>("people"), this.rows<RelatedRow>("related_people"), this.rows<ItemRow>("memory_items"));
+    // As the gateway loads them: each person with the words their own lines use for them (founder I12).
+    const people = withLineNames(this.rows<PersonRow>("people"), this.rows<{ person_mentions?: unknown }>("memory_items"));
+    const input = buildInput(capture, people, this.rows<RelatedRow>("related_people"), this.rows<ItemRow>("memory_items"));
     const outcome = planExtraction(input, reply(input));
     return { items: [], clarification: outcome.clarification, planned: outcome.items as unknown as Record<string, unknown>[], known: outcome.known };
   }
@@ -248,10 +251,13 @@ export class FakeGateway implements GatewayTransport {
   }
 
   private realAnswer(captureId: string, note: string, review: StoredReview, answers: HeldAnswer[]): TransportReply {
-    const people = this.rows<PersonRow & { state: string }>("people");
+    const people = withLineNames(this.rows<PersonRow & { state: string }>("people"), this.rows<{ person_mentions?: unknown }>("memory_items"));
     const r = resolveHeld(review.items as unknown as ResolveHeldItem[], answers as never, {
       note,
-      people: people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state ?? "active", full_name: p.full_name, nicknames: p.nicknames })),
+      people: people.map((p) => ({
+        id: p.id, display_name: p.display_name, state: p.state ?? "active", full_name: p.full_name, nicknames: p.nicknames,
+        mention_names: p.mention_names ?? null, earlier_names: p.earlier_names ?? null,
+      })),
       related: this.rows<RelatedRow & { person_id: string }>("related_people").map((x) => ({ id: x.id, person_id: x.person_id, relation: x.relation, name: x.name ?? null })),
       existing: this.rows<Record<string, unknown>>("memory_items").filter((m) => m.status === "active").map((m) => ({
         id: String(m.id), person_id: String(m.person_id), kind: String(m.kind), subject_type: String(m.subject_type),
@@ -267,7 +273,9 @@ export class FakeGateway implements GatewayTransport {
     const out: Record<string, unknown>[] = [];
     for (const it of r.items) {
       const personId = it.person_id.startsWith("new:") ? created[it.person_id] : it.person_id;
-      const resolved = { ...it, person_id: personId };
+      // Words for someone added in this answer name them by their new id (resolve_capture_review).
+      const words = (it.person_mentions ?? []).map((m) => (m.person_id?.startsWith("new:") ? { ...m, person_id: created[m.person_id] ?? m.person_id } : m));
+      const resolved = { ...it, person_id: personId, ...(words.length ? { person_mentions: words } : {}) };
       out.push({ ...resolved, id: this.writeItem(captureId, resolved as unknown as Record<string, unknown>), action: it.action.type });
     }
     this.reviews.delete(captureId);
@@ -314,12 +322,23 @@ export class FakeGateway implements GatewayTransport {
       || (type === "supersede" && !["active", "resolved"].includes(String(target.status)))
       || (type === "resolves" && (target.kind !== "thread" || target.status !== "active")))) type = "new";
     let itemId: string;
+    // Which words name whom: only the people the item is about (write_extraction).
+    const about = [p.person_id, ...(Array.isArray(p.with_person_ids) ? p.with_person_ids as string[] : [])];
+    const mentions = mentionsOf(p.person_mentions).filter((m) => m.person_id && about.includes(m.person_id)).slice(0, 8);
     if (type === "merge") {
       itemId = String(target!.id);
-      // A merge adds its people to the memory merged into (write_extraction).
+      // A merge adds its people to the memory merged into (write_extraction),
+      // and their words when the memory's own words name them too.
       const add = (Array.isArray(p.with_person_ids) ? p.with_person_ids as string[] : []).filter((x) => x !== target!.person_id);
       const had = Array.isArray(target!.with_person_ids) ? target!.with_person_ids as string[] : [];
-      if (add.some((x) => !had.includes(x))) this.write("memory_items", itemId, { with_person_ids: [...new Set([...had, ...add])] });
+      const haveWords = mentionsOf(target!.person_mentions);
+      const addWords = mentions.filter((m) => !haveWords.some((h) => h.person_id === m.person_id) && String(target!.statement).includes(m.text));
+      if (add.some((x) => !had.includes(x)) || addWords.length) {
+        this.write("memory_items", itemId, {
+          with_person_ids: [...new Set([...had, ...add])],
+          ...(addWords.length ? { person_mentions: [...haveWords, ...addWords].slice(0, 8) as PersonMention[] } : {}),
+        });
+      }
     } else {
       // A new relative is created on its person, as write_extraction does.
       const rel = p.related as { id: string | null; relation: string; name: string | null } | null;
@@ -334,6 +353,7 @@ export class FakeGateway implements GatewayTransport {
         extraction_confidence: p.confidence, status: "active", user_state: "unreviewed", origin: "extracted",
         supersedes_id: type === "supersede" ? target!.id : null, valid_from: null, valid_to: null, deleted_at: null,
         with_person_ids: Array.isArray(p.with_person_ids) ? p.with_person_ids : [],
+        person_mentions: mentions,
       });
       if (type === "supersede") {
         this.write("memory_items", String(target!.id), {

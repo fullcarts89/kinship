@@ -60,7 +60,7 @@ export const TABLES: readonly TableSpec[] = [
     name: "memory_items", key: "id", appInsert: true, appUpdate: true, tombstones: true, personColumn: "person_id",
     writable: ["kind", "person_id", "subject_type", "subject_related_id", "statement", "detail", "certainty",
       "sensitivity", "status", "user_state", "valid_from", "valid_to", "supersedes_id", "origin", "deleted_at",
-      "with_person_ids"],
+      "with_person_ids", "person_mentions"],
     insertOnly: ["origin"],
   },
   {

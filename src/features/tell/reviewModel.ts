@@ -25,7 +25,7 @@ import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
-import { aliasesOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
+import { aliasesOf, mentionsOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
 
 export interface ReviewInput {
   row: UnderstandingRow;
@@ -636,7 +636,10 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
  */
 function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[] {
   const live = people.filter((p) => p.state !== "archived");
-  const mention = item.mention ? wordsOf(item.mention).join(" ") : "";
+  // The name the line asks about: "Which Anthony?" and "Which Sam?" are two
+  // questions, each offering only the people that name can mean (founder I13).
+  const asked = item.mention ?? mentionsOf(item.person_mentions).find((m) => m.person_id === null)?.text;
+  const mention = asked ? wordsOf(asked).join(" ") : "";
   if (mention) {
     const meant = live.filter((p) => nameForms(p).some((f) => f === mention || f.split(" ")[0] === mention));
     // With someone removed who fits too (founder I3), even one person here is a choice.

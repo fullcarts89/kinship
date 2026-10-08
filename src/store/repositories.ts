@@ -50,6 +50,8 @@ export interface MemoryItem extends Data {
   user_state: string;
   /** Others in People this one memory is also about ("Ben and John went to Tahoe"). */
   with_person_ids?: string[] | null;
+  /** Which words in the statement name which of its people (founder I12/I13; names.ts PersonMention). */
+  person_mentions?: unknown;
 }
 
 /** Everyone a memory is about: the person it's filed on, and anyone it's shared with. */
@@ -307,7 +309,7 @@ export class MemoryRepo {
   }
 
   /** The user's correction wins, and says so (a user_edit source; plan §5). */
-  async correct(id: string, patch: Partial<Pick<MemoryItem, "statement" | "detail" | "kind" | "person_id" | "certainty" | "subject_type" | "with_person_ids">>): Promise<Data> {
+  async correct(id: string, patch: Partial<Pick<MemoryItem, "statement" | "detail" | "kind" | "person_id" | "certainty" | "subject_type" | "with_person_ids" | "person_mentions">>): Promise<Data> {
     // An edit is a correction, not a rewrite of history (founder H30): the
     // words it replaced stay with the edit, next to the note's own source.
     const before = typeof patch.statement === "string" ? (await this.get(id))?.statement : undefined;
