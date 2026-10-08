@@ -139,9 +139,11 @@ export function ReviewSheet(props: ReviewSheetProps) {
         {questionOnly ? null : view.lines.length ? (
           <Title style={{ marginTop: label ? space.m : 0 }}>{`${COPY.remember}.`}</Title>
         ) : view.mode === "nothing" ? (
-          <Title style={{ marginTop: label ? space.m : 0 }}>{"Nothing kept from that one."}</Title>
+          <Title style={{ marginTop: label ? space.m : 0 }}>{COPY.notKept}</Title>
         ) : null}
-        {view.status ? <Small style={{ marginTop: space.s }} accessibilityLiveRegion="polite">{view.status}</Small> : null}
+        {view.status && !(view.mode === "nothing" && view.status === COPY.notKept) ? (
+          <Small style={{ marginTop: space.s }} accessibilityLiveRegion="polite">{view.status}</Small>
+        ) : null}
         {view.notice ? <Body tone="ochreText" style={{ marginTop: space.s }}>{view.notice}</Body> : null}
         {view.lines.length ? (
           <View style={{ marginTop: space.xl, borderTopWidth: 1, borderTopColor: p.hairline }}>

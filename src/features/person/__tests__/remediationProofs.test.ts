@@ -237,3 +237,59 @@ describe("I13 (re-seen): every path that says who a line is about", () => {
     expect(serverItems(w)[0]).toMatchObject({ person_id: kaiya.id, statement: "Wifey has a new job" });
   });
 });
+
+describe("J4: a memory is never dropped as 'nothing' because who or what it names couldn't be placed", () => {
+  // The model's reading of 7 Oct: "Wifey" taken as the word "wife".
+  const asWife = (person: string) => (): ModelProposal => ({
+    needs_clarification: null,
+    items: [item({ kind: "fact", person, person_mention: "Wifey", statement: "Your wife got a raise", evidence: ["Wifey got a raise"], detail: { category: "work" } })],
+  });
+
+  it("'Wifey got a raise' with Wifey known to nothing: 'Who is Wifey?'; answered Loo Loo, it's hers in the user's words, and later notes find her", async () => {
+    const w = await world();
+    const [loo] = await typed(w, "Loo Loo");
+    const t = await tell(w, "Wifey got a raise.", asWife("new"));
+    expect(t.review.mode).toBe("sheet");
+    const [q] = t.review.questions;
+    expect([q.prompt, q.about, q.choices.map((c) => c.label), q.skip.label])
+      .toEqual(["Who is Wifey?", ["Wifey got a raise"], ["Add Wifey", "Someone already here"], "Don't keep this"]);
+    await answer(w, t.id, [{ index: 0, person_id: loo.id }]);
+    expect((await page(w, loo)).shown).toEqual(["Wifey got a raise"]);
+    // Source keeps the note as told.
+    expect((await noteFor(w.store, t.id, new Date(w.server.clock)))!.runs!.map((r) => r.text).join("")).toBe("Wifey got a raise.");
+
+    // "Wifey" is now one of the words for her: the next note finds her, no question.
+    const later = await tell(w, "Wifey got promoted.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, loo.id), person_mention: "Wifey", statement: "Wifey got promoted", evidence: ["Wifey got promoted"], detail: { category: "work" } })],
+    }));
+    expect(later.review.questions).toEqual([]);
+    expect(later.review.lines.map((l) => [l.statement, l.person?.id])).toEqual([["Wifey got promoted", loo.id]]);
+  });
+
+  it("'Zed got a raise': 'Who is Zed?' → Add Zed: a new person Zed, with the line, never 'Nothing to remember'", async () => {
+    const w = await world();
+    await typed(w, "Loo Loo");
+    const t = await tell(w, "Zed got a raise.", () => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: "new", person_mention: "Zed", statement: "Zed got a raise", evidence: ["Zed got a raise"], detail: { category: "work" } })],
+    }));
+    const [q] = t.review.questions;
+    expect(q.prompt).toBe("Who is Zed?");
+    const add = q.choices.find((c) => c.label === "Add Zed")!;
+    await answer(w, t.id, [{ index: 0, ...("answer" in add ? add.answer : {}) }]);
+    const zed = (await w.repos.people.list()).find((p) => p.display_name === "Zed")!;
+    expect((await page(w, zed)).shown).toEqual(["Zed got a raise"]);
+  });
+
+  it("'Don't keep this' keeps nothing and says so, never 'Nothing to remember'", async () => {
+    const w = await world();
+    await typed(w, "Loo Loo");
+    const t = await tell(w, "Wifey got a raise.", asWife("unknown"));
+    await w.understanding.answer(t.id, [{ index: 0, skip: true }]);
+    await w.understanding.run();
+    const after = await review(w, t.id);
+    expect([after.mode, after.status]).toEqual(["nothing", "Nothing kept from that one."]);
+    expect(serverItems(w)).toEqual([]);
+  });
+});

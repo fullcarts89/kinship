@@ -676,7 +676,7 @@ export class Understanding {
           settled: false,
         };
     // Nothing to remember in it: done, with the reading kept so the user is
-    // told so ("Your note is saved") rather than met with silence.
+    // told so ("Nothing to remember in that one.") rather than met with silence.
     const nothing = reply.status === "extracted" && reading.saved.length === 0 && reading.held.length === 0;
     await this.save(id, {
       state: nothing ? "done" : "review", reading, attempts: 0, next_at: null,

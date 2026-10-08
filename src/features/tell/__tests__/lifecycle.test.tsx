@@ -304,7 +304,7 @@ it("nothing to remember, or understanding that keeps failing: said plainly, neve
   const w = await world();
   const r = await mount();
   await tell(w, NOTHING_NOTE);
-  expect(flow.current!.card).toMatchObject({ mode: "nothing", status: "Nothing to remember in that one. Your note is saved." });
+  expect(flow.current!.card).toMatchObject({ mode: "nothing", status: "Nothing to remember in that one." });
   expect(await w.repos.captures.get(flow.current!.card!.captureId)).toBeTruthy();
 
   const uh = new Understanding(w.store, () => w.engine.sync(), new Gateway(w.gateway), { maxAttempts: 1 });

@@ -1,17 +1,17 @@
 {
-  "version": "extraction-v2.6",
+  "version": "extraction-v2.7",
   "counts": {
     "core": 139,
-    "ambiguity": 66,
+    "ambiguity": 68,
     "dates": 91,
     "sensitive": 43,
     "adversarial": 23,
     "merge": 46
   },
-  "total": 408,
+  "total": 410,
   "files": {
     "fixtures/core.jsonl": "ad11689cf191a9073184fc8cd7af98b6e8962d9f4384edd9a7f3e0a2a1ae81f5",
-    "fixtures/ambiguity.jsonl": "0468604af9f9dd4d4fb41cd8642fac4ada5ec0baf38ea7f905eef0553f7ca905",
+    "fixtures/ambiguity.jsonl": "0cccd345effbda71fcfe8b4c124037a269ba3c4ec123f9d70520c5df78d553ee",
     "fixtures/dates.jsonl": "ebe8a64ed42b2127d1740722eb801376d5fd39547a01a8a879b4f4aba54d7fe3",
     "fixtures/sensitive.jsonl": "c8fe6c7533b9992a9f582ea7ae4bf63cfb50b8de9ba88bc312f0bfa1936b2c30",
     "fixtures/adversarial.jsonl": "110b1e30d3ecc47a3971bd9ed53c9f6268c20ec3be5d2469146d42708a66117e",
@@ -19,5 +19,5 @@
     "rosters.json": "ddac45b5f7cab3062fccf7fadfa335908ab9dc2b3b8ed5bbb344bb6d1475298a",
     "thresholds.json": "572733e6956ef5ed7dd9d7dcd2779814a5e2ca4c17510f4df9e1c4466014c018"
   },
-  "corpus_sha256": "40d332133f185c70cbab0189e78bd582e7efebe6c23717e571cffe934888e6ed"
+  "corpus_sha256": "abc9cb73b8d75131107b0b1914205bde2655b2e2a20aa35f55370d60348ce4ac"
 }

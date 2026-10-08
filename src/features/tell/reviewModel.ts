@@ -10,7 +10,9 @@
 //   understanding  "Understanding…" (or "I'll try again", or the answer saving)
 //   card           kept: "Kept for Ben" and what was kept, tap to correct, Undo
 //   sheet          needs the user: "One thing to check", and why
-//   nothing        understood, nothing to remember: "Your note is saved."
+//   nothing        understood, nothing to remember: "Nothing to remember in
+//                  that one." Only for a note with nothing in it (founder J4):
+//                  a memory Kinship couldn't place is asked about, never this
 //   failed         "Couldn't understand this one. Your note is saved."
 //   asWritten      understanding is off or declined: kept as written
 //
@@ -154,7 +156,11 @@ export const COPY = {
   retrying: "Couldn't understand this yet. Your note is saved, and I'll try again.",
   arriving: "Understanding…",
   kept: "Kept as you wrote it.",
-  nothing: "Nothing to remember in that one. Your note is saved.",
+  // Founder J4: only for a note with nothing in it. "Your note is saved" is
+  // gone: there is nowhere in the app to find a note that kept nothing.
+  nothing: "Nothing to remember in that one.",
+  /** The user's own "Don't keep this": nothing kept, never "nothing to remember". */
+  notKept: "Nothing kept from that one.",
   failed: "Couldn't understand this one. Your note is saved.",
   check: "One thing to check",
   notSure: "Not sure",
@@ -232,7 +238,7 @@ export function buildReview(input: ReviewInput): ReviewView {
   // What the reading saved is still on its way here: understanding, not empty.
   if ((input.missing ?? 0) > 0) return { ...base, mode: "understanding", status: COPY.arriving };
   // Answered, and the answer kept nothing ("Don't keep this").
-  if (lines.length === 0) return { ...base, mode: "nothing", status: known ?? COPY.nothing };
+  if (lines.length === 0) return { ...base, mode: "nothing", status: known ?? COPY.notKept };
   return { ...base, mode: "card", summary: summaryFor(lines) };
 }
 
@@ -491,14 +497,20 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       // Never "Add My daughter Kaiya" (founder H20): the name only, also for
       // readings held before the server understood the phrase.
       const name = selfRelationPhrase(item.new_person_name)?.name ?? item.new_person_name;
+      // "Who is Wifey?" (founder J4): the person whose page it was told on,
+      // someone new, or anyone already here. Never dropped as "nothing".
+      const context = input.capture?.context_person_id
+        ? input.people.find((p) => p.id === input.capture!.context_person_id && p.state !== "archived")
+        : undefined;
       needs.push({
         type: "new_person",
         group: `new:${fold(name)}`,
-        prompt: `Is ${name} someone new?`,
+        prompt: `Who is ${name}?`,
         reason: `${name} isn't in your people yet.`,
         choices: [
+          ...(context ? [{ key: `p:${context.id}`, label: personLabel(context, input.people), answer: { person_id: context.id } }] : []),
           { key: "add", label: `Add ${name}`, answer: { new_person: true } },
-          { key: "pick", label: "Someone already here", pick: "person" },
+          { key: "pick", label: context ? COPY.someoneElse : "Someone already here", pick: "person" as const },
         ],
       });
     } else if (item.flags.includes("person_archived") && item.archived_ids?.length) {

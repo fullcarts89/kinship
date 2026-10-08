@@ -17,7 +17,7 @@
 //             wrote or edited; a hedged item never replaces a firm one
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
-import { leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
+import { inYourWords, leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
 import { findMention, MAX_MENTIONS, type MentionSubject, recordMentions, shortName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
@@ -260,18 +260,28 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   if (!statement) return { drop: "bad_kind_subject" };
   // Contact details are never relationship memory (D2): Kinship keeps them elsewhere.
   if (CONTACT_DETAIL.test(statement) || CONTACT_DETAIL.test(primary.quote)) return { drop: "contact_detail" };
-  if (inventedName(ctx, statement)) return { drop: "invented_name" };
-  if (inventedNumber(statement, text)) return { drop: "invented_number" };
-  if (inventedSensitiveTerms(statement, text).length > 0) return { drop: "invented_sensitive_term" };
-  if (inventedRelations(statement, text, ctx.knownRelations).length > 0) return { drop: "invented_relation" };
+  // Names, numbers, sensitive terms and relationships in the statement must
+  // be the note's, its negation kept, and "the writer" turned into "you"
+  // with certainty. When the model's wording fails any of these, the line
+  // keeps the note's own words instead (founder J4: "Wifey got a raise" read
+  // as "your wife" was dropped whole): what the model inferred is stripped,
+  // never the memory with it, and the line is shown for a glance.
   // Negation is local: "Ben didn't get the job, but he's interviewing" has
   // one negated clause and one plain one.
-  if (negatedWhereStated(clauseAroundSpan(text, primary), statement) && !hasNegation(statement)) return { drop: "polarity_mismatch" };
-  if (raw.person_mention && !ctx.inNote(raw.person_mention)) return { drop: "mention_not_in_note" };
-  // The user reads this in their own app: "the writer" becomes "you".
   const voiced = yourVoice(statement);
-  if (!voiced.certain) return { drop: "internal_reference" };
-  const said = voiced.text;
+  const unfaithful = inventedName(ctx, statement) || inventedNumber(statement, text) ||
+    inventedSensitiveTerms(statement, text).length > 0 || inventedRelations(statement, text, ctx.knownRelations).length > 0 ||
+    (negatedWhereStated(clauseAroundSpan(text, primary), statement) && !hasNegation(statement)) || !voiced.certain;
+  // Never an instruction or a contact detail, whichever quote it was in.
+  const said = unfaithful
+    ? ownWords(text, spans.filter((s, i) => i === 0 ||
+      (!looksLikeInstruction(clauseAroundSpan(text, s)) && !looksLikeInstruction(sentenceAroundSpan(text, s)) && !CONTACT_DETAIL.test(s.quote))))
+    : voiced.text;
+  if (unfaithful) flags.add("own_words");
+  // A mention the note never says ("your wife" for "Wifey") is the model's
+  // inference: who the line is about is decided without it, and asked when
+  // it can't be (never a reason to lose the line).
+  if (raw.person_mention && !ctx.inNote(raw.person_mention)) raw = { ...raw, person_mention: null };
 
   // ── Kind / subject consistency ──
   let subject = raw.subject;
@@ -292,6 +302,19 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   }
 
   // ── Person ──
+  // A relationship the note never says, for someone's related person ("Alex
+  // got a raise" read as Ben's boyfriend Alex): the inferred relationship is
+  // stripped, never a reason to lose the memory (founder J4). The line is
+  // about the person its words name, decided or asked like anyone else's;
+  // with no name, about the person filed, and asked ("Is this about Ben?").
+  if (subject === "related" && !relatedByName(ctx, raw) && !noteRelation(ctx, (raw.related_relation ?? "").trim())) {
+    const named = raw.related_name?.trim();
+    subject = "person";
+    raw = named && ctx.inNote(named)
+      ? { ...raw, subject, related_relation: null, related_name: null, person: "new", person_mention: named }
+      : { ...raw, subject, related_relation: null, related_name: null };
+    flags.add(named && ctx.inNote(named) ? "subject_moved" : "subject_check");
+  }
   // A related person the user already knows by name ("Leo", David's son) is
   // filed under their person even though that person isn't mentioned.
   const knownRelated = subject === "related" ? relatedByName(ctx, raw) : null;
@@ -532,6 +555,30 @@ function recordItemMentions(ctx: Context, items: PlannedItem[]): void {
 function groundedIn(ctx: Context, v: unknown): boolean {
   if (typeof v !== "string" || !v.trim()) return false;
   return wordsOf(v).filter((w) => w.length > 2).every((w) => ctx.folded.includes(w));
+}
+
+/**
+ * The note's own words for a line, said to the user (founder J4): its quotes
+ * in the note's order, with what lies between them when that is only
+ * punctuation ("Emma told me she's gay — I'm the first person she's told"),
+ * and an ellipsis for anything else. Never the model's words.
+ */
+function ownWords(text: string, spans: PlannedSpan[]): string {
+  const chars = Array.from(text);
+  const sorted = [...spans].sort((a, b) => a.start - b.start);
+  let out = "";
+  let end = -1;
+  for (const s of sorted) {
+    if (end >= 0 && s.start < end) {
+      if (s.end > end) out += chars.slice(end, s.end).join("");
+    } else {
+      const gap = end >= 0 ? chars.slice(end, s.start).join("") : "";
+      out += end < 0 ? "" : /\p{L}|\p{N}/u.test(gap) ? " … " : gap;
+      out += chars.slice(s.start, s.end).join("");
+    }
+    end = Math.max(end, s.end);
+  }
+  return inYourWords(out.replace(/\s+/gu, " ").trim().replace(/[.。]+$/u, "").trim()).slice(0, 500);
 }
 
 /** "every Warriors playoff game" → "Warriors playoff game"; null without one. */

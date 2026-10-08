@@ -204,7 +204,11 @@ export type Flag =
   | "shared_people"
   // Founder I3: the name is someone the user removed from People. Held to
   // bring them back, never added again as someone new.
-  | "person_archived";
+  | "person_archived"
+  // Founder J4: the model's wording added what the note never says (a name,
+  // a number, a sensitive term, a relationship, a lost "not"), so the line
+  // keeps the note's own words instead, shown for a glance. Never dropped.
+  | "own_words";
 
 export interface PlannedSpan {
   start: number;
