@@ -175,3 +175,22 @@ All asked for in CC-18 and the founder's Gate 0 answers of 7 Oct (I12 guardrails
 
 Not built in Gate 0 (Phase 4, approved): I1 Moment detail, I2 interaction history, I4 Kept hierarchy, I6 keyboard, H15/H2 with I7, H16, H4.
 
+
+## Gate 0 remediation (8 Oct): what changed on approved surfaces
+
+The narrow pass the founder decided on 8 Oct after the Gate 0 native findings (`gate0-native-findings.md`), in the order I12 → I13 → J4 → J1 → J7 → J2 → J6 → J5 → Today headline → pet health. No approved surface was removed and nothing below is a redesign. Native: none verified yet. The targeted gate is `gate0-remediation-checklist.md`.
+
+| Surface | Change | Why | Founder approval |
+|---|---|---|---|
+| 12 / 14 / Today / review | A line shows a person's current name only where its own record says the words were an earlier name ("Wifey got promoted" → "Loo Loo got promoted"); the user's own word for them under their current name stays ("Liz got promoted" while she is Elizabeth Chen) | I12 | Yes: decision 1b (8 Oct) |
+| Tell › clarification | Someone not in People: **"Who is Wifey?"** (was "Is Wifey someone new?"), "Wifey isn't in your people yet.", with the person whose page it was told on, **Add Wifey**, **Someone already here** (Someone else when the page's person is offered) and Don't keep this. A memory Kinship couldn't place is asked about, never dropped | J4 | Yes: J4 decision (8 Oct) |
+| Tell › Kept card / review | **"Nothing to remember in that one."** only for a note with nothing in it ("Your note is saved." removed); after the user's own Don't keep this: **"Nothing kept from that one."** (the words the sheet already used as its title) | J4 | Yes: J4 decision, "drop 'Your note is saved'". The Don't keep this wording reuses approved copy; flagged in the report |
+| Tell › clarification | "Who is “he”?" offers only who "he" can mean: people named before it, then the page's person; never the sentence's object. On a page with no one else before it, there is no question | J1 | Yes: J1 guardrail (8 Oct) |
+| 12 Relationship page | "Is this the Sam in '…'?" is never asked about a line the user already said is about someone else | J7 | Yes: J7 decision (8 Oct) |
+| Correction (person picker) | The search offers **Add Josh** for a typed name that is no one in People: one tap adds them by name (no number) and moves the line, which then names them; a name someone removed from People goes by offers them back first (I3) | J2 | Yes: J2 decision (8 Oct) |
+| Tell › Kept card | **"and 1 more"** is a button that opens the rest of the kept lines in place, each tappable | J6 | Yes: J6 decision ("expand in place preferred") |
+| All sheets | A downward drag from anywhere on a sheet closes it while its content is at the top; scrolled content scrolls first; with the keyboard up, a drag puts it away first (as a tap above the sheet does). The content no longer bounces at the top | J5 | Yes: J5 decision (8 Oct) |
+| 10 Today | Never "Nothing needs you today." behind any Tell surface that is on screen or open: the Kept card, the review or its details, a question | J8 (today headline) | Yes: Today headline decision (8 Oct) |
+| 10 Today | A pet's vet visit or health takes part in Today (Coming up and the moment) like anything else; a person's own health still never speaks there | J9 (Mochi) | Yes: "Mochi / pet health: YES" (8 Oct) |
+
+Not in this pass (founder, 8 Oct): J3 (waits for I1), shared-hobby composition (J10, with the semantic-memory decision), H15, the general semantic relationship model.
