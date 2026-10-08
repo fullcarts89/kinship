@@ -350,3 +350,31 @@ describe("J4: never 'nothing' for a memory Kinship couldn't place", () => {
     expect([declined.mode, declined.status]).toEqual(["nothing", "Nothing kept from that one."]);
   });
 });
+
+describe("J1: 'Who is “he”?' offers exactly who it can mean", () => {
+  const john = person("john", "John");
+  const pedro = person("pedro", "Pedro");
+  const susan = person("susan", "Susan Oxnard", { full_name: "Susan Oxnard" });
+  const loves = (candidate_ids: string[]) => held({ kind: "fact", statement: "He loves Susan", flags: ["pronoun", "pronoun_multiple"], candidate_ids,
+    spans: [{ start: 24, end: 38, quote: "He loves Susan" }] });
+
+  it("the people named before 'he', then the page's person; never Susan, the one he loves", () => {
+    const v = buildReview({
+      row: row("review", { tier: "clarify", held: [loves(["john", "pedro"])], settled: false, review_created_at: "t" }),
+      capture: { id: "c1", raw_text: "John visited yesterday. He loves Susan.", context_person_id: "pedro", status: "needs_review" },
+      items: [], people: [john, pedro, susan], related: [], offline: false, today: TODAY,
+    });
+    const [q] = v.questions;
+    expect(q.prompt).toBe("Who is “he”?");
+    expect(q.choices.map((c) => c.label)).toEqual(["John", "Pedro", "Both", "Someone else"]);
+  });
+
+  it("no one it can mean (no page, no one named before it): only Choose who, never the object", () => {
+    const h = held({ kind: "fact", statement: "He loves Susan", flags: ["pronoun", "person_ambiguous"], candidate_ids: [],
+      spans: [{ start: 0, end: 14, quote: "He loves Susan" }] });
+    const v = view("He loves Susan.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], [john, pedro, susan]);
+    const [q] = v.questions;
+    expect(q.prompt).toBe("Who is “he”?");
+    expect(q.choices.map((c) => c.label)).toEqual(["Choose who"]);
+  });
+});

@@ -251,6 +251,11 @@ export interface PlannedItem {
   mention?: string;
   /** People removed from People that the name fits: offered back, never re-created (founder I3). */
   archived_ids?: string[];
+  /**
+   * For a held "he" or "she": exactly who it can mean, people named before it
+   * and then the page's person; never the sentence's object (founder J1).
+   */
+  candidate_ids?: string[];
   /** The note's own words for who this is about, as resolved ("Wifey", "Sam", "Zed"). Code only. */
   subject_words?: string;
   /**

@@ -293,3 +293,33 @@ describe("J4: a memory is never dropped as 'nothing' because who or what it name
     expect(serverItems(w)).toEqual([]);
   });
 });
+
+describe("J1: 'he' or 'she' told on someone's page", () => {
+  const loves = (person: string) => item({ kind: "fact", person, person_mention: "He", statement: "He loves Susan", evidence: ["He loves Susan"], detail: { category: "family" } });
+
+  it("'He loves Susan' on Pedro's page (Pedro just added, no number): kept for Pedro as 'Pedro loves Susan', no question, even when the model chose Susan", async () => {
+    const w = await world();
+    const [susan] = await contacts(w, "Susan Oxnard");
+    const [pedro] = await typed(w, "Pedro");
+    const t = await tell(w, "He loves Susan.", (i) => ({ needs_clarification: null, items: [loves(key(i, susan.id))] }), pedro);
+    expect(t.review.questions).toEqual([]);
+    expect(t.review.lines.map((l) => [l.statement, l.person?.id])).toEqual([["Pedro loves Susan", pedro.id]]);
+    await done(w, t.id);
+    expect((await page(w, pedro)).shown).toContain("Pedro loves Susan");
+  });
+
+  it("'John visited yesterday. He loves Susan.' on Pedro's page: asked, John or Pedro, never Susan; answered Pedro, it's his", async () => {
+    const w = await world();
+    const [susan, john] = await contacts(w, "Susan Oxnard", "John");
+    const [pedro] = await typed(w, "Pedro");
+    const note = "John visited yesterday. He loves Susan.";
+    const t = await tell(w, note, (i) => ({ needs_clarification: null, items: [loves(key(i, john.id))] }), pedro);
+    const [q] = t.review.questions;
+    expect(q.prompt).toBe("Who is “he”?");
+    expect(q.choices.map((c) => c.label)).toEqual(["John", "Pedro", "Both", "Someone else"]);
+    expect(JSON.stringify(q.choices)).not.toContain(susan.id);
+    await answer(w, t.id, [{ index: 0, person_id: pedro.id }]);
+    expect((await page(w, pedro)).shown).toContain("Pedro loves Susan");
+    expect((await page(w, john)).shown).toEqual([]);
+  });
+});

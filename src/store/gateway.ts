@@ -59,6 +59,8 @@ export type HeldItem = GatewayItem & {
   mention?: string;
   /** People removed from People the name fits: offered back, never re-created (founder I3). */
   archived_ids?: string[];
+  /** For a held "he" or "she": exactly who it can mean, never the sentence's object (founder J1). */
+  candidate_ids?: string[];
   /** Which words name whom; the open "who?" has the asked-about words with no person yet (founder I13). */
   person_mentions?: unknown;
 };

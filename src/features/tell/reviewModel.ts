@@ -540,7 +540,9 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       const shared = named.length > 1 && named.every((p) => fold(first(p)) === fold(first(named[0])))
         ? first(named[0])
         : null;
-      const pronoun = item.flags.includes("pronoun_multiple") ? pronounIn(item) : null;
+      // A held "he" the reading says who it can mean (founder J1) is asked as "he" too.
+      const pronoun = item.flags.includes("pronoun_multiple") || (item.flags.includes("pronoun") && Array.isArray(item.candidate_ids))
+        ? pronounIn(item) : null;
       // Someone the note names who isn't here yet ("my daughter Kaiya"): offered by name.
       const newNames = candidates.length === 0 ? unknownNames(item, input.people) : [];
       const choices: Choice[] = [
@@ -648,6 +650,11 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
  */
 function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[] {
   const live = people.filter((p) => p.state !== "archived");
+  // A held "he" says exactly who it can mean: people named before it, then
+  // the page's person; never the sentence's object (founder J1).
+  if (Array.isArray(item.candidate_ids)) {
+    return item.candidate_ids.map((id) => live.find((p) => p.id === id)).filter((p): p is Person => !!p).slice(0, 4);
+  }
   // The name the line asks about: "Which Anthony?" and "Which Sam?" are two
   // questions, each offering only the people that name can mean (founder I13).
   const asked = item.mention ?? mentionsOf(item.person_mentions).find((m) => m.person_id === null)?.text;

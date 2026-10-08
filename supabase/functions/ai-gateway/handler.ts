@@ -316,6 +316,8 @@ function present(i: PlannedItem) {
     ...(i.twin_person_id ? { twin_person_id: i.twin_person_id } : {}),
     ...(i.mention ? { mention: i.mention } : {}),
     ...(i.archived_ids?.length ? { archived_ids: i.archived_ids } : {}),
+    // A held "he": exactly who it can mean, never the sentence's object (founder J1).
+    ...(i.candidate_ids ? { candidate_ids: i.candidate_ids } : {}),
     // A held line's open "who?" keeps its words with no one yet (resolve.ts).
     ...(i.person_mentions?.length ? { person_mentions: i.person_mentions } : {}),
   };

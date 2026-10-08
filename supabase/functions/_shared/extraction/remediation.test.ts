@@ -243,3 +243,55 @@ Deno.test("J4: what is never memory is still blocked: instructions and contact d
   })]);
   eq([number.tier, number.dropped.map((d) => d.reason)], ["nothing", ["contact_detail"]]);
 });
+
+// ─── J1: "he" or "she" told on someone's page ───────────────────────────────
+// Founder J1 (7 Oct, 2:25 pm): "He loves Susan" told on Pedro's page asked
+// "Who is 'he'?", offered Susan (the sentence's object) and never Pedro.
+// Guardrail (8 Oct): the page's person only when the note has no other
+// viable antecedent; the object is never offered for a subject pronoun.
+
+const PAGE: RosterPerson[] = [
+  { key: "p1", id: "pedro", display_name: "Pedro", full_name: null, nicknames: [], relationship_label: null },
+  { key: "p2", id: "susan", display_name: "Susan Oxnard", full_name: "Susan Oxnard", nicknames: [], relationship_label: null },
+  { key: "p3", id: "john", display_name: "John", full_name: null, nicknames: [], relationship_label: null },
+];
+
+Deno.test("J1: 'He loves Susan' on Pedro's page: Pedro, with no question, whatever page the model chose", () => {
+  for (const person of ["p1", "p2", "unknown"]) {
+    const out = run(input("He loves Susan.", PAGE, "p1"), [item({ person, person_mention: "He", statement: "He loves Susan", evidence: ["He loves Susan"], detail: { category: "family" } })]);
+    eq(out.items.map((i) => [i.person_id, i.statement, i.tier === "hold"]), [["pedro", "Pedro loves Susan", false]], `model chose ${person}`);
+  }
+});
+
+Deno.test("J1: 'John visited yesterday. He loves Susan.' on Pedro's page: asked, offering John and Pedro, never Susan", () => {
+  const note = "John visited yesterday. He loves Susan.";
+  const out = run(input(note, PAGE, "p1"), [item({ person: "p3", person_mention: "He", statement: "He loves Susan", evidence: ["He loves Susan"], detail: { category: "family" } })]);
+  eq(out.items.map((i) => [i.tier, i.statement, i.candidate_ids]), [["hold", "He loves Susan", ["john", "pedro"]]]);
+  eq(out.items[0].flags.includes("pronoun_multiple"), true);
+});
+
+Deno.test("J1: on a page, anyone else before 'he' is asked about, never guessed: a name, or a relation word", () => {
+  for (const [note, person] of [["Zed told me he loves Susan.", "p2"], ["My friend visited. He loves Susan.", "unknown"], ["He loves Susan.", "new"]] as const) {
+    const quote = note.match(/[Hh]e loves Susan/)![0];
+    const out = run(input(note, PAGE, "p1"), [item({ person, person_mention: quote.slice(0, 2), statement: "He loves Susan", evidence: [quote], detail: { category: "family" } })]);
+    eq(out.items.map((i) => [i.tier, i.candidate_ids]), [["hold", ["pedro"]]], note);
+  }
+});
+
+Deno.test("J1: 'He loves Susan' with no page: asked, and Susan is never the answer offered", () => {
+  for (const person of ["p2", "unknown"]) {
+    const out = run(input("He loves Susan.", PAGE), [item({ person, person_mention: "He", statement: "He loves Susan", evidence: ["He loves Susan"], detail: { category: "family" } })]);
+    eq(out.items.map((i) => [i.person_id, i.tier, i.candidate_ids]), [[null, "hold", []]], `model chose ${person}`);
+  }
+});
+
+Deno.test("J1: a pronoun after two people named before it is still asked about both (and the page's person, when told on a page)", () => {
+  const ben: RosterPerson[] = [
+    { key: "p1", id: "ben", display_name: "Ben", full_name: null, nicknames: [], relationship_label: null },
+    { key: "p2", id: "josh", display_name: "Josh", full_name: null, nicknames: [], relationship_label: null },
+  ];
+  const told = run(input("Ben told Josh he's moving to Austin.", ben), [item({ kind: "event", person: "p1", person_mention: "he", statement: "Ben is moving to Austin", evidence: ["he's moving to Austin"] })]);
+  eq(told.items.map((i) => [i.tier, i.candidate_ids]), [["hold", ["ben", "josh"]]]);
+  const me = run(input("Ben told me he's moving to Austin.", ben), [item({ kind: "event", person: "p1", person_mention: "he", statement: "Ben is moving to Austin", evidence: ["he's moving to Austin"] })]);
+  eq(me.items.map((i) => [i.person_id, i.tier === "hold"]), [["ben", false]], "one person named before 'he': him");
+});
