@@ -63,7 +63,7 @@ Use test people where a row says so, such as a "Susan" and a "Ben" with phone nu
 |---|---|---|
 | 1 | On a person with no Moment this week, Tell "Anthony's wedding is on Saturday" (3 days away or fewer) | Today can show it in your words, with "Saturday · Sat, Oct …" and **Message Anthony**. After the hand-off: "Did you reach Anthony about the wedding?" |
 | 2 | The next days | It doesn't come back, and nothing nags |
-| 3 | Tell "Anthony and Natalia are getting married next spring" | Remembered quietly. No Moment, and nothing asks for the date |
+| 3 | Tell "Anthony and Natalia are getting married next spring"; then "I heard Josh is getting engaged on Saturday" | Both remembered quietly. No Moment (one has no day, the other is hearsay), and nothing asks for a date |
 | 4 | Tell "Ben's sister's wedding is Saturday"; then "Susan lives in Denver now" (after Alameda) | No milestone Moment for either: not a relative's, and a residence change is never a move |
 | 5 | Tell "Ben got promoted in 2024" | No good-news Moment today. "Ben got promoted!" with no date can be today's news |
 
