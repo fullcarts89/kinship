@@ -9,7 +9,7 @@ import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
 import { buildToday, evidenceOf, isBirthdayReason, isLocalReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
-import { buildPortrait, PORTRAIT_RULES, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
+import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
 import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
 import { legacyActivation, NO_ACTIVATION, nextStep, setupFinished, setupStepsFor, type SetupNeeds } from "@/features/setup/activation";
 import { useActivation, type ActivationState } from "./useActivation";
@@ -616,6 +616,30 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
 }
 
 /** One remembered item, for its correction sheet. */
+/**
+ * Where "View Ben" lands for a memory (founder I1, J3): that line on Ben's
+ * page; in What Kinship knows when the page doesn't show it (never the top of
+ * a long page by surprise); Ben's page when there's no line to land on.
+ */
+export async function personFocusHref(repos: Repositories, personId: string, itemId: string | null, now: Date): Promise<string> {
+  const base = `/v2/person/${personId}`;
+  if (!itemId) return base;
+  const people = await repos.people.list();
+  const person = people.find((p) => p.id === personId && !p.deleted_at) ?? null;
+  if (!person) return base;
+  if (portraitShows(await portraitFor(repos, person, now), itemId)) return `${base}?item=${encodeURIComponent(itemId)}`;
+  if (itemId === "birthday") return base;
+  // What Kinship knows lists every current line (as recordFor does).
+  const item = (await repos.memory.aboutPerson(personId))
+    .find((m) => m.id === itemId && !m.deleted_at && (m.status === "active" || m.status === "resolved"));
+  return item ? `${base}/knows?item=${encodeURIComponent(itemId)}` : base;
+}
+
+export function usePersonFocus(): (personId: string, itemId: string | null) => Promise<string> {
+  const { store } = useV2Session();
+  return useCallback((personId: string, itemId: string | null) => personFocusHref(repositoriesFor(store), personId, itemId, new Date()), [store]);
+}
+
 export function useItemLine(itemId: string | null): { line: ItemLine; provenance: string; noteId: string | null } | null {
   const { store } = useV2Session();
   const q = useStoreQuery(store, async (repos) => {

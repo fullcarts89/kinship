@@ -24,6 +24,29 @@ export function openSheets(): number {
   return open;
 }
 
+/**
+ * Runs `fn` once no sheet is on screen: now, or as soon as the last one has
+ * left (founder I1: Message from a Moment detail waits for the detail to go
+ * before the hand-off sheet may come). Returns a cancel.
+ */
+export function afterSheets(fn: () => void): () => void {
+  if (open === 0) {
+    fn();
+    return () => undefined;
+  }
+  let done = false;
+  const off = onSheetsChange(() => {
+    if (done || open > 0) return;
+    done = true;
+    off();
+    fn();
+  });
+  return () => {
+    done = true;
+    off();
+  };
+}
+
 export function onSheetsChange(listener: () => void): () => void {
   listeners.add(listener);
   return () => {

@@ -181,7 +181,10 @@ it("a birthday this week is a quiet line; tomorrow says Tomorrow", () => {
   const soon = { ...maya, birthday: "1991-10-13" } as Person;
   const v = buildToday(quietInput({ people: [...people, soon] }));
   expect(v.moment).toBeNull();
-  expect(v.quiet).toEqual([{ kind: "coming", label: "Tomorrow", text: "Maya's birthday", personId: "maya", itemId: null }]);
+  expect(v.quiet).toEqual([{
+    kind: "coming", label: "Tomorrow", text: "Maya's birthday", personId: "maya", itemId: null,
+    day: "2026-10-13", due: false, hope: null, provenance: "From Contacts", noteId: null,
+  }]);
 });
 
 it("no birthday reasons for remembered or paused people (D13), or a birthday without a source", () => {
@@ -256,10 +259,14 @@ describe("stabilization Gate G: Today reflects what's open, and good news", () =
   it("someone's promise: coming up on its day, then one gentle 'Did Josh send it?'", () => {
     const promise = (due: string) => item("w1", { kind: "promise", person_id: "josh", subject_type: "person",
       statement: "Josh said he'd send you his contractor's number", detail: { due_date: due } });
-    expect(quiet({ items: [promise("2026-10-14")] }).quiet).toEqual([
-      { kind: "coming", label: "Wednesday", text: "Josh said he'd send you his contractor's number", personId: "josh", itemId: "w1" }]);
-    expect(quiet({ items: [promise("2026-10-10")] }).quiet).toEqual([
-      { kind: "waiting", label: "Waiting on Josh", text: "Did Josh send it?", personId: "josh", itemId: "w1" }]);
+    expect(quiet({ items: [promise("2026-10-14")] }).quiet).toEqual([{
+      kind: "coming", label: "Wednesday", text: "Josh said he'd send you his contractor's number", personId: "josh", itemId: "w1",
+      day: "2026-10-14", due: true, hope: null, provenance: "You told Kinship · Oct 8", noteId: "c1",
+    }]);
+    expect(quiet({ items: [promise("2026-10-10")] }).quiet).toEqual([{
+      kind: "waiting", label: "Waiting on Josh", text: "Did Josh send it?", personId: "josh", itemId: "w1",
+      memory: "Josh said he'd send you his contractor's number", day: "2026-10-10", provenance: "You told Kinship · Oct 8", noteId: "c1",
+    }]);
   });
 });
 

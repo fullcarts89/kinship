@@ -18,7 +18,14 @@ export interface HandoffRequest {
   reason?: { id: string; type: ReasonType; ask?: string; about?: string | null; followUp?: string };
 }
 
-export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffRequest) => void } {
+/**
+ * `start(r)` shows the hand-off sheet (what you could mention, every way to
+ * reach them). `start(r, "text" | "call")` is Message or Call from a Moment
+ * detail (founder I1): it opens that channel straight away when their contact
+ * has it, and shows the sheet only when it doesn't (to choose their contact,
+ * or another way).
+ */
+export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffRequest, prefer?: HandoffChannel) => void } {
   const people = usePeople();
   const actions = useTodayActions();
   const [req, setReq] = useState<HandoffRequest | null>(null);
@@ -26,36 +33,53 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
   // A second tap while the first is opening the app does nothing.
   const opening = useRef(false);
 
-  const start = useCallback((r: HandoffRequest) => {
-    setReq(r);
-    setRoutes(null);
-    const ref = people.find((p) => p.id === r.personId)?.contact_ref;
-    void routesFor(typeof ref === "string" ? ref : null).then(setRoutes);
-  }, [people]);
-
   const close = () => setReq(null);
 
-  const open = async (channel: HandoffChannel) => {
-    if (!req || !routes || opening.current) return;
+  const openWith = useCallback(async (r: HandoffRequest, rt: ContactRoutes, channel: HandoffChannel): Promise<boolean> => {
+    if (opening.current) return false;
     opening.current = true;
     // Remembered before the other app opens (H11): once iOS moves to
     // Messages this app may be suspended or closed, and the return question
     // must be waiting when the user comes back, whatever happened meanwhile.
-    if (req.reason) {
+    if (r.reason) {
       await actions.handedOff({
-        reasonId: req.reason.id, personId: req.personId, channel, type: req.reason.type,
-        ask: req.reason.ask, about: req.reason.about ?? null, followUp: req.reason.followUp,
+        reasonId: r.reason.id, personId: r.personId, channel, type: r.reason.type,
+        ask: r.reason.ask, about: r.reason.about ?? null, followUp: r.reason.followUp,
       });
     }
-    const ok = await openChannel(channel, routes).finally(() => {
+    const ok = await openChannel(channel, rt).finally(() => {
       opening.current = false;
     });
     if (!ok) {
-      if (req.reason) await actions.handoffFailed(req.reason.id);
+      if (r.reason) await actions.handoffFailed(r.reason.id);
       Alert.alert("That didn't open", channel === "whatsapp" ? "WhatsApp isn't on this phone." : "This phone couldn't open it.");
+    }
+    return ok;
+  }, [actions]);
+
+  const start = useCallback((r: HandoffRequest, prefer?: HandoffChannel) => {
+    const ref = people.find((p) => p.id === r.personId)?.contact_ref;
+    const routes$ = routesFor(typeof ref === "string" ? ref : null);
+    if (!prefer) {
+      setReq(r);
+      setRoutes(null);
+      void routes$.then(setRoutes);
       return;
     }
-    close();
+    void routes$.then((rt) => {
+      if (channelsFor(rt).includes(prefer)) {
+        void openWith(r, rt, prefer);
+        return;
+      }
+      // No way to that channel yet: the sheet, to choose their contact or another way.
+      setReq(r);
+      setRoutes(rt);
+    });
+  }, [people, openWith]);
+
+  const open = async (channel: HandoffChannel) => {
+    if (!req || !routes) return;
+    if (await openWith(req, routes, channel)) close();
   };
 
   const choose = async () => {

@@ -16,7 +16,8 @@ import { Sheet } from "@/ui";
 import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
 export default function PersonScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `item`: "View Ben" from a Moment lands on that memory (founder I1).
+  const { id, item: focusItem } = useLocalSearchParams<{ id: string; item?: string }>();
   const personId = String(id);
   const portrait = usePortrait(personId);
   const people = usePeople();
@@ -60,6 +61,7 @@ export default function PersonScreen() {
       onTell={() => setTelling(true)}
       onRename={() => setRenaming(true)}
       hasDraft={!!flow.draft(personId).trim()}
+      focusItemId={typeof focusItem === "string" ? focusItem : null}
       // The note just told about them, and only about them (never another person's card).
       kept={flow.card && flow.card.personIds.includes(personId)
         ? <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} onRate={flow.rateCard} onAddNewcomer={flow.addNewcomer} />

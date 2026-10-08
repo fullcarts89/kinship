@@ -20,6 +20,8 @@ export interface TodayViewProps {
   /** After "Yes": the same reason carried on ("Anything worth remembering from congratulating Ben?"). */
   afterReturn: { personId: string; personName: string; followUp?: string } | null;
   onPrimary: () => void;
+  /** Tap the moment's words → its detail (founder I1). */
+  onOpenMoment?: () => void;
   onNotNow: () => void;
   onProvenance: () => void;
   onReturn: (answer: "yes" | "not_yet") => void;
@@ -89,6 +91,7 @@ export function TodayView(props: TodayViewProps) {
             hope={view.moment.hope ?? null}
             provenance={view.moment.provenance}
             onProvenance={props.onProvenance}
+            onOpen={props.onOpenMoment}
             actions={
               <>
                 <Pill

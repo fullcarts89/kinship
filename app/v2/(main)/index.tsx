@@ -7,8 +7,12 @@ import { router, useFocusEffect } from "expo-router";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TodayView } from "@/features/today/TodayView";
 import { useHandoff } from "@/features/today/useHandoff";
+import { MomentDetailSheet } from "@/features/today/MomentDetailSheet";
+import { detailFor, quietKey } from "@/features/today/momentDetail";
 import { reachedSomeone } from "@/platform/haptics";
-import { useToday, useTodayActions } from "@/hooks/useV2";
+import { todayIso, usePeople, usePersonFocus, useToday, useTodayActions } from "@/hooks/useV2";
+import { afterSheets } from "@/ui/sheetStack";
+import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 
 /** The longest Today waits for its first refresh before showing an empty state. */
 const SETTLE_MS = 1500;
@@ -21,6 +25,12 @@ export default function TodayScreen() {
   const view = useToday(flow.questions.length, flow.toLookAt.length, now, flow.pending);
   const actions = useTodayActions();
   const handoff = useHandoff();
+  const people = usePeople();
+  const focus = usePersonFocus();
+  // The Moment detail (founder I1): which one is open. It's looked up in
+  // Today's current view every render, so a retracted or replaced memory
+  // closes it rather than leaving it stale.
+  const [detailKey, setDetailKey] = useState<string | null>(null);
   const [afterReturn, setAfterReturn] = useState<{ personId: string; personName: string; followUp?: string } | null>(null);
   // Hold the empty states until the first refresh settles (never longer than SETTLE_MS).
   const [settling, setSettling] = useState(true);
@@ -61,6 +71,21 @@ export default function TodayScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moment?.reasonId]);
 
+  const today = todayIso(now);
+  const nameOf = (personId: string) => {
+    const p = people.find((x) => x.id === personId && !x.deleted_at);
+    return p ? shortName(p) || p.display_name : null;
+  };
+  const detail = view && detailKey ? detailFor(view, detailKey, today, nameOf) : null;
+  useEffect(() => {
+    if (detailKey && view && !detail) setDetailKey(null);
+  }, [detailKey, view, detail]);
+  // Never a sheet on a sheet: the detail goes first, then the next thing.
+  const fromDetail = (next: () => void) => {
+    setDetailKey(null);
+    afterSheets(next);
+  };
+
   if (!view) return null;
   return (
     <>
@@ -75,6 +100,7 @@ export default function TodayScreen() {
             reason: { id: moment.reasonId, type: moment.type, ask: moment.ask, about: moment.statement, followUp: moment.followUp },
           });
         }}
+        onOpenMoment={() => moment && setDetailKey(moment.reasonId)}
         onNotNow={() => moment && void actions.notNow({ reasonId: moment.reasonId, type: moment.type })}
         onProvenance={() => moment && router.push(moment.noteId ? `/v2/source/${moment.noteId}` : `/v2/person/${moment.personId}`)}
         onReturn={(answer) => {
@@ -92,11 +118,27 @@ export default function TodayScreen() {
         onQuiet={(q) => {
           if (q.kind === "question") flow.openNote(q.captureId ?? flow.questions[0]);
           else if (q.kind === "look") flow.openNote(flow.toLookAt[0]);
-          else if (q.kind === "coming" || q.kind === "waiting") router.push(`/v2/person/${q.personId}`);
+          else if (q.kind === "coming" || q.kind === "waiting") setDetailKey(quietKey(q));
         }}
         settling={settling}
         onTellFirst={() => flow.focusTell(null)}
         onAddPeople={() => router.push("/v2/people/add")}
+      />
+      <MomentDetailSheet
+        detail={detail}
+        onDismiss={() => setDetailKey(null)}
+        onMessage={() => detail && fromDetail(() => handoff.start({
+          personId: detail.personId, personName: detail.personName, heading: detail.heading, mention: detail.mention, reason: detail.reason,
+        }, "text"))}
+        onCall={() => detail && fromDetail(() => handoff.start({
+          personId: detail.personId, personName: detail.personName, heading: detail.heading, mention: detail.mention, reason: detail.reason,
+        }, "call"))}
+        onPerson={() => {
+          if (!detail) return;
+          const { personId, itemId, type } = detail;
+          fromDetail(() => void focus(personId, itemId ?? (type === "birthday" || type === "coming" ? "birthday" : null)).then((href) => router.push(href as never)));
+        }}
+        onSource={(noteId) => fromDetail(() => router.push(`/v2/source/${noteId}`))}
       />
       {handoff.sheet}
     </>
