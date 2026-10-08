@@ -1,9 +1,10 @@
 -- Founder N8 (CC-20: a trust invariant): Undo and "Not this" are exact. A
 -- note that closed an open thread opens it again when it's taken back, and
 -- a Today reason silenced because its memory was replaced speaks again once
--- the memory is back. Only the gateway's write records what a note closed.
+-- the memory is back, unless another live note still closes it. Only the
+-- gateway's write records what a note closed.
 BEGIN;
-SELECT plan(15);
+SELECT plan(18);
 
 \set A '''aaaaaaaa-6666-6666-6666-666666666666'''
 SELECT tests.create_user(:A);
@@ -23,7 +24,7 @@ $$;
 -- "Ben got the job" closing the open thread, as the gateway writes it.
 CREATE FUNCTION pg_temp.resolve(capture uuid) RETURNS void LANGUAGE sql AS $$
   SELECT pg_temp.at_commit(format($s$ SELECT public.write_extraction(
-    'aaaaaaaa-6666-6666-6666-666666666666', %L, 'relationship_extract/v6+claude-opus-5-5', false,
+    'aaaaaaaa-6666-6666-6666-666666666666', %L, 'relationship_extract/v6+claude-test', false,
     '[{"kind": "fact", "person_id": "00000000-0000-0000-0000-000000006601", "subject_type": "person", "related": null,
        "statement": "Ben got the job", "certainty": "stated", "sensitivity": "none", "confidence": 0.9,
        "detail": {"category": "work"}, "spans": [{"start": 0, "end": 15}],
@@ -35,7 +36,9 @@ INSERT INTO public.people (id, display_name) VALUES ('00000000-0000-0000-0000-00
 INSERT INTO public.captures (id, source, raw_text) VALUES
   ('00000000-0000-0000-0000-000000006610', 'text', 'Ben got the job!'),
   ('00000000-0000-0000-0000-000000006611', 'text', 'Ben got the job!!'),
-  ('00000000-0000-0000-0000-000000006612', 'text', 'Ben runs Chicago Sunday.');
+  ('00000000-0000-0000-0000-000000006612', 'text', 'Ben runs Chicago Sunday.'),
+  ('00000000-0000-0000-0000-000000006613', 'text', 'Ben got the job!!!'),
+  ('00000000-0000-0000-0000-000000006614', 'text', 'Ben is waiting to hear back from Stripe.');
 SELECT tests.reset_role();
 -- The open thread a later note closes.
 INSERT INTO public.memory_items (id, user_id, kind, person_id, statement, certainty, detail, origin, extraction_confidence) VALUES
@@ -81,6 +84,27 @@ SELECT throws_ok($$ INSERT INTO public.memory_items (id, kind, person_id, statem
 SELECT throws_ok($$ UPDATE public.memory_items SET resolves_id = '00000000-0000-0000-0000-000000006620', version = version + 1
                      WHERE id = '00000000-0000-0000-0000-000000006620' $$,
   '42501', NULL, 'nor set it on an existing one');
+SELECT tests.reset_role();
+
+-- ── Another live note that closes it keeps it closed ──
+-- Closed by one note, then replaced by a later one ("Ben is waiting to hear
+-- back from Stripe"): taking back the first note leaves the thread replaced.
+SELECT tests.as_service();
+SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000006613'), 'claimed', 'claimed a third time');
+SELECT pg_temp.resolve('00000000-0000-0000-0000-000000006613');
+SELECT public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000006614');
+SELECT pg_temp.at_commit($s$ SELECT public.write_extraction(
+    'aaaaaaaa-6666-6666-6666-666666666666', '00000000-0000-0000-0000-000000006614', 'relationship_extract/v6+claude-test', false,
+    '[{"kind": "thread", "person_id": "00000000-0000-0000-0000-000000006601", "subject_type": "person", "related": null,
+       "statement": "Ben is waiting to hear back from Stripe", "certainty": "stated", "sensitivity": "none", "confidence": 0.9,
+       "detail": {"topic": "Stripe", "followup_after_days": 42}, "spans": [{"start": 0, "end": 39}],
+       "action": {"type": "supersede", "target_id": "00000000-0000-0000-0000-000000006620"}}]') $s$);
+SELECT is(pg_temp.state('00000000-0000-0000-0000-000000006620'), 'superseded/live', 'a later note replaces the closed thread');
+SELECT tests.reset_role();
+SELECT tests.as_user(:A);
+UPDATE public.captures SET deleted_at = now(), version = version + 1 WHERE id = '00000000-0000-0000-0000-000000006613';
+SELECT is(pg_temp.state('00000000-0000-0000-0000-000000006620'), 'superseded/live',
+  'taking back the note that closed it reopens nothing while another live note still closes it');
 SELECT tests.reset_role();
 
 -- ── A Today reason silenced by a replacement speaks again after Undo ──
