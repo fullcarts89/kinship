@@ -6,8 +6,11 @@
 // relative remembered on someone else ("Sam's wife Michelle"), links that
 // record to her. No is remembered and never asked again. Pure: the hook
 // supplies people, memory and what was already answered.
-import { shortName } from "../../../supabase/functions/_shared/extraction/names";
-import { statementNames } from "../../../supabase/functions/_shared/extraction/voice";
+//
+// The user's own decision about who a line is about wins (founder J7): a
+// name in a line they answered or corrected never reopens the question.
+import { mentionsOf, shortName } from "../../../supabase/functions/_shared/extraction/names";
+import { leadingName, statementNames } from "../../../supabase/functions/_shared/extraction/voice";
 import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 
 export interface LinkSuggestion {
@@ -62,6 +65,15 @@ export function linkSuggestions(input: {
     // job", filed to Sam Eden by the user's own "which Sam?" answer, is never
     // asked about on Sam Doughty's page (founder H12).
     if (involved.some((id) => fold(first(input.people.find((p) => p.id === id)?.display_name ?? "")) === fold(name))) continue;
+    // Who it's about was decided (founder J7): the line records these words
+    // as someone's on it (the user's answer or correction), or, for a line
+    // from before such records, it is kept on someone else although it
+    // leads with this name (only the user's answer or correction files a
+    // line against its own words: "Sam loves…", answered Chris).
+    const recorded = mentionsOf(m.person_mentions);
+    if (recorded.some((r) => !!r.person_id && involved.includes(r.person_id) && r.text.split(/\s+/u).some((w) => fold(w) === fold(name)))) continue;
+    const lead = leadingName(m.statement);
+    if (recorded.length === 0 && lead && fold(first(lead)) === fold(name)) continue;
     const key = `item:${m.id}:${person.id}`;
     if (input.answered.has(key)) continue;
     out.push({ key, kind: "item", targetId: m.id, prompt: `Is this the ${name} in “${m.statement}”?` });

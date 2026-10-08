@@ -5,6 +5,7 @@
 // reply is written by hand.
 import { noteFor, portraitFor, recordFor, todayIso, earlierOf } from "@/hooks/useV2";
 import { voiced } from "@/features/memory/statements";
+import { linkSuggestions } from "@/features/person/links";
 import { buildReview, type ReviewView } from "@/features/tell/reviewModel";
 import { Gateway, type HeldAnswer } from "@/store/gateway";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
@@ -321,5 +322,53 @@ describe("J1: 'he' or 'she' told on someone's page", () => {
     await answer(w, t.id, [{ index: 0, person_id: pedro.id }]);
     expect((await page(w, pedro)).shown).toContain("Pedro loves Susan");
     expect((await page(w, john)).shown).toEqual([]);
+  });
+});
+
+describe("J7: the user's own answer about who a line is about is never reopened by a name in it", () => {
+  const suggestionsFor = async (w: World, p: Person) => {
+    const ppl = await w.repos.people.list();
+    const items = ((await w.store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, ppl));
+    return linkSuggestions({ person: p, people: ppl, items, related: await w.repos.people.related(), answered: new Set() }).map((s) => s.prompt);
+  };
+
+  it("'Anthony and Sam love watching Dragonball Z' answered Chris: no Anthony's or Sam's page asks about it, also for the line kept before the fix", async () => {
+    const w = await world();
+    const [anthony, anthonyL, samEden, samD] = await contacts(w, "Anthony", "Anthony Lopez", "Sam Eden", "Sam Doughty");
+    const [chris] = await typed(w, "Chris");
+    const note = "Anthony and Sam love watching Dragonball Z.";
+    const t = await tell(w, note, (i) => ({
+      needs_clarification: null,
+      items: [
+        item({ kind: "fact", person: key(i, anthony.id), person_mention: "Anthony", statement: "Anthony loves watching Dragonball Z", evidence: ["Anthony and Sam love watching Dragonball Z"], detail: { category: "interest" } }),
+        item({ kind: "fact", person: key(i, samEden.id), person_mention: "Sam", statement: "Sam loves watching Dragonball Z", evidence: ["Anthony and Sam love watching Dragonball Z"], detail: { category: "interest" } }),
+      ],
+    }));
+    await answer(w, t.id, [{ index: 0, person_id: chris.id }, { index: 1, person_id: chris.id }]);
+    for (const p of [anthony, anthonyL, samEden, samD]) expect(await suggestionsFor(w, p)).toEqual([]);
+
+    // The founder's own line from 7 Oct, kept before the fix: "Sam loves…" on Chris, no record of its words.
+    const line = serverItems(w)[0];
+    w.server.serverWrite("memory_items", line.id, A, { statement: "Sam loves watching Dragonball Z", person_mentions: [] });
+    await w.engine.sync();
+    for (const p of [samEden, samD]) expect(await suggestionsFor(w, p)).toEqual([]);
+  });
+
+  it("'Liz got promoted' answered Elizabeth Chen: a Liz added later is never asked about it; someone genuinely new to a line still is", async () => {
+    const w = await world();
+    const [elizabeth, ben] = await contacts(w, "Elizabeth Chen", "Ben Oxnard");
+    const t = await tell(w, "Liz got promoted.", () => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: "new", person_mention: "Liz", statement: "Liz got promoted", evidence: ["Liz got promoted"], detail: { category: "work" } })],
+    }));
+    await answer(w, t.id, [{ index: 0, person_id: elizabeth.id }]);
+    const wed = await tell(w, "Ben is married to Michelle.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, ben.id), person_mention: "Ben", statement: "Ben is married to Michelle", evidence: ["Ben is married to Michelle"], detail: { category: "family" } })],
+    }));
+    await done(w, wed.id);
+    const [liz, michelle] = await contacts(w, "Liz Taylor", "Michelle Lee");
+    expect(await suggestionsFor(w, liz)).toEqual([]);
+    expect(await suggestionsFor(w, michelle)).toEqual(["Is this the Michelle in “Ben is married to Michelle”?"]);
   });
 });
