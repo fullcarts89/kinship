@@ -4,8 +4,8 @@
 //
 // One post-Tell contract (stabilization Gate D), always in this order:
 //
-//   "Understanding…" → the Kept card ("Kept for Ben", what was kept, tap to
-//   correct, Undo)
+//   "Understanding…" → the Kept card ("Kept for Ben", what was kept, anyone
+//   to add, Correct this · Undo, then feedback; founder I4)
 //                    → or the sheet, when Kinship needs the user ("One thing
 //                      to check", and why)
 //                    → or "Nothing to remember in that one" / "Couldn't
@@ -48,8 +48,11 @@ export interface KeptCardState {
   status: string | null;
   /** Who it belongs with: shown on their page, never on someone else's. */
   personIds: string[];
-  /** Named in what was kept but not in People yet ("Pedro"): the card points to adding them (H21). */
-  newcomers?: string[];
+  /**
+   * Named in what was kept but not in People yet ("Pedro"), with the kept
+   * lines that name them: the card offers to add them (H21, founder I4).
+   */
+  newcomers?: { name: string; itemIds: string[] }[];
   /** The user's "Got it right / Not quite", once given (H6). */
   feedback?: ReviewView["feedback"];
 }
@@ -75,6 +78,8 @@ export interface TellFlow {
   rateCard: (verdict: "right" | "not_quite", off?: FeedbackOff) => void;
   /** "Got it": the user has seen what was kept. */
   dismissCard: () => void;
+  /** "Add Pedro" on the card (founder I4): in People once, on every kept line that names them. */
+  addNewcomer: (name: string, itemIds: string[]) => void;
   /** Every other note still open: understanding, or waiting on the user. */
   pending: PendingNote[];
   /** Notes waiting on the user: a question, or understood while away. */
@@ -131,8 +136,9 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     personIds: view.personIds,
     feedback: view.feedback ?? null,
     ...(() => {
-      const names = [...new Set(view.lines.flatMap((l) => l.newcomers ?? []))];
-      return names.length ? { newcomers: names } : {};
+      const byName = new Map<string, string[]>();
+      for (const l of view.lines) for (const name of l.newcomers ?? []) byName.set(name, [...(byName.get(name) ?? []), l.id]);
+      return byName.size ? { newcomers: [...byName].map(([name, itemIds]) => ({ name, itemIds })) } : {};
     })(),
   };
 }
@@ -296,6 +302,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
       if (card.mode === "card") finishCard(card.captureId, "done");
       else u.hidden(card.captureId);
     },
+    addNewcomer: (name, itemIds) => fail(u.addNewcomer(itemIds, name)),
     pending,
     questions,
     asking,

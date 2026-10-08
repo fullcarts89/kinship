@@ -204,7 +204,7 @@ Gate 0 is closed, and Phase 4 has started. The build plan is `phase4-implementat
 
 | Surface | Approved (latest wording) | Item | Phase / step | Status |
 |---|---|---|---|---|
-| Tell › Kept card | Order: what was kept → attention ("Pedro isn't in People yet…" **[Add Pedro] [Not now]**) → **Correct this · Undo** → "Did Kinship get this right?". "Tap a line to correct it." dropped | I4 | 4A · 1 | NOT BUILT (next) |
+| Tell › Kept card | Order: what was kept → attention ("Pedro isn't in People yet / Add them so this can appear on their page too." **[Add Pedro] Not now**) → **Correct this · Undo** → "Did Kinship get this right?". "Tap a line to correct it." dropped | I4 | 4A · 1 | **BUILT** (native pending). Deviation, needs your yes: "them / their" in place of the approved "him / his", because Kinship never guesses pronouns |
 | Tell field / all inputs | Done / dismiss and drag-down dismissal. Today and People reachable with the keyboard open. Draft kept. **Bottom nav stays** | I6 | 4A · 2 | NOT BUILT |
 | 10 Today → Moment detail | Focused detail: the grounded line, why now, timing, Source, Message / Call. Secondary **View <Person>** deep-links to the line with brief quiet emphasis (absorbs J3). Reduce Motion respected | I1 | 4A · 3 | NOT BUILT |
 | 10 Today | Milestone moments for the nine types, about 3 days before through the day, only with a grounded date. Today's ranking decides. No nagging; never asks for a date. Anchored to an established person. Only explicit milestone wording, never a residence change | H16 | 4A · 4 | NOT BUILT |

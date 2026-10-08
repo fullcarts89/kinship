@@ -273,6 +273,38 @@ describe("core trust closure", () => {
     expect(newcomersIn("Susan is moving to Oakland in August", "Susan is moving to Oakland in August", [])).toEqual([]);
   });
 
+  it("I4: 'Add Pedro' on the Kept card adds Pedro once, on every kept line that names him, and the card stops offering", async () => {
+    const w = await world();
+    const [susan] = await people(w, "Susan Oxnard");
+    const note = "Susan is getting married to Pedro in the fall. Susan and Pedro are moving to Austin.";
+    const t = await tell(w, note, (i) => ({
+      needs_clarification: null,
+      items: [
+        item({ kind: "event", person: key(i, "Susan"), person_mention: "Susan", statement: "Susan is getting married to Pedro in the fall",
+          evidence: ["Susan is getting married to Pedro in the fall"], date_text: "in the fall", detail: { event_type: "wedding" } }),
+        item({ kind: "plan", person: key(i, "Susan"), person_mention: "Susan", statement: "Susan and Pedro are moving to Austin",
+          evidence: ["Susan and Pedro are moving to Austin"], detail: { firmness: "intended" } }),
+      ],
+    }));
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { cardFor } = require("@/features/tell/TellFlow") as typeof import("@/features/tell/TellFlow");
+    const card = cardFor(t.review)!;
+    expect(card.newcomers).toEqual([{ name: "Pedro", itemIds: t.review.lines.map((l) => l.id) }]);
+    await w.understanding.addNewcomer(card.newcomers![0].itemIds, "Pedro");
+    await w.understanding.finish(t.id, "done");
+    await w.understanding.run();
+    await w.engine.sync();
+    const pedros = (await w.repos.people.list()).filter((p) => p.display_name === "Pedro");
+    expect(pedros).toHaveLength(1);
+    for (const line of t.review.lines) expect(serverItems(w).find((m) => m.id === line.id)!.with_person_ids).toEqual([pedros[0].id]);
+    expect((await page(w, pedros[0])).knows.lines).toHaveLength(2);
+    expect((await page(w, susan)).knows.lines).toHaveLength(2);
+    expect(cardFor(await review(w, t.id))?.newcomers).toBeUndefined();
+    // A line that doesn't name them adds no one.
+    await expect(w.understanding.addNewcomer([t.review.lines[0].id], "Dana")).rejects.toThrow();
+    expect((await w.repos.people.list()).filter((p) => p.display_name === "Dana")).toHaveLength(0);
+  });
+
   it("H5: 'Anthony and Natalia are getting married', and 'Sam and Meesh are moving', are one memory on both pages", async () => {
     for (const [a, b, note, sa, sb] of [
       ["Anthony Lopez", "Natalia Ruiz", "Anthony and Natalia are getting married next summer", "Anthony and Natalia are getting married", "Natalia and Anthony are getting married"],
