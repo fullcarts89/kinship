@@ -1,5 +1,14 @@
 # Semantic memory: refines, related and the composed view (investigation)
 
+> **Status (founder, 8 Oct 2026, CC-19): direction APPROVED, with changes.** Where this file differs from the points below, they win. The build plan is `phase4-implementation-brief.md`.
+> - **Residence first.** Semantic v1 is the residence facet only. Another structured domain comes only after residence is proven.
+> - **Employer is not a single-valued slot.** Several current employers can be true at once: Meta and Google stay compatible unless the source states a change. A qualifier refines one employer. Employer is a later candidate; the `employer` slot, its qualifier columns and the employer rows of §6 are not built in v1.
+> - **Candidate sets, no over-resolution.** A place stays a candidate set until it is genuinely resolved. Composition tests containment over the candidates without pinning one. Only a user's answer pins a place.
+> - **History dates.** "Updated · Jan 4" is not used. A history line says "You told Kinship · Jan 4"; "Moved · Jan 4", "Started" or "Ended" appear only when the note itself gives the date.
+> - **Place data.** A GeoNames-style subset, pending the founder's licence and attribution confirmation.
+> - **The relation contract (§6), the inference policy (§7) and the no-graph decision (§14)** are approved. RELATED is an eval label only.
+
+
 *8 Oct 2026. Investigation only. No code, schema, prompt or data changed. Everything below is a proposal that needs founder decisions (§14). Checked against the branch after the Gate 0 merge (PR #20): Gate 0 added no migrations and didn't change the merge / supersede logic.*
 
 **Read for this:** the product contract; `approved-design-coverage.md`; `KINSHIP_2_DECISIONS.md` CC-16 to CC-18; `KINSHIP_2_COMPLETE_PLAN.md` §5, §6, §8, §9; `founder-feedback-4.md` (I7); `next-ux-proposals.md` (H15, H3); `relationship-page-rules.md`. Code: every v2 migration, `supabase/functions/_shared/extraction/` (`pipeline.ts` `relate`, `threads.ts`, `context.ts`, `types.ts`), prompt `relationship_extract/v6`, `src/features/person/`, `src/store/tables.ts` and `schema.ts`, and the eval corpus (`evals/extraction/fixtures/merge.jsonl`). Production was checked read-only through table metadata only: no user content was queried.

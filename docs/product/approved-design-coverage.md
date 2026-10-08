@@ -158,7 +158,7 @@ Roadmap only (not a surface yet): grounded **Ask Kinship** as an Alpha candidate
 
 ## Gate 0 Final Trust Closure (7 Oct, CC-18): what changed on approved surfaces
 
-All asked for in CC-18 and the founder's Gate 0 answers of 7 Oct (I12 guardrails; I3 semantics, plus "never re-create a removed person"). No approved surface was removed; nothing below is a redesign. Native: none verified yet (the targeted gate is `gate0-native-checklist.md`).
+All asked for in CC-18 and the founder's Gate 0 answers of 7 Oct (I12 guardrails; I3 semantics, plus "never re-create a removed person"). No approved surface was removed; nothing below is a redesign. Native: I12's existing lines were VERIFIED through the remediation gate (8 Oct). I13's answer path waits for the ai-gateway redeploy, because production was still version 7. I3, I5, I9, I10 and I11 weren't re-run there; they are re-checked in the Phase 4 native pass.
 
 | Surface | Change | Why | Founder approval |
 |---|---|---|---|
@@ -178,7 +178,9 @@ Not built in Gate 0 (Phase 4, approved): I1 Moment detail, I2 interaction histor
 
 ## Gate 0 remediation (8 Oct): what changed on approved surfaces
 
-The narrow pass the founder decided on 8 Oct after the Gate 0 native findings (`gate0-native-findings.md`), in the order I12 → I13 → J4 → J1 → J7 → J2 → J6 → J5 → Today headline → pet health. No approved surface was removed and nothing below is a redesign. Native: none verified yet. The targeted gate is `gate0-remediation-checklist.md`.
+The narrow pass the founder decided on 8 Oct after the Gate 0 native findings (`gate0-native-findings.md`), in the order I12 → I13 → J4 → J1 → J7 → J2 → J6 → J5 → Today headline → pet health. No approved surface was removed and nothing below is a redesign. **Native:** the founder ran the targeted gate, `gate0-remediation-checklist.md`, on 8 Oct and reports every row passed (CC-19).
+- **VERIFIED** where the fix runs on the phone or in the database: J2, J5, J6, J7, J8, J9, I12's existing lines and the J4 copy.
+- **Not yet exercised:** I12 for new lines, I13's answers, J1, J4's guard repair and J11. These run in ai-gateway, and production was still version 7 (the PR #21 code) during the gate. They need the redeploy and a re-run of their rows.
 
 | Surface | Change | Why | Founder approval |
 |---|---|---|---|
@@ -195,3 +197,22 @@ The narrow pass the founder decided on 8 Oct after the Gate 0 native findings (`
 | Tell › clarification | **"Whose promise?"** as a held question (Yours · <Name>'s · Don't keep this) when someone commits to something, or asks the user to, and the words don't say whose; the same choice H28's correction already offers on a saved promise. A line the model called a promise with no commitment in it is kept as what it says (the user's plan, or a fact about the person), shown on the Kept card for a glance | J11 | Yes: founder, 8 Oct ("hold and ask Whose promise?"; "downgrade/reclassify … rather than dropping it") |
 
 Not in this pass (founder, 8 Oct): J3 (waits for I1), shared-hobby composition (J10, with the semantic-memory decision), H15, the general semantic relationship model.
+
+## Phase 4 (founder, 8 Oct, CC-19): Gate 0 closed; what is approved and in progress
+
+Gate 0 is closed, and Phase 4 has started. The build plan is `phase4-implementation-brief.md`. **No surface below is built yet.** Each is built as approved (CC-17, CC-18, CC-19), or changed only with founder approval recorded here. Nothing approved is dropped.
+
+| Surface | Approved (latest wording) | Item | Phase / step | Status |
+|---|---|---|---|---|
+| Tell › Kept card | Order: what was kept → attention ("Pedro isn't in People yet…" **[Add Pedro] [Not now]**) → **Correct this · Undo** → "Did Kinship get this right?". "Tap a line to correct it." dropped | I4 | 4A · 1 | NOT BUILT (next) |
+| Tell field / all inputs | Done / dismiss and drag-down dismissal. Today and People reachable with the keyboard open. Draft kept. **Bottom nav stays** | I6 | 4A · 2 | NOT BUILT |
+| 10 Today → Moment detail | Focused detail: the grounded line, why now, timing, Source, Message / Call. Secondary **View <Person>** deep-links to the line with brief quiet emphasis (absorbs J3). Reduce Motion respected | I1 | 4A · 3 | NOT BUILT |
+| 10 Today | Milestone moments for the nine types, about 3 days before through the day, only with a grounded date. Today's ranking decides. No nagging; never asks for a date. Anchored to an established person. Only explicit milestone wording, never a residence change | H16 | 4A · 4 | NOT BUILT |
+| 12 Relationship page › Between you | A small dated trail ("You messaged · Oct 6 · About getting together…"). Manual entry: Message / Call / Video / In person. No counts, last-contacted, frequency or streaks. "Anything worth remembering?" optional and non-blocking, omitted after routine or logistical contact | I2 | 4A · 5 | NOT BUILT |
+| First use | One extra screen at most: Tell → Remember → **Bring back** ("This is where Kinship brings things back, when they matter."). The real first Tell preferred, else one grounded example. No carousel or decorative motion | H4 | 4A · 6 | NOT BUILT |
+| 14 What Kinship knows | Organized reference in sections: Background (residence as one composed line; work and education inside unless density warrants their own), Into, Hoping to, Their people, Between you. Empty sections disappear. No grid, counts, completeness or prompts | H15 / H2 | 4B | NOT BUILT; waits for the brief's review |
+| 14 What Kinship knows › Background | Clearly-past history for real changes only. A refinement or a correction is never history. Dates come only from the note ("You told Kinship · Jan 4"; "Moved · Jan 4" only when the note says so) | I7 | 4B | NOT BUILT |
+| 12 Relationship page (Portrait) › Lately | **Portrait de-duplication:** a residence told more and less precisely shows once, as the most specific line's own words ("Susan lives in Alameda", never also "Susan lives in California"). The Portrait's sections are otherwise unchanged | H15 (founder §28, 8 Oct) | 4B | NOT BUILT. Approved change to the Portrait: yes (CC-19) |
+| Tell › clarification | A residence conflict, rarely: "Is Susan still in Alameda?" **Still there · She moved**. Only when a wrong pick would show something false; never "Which Alameda?" | Semantic v1 (case E) | 4B | NOT BUILT |
+
+Still not built and not approved to build: Ask, About You, Garden, Landscape, Intentions, full Your story together (row 13 stays NOT BUILT as recorded above).
