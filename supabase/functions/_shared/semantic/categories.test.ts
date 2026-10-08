@@ -122,7 +122,7 @@ Deno.test("B1: the closed set and its sections, in the page's order", () => {
   eq([...new Set(CASES.map((c) => c.category))].sort(), [...CATEGORIES].sort());
 });
 
-Deno.test("B1: a memory with nothing to go on lands in Background and never fails", () => {
+Deno.test("B1: odd or missing fields never fail: Background, or Plans for an event of no known type", () => {
   for (const m of [
     { kind: "fact", statement: "" },
     { kind: "", statement: "Something" },
