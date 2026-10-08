@@ -17,9 +17,12 @@ import { aboutAnimalHealth } from "../../../supabase/functions/_shared/extractio
 import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 import { dayLabel, whenLabel } from "@/features/memory/format";
 import { nextBirthday } from "@/features/setup/setupModel";
+import { firmEnough, MILESTONE_DAYS_BEFORE, MILESTONE_WEIGHT, milestoneOf, type MilestoneType } from "./milestones";
 import type { MemoryItem, Person } from "@/store/repositories";
 
 export type ReasonType = "upcoming_event" | "event_followup" | "birthday" | "good_news" | "starts_today"
+  /** An engagement, a wedding, a new job… a few days before, through the day (founder H16). */
+  | "milestone"
   /** Reached from a Coming up line or a "Waiting on …" line through its detail (founder I1). */
   | "coming" | "waiting";
 
@@ -38,7 +41,7 @@ export function isBirthdayReason(id: string): boolean {
  * record on the server for it.
  */
 export function isLocalReason(id: string): boolean {
-  return /^(birthday|news|starts|coming|waiting):/.test(id);
+  return /^(birthday|news|starts|milestone|coming|waiting):/.test(id);
 }
 
 /** Good news, recent (stabilization Gate G): "Ben was promoted yesterday." */
@@ -133,6 +136,8 @@ export interface TodayInput {
   pending?: { captureId: string; kind: "understanding" | "question"; label: string; text: string; action: string | null }[];
   /** "You told Kinship · Oct 8" for an item, and the note it came from. */
   provenance: (itemId: string) => { line: string; noteId: string | null } | null;
+  /** The note's own words behind an item (its sources' quotes): what a milestone is read from (H16). */
+  quotes?: (itemId: string) => string[];
 }
 
 export interface MomentView {
@@ -382,33 +387,47 @@ export function buildToday(input: TodayInput): TodayView {
   // Good news and first days, from what the user told (Gate G): recent good
   // news is worth a congratulation; a first day is worth a word on the day.
   // Deterministic: the person's own news (never a relative's), in their words.
-  let local: { item: MemoryItem; day: string; type: "good_news" | "starts_today"; score: number } | null = null;
+  // Milestones (founder H16): an engagement, a wedding, a new job… named
+  // outright in the user's own words, with a day of its own, from three days
+  // before through the day. Never from a hedge, never a relative's, and a
+  // month, a year or no date is remembered quietly: nothing asks for one.
+  let local: { item: MemoryItem; day: string; type: "good_news" | "starts_today" | "milestone"; score: number; milestone?: MilestoneType } | null = null;
   for (const m of input.items) {
     if (!live(m) || !activePerson(m.person_id) || (m.subject_type !== undefined && m.subject_type !== "person" && m.subject_type !== "shared")) continue;
-    let type: "good_news" | "starts_today" | null = null;
+    let type: "good_news" | "starts_today" | "milestone" | null = null;
     let day: string | null = null;
-    if (m.kind === "event" && STARTS.includes(String((m.detail as Record<string, unknown>)?.event_type)) && eventDay(m) === today) {
+    let milestone: MilestoneType | null = null;
+    const detail = (m.detail ?? {}) as Record<string, unknown>;
+    const exact = eventDay(m);
+    if (m.kind === "event" && STARTS.includes(String(detail.event_type)) && exact === today) {
       type = "starts_today";
       day = today;
+    } else if (exact && daysBetween(today, exact) >= 0 && daysBetween(today, exact) <= MILESTONE_DAYS_BEFORE && firmEnough(m) &&
+      ["event", "plan", "milestone", "fact"].includes(m.kind) && (milestone = milestoneOf(m, input.quotes?.(m.id) ?? []))) {
+      type = "milestone";
+      day = exact;
     } else if (["fact", "milestone", "event", "moment"].includes(m.kind) && GOOD_NEWS.test(m.statement) && !NOT.test(m.statement)) {
-      day = eventDay(m) ?? (String(m.created_at ?? "").slice(0, 10) || null);
+      // N7: the day the note gave it, to the day; the day it was told only
+      // when the note gave no date at all ("promoted in 2024" is old news).
+      day = exact ?? (typeof detail.date === "string" ? null : String(m.created_at ?? "").slice(0, 10) || null);
       if (day && daysBetween(day, today) >= 0 && daysBetween(day, today) <= GOOD_NEWS_DAYS) type = "good_news";
     }
     if (!type || !day) continue;
-    const id = type === "good_news" ? `news:${m.id}` : `starts:${m.id}:${day}`;
+    const id = type === "good_news" ? `news:${m.id}` : type === "milestone" ? `milestone:${m.id}:${day}` : `starts:${m.id}:${day}`;
     const lr = input.local[id];
     if (lr?.acted || lr?.dismissed || lr?.done) continue;
     const capped = input.primaries.some((x) => x.personId === m.person_id && x.reasonId !== id && daysBetween(x.day, today) < 7);
-    const weight = type === "good_news" ? GOOD_NEWS_WEIGHT : STARTS_TODAY_WEIGHT;
+    const weight = type === "good_news" ? GOOD_NEWS_WEIGHT : type === "milestone" ? MILESTONE_WEIGHT : STARTS_TODAY_WEIGHT;
     const score = capped ? 0 : weight * (lr?.firstShown && lr.firstShown !== today ? 0.5 : 1);
-    if (score >= THRESHOLD && (!local || score > local.score)) local = { item: m, day, type, score };
+    if (score >= THRESHOLD && (!local || score > local.score)) local = { item: m, day, type, score, ...(milestone ? { milestone } : {}) };
   }
 
   const bestScore = Math.max(best?.score ?? 0, birthday?.score ?? 0);
   if (local && local.score > bestScore) {
     const p = activePerson(local.item.person_id) as Person;
     const name = firstName(p);
-    const id = local.type === "good_news" ? `news:${local.item.id}` : `starts:${local.item.id}:${local.day}`;
+    const id = local.type === "good_news" ? `news:${local.item.id}`
+      : local.type === "milestone" ? `milestone:${local.item.id}:${local.day}` : `starts:${local.item.id}:${local.day}`;
     view.moment = {
       reasonId: id,
       type: local.type,
@@ -419,7 +438,7 @@ export function buildToday(input: TodayInput): TodayView {
       day: local.day,
       toldDay: local.type === "good_news" && !eventDay(local.item),
       statement: local.item.statement,
-      context: local.type === "good_news" ? relativeDay(local.day, today) : `Today · ${dayLabel(local.day, today)}`,
+      context: local.type === "good_news" ? relativeDay(local.day, today) : `${relativeDay(local.day, today)} · ${dayLabel(local.day, today)}`,
       provenance: input.provenance(local.item.id)?.line ?? null,
       noteId: input.provenance(local.item.id)?.noteId ?? null,
       score: local.score,
@@ -428,7 +447,7 @@ export function buildToday(input: TodayInput): TodayView {
         : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: local.type === "good_news" ? `Congratulate ${name}` : `Message ${name}`,
       mention: [],
-      ...returnCopy(local.type, name, local.item.statement),
+      ...(local.type === "milestone" && local.milestone ? milestoneReturn(local.milestone, name) : returnCopy(local.type, name, local.item.statement)),
     };
   } else if (birthday && (!best || birthday.score > best.score)) {
     const name = firstName(birthday.p);
@@ -614,6 +633,16 @@ export function shownDay(now: Date): string {
 }
 
 // ─── The return question, with its reason (founder H10, H18) ───────────────
+
+/** What a milestone is called when Kinship asks about it afterwards (H16, H18): never a bare "Did you reach Ben?". */
+const MILESTONE_TOPIC: Record<MilestoneType, string> = {
+  engagement: "the engagement", wedding: "the wedding", new_job: "the new job", promotion: "the promotion", baby: "the baby",
+  graduation: "the graduation", new_home: "the new place", retirement: "retiring", move: "the move",
+};
+
+function milestoneReturn(type: MilestoneType, name: string): { ask: string; followUp: string } {
+  return { ask: `Did you reach ${name} about ${MILESTONE_TOPIC[type]}?`, followUp: `Anything worth remembering from talking with ${name}?` };
+}
 
 /** What the good news was, said back: "on the promotion". Deterministic; nothing when unsure. */
 function newsTopic(statement: string): string | null {

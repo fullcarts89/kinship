@@ -8,7 +8,7 @@ import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
-import { buildToday, evidenceOf, isBirthdayReason, isLocalReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
+import { buildToday, isBirthdayReason, isLocalReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
 import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
 import { legacyActivation, NO_ACTIVATION, nextStep, setupFinished, setupStepsFor, type SetupNeeds } from "@/features/setup/activation";
@@ -380,25 +380,34 @@ export function useToday(
     // H9: until the first sync, an existing account's people and notes aren't here yet.
     const synced = !!(await getMeta(store.db, "last_sync_ok_at"));
     const dataKnown = synced || (activation.activation !== null && !activation.activated);
-    // Provenance only for what a reason cites (the moment's line).
-    const cited = new Set(reasons.map(evidenceOf).filter((x): x is string => !!x));
-    const prov = new Map<string, { line: string; noteId: string | null }>();
+    // Where each line Today may show came from (the moment, a Coming up line,
+    // its detail: founder I1), and the note's own words behind it (H16 reads
+    // milestones from those, never from Kinship's wording alone).
     const byItem = await repos.memory.sourcesByItem();
-    for (const id of cited) {
-      const sources = byItem.get(id) ?? [];
-      const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
-        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-      const origin = (await repos.memory.get(id))?.origin;
-      prov.set(id, {
-        line: provenanceLine(sources.map((s) => ({
-          source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-        })), now, typeof origin === "string" ? origin : null),
-        noteId: notes[0]?.capture_id ?? null,
-      });
-    }
+    const origins = new Map(items.map((m) => [m.id, m.origin]));
+    const prov = new Map<string, { line: string; noteId: string | null }>();
+    const provenance = (id: string) => {
+      if (!prov.has(id)) {
+        const sources = byItem.get(id) ?? [];
+        if (!sources.length && !origins.has(id)) return null;
+        const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
+          .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+        const origin = origins.get(id);
+        prov.set(id, {
+          line: provenanceLine(sources.map((s) => ({
+            source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
+          })), now, typeof origin === "string" ? origin : null),
+          noteId: notes[0]?.capture_id ?? null,
+        });
+      }
+      return prov.get(id) ?? null;
+    };
+    const quotes = (id: string) => (byItem.get(id) ?? [])
+      .filter((s) => s.source_kind === "capture" && !s.deleted_at && typeof s.quote === "string")
+      .map((s) => String(s.quote));
     return buildToday({
       now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
-      handoff: local.handoff, told, questions, toLookAt, provenance: (id) => prov.get(id) ?? null,
+      handoff: local.handoff, told, questions, toLookAt, provenance, quotes,
       activated: activation.activated, firstName: activation.firstName, pending, dataKnown,
     });
   }, [questions, toLookAt, minute, activation.activated, activation.firstName, activation.activation === null, JSON.stringify(pending ?? null)]);
