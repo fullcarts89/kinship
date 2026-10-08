@@ -364,8 +364,22 @@ export class Understanding {
       | { person_ids: string[] }
       | { kind: SwitchableKind }
       | { owner: "user" | "person" }
-      | { date: string | null },
+      | { date: string | null }
+      /** Someone not in People yet (founder J2), or someone removed from it, brought back (I3). */
+      | { new_person: string; bring_back?: string },
   ): Promise<void> {
+    if ("new_person" in change) {
+      // "Add Josh" while correcting (founder J2): added by the name typed,
+      // no number needed (or, for a name someone removed from People goes
+      // by, that person brought back, I3), then moved there like any
+      // person correction, so the line names them (I13).
+      const people = repositoriesFor(this.store).people;
+      const name = change.new_person.normalize("NFC").trim();
+      if (!name || name.length > 60) throw new StoreWriteError("say who it's about");
+      if (change.bring_back) await people.restore(change.bring_back);
+      const id = change.bring_back ?? ((await people.add({ display_name: name })).id as string);
+      return this.correct(itemId, { person_id: id });
+    }
     const memory = repositoriesFor(this.store).memory;
     const item = (await this.store.get("memory_items", itemId)) as MemoryItem | null;
     if (!item) throw new StoreWriteError("that memory isn't here any more");

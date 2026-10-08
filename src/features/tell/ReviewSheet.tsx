@@ -24,7 +24,9 @@ export type Correction =
   | { person_ids: string[] }
   | { kind: SwitchableKind }
   | { owner: "user" | "person" }
-  | { date: string | null };
+  | { date: string | null }
+  /** "Add Josh" (founder J2): someone not in People, or someone removed from it brought back (I3). */
+  | { new_person: string; bring_back?: string };
 
 type Pane =
   | { kind: "review" }
@@ -94,6 +96,13 @@ export function ReviewSheet(props: ReviewSheetProps) {
         onPick={(id) => {
           if (pane.question) choose(pane.question, { person_id: id });
           else if (pane.line) props.onCorrect(pane.line.id, { person_id: id });
+          back();
+        }}
+        onAdd={(name, bringBack) => {
+          if (pane.question) {
+            if (bringBack) props.onRestore?.(bringBack);
+            choose(pane.question, bringBack ? { person_id: bringBack } : { new_person: true, new_person_name: name });
+          } else if (pane.line) props.onCorrect(pane.line.id, { new_person: name, ...(bringBack ? { bring_back: bringBack } : {}) });
           back();
         }}
       />

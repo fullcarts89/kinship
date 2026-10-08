@@ -372,3 +372,56 @@ describe("J7: the user's own answer about who a line is about is never reopened 
     expect(await suggestionsFor(w, michelle)).toEqual(["Is this the Michelle in “Ben is married to Michelle”?"]);
   });
 });
+
+describe("J2: correcting to someone not in People: Add Josh", () => {
+  it("one tap: Josh is added by name (no number) and 'Ben starts a new job' becomes his, 'Josh starts a new job', with 'was:' history", async () => {
+    const w = await world();
+    const [ben] = await contacts(w, "Ben Oxnard");
+    const t = await tell(w, "Ben starts a new job Monday.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, ben.id), person_mention: "Ben", statement: "Ben starts a new job", evidence: ["Ben starts a new job"], detail: { category: "work" } })],
+    }));
+    await done(w, t.id);
+    const line = serverItems(w)[0];
+    await w.understanding.correct(line.id, { new_person: "Josh" });
+    await w.engine.sync();
+    const josh = (await w.repos.people.list()).find((p) => p.display_name === "Josh")!;
+    expect(josh).toBeTruthy();
+    expect([josh.full_name ?? null, (josh as unknown as { phone?: unknown }).phone ?? null]).toEqual([null, null]);
+    const p = await page(w, josh);
+    expect(p.shown).toEqual(["Josh starts a new job"]);
+    expect(JSON.stringify(p.knows.lines[0])).toContain("Ben starts a new job");
+    expect((await page(w, ben)).shown).toEqual([]);
+  });
+
+  it("from a question's 'Choose who' too: 'Your wife' the note never said, answered by adding Wifey: hers, in the user's words", async () => {
+    const w = await world();
+    await typed(w, "Loo Loo");
+    const t = await tell(w, "Wifey got a raise.", () => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: "unknown", person_mention: "your wife", statement: "Your wife got a raise", evidence: ["Wifey got a raise"], detail: { category: "work" } })],
+    }));
+    const [q] = t.review.questions;
+    expect([q.prompt, q.about]).toEqual(["Who is this about?", ["Wifey got a raise"]]);
+    await answer(w, t.id, [{ index: 0, new_person: true, new_person_name: "Wifey" }]);
+    const wifey = (await w.repos.people.list()).find((p) => p.display_name === "Wifey")!;
+    expect((await page(w, wifey)).shown).toEqual(["Wifey got a raise"]);
+  });
+
+  it("someone removed from People, brought back instead of added twice (founder I3)", async () => {
+    const w = await world();
+    const [ben, kaiya] = await contacts(w, "Ben Oxnard", "Kaiya");
+    await w.repos.people.archive(kaiya.id);
+    await w.engine.sync();
+    const t = await tell(w, "Ben lost his first tooth.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "fact", person: key(i, ben.id), person_mention: "Ben", statement: "Ben lost his first tooth", evidence: ["Ben lost his first tooth"], detail: { category: "other" } })],
+    }));
+    await done(w, t.id);
+    await w.understanding.correct(serverItems(w)[0].id, { new_person: "Kaiya", bring_back: kaiya.id });
+    await w.engine.sync();
+    const all = await w.repos.people.list();
+    expect(all.filter((p) => p.display_name === "Kaiya").map((p) => [p.id, p.state])).toEqual([[kaiya.id, "active"]]);
+    expect((await page(w, kaiya)).shown).toEqual(["Kaiya lost his first tooth"]);
+  });
+});
