@@ -38,8 +38,8 @@ describe("I4: the Kept card's hierarchy", () => {
     const order = [
       "Kept for Susan Oxnard",
       "Susan is getting married to Pedro in the fall",
-      "Pedro isn't in People yet",
-      "Add them so this can appear on their page too.",
+      "Pedro isn't in People yet.",
+      "Add Pedro so this also shows on Pedro's page.",
       "Add Pedro",
       "Not now",
       "Correct this",
@@ -61,7 +61,7 @@ describe("I4: the Kept card's hierarchy", () => {
     expect(button.props.accessibilityRole).toBe("button");
     act(() => button.props.onPress());
     expect(add).toHaveBeenCalledWith("Pedro", ["m1", "m2"]);
-    expect(words(r)).not.toContain("Pedro isn't in People yet");
+    expect(words(r)).not.toContain("Pedro isn't in People yet.");
     // What was kept is untouched: Kept is done.
     expect(words(r)).toContain("Susan is getting married to Pedro in the fall");
   });
@@ -71,10 +71,10 @@ describe("I4: the Kept card's hierarchy", () => {
     const r = render(<KeptCard card={card} onOpen={noop} onUndo={noop} onDismiss={noop} onRate={noop} onAddNewcomer={add} />);
     act(() => pressable(r, `Not now: ${KEPT_COPY.add("Pedro")}`).props.onPress());
     expect(add).not.toHaveBeenCalled();
-    expect(words(r)).not.toContain("Pedro isn't in People yet");
+    expect(words(r)).not.toContain("Pedro isn't in People yet.");
     // A new note brings its own offers back.
     act(() => r.update(<KeptCard card={{ ...card, captureId: "c2" }} onOpen={noop} onUndo={noop} onDismiss={noop} onRate={noop} onAddNewcomer={add} />));
-    expect(words(r)).toContain("Pedro isn't in People yet");
+    expect(words(r)).toContain("Pedro isn't in People yet.");
   });
 
   it("Correct this opens what was kept; Undo forgets the note", () => {
@@ -97,6 +97,6 @@ describe("I4: the Kept card's hierarchy", () => {
     said = words(render(<KeptCard card={asking} onOpen={noop} onUndo={noop} onDismiss={noop} onRate={noop} onAddNewcomer={noop} />));
     expect(said).not.toContain("Undo");
     expect(said).not.toContain("Correct this");
-    expect(said).not.toContain("Pedro isn't in People yet");
+    expect(said).not.toContain("Pedro isn't in People yet.");
   });
 });

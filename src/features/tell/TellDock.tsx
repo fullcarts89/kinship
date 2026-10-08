@@ -61,10 +61,10 @@ export const FEEDBACK_OFF: { key: FeedbackOff; label: string }[] = [
   { key: "other", label: "Other" },
 ];
 
-/** The Kept card's words (founder I4). Kinship never guesses anyone's pronouns. */
+/** The Kept card's words (founder I4; copy approved in CC-20). Names, never guessed pronouns. */
 export const KEPT_COPY = {
-  notInPeople: (name: string) => `${name} isn't in People yet`,
-  why: "Add them so this can appear on their page too.",
+  notInPeople: (name: string) => `${name} isn't in People yet.`,
+  why: (name: string) => `Add ${name} so this also shows on ${name}'s page.`,
   add: (name: string) => `Add ${name}`,
   notNow: "Not now",
   correct: "Correct this",
@@ -78,8 +78,8 @@ export const KEPT_COPY = {
  *   KEPT FOR SUSAN OXNARD                                              ✕
  *   Susan is getting married to Pedro in the fall
  *
- *   Pedro isn't in People yet
- *   Add them so this can appear on their page too.
+ *   Pedro isn't in People yet.
+ *   Add Pedro so this also shows on Pedro's page.
  *   [Add Pedro]  Not now
  *
  *   Correct this · Undo
@@ -194,12 +194,12 @@ export function KeptCard({
       {newcomers.map((n) => (
         <View key={n.name} style={{ marginTop: space.m, gap: space.xs }}>
           <Body tone="ink">{KEPT_COPY.notInPeople(n.name)}</Body>
-          <Small tone="inkBody">{KEPT_COPY.why}</Small>
+          <Small tone="inkBody">{KEPT_COPY.why(n.name)}</Small>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginTop: space.xs }}>
             <Pill
               size="small"
               label={KEPT_COPY.add(n.name)}
-              accessibilityHint={`Adds ${n.name} to People. This memory will be on their page too`}
+              accessibilityHint={`Adds ${n.name} to People. This memory also shows on ${n.name}'s page`}
               onPress={() => {
                 setSettled((s) => [...s, n.name]);
                 onAddNewcomer?.(n.name, n.itemIds);
