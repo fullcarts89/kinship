@@ -93,9 +93,13 @@ describe("H16: a milestone moment, at the right time", () => {
     }
   });
 
-  it("never from a maybe or a wish, never a relative's, never a paused person's", () => {
+  it("never from a maybe, a wish or hearsay, never a relative's, never a paused person's", () => {
     expect(today([wedding("2026-10-15", { certainty: "tentative" })]).moment).toBeNull();
     expect(today([wedding("2026-10-15", { certainty: "wished" })]).moment).toBeNull();
+    // Second-hand or unsure ("I heard Anthony's getting married Saturday"): remembered, never a Moment.
+    expect(today([wedding("2026-10-15", { certainty: "reported" })]).moment).toBeNull();
+    // Said outright, or planned: yes.
+    expect(today([wedding("2026-10-15", { certainty: "planned" })]).moment?.type).toBe("milestone");
     expect(today([wedding("2026-10-15", { subject_type: "related", statement: "Anthony's sister's wedding is Saturday" })]).moment).toBeNull();
     const paused = [{ id: "anthony", display_name: "Anthony", state: "paused" }] as unknown as Person[];
     expect(today([wedding("2026-10-15")], { people: paused }).moment).toBeNull();

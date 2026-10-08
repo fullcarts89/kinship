@@ -8,6 +8,8 @@
 //     in the line as kept; a residence that changed is never a "move";
 //   * only with a day-precise date: a month, a year or no date is remembered
 //     quietly, and nothing ever asks for one;
+//   * only when it's said outright or planned: a maybe, a wish or hearsay is
+//     remembered quietly too;
 //   * eligible from about three days before through the day itself; Today's
 //     ranking decides whether it speaks, and it speaks once (freshness and the
 //     one-per-person-per-week cap do the rest);
@@ -58,9 +60,13 @@ export function milestoneOf(item: MemoryItem, quotes: string[]): MilestoneType |
   return own.some((q) => milestoneIn(q) === kept) ? kept : null;
 }
 
-/** How sure the line is: a milestone moment needs it said, planned or heard, never a maybe or a wish. */
+/**
+ * How sure the line is: a milestone moment needs it said outright or planned
+ * (brief §17), never a maybe, a wish, or second-hand or unsure ("I heard
+ * Anthony's getting married Saturday"), which is remembered quietly.
+ */
 export function firmEnough(item: MemoryItem): boolean {
-  return item.certainty === "stated" || item.certainty === "planned" || item.certainty === "reported";
+  return item.certainty === "stated" || item.certainty === "planned";
 }
 
 /** Days before the day it becomes eligible (and through the day itself). */
