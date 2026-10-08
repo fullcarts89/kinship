@@ -369,7 +369,7 @@ Facets were never touched by closing, so the composition is back exactly. `reaso
 | Alameda → actually Oakland | Alameda active; no history |
 | A thread → resolved by a note | The thread active again (N8) |
 | Two closers of one item; undo one | The item stays closed |
-| Not this on the closer after 30 days (history purged) | Back to `active` (as today); the `valid_to` that supersession set on a fact is cleared |
+| Not this on the closer after 30 days (history purged) | Back to `active` (as today; `valid_to` isn't shown anywhere) |
 
 **Outside Undo's scope, and not changed:** a merge's added people or mentions, new related people, a `relationship_label` set from the note. Those are separate Gate 0 items; none is semantic.
 
@@ -591,7 +591,7 @@ These are your 16 steps, grouped into reviewable chunks on the branch. They were
 
 | Chunk | Your steps | Delivers |
 |---|---|---|
-| **B0** | (N8) | **First, at the earliest schema opportunity** (CC-20). The `resolves_id` column, restoring a resolved thread on Undo, and `reasons_refresh` reopening a suppressed Moment. A small migration of its own, plus pgTAP. Working before the next vertical-slice native gate |
+| **B0** ✓ `6cc0436` | (N8) | **First, at the earliest schema opportunity** (CC-20). Built: migration `20261009090000_v2_exact_undo`, pgTAP `66_v2_exact_undo`. The `resolves_id` column, restoring a resolved thread on Undo, and `reasons_refresh` reopening a suppressed Moment. A small migration of its own, plus pgTAP. Working before the next vertical-slice native gate |
 | B1 | 1 | `categories.ts` (§3) and its categorization evals. No display change yet |
 | B2 | 2, 3 | The migration (§1 B–G); `places` build script, licence notice and versioned JSON (§6); pgTAP |
 | B3 | 4, 5 | `residence.ts` (§5), `relate.ts` (§8) wired into `pipeline.ts` behind the residence check; CONFLICT question copy; the `semantic` corpus |
