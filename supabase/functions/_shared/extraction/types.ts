@@ -208,7 +208,15 @@ export type Flag =
   // Founder J4: the model's wording added what the note never says (a name,
   // a number, a sensitive term, a relationship, a lost "not"), so the line
   // keeps the note's own words instead, shown for a glance. Never dropped.
-  | "own_words";
+  | "own_words"
+  // Founder J11: the model called it a promise and someone commits to
+  // something here (or asks the user to), but whose promise it is isn't
+  // plain. Held: "Whose promise?" (Yours, or theirs).
+  | "promise_owner"
+  // Founder J11: the model called it a promise but no one commits to
+  // anything in the words. Kept as what it says (the user's plan, or a fact
+  // about the person), never a to-do, shown for a glance.
+  | "not_a_promise";
 
 export interface PlannedSpan {
   start: number;

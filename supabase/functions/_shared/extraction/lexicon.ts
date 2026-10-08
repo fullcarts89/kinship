@@ -233,6 +233,19 @@ export function userIsActor(clause: string): boolean {
   return USER_COMMITMENT.test(c) || SELF_NOTE_START.test(c);
 }
 
+/**
+ * Words that commit someone to something, or ask the user to (founder J11):
+ * "promised", "agreed to", "offered to", "said she'd", "owes", "is supposed
+ * to", "asked me to", "wants me to". When neither the user's own commitment
+ * nor someone's commitment to the user is plain, these make whose promise
+ * it is a real question; without any of them, nothing here is a promise.
+ */
+const COMMITMENT = /\b(?:promise[sd]?|promising|swore|swears?|vow(?:ed|s)?|(?:agree[sd]?|offer(?:ed|s)?|commit(?:ted|s)?)\s+to|owe[sd]?|supposed\s+to|(?:said|says|told\s+[\p{L}'-]+)\s+(?:that\s+)?(?:i|we|he|she|they|you)(?:'d|'ll|\s+would|\s+will)|(?:asked|asks|wants|wanted|needs|needed|told|tells|reminded|reminds)\s+(?:me|us)\s+to)\b/u;
+
+export function commitsSomeone(clause: string): boolean {
+  return COMMITMENT.test(fold(clause));
+}
+
 // ─── Prompt injection ───────────────────────────────────────────────────────
 
 const INSTRUCTION = [

@@ -378,3 +378,18 @@ describe("J1: 'Who is “he”?' offers exactly who it can mean", () => {
     expect(q.choices.map((c) => c.label)).toEqual(["Choose who"]);
   });
 });
+
+describe("J11: 'Whose promise?' when a promise's owner is genuinely unclear", () => {
+  const anna = person("anna", "Anna");
+  const water = held({ kind: "promise", person_id: "anna", subject_type: "user", statement: "Anna asked you to water her plants while she's away", flags: ["promise_owner"],
+    spans: [{ start: 0, end: 50, quote: "Anna asked me to water her plants while she's away" }] });
+
+  it("asks whose it is, in the user's words, with Yours, Anna's and Don't keep this", () => {
+    const v = view("Anna asked me to water her plants while she's away.", row("review", { tier: "clarify", held: [water], settled: false, review_created_at: "t" }), [], [anna, BEN]);
+    const [q] = v.questions;
+    expect([q.type, q.prompt, q.about]).toEqual(["owner", "Whose promise?", ["Anna asked you to water her plants while she's away"]]);
+    expect(q.choices.map((c) => c.label)).toEqual(["Yours", "Anna's"]);
+    expect(q.skip.label).toBe("Don't keep this");
+    expect(answersFor(v.questions, { q0: { owner: "user" } })).toEqual([{ index: 0, owner: "user" }]);
+  });
+});

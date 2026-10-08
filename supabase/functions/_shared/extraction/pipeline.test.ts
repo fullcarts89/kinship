@@ -180,8 +180,10 @@ Deno.test("someone else's promise is not the user's promise", () => {
   // Kept as Ben's (waiting on him, stabilization Gate F), never the user's.
   const ben = run(input("Ben said he'd pick up the cake."), [item({ kind: "promise", evidence: ["Ben said he'd pick up the cake"], statement: "Ben said he'd pick up the cake" })]);
   eq([ben.items[0]?.kind, ben.items[0]?.subject_type], ["promise", "person"]);
-  // Neither the user's nor anyone's commitment: still dropped.
-  eq(run(input("Ben's cake is ready."), [item({ kind: "promise", evidence: ["Ben's cake is ready"], statement: "Ben's cake is ready" })]).dropped[0].reason, "not_a_user_promise");
+  // Neither the user's nor anyone's commitment: never a promise, and never
+  // dropped either (founder J11): kept as what it says, for a glance.
+  const cake = run(input("Ben's cake is ready."), [item({ kind: "promise", evidence: ["Ben's cake is ready"], statement: "Ben's cake is ready" })]);
+  eq(cake.items.map((i) => [i.kind, i.statement, i.tier, i.flags.includes("not_a_promise")]), [["fact", "Ben's cake is ready", "confirm", true]]);
   eq(run(input("Dropping off a lasagna for Ben tomorrow."), [item({ kind: "promise", evidence: ["Dropping off a lasagna for Ben tomorrow"], statement: "Drop off a lasagna for Ben", date_text: "tomorrow" })]).items[0].detail, { due_hint: "tomorrow", due_date: "2026-10-09" });
 });
 

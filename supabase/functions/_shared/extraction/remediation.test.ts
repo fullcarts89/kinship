@@ -295,3 +295,71 @@ Deno.test("J1: a pronoun after two people named before it is still asked about b
   const me = run(input("Ben told me he's moving to Austin.", ben), [item({ kind: "event", person: "p1", person_mention: "he", statement: "Ben is moving to Austin", evidence: ["he's moving to Austin"] })]);
   eq(me.items.map((i) => [i.person_id, i.tier === "hold"]), [["ben", false]], "one person named before 'he': him");
 });
+
+// ─── J11: a line the model calls "your promise" is never silently dropped ────
+// Founder (8 Oct, before the build): the same invariant as J4. A plausible
+// statement is never discarded because its kind or owner is unsupported:
+// whose promise it is, when that's genuinely unclear, is asked; a line that
+// is clearly no one's commitment is kept as what it says.
+
+const J11_ROSTER: RosterPerson[] = [
+  { key: "p1", id: "kenji", display_name: "Kenji", full_name: null, nicknames: [], relationship_label: null },
+  { key: "p2", id: "ben", display_name: "Ben", full_name: null, nicknames: [], relationship_label: null },
+  { key: "p3", id: "anna", display_name: "Anna", full_name: null, nicknames: [], relationship_label: null },
+];
+
+Deno.test("J11: 'he's booking the flights', called Kenji's promise: no one commits to anything, so it's kept as a fact about Kenji, for a glance", () => {
+  const note = "Kenji and I are doing the Lisbon trip in May, he's booking the flights.";
+  const out = run(input(note, J11_ROSTER), [item({
+    kind: "promise", subject: "person", person: "p1", person_mention: "he", statement: "Kenji is booking the flights for the Lisbon trip", evidence: ["he's booking the flights"],
+  })]);
+  eq(out.dropped, []);
+  eq(out.items.map((i) => [i.kind, i.subject_type, i.person_id, i.statement, i.tier, i.flags.includes("not_a_promise")]),
+    [["fact", "person", "kenji", "Kenji is booking the flights for the Lisbon trip", "confirm", true]]);
+});
+
+Deno.test("J11: 'Can't wait to tell Ben', called your promise: an intention, kept as your plan, never a to-do", () => {
+  const out = run(input("I got the job! Can't wait to tell Ben.", J11_ROSTER), [item({
+    kind: "promise", subject: "user", person: "p2", person_mention: "Ben", statement: "You want to tell Ben you got the job", evidence: ["Can't wait to tell Ben."],
+  })]);
+  eq(out.dropped, []);
+  eq(out.items.map((i) => [i.kind, i.subject_type, i.person_id, i.statement, i.tier]), [["plan", "user", "ben", "You want to tell Ben you got the job", "confirm"]]);
+});
+
+Deno.test("J11: 'Anna asked me to water her plants': a real request, owner unclear, so it's held and asked 'Whose promise?'", () => {
+  const note = "Anna asked me to water her plants while she's away.";
+  const out = run(input(note, J11_ROSTER), [item({
+    kind: "promise", subject: "user", person: "p3", person_mention: "Anna", statement: "Anna asked you to water her plants while she's away", evidence: ["Anna asked me to water her plants while she's away"],
+  })]);
+  eq(out.dropped, []);
+  eq(out.items.map((i) => [i.kind, i.person_id, i.statement, i.tier, i.flags.includes("promise_owner")]),
+    [["promise", "anna", "Anna asked you to water her plants while she's away", "hold", true]]);
+  const held = out.items.map(asHeld);
+  const people: ResolvePerson[] = J11_ROSTER.map((p) => ({ id: p.id, display_name: p.display_name, full_name: null, nicknames: [], state: "active" }));
+  const answer = (a: Record<string, unknown>) => resolveHeld(held, [{ index: 0, ...a }], { note, people, related: [], existing: [] });
+  const yours = answer({ owner: "user" });
+  if ("fail" in yours) throw new Error(yours.fail);
+  eq(yours.items.map((i) => [i.kind, i.subject_type, i.person_id, i.statement]), [["promise", "user", "anna", "Anna asked you to water her plants while she's away"]]);
+  const hers = answer({ owner: "person" });
+  if ("fail" in hers) throw new Error(hers.fail);
+  eq(hers.items.map((i) => i.subject_type), ["person"]);
+  // A build from before this question shows "Remember this?": the reading as proposed.
+  const yes = answer({ accept: true });
+  if ("fail" in yes) throw new Error(yes.fail);
+  eq(yes.items.map((i) => i.subject_type), ["user"]);
+  eq(answer({ owner: "someone" }), { fail: "bad_answer" });
+  const skipped = answer({ skip: true });
+  if ("fail" in skipped) throw new Error(skipped.fail);
+  eq(skipped.items, []);
+});
+
+Deno.test("J11: whose promise is still decided by the words when they say it: yours, or theirs to you", () => {
+  const mine = run(input("Dropping off a lasagna for Ben tomorrow.", J11_ROSTER), [item({
+    kind: "promise", subject: "user", person: "p2", person_mention: "Ben", statement: "Drop off a lasagna for Ben", evidence: ["Dropping off a lasagna for Ben tomorrow"],
+  })]);
+  eq(mine.items.map((i) => [i.kind, i.subject_type, i.tier === "hold"]), [["promise", "user", false]]);
+  const theirs = run(input("Ben said he'd send me the photos.", J11_ROSTER), [item({
+    kind: "promise", subject: "user", person: "p2", person_mention: "Ben", statement: "Ben said he'd send you the photos", evidence: ["Ben said he'd send me the photos"],
+  })]);
+  eq(theirs.items.map((i) => [i.kind, i.subject_type, i.tier === "hold"]), [["promise", "person", false]]);
+});

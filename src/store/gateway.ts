@@ -85,6 +85,8 @@ export interface HeldAnswer {
   replaces?: string | null;
   subject?: "person" | "related";
   relation?: string;
+  /** Whose promise it is (founder J11): the user's, or the person's. */
+  owner?: "user" | "person";
   date?: string | null;
   /** "Remember this": the user's yes to a reading held for it. */
   accept?: true;

@@ -925,6 +925,8 @@ export function questionType(item: HeldItem | undefined): ClarificationType | nu
   if (!item.person_id || PERSON_FLAGS.some((f) => item.flags.includes(f))) return "person";
   if (item.flags.includes("subject_check")) return "relation";
   if (item.flags.includes("date_unresolved_sensitive")) return "date";
+  // Whose promise it is (founder J11).
+  if (item.flags.includes("promise_owner")) return "owner";
   // Held only for the user's yes (sensitive, or an ambiguous day).
   return "keep";
 }

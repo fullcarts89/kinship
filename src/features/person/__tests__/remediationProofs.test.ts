@@ -425,3 +425,55 @@ describe("J2: correcting to someone not in People: Add Josh", () => {
     expect((await page(w, kaiya)).shown).toEqual(["Kaiya lost his first tooth"]);
   });
 });
+
+describe("J11: a line the model calls a promise is never dropped", () => {
+  it("'Anna asked me to water her plants': 'Whose promise?' → Yours: your promise on Anna's page, with its source", async () => {
+    const w = await world();
+    const [anna] = await typed(w, "Anna");
+    const note = "Anna asked me to water her plants while she's away.";
+    const t = await tell(w, note, (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "promise", subject: "user", person: key(i, anna.id), person_mention: "Anna", statement: "Anna asked you to water her plants while she's away",
+        evidence: ["Anna asked me to water her plants while she's away"] })],
+    }));
+    const [q] = t.review.questions;
+    expect([q.prompt, q.choices.map((c) => c.label)]).toEqual(["Whose promise?", ["Yours", "Anna's"]]);
+    await answer(w, t.id, [{ index: 0, owner: "user" }]);
+    expect(serverItems(w).map((m) => [m.kind, m.subject_type, m.person_id])).toEqual([["promise", "user", anna.id]]);
+    expect((await page(w, anna)).shown).toContain("Anna asked you to water her plants while she's away");
+    expect((await noteFor(w.store, t.id, new Date(w.server.clock)))!.runs!.map((r) => r.text).join("")).toBe(note);
+  });
+
+  it("'I got the job! Can't wait to tell Ben.': kept as your plan on Ben's page, never a to-do, never 'Nothing to remember'", async () => {
+    const w = await world();
+    const [ben] = await typed(w, "Ben");
+    const t = await tell(w, "I got the job! Can't wait to tell Ben.", (i) => ({
+      needs_clarification: null,
+      items: [item({ kind: "promise", subject: "user", person: key(i, ben.id), person_mention: "Ben", statement: "You want to tell Ben you got the job", evidence: ["Can't wait to tell Ben."] })],
+    }));
+    expect([t.review.mode, t.review.questions]).toEqual(["card", []]);
+    await done(w, t.id);
+    expect(serverItems(w).map((m) => [m.kind, m.subject_type])).toEqual([["plan", "user"]]);
+    const p = await page(w, ben);
+    expect(p.portrait.comingUp.map((l) => l.statement)).toEqual(["You want to tell Ben you got the job"]);
+    expect(p.portrait.youSaid).toEqual([]);
+  });
+
+  it("'Kenji and I are doing the Lisbon trip in May, he's booking the flights.': the booking is kept, as a fact about Kenji, with the trip", async () => {
+    const w = await world();
+    const [kenji] = await contacts(w, "Kenji Watanabe");
+    const note = "Kenji and I are doing the Lisbon trip in May, he's booking the flights.";
+    const t = await tell(w, note, (i) => ({
+      needs_clarification: null,
+      items: [
+        item({ kind: "event", subject: "shared", person: key(i, kenji.id), person_mention: "Kenji", statement: "You and Kenji are doing the Lisbon trip in May",
+          evidence: ["Kenji and I are doing the Lisbon trip in May"], date_text: "in May", detail: { event_type: "trip" } }),
+        item({ kind: "promise", subject: "person", person: key(i, kenji.id), person_mention: "he", statement: "Kenji is booking the flights for the Lisbon trip", evidence: ["he's booking the flights"] }),
+      ],
+    }));
+    expect(t.review.questions).toEqual([]);
+    expect(t.review.lines.map((l) => l.statement)).toEqual(expect.arrayContaining(["Kenji is booking the flights for the Lisbon trip"]));
+    await done(w, t.id);
+    expect(serverItems(w).find((m) => m.statement === "Kenji is booking the flights for the Lisbon trip")).toMatchObject({ kind: "fact", subject_type: "person", person_id: kenji.id });
+  });
+});

@@ -99,8 +99,11 @@ export interface ItemLine {
   editedFrom?: string | null;
 }
 
-/** "keep": a sensitive or ambiguous reading that is not memory until the user says yes. */
-export type QuestionType = "which_person" | "about_whom" | "new_person" | "replace" | "date" | "keep";
+/**
+ * "keep": a sensitive or ambiguous reading that is not memory until the user says yes.
+ * "owner": whose promise it is, when the words don't say (founder J11).
+ */
+export type QuestionType = "which_person" | "about_whom" | "new_person" | "owner" | "replace" | "date" | "keep";
 
 export type Choice =
   /** restore: someone removed from People, brought back before the answer is sent (founder I3). */
@@ -407,7 +410,7 @@ function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
       }
     }
   });
-  const order: QuestionType[] = ["which_person", "about_whom", "new_person", "replace", "date", "keep"];
+  const order: QuestionType[] = ["which_person", "about_whom", "new_person", "owner", "replace", "date", "keep"];
   return [...groups.values()]
     .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type))
     .map((q, n) => ({ ...q, key: `q${n}` }));
@@ -588,6 +591,21 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
             { key: "related", label: `${name}'s ${relation}`, answer: { subject: "related", relation } },
           ]
         : [{ key: "person", label: `Yes, ${name}`, answer: { subject: "person" } }],
+    });
+  }
+  if (item.kind === "promise" && item.flags.includes("promise_owner")) {
+    // Founder J11: someone commits to something here, or asks the user to,
+    // but whose promise it is isn't plain. Asked, never guessed or dropped.
+    const person = item.person_id ? input.people.find((p) => p.id === item.person_id) : undefined;
+    needs.push({
+      type: "owner",
+      group: `owner:${item.statement}:${item.spans[0]?.start ?? 0}`,
+      prompt: "Whose promise?",
+      reason: null,
+      choices: [
+        { key: "yours", label: "Yours", answer: { owner: "user" } },
+        { key: "theirs", label: person ? `${shortName(person)}'s` : "Theirs", answer: { owner: "person" } },
+      ],
     });
   }
   if (item.flags.includes("update_check") && Array.isArray(item.detail?._replaces)) {

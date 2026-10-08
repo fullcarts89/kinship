@@ -28,6 +28,7 @@ import {
   statedSelfRelations,
   selfRelationPhrase,
   theyPromisedMe,
+  commitsSomeone,
   fold,
   hasNegation,
   negatedWhereStated,
@@ -292,7 +293,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     inventedSensitiveTerms(statement, text).length > 0 || inventedRelations(statement, text, ctx.knownRelations).length > 0 ||
     (negatedWhereStated(clauseAroundSpan(text, primary), statement) && !hasNegation(statement)) || !voiced.certain;
   // Never an instruction or a contact detail, whichever quote it was in.
-  const said = unfaithful
+  let said = unfaithful
     ? ownWords(text, spans.filter((s, i) => i === 0 ||
       (!looksLikeInstruction(clauseAroundSpan(text, s)) && !looksLikeInstruction(sentenceAroundSpan(text, s)) && !CONTACT_DETAIL.test(s.quote))))
     : voiced.text;
@@ -315,7 +316,29 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   if (raw.kind === "promise") {
     if (mine) subject = "user";
     else if (theirs) subject = "person";
-    else return { drop: "not_a_user_promise" };
+    else if (commitsSomeone(clause) || commitsSomeone(primary.quote) || commitsSomeone(sentence)) {
+      // Someone commits to something here, or asks the user to ("Anna asked
+      // me to water her plants"), but whose promise it is isn't plain
+      // (founder J11): kept, and asked "Whose promise?". Never guessed,
+      // never dropped.
+      subject = raw.subject === "person" ? "person" : "user";
+      flags.add("promise_owner");
+    } else {
+      // No one commits to anything in these words ("he's booking the
+      // flights", "Can't wait to tell Ben"): not a promise, and never a
+      // to-do. Kept as what it says, shown for a glance (founder J11): the
+      // user's own plan, or a fact about the person. A commitment only the
+      // model's wording carries gives way to the note's own words.
+      raw = raw.subject === "user"
+        ? { ...raw, kind: "plan" }
+        : { ...raw, kind: "fact", subject: raw.subject === "shared" || raw.subject === "related" ? raw.subject : "person" };
+      subject = raw.subject;
+      flags.add("not_a_promise");
+      if (commitsSomeone(said)) {
+        said = ownWords(text, spans.slice(0, 1));
+        flags.add("own_words");
+      }
+    }
   } else if (subject === "user" && raw.kind !== "plan" && raw.kind !== "moment" && raw.kind !== "event") {
     return { drop: "bad_kind_subject" };
   }
@@ -659,7 +682,7 @@ function askConfirmed(ctx: Context, mention: string, raw?: ProposedItem): boolea
 
 // A pronoun that could point at two named people ("Ben and Josh went
 // climbing. He fell.") waits for the user, like any other ambiguity.
-const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict", "person_archived"];
+const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict", "person_archived", "promise_owner"];
 
 function tierFor(flags: Set<Flag>): Tier {
   if (HOLD_FLAGS.some((f) => flags.has(f))) return "hold";

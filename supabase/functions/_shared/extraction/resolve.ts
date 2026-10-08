@@ -77,6 +77,8 @@ export interface HeldAnswer {
   replaces?: string | null;
   /** About the person, or about the person's relative. */
   subject?: "person" | "related";
+  /** Whose promise it is (founder J11): the user's, or the person's. */
+  owner?: "user" | "person";
   /** The relation word, from the user's own words ("sister"). */
   relation?: string;
   /** The day a held health or loss event is on; null for "no date". Or the right day for an ambiguous date. */
@@ -179,7 +181,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     if (!a) return { fail: "unanswered" };
     if (a.skip === true) {
       if (a.person_id !== undefined || a.new_person !== undefined || a.subject !== undefined || a.date !== undefined || a.accept !== undefined ||
-          a.also_person_ids !== undefined || a.replaces !== undefined) return { fail: "bad_answer" };
+          a.also_person_ids !== undefined || a.replaces !== undefined || a.owner !== undefined) return { fail: "bad_answer" };
       skipped++;
       continue;
     }
@@ -188,7 +190,8 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     const needsPerson = item.person_id === null || PERSON_FLAGS.some((f) => flags.has(f));
     // Held only for the user's yes (a sensitive or ambiguous reading): nothing is
     // written on silence or on an empty answer.
-    const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive") || flags.has("update_check");
+    const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive") || flags.has("update_check") ||
+      flags.has("promise_owner");
     if (a.accept !== undefined && a.accept !== true) return { fail: "bad_answer" };
     if (!asksSomething && a.accept !== true) return { fail: "bad_answer" };
 
@@ -257,6 +260,16 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         return { fail: "bad_answer" };
       }
     } else if (a.subject !== undefined || a.relation !== undefined) {
+      return { fail: "bad_answer" };
+    }
+
+    // ── Whose promise (founder J11) ──
+    // The user's answer, or, from a build before this question, their
+    // "Remember this": the reading as proposed.
+    if (flags.has("promise_owner") && item.kind === "promise") {
+      if (a.owner === "user" || a.owner === "person") subjectType = a.owner;
+      else if (a.owner !== undefined || a.accept !== true) return { fail: "bad_answer" };
+    } else if (a.owner !== undefined) {
       return { fail: "bad_answer" };
     }
 
