@@ -5,7 +5,9 @@
 //
 // Motion (Design Direction §H): the scrim fades; the sheet rises in 360 ms
 // with no overshoot and leaves in 240 ms. With Reduce Motion both fade in
-// 150 ms. The grabber means what it shows: drag the sheet down to close it.
+// 150 ms. The grabber means what it shows: drag the sheet down to close it,
+// from anywhere on it once its content is at the top (founder J5, as iOS
+// sheets do); content scrolled down scrolls back first.
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { Pressable } from "./Pressable";
@@ -17,6 +19,16 @@ import { sheetClosed, sheetOpened } from "./sheetStack";
 /** How far to drag before letting go closes the sheet. */
 const DRAG_CLOSE = 96;
 const OFFSCREEN = 900;
+
+/** Whether a drag is the sheet's (founder J5): downward, mostly vertical, with its content at the top. */
+export function takesDrag(atTop: boolean, dx: number, dy: number): boolean {
+  return atTop && dy > 6 && Math.abs(dy) > Math.abs(dx);
+}
+
+/** Whether letting go closes it: dragged far enough, or flicked down. */
+export function dragCloses(dy: number, vy: number): boolean {
+  return dy > DRAG_CLOSE || vy > 0.9;
+}
 
 export function Sheet({
   visible,
@@ -43,9 +55,14 @@ export function Sheet({
   const fade = useRef(new Animated.Value(reduce ? 0 : 1)).current;
   const dismiss = useRef(onDismiss);
   dismiss.current = onDismiss;
+  // Whether its content is scrolled to the top (founder J5): a sheet opens there.
+  const atTop = useRef(true);
 
   useEffect(() => {
-    if (visible) setMounted(true);
+    if (visible) {
+      setMounted(true);
+      atTop.current = true;
+    }
   }, [visible]);
 
   // Counted from the moment it's up until it has fully left (sheetStack.ts).
@@ -88,13 +105,22 @@ export function Sheet({
     }
   }, [visible, mounted, reduce, scrim, rise, fade]);
 
-  // Drag down from the top of the sheet (the grabber's promise) to close.
+  // Drag down to close, from anywhere on the sheet (founder J5): taken
+  // before its content gets it, but only while the content is at the top,
+  // so content scrolled down scrolls back first. Taps still reach what's
+  // tapped. The sheet follows the finger and settles back on a short drag.
   const pan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+    onMoveShouldSetPanResponderCapture: (_, g) => takesDrag(atTop.current, g.dx, g.dy),
+    onMoveShouldSetPanResponder: (_, g) => takesDrag(atTop.current, g.dx, g.dy),
+    onPanResponderTerminationRequest: () => false,
     onPanResponderMove: (_, g) => rise.setValue(Math.max(0, g.dy)),
     onPanResponderRelease: (_, g) => {
-      if (g.dy > DRAG_CLOSE || g.vy > 0.9) dismiss.current();
-      else Animated.timing(rise, { toValue: 0, duration: motion.quick, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+      // As a tap above it does, a drag first puts the keyboard away.
+      if (dragCloses(g.dy, g.vy) && !Keyboard.isVisible()) dismiss.current();
+      else {
+        if (dragCloses(g.dy, g.vy)) Keyboard.dismiss();
+        Animated.timing(rise, { toValue: 0, duration: motion.quick, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+      }
     },
     onPanResponderTerminate: () => {
       Animated.timing(rise, { toValue: 0, duration: motion.quick, useNativeDriver: true }).start();
@@ -115,6 +141,7 @@ export function Sheet({
           style={{ flex: 1 }}
         />
         <Animated.View
+          {...pan.panHandlers}
           accessibilityViewIsModal
           accessibilityLabel={label}
           style={[shadow.sheet, {
@@ -122,7 +149,7 @@ export function Sheet({
             paddingBottom: space.m + insets.bottom, opacity: fade, transform: [{ translateY: rise }],
           }]}
         >
-          <View {...pan.panHandlers} style={{ paddingTop: space.m, paddingBottom: space.xl }}>
+          <View style={{ paddingTop: space.m, paddingBottom: space.xl }}>
             <View
               accessibilityElementsHidden
               importantForAccessibility="no"
@@ -133,6 +160,12 @@ export function Sheet({
             />
           </View>
           <ScrollView
+            // At the top, a downward drag is the sheet's, never an overscroll.
+            bounces={false}
+            scrollEventThrottle={16}
+            onScroll={(e) => {
+              atTop.current = e.nativeEvent.contentOffset.y <= 0;
+            }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: space.s }}

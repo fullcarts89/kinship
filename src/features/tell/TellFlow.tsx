@@ -42,6 +42,8 @@ export interface KeptCardState {
   /** What was kept, in the user's words (at most three; the rest is "more"). */
   lines: { id: string; statement: string }[];
   more: number;
+  /** The kept lines past the first three: "and 1 more" shows them in place (founder J6). */
+  rest?: { id: string; statement: string }[];
   /** "Understanding…", "Nothing to remember in that one…", "One thing to check". */
   status: string | null;
   /** Who it belongs with: shown on their page, never on someone else's. */
@@ -118,6 +120,7 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     heading: view.mode === "card" ? view.heading : null,
     lines: lines.slice(0, 3),
     more: Math.max(0, lines.length - 3),
+    rest: lines.slice(3),
     status: view.mode === "card" ? view.status : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
     personIds: view.personIds,
     feedback: view.feedback ?? null,

@@ -61,3 +61,64 @@ describe("J2: correcting who a line is about to someone not in People", () => {
     alert.mockRestore();
   });
 });
+
+describe("J6: every kept line can be looked at from the Kept card", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { KeptCard } = require("@/features/tell/TellDock") as typeof import("@/features/tell/TellDock");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { cardFor } = require("@/features/tell/TellFlow") as typeof import("@/features/tell/TellFlow");
+  const statements = ["John likes to play dress up", "Ben likes to play dress up", "John is thinking about quitting dress up", "Ben is thinking about quitting dress up"];
+  const view = {
+    captureId: "c1", mode: "card", heading: "Here's what I'll remember", status: null, notice: null, summary: null, questions: [], answering: false,
+    canUndo: true, personIds: ["john", "ben"], feedback: null,
+    lines: statements.map((statement, i) => ({ id: `m${i}`, statement })),
+  } as unknown as import("@/features/tell/reviewModel").ReviewView;
+
+  it("'and 1 more' is a button that opens the rest in place, each line as tappable as the first three", () => {
+    const card = cardFor(view)!;
+    const open = jest.fn();
+    let r!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      r = TestRenderer.create(<KeptCard card={card} onOpen={open} onUndo={noop} onDismiss={noop} />);
+    });
+    expect(labels(r)).not.toContain(statements[3]);
+    const more = pressables(r).find((n) => n.props.accessibilityLabel === "and 1 more")!;
+    expect(more.props.accessibilityRole).toBe("button");
+    press(r, "and 1 more");
+    expect(labels(r)).toEqual(expect.arrayContaining(statements));
+    expect(labels(r)).not.toContain("and 1 more");
+    press(r, statements[3]);
+    expect(open).toHaveBeenCalled();
+  });
+});
+
+describe("J5: a sheet closes on a downward drag from anywhere, once its content is at the top", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Sheet, takesDrag, dragCloses } = require("@/ui/Sheet") as typeof import("@/ui/Sheet");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { ScrollView, Text } = require("react-native") as typeof import("react-native");
+
+  it("a downward drag is the sheet's while its content is at the top; scrolled content scrolls first; sideways or upward never", () => {
+    expect(takesDrag(true, 0, 24)).toBe(true);
+    expect(takesDrag(false, 0, 24)).toBe(false);
+    expect(takesDrag(true, 40, 20)).toBe(false);
+    expect(takesDrag(true, 0, -24)).toBe(false);
+    expect(dragCloses(120, 0.1)).toBe(true);
+    expect(dragCloses(30, 1.4)).toBe(true);
+    expect(dragCloses(30, 0.2)).toBe(false);
+  });
+
+  it("the whole sheet listens, not only the grabber; the content says when it's at the top", () => {
+    const dismiss = jest.fn();
+    let r!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      r = TestRenderer.create(<Sheet visible onDismiss={dismiss} label="Ben starts a new job"><Text>Edit the words</Text></Sheet>);
+    });
+    const surface = r.root.find((n) => n.props.accessibilityViewIsModal === true && n.props.accessibilityLabel === "Ben starts a new job");
+    expect(typeof surface.props.onMoveShouldSetResponderCapture).toBe("function");
+    const scroll = r.root.findByType(ScrollView);
+    expect(typeof scroll.props.onScroll).toBe("function");
+    expect(scroll.props.bounces).toBe(false);
+    act(() => r.unmount());
+  });
+});
