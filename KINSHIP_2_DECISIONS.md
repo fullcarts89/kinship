@@ -911,3 +911,51 @@ These items need no semantic infrastructure. They refine CC-18:
 - **After Phase 4:** a low-coaching wife dogfood. H15 should feel like "a person's memory gradually writing itself", not a contact record. Confusion is evidence.
 - **Still deferred:** Ask, generic chat, About You UI, Garden, Landscape, a generic graph, the Opportunity Engine, Intentions, a full Your Story Together, tasks, scoring, health, streaks, ranking, personality onboarding, subscriptions, model benchmarking, embeddings, arbitrary association.
 - **Readiness:** Gate 0 is closed. The current build is **NOT READY** for the wife dogfood; Phase 4 is the work in between.
+
+## CC-20. Phase 4 brief approved; history needs evidence of change; N8 first (8 Oct 2026)
+From the founder's review of `docs/product/phase4-implementation-brief.md`. Where this differs from CC-19, this is newer.
+
+- **The brief is APPROVED** with the changes below, and the **Phase 4B architecture is approved.**
+  - Phase 4A continues in the proposed order. Phase 4B may begin once the history rule below is in the contract.
+  - The report-only backfill checkpoint stays: no facet is written for an existing line before the founder has read the report.
+  - Not to be broadened into another architecture investigation or Gate 0 pass.
+- **Deployment verification, not stabilization.** The founder redeploys ai-gateway and re-runs gate rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b. Until the founder confirms the re-run, I12 (new lines), I13, J1, J4 and J11 stay FIXED.
+
+### Decisions on the brief's open questions
+1. **Place data: GeoNames, YES.** The proposed CC BY 4.0 subset, versioned and rebuildable as described, with attribution in Settings › About and `THIRD_PARTY_NOTICES.md`.
+2. **I4 copy, approved:** "Pedro isn't in People yet. Add Pedro so this also shows on Pedro's page." with **Add Pedro** · **Not now**.
+3. **H10 / I2: YES.** The standalone "You reached out · <date>" under the person's name is removed and folded into the Between you interaction trail. No disguised last-contacted field.
+4. **I7 history outside residence:**
+   - shown under **Before**, as the old line in its own words;
+   - a transition date ("Ended · …") appears only when the source supplies it; otherwise "You told Kinship · <date>".
+5. **I2 scope:** know it + ask it first. Infer it becomes **I2b**, after the basic trail is proven.
+
+### Supersession and history eligibility are separate decisions
+- **Supersession controls current truth.**
+  - A firm current-state statement that can't be current together with an earlier one supersedes it.
+  - Example: "Susan lives in Colorado" after "Susan lives in Alameda" makes Colorado the current residence.
+- **History requires evidence that the earlier truth existed and then changed.**
+  - Without an explicit change cue, Kinship doesn't know that Alameda was ever true and that Susan then moved.
+  - So the superseded line is **never** shown as history: no "Previously lived in Alameda".
+- **What counts as evidence:**
+  - an explicit change cue in the source: moved to, relocated to, now lives in, or another explicit change cue;
+  - or the user's own answer "She moved".
+- **A correction cue** stays `corrected` and is **never** history.
+- **How it is stored:** on the new item, as `detail.transition`.
+  - The values are progress, completed, cancelled, corrected and **`changed`** (new: an explicit change).
+  - No transition means "replaced as current truth only".
+- **History-eligible:** changed, completed, cancelled.
+- **Never history:** no transition, progress, corrected.
+- **Older supersessions:** those from before Phase 4B with no transition recorded are never history.
+- **Required fixtures:**
+
+  | Told | Current | History |
+  |---|---|---|
+  | Alameda → "lives in Colorado" | Colorado | Alameda is **not** shown as biography or history |
+  | Alameda → "moved to Colorado" | Colorado | Alameda is eligible for history |
+  | Alameda → "actually Colorado, not Alameda" | Colorado | `corrected`; Alameda is never history |
+
+### N8: exact Undo is a trust invariant
+- The `resolves_id` and `reasons_refresh` fix is **approved**.
+- N8 ships at the **earliest schema opportunity**, and it must work before the next Phase 4 vertical-slice native gate.
+- Undo for semantic closures (`closes_ids`) ships complete together with multi-item closure. It is never left incomplete across later Phase 4 rounds.

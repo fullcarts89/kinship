@@ -7,6 +7,7 @@
 > - **History dates.** "Updated · Jan 4" is not used. A history line says "You told Kinship · Jan 4"; "Moved · Jan 4", "Started" or "Ended" appear only when the note itself gives the date.
 > - **Place data.** A GeoNames-style subset, pending the founder's licence and attribution confirmation.
 > - **The relation contract (§6), the inference policy (§7) and the no-graph decision (§14)** are approved. RELATED is an eval label only.
+> - **Supersession ≠ history (CC-20).** A newer incompatible statement may supersede as current truth. The old line becomes history only with evidence of a change: an explicit cue such as "moved to", "relocated to" or "now lives in", or the user's "She moved". This is stored as `transition = changed`. "Susan lives in Alameda" → "Susan lives in Colorado" with no cue gives Colorado as current and no "Previously lived in Alameda". The §8.2 Jan row uses "moved to" and stays valid. The §6 example "Alameda → Colorado: Previously lived in Alameda" needs a change cue.
 
 
 *8 Oct 2026. Investigation only. No code, schema, prompt or data changed. Everything below is a proposal that needs founder decisions (§14). Checked against the branch after the Gate 0 merge (PR #20): Gate 0 added no migrations and didn't change the merge / supersede logic.*

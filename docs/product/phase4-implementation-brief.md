@@ -1,12 +1,20 @@
 # Phase 4 implementation brief
 
-*8 Oct 2026. For founder review **before** any Phase 4B schema, migration or semantic code. Decisions: `KINSHIP_2_DECISIONS.md` CC-19. Background: `semantic-memory-investigation.md` (approved with changes; CC-19 wins where they differ). Code reviewed at `main` = `609be4a`.*
+*8 Oct 2026. **APPROVED by the founder (CC-20)**, with changes now folded in:*
+- *history needs evidence of a change (§8, §11, §15);*
+- *N8 comes first (§18);*
+- *the decisions are recorded (§19).*
 
-**Already done (docs only):**
+*Decisions: `KINSHIP_2_DECISIONS.md` CC-19 and CC-20. Background: `semantic-memory-investigation.md` (approved with changes; CC-19 and CC-20 win where they differ). Code reviewed at `main` = `609be4a`.*
+
+**Already done:**
 - Gate 0 closure recorded (ledger, CC-19, coverage, handoff, checklist).
 - Ledger rows N6–N8 added from this review.
+- I4 built (4A step 1).
 
-**Phase 4A** proceeds in the order of §17. Its one migration (I2, step 5) waits for this review too. **Phase 4B** starts after your review.
+**Next:**
+- **Phase 4A** continues in the order of §17.
+- **Phase 4B** has begun, with N8 first (§18). The report-only checkpoint (§14) comes before any facet is written for an existing line.
 
 ---
 
@@ -66,9 +74,13 @@
 
 **B. `memory_items`, two new columns.** Both are server-written: they're left out of the app's UPDATE grant, and the insert policy requires them empty.
 - `closes_ids uuid[] NOT NULL DEFAULT '{}'`, with CHECK cardinality ≤ 8, never its own id, and never containing `supersedes_id`. These are the *other* current items a superseding item closed (multi-item closure).
-- `resolves_id uuid NULL`, FK `(resolves_id, user_id)` → `memory_items` `ON DELETE SET NULL`. This is the thread a `resolves` closed. Undo can't restore it today (N8).
+- `resolves_id uuid NULL`, FK `(resolves_id, user_id)` → `memory_items` `ON DELETE SET NULL`. This is the thread a `resolves` closed; Undo can't restore it today (N8).
+  - **It ships first, in its own migration `v2_exact_undo` (B0, CC-20)**, together with the restore and the `reasons_refresh` reopening.
 
-**C. `memory_detail_ok`:** `transition` gains `corrected`.
+**C. `memory_detail_ok`:** `transition` gains `corrected` and `changed`.
+- `changed` means an explicit change cue, or the user's "She moved".
+- No transition means "replaced as current truth only".
+- See §11 for which of these can become history.
 
 **D. Triggers:**
 - *apply*: closes every `closes_ids` item as `supersedes_id` does today. The checks are the same: same person, subject and related person; live; active or resolved; not a loop.
@@ -97,7 +109,7 @@
 |---|---|
 | `memory_items.status` | `active` = believed true now. A refined general item stays `active`. `superseded` = replaced by a real change *or a correction*; the closer's transition says which |
 | `memory_items.supersedes_id` | The one (most specific) item replaced. Extra closures go only in the new `closes_ids` |
-| `detail.transition` | `progress`, `completed`, `cancelled` unchanged; a value is only added |
+| `detail.transition` | `progress`, `completed`, `cancelled` unchanged; `corrected` and `changed` are only added. A missing transition keeps its meaning ("replaced"), and is now explicitly **not** history (CC-20) |
 | `valid_to` | Still set on supersession to the day Kinship learned it, and still **never displayed** as when something ended (§11) |
 | `detail.category`, `kind`, `subject_type`, `certainty`, `sensitivity`, `with_person_ids`, `person_mentions` | Unchanged. The taxonomy is computed from them (§3) |
 | `memory_item_sources`, `memory_item_history`, `captures`, `people`, `related_people`, `reasons` | Unchanged |
@@ -274,13 +286,19 @@ Shipping this needs your licence confirmation (§19.1).
 | SAME | **SAME** (merge: another source; nothing changes) | SAME | SAME |
 | E ⊇ N | **REFINES** (new item, E untouched; composed) | E stays; N is new (she moved *within* E) | E stays |
 | N ⊇ E | **REFINES** (case B; Alameda's specificity kept) | **CONFLICT** "Is Susan still in Alameda?" (case E) | **corrected** closes E |
-| DISJOINT | **SUPERSEDES** (plain change) | **SUPERSEDES** (case C) | **corrected** closes E (case D) |
+| DISJOINT | **SUPERSEDES**, current truth only: no transition, **never history** ("lives in Colorado") | **SUPERSEDES** `changed` (case C): history-eligible | **corrected** closes E (case D): never history |
 | AMBIGUOUS | **NEW** (two lines, never "Paris, Texas") | **CONFLICT** "Is Susan still in Paris?" | **corrected** if N names E's words after "not", else NEW |
-| UNKNOWN | **NEW** (fail open) | Today's rule: the model's single proposed target, validated as now | the model's target, validated, as **corrected** |
+| UNKNOWN | **NEW** (fail open) | Today's rule: the model's single proposed target, validated as now, recorded as `changed` | the model's target, validated, as **corrected** |
 
 ### Combining pairs, and guards
 
-1. Any CONFLICT means the item is **held with one question**. "Still there" saves N as new, with no closure. "She moved" closes the incompatible items. "Don't keep this" means N isn't memory (the note stays).
+1. Any CONFLICT means the item is **held with one question**:
+   - "Still there" saves N as new, with no closure:
+     - when N contains E (case E), they compose;
+     - when the pair is AMBIGUOUS, the user's answer pins E to the reading inside N ("Paris, Texas", both words the user's);
+     - when E is protected and DISJOINT, N keeps its words but gets no residence facet, so only E is the current residence.
+   - "She moved" closes the incompatible items as `changed`, because the user's answer is the evidence.
+   - "Don't keep this" means N isn't memory (the note stays).
 2. Otherwise N **closes the union** of the items to close. `supersedes_id` is the most specific one; the rest go in `closes_ids`. Items that contain N stay current.
    - Example: California → Alameda → "moved to Oakland" closes Alameda only and gives "Lives in Oakland, California".
 3. **Kept guards:**
@@ -294,6 +312,10 @@ Shipping this needs your licence confirmation (§19.1).
    - H16 reads only explicit move wording, never a supersession.
 
 **Required cases, A–F:** they come out as CC-19's table, since each row above is one of them. F ("staying in Denver this week") never gets a facet.
+
+**Supersession ≠ history (CC-20):**
+- Closing an item decides only what is current.
+- Whether the closed item may appear as history is a separate decision, recorded in the closer's transition (§11).
 
 ---
 
@@ -318,7 +340,7 @@ Shipping this needs your licence confirmation (§19.1).
    - the rule version and dataset version.
 
    It is never stored, never sent to the model as something the user said (the dossier keeps sending member lines), and never a reason's evidence.
-6. **History** uses the same renderer over a closed chain: `Previously lived in ` + its words (§11).
+6. **History** uses the same renderer over a closed chain that is history-eligible (§11): `Previously lived in ` + its words.
 
 ---
 
@@ -359,18 +381,24 @@ Facets were never touched by closing, so the composition is back exactly. `reaso
 - It is set when the superseding note carries a **correction cue** (§8). It applies to **every** supersession, not only residence, so "Actually Ben works at Google, not Meta" never becomes history.
 - The old line keeps its lineage on the current line ("was: ~~…~~", as H23 / H30 do today).
 
+**Supersession and history are separate decisions (CC-20).** Supersession decides what is current. History needs evidence that the earlier truth existed and then changed.
+
 **Background history (I7).** A superseded item is shown only when **all** of these hold:
-1. Its closer's transition is a real change: plain change (residence DISJOINT), `completed` or `cancelled`. Never `corrected`, never `progress`.
+1. **The closer's transition is evidence of a change:**
+   - `changed`: an explicit cue (moved to, relocated to, now lives in…) or the user's "She moved";
+   - `completed` or `cancelled`: a life thread that ended.
+
+   It is **never** shown with no transition (replaced as current truth only, e.g. "lives in Colorado" with no cue), with `progress`, or with `corrected`.
 2. It isn't retracted or deleted.
 3. It isn't a declined sensitive outcome; the allowed less-sensitive predecessor may stay.
 4. It's durable: residence, work, home, or a completed or cancelled life thread.
 
    Never a health or progress chain, and never a refinement (refinements aren't superseded).
-5. **For supersessions made before 4B** (no transition recorded): only when the closer's words carry a change cue. Otherwise the old line stays only as the existing "Before: …" under the current line.
+5. **Supersessions made before 4B** that have no transition recorded are **never** history. The old line stays only as the existing "Before: …" under the current line. The report counts these as `history_unknown`, without content.
 
 **Wording:**
 - **Residence:** "Previously lived in Alameda, California" (§9).
-- **Anything else:** the old line in its own words, under a quiet **Before** label ("Natalia is interviewing with Box"). A tense rewrite such as "Previously interviewed with Box" would be wording the user never said (§19.4).
+- **Anything else:** the old line in its own words, under a quiet **Before** label ("Natalia is interviewing with Box"). No tense rewrite (decided, CC-20).
 
 **Dates on history lines:**
 - "You told Kinship · Jan 4", the day the change was told.
@@ -408,7 +436,7 @@ Nothing else on the Portrait changes. This is recorded under H15 in `approved-de
 ## 14. Migration and backfill dry run
 
 **The rollout:**
-1. **You review this brief.** Then 4B is built on the branch, with its pgTAP, scenario proofs and eval corpus.
+1. **Approved (CC-20).** 4B is built on the branch, with its pgTAP, scenario proofs and eval corpus.
 2. **Merge** (a merge commit), then **`npx supabase db push`**. This creates the tables and columns and changes no user row. Then the **ai-gateway redeploy**.
 3. **Report only.** On launch, the 4B build asks the gateway (model-free, the caller's own account only) to run `residence/v1` over that account's facts.
    - It writes **only** `residence_backfill_report`: item id + bucket, no words.
@@ -426,6 +454,7 @@ Nothing else on the Portrait changes. This is recorded under H15 in `approved-de
    - `would_compose` (the current items of one person that would compose);
    - `contradiction` (current items that are pairwise incompatible);
    - `false_supersession_suspect`: a superseded item whose closer the comparator now calls REFINES (California → Alameda) or a correction;
+   - `history_unknown`: a superseded item with no transition recorded, which is therefore never shown as history (CC-20);
    - `not_residence` (excluded by the wording rules).
 5. **Apply after your yes.** A small PR switches the same task from report to apply: it writes facets for eligible items, all additive and uniform for every account. Then merge and redeploy.
 6. **Existing wrong supersessions are only reported.** Restoring one is a repair under `data-cleanup-plan.md`, item by item, on your explicit yes. Nothing account-specific happens silently.
@@ -440,6 +469,13 @@ Nothing else on the Portrait changes. This is recorded under H15 in `approved-de
 ## 15. Eval additions
 
 **A new corpus `semantic` (`evals/semantic/`)**, frozen in a manifest. It runs free in CI next to the extraction oracle: sequences through `residence.ts` → `relate.ts` → write rules → `compose.ts`, with fixture places. There are pgTAP suites for the triggers and RPCs, and Jest scenario proofs in the style of `memoryProofs` (multi-note, sync, views).
+
+The fixtures are seeded now, before the runner exists (`evals/semantic/fixtures/residence.jsonl`; the format is in `evals/semantic/README.md`).
+
+**Supersession vs history, required by CC-20:**
+- Alameda → "lives in Colorado": Colorado current; Alameda **not** shown as biography or history.
+- Alameda → "moved to Colorado": Colorado current; Alameda eligible for history.
+- Alameda → "actually Colorado, not Alameda": `corrected`; Alameda never history.
 
 **Residence cases required by CC-19:**
 1. California → Alameda;
@@ -474,6 +510,7 @@ Nothing else on the Portrait changes. This is recorded under H15 in `approved-de
 - unsupported composed fact (a word not in a member's `value_text`);
 - lost provenance;
 - temporal contradiction (two current values the comparator knows are incompatible, or a past one shown as current);
+- **unsupported history**: a "Previously …" or Before line whose closer has no change evidence (CC-20);
 - certainty upgrade;
 - cross-person contamination.
 
@@ -525,6 +562,7 @@ Each case also asserts that the line's words, source and status are untouched.
 | 8 | "Susan lives in California", later "Susan lives in Alameda" | What Kinship knows › Background: **Lives in Alameda, California**, "· and 1 other note". Lately shows only "Susan lives in Alameda". Tap → both notes |
 | 9 | Then "Susan moved to Colorado" | Lives in Colorado; under Before: **Previously lived in Alameda, California** · You told Kinship · <day> |
 | 10 | Undo that note | Back to "Lives in Alameda, California", with no history line |
+| 10b | On another test person: "Dana lives in Alameda", later "Dana lives in Colorado" (no "moved") | Lives in Colorado; **no** "Previously lived in Alameda" anywhere |
 | 11 | "Actually she lives in Oakland, not Alameda" | Lives in Oakland, California; **no** "Previously lived in Alameda" |
 | 12 | "Susan moved to California" (while in Alameda) | One question: **Is Susan still in Alameda?** Still there · She moved |
 | 13 | "Susan is staying in Denver this week" | A separate line; the residence is unchanged |
@@ -536,11 +574,11 @@ Each case also asserts that the line's words, source and status are untouched.
 
 | Step | Item | What changes | Tests and gates | Migration |
 |---|---|---|---|---|
-| 1 | **I4** Kept card | Order, attention row with **Add <Name>** / **Not now** (newcomers keep their item ids), **Correct this** (opens the review as today; I9 path kept), "Did Kinship get this right?"; drop "Tap a line…". The ✕ dismiss stays | `keptFeedback`, `lifecycle` I9, `remediationViews` J6, H21 proofs updated; Maestro taps the review's Done by test id | No |
+| 1 | **I4** Kept card (built, `81d410c`) | Order, attention row ("Pedro isn't in People yet. Add Pedro so this also shows on Pedro's page.", **Add Pedro** · **Not now**; newcomers keep their item ids), **Correct this** (opens the review as today; I9 path kept), "Did Kinship get this right?"; drop "Tap a line…". The ✕ dismiss stays | `keptHierarchy`, `keptFeedback`, `lifecycle` I9, `remediationViews` J6, H21 / I4 proofs | No |
 | 2 | **I6** keyboard | The nav bar stays with the keyboard up (tap = dismiss + navigate; the draft is already kept); an iOS `InputAccessoryView` "Done" on every text input; a downward drag on the dock dismisses. If the dock can't follow an interactive dismissal with built-ins, add `react-native-keyboard-controller` (a native module, so it needs a new build) | `drafts.test.tsx` "bar steps aside" rewritten to the approved spec; `keyboard.test` | No |
 | 3 | **I1** Moment detail (+J3) | A sheet: the line, why now, when, Source, Message / Call (the sheet steps aside before the hand-off sheet: never sheet on sheet). Coming up lines open it too, with their own return check. **View <Person>** → `person/[id]?item=` → scroll + brief quiet mark, falling back to What Kinship knows when the line isn't on the Portrait | New view and model tests; `grounding.test` gains the surface; `todayModel` `QuietView` assertions updated | No |
 | 4 | **H16** milestones (+N7) | `milestones.ts`: the nine types from explicit words in the **source quote**; a day-precise date; stated or planned; subject person or shared; not sensitive; eligible d−3 … d; a phone-made Moment (`milestone:`) through Today's existing ranking, freshness and 7-day per-person cap; one Moment per item. N7: good news falls back to the told day only when there is no date | `todayModel` H16 + N7; no-nagging and no-date cases | No |
-| 5 | **I2** trail (+N6) | Record `memory_item_id` and `moment_type` on Yes; the trail under Between you (newest 3, full list in What Kinship knows); manual one-tap entry; type labels from the channel; the conditional, non-blocking "Anything worth remembering?" | `todayModel`, `interaction`, new trail tests; pgTAP for the CHECKs and N6 | **Yes** (§1, 4A) |
+| 5 | **I2** trail (+N6): know it + ask it | Record `memory_item_id` and `moment_type` on Yes; the trail under Between you (newest 3, full list in What Kinship knows); manual one-tap entry; type labels from the channel; the conditional, non-blocking "Anything worth remembering?"; **remove "You reached out · <date>" under the name** (CC-20). Infer-it is **I2b**, after the trail is proven | `todayModel`, `interaction`, new trail tests; pgTAP for the CHECKs and N6 | **Yes** (§1, 4A) |
 | 6 | **H4** Bring back | Inside the Worth step after Keep it, or after Skip (no new activation step, so "1 of 4" is unchanged): one screen, the real first Tell when it is already understood and would make a future Moment, else the grounded example | `firstRun.test.tsx` and `.maestro/fresh-install.yaml` **gain** the step; nothing loosened | No |
 
 Each step is its own commit. All checks stay green: Jest, tsc, ESLint, Deno and pgTAP. The permanent first-run gates are never loosened.
@@ -549,14 +587,15 @@ Each step is its own commit. All checks stay green: Jest, tsc, ESLint, Deno and 
 
 ## 18. Phase 4B order
 
-These are your 16 steps, grouped into reviewable chunks on the branch. **Nothing starts before your review.**
+These are your 16 steps, grouped into reviewable chunks on the branch. They were approved on 8 Oct (CC-20), and **N8 comes first**.
 
 | Chunk | Your steps | Delivers |
 |---|---|---|
+| **B0** | (N8) | **First, at the earliest schema opportunity** (CC-20). The `resolves_id` column, restoring a resolved thread on Undo, and `reasons_refresh` reopening a suppressed Moment. A small migration of its own, plus pgTAP. Working before the next vertical-slice native gate |
 | B1 | 1 | `categories.ts` (§3) and its categorization evals. No display change yet |
 | B2 | 2, 3 | The migration (§1 B–G); `places` build script, licence notice and versioned JSON (§6); pgTAP |
 | B3 | 4, 5 | `residence.ts` (§5), `relate.ts` (§8) wired into `pipeline.ts` behind the residence check; CONFLICT question copy; the `semantic` corpus |
-| B4 | 6, 7 | `closes_ids` and `resolves_id` writes, apply and restore, reason reopening; the Undo matrix (§10) |
+| B4 | 6, 7 | `closes_ids` writes, apply and restore, shipped **together**: closure never exists without its exact Undo (CC-20). The Undo matrix (§10) |
 | B5 | 8, 9 | `compose.ts`; the composed-line sheet and provenance (§12) |
 | B6 | 10 | The report-only task and `residence_backfill_report` (§14). **Stop: you read the report** |
 | B7 | 11 | Portrait de-duplication (§13) |
@@ -566,20 +605,21 @@ These are your 16 steps, grouped into reviewable chunks on the branch. **Nothing
 
 ---
 
-## 19. Founder decisions still open
+## 19. Founder decisions (decided 8 Oct, CC-20)
 
-**Genuine decisions (each has a default, and I proceed on it unless you say otherwise):**
-1. **Place data licence.** May GeoNames (CC BY 4.0) be used, with attribution in Settings › About and `THIRD_PARTY_NOTICES.md`? *Default:* yes. *Alternative:* the public-domain Natural Earth + US Census set. This blocks B2 only.
-2. **I4 copy without a guessed gender.** The approved example says "Add him so this can appear on his page too", but Kinship never infers gender from a name. *Built with:* "Pedro isn't in People yet / Add them so this can appear on their page too." **[Add Pedro] Not now**. This is your sentence with singular "they".
-3. **"You reached out · Oct 6" under the name (H10, approved) vs I2's "no last-contacted".** *Default:* fold it into the Between you trail (its newest entry) and remove the line under the name. This removes an approved surface, so it needs your yes, recorded in coverage. Until then it stays.
-4. **I7 wording for non-residence history.** The approved example "Previously interviewed with Box · Ended Oct 6" is a tense rewrite, and its date isn't from the note. *Default:* the old line in its own words under a quiet "Before" label, dated "You told Kinship · <day>". "Previously lived in …" is used for residence only.
-5. **I2 "infer it" in v1.** *Default:* ship know-it (Moment + Yes) and ask-it (manual one tap) first. Infer-it (a past, dated shared plan: "Did this happen?" + Yes → In person) follows as I2b, only for a day-precise shared plan about an established person.
+1. **Place data:** GeoNames, CC BY 4.0, with attribution in Settings › About and `THIRD_PARTY_NOTICES.md`. Versioned and rebuildable.
+2. **I4 copy:** "Pedro isn't in People yet. Add Pedro so this also shows on Pedro's page." with **Add Pedro** · **Not now**.
+3. **"You reached out · <date>" under the name:** removed and folded into the Between you trail with I2 (step 5). Recorded in coverage. No disguised last-contacted field.
+4. **I7 history outside residence:** **Before** + the old line in its own words. A transition date only when the source supplies it; otherwise "You told Kinship · <date>".
+5. **I2:** know it + ask it first. Infer it is I2b, after the basic trail is proven.
 
-**Proceeding as stated unless you object (these aren't questions):**
+**Also approved:**
+- **Supersession and history are separate decisions** (§8, §11). Only evidence of a change (`changed`, `completed`, `cancelled`) makes a closed item history.
+- **N8 first** (B0).
+
+**Standing, unless you object:**
 - Into keeps the verb ("Loves pottery"; §4).
 - Plain plans go under "Plans" (CC-17 left the label to the build).
 - The I1 detail is a sheet.
-- The I6 dependency may be needed.
+- The I6 keyboard dependency may be needed.
 - The facet derivation runs in the gateway: TypeScript only, one implementation, tested free in CI.
-
-**Your action items, separate from the decisions:** redeploy ai-gateway and re-run the 8 rows (§0); then review this brief.
