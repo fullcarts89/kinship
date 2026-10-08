@@ -45,7 +45,8 @@ export function ItemSheet(props: ItemSheetProps) {
     if (pane === "person") {
       body = <PersonPane people={props.people} title="Who is this about?" current={line.person?.id ?? null} onCancel={back}
         {...namedChoices(line, props.people, (ids) => { props.onCorrect(line.id, { person_ids: ids }); back(); })}
-        onPick={(id) => { props.onCorrect(line.id, { person_id: id }); back(); }} />;
+        onPick={(id) => { props.onCorrect(line.id, { person_id: id }); back(); }}
+        onAdd={(name, bringBack) => { props.onCorrect(line.id, { new_person: name, ...(bringBack ? { bring_back: bringBack } : {}) }); back(); }} />;
     } else if (pane === "date") {
       body = <DatePane title="When is it?" initial={line.when?.value ?? null} today={props.today} allowNone onCancel={back}
         onPick={(day) => { props.onCorrect(line.id, { date: day }); back(); }} />;

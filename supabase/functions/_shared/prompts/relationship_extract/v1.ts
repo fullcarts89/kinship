@@ -182,7 +182,8 @@ export function buildUserContent(input: ExtractionInput): string {
   for (const p of input.roster) {
     const bits = [clean(p.display_name)];
     if (p.full_name && p.full_name !== p.display_name) bits.push(`full name ${clean(p.full_name)}`);
-    if (p.nicknames?.length) bits.push(`also called ${p.nicknames.map(clean).join(", ")}`);
+    const also = [...(p.nicknames ?? []), ...(p.line_names ?? [])];
+    if (also.length) bits.push(`also called ${also.map(clean).join(", ")}`);
     if (p.relationship_label) bits.push(`(${clean(p.relationship_label)})`);
     const rel = input.related.filter((r) => r.person_key === p.key)
       .map((r) => `${clean(r.relation)}${r.name ? ` ${clean(r.name)}` : ""}`);

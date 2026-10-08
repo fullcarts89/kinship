@@ -51,8 +51,10 @@ import {
   type Understood,
 } from "./gateway";
 import { detailForKind, withDate, type SwitchableKind } from "./memoryDetail";
-import { withSubjectMoved, type NamedPerson } from "../../supabase/functions/_shared/extraction/names";
-import { repositoriesFor, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
+import {
+  lineNamesOf, type MentionSubject, mentionsAfterEdit, mentionsOf, type NamedPerson, recordMentions, withSubjectReassigned,
+} from "../../supabase/functions/_shared/extraction/names";
+import { peopleOf, repositoriesFor, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
 import type { SyncReport } from "./syncEngine";
 import { StoreWriteError, type Data, type UserStore } from "./userStore";
 import type { SqlValue } from "./sql";
@@ -362,17 +364,40 @@ export class Understanding {
       | { person_ids: string[] }
       | { kind: SwitchableKind }
       | { owner: "user" | "person" }
-      | { date: string | null },
+      | { date: string | null }
+      /** Someone not in People yet (founder J2), or someone removed from it, brought back (I3). */
+      | { new_person: string; bring_back?: string },
   ): Promise<void> {
+    if ("new_person" in change) {
+      // "Add Josh" while correcting (founder J2): added by the name typed,
+      // no number needed (or, for a name someone removed from People goes
+      // by, that person brought back, I3), then moved there like any
+      // person correction, so the line names them (I13).
+      const people = repositoriesFor(this.store).people;
+      const name = change.new_person.normalize("NFC").trim();
+      if (!name || name.length > 60) throw new StoreWriteError("say who it's about");
+      if (change.bring_back) await people.restore(change.bring_back);
+      const id = change.bring_back ?? ((await people.add({ display_name: name })).id as string);
+      return this.correct(itemId, { person_id: id });
+    }
     const memory = repositoriesFor(this.store).memory;
     const item = (await this.store.get("memory_items", itemId)) as MemoryItem | null;
     if (!item) throw new StoreWriteError("that memory isn't here any more");
     let correction: "statement" | "person" | "kind" | "owner" | "date";
+    // Each person as a line names them: the names they go by, the words their
+    // own lines use for them, which of those are earlier names (founder I12).
+    const lines = (await this.store.list("memory_items")) as MemoryItem[];
+    const subjectOf = (p: NamedPerson): MentionSubject => ({ person: p, ...lineNamesOf(p, lines) });
+    const peopleById = async (ids: string[]) =>
+      (await Promise.all(ids.map((id) => this.store.get("people", id)))).filter((p): p is NamedPerson & Data => !!p) as NamedPerson[];
     if ("statement" in change) {
       const statement = change.statement.normalize("NFC").trim();
       if (!statement) throw new StoreWriteError("say what to remember");
       if (statement === item.statement) return;
-      await memory.correct(itemId, { statement });
+      // The user's words win: whoever they name, by the words they wrote now.
+      const subjects = (await peopleById(peopleOf(item))).map(subjectOf);
+      const person_mentions = mentionsAfterEdit(statement, mentionsOf(item.person_mentions), subjects);
+      await memory.correct(itemId, { statement, person_mentions });
       correction = "statement";
     } else if ("person_ids" in change) {
       // Several people, when the memory names them (founder I11): one shared
@@ -390,9 +415,19 @@ export class Understanding {
       const was = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
       const withIds = others.map((p) => p.id);
       if (to.id === item.person_id && withIds.length === was.length && withIds.every((id) => was.includes(id))) return;
-      const from = item.person_id && !ids.includes(item.person_id) ? (await this.store.get("people", item.person_id)) as NamedPerson | null : null;
-      const moved = from ? withSubjectMoved(item.statement, from, to) : null;
-      await memory.correct(itemId, { person_id: to.id, with_person_ids: withIds, ...(moved ? { statement: moved } : {}) });
+      // The line stops naming whoever it was wrongly filed on (founder I13): their
+      // recorded words become the first chosen person's name, with history.
+      const fromId = item.person_id && !ids.includes(item.person_id) ? item.person_id : null;
+      let { statement, mentions } = fromId
+        ? withSubjectReassigned(item.statement, mentionsOf(item.person_mentions), fromId, subjectOf(to))
+        : { statement: item.statement, mentions: mentionsOf(item.person_mentions) };
+      mentions = mentions.filter((m) => m.person_id !== null && ids.includes(m.person_id));
+      const unnamed = chosen.filter((p) => !mentions.some((m) => m.person_id === p.id)).map(subjectOf);
+      mentions = [...mentions, ...recordMentions(statement, unnamed)];
+      await memory.correct(itemId, {
+        person_id: to.id, with_person_ids: withIds, person_mentions: mentions,
+        ...(statement !== item.statement ? { statement } : {}),
+      });
       correction = "person";
     } else if ("person_id" in change) {
       if (change.person_id === item.person_id) return;
@@ -400,17 +435,20 @@ export class Understanding {
       if (item.subject_type === "related") throw new StoreWriteError("this one is about someone close to them");
       const to = (await this.store.get("people", change.person_id)) as NamedPerson | null;
       if (!to) throw new StoreWriteError("that person isn't here any more");
-      const from = item.person_id ? (await this.store.get("people", item.person_id)) as NamedPerson | null : null;
-      // The line stops naming the wrong person where they are its subject
-      // ("Wifey has a new job" → "Kaiya has a new job"); the words it had stay
-      // as the edit's history, and the note is never touched (founder I13, H30).
-      const moved = from ? withSubjectMoved(item.statement, from, to) : null;
+      // The line stops naming the wrong person (founder I13): exactly the words
+      // recorded as theirs become the right person's name ("Ben starts a new
+      // job" → "Josh starts a new job"); the words it had stay as the edit's
+      // history (H30), and the note is never touched. Words that aren't a
+      // recorded name ("She has a new job") stay as they are.
+      const { statement, mentions } = withSubjectReassigned(item.statement, mentionsOf(item.person_mentions), item.person_id ?? null, subjectOf(to));
       // The right person may have been one of those it was shared with.
       const shared = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
+      const withIds = shared.filter((id) => id !== change.person_id);
       await memory.correct(itemId, {
         person_id: change.person_id,
-        ...(moved ? { statement: moved } : {}),
-        ...(shared.includes(change.person_id) ? { with_person_ids: shared.filter((id) => id !== change.person_id) } : {}),
+        ...(statement !== item.statement ? { statement } : {}),
+        ...(shared.includes(change.person_id) ? { with_person_ids: withIds } : {}),
+        person_mentions: mentions.filter((m) => m.person_id === change.person_id || withIds.includes(m.person_id ?? "")),
       });
       correction = "person";
     } else if ("owner" in change) {
@@ -652,7 +690,7 @@ export class Understanding {
           settled: false,
         };
     // Nothing to remember in it: done, with the reading kept so the user is
-    // told so ("Your note is saved") rather than met with silence.
+    // told so ("Nothing to remember in that one.") rather than met with silence.
     const nothing = reply.status === "extracted" && reading.saved.length === 0 && reading.held.length === 0;
     await this.save(id, {
       state: nothing ? "done" : "review", reading, attempts: 0, next_at: null,
@@ -887,6 +925,8 @@ export function questionType(item: HeldItem | undefined): ClarificationType | nu
   if (!item.person_id || PERSON_FLAGS.some((f) => item.flags.includes(f))) return "person";
   if (item.flags.includes("subject_check")) return "relation";
   if (item.flags.includes("date_unresolved_sensitive")) return "date";
+  // Whose promise it is (founder J11).
+  if (item.flags.includes("promise_owner")) return "owner";
   // Held only for the user's yes (sensitive, or an ambiguous day).
   return "keep";
 }

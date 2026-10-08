@@ -10,7 +10,9 @@
 //   understanding  "Understanding…" (or "I'll try again", or the answer saving)
 //   card           kept: "Kept for Ben" and what was kept, tap to correct, Undo
 //   sheet          needs the user: "One thing to check", and why
-//   nothing        understood, nothing to remember: "Your note is saved."
+//   nothing        understood, nothing to remember: "Nothing to remember in
+//                  that one." Only for a note with nothing in it (founder J4):
+//                  a memory Kinship couldn't place is asked about, never this
 //   failed         "Couldn't understand this one. Your note is saved."
 //   asWritten      understanding is off or declined: kept as written
 //
@@ -25,7 +27,7 @@ import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
-import { aliasesOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
+import { aliasesOf, mentionsOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
 
 export interface ReviewInput {
   row: UnderstandingRow;
@@ -97,8 +99,11 @@ export interface ItemLine {
   editedFrom?: string | null;
 }
 
-/** "keep": a sensitive or ambiguous reading that is not memory until the user says yes. */
-export type QuestionType = "which_person" | "about_whom" | "new_person" | "replace" | "date" | "keep";
+/**
+ * "keep": a sensitive or ambiguous reading that is not memory until the user says yes.
+ * "owner": whose promise it is, when the words don't say (founder J11).
+ */
+export type QuestionType = "which_person" | "about_whom" | "new_person" | "owner" | "replace" | "date" | "keep";
 
 export type Choice =
   /** restore: someone removed from People, brought back before the answer is sent (founder I3). */
@@ -154,7 +159,11 @@ export const COPY = {
   retrying: "Couldn't understand this yet. Your note is saved, and I'll try again.",
   arriving: "Understanding…",
   kept: "Kept as you wrote it.",
-  nothing: "Nothing to remember in that one. Your note is saved.",
+  // Founder J4: only for a note with nothing in it. "Your note is saved" is
+  // gone: there is nowhere in the app to find a note that kept nothing.
+  nothing: "Nothing to remember in that one.",
+  /** The user's own "Don't keep this": nothing kept, never "nothing to remember". */
+  notKept: "Nothing kept from that one.",
   failed: "Couldn't understand this one. Your note is saved.",
   check: "One thing to check",
   notSure: "Not sure",
@@ -232,7 +241,7 @@ export function buildReview(input: ReviewInput): ReviewView {
   // What the reading saved is still on its way here: understanding, not empty.
   if ((input.missing ?? 0) > 0) return { ...base, mode: "understanding", status: COPY.arriving };
   // Answered, and the answer kept nothing ("Don't keep this").
-  if (lines.length === 0) return { ...base, mode: "nothing", status: known ?? COPY.nothing };
+  if (lines.length === 0) return { ...base, mode: "nothing", status: known ?? COPY.notKept };
   return { ...base, mode: "card", summary: summaryFor(lines) };
 }
 
@@ -401,7 +410,7 @@ function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
       }
     }
   });
-  const order: QuestionType[] = ["which_person", "about_whom", "new_person", "replace", "date", "keep"];
+  const order: QuestionType[] = ["which_person", "about_whom", "new_person", "owner", "replace", "date", "keep"];
   return [...groups.values()]
     .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type))
     .map((q, n) => ({ ...q, key: `q${n}` }));
@@ -491,14 +500,20 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       // Never "Add My daughter Kaiya" (founder H20): the name only, also for
       // readings held before the server understood the phrase.
       const name = selfRelationPhrase(item.new_person_name)?.name ?? item.new_person_name;
+      // "Who is Wifey?" (founder J4): the person whose page it was told on,
+      // someone new, or anyone already here. Never dropped as "nothing".
+      const context = input.capture?.context_person_id
+        ? input.people.find((p) => p.id === input.capture!.context_person_id && p.state !== "archived")
+        : undefined;
       needs.push({
         type: "new_person",
         group: `new:${fold(name)}`,
-        prompt: `Is ${name} someone new?`,
+        prompt: `Who is ${name}?`,
         reason: `${name} isn't in your people yet.`,
         choices: [
+          ...(context ? [{ key: `p:${context.id}`, label: personLabel(context, input.people), answer: { person_id: context.id } }] : []),
           { key: "add", label: `Add ${name}`, answer: { new_person: true } },
-          { key: "pick", label: "Someone already here", pick: "person" },
+          { key: "pick", label: context ? COPY.someoneElse : "Someone already here", pick: "person" as const },
         ],
       });
     } else if (item.flags.includes("person_archived") && item.archived_ids?.length) {
@@ -528,7 +543,9 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       const shared = named.length > 1 && named.every((p) => fold(first(p)) === fold(first(named[0])))
         ? first(named[0])
         : null;
-      const pronoun = item.flags.includes("pronoun_multiple") ? pronounIn(item) : null;
+      // A held "he" the reading says who it can mean (founder J1) is asked as "he" too.
+      const pronoun = item.flags.includes("pronoun_multiple") || (item.flags.includes("pronoun") && Array.isArray(item.candidate_ids))
+        ? pronounIn(item) : null;
       // Someone the note names who isn't here yet ("my daughter Kaiya"): offered by name.
       const newNames = candidates.length === 0 ? unknownNames(item, input.people) : [];
       const choices: Choice[] = [
@@ -574,6 +591,21 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
             { key: "related", label: `${name}'s ${relation}`, answer: { subject: "related", relation } },
           ]
         : [{ key: "person", label: `Yes, ${name}`, answer: { subject: "person" } }],
+    });
+  }
+  if (item.kind === "promise" && item.flags.includes("promise_owner")) {
+    // Founder J11: someone commits to something here, or asks the user to,
+    // but whose promise it is isn't plain. Asked, never guessed or dropped.
+    const person = item.person_id ? input.people.find((p) => p.id === item.person_id) : undefined;
+    needs.push({
+      type: "owner",
+      group: `owner:${item.statement}:${item.spans[0]?.start ?? 0}`,
+      prompt: "Whose promise?",
+      reason: null,
+      choices: [
+        { key: "yours", label: "Yours", answer: { owner: "user" } },
+        { key: "theirs", label: person ? `${shortName(person)}'s` : "Theirs", answer: { owner: "person" } },
+      ],
     });
   }
   if (item.flags.includes("update_check") && Array.isArray(item.detail?._replaces)) {
@@ -636,7 +668,15 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
  */
 function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[] {
   const live = people.filter((p) => p.state !== "archived");
-  const mention = item.mention ? wordsOf(item.mention).join(" ") : "";
+  // A held "he" says exactly who it can mean: people named before it, then
+  // the page's person; never the sentence's object (founder J1).
+  if (Array.isArray(item.candidate_ids)) {
+    return item.candidate_ids.map((id) => live.find((p) => p.id === id)).filter((p): p is Person => !!p).slice(0, 4);
+  }
+  // The name the line asks about: "Which Anthony?" and "Which Sam?" are two
+  // questions, each offering only the people that name can mean (founder I13).
+  const asked = item.mention ?? mentionsOf(item.person_mentions).find((m) => m.person_id === null)?.text;
+  const mention = asked ? wordsOf(asked).join(" ") : "";
   if (mention) {
     const meant = live.filter((p) => nameForms(p).some((f) => f === mention || f.split(" ")[0] === mention));
     // With someone removed who fits too (founder I3), even one person here is a choice.

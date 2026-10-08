@@ -304,7 +304,7 @@ it("nothing to remember, or understanding that keeps failing: said plainly, neve
   const w = await world();
   const r = await mount();
   await tell(w, NOTHING_NOTE);
-  expect(flow.current!.card).toMatchObject({ mode: "nothing", status: "Nothing to remember in that one. Your note is saved." });
+  expect(flow.current!.card).toMatchObject({ mode: "nothing", status: "Nothing to remember in that one." });
   expect(await w.repos.captures.get(flow.current!.card!.captureId)).toBeTruthy();
 
   const uh = new Understanding(w.store, () => w.engine.sync(), new Gateway(w.gateway), { maxAttempts: 1 });
@@ -356,5 +356,30 @@ it("never a sheet on a sheet: a question that arrives while another sheet is up 
   act(() => stack.sheetClosed());
   await settle();
   expect(sheetQuestion()).toBe("Which Sam do you mean?");
+  r.unmount();
+});
+
+it("J8: Today's quiet headline never shows behind a Kept card, its details or a question (attention stays on while any is open)", async () => {
+  const w = await world();
+  const r = await mount();
+  expect(flow.current!.attention).toBe(false);
+  await tell(w, BEN_NOTE);
+  expect(flow.current!.card?.mode).toBe("card");
+  expect(flow.current!.attention).toBe(true);
+  // The card's details ("Here's what I'll remember", 3:37 pm): the card steps aside, the sheet is up.
+  await act(async () => flow.current!.openCard());
+  await settle();
+  expect(flow.current!.card).toBeNull();
+  expect(flow.current!.attention).toBe(true);
+  // Back to the card, then done with it: nothing left open.
+  await act(async () => mockSheet.current!.onDismiss());
+  await settle();
+  expect(flow.current!.attention).toBe(true);
+  await act(async () => flow.current!.dismissCard());
+  await settle();
+  expect(flow.current!.attention).toBe(false);
+  // A question on its sheet.
+  await tell(w, SAM_NOTE);
+  expect(flow.current!.attention).toBe(true);
   r.unmount();
 });

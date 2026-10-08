@@ -114,7 +114,7 @@ it("someone new, with no real date for a health event: two questions, one answer
   const h = held({ kind: "event", new_person_name: "Maya", statement: "Maya has surgery", sensitivity: "health",
     flags: ["new_person", "date_unresolved_sensitive", "sensitive"], spans: [{ start: 0, end: 16, quote: "Maya has surgery" }] });
   const v = view("Maya has surgery sometime soon.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }));
-  expect(v.questions.map((q) => [q.type, q.prompt])).toEqual([["new_person", "Is Maya someone new?"], ["date", "When is it?"]]);
+  expect(v.questions.map((q) => [q.type, q.prompt])).toEqual([["new_person", "Who is Maya?"], ["date", "When is it?"]]);
   expect(v.questions[0].choices.map((c) => c.label)).toEqual(["Add Maya", "Someone already here"]);
   expect(v.questions[1].choices.map((c) => c.label)).toEqual(["Pick a date", "No date"]);
   expect(answersFor(v.questions, { q0: { new_person: true } })).toBeNull();
@@ -140,7 +140,7 @@ it("says plainly what's happening: understanding, offline, kept, answering, chan
   expect(view(note, row("failed", null))).toMatchObject({ mode: "failed", status: "Couldn't understand this one. Your note is saved." });
   // Understood, nothing to remember: said, never silence.
   expect(view(note, row("done", { tier: "nothing", saved: [], held: [] }))).toMatchObject({
-    mode: "nothing", status: "Nothing to remember in that one. Your note is saved." });
+    mode: "nothing", status: "Nothing to remember in that one." });
   const answering = view(note, row("answering", { tier: "clarify", held: [held({})], settled: false }), [], [BEN], { offline: true });
   expect(answering).toMatchObject({ mode: "sheet", answering: true, status: "I'll save your answer when you're online.", questions: [] });
   expect(view(note, row("review", { settled: true }, { notice: "changed_elsewhere" }), [race]).notice).toBe("This changed on another device.");
@@ -316,4 +316,80 @@ it("I3: a name that fits someone here and someone removed asks which, offering t
   expect(q.prompt).toBe("Which Kaiya do you mean?");
   expect(q.choices.map((c) => c.label)).toEqual(["Kaiya (niece)", "Bring back Kaiya (daughter)", "Someone else"]);
   expect(q.choices[1]).toMatchObject({ answer: { person_id: "kaiya" }, restore: "kaiya" });
+});
+
+describe("J4: never 'nothing' for a memory Kinship couldn't place", () => {
+  const raise = held({ kind: "fact", new_person_name: "Wifey", statement: "Wifey got a raise", flags: ["new_person", "own_words"],
+    spans: [{ start: 0, end: 17, quote: "Wifey got a raise" }] });
+  const asking = row("review", { tier: "clarify", held: [raise], settled: false, review_created_at: "t" });
+
+  it("someone not in People: 'Who is Wifey?', with Add Wifey, anyone already here, and Don't keep this", () => {
+    const v = view("Wifey got a raise.", asking);
+    expect(v.mode).toBe("sheet");
+    const [q] = v.questions;
+    expect([q.prompt, q.reason, q.about]).toEqual(["Who is Wifey?", "Wifey isn't in your people yet.", ["Wifey got a raise"]]);
+    expect(q.choices.map((c) => c.label)).toEqual(["Add Wifey", "Someone already here"]);
+    expect(q.skip.label).toBe("Don't keep this");
+  });
+
+  it("told on someone's page: that person is offered first", () => {
+    const loo = person("loo", "Loo Loo");
+    const v = buildReview({
+      row: asking, capture: { id: "c1", raw_text: "Wifey got a raise.", context_person_id: "loo", status: "extracted" },
+      items: [], people: [loo, BEN], related: [], offline: false, today: TODAY,
+    });
+    const [q] = v.questions;
+    expect(q.choices.map((c) => c.label)).toEqual(["Loo Loo", "Add Wifey", "Someone else"]);
+    expect(q.choices[0]).toMatchObject({ answer: { person_id: "loo" } });
+  });
+
+  it("'Nothing to remember' only for a note with nothing in it; the user's own 'Don't keep this' is 'Nothing kept'", () => {
+    expect(view("testing", row("done", { tier: "nothing", saved: [], held: [] })).status).toBe("Nothing to remember in that one.");
+    expect(COPY.nothing).not.toMatch(/saved/);
+    const declined = view("Wifey got a raise.", row("review", { tier: "clarify", saved: [], held: [raise], settled: true, answered: [{ index: 0, skip: true }] }));
+    expect([declined.mode, declined.status]).toEqual(["nothing", "Nothing kept from that one."]);
+  });
+});
+
+describe("J1: 'Who is “he”?' offers exactly who it can mean", () => {
+  const john = person("john", "John");
+  const pedro = person("pedro", "Pedro");
+  const susan = person("susan", "Susan Oxnard", { full_name: "Susan Oxnard" });
+  const loves = (candidate_ids: string[]) => held({ kind: "fact", statement: "He loves Susan", flags: ["pronoun", "pronoun_multiple"], candidate_ids,
+    spans: [{ start: 24, end: 38, quote: "He loves Susan" }] });
+
+  it("the people named before 'he', then the page's person; never Susan, the one he loves", () => {
+    const v = buildReview({
+      row: row("review", { tier: "clarify", held: [loves(["john", "pedro"])], settled: false, review_created_at: "t" }),
+      capture: { id: "c1", raw_text: "John visited yesterday. He loves Susan.", context_person_id: "pedro", status: "needs_review" },
+      items: [], people: [john, pedro, susan], related: [], offline: false, today: TODAY,
+    });
+    const [q] = v.questions;
+    expect(q.prompt).toBe("Who is “he”?");
+    expect(q.choices.map((c) => c.label)).toEqual(["John", "Pedro", "Both", "Someone else"]);
+  });
+
+  it("no one it can mean (no page, no one named before it): only Choose who, never the object", () => {
+    const h = held({ kind: "fact", statement: "He loves Susan", flags: ["pronoun", "person_ambiguous"], candidate_ids: [],
+      spans: [{ start: 0, end: 14, quote: "He loves Susan" }] });
+    const v = view("He loves Susan.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], [john, pedro, susan]);
+    const [q] = v.questions;
+    expect(q.prompt).toBe("Who is “he”?");
+    expect(q.choices.map((c) => c.label)).toEqual(["Choose who"]);
+  });
+});
+
+describe("J11: 'Whose promise?' when a promise's owner is genuinely unclear", () => {
+  const anna = person("anna", "Anna");
+  const water = held({ kind: "promise", person_id: "anna", subject_type: "user", statement: "Anna asked you to water her plants while she's away", flags: ["promise_owner"],
+    spans: [{ start: 0, end: 50, quote: "Anna asked me to water her plants while she's away" }] });
+
+  it("asks whose it is, in the user's words, with Yours, Anna's and Don't keep this", () => {
+    const v = view("Anna asked me to water her plants while she's away.", row("review", { tier: "clarify", held: [water], settled: false, review_created_at: "t" }), [], [anna, BEN]);
+    const [q] = v.questions;
+    expect([q.type, q.prompt, q.about]).toEqual(["owner", "Whose promise?", ["Anna asked you to water her plants while she's away"]]);
+    expect(q.choices.map((c) => c.label)).toEqual(["Yours", "Anna's"]);
+    expect(q.skip.label).toBe("Don't keep this");
+    expect(answersFor(v.questions, { q0: { owner: "user" } })).toEqual([{ index: 0, owner: "user" }]);
+  });
 });

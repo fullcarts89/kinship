@@ -13,6 +13,7 @@
 // and a date label computed from the event's day. There is no model and no
 // event-type vocabulary in it.
 
+import { aboutAnimalHealth } from "../../../supabase/functions/_shared/extraction/lexicon";
 import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 import { dayLabel, whenLabel } from "@/features/memory/format";
 import { nextBirthday } from "@/features/setup/setupModel";
@@ -300,8 +301,12 @@ export function buildToday(input: TodayInput): TodayView {
   const { now, today } = input;
   const people = new Map(input.people.map((p) => [p.id, p]));
   const items = new Map(input.items.map((m) => [m.id, m]));
+  // Nothing sensitive speaks on Today, except a pet's vet visit or health,
+  // which is not a person's health (founder J9; the pipeline has kept those
+  // as not sensitive since G43, and older lines may still say "health").
   const live = (m: MemoryItem | undefined): m is MemoryItem =>
-    !!m && m.status === "active" && !m.deleted_at && m.sensitivity === "none";
+    !!m && m.status === "active" && !m.deleted_at &&
+    (m.sensitivity === "none" || (m.sensitivity === "health" && aboutAnimalHealth(m.statement)));
   const activePerson = (id: string) => {
     const p = people.get(id);
     return p && p.state === "active" && !p.deleted_at ? p : null;

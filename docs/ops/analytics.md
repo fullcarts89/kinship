@@ -52,7 +52,7 @@ From plan §23, defined in `AnalyticsEvents`:
 | `review_item_accepted` | `tier` (auto/light), `item_kind`: confirmed with Done |
 | `review_item_rejected` | `tier` (auto/light, or later: outside a review), `item_kind`: "Not this" |
 | `extraction_corrected` | `correction` (person/date/kind/relation/statement), `item_kind`: a change to an extracted item |
-| `clarification_shown`, `clarification_answered`, `clarification_dismissed` | `type` (person/relation/new_person/date/keep): what the held question was about (keep: a sensitive or ambiguous-day reading waiting for "Remember"), never its words |
+| `clarification_shown`, `clarification_answered`, `clarification_dismissed` | `type` (person/relation/new_person/date/keep/owner): what the held question was about (keep: a sensitive or ambiguous-day reading waiting for "Remember"; owner: "Whose promise?"), never its words |
 | `review_left` | `how` (done/idle/dismissed), `question_waiting` (boolean) |
 | `review_reopened` | `question_waiting` (boolean) |
 | `undo_capture` | none |

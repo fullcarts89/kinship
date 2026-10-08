@@ -85,17 +85,25 @@ Deno.test("evidence that is not in the note, or is paraphrased, drops the item",
   eq(run(input(note), [item({ evidence: ['Ben said "we\'re in"'], statement: "Ben is in for Tahoe" })]).dropped[0].reason, "no_evidence");
 });
 
-Deno.test("an invented name, number, diagnosis or relation drops the item", () => {
-  eq(run(input("Ben runs Chicago Sunday."), [item({ evidence: ["Ben runs Chicago Sunday"], statement: "Ben runs the Chicago Marathon with Kelly" })]).dropped[0].reason, "invented_name");
-  eq(run(input("Ben runs Chicago Sunday."), [item({ evidence: ["Ben runs Chicago Sunday"], statement: "Ben runs Chicago in 4:00" })]).dropped[0].reason, "invented_number");
-  eq(run(input("Grandma is in the hospital."), [item({ person: "p18", person_mention: "Grandma", evidence: ["Grandma is in the hospital"], statement: "Grandma has cancer", sensitivity: "health" })]).dropped[0].reason, "invented_sensitive_term");
-  eq(run(input("Ben is visiting next week."), [item({ evidence: ["Ben is visiting next week"], statement: "Ben's brother is visiting next week" })]).dropped[0].reason, "invented_relation");
+// Founder J4: a guard strips what the model invented, never the memory. The
+// line keeps the note's own words, shown for a glance (never auto-saved).
+const ownWords = (out: ReturnType<typeof run>) => out.items.map((i) => [i.statement, i.flags.includes("own_words"), i.tier !== "auto"]);
+
+Deno.test("an invented name, number, diagnosis or relation never reaches the line: it keeps the note's own words", () => {
+  eq(ownWords(run(input("Ben runs Chicago Sunday."), [item({ evidence: ["Ben runs Chicago Sunday"], statement: "Ben runs the Chicago Marathon with Kelly" })])),
+    [["Ben runs Chicago Sunday", true, true]], "name");
+  eq(ownWords(run(input("Ben runs Chicago Sunday."), [item({ evidence: ["Ben runs Chicago Sunday"], statement: "Ben runs Chicago in 4:00" })])),
+    [["Ben runs Chicago Sunday", true, true]], "number");
+  const hospital = run(input("Grandma is in the hospital."), [item({ person: "p18", person_mention: "Grandma", evidence: ["Grandma is in the hospital"], statement: "Grandma has cancer", sensitivity: "health" })]);
+  eq(ownWords(hospital), [["Grandma is in the hospital", true, true]], "diagnosis");
+  eq(hospital.items[0].sensitivity, "health", "still sensitive: kept only on the user's yes");
+  eq(ownWords(run(input("Ben is visiting next week."), [item({ evidence: ["Ben is visiting next week"], statement: "Ben's brother is visiting next week" })])),
+    [["Ben is visiting next week", true, true]], "relation");
 });
 
 Deno.test("a negated note can't become a positive statement", () => {
   const out = run(input("Ben didn't get the job."), [item({ evidence: ["Ben didn't get the job"], statement: "Ben got the job" })]);
-  eq(out.items.length, 0);
-  eq(out.dropped[0].reason, "polarity_mismatch");
+  eq(ownWords(out), [["Ben didn't get the job", true, true]], "the note's words, never the opposite (founder J4)");
   const kept = run(input("Ben didn't get the job, but he's interviewing at Stripe next week."), [
     item({ evidence: ["Ben didn't get the job"], statement: "Ben didn't get the job" }),
     item({ kind: "event", person_mention: "he", evidence: ["he's interviewing at Stripe next week"], statement: "Ben is interviewing at Stripe next week", date_text: "next week" }),
@@ -172,8 +180,10 @@ Deno.test("someone else's promise is not the user's promise", () => {
   // Kept as Ben's (waiting on him, stabilization Gate F), never the user's.
   const ben = run(input("Ben said he'd pick up the cake."), [item({ kind: "promise", evidence: ["Ben said he'd pick up the cake"], statement: "Ben said he'd pick up the cake" })]);
   eq([ben.items[0]?.kind, ben.items[0]?.subject_type], ["promise", "person"]);
-  // Neither the user's nor anyone's commitment: still dropped.
-  eq(run(input("Ben's cake is ready."), [item({ kind: "promise", evidence: ["Ben's cake is ready"], statement: "Ben's cake is ready" })]).dropped[0].reason, "not_a_user_promise");
+  // Neither the user's nor anyone's commitment: never a promise, and never
+  // dropped either (founder J11): kept as what it says, for a glance.
+  const cake = run(input("Ben's cake is ready."), [item({ kind: "promise", evidence: ["Ben's cake is ready"], statement: "Ben's cake is ready" })]);
+  eq(cake.items.map((i) => [i.kind, i.statement, i.tier, i.flags.includes("not_a_promise")]), [["fact", "Ben's cake is ready", "confirm", true]]);
   eq(run(input("Dropping off a lasagna for Ben tomorrow."), [item({ kind: "promise", evidence: ["Dropping off a lasagna for Ben tomorrow"], statement: "Drop off a lasagna for Ben", date_text: "tomorrow" })]).items[0].detail, { due_hint: "tomorrow", due_date: "2026-10-09" });
 });
 
@@ -281,12 +291,13 @@ Deno.test("smoke: the model's synonym for the note's relation word is accepted, 
   ok(out.items[0].tier !== "auto", "sensitive: never auto");
 });
 
-Deno.test("smoke: a relation the note never mentions is still dropped", () => {
+Deno.test("smoke: a relation the note never mentions never reaches the line; who it's about is asked (founder J4)", () => {
   const out = run(input("Ben has stage 3 breast cancer."), [item({
     subject: "related", related_relation: "mother", sensitivity: "health",
     statement: "Ben's mother has stage 3 breast cancer", evidence: ["Ben has stage 3 breast cancer."],
   })]);
-  eq(out.items.length, 0);
+  eq(out.items.map((i) => [i.statement, i.subject_type, i.related, i.tier]), [["Ben has stage 3 breast cancer", "person", null, "hold"]]);
+  ok(out.items[0].flags.includes("subject_check"), "asked: is this about Ben?");
 });
 
 Deno.test("smoke: a model unsure which Sam is held for a question, not dropped", () => {
@@ -318,9 +329,9 @@ Deno.test("smoke: 'Writer', the prompt's word for the user, is not an invented n
   ok(out.items[0].tier !== "auto", "reported: never auto");
 });
 
-Deno.test("a capitalised word that is neither in the note nor the roster is still an invented name", () => {
+Deno.test("a capitalised word that is neither in the note nor the roster is still an invented name, and never kept", () => {
   const out = run(input("Ben runs Chicago Sunday."), [item({ kind: "event", statement: "Ben runs Chicago Sunday with Kelly", evidence: ["Ben runs Chicago Sunday."] })]);
-  eq(out.dropped.map((d) => d.reason), ["invented_name"]);
+  eq(ownWords(out), [["Ben runs Chicago Sunday", true, true]]);
 });
 
 // ─── Stage 2: found by the realistic oracle over the full corpus ────────────
@@ -429,21 +440,25 @@ Deno.test("negation in a consequence clause doesn't negate the fact: 'Ben hates 
   eq(out.items.map((i) => i.statement), ["Ben hates surprises"]);
 });
 
-Deno.test("negation scope still protects: lost negation is dropped, kept negation saved, the plain clause kept", () => {
+Deno.test("negation scope still protects: a lost negation keeps the note's words, kept negation saved, the plain clause kept", () => {
   const note = "Ben didn't get the job, but he's interviewing at Stripe next week.";
-  eq(run(input("Ben didn't get the job."), [item({ statement: "Ben got the job", evidence: ["Ben didn't get the job."] })]).dropped.map((d) => d.reason), ["polarity_mismatch"]);
-  eq(run(input(note), [item({ statement: "Ben got the job", evidence: [note] })]).dropped.map((d) => d.reason), ["polarity_mismatch"], "whole-sentence quote, lost negation");
-  eq(run(input(note), [item({ statement: "Ben didn't get the job", evidence: [note] })]).items.length, 1, "negation kept");
+  eq(ownWords(run(input("Ben didn't get the job."), [item({ statement: "Ben got the job", evidence: ["Ben didn't get the job."] })])), [["Ben didn't get the job", true, true]]);
+  eq(ownWords(run(input(note), [item({ statement: "Ben got the job", evidence: [note] })])),
+    [["Ben didn't get the job, but he's interviewing at Stripe next week", true, true]], "whole-sentence quote, lost negation");
+  eq(run(input(note), [item({ statement: "Ben didn't get the job", evidence: [note] })]).items.map((i) => i.flags.includes("own_words")), [false], "negation kept: the model's words");
   eq(run(input(note), [item({ kind: "event", statement: "Ben is interviewing at Stripe next week", evidence: [note], date_text: "next week", detail: { ...item({}).detail, category: null, event_type: "interview" } })]).items.length, 1, "the plain clause is kept");
-  eq(run(input("Ben hates surprises, so no surprise party."), [item({ statement: "Ben wants a surprise party", evidence: ["Ben hates surprises, so no surprise party."] })]).dropped.map((d) => d.reason), ["polarity_mismatch"], "a statement resting on the negated clause");
-  eq(run(input("Ben doesn't hate surprises anymore, so a party is fine."), [item({ statement: "Ben hates surprises", evidence: ["Ben doesn't hate surprises anymore, so a party is fine."] })]).dropped.map((d) => d.reason), ["polarity_mismatch"]);
-  eq(run(input("Ben isn't moving after all."), [item({ statement: "Ben is moving", evidence: ["Ben isn't moving after all."] })]).dropped.map((d) => d.reason), ["polarity_mismatch"]);
+  eq(ownWords(run(input("Ben hates surprises, so no surprise party."), [item({ statement: "Ben wants a surprise party", evidence: ["Ben hates surprises, so no surprise party."] })])),
+    [["Ben hates surprises, so no surprise party", true, true]], "a statement resting on the negated clause");
+  eq(ownWords(run(input("Ben doesn't hate surprises anymore, so a party is fine."), [item({ statement: "Ben hates surprises", evidence: ["Ben doesn't hate surprises anymore, so a party is fine."] })])),
+    [["Ben doesn't hate surprises anymore, so a party is fine", true, true]]);
+  eq(ownWords(run(input("Ben isn't moving after all."), [item({ statement: "Ben is moving", evidence: ["Ben isn't moving after all."] })])), [["Ben isn't moving after all", true, true]]);
 });
 
 Deno.test("positive idioms made of negative words: 'Can't wait to tell Ben'", () => {
   const out = run(input("I got the job! Can't wait to tell Ben."), [item({ kind: "promise", subject: "user", statement: "Writer wants to tell Ben they got the job", evidence: ["Can't wait to tell Ben."], certainty: "planned" })]);
   eq(out.dropped.filter((d) => d.reason === "polarity_mismatch").length, 0);
-  eq(run(input("Ben can't come to the party."), [item({ kind: "event", statement: "Ben is coming to the party", evidence: ["Ben can't come to the party."] })]).dropped.map((d) => d.reason), ["polarity_mismatch"], "a real can't still negates");
+  const cant = run(input("Ben can't come to the party."), [item({ kind: "event", statement: "Ben is coming to the party", evidence: ["Ben can't come to the party."] })]);
+  ok(cant.items.every((i) => !/is coming/.test(i.statement)), "a real can't still negates: never 'is coming'");
 });
 
 Deno.test("'sometime this summer' is a vague date, not a wish", () => {

@@ -178,7 +178,7 @@ describe("core trust closure", () => {
     await people(w2, "Ben Oxnard");
     const t2 = await tell(w2, note, zoo);
     const [q] = t2.review.questions;
-    expect(q.prompt).toBe("Is Kaiya someone new?");
+    expect(q.prompt).toBe("Who is Kaiya?");
     const add = q.choices.find((c) => c.label === "Add Kaiya")!;
     await answer(w2, t2.id, [{ index: 0, ...("answer" in add ? add.answer : {}) }]);
     const added = (await w2.repos.people.list()).find((p) => p.display_name !== "Ben Oxnard")!;

@@ -14,7 +14,7 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.2";
 import { verifiedUserId } from "../_shared/auth.ts";
 import { anthropicCaller } from "../_shared/ai/model.ts";
-import type { CaptureRow, ItemRow, PersonRow, RelatedRow } from "../_shared/extraction/context.ts";
+import { type CaptureRow, type ItemRow, type PersonRow, type RelatedRow, withLineNames } from "../_shared/extraction/context.ts";
 import { createGateway, type GatewayCaller, ServiceError, type ServiceOps, type StoredReview } from "./handler.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -73,12 +73,16 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
       return (data as CaptureRow | null) ?? null;
     },
     async loadPeople() {
-      const [people, related] = await Promise.all([
+      const [people, related, mentions] = await Promise.all([
         db.from("people").select("id, display_name, full_name, nicknames, relationship_label, state, updated_at").is("deleted_at", null).limit(1000),
         db.from("related_people").select("id, person_id, relation, name").is("deleted_at", null).limit(2000),
+        // The words people's own lines use for them (founder I12). Optional:
+        // without it, names are matched as before.
+        db.from("memory_items").select("person_mentions").is("deleted_at", null).neq("person_mentions", "[]").limit(2000),
       ]);
       if (people.error || related.error) throw new Error("roster read failed");
-      return { people: people.data as PersonRow[], related: related.data as RelatedRow[] };
+      const rows = mentions.error ? [] : (mentions.data ?? []) as { person_mentions?: unknown }[];
+      return { people: withLineNames(people.data as PersonRow[], rows), related: related.data as RelatedRow[] };
     },
     async loadItems(personIds) {
       if (personIds.length === 0) return [];

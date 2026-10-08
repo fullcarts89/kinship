@@ -230,6 +230,38 @@ export function displayStatement(statement: string): string {
   return yourVoice(statement).text;
 }
 
+/** Words only English uses, to tell an English note from another language. */
+const ENGLISH = /\b(?:the|and|is|are|were|got|with|have|that|this|for|of|it|my|told|said|about|from|she|they|his|him|just|been|didn['’]t|don['’]t|can['’]t|I['’](?:m|ve|ll|d))\b/iu;
+
+/**
+ * The note's own words, said to the user (founder J4): what a line keeps when
+ * the model's wording can't be trusted. Only the note's first person becomes
+ * "you" ("I told Chrissy I'd help her move" → "You told Chrissy you'd help
+ * her move"); every other word is the user's, as written. Words in quotation
+ * marks are someone's speech and stay exactly as they are.
+ */
+export function inYourWords(words: string): string {
+  // Only English is turned: the "me" in "Ana me dijo…" is Spanish.
+  if (!ENGLISH.test(words)) return capital(words.trim());
+  const keepCase = (orig: string, rep: string) => (/^\p{Lu}/u.test(orig) && orig !== "I" ? capital(rep) : rep);
+  const firstPerson = (s: string) => s
+    .replace(/\b(I|we|We)(['’])(m|re|ve|ll|d)\b/gu, (_m, who: string, q: string, tail: string) => keepCase(who, `you${q}${tail === "m" ? "re" : tail}`))
+    .replace(/\bI\s+am\b/gu, "you are")
+    .replace(/\bI\s+was\b/gu, "you were")
+    .replace(/\bI\b/gu, "you")
+    .replace(/\b(we|We)\b/gu, (m: string) => keepCase(m, "you"))
+    .replace(/\b(me|Me|us|Us)\b/gu, (m: string) => keepCase(m, "you"))
+    .replace(/\b(myself|Myself)\b/gu, (m: string) => keepCase(m, "yourself"))
+    .replace(/\b(ourselves|Ourselves)\b/gu, (m: string) => keepCase(m, "yourselves"))
+    .replace(/\b(mine|Mine|ours|Ours)\b/gu, (m: string) => keepCase(m, "yours"))
+    .replace(/\b(my|My|our|Our)\b/gu, (m: string) => keepCase(m, "your"));
+  let text = words.split(/("[^"]*"|“[^”]*”)/u).map((part, i) => (i % 2 ? part : firstPerson(part))).join("").trim();
+  // "Kenji and you are doing the Lisbon trip" reads "You and Kenji are…".
+  text = text.replace(/^([\p{Lu}][\p{L}\p{M}'’-]*(?:\s+[\p{Lu}][\p{L}\p{M}'’-]*)?)\s+and\s+you\b/u, "You and $1");
+  text = text.replace(/(^|[.!?]\s+)(you|your|yours|yourself|yourselves)\b/gu, (_m, lead: string, w: string) => lead + capital(w));
+  return capital(text);
+}
+
 // ─── Whose statement is it? ─────────────────────────────────────────────────
 
 /** Words a statement can start with that are never a person's name. */

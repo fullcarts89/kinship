@@ -13,27 +13,28 @@
 //     a promise the user made reads as their own to-do ("Send Michelle that
 //     restaurant").
 import { aboutSomeoneElse, displayStatement, promiseLine, withSpokenName } from "../../../supabase/functions/_shared/extraction/voice";
-import { shortName, withCurrentNames } from "../../../supabase/functions/_shared/extraction/names";
+import { mentionsOf, shortName, withMentionNames } from "../../../supabase/functions/_shared/extraction/names";
 
 export { displayStatement };
 
 /**
  * The item with its statement as the user should read it. Pass the user's
  * people to name a leading "He"/"She" by the person it's filed on, and to
- * show the people it's about by the names they go by now (founder I12): an
- * earlier name of theirs, written as a whole word, reads as the current one.
- * Only the people this memory is linked to; nothing stored changes.
+ * show the people it's about by the names they go by now (founder I12,
+ * decision 1b): exactly the words the line recorded as theirs, when they
+ * were recorded under an earlier name ("Wifey got promoted" → "Loo Loo got
+ * promoted"); the user's own words under their current name stay. Only the
+ * people this memory is about; nothing stored changes.
  */
-export function voiced<T extends { statement: string; kind?: unknown; subject_type?: unknown; person_id?: unknown; with_person_ids?: unknown }>(
+export function voiced<T extends { statement: string; kind?: unknown; subject_type?: unknown; person_id?: unknown; with_person_ids?: unknown; person_mentions?: unknown }>(
   item: T,
   people?: unknown,
 ): T {
   let statement = displayStatement(item.statement);
   if (Array.isArray(people)) {
-    const everyone = people as Named[];
     const shared = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
-    const linked = everyone.filter((p) => p.id === item.person_id || shared.includes(p.id));
-    if (linked.length) statement = withCurrentNames(statement, linked, everyone);
+    const linked = [item.person_id, ...shared].filter((id): id is string => typeof id === "string");
+    statement = withMentionNames(statement, mentionsOf(item.person_mentions), people as Named[], linked);
   }
   if (Array.isArray(people) && typeof item.person_id === "string" && /^(He|She|His|Her)\b/u.test(statement)) {
     const p = (people as Named[]).find((x) => x.id === item.person_id);

@@ -70,6 +70,8 @@ export interface ExpectedItem {
   anchor?: string;
   /** What a reasonable model would propose, when it differs from the expected outcome. */
   proposed_action?: string;
+  /** The kind a model may wrongly propose ("promise" for "he's booking the flights", founder J11). */
+  proposed_kind?: Kind;
   date_text?: string;
   dir?: Direction;
 }
@@ -220,7 +222,7 @@ export function oracleProposal(f: Fixture, rosters: Record<string, RosterDef>, i
   const promptKey = (fixtureKey: string) => input.roster.find((p) => p.id === `id-${fixtureKey}`)?.key ?? "unknown";
   const dossierKey = (fixtureKey: string) => input.dossier.find((d) => d.id === `id-${fixtureKey}`)?.key ?? fixtureKey;
   const items: ProposedItem[] = f.expect.items.map((e) => {
-    const kind = Array.isArray(e.kind) ? e.kind[0] : e.kind;
+    const kind = e.proposed_kind ?? (Array.isArray(e.kind) ? e.kind[0] : e.kind);
     const isNew = e.person.startsWith("new:");
     const person = people.find((p) => p.key === e.person);
     const mention = e.mention ?? (isNew ? e.person.slice(4) : person && f.note.includes(person.name) ? person.name : null);

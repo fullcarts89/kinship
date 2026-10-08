@@ -24,7 +24,9 @@ export type Correction =
   | { person_ids: string[] }
   | { kind: SwitchableKind }
   | { owner: "user" | "person" }
-  | { date: string | null };
+  | { date: string | null }
+  /** "Add Josh" (founder J2): someone not in People, or someone removed from it brought back (I3). */
+  | { new_person: string; bring_back?: string };
 
 type Pane =
   | { kind: "review" }
@@ -96,6 +98,13 @@ export function ReviewSheet(props: ReviewSheetProps) {
           else if (pane.line) props.onCorrect(pane.line.id, { person_id: id });
           back();
         }}
+        onAdd={(name, bringBack) => {
+          if (pane.question) {
+            if (bringBack) props.onRestore?.(bringBack);
+            choose(pane.question, bringBack ? { person_id: bringBack } : { new_person: true, new_person_name: name });
+          } else if (pane.line) props.onCorrect(pane.line.id, { new_person: name, ...(bringBack ? { bring_back: bringBack } : {}) });
+          back();
+        }}
       />
     );
   } else if (pane.kind === "date") {
@@ -139,9 +148,11 @@ export function ReviewSheet(props: ReviewSheetProps) {
         {questionOnly ? null : view.lines.length ? (
           <Title style={{ marginTop: label ? space.m : 0 }}>{`${COPY.remember}.`}</Title>
         ) : view.mode === "nothing" ? (
-          <Title style={{ marginTop: label ? space.m : 0 }}>{"Nothing kept from that one."}</Title>
+          <Title style={{ marginTop: label ? space.m : 0 }}>{COPY.notKept}</Title>
         ) : null}
-        {view.status ? <Small style={{ marginTop: space.s }} accessibilityLiveRegion="polite">{view.status}</Small> : null}
+        {view.status && !(view.mode === "nothing" && view.status === COPY.notKept) ? (
+          <Small style={{ marginTop: space.s }} accessibilityLiveRegion="polite">{view.status}</Small>
+        ) : null}
         {view.notice ? <Body tone="ochreText" style={{ marginTop: space.s }}>{view.notice}</Body> : null}
         {view.lines.length ? (
           <View style={{ marginTop: space.xl, borderTopWidth: 1, borderTopColor: p.hairline }}>

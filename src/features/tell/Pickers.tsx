@@ -3,7 +3,7 @@
 // sheet on top of a sheet.
 
 import React, { useMemo, useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { Alert, Text, TextInput, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { height, maxScale, press, radius, size, space, TOUCH, type } from "@/design/tokens";
@@ -43,6 +43,7 @@ export function PersonPane({
   named,
   chosen,
   onPickMany,
+  onAdd,
 }: {
   people: Person[];
   title: string;
@@ -57,13 +58,19 @@ export function PersonPane({
   named?: Person[];
   chosen?: string[];
   onPickMany?: (personIds: string[]) => void;
+  /**
+   * "Add Josh" (founder J2): a typed name that is no one in People, added
+   * with one tap. `bringBack` is someone removed from People that name
+   * belongs to, when the user chose to bring them back instead (I3).
+   */
+  onAdd?: (name: string, bringBack?: string) => void;
 }) {
   const [anyone, setAnyone] = useState(false);
   if (named && named.length > 1 && onPickMany && !anyone) {
     return <NamedPane people={people} title={title} named={named} chosen={chosen ?? []} onDone={onPickMany}
       onSomeoneElse={() => setAnyone(true)} onCancel={onCancel} />;
   }
-  return <AnyonePane people={people} title={title} current={current} onPick={onPick} onCancel={onCancel} />;
+  return <AnyonePane people={people} title={title} current={current} onPick={onPick} onCancel={onCancel} onAdd={onAdd} />;
 }
 
 function NamedPane({ people, title, named, chosen, onDone, onSomeoneElse, onCancel }: {
@@ -109,12 +116,14 @@ function AnyonePane({
   current,
   onPick,
   onCancel,
+  onAdd,
 }: {
   people: Person[];
   title: string;
   current?: string | null;
   onPick: (personId: string) => void;
   onCancel: () => void;
+  onAdd?: (name: string, bringBack?: string) => void;
 }) {
   const p = usePalette();
   const [query, setQuery] = useState("");
@@ -151,8 +160,32 @@ function AnyonePane({
         />
       ))}
       {shown.length === 0 ? <Small>No one by that name yet.</Small> : null}
+      {onAdd ? <AddByName typed={query} people={people} onAdd={onAdd} /> : null}
     </View>
   );
+}
+
+/**
+ * "Add Josh" (founder J2): the typed name, when it is no one in People (by
+ * their name or first name). A name someone removed from People goes by
+ * offers them back first, as adding by name does in People (founder I3).
+ */
+function AddByName({ typed, people, onAdd }: { typed: string; people: Person[]; onAdd: (name: string, bringBack?: string) => void }) {
+  const name = typed.normalize("NFC").trim().replace(/\s+/gu, " ");
+  const k = name.toLocaleLowerCase();
+  const forms = (x: Person) => [x.display_name, typeof x.full_name === "string" ? x.full_name : "", x.display_name.trim().split(/\s+/u)[0] ?? ""]
+    .map((n) => n.trim().toLocaleLowerCase()).filter(Boolean);
+  if (!name || name.length > 60 || people.some((x) => x.state !== "archived" && forms(x).includes(k))) return null;
+  const removed = people.find((x) => x.state === "archived" && forms(x).includes(k));
+  const add = () => {
+    if (!removed) return onAdd(name);
+    Alert.alert(`${removed.display_name} was removed from People.`, "Bring them back with everything you told Kinship, or add someone new.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Add someone new", onPress: () => onAdd(name) },
+      { text: `Bring back ${removed.display_name}`, onPress: () => onAdd(name, removed.id) },
+    ]);
+  };
+  return <Row title={`Add ${name}`} accessibilityHint="Adds them to People, and this is about them" onPress={add} />;
 }
 
 export function KindPane({

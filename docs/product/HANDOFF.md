@@ -1,5 +1,16 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 8 Oct 2026 (Gate 0 remediation).** Since this file was written:
+> - `main` = `5c551b9` (PR #21, the I8 cold-start fix, merged); ai-gateway **version 7** was deployed from `main` on 7 Oct and matched it.
+> - The branch `claude/awesome-edison-3cuf6z` now carries the narrow Gate 0 remediation pass the founder decided on 8 Oct: I12 + I13 (per-line person mentions, migration `20261008090000_v2_person_mentions` with a conservative backfill), J4, J1, J7, J2, J6, J5, the Today headline (J8), pet health (J9) and J11 (a misread "your promise" is asked about or kept, never dropped). Statuses: `bug-ledger.md` (J-series); surfaces: `approved-design-coverage.md`.
+> - **Not merged; no PR open.** After merge the founder runs, in order:
+>   1. `npx supabase db push` (the new migration and its backfill; the latest applied before it is `20261007090000`).
+>   2. The ai-gateway redeploy.
+>   3. The build, when they say so.
+> - The targeted native gate is `gate0-remediation-checklist.md`. **Readiness: NOT READY** until it is run.
+> - Eval corpus: `extraction-v2.9` (416 fixtures).
+> - Not in this pass (founder): J3 (waits for I1), shared-hobby composition, H15, the semantic relationship model.
+
 *Self-contained. A new session should be able to continue from this file and the repo alone. It was written after inspecting the repo, the production database and the edge functions on 7 Oct 2026. Nothing in product code changed while it was written.*
 
 ---

@@ -56,6 +56,10 @@ export default function KnowsScreen() {
             onPick={(pid) => {
               fail(u.correct(pane.line.id, { person_id: pid }));
               close();
+            }}
+            onAdd={(name, bringBack) => {
+              fail(u.correct(pane.line.id, { new_person: name, ...(bringBack ? { bring_back: bringBack } : {}) }));
+              close();
             }} />
         ) : pane?.kind === "date" ? (
           <DatePane title="When is it?" initial={pane.line.when?.value ?? null} today={today} allowNone onCancel={close}

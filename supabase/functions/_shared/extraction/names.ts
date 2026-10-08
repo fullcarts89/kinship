@@ -1,18 +1,23 @@
-// How Kinship names a person in what it says, and finds their name in a
-// memory's words (founder round 4: I12 rename, I13 subject correction;
-// KINSHIP_2_DECISIONS CC-18, option A).
+// How Kinship names a person in what it says, and which words in a memory
+// name which person (founder I12 rename, I13 subject correction; CC-18 option
+// A, Gate 0 remediation decision 1b).
 //
 //   * In a sentence, a name as Contacts gave it is said by its first name
 //     ("Michelle"); a name the user typed, or chose by renaming, is said whole
 //     ("Cutie Pie", "Aunt Linda").
-//   * A rename keeps the earlier name as another name the person goes by
-//     (people.nicknames): the full earlier name, and its first name when a
-//     memory of theirs actually used it ("Wifey" from "Wifey Liu"). Their
-//     memories then show the current name where the earlier one was written;
-//     nothing stored is rewritten, and Source keeps the note's own words.
-//   * Names are found only as whole words (a possessive "Wifey's" included),
-//     only in memories linked to that person, and never where the same name
-//     is someone else's too.
+//   * Each line records, as structured data (memory_items.person_mentions),
+//     the words it uses for each person it is about ("Wifey") and the name
+//     that person went by when those words were recorded. That record is the
+//     one mechanism behind renames (I12) and corrections (I13); nothing else
+//     guesses names out of a line's words.
+//   * The user's own words stay until the person is explicitly renamed:
+//     "Liz got promoted" reads as written while she is still "Elizabeth
+//     Chen"; renamed to "Lizzie", it reads "Lizzie got promoted". Source
+//     always keeps the note's own words.
+//   * A rename also keeps the earlier name as another name the person goes by
+//     (people.nicknames), so a later note that still says it finds them.
+
+import { kinshipReference, PRONOUNS } from "./lexicon.ts";
 
 export interface NamedPerson {
   id: string;
@@ -80,28 +85,6 @@ function currentForms(p: NamedPerson): string[] {
 }
 
 /**
- * A memory linked to these people (filed on one, shared with the others), as
- * it reads with their current names: an earlier name of theirs, written as a
- * whole word, shows as the name they go by now ("Wifey has a new job" →
- * "Cutie Pie has a new job"). Never for an earlier name that is also anyone
- * else's name (`everyone`), so nothing is ever renamed on a guess.
- */
-export function withCurrentNames(statement: string, linked: NamedPerson[], everyone: NamedPerson[]): string {
-  let out = statement;
-  for (const p of linked) {
-    const now = new Set(currentForms(p).map(fold));
-    const aliases = aliasesOf(p).filter((a) => !now.has(fold(a))).sort((a, b) => b.length - a.length);
-    for (const alias of aliases) {
-      const k = fold(alias);
-      const someoneElse = everyone.some((o) => o.id !== p.id && [...currentForms(o), ...aliasesOf(o)].some((n) => fold(n) === k));
-      if (someoneElse) continue;
-      out = replaceName(out, alias, shortName(p));
-    }
-  }
-  return out;
-}
-
-/**
  * The other names a person goes by once renamed to `next`: the earlier full
  * name, and its first name when one of their memories used it (`statements`),
  * kept newest last, never the new name itself, at most 10.
@@ -122,39 +105,261 @@ export function aliasesAfterRename(p: NamedPerson, next: string, statements: str
   return out.slice(-10);
 }
 
-/** "Wifey's friend…", "Ben's sister…": a possessive that names whose relative the line is about. */
-const RELATIVE_AFTER = /^['’]s\s+(?:(?:best|old|new|little|big|older|younger|step|ex|future|late)[- ]?)?(?:friends?|sisters?|brothers?|siblings?|mom|mum|mother|dad|father|parents?|wife|husband|partner|girlfriend|boyfriend|fianc[eé]e?|sons?|daughters?|kids?|child|children|baby|cousins?|aunt|uncle|niece|nephew|grandma|grandpa|grandmother|grandfather|boss|manager|coworkers?|co-workers?|colleagues?|neighbou?rs?|roommates?|teacher|coach|doctor|in-laws?|family)\b/iu;
-
-/** One or more names leading a statement: "Ben", "Ben Oxnard", "Sarah and Ben", "Ben's". */
+/** The run of names a statement opens with: "Ben", "Ben Oxnard", "Sarah and Ben", "Ben's" (possessive dropped). */
 const LEADING_NAMES = /^\p{Lu}[\p{L}\p{M}'’-]*(?:\s+\p{Lu}[\p{L}\p{M}'’-]*)*(?:\s*(?:,|and|&)\s*\p{Lu}[\p{L}\p{M}'’-]*(?:\s+\p{Lu}[\p{L}\p{M}'’-]*)*)*/u;
 
-/**
- * A line moved from the wrong person to the right one (founder I13): where
- * the wrong person is who the line is about, named at its start ("Wifey has
- * a new job…", "Ben's new job…", "Sarah and Ben went…", "You and Wifey
- * are…"), the right person's name takes their place. Null when the line
- * doesn't name them as its subject ("She has a new job", "John is Ben's
- * brother", "Wifey's friend from work is moving"): its words are left alone.
- */
-export function withSubjectMoved(statement: string, from: NamedPerson, to: NamedPerson): string | null {
-  const prefix = statement.match(/^You and\s+/u)?.[0] ?? "";
-  const rest = statement.slice(prefix.length);
-  const block = rest.match(LEADING_NAMES)?.[0];
-  if (!block) return null;
-  const full = new Set([from.display_name, typeof from.full_name === "string" ? from.full_name : "", ...aliasesOf(from)]
-    .map((n) => n.trim()).filter(Boolean));
-  const forms = [...new Set([...full, ...[...full].map(firstName)])].sort((a, b) => b.length - a.length);
-  for (const form of forms) {
-    const pattern = form.split(/\s+/u).map(escapeRe).join("\\s+");
-    const hit = new RegExp(`(^|[^\\p{L}\\p{M}'’-])(${pattern})(?![\\p{L}\\p{M}]|-\\p{L})`, "u").exec(block);
-    if (!hit) continue;
-    const at = hit.index + hit[1].length;
-    const after = rest.slice(at + hit[2].length);
-    // "Wifey's friend" is about the friend: whose friend stays as said.
-    if (RELATIVE_AFTER.test(after)) return null;
-    const name = full.has(form) && form.includes(" ") ? to.display_name.trim() : shortName(to);
-    const moved = `${prefix}${rest.slice(0, at)}${name}${after}`;
-    return moved === statement ? null : moved;
+/** The names a statement leads with, as written ("Sarah and Ben went…" → Sarah, Ben); never a pronoun or "You". */
+export function leadingNames(statement: string): string[] {
+  const rest = statement.trim().replace(/^You and\s+/u, "");
+  const block = rest.match(LEADING_NAMES)?.[0] ?? "";
+  return block.split(/\s*(?:,|\band\b|&)\s*/u)
+    .map((n) => n.replace(/['’]s$/u, "").trim())
+    .filter((n) => n && nameLike(n));
+}
+
+// ─── Per-line person mentions (founder I12, I13) ────────────────────────────
+
+/** Which words in a line name which person (memory_items.person_mentions). */
+export interface PersonMention {
+  /** The person these words name; null while a held line still waits on "who?". */
+  person_id: string | null;
+  /** The words, exactly as the line writes them ("Wifey", "Ben Oxnard"). */
+  text: string;
+  /**
+   * The person's name in People when these words were recorded as theirs.
+   * Null when the words are an earlier name of theirs (or, for older lines,
+   * not known): the line then reads with the name they go by now.
+   */
+  name: string | null;
+}
+
+export const MAX_MENTIONS = 8;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const NEW_REF = /^new:[0-7]$/u;
+
+/** A line's stored mentions, keeping only well-formed ones. */
+export function mentionsOf(v: unknown): PersonMention[] {
+  if (!Array.isArray(v)) return [];
+  const out: PersonMention[] = [];
+  for (const m of v) {
+    if (!m || typeof m !== "object") continue;
+    const { person_id, text, name } = m as Record<string, unknown>;
+    if (person_id !== null && (typeof person_id !== "string" || !person_id)) continue;
+    if (typeof text !== "string" || !text.trim() || text.length > 100) continue;
+    if (name !== null && (typeof name !== "string" || name.length > 100)) continue;
+    out.push({ person_id, text, name });
   }
-  return null;
+  return out.slice(0, MAX_MENTIONS);
+}
+
+/** Whether a stored mention may go to the database as written (ids, or "new:N" for someone added in the same answer). */
+export function storableMention(m: PersonMention): boolean {
+  return typeof m.person_id === "string" && (UUID.test(m.person_id) || NEW_REF.test(m.person_id));
+}
+
+const NOT_A_NAME = new Set([...PRONOUNS, "you", "your", "yours", "i", "i'm", "me", "my", "mine", "we", "us", "our", "ours",
+  "it", "its", "the", "a", "an", "this", "that", "these", "those", "there", "here", "someone", "somebody", "everyone", "everybody", "nobody"]);
+
+/** Words that can name a person: capitalised, never a pronoun, "you" or a family word ("Mom"). */
+function nameLike(text: string): boolean {
+  const t = text.trim();
+  if (!/^\p{Lu}/u.test(t)) return false;
+  const first = fold(firstName(t));
+  if (NOT_A_NAME.has(first)) return false;
+  return !kinshipReference(t);
+}
+
+/** Every capitalised whole-word use of `text` in the statement, with where it is. */
+function usesOf(statement: string, text: string): { at: number; word: string }[] {
+  if (!text.trim()) return [];
+  const out: { at: number; word: string }[] = [];
+  for (const m of statement.matchAll(wordRe(text))) {
+    if (!/^\p{Lu}/u.test(m[2])) continue;
+    out.push({ at: (m.index ?? 0) + m[1].length, word: m[2] });
+  }
+  return out;
+}
+
+/** Replaces the one use of `text` in the statement; null unless it is written there exactly once. */
+function replaceOnce(statement: string, text: string, to: string): string | null {
+  const uses = usesOf(statement, text);
+  if (uses.length !== 1) return null;
+  const { at, word } = uses[0];
+  return `${statement.slice(0, at)}${to}${statement.slice(at + word.length)}`;
+}
+
+/**
+ * The words naming someone who goes by any of `forms`, as the statement
+ * writes them: the longest form written there exactly once. Null when none
+ * is, or when their name appears more than once (which words would be
+ * theirs is then a guess).
+ */
+export function findMention(statement: string, forms: string[]): string | null {
+  return locate(statement, forms).text;
+}
+
+/**
+ * Where the statement names someone going by `forms`: longest names first,
+ * a shorter one counted only outside a longer one already found ("Loo" in
+ * "Loo Loo" is that same name), so "named twice" means two separate places.
+ */
+function locate(statement: string, forms: string[]): { text: string | null; repeated: boolean } {
+  const usable = [...new Set(forms.map((f) => f.trim()).filter((f) => f && nameLike(f)))].sort((a, b) => b.length - a.length);
+  let rest = statement;
+  let found = 0;
+  let best: string | null = null;
+  for (const form of usable) {
+    const uses = usesOf(rest, form);
+    if (!uses.length) continue;
+    found += uses.length;
+    best ??= uses[0].word;
+    // Set this name aside (same length, never a letter) so a shorter form inside it isn't counted again.
+    for (const u of [...uses].reverse()) rest = `${rest.slice(0, u.at)}${"#".repeat(u.word.length)}${rest.slice(u.at + u.word.length)}`;
+  }
+  if (found > 1) return { text: null, repeated: true };
+  return { text: best, repeated: false };
+}
+
+/** Whether `p` goes by these words: a name of theirs now, an earlier one, or one their lines use for them (`also`). */
+export function goesBy(p: NamedPerson, text: string, also: string[] = []): boolean {
+  const k = fold(text.trim());
+  return [...currentForms(p), ...aliasesOf(p), ...also].some((n) => fold(n.trim()) === k);
+}
+
+/**
+ * Whether these words are a name `p` was called before rather than one they
+ * go by now: a name kept at a rename (`nicknames`), or one their lines used
+ * under an earlier name (`earlier`). Never their current name.
+ */
+export function isEarlierName(p: NamedPerson, text: string, earlier: string[] = []): boolean {
+  const k = fold(text.trim());
+  if (currentForms(p).some((n) => fold(n) === k)) return false;
+  return [...aliasesOf(p), ...earlier].some((n) => fold(n.trim()) === k);
+}
+
+/** The mention to record for words naming `p` in a line written now. */
+export function mentionFor(p: NamedPerson, text: string, earlier: string[] = []): PersonMention {
+  return { person_id: p.id, text, name: isEarlierName(p, text, earlier) ? null : p.display_name.trim() };
+}
+
+export interface MentionSubject {
+  person: NamedPerson;
+  /** Other words resolved to them: the note's own word for them, names their lines use. */
+  also?: string[];
+  /** Words their lines used under an earlier name (see isEarlierName). */
+  earlier?: string[];
+}
+
+/**
+ * The mentions for the people a line is about: each person's words in it,
+ * found among the names they go by (and the words resolved to them), only
+ * where the words are unmistakably theirs: written once, and never also a
+ * name of someone else the line is about.
+ */
+export function recordMentions(statement: string, subjects: MentionSubject[]): PersonMention[] {
+  const own = (s: MentionSubject) => [...currentForms(s.person), ...aliasesOf(s.person)];
+  const formsOf = (s: MentionSubject) => [...own(s), ...(s.also ?? [])];
+  const out: PersonMention[] = [];
+  for (const s of subjects) {
+    if (out.some((m) => m.person_id === s.person.id)) continue;
+    // Their own names first ("Aunt Chrissy" keeps "Aunt"); a name of theirs
+    // written twice leaves them unrecorded rather than half-renamed.
+    const mine = locate(statement, own(s));
+    if (mine.repeated) continue;
+    const text = mine.text ?? locate(statement, s.also ?? []).text;
+    if (!text) continue;
+    const shared = subjects.some((o) => o.person.id !== s.person.id && formsOf(o).some((f) => fold(f.trim()) === fold(text)));
+    if (shared) continue;
+    out.push(mentionFor(s.person, text, s.earlier));
+  }
+  return out.slice(0, MAX_MENTIONS);
+}
+
+/**
+ * How a line reads now (founder I12, decision 1b). Words recorded as a
+ * person's under an earlier name of theirs show the name they go by now
+ * ("Wifey got promoted" → "Loo Loo got promoted"); words recorded under
+ * their current name stay as the user wrote them. Only people the line is
+ * about (`linked`), only the recorded words, only when written once.
+ */
+export function withMentionNames(statement: string, mentions: PersonMention[], people: NamedPerson[], linked: string[]): string {
+  let out = statement;
+  for (const m of mentions) {
+    if (!m.person_id || !linked.includes(m.person_id)) continue;
+    const p = people.find((x) => x.id === m.person_id);
+    if (!p) continue;
+    if (m.name !== null && m.name === p.display_name.trim()) continue;
+    const now = shortName(p);
+    if (now === m.text) continue;
+    out = replaceOnce(out, m.text, now) ?? out;
+  }
+  return out;
+}
+
+/**
+ * A line that is now about `to` (founder I13): wherever its recorded words
+ * named the person it was about (`fromId`, or the open "who?" of a held line
+ * when null), the chosen person's name takes their place, unless the chosen
+ * person goes by those very words (a Samantha called Sam: the words stay).
+ * With no recorded words for the subject, the words stay as they are.
+ */
+export function withSubjectReassigned(
+  statement: string,
+  mentions: PersonMention[],
+  fromId: string | null,
+  to: MentionSubject,
+): { statement: string; mentions: PersonMention[] } {
+  const subject = mentions.find((m) => m.person_id === fromId);
+  const rest = mentions.filter((m) => m !== subject && m.person_id !== to.person.id);
+  const already = mentions.find((m) => m !== subject && m.person_id === to.person.id);
+  // The chosen person is already named in the line ("Michelle and Sam…" moved
+  // to Sam): their words stay theirs; the old subject's words are left alone.
+  if (already) return { statement, mentions: [...rest, already].slice(0, MAX_MENTIONS) };
+  if (!subject) {
+    const own = recordMentions(statement, [to]);
+    return { statement, mentions: [...rest, ...own].slice(0, MAX_MENTIONS) };
+  }
+  if (goesBy(to.person, subject.text, to.also)) {
+    return { statement, mentions: [...rest, mentionFor(to.person, subject.text, to.earlier)].slice(0, MAX_MENTIONS) };
+  }
+  const name = shortName(to.person);
+  const moved = replaceOnce(statement, subject.text, name);
+  if (moved === null) return { statement, mentions: rest };
+  return { statement: moved, mentions: [...rest, mentionFor(to.person, name, to.earlier)].slice(0, MAX_MENTIONS) };
+}
+
+/**
+ * The words a person's own lines use for them (founder I12), from those
+ * lines' recorded mentions: all of them, and those recorded under an earlier
+ * name of theirs.
+ */
+export function lineNamesOf(p: NamedPerson, rows: { person_mentions?: unknown }[]): { also: string[]; earlier: string[] } {
+  const also = new Map<string, string>();
+  const earlier = new Map<string, string>();
+  for (const row of rows) {
+    for (const m of mentionsOf(row.person_mentions)) {
+      if (m.person_id !== p.id) continue;
+      const k = fold(m.text.trim());
+      also.set(k, m.text.trim());
+      if (m.name === null || m.name !== p.display_name.trim()) earlier.set(k, m.text.trim());
+    }
+  }
+  return { also: [...also.values()].slice(0, 10), earlier: [...earlier.values()].slice(0, 10) };
+}
+
+/**
+ * The mentions of a line after the user rewrote its words (their words win,
+ * contract §7.4): each person's recorded words that are still written there,
+ * now said under the name they go by; and, for anyone else it is about, their
+ * name where the new words write it.
+ */
+export function mentionsAfterEdit(statement: string, before: PersonMention[], subjects: MentionSubject[]): PersonMention[] {
+  const kept: PersonMention[] = [];
+  for (const s of subjects) {
+    const m = before.find((x) => x.person_id === s.person.id);
+    if (m && usesOf(statement, m.text).length === 1) kept.push({ person_id: s.person.id, text: m.text, name: s.person.display_name.trim() });
+  }
+  const rest = subjects.filter((s) => !kept.some((m) => m.person_id === s.person.id));
+  return [...kept, ...recordMentions(statement, rest)].slice(0, MAX_MENTIONS);
 }

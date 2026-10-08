@@ -17,8 +17,8 @@
 //             wrote or edited; a hedged item never replaces a firm one
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
-import { leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
-import { shortName } from "./names.ts";
+import { inYourWords, leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
+import { findMention, MAX_MENTIONS, type MentionSubject, recordMentions, shortName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
@@ -28,6 +28,7 @@ import {
   statedSelfRelations,
   selfRelationPhrase,
   theyPromisedMe,
+  commitsSomeone,
   fold,
   hasNegation,
   negatedWhereStated,
@@ -118,6 +119,7 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
 
   markHeldMirrors(ctx, items);
   const clarification = chooseClarification(ctx, items);
+  recordItemMentions(ctx, items);
   const tier = items.length === 0
     ? "nothing"
     : items.some((i) => i.tier === "hold")
@@ -146,7 +148,7 @@ class Context {
     for (const d of input.dossier) this.dossier.set(d.key, d);
     this.folded = fold(text);
     this.knownNames = new Set(
-      input.roster.flatMap((p) => [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])])
+      input.roster.flatMap((p) => namesFor(p))
         .concat(input.related.map((r) => r.name ?? ""))
         .flatMap((n) => wordsOf(n))
         .map(nameKey),
@@ -164,13 +166,32 @@ class Context {
     return this.folded.includes(fold(words).trim());
   }
 
+  private words?: { key: string; at: number; cap: boolean }[];
+
+  /** Where the note first names this person (a code-unit offset), or -1 (founder J1). */
+  namedAt(p: RosterPerson): number {
+    this.words ??= [...this.text.matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)]
+      .map((m) => ({ key: nameKey(m[0]), at: m.index ?? 0, cap: /^\p{Lu}/u.test(m[0]) }));
+    const words = this.words;
+    let best = -1;
+    for (const form of namesFor(p)) {
+      const parts = (form.match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).map(nameKey);
+      if (!parts.length) continue;
+      // The whole name, or (written as a name) the first name of a longer one, as namedInNote reads it.
+      const at = words.findIndex((w, i) =>
+        parts.every((part, j) => words[i + j]?.key === part) || (parts.length > 1 && w.key === parts[0] && w.cap));
+      if (at >= 0 && (best < 0 || words[at].at < best)) best = words[at].at;
+    }
+    return best;
+  }
+
   /** Roster people a name could mean: display name, full name, first name, nickname. */
   candidatesFor(mention: string): RosterPerson[] {
     // "Aunt Chrissy", "Dr. Patel", "my friend Ben" → the name itself.
     const k = nameKey(mention).replace(/^(my |our |the )?((aunt|auntie|uncle|cousin|friend|neighbou?r|coworker|boss|dr|doctor|mr|mrs|ms|miss|coach|pastor)\.? )+/, "");
     if (!k) return [];
     return this.input.roster.filter((p) => {
-      const forms = [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean);
+      const forms = namesFor(p);
       return forms.some((f) => {
         const fk = nameKey(f);
         return fk === k || fk.split(/\s+/)[0] === k || (k.includes(" ") && fk === k);
@@ -201,7 +222,7 @@ class Context {
       (this.text.normalize("NFC").match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).filter((w) => /^\p{Lu}/u.test(w)).map(nameKey),
     );
     return this.input.roster.filter((p) =>
-      [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean).some((f) => {
+      namesFor(p).some((f) => {
         const fk = nameKey(f);
         if (!fk.includes(" ")) return words.has(fk);
         return joined.includes(` ${fk} `) || capitalised.has(fk.split(/\s+/)[0]);
@@ -259,18 +280,28 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   if (!statement) return { drop: "bad_kind_subject" };
   // Contact details are never relationship memory (D2): Kinship keeps them elsewhere.
   if (CONTACT_DETAIL.test(statement) || CONTACT_DETAIL.test(primary.quote)) return { drop: "contact_detail" };
-  if (inventedName(ctx, statement)) return { drop: "invented_name" };
-  if (inventedNumber(statement, text)) return { drop: "invented_number" };
-  if (inventedSensitiveTerms(statement, text).length > 0) return { drop: "invented_sensitive_term" };
-  if (inventedRelations(statement, text, ctx.knownRelations).length > 0) return { drop: "invented_relation" };
+  // Names, numbers, sensitive terms and relationships in the statement must
+  // be the note's, its negation kept, and "the writer" turned into "you"
+  // with certainty. When the model's wording fails any of these, the line
+  // keeps the note's own words instead (founder J4: "Wifey got a raise" read
+  // as "your wife" was dropped whole): what the model inferred is stripped,
+  // never the memory with it, and the line is shown for a glance.
   // Negation is local: "Ben didn't get the job, but he's interviewing" has
   // one negated clause and one plain one.
-  if (negatedWhereStated(clauseAroundSpan(text, primary), statement) && !hasNegation(statement)) return { drop: "polarity_mismatch" };
-  if (raw.person_mention && !ctx.inNote(raw.person_mention)) return { drop: "mention_not_in_note" };
-  // The user reads this in their own app: "the writer" becomes "you".
   const voiced = yourVoice(statement);
-  if (!voiced.certain) return { drop: "internal_reference" };
-  const said = voiced.text;
+  const unfaithful = inventedName(ctx, statement) || inventedNumber(statement, text) ||
+    inventedSensitiveTerms(statement, text).length > 0 || inventedRelations(statement, text, ctx.knownRelations).length > 0 ||
+    (negatedWhereStated(clauseAroundSpan(text, primary), statement) && !hasNegation(statement)) || !voiced.certain;
+  // Never an instruction or a contact detail, whichever quote it was in.
+  let said = unfaithful
+    ? ownWords(text, spans.filter((s, i) => i === 0 ||
+      (!looksLikeInstruction(clauseAroundSpan(text, s)) && !looksLikeInstruction(sentenceAroundSpan(text, s)) && !CONTACT_DETAIL.test(s.quote))))
+    : voiced.text;
+  if (unfaithful) flags.add("own_words");
+  // A mention the note never says ("your wife" for "Wifey") is the model's
+  // inference: who the line is about is decided without it, and asked when
+  // it can't be (never a reason to lose the line).
+  if (raw.person_mention && !ctx.inNote(raw.person_mention)) raw = { ...raw, person_mention: null };
 
   // ── Kind / subject consistency ──
   let subject = raw.subject;
@@ -285,12 +316,47 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   if (raw.kind === "promise") {
     if (mine) subject = "user";
     else if (theirs) subject = "person";
-    else return { drop: "not_a_user_promise" };
+    else if (commitsSomeone(clause) || commitsSomeone(primary.quote) || commitsSomeone(sentence)) {
+      // Someone commits to something here, or asks the user to ("Anna asked
+      // me to water her plants"), but whose promise it is isn't plain
+      // (founder J11): kept, and asked "Whose promise?". Never guessed,
+      // never dropped.
+      subject = raw.subject === "person" ? "person" : "user";
+      flags.add("promise_owner");
+    } else {
+      // No one commits to anything in these words ("he's booking the
+      // flights", "Can't wait to tell Ben"): not a promise, and never a
+      // to-do. Kept as what it says, shown for a glance (founder J11): the
+      // user's own plan, or a fact about the person. A commitment only the
+      // model's wording carries gives way to the note's own words.
+      raw = raw.subject === "user"
+        ? { ...raw, kind: "plan" }
+        : { ...raw, kind: "fact", subject: raw.subject === "shared" || raw.subject === "related" ? raw.subject : "person" };
+      subject = raw.subject;
+      flags.add("not_a_promise");
+      if (commitsSomeone(said)) {
+        said = ownWords(text, spans.slice(0, 1));
+        flags.add("own_words");
+      }
+    }
   } else if (subject === "user" && raw.kind !== "plan" && raw.kind !== "moment" && raw.kind !== "event") {
     return { drop: "bad_kind_subject" };
   }
 
   // ── Person ──
+  // A relationship the note never says, for someone's related person ("Alex
+  // got a raise" read as Ben's boyfriend Alex): the inferred relationship is
+  // stripped, never a reason to lose the memory (founder J4). The line is
+  // about the person its words name, decided or asked like anyone else's;
+  // with no name, about the person filed, and asked ("Is this about Ben?").
+  if (subject === "related" && !relatedByName(ctx, raw) && !noteRelation(ctx, (raw.related_relation ?? "").trim())) {
+    const named = raw.related_name?.trim();
+    subject = "person";
+    raw = named && ctx.inNote(named)
+      ? { ...raw, subject, related_relation: null, related_name: null, person: "new", person_mention: named }
+      : { ...raw, subject, related_relation: null, related_name: null };
+    flags.add(named && ctx.inNote(named) ? "subject_moved" : "subject_check");
+  }
   // A related person the user already knows by name ("Leo", David's son) is
   // filed under their person even though that person isn't mentioned.
   const knownRelated = subject === "related" ? relatedByName(ctx, raw) : null;
@@ -417,7 +483,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // When code confirms two people fit those words, ask instead of filing it.
   // A "subject" question about a pronoun ("he's") is the same question.
   if ((ctx.ask?.about === "person" || (ctx.ask?.about === "subject" && isPronounMention(ctx.ask.mention))) &&
-      ctx.ask.mention && askConfirmed(ctx, ctx.ask.mention) &&
+      ctx.ask.mention && askConfirmed(ctx, ctx.ask.mention, raw) &&
       spans.some((s) => fold(s.quote).includes(fold(ctx.ask!.mention!).trim()))) {
     flags.add(PRONOUNS.has(fold(ctx.ask.mention).replace(/'(s|ll|d|re)$/, "").trim()) ? "pronoun_multiple" : "person_ambiguous");
   }
@@ -480,14 +546,82 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
       ...(Object.keys(selfRelations).length ? { self_relations: selfRelations } : {}),
       // Someone removed from People the name fits (founder I3): offered back.
       ...(who.archived_ids?.length ? { archived_ids: who.archived_ids, ...(who.mention ? { mention: who.mention } : {}) } : {}),
+      ...(subjectWords(raw, who) ? { subject_words: subjectWords(raw, who)! } : {}),
+      ...(who.candidate_ids && tier === "hold" ? { candidate_ids: who.candidate_ids } : {}),
     },
   };
+}
+
+/** The note's own words for who a line is about, as a name ("my daughter Kaiya" → Kaiya; "Ben's" → Ben). */
+function subjectWords(raw: ProposedItem, who: { new_person_name: string | null; mention?: string }): string | null {
+  const words = who.mention ?? who.new_person_name ?? (raw.person_mention ?? "")
+    .split(/\s*[,(]/u)[0]
+    .replace(/^(?:my|our)\s+\S+\s+/iu, "")
+    .replace(/['’]s$/u, "")
+    .trim();
+  return words || null;
+}
+
+const UNSETTLED: Flag[] = ["person_ambiguous", "pronoun_multiple", "person_disagreement", "new_person", "person_archived"];
+
+/**
+ * Which words in each line name which of its people (founder I12/I13), once
+ * its words and people are settled: what a later rename shows the new name
+ * in place of, and what a correction moves. A line still waiting on "who?"
+ * keeps the asked-about words for no one yet: the answer puts the chosen
+ * person there (resolve.ts).
+ */
+function recordItemMentions(ctx: Context, items: PlannedItem[]): void {
+  const subject = (p: RosterPerson, words?: string): MentionSubject => ({
+    person: p,
+    also: [...(p.line_names ?? []), ...(words ? [words] : [])],
+    earlier: p.earlier_names,
+  });
+  for (const item of items) {
+    const settled = !!item.person_key && !item.flags.some((f) => UNSETTLED.includes(f));
+    const person = settled ? ctx.byKey.get(item.person_key!) : undefined;
+    const subjects: MentionSubject[] = person ? [subject(person, item.subject_words)] : [];
+    for (const id of item.with_person_ids ?? []) {
+      const p = ctx.input.roster.find((r) => r.id === id);
+      if (p) subjects.push(subject(p));
+    }
+    const mentions = recordMentions(item.statement, subjects);
+    if (!person) {
+      const asked = findMention(item.statement, [item.mention, item.subject_words].filter((w): w is string => !!w));
+      if (asked && !mentions.some((m) => m.text === asked)) mentions.unshift({ person_id: null, text: asked, name: null });
+    }
+    if (mentions.length) item.person_mentions = mentions.slice(0, MAX_MENTIONS);
+  }
 }
 
 /** Whether every content word of `v` is the user's own. */
 function groundedIn(ctx: Context, v: unknown): boolean {
   if (typeof v !== "string" || !v.trim()) return false;
   return wordsOf(v).filter((w) => w.length > 2).every((w) => ctx.folded.includes(w));
+}
+
+/**
+ * The note's own words for a line, said to the user (founder J4): its quotes
+ * in the note's order, with what lies between them when that is only
+ * punctuation ("Emma told me she's gay — I'm the first person she's told"),
+ * and an ellipsis for anything else. Never the model's words.
+ */
+function ownWords(text: string, spans: PlannedSpan[]): string {
+  const chars = Array.from(text);
+  const sorted = [...spans].sort((a, b) => a.start - b.start);
+  let out = "";
+  let end = -1;
+  for (const s of sorted) {
+    if (end >= 0 && s.start < end) {
+      if (s.end > end) out += chars.slice(end, s.end).join("");
+    } else {
+      const gap = end >= 0 ? chars.slice(end, s.start).join("") : "";
+      out += end < 0 ? "" : /\p{L}|\p{N}/u.test(gap) ? " … " : gap;
+      out += chars.slice(s.start, s.end).join("");
+    }
+    end = Math.max(end, s.end);
+  }
+  return inYourWords(out.replace(/\s+/gu, " ").trim().replace(/[.。]+$/u, "").trim()).slice(0, 500);
 }
 
 /** "every Warriors playoff game" → "Warriors playoff game"; null without one. */
@@ -503,7 +637,7 @@ function alsoAbout(ctx: Context, statement: string, spans: PlannedSpan[], person
   const out: RosterPerson[] = [];
   for (const p of ctx.namedInNote()) {
     if (p.key === personKey || out.some((o) => o.id === p.id)) continue;
-    const names = [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean);
+    const names = namesFor(p);
     if (!statementNames(statement, names) || !statementNames(quotes, names)) continue;
     // A name two people share ("Sam") is never guessed onto both.
     const first = names[0].split(/\s+/u)[0];
@@ -536,15 +670,19 @@ function isPronounMention(mention: string | null | undefined): boolean {
 }
 
 /** Code's own check of the model's "who?": a pronoun with two named people, or a name two people share. */
-function askConfirmed(ctx: Context, mention: string): boolean {
+function askConfirmed(ctx: Context, mention: string, raw?: ProposedItem): boolean {
   const m = fold(mention).replace(/'(s|ll|d|re)$/, "").trim();
-  if (PRONOUNS.has(m)) return ctx.namedInNote().length + (ctx.input.capture.context_person_key ? 1 : 0) > 1;
+  if (PRONOUNS.has(m)) {
+    return raw
+      ? pronounReferents(ctx, raw, mention).allowed.length > 1
+      : ctx.namedInNote().length + (ctx.input.capture.context_person_key ? 1 : 0) > 1;
+  }
   return ctx.candidatesFor(mention).length > 1;
 }
 
 // A pronoun that could point at two named people ("Ben and Josh went
 // climbing. He fell.") waits for the user, like any other ambiguity.
-const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict", "person_archived"];
+const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict", "person_archived", "promise_owner"];
 
 function tierFor(flags: Set<Flag>): Tier {
   if (HOLD_FLAGS.some((f) => flags.has(f))) return "hold";
@@ -703,7 +841,7 @@ function inventedNumber(statement: string, text: string): boolean {
 
 function possessiveRelation(sentence: string, person: RosterPerson): boolean {
   const s = fold(sentence);
-  const names = [person.display_name, person.full_name ?? "", ...(person.nicknames ?? [])].filter(Boolean);
+  const names = namesFor(person);
   return names.some((n) => {
     const first = fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`\\b${first}'s (?:\\w+ )?(mom|mother|mum|dad|father|sister|brother|son|daughter|kid|kids|wife|husband|partner|boyfriend|girlfriend|fianc\\S*|grandma|grandmother|grandpa|grandfather|aunt|uncle|cousin|niece|nephew|boss|roommate|friend|baby|parents?)\\b`).test(s);
@@ -717,8 +855,9 @@ const DATEISH = new Set([
 
 // ─── Whose statement is it? ─────────────────────────────────────────────────
 
+/** Every name someone goes by: display, full, kept earlier names, and the words their own lines use for them (founder I12). */
 function namesFor(p: RosterPerson): string[] {
-  return [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])].filter(Boolean);
+  return [p.display_name, p.full_name ?? "", ...(p.nicknames ?? []), ...(p.line_names ?? [])].filter(Boolean);
 }
 
 /**
@@ -781,7 +920,58 @@ function relatedByName(ctx: Context, raw: ProposedItem): { who: Who; related: Pl
 
 const SELF_WORDS = new Set(["i", "me", "my", "myself", "we", "us", "our", "ourselves", "you", "your", "yourself", "you and i", "me and you"]);
 
-type Who = { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string } | { drop: DropReason };
+type Who = {
+  person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string;
+  /** For a pronoun held to ask: exactly who it can mean (founder J1). */
+  candidate_ids?: string[];
+} | { drop: DropReason };
+
+const SINGULAR_PRONOUNS = new Set(["he", "him", "his", "himself", "she", "her", "hers", "herself"]);
+
+/**
+ * Who a pronoun can mean (founder J1): the people the note names before it,
+ * in the note's order, then the person whose page it was told on. Never
+ * someone named only after it. `at` is where the pronoun is in the note.
+ */
+function pronounReferents(ctx: Context, raw: ProposedItem, mention: string): { allowed: RosterPerson[]; at: number } {
+  const at = pronounAt(ctx, raw, mention);
+  const named = ctx.namedInNote()
+    .map((p) => ({ p, n: ctx.namedAt(p) }))
+    .filter(({ n }) => n >= 0 && (at < 0 || n < at))
+    .sort((a, b) => a.n - b.n)
+    .map(({ p }) => p);
+  const context = ctx.input.capture.context_person_key ?? null;
+  const page = context ? ctx.byKey.get(context) : undefined;
+  return { allowed: page && !named.includes(page) ? [...named, page] : named, at };
+}
+
+/** Where the line's pronoun is in the note (in its own quote first), or -1. */
+function pronounAt(ctx: Context, raw: ProposedItem, mention: string): number {
+  const re = new RegExp(`(?<![\\p{L}'’])${mention.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "iu");
+  for (const quote of Array.isArray(raw.evidence) ? raw.evidence : []) {
+    if (typeof quote !== "string" || !quote.trim()) continue;
+    const found = locateEvidence(ctx.text, quote.trim());
+    if (!found.ok) continue;
+    const chars = Array.from(ctx.text);
+    const from = chars.slice(0, found.span.start).join("").length;
+    const m = re.exec(chars.slice(found.span.start, found.span.end).join(""));
+    if (m) return from + m.index;
+  }
+  return re.exec(ctx.text)?.index ?? -1;
+}
+
+/**
+ * Nothing before the pronoun could be someone else (founder J1): no other
+ * capitalised word than "I" and the page person's own names, and no
+ * relation word ("my friend Zed visited. He…" is asked, never guessed).
+ */
+function noOneElseBefore(ctx: Context, at: number, page: RosterPerson): boolean {
+  if (at < 0) return false;
+  const before = ctx.text.slice(0, at);
+  const theirs = new Set(namesFor(page).flatMap((n) => (n.match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).map(nameKey)));
+  const capitals = (before.match(/\p{Lu}[\p{L}\p{M}'’-]*/gu) ?? []).filter((w) => w !== "I" && !theirs.has(nameKey(w)));
+  return capitals.length === 0 && !wordsOf(before).some((w) => kinshipReference(w));
+}
 
 function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   const mention = (raw.person_mention ?? "").trim();
@@ -829,14 +1019,30 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
     return resolvePerson(ctx, { ...raw, person_mention: possessor }, flags);
   }
 
-  // Pronouns: must point at someone the note names, or the context person.
+  // Pronouns: must point at someone the note names before them, or the
+  // person whose page it was told on (founder J1). Never someone named only
+  // after it: in "He loves Susan", Susan is who he loves, never "he". A
+  // line held to ask carries exactly who it can mean.
   if (PRONOUNS.has(folded)) {
     flags.add("pronoun");
-    const named = ctx.namedInNote();
-    const allowed = new Set([...named.map((p) => p.key), ...(context ? [context] : [])]);
-    if (!ctx.byKey.has(modelKey) || !allowed.has(modelKey)) return unresolved("person_ambiguous");
-    if (allowed.size > 1) flags.add("pronoun_multiple");
-    return pick(ctx.byKey.get(modelKey)!);
+    const { allowed, at } = pronounReferents(ctx, raw, mention);
+    const ids = allowed.map((p) => p.id);
+    const chosen = ctx.byKey.get(modelKey);
+    // On someone's page with no one else before it, "he" or "she" is that
+    // person: also when the model filed it on someone it can't be (the
+    // sentence's object) or couldn't tell, as long as nothing before it
+    // could be anyone else. "New" (someone not in People) is asked.
+    const page = context && allowed.length === 1 && allowed[0].key === context ? allowed[0] : null;
+    if (page && SINGULAR_PRONOUNS.has(folded) &&
+        (chosen?.key === page.key || (modelKey !== "new" && noOneElseBefore(ctx, at, page)))) {
+      return pick(page);
+    }
+    if (!chosen || !allowed.some((p) => p.key === modelKey)) return { ...unresolved("person_ambiguous"), candidate_ids: ids };
+    if (allowed.length > 1) {
+      flags.add("pronoun_multiple");
+      return { ...pick(chosen), candidate_ids: ids };
+    }
+    return pick(chosen);
   }
 
   // "my mom", "Mom", "my sister": the roster person with that name or label.
@@ -1052,7 +1258,7 @@ function relate(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>):
     t.user_state !== "edited" && t.user_state !== "user_authored" &&
     (n.subject !== "related" || (t.related_key ? ctx.input.related.find((r) => r.key === t.related_key)?.id === n.related_id : false))
   );
-  const names = person ? [person.display_name, person.full_name ?? "", ...(person.nicknames ?? [])] : [];
+  const names = person ? namesFor(person) : [];
   const match = threadTarget(n.statement, candidates.map((c) => ({ id: c.id, kind: c.kind, statement: c.statement, status: c.status })), names);
   if (!match) return { action: byModel, transition: null };
   if ("ambiguous" in match) {
@@ -1302,7 +1508,7 @@ function spokenName(p: RosterPerson | undefined): string {
 }
 
 function namesPerson(statement: string, p: RosterPerson | undefined): boolean {
-  return !!p && statementNames(statement, [p.display_name, p.full_name ?? "", ...(p.nicknames ?? [])]);
+  return !!p && statementNames(statement, namesFor(p));
 }
 
 /** Something that happened, however it was filed: an event, a fact or a moment. */

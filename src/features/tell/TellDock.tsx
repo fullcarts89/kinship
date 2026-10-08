@@ -84,6 +84,11 @@ export function KeptCard({
 }) {
   const p = usePalette();
   const [asking, setAsking] = React.useState(false);
+  // Every kept line can be looked at (founder J6): "and 1 more" opens the
+  // rest in place, each as tappable as the first three.
+  const [everyLine, setEveryLine] = React.useState(false);
+  React.useEffect(() => setEveryLine(false), [card.captureId]);
+  const lines = everyLine ? [...card.lines, ...(card.rest ?? [])] : card.lines;
   const working = card.mode === "understanding";
   const opens = card.mode === "card" || card.mode === "sheet";
   return (
@@ -111,7 +116,7 @@ export function KeptCard({
               {working ? <Working /> : null}
             </Pressable>
           ) : null}
-          {card.lines.map((l) => (
+          {lines.map((l) => (
             <Pressable
               key={l.id}
               accessibilityRole="button"
@@ -123,7 +128,17 @@ export function KeptCard({
               <Line numberOfLines={2}>{l.statement}</Line>
             </Pressable>
           ))}
-          {card.more > 0 ? <Small>{`and ${card.more} more`}</Small> : null}
+          {card.more > 0 && !everyLine ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`and ${card.more} more`}
+              accessibilityHint="Shows the rest of what was kept"
+              onPress={() => (card.rest?.length ? setEveryLine(true) : onOpen())}
+              style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.surface : 1 })}
+            >
+              <Small tone="inkBody">{`and ${card.more} more`}</Small>
+            </Pressable>
+          ) : null}
           {card.newcomers?.length ? (
             <Pressable
               accessibilityRole="button"

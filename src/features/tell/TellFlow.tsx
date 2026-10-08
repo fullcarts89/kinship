@@ -42,6 +42,8 @@ export interface KeptCardState {
   /** What was kept, in the user's words (at most three; the rest is "more"). */
   lines: { id: string; statement: string }[];
   more: number;
+  /** The kept lines past the first three: "and 1 more" shows them in place (founder J6). */
+  rest?: { id: string; statement: string }[];
   /** "Understanding…", "Nothing to remember in that one…", "One thing to check". */
   status: string | null;
   /** Who it belongs with: shown on their page, never on someone else's. */
@@ -83,6 +85,12 @@ export interface TellFlow {
    * (founder I10, as H19 did for the Kept card).
    */
   asking: boolean;
+  /**
+   * Something from Tell is on screen or open: a Kept card, the review or its
+   * details, a question (founder J8). Today never says "Nothing needs you
+   * today." behind it.
+   */
+  attention: boolean;
   toLookAt: string[];
   waitingOffline: boolean;
   openNote: (captureId: string) => void;
@@ -118,6 +126,7 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     heading: view.mode === "card" ? view.heading : null,
     lines: lines.slice(0, 3),
     more: Math.max(0, lines.length - 3),
+    rest: lines.slice(3),
     status: view.mode === "card" ? view.status : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
     personIds: view.personIds,
     feedback: view.feedback ?? null,
@@ -290,6 +299,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     pending,
     questions,
     asking,
+    attention: !!card || !!showing,
     toLookAt,
     waitingOffline: waiting.length > 0 && open.offline && currentView?.mode !== "understanding",
     openNote: (id) => openSheet(id),
@@ -303,7 +313,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     draft: (personId) => drafts.drafts[draftKey(personId)] ?? "",
     setDraft: (personId, text) => drafts.set(draftKey(personId), text),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), asking, toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked]);
+  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), asking, showing, toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked]);
 
   // The sheet shows its own view, or the last one while the next arrives.
   const shown = sheetView && SHEET_CONTENT.includes(sheetView.mode)
