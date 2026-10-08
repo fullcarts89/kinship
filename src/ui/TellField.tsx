@@ -13,6 +13,8 @@ import { Pressable } from "./Pressable";
 import { ArrowUp } from "lucide-react-native";
 import { height, maxScale, press, radius, size, space, type } from "@/design/tokens";
 import { IconButton } from "./Screen";
+import { KeyboardBar, useKeyboardBarId } from "./KeyboardBar";
+import type { NavKey } from "./NavBar";
 import { usePalette } from "./theme";
 
 export interface TellFieldProps {
@@ -29,13 +31,16 @@ export interface TellFieldProps {
    * field's place. Tapping it opens the words again; Send still sends them.
    */
   collapsed?: { preview: string; onExpand: () => void } | null;
+  /** On Today and People: the keyboard's bar carries Today · People as well as Done (founder I6). */
+  nav?: { current: NavKey; onGo: (to: NavKey) => void };
 }
 
 export const TellField = forwardRef<TextInput, TellFieldProps>(function TellField(
-  { value, onChange, onSend, placeholder = "Tell Kinship something…", autoFocus, onFocus, onBlur, collapsed },
+  { value, onChange, onSend, placeholder = "Tell Kinship something…", autoFocus, onFocus, onBlur, collapsed, nav },
   ref,
 ) {
   const p = usePalette();
+  const bar = useKeyboardBarId();
   const canSend = value.trim().length > 0;
   const send = canSend ? (
     <IconButton label="Send to Kinship" onPress={onSend} filled diameter={height.mic}>
@@ -91,6 +96,7 @@ export const TellField = forwardRef<TextInput, TellFieldProps>(function TellFiel
         autoFocus={autoFocus}
         onFocus={onFocus}
         onBlur={onBlur}
+        inputAccessoryViewID={bar}
         placeholder={placeholder}
         placeholderTextColor={p.inkQuiet}
         accessibilityLabel={placeholder.replace(/…$/u, "")}
@@ -101,6 +107,7 @@ export const TellField = forwardRef<TextInput, TellFieldProps>(function TellFiel
         }]}
       />
       {send}
+      <KeyboardBar id={bar} nav={nav} />
     </View>
   );
 });

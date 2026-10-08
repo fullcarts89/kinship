@@ -2,14 +2,14 @@
 // People. Above it, the Kept card says what happened to the note just told
 // ("Understanding…", then "Kept for Ben" and what was kept, with Undo), and
 // stays until the user is done with it (stabilization Gate D).
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FeedbackOff } from "@/store/repositories";
-import { ActivityIndicator, Keyboard, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, PanResponder, TextInput, View } from "react-native";
 import { X } from "lucide-react-native";
 import { Pressable } from "@/ui/Pressable";
 import { draftPreview } from "./drafts";
 import { press, radius, size, space, TOUCH } from "@/design/tokens";
-import { Body, Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
+import { Body, KEYBOARD_BAR, Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
 import { trackStarted, useTellFlow, type KeptCardState } from "./TellFlow";
 
@@ -271,7 +271,11 @@ export interface TellDockViewProps {
   current: NavKey;
   onGo: (to: NavKey) => void;
   inputRef?: React.Ref<TextInput>;
-  /** The keyboard is up: the field sits on it and the bar stays underneath. */
+  /**
+   * The keyboard is up: the field sits on it. Today · People stay reachable
+   * (founder I6): on the keyboard's own bar where the platform draws one,
+   * otherwise here.
+   */
   typing?: boolean;
   /** An unsent draft, folded to one line until it's opened again. */
   collapsed?: { preview: string; onExpand: () => void } | null;
@@ -283,11 +287,17 @@ export interface TellDockViewProps {
 /** The dock's look, from plain data (the lab renders it without a session). */
 export function TellDockView(props: TellDockViewProps) {
   const p = usePalette();
+  // While typing, a downward swipe on what sits above the field (the Kept
+  // card) puts the keyboard away (founder I6). The field keeps its own drags.
+  const swipeAway = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponderCapture: (_e, g) => !!props.typing && g.dy > 12 && Math.abs(g.dy) > 2 * Math.abs(g.dx),
+    onPanResponderGrant: () => Keyboard.dismiss(),
+  }), [props.typing]);
   return (
     <View style={{ backgroundColor: p.paper }}>
       {props.tellOn ? (
         <TellDockFrame>
-          {props.line}
+          <View {...swipeAway.panHandlers}>{props.line}</View>
           {props.about && !props.collapsed ? <Small style={{ paddingHorizontal: space.xs, paddingBottom: space.xs }}>{`About ${props.about}`}</Small> : null}
           <TellField
             ref={props.inputRef}
@@ -299,10 +309,11 @@ export function TellDockView(props: TellDockViewProps) {
             placeholder={props.placeholder}
             collapsed={props.collapsed}
             autoFocus={props.autoFocus}
+            nav={{ current: props.current, onGo: props.onGo }}
           />
         </TellDockFrame>
       ) : null}
-      {props.typing ? null : <NavBar current={props.current} onGo={props.onGo} />}
+      {props.typing && KEYBOARD_BAR ? null : <NavBar current={props.current} onGo={props.onGo} />}
     </View>
   );
 }
