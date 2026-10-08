@@ -1,5 +1,22 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 8 Oct 2026, late: Phase 4 slice 1 built** (`KINSHIP_2_DECISIONS.md` CC-20, CC-21). This supersedes the addenda below where they differ.
+> - **State:** branch `claude/awesome-edison-3cuf6z`, ahead of `main` (`609be4a`). Not merged; no PR open.
+> - **Built on the branch, native check pending:**
+>   - I4: the Kept card, with the approved copy;
+>   - I6: the keyboard bar, with no new dependency;
+>   - I1 with J3: the Moment detail sheet, and View <Person> landing on the line;
+>   - H16 with N7: milestone Moments, and dated good news;
+>   - N8: exact Undo. Migration `20261009090000_v2_exact_undo`, not yet applied to production.
+> - **Phase 4B:**
+>   - B0 is N8.
+>   - B1 is the closed categorization taxonomy: `supabase/functions/_shared/semantic/categories.ts` and 44 evals. It is computed, never stored, and not displayed.
+>   - **B2 waits for the founder to see B1's result.**
+> - **Next in 4A:** I2 (with N6), then H4.
+> - **Founder's steps:** the ai-gateway redeploy and the re-run of gate rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b; then merge; `npx supabase db push`; then the build, when they say so. This branch changes nothing in ai-gateway.
+> - **The next native gate:** `phase4-native-checklist.md`.
+> - **Readiness:** NOT READY. This means Phase 4 is not yet ready for its next planned native dogfood milestone. It is not a return to Gate 0 stabilization (CC-21).
+
 > **Addendum, 8 Oct 2026, evening: Gate 0 CLOSED, Phase 4 started** (`KINSHIP_2_DECISIONS.md` CC-19). This supersedes the addendum below where they differ.
 > - **State:**
 >   - `main` = `609be4a` (PR #22, the Gate 0 remediation, merged with a merge commit).

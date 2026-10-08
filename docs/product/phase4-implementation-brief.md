@@ -144,6 +144,15 @@ Neither migration updates an existing user row. Facets for existing items are wr
   - no family role from a surname, no gender from a name, no transitive relations.
 - **Placement is open to change.** A wrong section never alters, hides or deletes the line: it is still the same line, with its source, Edit and Not this.
 
+**As built (B1, `d4db346`).** The rules above, in that order, with two tightenings. Both only make the word lists fire less often:
+- **Words need both sides.** A word list counts only when the user's own words say it and the line as kept says it too. The user's own words are the note's quotes, plus the line itself when the user wrote or edited it. This is the same evidence rule as H16's milestones.
+  - A quote can carry a neighbouring line's words: "Susan loves pottery and wants to run a marathon" must not put "Susan loves pottery" under Hoping to.
+  - A phrasing the user didn't use never makes Hoping to (CC-17).
+- **Plans and events are placed by their fields.** Kind and event type decide; the work and education word lists don't apply to them. So an ordinary plan that mentions a boss or a school stays in Plans ("ordinary plans → Plans").
+- **Never fails.** An event with no type counts as `other`, and an unknown kind lands in Background.
+- **Evals.** 44 cases in `evals/semantic/fixtures/categories.json`, including the founder's twelve. They run free in CI with the invariants: frozen input, closed output, and independent of sensitivity, status and supersession.
+- **Not shown yet.** Nothing displays a category until B8.
+
 ---
 
 ## 4. H15: What Kinship knows, the proposed sections
@@ -592,7 +601,7 @@ These are your 16 steps, grouped into reviewable chunks on the branch. They were
 | Chunk | Your steps | Delivers |
 |---|---|---|
 | **B0** ✓ `6cc0436` | (N8) | **First, at the earliest schema opportunity** (CC-20). Built: migration `20261009090000_v2_exact_undo`, pgTAP `66_v2_exact_undo`. The `resolves_id` column, restoring a resolved thread on Undo, and `reasons_refresh` reopening a suppressed Moment. A small migration of its own, plus pgTAP. Working before the next vertical-slice native gate |
-| B1 | 1 | `categories.ts` (§3) and its categorization evals. No display change yet |
+| **B1** ✓ `d4db346`, `92e4e4e` | 1 | `categories.ts` (§3) and its categorization evals. No display change yet. Built: `supabase/functions/_shared/semantic/categories.ts`, computed and never stored; 44 eval cases (`evals/semantic/fixtures/categories.json`) run by `categories.test.ts` in CI. **B2 waits for the founder to see B1's result** |
 | B2 | 2, 3 | The migration (§1 B–G); `places` build script, licence notice and versioned JSON (§6); pgTAP |
 | B3 | 4, 5 | `residence.ts` (§5), `relate.ts` (§8) wired into `pipeline.ts` behind the residence check; CONFLICT question copy; the `semantic` corpus |
 | B4 | 6, 7 | `closes_ids` writes, apply and restore, shipped **together**: closure never exists without its exact Undo (CC-20). The Undo matrix (§10) |

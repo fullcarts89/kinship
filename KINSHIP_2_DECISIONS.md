@@ -959,3 +959,89 @@ From the founder's review of `docs/product/phase4-implementation-brief.md`. Wher
 - The `resolves_id` and `reasons_refresh` fix is **approved**.
 - N8 ships at the **earliest schema opportunity**, and it must work before the next Phase 4 vertical-slice native gate.
 - Undo for semantic closures (`closes_ids`) ships complete together with multi-item closure. It is never left incomplete across later Phase 4 rounds.
+
+## CC-21. Continue Phase 4: I1, then H16 with N7, B1 alongside; deployment and the next build (8 Oct 2026)
+From the founder's "Continue Phase 4 Implementation" message. Where this differs from CC-20, this is newer.
+
+### Status and readiness
+- **Gate 0 stays CLOSED.**
+  - The re-run of gate rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b after the ai-gateway redeploy is deployment verification.
+  - When those rows pass on the phone, the server-side rows move from FIXED to VERIFIED, on the founder's say-so. G5 stays VERIFIED.
+  - No broad accuracy pass, unless a genuinely new P0 trust regression appears.
+- **"READINESS: NOT READY" means:** Phase 4 is not yet ready for its next planned native dogfood milestone. It does **not** mean Kinship is back in Gate 0 stabilization.
+
+### Order
+I1 now, then H16 with N7. B1 runs alongside.
+
+### I1, with J3
+- Tap a reason → see the reason. Tap a person → see the person.
+- A sheet, never a sheet on a sheet; I9 must not regress. Coming up items open the same detail.
+- Message and Call are never manufactured.
+- **View <Person>:**
+  - opens the page at the exact memory and scrolls it into view;
+  - brief quiet emphasis, with Reduce Motion respected;
+  - falls back to What Kinship knows.
+- Grounded only: no ids, scores, confidence, ontology or ranking.
+- Never stale after a retraction, and never focuses another person's line.
+
+### H16, the nine milestone types
+- Explicit evidence only, never inferred from a semantic state change: a residence change never makes a "move" Moment.
+- Eligible from three days before through the day, with a day-level date.
+- Today's ranking decides. No nagging.
+- With no date, it is remembered quietly and the date is never asked for.
+- Someone not in People takes part only when grounded through an established person.
+
+### N7, with H16
+- Distinguish day, month, year and no date.
+- Never substitute the day it was told when the note gave a broader date.
+- A year alone is never eligible for the window.
+
+### B1, alongside
+- The closed taxonomy of brief §3: Background, Into, Hoping to, Plans, Their people, Between you.
+- Internally it distinguishes work, education, residence/background, interests, preferences, aspirations, plain plans, their people, shared/between you, and other.
+- **Semantics:**
+  - "Wants to learn pottery" → Hoping to.
+  - "Loves pottery" → Into.
+  - Ordinary plans → Plans.
+  - "Graduated from Berkeley" → Education, in Background.
+  - "Works at Meta" → Work, in Background.
+  - "Michelle is Susan's sister" → Their people.
+  - "Annual ski trip together" → Between you.
+  - "Prefers red wine" → Into, as a preference.
+  - Unclear → Background / Other.
+  - Never: carbonara → Italian, basketball → sports, surname → family role, name → gender, or transitive kin.
+- No model categories. No stored field unless computing it proves insufficient.
+- **A categorization mistake can never:**
+  - delete or suppress a line;
+  - change its words, provenance, certainty, sensitivity or supersession;
+  - create an edge.
+- It falls back safely and never asks the user.
+- **No B2 schema, migration or place-data work until B1 is complete, documented, and its result reported to the founder.**
+
+### Deployment and the next build
+- **N8:** at the next merge to `main`, `npx supabase db push`. Then verify:
+  - Undo restores the old line;
+  - its Moment can return;
+  - Undo of a resolving note reopens the thread;
+  - dismissed stays dismissed;
+  - another live closer prevents restoration.
+- **I6:** native verification only, in the next meaningful build after I1. No keyboard dependency added pre-emptively.
+- **The next build bundles** I4, I6 and I1, plus H16 when ready, with the N8 migration applied. Not a build per commit.
+- **The next native dogfood checklist is concise:** I4, I6, I1, H16 if included, and N8. It is a Phase 4 UX and product gate, not a broad extraction stress test.
+
+### Low-coaching direction
+- The larger Phase 4 question: does Kinship feel useful without the founder explaining it?
+- **Later dogfood weighs:**
+  - Today comprehension, Moment usefulness and actionability;
+  - friction in the return loop;
+  - how a person's page hangs together, and how What Kinship knows is organized;
+  - whether categorized memory feels natural rather than CRM-like;
+  - whether people understand why Kinship is worth returning to.
+- Don't optimize only for passing tests.
+
+### Discipline
+- Failing tests first, and narrow behaviour.
+- Keep regression coverage, and never loosen old tests.
+- Update the ledger and coverage, and keep FIXED distinct from VERIFIED.
+- Scoped commits.
+- Surface a genuine product contradiction. Don't manufacture founder decisions.
