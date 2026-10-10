@@ -1,3 +1,4 @@
+const { describe, expect, it } = require("@jest/globals");
 const { addPodDeploymentTarget } = require("../withPodDeploymentTarget");
 
 const PODFILE = `target 'Kinship' do
