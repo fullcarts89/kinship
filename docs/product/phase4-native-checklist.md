@@ -6,16 +6,26 @@
 
 ## Before you start (on your Mac, in this order)
 
-1. **Gate 0 deployment verification**, if not done yet:
-   - redeploy ai-gateway from `main`;
-   - re-run rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b of `gate0-remediation-checklist.md`.
+1. **Gate 0 deployment verification**, if not done yet. Redeploy ai-gateway from `main`:
+   ```
+   unset SUPABASE_ACCESS_TOKEN
+   git checkout main
+   git pull
+   read -s "SUPABASE_ACCESS_TOKEN?Supabase token: " && export SUPABASE_ACCESS_TOKEN && echo
+   npx supabase functions deploy ai-gateway --project-ref kddpxiiyxgvjrtpdkvio
+   unset SUPABASE_ACCESS_TOKEN
+   ```
+   - The `read -s` line waits for your token. Create one at supabase.com/dashboard/account/tokens, paste it and press Return.
+   - Nothing appears as you paste, so the token stays off the screen and out of your shell history.
+   - Delete the token on that page afterwards. Never paste it in chat.
 
-   No new build is needed for this, and this branch changes nothing in ai-gateway.
+   Then re-run rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b of `gate0-remediation-checklist.md`. No new build is needed for this, and this branch changes nothing in ai-gateway.
 2. **Merge** this branch into `main` with a merge commit, when you're happy to. Ask me if you want a PR first.
 3. **Apply the N8 migration** from `main`:
    ```
    npx supabase db push
    ```
+   - It needs the token too: enter it the same way as in step 1, with the `read -s` line, and unset it afterwards.
    - It applies `20261009090000_v2_exact_undo`: one new column plus three replaced functions.
    - No stored row changes.
    - It covers notes told **after** the push. An older note isn't linked to a thread it closed, so use new notes for the N8 rows.

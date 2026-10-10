@@ -28,11 +28,7 @@
   - a line it dropped is not in memory (the note itself is kept);
   - lines written since have no mention record, so they read as written.
 - **To do:**
-  1. Redeploy (put the token on its own line, never in chat; delete it in Supabase afterwards):
-     ```
-     export SUPABASE_ACCESS_TOKEN=sbp_…
-     npx supabase functions deploy ai-gateway --project-ref kddpxiiyxgvjrtpdkvio
-     ```
+  1. Redeploy from `main`, with the token typed at a hidden prompt (`phase4-native-checklist.md`, step 1, has the exact lines). Never paste it in chat; delete it in Supabase afterwards.
   2. Re-run gate rows **1b, 2, 2b, 3, 5, 5b, 11, 11b**.
 
   The app build is fine as it is; this is a server-only step.

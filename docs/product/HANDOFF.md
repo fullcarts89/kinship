@@ -402,7 +402,7 @@ OPERATING RULES
 - Don't open a PR unless asked; merge only when the founder asks, with a merge commit.
 - Migrations are forward-only. Production gets them only after merge, when the founder runs `npx supabase db push`. ai-gateway is redeployed by hand after merge.
 - Never change production flags or user data without the founder's explicit yes for a specific account id. Never look accounts up by email. Data cleanup (docs/product/data-cleanup-plan.md) is NOT authorised.
-- Founder's Mac: use `npx supabase …` and `npx eas-cli …`. Before Supabase CLI commands run `export SUPABASE_ACCESS_TOKEN=sbp_…` (the Keychain prompt loops). Build: `npx eas-cli build --profile dogfood-v2 --platform ios`.
+- Founder's Mac: use `npx supabase …` and `npx eas-cli …`. Before Supabase CLI commands, set the token in the shell, not via `supabase login` (the Keychain prompt loops). Give the founder the hidden-prompt line `read -s "SUPABASE_ACCESS_TOKEN?Supabase token: " && export SUPABASE_ACCESS_TOKEN && echo`, never a literal `sbp_…` (it was copied as-is on 10 Oct), and end with `unset SUPABASE_ACCESS_TOKEN`. Build: `npx eas-cli build --profile dogfood-v2 --platform ios`.
 - The founder wants explicit step-by-step instructions, concise answers, and no unnecessary questions.
 - Don't build an app binary until the founder says so.
 ```
