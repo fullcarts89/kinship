@@ -28,7 +28,7 @@
   - a line it dropped is not in memory (the note itself is kept);
   - lines written since have no mention record, so they read as written.
 - **To do:**
-  1. Redeploy from `main`, with the token typed at a hidden prompt (`phase4-native-checklist.md`, step 1, has the exact lines). Never paste it in chat; delete it in Supabase afterwards.
+  1. Redeploy from `main`. Before starting Claude Code, export the token in Terminal with `export SUPABASE_ACCESS_TOKEN=` (the token pasted straight after the `=`); Claude Code then runs the deploy (`phase4-native-checklist.md`, step 1). Never paste it in chat; delete it in Supabase afterwards.
   2. Re-run gate rows **1b, 2, 2b, 3, 5, 5b, 11, 11b**.
 
   The app build is fine as it is; this is a server-only step.
