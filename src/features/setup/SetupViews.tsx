@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GUTTER, height, maxScale, press, radius, size, space, type } from "@/design/tokens";
 import { CONSENT_COPY, ConsentBody } from "@/features/tell/ConsentSheet";
 import { useKeyboardInset } from "@/ui/useKeyboardLift";
-import { Body, Display, Label, MomentText, Pill, Provenance, Small, Sprig, usePalette } from "@/ui";
+import { Body, Display, KeyboardBar, Label, MomentText, Pill, Provenance, Small, Sprig, useKeyboardBarId, usePalette } from "@/ui";
 import type { PickRow, WorthLine } from "./setupModel";
 
 export const SETUP_COPY = {
@@ -401,6 +401,7 @@ export interface WorthStepViewProps {
 export function WorthStepView(props: WorthStepViewProps) {
   const p = usePalette();
   const worth = props.lines.length > 0;
+  const bar = useKeyboardBarId();
   return (
     <Frame
       footer={
@@ -440,6 +441,7 @@ export function WorthStepView(props: WorthStepViewProps) {
         placeholder={SETUP_COPY.tellHint}
         placeholderTextColor={p.inkQuiet}
         accessibilityLabel={SETUP_COPY.tellTitle}
+        inputAccessoryViewID={bar}
         maxLength={5000}
         maxFontSizeMultiplier={maxScale.text}
         style={[type.line, {
@@ -448,6 +450,7 @@ export function WorthStepView(props: WorthStepViewProps) {
           textAlignVertical: "top", outlineWidth: 0,
         }]}
       />
+      <KeyboardBar id={bar} />
       <View style={{ marginTop: space.l, gap: space.xs }} accessibilityLabel={`For example: ${SETUP_COPY.examples.join(" ")}`} accessible>
         <Small>{SETUP_COPY.examplesLabel}</Small>
         {SETUP_COPY.examples.map((e) => (

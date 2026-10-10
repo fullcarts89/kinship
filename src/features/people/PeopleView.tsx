@@ -6,7 +6,7 @@ import { TextInput, View } from "react-native";
 import { Plus, Search, Settings } from "lucide-react-native";
 import { height, maxScale, radius, size, space, type } from "@/design/tokens";
 import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
-import { Body, IconButton, Pill, Row, Screen, Sprig, usePalette } from "@/ui";
+import { Body, IconButton, KeyboardBar, type NavKey, Pill, Row, Screen, Sprig, useKeyboardBarId, usePalette } from "@/ui";
 
 export interface PersonRowData {
   id: string;
@@ -22,6 +22,7 @@ export function PeopleView({
   initialAdding = null,
   onSettings,
   onAddFromContacts,
+  onGo,
 }: {
   rows: PersonRowData[];
   onOpen: (personId: string) => void;
@@ -32,8 +33,11 @@ export function PeopleView({
   onSettings?: () => void;
   /** Add from contacts (the setup picker). */
   onAddFromContacts?: () => void;
+  /** Today · People on the keyboard's bar while searching (founder I6). */
+  onGo?: (to: NavKey) => void;
 }) {
   const p = usePalette();
+  const bar = useKeyboardBarId();
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState<string | null>(initialAdding);
   const shown = useMemo(() => {
@@ -60,9 +64,11 @@ export function PeopleView({
             accessibilityLabel="Search your people"
             returnKeyType="search"
             autoCorrect={false}
+            inputAccessoryViewID={bar}
             maxFontSizeMultiplier={maxScale.text}
             style={[type.field, { flex: 1, color: p.ink, paddingVertical: space.m }]}
           />
+          <KeyboardBar id={bar} nav={onGo ? { current: "people", onGo } : undefined} />
         </View>
         <IconButton label="Add someone" onPress={() => setAdding(query.trim())}>
           <Plus color={p.ink} size={size.iconLarge} strokeWidth={1.8} />

@@ -3,7 +3,8 @@
 // It arrives by fading up 8 pt over 320 ms; with Reduce Motion, a 150 ms fade.
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, View } from "react-native";
-import { motion, size, space } from "@/design/tokens";
+import { motion, press, size, space } from "@/design/tokens";
+import { Pressable } from "./Pressable";
 import { Provenance } from "./Provenance";
 import { Sprig } from "./Sprig";
 import { Body, Display } from "./Text";
@@ -18,6 +19,7 @@ export function Moment({
   onProvenance,
   actions,
   arrive = true,
+  onOpen,
 }: {
   statement: string;
   /** One line under the statement ("Ben runs Chicago Sunday"). */
@@ -31,6 +33,8 @@ export function Moment({
   /** One primary pill and one quiet one, at most. */
   actions?: React.ReactNode;
   arrive?: boolean;
+  /** Tap a reason → see the reason (founder I1): the moment's words open its detail. */
+  onOpen?: () => void;
 }) {
   const reduce = useReduceMotion();
   const fade = useRef(new Animated.Value(arrive ? 0 : 1)).current;
@@ -51,9 +55,25 @@ export function Moment({
       <View style={{ flexDirection: "row", gap: space.l, alignItems: "flex-start" }}>
         {personId ? <Sprig personId={personId} width={size.sprig.moment} /> : null}
         <View style={{ flex: 1 }}>
-          <Display>{statement}</Display>
-          {context ? <Body style={{ marginTop: space.m }}>{context}</Body> : null}
-          {hope ? <Body tone="ink" style={{ marginTop: space.xs }}>{hope}</Body> : null}
+          {onOpen ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={statement}
+              accessibilityHint="Shows why this is here"
+              onPress={onOpen}
+              style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
+            >
+              <Display>{statement}</Display>
+              {context ? <Body style={{ marginTop: space.m }}>{context}</Body> : null}
+              {hope ? <Body tone="ink" style={{ marginTop: space.xs }}>{hope}</Body> : null}
+            </Pressable>
+          ) : (
+            <>
+              <Display>{statement}</Display>
+              {context ? <Body style={{ marginTop: space.m }}>{context}</Body> : null}
+              {hope ? <Body tone="ink" style={{ marginTop: space.xs }}>{hope}</Body> : null}
+            </>
+          )}
           {provenance ? (
             <View style={{ marginTop: space.s }}>
               <Provenance line={provenance} onPress={onProvenance} />

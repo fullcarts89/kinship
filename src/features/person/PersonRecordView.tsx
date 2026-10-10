@@ -3,13 +3,13 @@
 // tokens, where it came from, Edit (founder native pass F5: the words were
 // changeable only by tapping them, which nobody could see) and "Not this".
 // From plain data.
-import React from "react";
-import { Text, View } from "react-native";
+import React, { useRef } from "react";
+import { type ScrollView, Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { ConflictChoice } from "@/store/conflictCopy";
-import { Body, Line, Pill, Provenance, Screen, Small, Title, Token, TokenRow, usePalette } from "@/ui";
+import { Body, Emphasis, Line, Pill, Provenance, Screen, Small, Title, Token, TokenRow, useLineFocus, usePalette } from "@/ui";
 
 /** "Forget this?" (founder native pass F5: "Keep it" also named the Tell button, with another meaning). */
 export const FORGET_COPY = { title: "Forget this?", cancel: "Cancel", forget: "Forget" } as const;
@@ -35,11 +35,15 @@ export interface PersonRecordViewProps {
   onForget: (line: RecordLine) => void;
   onSource: (noteId: string) => void;
   onSettle: (conflictId: number, choice: "keep_current" | "use_mine") => void;
+  /** "View Ben" from a Moment whose line isn't on Ben's page (founder I1): this list lands on it. */
+  focusItemId?: string | null;
   children?: React.ReactNode;
 }
 
 export function PersonRecordView(props: PersonRecordViewProps) {
   const p = usePalette();
+  const scroll = useRef<ScrollView>(null);
+  const focus = useLineFocus(props.focusItemId, scroll);
   if (!props.name) {
     return (
       <Screen onBack={props.onBack}>
@@ -49,7 +53,7 @@ export function PersonRecordView(props: PersonRecordViewProps) {
   }
   const first = props.short?.trim() || props.name.trim().split(/\s+/u)[0];
   return (
-    <Screen onBack={props.onBack}>
+    <Screen onBack={props.onBack} scrollRef={scroll}>
       <Title>{`What Kinship knows about ${first}`}</Title>
       {props.onRename ? (
         <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
@@ -61,9 +65,17 @@ export function PersonRecordView(props: PersonRecordViewProps) {
           ? "Everything you've told Kinship about them, and where each came from. Change or remove any of it."
           : `What you tell Kinship about ${first} will be here.`}
       </Body>
-      <View style={{ marginTop: space.xl, borderTopWidth: props.lines.length ? 1 : 0, borderTopColor: p.hairline }}>
+      <View
+        onLayout={(e) => focus.onGroup("lines", e.nativeEvent.layout.y)}
+        style={{ marginTop: space.xl, borderTopWidth: props.lines.length ? 1 : 0, borderTopColor: p.hairline }}
+      >
         {props.lines.map((r) => (
-          <View key={r.line.id} style={{ paddingVertical: space.l, borderBottomWidth: 1, borderBottomColor: p.hairline }}>
+          <View
+            key={r.line.id}
+            onLayout={(e) => focus.onLine("lines", r.line.id, e.nativeEvent.layout.y)}
+            style={{ paddingVertical: space.l, borderBottomWidth: 1, borderBottomColor: p.hairline }}
+          >
+            <Emphasis on={!!props.focusItemId && props.focusItemId === r.line.id}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={r.line.statement}
@@ -115,6 +127,7 @@ export function PersonRecordView(props: PersonRecordViewProps) {
                 ))}
               </View>
             ) : null}
+            </Emphasis>
           </View>
         ))}
       </View>

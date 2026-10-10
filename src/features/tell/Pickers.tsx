@@ -10,7 +10,7 @@ import { height, maxScale, press, radius, size, space, TOUCH, type } from "@/des
 import { kindLabel, monthName, spokenDay } from "@/features/memory/format";
 import { SWITCHABLE_KINDS, type SwitchableKind } from "@/store/memoryDetail";
 import type { Person } from "@/store/repositories";
-import { Body, Heading, IconButton, Pill, Row, Small, Sprig, usePalette } from "@/ui";
+import { Body, Heading, IconButton, KeyboardBar, Pill, Row, Small, Sprig, useKeyboardBarId, usePalette } from "@/ui";
 import { personLabel, type ItemLine } from "./reviewModel";
 
 function PaneHeader({ title, onCancel }: { title: string; onCancel: () => void }) {
@@ -262,6 +262,7 @@ export function NamePane({ initial, onSave, onCancel, onRemove }: {
 export function WordsPane({ initial, onSave, onCancel }: { initial: string; onSave: (words: string) => void; onCancel: () => void }) {
   const p = usePalette();
   const [words, setWords] = useState(initial);
+  const bar = useKeyboardBarId();
   return (
     <View>
       <PaneHeader title="In your words" onCancel={onCancel} />
@@ -272,12 +273,14 @@ export function WordsPane({ initial, onSave, onCancel }: { initial: string; onSa
         maxLength={500}
         autoFocus
         accessibilityLabel="What to remember"
+        inputAccessoryViewID={bar}
         maxFontSizeMultiplier={maxScale.text}
         style={[type.line, {
           color: p.ink, minHeight: TOUCH * 2, padding: space.m, borderRadius: radius.inline, borderWidth: 1,
           borderColor: p.hairline, backgroundColor: p.paper, textAlignVertical: "top",
         }]}
       />
+      <KeyboardBar id={bar} />
       <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.m }}>
         <Pill variant="primary" label="Save" disabled={!words.trim()} onPress={() => onSave(words)} />
       </View>

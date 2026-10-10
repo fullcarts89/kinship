@@ -13,7 +13,8 @@ import { shortName } from "../../../../supabase/functions/_shared/extraction/nam
 type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine } | { kind: "name" };
 
 export default function KnowsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `item`: "View Ben" from a Moment whose line isn't on Ben's page lands on it here (founder I1).
+  const { id, item: focusItem } = useLocalSearchParams<{ id: string; item?: string }>();
   const { person, lines } = usePersonRecord(String(id));
   const people = usePeople();
   const u = useUnderstanding();
@@ -40,6 +41,7 @@ export default function KnowsScreen() {
         ])}
       onSource={(noteId) => router.push(`/v2/source/${noteId}`)}
       onSettle={(conflictId, choice) => fail(settleConflict(conflictId, choice))}
+      focusItemId={typeof focusItem === "string" ? focusItem : null}
     >
       <Sheet visible={!!pane} onDismiss={close} label="Change">
         {pane?.kind === "name" && person ? (

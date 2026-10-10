@@ -80,10 +80,15 @@ describe("the dock with a draft", () => {
       .not.toMatch(/About /u);
   });
 
-  it("while typing the bar steps aside so the field sits on the keyboard", () => {
-    const withBar = render(<TellDockView tellOn draft="" onDraft={noop} onSend={noop} line={null} current="today" onGo={noop} />);
+  it("while typing, Today and People stay reachable: they ride on the keyboard's bar with Done (founder I6)", () => {
+    const tablists = (t: TestRenderer.ReactTestRenderer) =>
+      t.root.findAll((n) => typeof n.type === "string" && n.props.accessibilityRole === "tablist").length;
+    const resting = render(<TellDockView tellOn draft="" onDraft={noop} onSend={noop} line={null} current="today" onGo={noop} />);
     const typing = render(<TellDockView tellOn draft="" onDraft={noop} onSend={noop} line={null} current="today" onGo={noop} typing />);
-    expect(labels(withBar)).toEqual(expect.arrayContaining(["Today", "People"]));
-    expect(labels(typing)).not.toContain("People");
+    expect(labels(resting)).toEqual(expect.arrayContaining(["Today", "People"]));
+    // The keyboard carries the bar (iOS), so the dock's own steps aside: one bar, never none.
+    expect(tablists(resting)).toBe(2);
+    expect(tablists(typing)).toBe(1);
+    expect(labels(typing)).toEqual(expect.arrayContaining(["Today", "People", "Done"]));
   });
 });

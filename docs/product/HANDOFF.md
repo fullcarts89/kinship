@@ -1,5 +1,48 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 8 Oct 2026, late: Phase 4 slice 1 built** (`KINSHIP_2_DECISIONS.md` CC-20, CC-21). This supersedes the addenda below where they differ.
+> - **State:** branch `claude/awesome-edison-3cuf6z`, ahead of `main` (`609be4a`). Not merged; no PR open.
+> - **Built on the branch, native check pending:**
+>   - I4: the Kept card, with the approved copy;
+>   - I6: the keyboard bar, with no new dependency;
+>   - I1 with J3: the Moment detail sheet, and View <Person> landing on the line;
+>   - H16 with N7: milestone Moments, and dated good news;
+>   - N8: exact Undo. Migration `20261009090000_v2_exact_undo`, not yet applied to production.
+> - **Phase 4B:**
+>   - B0 is N8.
+>   - B1 is the closed categorization taxonomy: `supabase/functions/_shared/semantic/categories.ts` and 44 evals. It is computed, never stored, and not displayed.
+>   - **B2 waits for the founder to see B1's result.**
+> - **Next in 4A:** I2 (with N6), then H4.
+> - **Founder's steps:** the ai-gateway redeploy and the re-run of gate rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b; then merge; `npx supabase db push`; then the build, when they say so. This branch changes nothing in ai-gateway.
+> - **The next native gate:** `phase4-native-checklist.md`.
+> - **Readiness:** NOT READY. This means Phase 4 is not yet ready for its next planned native dogfood milestone. It is not a return to Gate 0 stabilization (CC-21).
+
+> **Addendum, 8 Oct 2026, evening: Gate 0 CLOSED, Phase 4 started** (`KINSHIP_2_DECISIONS.md` CC-19). This supersedes the addendum below where they differ.
+> - **State:**
+>   - `main` = `609be4a` (PR #22, the Gate 0 remediation, merged with a merge commit).
+>   - Production has `20261008090000_v2_person_mentions` applied (checked 8 Oct, metadata only).
+>   - The founder ran `gate0-remediation-checklist.md` on the new app build: every targeted scenario passed, and there has been no freeze since the first dogfood pass.
+> - **Deployment gap: ai-gateway is NOT redeployed.**
+>   - Production ai-gateway is still **version 7**, deployed 7 Oct 20:41 UTC and byte-identical to the PR #21 code (`5c551b9`). It was checked by comparing the deployed files with git.
+>   - So PR #22's server halves are not live: I12 for new lines (no `person_mentions` written), I13's answer path, J1, J4's guard repair, J11.
+>   - Next step for the founder: the redeploy (checklist step 4), then re-run gate rows 1b, 2, 2b, 3, 5, 5b, 11, 11b.
+> - **Ledger:**
+>   - VERIFIED: J2, J5–J9 and G5 (resolved; `app_stall` stays as passive observability).
+>   - Partly VERIFIED: I12's existing lines and J4's row 2c copy.
+>   - FIXED, waiting on the redeploy: I12 (new lines), I13, J1, J4, J11.
+>   - Still FIXED, not re-run: I3, I5, I8, I9, I10, I11. They are checked again in the Phase 4 native pass.
+>   - New from the Phase 4 code review: N6 ("Not yet" after a sync), N7 (year-dated good news) and N8 (Undo doesn't bring back a replaced line's moment, or reopen a closed thread).
+> - **Phase 4:**
+>   - **4A**, the UX and the loop, may proceed now, in this order: I4 → I6 → I1 → H16 → I2 → H4.
+>   - **4B**, semantic memory for H15 (residence first), **waits for the founder's review of `phase4-implementation-brief.md`**: no schema, migration or semantic code before then.
+>   - I2's one small additive migration (on `contact_events`) is listed in the brief and held with it.
+> - **Readiness:** NOT READY for the wife dogfood. Phase 4 comes first, then a founder native pass.
+> - **Standing rules unchanged:**
+>   - no flags or user data changed without the founder's yes for a specific account id, and never looked up by email;
+>   - `data-cleanup-plan.md` is not authorised;
+>   - no build until the founder says so;
+>   - migrations reach production only via `main` and the founder's `db push`; ai-gateway is redeployed by hand.
+
 > **Addendum, 8 Oct 2026 (Gate 0 remediation).** Since this file was written:
 > - `main` = `5c551b9` (PR #21, the I8 cold-start fix, merged); ai-gateway **version 7** was deployed from `main` on 7 Oct and matched it.
 > - The branch `claude/awesome-edison-3cuf6z` now carries the narrow Gate 0 remediation pass the founder decided on 8 Oct: I12 + I13 (per-line person mentions, migration `20261008090000_v2_person_mentions` with a conservative backfill), J4, J1, J7, J2, J6, J5, the Today headline (J8), pet health (J9) and J11 (a misread "your promise" is asked about or kept, never dropped). Statuses: `bug-ledger.md` (J-series); surfaces: `approved-design-coverage.md`.
@@ -359,7 +402,7 @@ OPERATING RULES
 - Don't open a PR unless asked; merge only when the founder asks, with a merge commit.
 - Migrations are forward-only. Production gets them only after merge, when the founder runs `npx supabase db push`. ai-gateway is redeployed by hand after merge.
 - Never change production flags or user data without the founder's explicit yes for a specific account id. Never look accounts up by email. Data cleanup (docs/product/data-cleanup-plan.md) is NOT authorised.
-- Founder's Mac: use `npx supabase …` and `npx eas-cli …`. Before Supabase CLI commands run `export SUPABASE_ACCESS_TOKEN=sbp_…` (the Keychain prompt loops). Build: `npx eas-cli build --profile dogfood-v2 --platform ios`.
+- Founder's Mac: use `npx supabase …` and `npx eas-cli …`. For Supabase CLI commands, not `supabase login` (the Keychain prompt loops): before starting Claude Code, the founder exports the token in Terminal with `export SUPABASE_ACCESS_TOKEN=` (the token pasted straight after the `=`), and Claude Code then runs the Supabase commands itself. Never ask for the token in chat, and never print it. A command that needs interactive input (`db push` asking for the database password) goes to the founder as the exact line to run in Terminal. The founder deletes the token in Supabase when the day's Supabase work is done. Notes from 10 Oct: a Claude desktop-app session doesn't see a variable exported in Terminal; "Invalid access token format" means the variable holds something that isn't a token (`unset SUPABASE_ACCESS_TOKEN`, then export it again); with the variable unset, the CLI's stored login worked. Build: `npx eas-cli build --profile dogfood-v2 --platform ios`.
 - The founder wants explicit step-by-step instructions, concise answers, and no unnecessary questions.
 - Don't build an app binary until the founder says so.
 ```

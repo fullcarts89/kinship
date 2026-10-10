@@ -2,7 +2,15 @@
 
 *8 Oct 2026. For the founder, on a physical iPhone, after the narrow Gate 0 remediation pass (decisions of 8 Oct). Each row is the original scenario from `gate0-native-findings.md`; it is not an exploratory pass. A row passes only when it behaves as written on the phone, and browser renders and tests don't count. Rows are marked VERIFIED in `bug-ledger.md` only on the founder's say-so.*
 
-**Readiness: NOT READY** until this gate is run. If these trust cases pass, Gate 0 closes and Phase 4 starts.
+> **Result (founder, 8 Oct): PASSED. Gate 0 is CLOSED** (`KINSHIP_2_DECISIONS.md` CC-19).
+> - The founder ran this gate on the remediation build: PR #22 merged, migration applied, ai-gateway redeployed. The targeted scenarios passed, and there has been no freeze since the first dogfood pass.
+> - VERIFIED in `bug-ledger.md`: J2, J5–J9, G5, I12's existing lines (row 1) and J4's row 2c.
+> - **Re-run after redeploying ai-gateway: rows 1b, 2, 2b, 3, 5, 5b, 11, 11b.** Production ai-gateway was still version 7 (the PR #21 code, deployed 7 Oct 20:41 UTC) during this gate, so these rows ran against the old server and didn't exercise the fixes for I12 (new lines), I13, J1, J4 and J11. Step 4 below is the redeploy.
+> - Phase 4 has started; its plan is `phase4-implementation-brief.md`.
+>
+> The rest of this file is kept as the record of what was run.
+
+**Readiness (before the run): NOT READY** until this gate is run. If these trust cases pass, Gate 0 closes and Phase 4 starts.
 
 ## Before you start (on your Mac, in this order)
 

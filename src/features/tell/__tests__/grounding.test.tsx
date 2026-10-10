@@ -1,6 +1,7 @@
 // Founder invariant (D1 review): user-visible memory wording is grounded too,
-// on every 2.0 surface: Today's moment, the Kept line, the hand-off, the
-// review, the relationship page, People, What Kinship knows and the Source.
+// on every 2.0 surface: Today's moment and its detail, the Kept line, the
+// hand-off, the review, the relationship page, People, What Kinship knows and
+// the Source.
 // The canonical Ben note never says "marathon", a distance or a time; the
 // screens may format dates, punctuation and labels, but must not add a claim
 // the memory or its note doesn't make: not from event_type, the goal, the
@@ -16,6 +17,8 @@ import { ReviewSheet } from "@/features/tell/ReviewSheet";
 import { KeptLine, TellDockView } from "@/features/tell/TellDock";
 import { buildReview, itemLine } from "@/features/tell/reviewModel";
 import { HandoffSheet } from "@/features/today/HandoffSheet";
+import { MomentDetailSheet } from "@/features/today/MomentDetailSheet";
+import { detailFor } from "@/features/today/momentDetail";
 import { TodayView } from "@/features/today/TodayView";
 import { buildToday } from "@/features/today/todayModel";
 import { runsOf } from "@/hooks/useV2";
@@ -79,6 +82,8 @@ it("Ben, everywhere it's shown: the note's words, a formatted date, and nothing 
       line={<KeptLine text={summary.summary ?? ""} onOpen={noop} onUndo={noop} />} />),
     today: rendered(<TodayView view={today} afterReturn={null} onPrimary={noop} onNotNow={noop} onProvenance={noop} onReturn={noop}
       onRemember={noop} onNothing={noop} onQuiet={noop} />),
+    detail: rendered(<MomentDetailSheet detail={detailFor(today, "r1", "2026-10-12", () => "Ben")} onDismiss={noop} onMessage={noop}
+      onCall={noop} onPerson={noop} onSource={noop} />),
     handoff: rendered(<HandoffSheet visible heading={today.moment?.heading ?? ""} personName="Ben" mention={today.moment?.mention ?? []}
       channels={["text", "call"]} ready onOpen={noop} onChooseContact={noop} onDismiss={noop} returnCheck />),
     portrait: rendered(<PortraitView personId="ben" name="Ben" label={null} remembered={false} comingUp={[]} youSaid={[]} between={[]} total={1}

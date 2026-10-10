@@ -2,6 +2,8 @@
 // Row, Token, Provenance, Sprig, TellField, Sheet, Pill, QuietLine, Label,
 // Screen. There is no Card.
 export { Moment } from "./Moment";
+export { KEYBOARD_BAR, KeyboardBar, useKeyboardBarId } from "./KeyboardBar";
+export { Emphasis, useLineFocus } from "./LineFocus";
 export { NavBar, type NavKey } from "./NavBar";
 export { Pill, type PillVariant } from "./Pill";
 export { Provenance } from "./Provenance";

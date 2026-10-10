@@ -3,12 +3,12 @@
 // that have something to say: Lately, Coming up, You said you'd, Between
 // you. Every line says where it came from; tap a line to correct it, tap its
 // provenance for the note. Message, Call and Tell sit at the bottom.
-import React from "react";
-import { Text, View } from "react-native";
+import React, { useRef } from "react";
+import { type ScrollView, Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
 import { GUTTER, height, press, size, space } from "@/design/tokens";
-import { Body, Label, Line, Name, Pill, Provenance, QuietLine, Screen, Small, Sprig, usePalette } from "@/ui";
+import { Body, Emphasis, Label, Line, Name, Pill, Provenance, QuietLine, Screen, Small, Sprig, useLineFocus, usePalette } from "@/ui";
 
 export interface PortraitLineData {
   itemId: string;
@@ -70,6 +70,8 @@ export interface PortraitViewProps {
   onLink?: (key: string, yes: boolean) => void;
   /** An unsent note about them is waiting (Tell reopens it). */
   hasDraft?: boolean;
+  /** "View Ben" from a Moment (founder I1): the page lands on this line, which comes up quietly. */
+  focusItemId?: string | null;
   children?: React.ReactNode;
 }
 
@@ -87,18 +89,23 @@ function withWhen(l: PortraitLineData, leading = false): string {
  * step darker. "You told Kinship · Oct 5" is shown once per run of lines that
  * share it, not under every line (the line's sheet always has it).
  */
-function Section({ title, lines, ochre, leadWithWhen, onLine, onSource }: {
+function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusItemId, focus }: {
   title: string;
   lines: PortraitLineData[];
   ochre?: boolean;
   leadWithWhen?: boolean;
   onLine: (id: string) => void;
   onSource: (noteId: string) => void;
+  focusItemId?: string | null;
+  focus?: ReturnType<typeof useLineFocus>;
 }) {
   const p = usePalette();
   if (!lines.length) return null;
   return (
-    <View style={{ marginTop: space.x3, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline }}>
+    <View
+      onLayout={(e) => focus?.onGroup(title, e.nativeEvent.layout.y)}
+      style={{ marginTop: space.x3, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline }}
+    >
       <Label tone={ochre ? "ochreText" : "inkBody"} accessibilityRole="header">{title}</Label>
       {lines.map((l, i) => {
         const text = withWhen(l, leadWithWhen);
@@ -108,7 +115,8 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource }: {
         const next = i + 1 < lines.length ? lines[i + 1] : null;
         const nextShares = !!next && !next.fixed && !!l.noteId && next.noteId === l.noteId && next.provenance === l.provenance;
         return (
-          <View key={l.itemId} style={{ marginTop: i === 0 ? space.m : space.s }}>
+          <View key={l.itemId} onLayout={(e) => focus?.onLine(title, l.itemId, e.nativeEvent.layout.y)} style={{ marginTop: i === 0 ? space.m : space.s }}>
+            <Emphasis on={!!focusItemId && focusItemId === l.itemId}>
             {l.fixed ? (
               <Line>{text}</Line>
             ) : (
@@ -134,6 +142,7 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource }: {
                 <Provenance line={l.provenance} onPress={l.noteId ? () => onSource(l.noteId as string) : undefined} />
               </View>
             )}
+            </Emphasis>
           </View>
         );
       })}
@@ -143,6 +152,8 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource }: {
 
 export function PortraitView(props: PortraitViewProps) {
   const p = usePalette();
+  const scroll = useRef<ScrollView>(null);
+  const focus = useLineFocus(props.focusItemId, scroll);
   if (!props.name) {
     return (
       <Screen onBack={props.onBack}>
@@ -188,7 +199,7 @@ export function PortraitView(props: PortraitViewProps) {
     </View>
   );
   return (
-    <Screen onBack={props.onBack} footer={footer}>
+    <Screen onBack={props.onBack} footer={footer} scrollRef={scroll}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: space.l }}>
         <View style={{ flex: 1, paddingTop: space.s }}>
           {props.onRename ? (
@@ -245,10 +256,10 @@ export function PortraitView(props: PortraitViewProps) {
       ) : null}
 
 
-      <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} />
-      <Section title="Coming up" lines={props.comingUp} leadWithWhen onLine={props.onLine} onSource={props.onSource} />
-      <Section title="You said you'd" lines={props.youSaid} ochre onLine={props.onLine} onSource={props.onSource} />
-      <Section title="Between you" lines={props.between} onLine={props.onLine} onSource={props.onSource} />
+      <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      <Section title="Coming up" lines={props.comingUp} leadWithWhen onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      <Section title="You said you'd" lines={props.youSaid} ochre onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      <Section title="Between you" lines={props.between} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
       {empty ? (
         <View style={{ marginTop: space.xl, alignItems: "flex-start" }}>
           <Body>{`What you tell Kinship about ${first} will be here: what's going on with them, what's coming up, what you said you'd do.`}</Body>

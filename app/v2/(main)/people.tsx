@@ -38,6 +38,9 @@ export default function PeopleScreen() {
         onAdd={add}
         onSettings={() => setSettings(true)}
         onAddFromContacts={() => router.push("/v2/people/add")}
+        onGo={(to) => {
+          if (to === "today") router.navigate("/v2");
+        }}
       />
       <SettingsSheet
         visible={settings}

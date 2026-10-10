@@ -91,6 +91,11 @@ function live(item: MemoryItem): boolean {
   return (item.status === "active" || item.status === "resolved") && !item.deleted_at;
 }
 
+/** Whether the portrait shows this memory (or "birthday", the person's own birthday line). */
+export function portraitShows(portrait: Portrait, itemId: string): boolean {
+  return [...portrait.lately, ...portrait.comingUp, ...portrait.youSaid, ...portrait.between].some((l) => l.itemId === itemId);
+}
+
 export function buildPortrait(input: {
   person: Person | null;
   items: PortraitItem[];

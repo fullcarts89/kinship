@@ -15,8 +15,11 @@ export function Screen({
   right,
   footer,
   scroll = true,
+  scrollRef,
 }: {
   children: React.ReactNode;
+  /** The page's scroll view, to land on one line (founder I1). */
+  scrollRef?: React.Ref<ScrollView>;
   /** Shows a back control (the system's swipe works too). */
   onBack?: () => void;
   right?: React.ReactNode;
@@ -41,6 +44,7 @@ export function Screen({
       {scroll ? (
         // A tap on anything that isn't a control, or a drag, puts the keyboard away.
         <ScrollView
+          ref={scrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={body}
           keyboardShouldPersistTaps="handled"

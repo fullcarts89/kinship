@@ -486,16 +486,31 @@ export class Understanding {
    * about them too. One memory, one source; never merged with anyone else.
    */
   async addParticipant(itemId: string, name: string): Promise<string> {
-    const item = (await this.store.get("memory_items", itemId)) as MemoryItem | null;
-    if (!item) throw new StoreWriteError("that memory isn't here any more");
+    return this.addNewcomer([itemId], name);
+  }
+
+  /**
+   * "Add Pedro" on the Kept card (founder I4): one person, added once, and
+   * every kept line that names them is about them too. Checked before
+   * anything is written, so a line that doesn't name them adds no one.
+   */
+  async addNewcomer(itemIds: string[], name: string): Promise<string> {
     const clean = name.normalize("NFC").trim();
-    if (!clean || clean.length > 60 || !new RegExp(`(^|[^\\p{L}])${clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}]|$)`, "u").test(item.statement)) {
-      throw new StoreWriteError("only someone this memory names");
+    const names = new RegExp(`(^|[^\\p{L}])${clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}]|$)`, "u");
+    const items: MemoryItem[] = [];
+    for (const id of [...new Set(itemIds)]) {
+      const item = (await this.store.get("memory_items", id)) as MemoryItem | null;
+      if (!item) throw new StoreWriteError("that memory isn't here any more");
+      if (!clean || clean.length > 60 || !names.test(item.statement)) throw new StoreWriteError("only someone this memory names");
+      items.push(item);
     }
+    if (items.length === 0) throw new StoreWriteError("only someone this memory names");
     const repos = repositoriesFor(this.store);
     const person = await repos.people.add({ display_name: clean });
-    const others = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
-    await this.store.update("memory_items", itemId, { with_person_ids: [...new Set([...others, person.id])] });
+    for (const item of items) {
+      const others = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
+      await this.store.update("memory_items", item.id, { with_person_ids: [...new Set([...others, person.id])] });
+    }
     this.kick();
     return person.id;
   }
