@@ -13,6 +13,7 @@
 >   - B1 is the closed categorization taxonomy: `supabase/functions/_shared/semantic/categories.ts` and 44 evals. It is computed, never stored, and not displayed.
 >   - **B2 waits for the founder to see B1's result.**
 > - **Next in 4A:** I2 (with N6), then H4.
+> - **New founder findings (12 Oct), STILL OPEN:** K1 (mirrored duplicate lines on Tyler's page) and K2 (a past-due promise under Coming up). Root causes are in `bug-ledger.md`; they aren't yet placed in Phase 4's order.
 > - **Founder's steps:** the ai-gateway redeploy and the re-run of gate rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b; then merge; `npx supabase db push`; then the build, when they say so. This branch changes nothing in ai-gateway.
 > - **The next native gate:** `phase4-native-checklist.md`.
 > - **Readiness:** NOT READY. This means Phase 4 is not yet ready for its next planned native dogfood milestone. It is not a return to Gate 0 stabilization (CC-21).
