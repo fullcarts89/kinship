@@ -14,10 +14,9 @@
 >   4. The build.
 >   K4, K5 and K7 run in ai-gateway: without the redeploy the phone tests old server code.
 > - **Builds while the EAS quota is out (until 1 Nov):** `eas build --local` on the founder's Mac (Xcode 27, CocoaPods, fastlane and the Apple WWDR G3 certificate are installed), with `SENTRY_DISABLE_AUTO_UPLOAD=true`; install by cable with `xcrun devicectl device install app`.
-> - **Proposals awaiting the founder's yes:** CC-22 § "Implementation choices" (nine items: how the user's own news is kept, "Not sure", the page's "Waiting on …", the I2 copy, when "Anything worth remembering?" is skipped, two extra moment types, everyday-word names, a removed namesake asked with Bring back, a declined line never coming back), plus its known limits (relatives and promises link no one else; K1's display-only collapse, offered).
-> - **The founder's open questions from before:** I1's Message / Call question is still unanswered; B2 waits for B1's result.
-> - **Next, after the native check:** H4 (4A step 6), then Phase 4B from B2 (the founder still has B1's result to read).
-> - **Readiness: NOT READY** (Phase 4 isn't yet ready for its next native dogfood milestone; not a return to Gate 0).
+> - **Founder decisions (CC-23):** CC-22's choices approved, with K5 never becoming the recipient's biography (pinned by a regression); no K1 collapse (the old duplicate stays as legacy data); I1's Message / Call rule settled; B2 approved, to proceed after merge and deploy in parallel with the native check, stopping after B2 before B3.
+> - **Next:** B2 after merge and deploy (in parallel with the native check), then stop before B3; H4 (4A step 6) after the native check.
+> - **Readiness: READY FOR FOUNDER NATIVE PASS** once merged, redeployed, db-pushed and built, in that order (the internal verification gate passed after five review rounds; CC-23). Nothing is VERIFIED.
 
 > **Addendum, 8 Oct 2026, late: Phase 4 slice 1 built** (`KINSHIP_2_DECISIONS.md` CC-20, CC-21). This supersedes the addenda below where they differ.
 > - **State:** branch `claude/awesome-edison-3cuf6z`, ahead of `main` (`609be4a`). Not merged; no PR open.
