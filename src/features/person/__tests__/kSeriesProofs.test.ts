@@ -193,6 +193,66 @@ describe("K4: 'Anthony and Sam love ice skating with Chris', with two Anthonys a
   });
 });
 
+describe("reviewer A, round 2 (13 Oct): a name asked about never brings back a memory the user turned down", () => {
+  it("'Michelle and Sam are getting divorced', a line for each: 'Don't keep this' on Michelle's keeps nothing, whichever Sam is chosen", async () => {
+    for (const keep of [false, true]) {
+      const w = await world();
+      const [michelle, samEden] = await typed(w, "Michelle", "Sam Eden", "Sam Doughty");
+      const note = "Michelle and Sam are getting divorced";
+      const t = await tell(w, note, (i) => ({ needs_clarification: null, items: [
+        item({ kind: "fact", person: key(i, michelle.id), person_mention: "Michelle", statement: "Michelle and Sam are getting divorced", evidence: [note], sensitivity: "conflict" }),
+        item({ kind: "fact", person: key(i, samEden.id), person_mention: "Sam", statement: "Sam and Michelle are getting divorced", evidence: [note], sensitivity: "conflict" }),
+      ] }));
+      expect(serverItems(w).filter((m) => m.status === "active")).toHaveLength(0);
+      const picks = t.review.questions.map((q) => (q.type === "keep" ? (keep ? {} : "skip") : { person_id: samEden.id })) as (Omit<HeldAnswer, "index"> | "skip")[];
+      await pick(w, t.id, t.review.questions, picks);
+      const live = serverItems(w).filter((m) => m.status === "active" && !m.deleted_at);
+      expect(live.map((m) => [m.person_id, m.with_person_ids])).toEqual(keep ? [[michelle.id, [samEden.id]]] : []);
+    }
+  });
+
+  it("the kept line removed with 'Not this', then 'Which Anthony?' and 'Which Sam?' answered: nothing comes back", async () => {
+    const w = await world();
+    const [anthony, , samEden, , chris] = await typed(w, "Anthony", "Anthony Test", "Sam Eden", "Sam Doughty", "Chris");
+    const t = await tell(w, K4, (i) => ({ needs_clarification: null, items: [
+      item({ kind: "fact", person: key(i, chris.id), person_mention: "Chris", statement: K4, evidence: [K4], detail: { category: "interest" } }),
+    ] }));
+    await w.understanding.reject(t.review.lines[0].id, t.id);
+    await w.engine.sync();
+    const after = await review(w, t.id);
+    const picks = after.questions.map((q) => (q.prompt.includes("Anthony") ? { person_id: anthony.id } : { person_id: samEden.id }));
+    await pick(w, t.id, after.questions, picks);
+    expect(serverItems(w).filter((m) => m.status === "active" && !m.deleted_at)).toEqual([]);
+  });
+});
+
+describe("reviewer A, round 2 (13 Oct): who else a line names is never lost to case, script or a removed namesake", () => {
+  it("a note typed in lower case still keeps Chris on Ben's line", async () => {
+    const w = await world();
+    const [ben, chris] = await typed(w, "Ben", "Chris");
+    const note = "ben went to tahoe with chris last weekend";
+    await tell(w, note, (i) => ({ needs_clarification: null, items: [
+      item({ kind: "fact", person: key(i, ben.id), person_mention: "ben", statement: "Ben went to Tahoe with Chris", evidence: ["ben went to tahoe with chris"] }),
+    ] }));
+    expect(serverItems(w).filter((m) => m.status === "active").map((m) => [m.person_id, m.with_person_ids])).toEqual([[ben.id, [chris.id]]]);
+  });
+
+  it("someone removed from People also called Chris: 'Which Chris?' is asked, and the answer joins Ben's line", async () => {
+    const w = await world();
+    const [ben, chris, old] = await typed(w, "Ben", "Chris", "Chris Old");
+    await w.repos.people.archive(old.id);
+    await w.engine.sync();
+    const note = "Ben went to Tahoe with Chris";
+    const t = await tell(w, note, (i) => ({ needs_clarification: null, items: [
+      item({ kind: "fact", person: key(i, ben.id), person_mention: "Ben", statement: note, evidence: [note] }),
+    ] }));
+    expect(serverItems(w).filter((m) => m.status === "active").map((m) => [m.person_id, m.with_person_ids ?? []])).toEqual([[ben.id, []]]);
+    expect(asked(t.review).map((q) => [q[0], q[1]])).toEqual([["Which Chris do you mean?", ["Chris", "Bring back Chris Old", "Someone else"]]]);
+    await pick(w, t.id, t.review.questions, [{ person_id: chris.id }]);
+    expect(serverItems(w).filter((m) => m.status === "active").map((m) => [m.person_id, m.with_person_ids])).toEqual([[ben.id, [chris.id]]]);
+  });
+});
+
 // ─── K5 ──────────────────────────────────────────────────────────────────
 
 describe("K5: 'I got the job, and can't wait to tell Loo Loo' is never 'Nothing to remember'", () => {
@@ -305,6 +365,13 @@ describe("K6: someone a kept line names who isn't in People yet", () => {
     expect(newcomersIn("Ben is interviewing with Box", "Ben is interviewing with Box", [])).toEqual([]);
     expect(newcomersIn("Ben is moving to Austin", "Ben is moving to Austin", [])).toEqual([]);
     expect(newcomersIn("Ben met Dana at the game", "Ben met Dana at the game", [])).toEqual(["Dana"]);
+  });
+
+  it("reviewer A r2 (N5): a service reached out to is never offered as someone new; a person with a service's name still is, where the words say person", () => {
+    for (const s of ["Ben contacted Airbnb about the booking", "Ben called Tesla about his car", "Ben emailed Target about a refund", "Ben messaged Support about his account"]) {
+      expect(newcomersIn(s, s, [])).toEqual([]);
+    }
+    expect(newcomersIn("Susan is getting married to Siri", "Susan is getting married to Siri", [])).toEqual(["Siri"]);
   });
 
   it("a name two people in People share is asked about ('Which Sam?'), never offered as someone new", async () => {

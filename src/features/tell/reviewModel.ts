@@ -497,14 +497,17 @@ export function newcomersIn(statement: string, note: string, people: Person[]): 
     new RegExp(`\\b(?:${TO_SOMEONE})\\s+to\\s+${NAME}(?:\\s*(?:,|and|&)\\s*${NAME})?`, "gu"),
     new RegExp(`\\b(?:${SOMEONE})\\s+${NAME}(?:\\s*(?:,|and|&)\\s*${NAME})?`, "gu"),
   ];
+  // The last two (K6) also fit a service ("called Delta", "emailed Google"); the shapes before them don't
+  // ("Susan is getting married to Siri" is someone).
+  const reachedOnly = patterns.length - 2;
   const out: string[] = [];
-  for (const re of patterns) {
+  for (const [n, re] of patterns.entries()) {
     for (const m of statement.matchAll(re)) {
       for (const g of [m[1], m[2]]) {
         if (!g) continue;
         const w = withoutPossessive(g);
         const k = fold(w);
-        if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || KIN_WORD.test(k) || out.some((o) => fold(o) === k)) continue;
+        if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || KIN_WORD.test(k) || (n >= reachedOnly && SERVICE_WORD.test(k)) || out.some((o) => fold(o) === k)) continue;
         if (!new RegExp(`(^|[^\\p{L}])${w}([^\\p{L}]|$)`, "u").test(note)) continue;
         out.push(w);
       }
@@ -517,8 +520,10 @@ export function newcomersIn(statement: string, note: string, people: Person[]): 
 const TO_SOMEONE = "reach(?:es|ed|ing)?\\s+out|talk(?:s|ed|ing)?|spoke|speak(?:s|ing)?|wr(?:ite|ites|ote|iting)|introduc(?:e|es|ed|ing)\\s+\\p{Lu}[\\p{Ll}\\p{M}'’-]+|apologi[sz](?:e|es|ed|ing)";
 /** Verbs whose object is a person: "tell Josh", "texted Maria", "met Dana", "thank Sam". */
 const SOMEONE = "(?:get|gets|got|getting)\\s+in\\s+touch\\s+with|contact|contacted|contacting|email|emailed|emailing|message|messaged|messaging|tell|tells|told|telling|text|texts|texted|texting|call|calls|called|calling|ask|asks|asked|asking|thank|thanks|thanked|thanking|congratulat(?:e|es|ed|ing)|invit(?:e|es|ed|ing)|hug|hugs|hugged|hugging|introduc(?:e|es|ed|ing)|meet|meets|met|meeting|visit(?:s|ed|ing)?\\s+with|hang(?:s|ing)?\\s+out\\s+with|hung\\s+out\\s+with|catch(?:es|ing)?\\s+up\\s+with|caught\\s+up\\s+with";
-/** A relation said as a name ("tell Mom"), a title, or a name that is no one's (a brand, a service): never someone new to add. */
-const KIN_WORD = /^(?:mom|mum|mother|mama|momma|mommy|dad|father|daddy|papa|grandma|grandmother|grandpa|grandfather|granny|nana|aunt|auntie|uncle|cousin|sis|bro|dr|doctor|mr|mrs|ms|miss|santa|god|congress|alexa|siri|google|apple|amazon|microsoft|meta|facebook|instagram|netflix|uber|lyft|stripe|zoom|slack|delta|united|verizon|comcast|halloween)$/u;
+/** A relation said as a name ("tell Mom") or a title: never someone new to add. */
+const KIN_WORD = /^(?:mom|mum|mother|mama|momma|mommy|dad|father|daddy|papa|grandma|grandmother|grandpa|grandfather|granny|nana|aunt|auntie|uncle|cousin|sis|bro|dr|doctor|mr|mrs|ms|miss|santa|god)$/u;
+/** A name that is no one's when it is reached out to (a brand, a service): "called Delta", "emailed Google". */
+const SERVICE_WORD = /^(?:congress|alexa|siri|google|apple|amazon|microsoft|meta|facebook|instagram|netflix|uber|lyft|stripe|zoom|slack|delta|united|verizon|comcast|halloween|airbnb|tesla|target|support|walmart|costco|paypal|venmo|ups|fedex)$/u;
 
 /** A name without its possessive: "Chris's", "Chris’s" and "Chris'" are Chris (founder K7); "O'Connor" stays. */
 function withoutPossessive(word: string): string {
@@ -627,7 +632,9 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
     if (!open?.text) continue;
     const live = input.people.filter((p) => p.state !== "archived");
     const meant = live.filter((p) => (open.candidate_ids ?? []).includes(p.id));
-    if (meant.length < 2) continue;
+    // Someone removed from People went by it too (founder I3): offered back, and asked even with one person left.
+    const removed = (open.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id && p.state === "archived")).filter((p): p is Person => !!p);
+    if (meant.length + removed.length < 2 || meant.length === 0) continue;
     needs.push({
       type: "which_person",
       group: `slot:${fold(open.text)}:${meant.map((p) => p.id).sort().join(",")}`,
@@ -635,6 +642,7 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       reason: `You have more than one ${open.text}.`,
       choices: [
         ...meant.map((p) => ({ key: `p:${p.id}`, label: personLabel(p, input.people), answer: { person_id: p.id } })),
+        ...removed.map((p) => ({ key: `back:${p.id}`, label: `Bring back ${personLabel(p, input.people)}`, answer: { person_id: p.id }, restore: p.id })),
         { key: "pick", label: COPY.someoneElse, pick: "person" as const },
       ],
       about: item.spans[0]?.quote?.trim() || undefined,

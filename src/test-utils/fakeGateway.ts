@@ -250,6 +250,14 @@ export class FakeGateway implements GatewayTransport {
     return ok({ status: "resolved", saved: out, new_people: Object.values(created), skipped });
   }
 
+  private removedFrom(captureId: string): { person_id: string; statement: string }[] {
+    const all = (t: "memory_items" | "memory_item_sources") => [...this.server.table(t).values()].filter((r) => r.user_id === this.userId) as Record<string, unknown>[];
+    const ids = new Set(all("memory_item_sources").filter((x) => x.capture_id === captureId).map((x) => x.memory_item_id));
+    return all("memory_items")
+      .filter((m) => ids.has(m.id) && (m.deleted_at || (m.status !== "active" && m.status !== "resolved")))
+      .map((m) => ({ person_id: String(m.person_id), statement: String(m.statement) }));
+  }
+
   private realAnswer(captureId: string, note: string, review: StoredReview, answers: HeldAnswer[]): TransportReply {
     const people = withLineNames(this.rows<PersonRow & { state: string }>("people"), this.rows<{ person_mentions?: unknown }>("memory_items"));
     const r = resolveHeld(review.items as unknown as ResolveHeldItem[], answers as never, {
@@ -264,6 +272,8 @@ export class FakeGateway implements GatewayTransport {
         subject_related_id: (m.subject_related_id as string | null) ?? null, statement: String(m.statement), status: String(m.status),
         user_state: String(m.user_state),
       })),
+      // As the gateway's loadRemoved: this capture's lines the user has since removed.
+      removed: this.removedFrom(captureId),
     });
     if ("fail" in r) return refuse(400, "invalid_answer", r.fail);
     const created: Record<string, string> = {};

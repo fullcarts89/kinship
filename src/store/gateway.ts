@@ -64,7 +64,7 @@ export type HeldItem = GatewayItem & {
   /** Which words name whom; the open "who?" has the asked-about words with no person yet (founder I13). */
   person_mentions?: unknown;
   /** Others it is about whose name two or more people share, each asked on its own (founder K4). */
-  open_names?: { text: string; candidate_ids: string[] }[];
+  open_names?: { text: string; candidate_ids: string[]; archived_ids?: string[] }[];
 };
 
 export interface Clarification {
