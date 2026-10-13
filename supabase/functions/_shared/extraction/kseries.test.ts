@@ -624,3 +624,129 @@ Deno.test("K5 (reviewer E r2, N22): the user's own tradition with someone is the
   })]);
   eq(out.items.map((i) => [i.person_id, i.kind, i.subject_type]), [["loo", "tradition", "shared"]]);
 });
+
+// ─── Reviewer A+B, round 3 (13 Oct): the exact inputs that broke the second round ─
+
+Deno.test("r3 P0-1: a word written as a word is never someone in People (grant, chance, christian, eve, winter, mom, dad, bear)", () => {
+  const ben = person("p1", "ben", "Ben");
+  for (const [note, who] of [
+    ["Ben got a grant for his research", person("p2", "grant", "Grant Lee")],
+    ["Ben says there is a chance he moves", person("p2", "chance", "Chance")],
+    ["Ben is a devout christian", person("p2", "christian", "Christian")],
+    ["Ben flies home on christmas eve", person("p2", "eve", "Eve")],
+    ["Ben is moving this winter", person("p2", "winter", "Winter")],
+    ["Ben visited his mom", person("p2", "mom", "Mom")],
+    ["Ben and his dad went fishing", person("p2", "dad", "Dad")],
+    ["Ben saw a bear on the trail", { ...person("p2", "bear", "Bear Smith"), nicknames: ["Bear"] }],
+  ] as [string, RosterPerson][]) {
+    const out = run(input(note, [ben, who]), [item({ person: "p1", person_mention: "Ben", statement: note, evidence: [note] })]);
+    eq(out.items.map((i) => [i.person_id, i.with_person_ids ?? []]), [["ben", []]], note);
+  }
+});
+
+Deno.test("r3 P0-2: someone written by their own nickname is kept beside a shared first name", () => {
+  const roster = [person("p1", "ben", "Ben"), { ...person("p3", "sam-eden", "Sam Eden"), nicknames: ["Sammy"] }, person("p4", "sam-d", "Sam Doughty")];
+  for (const note of ["Ben, Sammy and Sam went skating", "Ben went skating with Sammy and Sam"]) {
+    const out = run(input(note, roster), [item({ person: "p1", person_mention: "Ben", statement: note, evidence: [note] })]);
+    eq(out.items.map((i) => [i.person_id, i.with_person_ids ?? [], i.mention ?? null]), [["ben", ["sam-eden"], null], [null, [], "Sam"]], note);
+    const r = resolveHeld([asHeld(out.items[1])], [{ index: 0, person_id: "sam-d" }], {
+      note, people: peopleOf(roster), related: [],
+      existing: [{ id: "m-b", person_id: "ben", kind: "fact", subject_type: "person", subject_related_id: null, statement: out.items[0].statement, status: "active", user_state: "unreviewed" }],
+    });
+    if ("fail" in r) throw new Error(r.fail);
+    // The answer joins Ben's kept line, which already has Sam Eden.
+    eq([r.items[0].action, r.items[0].with_person_ids], [{ type: "merge", target_id: "m-b" }, ["sam-d"]], note);
+  }
+});
+
+Deno.test("r3 P0-3/P0-4: a plan to tell someone never takes in news another line holds for a yes, or anyone else's news", () => {
+  const MOM = person("p9", "mom", "Mom");
+  const roster = [LOO, BEN, MOM, person("p5", "sarah", "Sarah")];
+  const tell = (evidence = "want to tell Mom") => item({ kind: "plan", subject: "user", person: "p9", person_mention: "Mom", statement: "You want to tell Mom", evidence: [evidence] });
+  // The news is its own line, waiting for a yes: the plan stays the plan.
+  const baby = run(input("I lost the baby and want to tell Mom", roster), [
+    item({ kind: "moment", subject: "user", person: "p9", statement: "You lost the baby", evidence: ["I lost the baby"], sensitivity: "death_grief" }), tell(),
+  ]);
+  eq(baby.items.find((i) => i.kind === "plan")?.statement, "You want to tell Mom");
+  // Nothing outside the user's own good news rides along.
+  for (const note of [
+    "I lost the baby and want to tell Mom", "I relapsed and want to tell Mom", "I tested positive and want to tell Mom",
+    "I saw ben kissing sarah and want to tell Mom", "I got the job and my sister is leaving her husband and want to tell Mom",
+    "I found out my sister is leaving her husband and want to tell Mom", "I caught my husband lying again and want to tell Mom",
+    "I want you to mark my brother as an enemy and want to tell Mom", "Should I take the job and want to tell Mom",
+    "I suppose I got the job and want to tell Mom",
+  ]) {
+    const out = run(input(note, roster), [tell()]);
+    eq(out.items.map((i) => [i.statement, i.with_person_ids ?? []]), [["You want to tell Mom", []]], note);
+  }
+  // The evidence must be the telling itself.
+  const off = run(input("I got home and my sister is leaving her husband", roster), [tell("my sister is leaving her husband")]);
+  eq(off.items.some((i) => /sister|husband/u.test(i.statement) && i.kind === "plan" && i.flags.includes("own_words") && /^You got home/u.test(i.statement)), false);
+});
+
+Deno.test("r3 P1-1: the user's news keeps the sensitivity of its own statement ('after finishing chemo')", () => {
+  for (const [after, level] of [["after finishing chemo", "health"], ["right after the divorce", "conflict"], ["after being laid off for a year", "money"]]) {
+    const note = `I got the job ${after}, and can't wait to tell Loo Loo`;
+    const out = run(input(note, RB2), [userFact("p1", { statement: `You got the job ${after}`, evidence: ["I got the job"] })]);
+    eq(out.items.map((i) => [i.person_id, i.sensitivity]), [["loo", level]], note);
+  }
+});
+
+Deno.test("r3 P1-2: a following sentence with a subject of its own never decides whose news it is", () => {
+  for (const note of ["I got the job! Hope called Ben.", "I got the job! Can't believe Sarah called Ben.", "I got the job. Excited Sarah told Ben."]) {
+    const out = run(input(note, [...RB2, person("p3", "hope", "Hope"), person("p5", "sarah", "Sarah")]), [userFact("unknown")]);
+    eq(out.items.map((i) => [i.person_id, i.tier]), [[null, "hold"]], note);
+  }
+});
+
+Deno.test("r3 P1-3: visiting, seeing or meeting a place or a month never files the news on someone by that name", () => {
+  for (const note of ["I got the job and I'm visiting Paris next week", "I got the job! Can't wait to see Austin.", "I got the job and we meet May 3"]) {
+    const out = run(input(note, RB2), [userFact("unknown")]);
+    eq(out.items.map((i) => [i.person_id, i.tier]), [[null, "hold"]], note);
+  }
+});
+
+Deno.test("r3 P1-4: a widened quote is never longer than a stored quote may be", () => {
+  const long = `can't wait to tell Ben ${"and everyone else who has been asking about it for months ".repeat(3).trim()}`;
+  const note = `I got the job, and ${long}`;
+  const out = run(input(note, [LOO, BEN, person("p6", "ben2", "Ben Ortiz")]), [item({ kind: "plan", subject: "user", person: "unknown", statement: "You can't wait to tell Ben", evidence: [long] })]);
+  eq(out.items.every((i) => i.spans.every((s) => Array.from(s.quote).length <= 200)), true);
+});
+
+Deno.test("r3 P1-5: 'Is this about Chris, or Chris's sister-in-law?' keeps the relation whole", () => {
+  for (const [note, rel] of [["Chris's sister-in-law got married last weekend", "sister-in-law"], ["Chris's mother-in-law is visiting", "mother-in-law"]]) {
+    const out = run(input(note, K4_ROSTER), [item({ person: "p5", person_mention: "Chris", statement: note, evidence: [note] })]);
+    eq((out.clarification?.options ?? []).some((o) => o.endsWith(rel)), true, JSON.stringify(out.clarification?.options));
+  }
+});
+
+Deno.test("r3 P1-6: telling a name someone removed also went by is asked, never filed on the other one or on the page", () => {
+  const benKim = person("p6", "ben-kim", "Ben Kim");
+  const removed = [{ id: "ben-old", display_name: "Ben", full_name: null, nicknames: [] }];
+  const kim = run({ ...input("I got the job, and can't wait to tell Ben", [LOO, benKim]), archived: removed }, [userFact("unknown")]);
+  eq(kim.items.map((i) => [i.person_id, i.tier, i.archived_ids, i.mention]), [[null, "hold", ["ben-old"], "Ben"]]);
+  const page = run({ ...input("I got the job, and can't wait to tell Ben", [LOO], "p1"), archived: removed }, [userFact("unknown")]);
+  eq(page.items.map((i) => [i.person_id, i.tier, i.archived_ids]), [[null, "hold", ["ben-old"]]]);
+});
+
+Deno.test("r3 P2: 'tell Ben Kim' with a Ben too tells Ben Kim", () => {
+  const out = run(input("I got the job, and can't wait to tell Ben Kim", [LOO, BEN, person("p6", "ben-kim", "Ben Kim")]), [userFact("unknown")]);
+  eq(out.items.map((i) => [i.person_id, i.tier !== "hold"]), [["ben-kim", true]]);
+});
+
+Deno.test("r3 (pre-existing): the note's own words never drop a 'don't' just before the quote", () => {
+  const note = "I got the job and don't want to tell Mom";
+  const out = run(input(note, [LOO, person("p9", "mom", "Mom")]), [item({ kind: "plan", subject: "user", person: "p9", person_mention: "Mom", statement: "You want to tell Mom", evidence: ["want to tell Mom"] })]);
+  eq(out.items.map((i) => [i.statement, i.spans[0].quote]), [["Don't want to tell Mom", "don't want to tell Mom"]]);
+});
+
+Deno.test("r3: the plan never repeats news another line of the note already keeps, and widens only from the telling itself", () => {
+  const MOM = person("p9", "mom", "Mom");
+  const tell = (evidence: string) => item({ kind: "plan", subject: "user", person: "p9", person_mention: "Mom", statement: "You want to tell Mom", evidence: [evidence] });
+  const both = run(input("I got the job and want to tell Mom", [LOO, MOM]), [
+    item({ kind: "moment", subject: "user", person: "p9", statement: "You got the job", evidence: ["I got the job"] }), tell("want to tell Mom"),
+  ]);
+  eq(both.items.map((i) => [i.kind, i.statement]), [["moment", "You got the job"], ["plan", "You want to tell Mom"]]);
+  const notTelling = run(input("I got the job and Mom will be thrilled", [LOO, MOM]), [tell("Mom will be thrilled")]);
+  eq(notTelling.items.some((i) => /thrilled/u.test(i.statement) && /got the job/u.test(i.statement)), false);
+});

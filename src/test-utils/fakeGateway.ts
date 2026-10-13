@@ -254,7 +254,7 @@ export class FakeGateway implements GatewayTransport {
     const all = (t: "memory_items" | "memory_item_sources") => [...this.server.table(t).values()].filter((r) => r.user_id === this.userId) as Record<string, unknown>[];
     const ids = new Set(all("memory_item_sources").filter((x) => x.capture_id === captureId).map((x) => x.memory_item_id));
     return all("memory_items")
-      .filter((m) => ids.has(m.id) && (m.deleted_at || (m.status !== "active" && m.status !== "resolved")))
+      .filter((m) => ids.has(m.id) && m.deleted_at)
       .map((m) => ({ person_id: String(m.person_id), statement: String(m.statement) }));
   }
 
