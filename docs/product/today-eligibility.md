@@ -53,7 +53,7 @@ A candidate becomes the moment only if its score is **≥ 55**. Score = base wei
 | **A question** | A note waiting on the user's answer ("Which Sam?") | Until answered; takes the first line |
 | **Kept** | A note understood while she was elsewhere, not yet looked at | Instead of the question line |
 | **Coming up** | An exact-day event or plan, the user's own promise falling due, or a birthday with a source | 1–7 days ahead (a promise from its due day); "Tomorrow" / weekday label; soonest first; three, then "and N more" |
-| **Waiting on Josh** | Someone's promise to the user, 1–3 days past its day | "Did Josh send it?" |
+| **Waiting on Josh** | Someone's promise to the user, 1–3 days past its day (a day-precise due date only; a month or a year never) | "Did Josh send it?". Gone once the user has acted on it: handed off from it (the return question asks instead), answered Yes (on any phone: the synced conversation counts), or put it aside (founder K3). Never "overdue", "late" or a count of days |
 
 ## The Moment detail (founder I1, 8 Oct)
 
@@ -69,8 +69,9 @@ It shows only what Today already had: no ids, scores or ranking. It's rebuilt fr
 ## The return check (replaces nothing; sits above the moment)
 
 - **"Did you reach Ben?" Yes · Not yet:** from the moment the user is back, for up to three days, after Kinship opened Messages, Phone, FaceTime or WhatsApp **from a Today moment, or from a Coming up or Waiting line's detail** (its question carries the reason: "Did you reach Anthony about the wedding?"). Message and Call on a relationship page open the channel but never ask afterwards.
-- **Yes** records a contact and offers "Anything worth remembering about Ben?", which opens Tell about him. **Not yet** lets the reason speak again. No answer records nothing, ever.
-- A birthday's "Yes" is recorded as a user-confirmed contact without a reason id (birthday moments are computed on the phone; see `wife-dogfood-final-review.md`).
+- **Yes** records one conversation (founder I2): what it was about (the memory) and which kind of Moment led to it, a return check either way; a Moment made on the phone (a birthday, good news, a milestone, a Coming up or Waiting line) carries its kind instead of a server reason (it used to be recorded as "manual"). An answer counts once, however often it is tapped. The reason is done, and a Waiting line it came from doesn't keep asking (K3).
+- Then, optionally and never blocking, "Anything worth remembering from talking with Ben?" (it opens Tell about him), **except** after a Yes to "Waiting on …" or to the user's own promise falling due: those are logistics (I2). "Nothing" changes nothing: the conversation still happened.
+- **Not yet** records nothing and lets the reason speak again while its window lasts: at once on this phone, and after a sync too, whatever the server last said (founder N6; the server puts an acted reason back to surfaced in its window). Done, put aside, expired and suppressed reasons never reopen. No answer records nothing, ever.
 
 ## Relationship-page only (never Today, today)
 

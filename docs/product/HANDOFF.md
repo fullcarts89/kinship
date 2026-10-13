@@ -1,5 +1,23 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 13 Oct 2026: the K-series remediation pass (CC-22).** This supersedes the addenda below where they differ.
+> - **State:**
+>   - `main` = `90a5cf0` (PR #23 Phase 4 slice 1, PR #24 the Xcode 27 pod fix).
+>   - Production: ai-gateway **v8** (since 10 Oct, = `609be4a`); migrations through `20261009090000`.
+>   - The branch `claude/awesome-edison-3cuf6z` is ahead of `main` with the K-series pass. Not merged; no PR open.
+> - **Built on the branch (FIXED, none VERIFIED):** K4, K5, K7 (server and app), K6 (app), K3, N6, K2, I2 (know it + ask it), with migration `20261013090000_v2_interaction_trail`. K1: new notes already became one line (PR #19 / I10), plus K4's mirror collapse; the founder's existing duplicate stays (no cleanup).
+> - **The internal verification gate is in `k-series-verification.md`:** "What finished looks like", the matrices, break-the-test results, the reviewers' findings, the deployment table. The next native check is `k-series-native-checklist.md`.
+> - **Founder's steps, in order, when they say so:**
+>   1. Merge the branch into `main` (a PR; `main` requires one), with a merge commit.
+>   2. The ai-gateway redeploy from `main`.
+>   3. `npx supabase db push`.
+>   4. The build.
+>   K4, K5 and K7 run in ai-gateway: without the redeploy the phone tests old server code.
+> - **Builds while the EAS quota is out (until 1 Nov):** `eas build --local` on the founder's Mac (Xcode 27, CocoaPods, fastlane and the Apple WWDR G3 certificate are installed), with `SENTRY_DISABLE_AUTO_UPLOAD=true`; install by cable with `xcrun devicectl device install app`.
+> - **Proposals awaiting the founder's yes:** CC-22 § "Implementation choices" (six items: the no-one-named question, "Not sure", the page's "Waiting on …", the I2 copy, when "Anything worth remembering?" is skipped, two extra moment types).
+> - **Next, after the native check:** H4 (4A step 6), then Phase 4B from B2 (the founder still has B1's result to read).
+> - **Readiness: NOT READY** (Phase 4 isn't yet ready for its next native dogfood milestone; not a return to Gate 0).
+
 > **Addendum, 8 Oct 2026, late: Phase 4 slice 1 built** (`KINSHIP_2_DECISIONS.md` CC-20, CC-21). This supersedes the addenda below where they differ.
 > - **State:** branch `claude/awesome-edison-3cuf6z`, ahead of `main` (`609be4a`). Not merged; no PR open.
 > - **Built on the branch, native check pending:**
