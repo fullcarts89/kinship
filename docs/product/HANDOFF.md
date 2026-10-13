@@ -14,7 +14,8 @@
 >   4. The build.
 >   K4, K5 and K7 run in ai-gateway: without the redeploy the phone tests old server code.
 > - **Builds while the EAS quota is out (until 1 Nov):** `eas build --local` on the founder's Mac (Xcode 27, CocoaPods, fastlane and the Apple WWDR G3 certificate are installed), with `SENTRY_DISABLE_AUTO_UPLOAD=true`; install by cable with `xcrun devicectl device install app`.
-> - **Proposals awaiting the founder's yes:** CC-22 § "Implementation choices" (six items: the no-one-named question, "Not sure", the page's "Waiting on …", the I2 copy, when "Anything worth remembering?" is skipped, two extra moment types).
+> - **Proposals awaiting the founder's yes:** CC-22 § "Implementation choices" (nine items: how the user's own news is kept, "Not sure", the page's "Waiting on …", the I2 copy, when "Anything worth remembering?" is skipped, two extra moment types, everyday-word names, a removed namesake asked with Bring back, a declined line never coming back), plus its known limits (relatives and promises link no one else; K1's display-only collapse, offered).
+> - **The founder's open questions from before:** I1's Message / Call question is still unanswered; B2 waits for B1's result.
 > - **Next, after the native check:** H4 (4A step 6), then Phase 4B from B2 (the founder still has B1's result to read).
 > - **Readiness: NOT READY** (Phase 4 isn't yet ready for its next native dogfood milestone; not a return to Gate 0).
 

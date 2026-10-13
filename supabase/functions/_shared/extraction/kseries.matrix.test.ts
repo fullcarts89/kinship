@@ -201,8 +201,8 @@ Deno.test("K5-K: a relationship the model invented around a grounded fact is str
   const out = run(input(note, [{ ...LOO, relationship_label: null }, BEN]), [
     item({ kind: "plan", subject: "user", person: "p1", person_mention: "Loo Loo", statement: "You can't wait to tell your wife Loo Loo you got the job", evidence: [note] }),
   ]);
-  eq(out.items.map((i) => [i.person_id, i.flags.includes("own_words")]), [["loo", true]]);
-  eq(/wife/u.test(out.items[0].statement), false, "the invented relationship is gone");
+  // Exact again (reviewer E, r2: a looser check had replaced it): the note's own words, the relationship gone.
+  eq(out.items.map((i) => [i.person_id, i.statement, i.flags.includes("own_words")]), [["loo", "You got the job, and can't wait to tell Loo Loo", true]]);
 });
 
 // ─── K7 ──────────────────────────────────────────────────────────────────

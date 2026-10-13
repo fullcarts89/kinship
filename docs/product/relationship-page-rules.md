@@ -35,14 +35,14 @@ These numbers are product rules, not technical limits. They are founder question
 | Resolved ("Tyler sent it") or cancelled | Not on the page (What Kinship knows keeps it as history) | nothing |
 | No day, or only a month or a year | Lately while told in the last 120 days, never "Waiting" | never |
 
-Never "overdue", "late", "you still haven't" or a count of days.
+Never "overdue", "late", "you still haven't" or a count of days. Never "Waiting on …" for someone remembered or paused (the line stays, plainly, as Today stays silent about them).
 
 ## Conversations (founder I2, CC-22)
 
 - Only conversations the user confirmed: a Yes to Today's return check, or their own entry. Opening Messages or Phone is never one; "Not yet" records nothing.
-- Under Between you, the newest three: "You messaged · Oct 12" and, underneath, the memory it was about in the user's words (only while that memory is current). The words by channel: You messaged · You called · You had a video call · You emailed · You saw Tyler · You were in touch.
-- What Kinship knows lists every one, newest first, each with **Not this** for one recorded by mistake.
-- **Add a conversation** (only on a page that has something told) asks "How were you in touch with Tyler?": Message · Call · Video · In person. Nothing else is asked.
+- Under Between you, the newest three: "You messaged · Oct 12" (dated when Kinship opened the conversation) and, underneath, the memory it was about in the words the page shows (only while that memory is current and about this person). The words by channel: You messaged · You called · You had a video call · You emailed · You saw Tyler · You were in touch.
+- What Kinship knows lists every one, newest first, each with **Not this** (asked first) for one recorded by mistake; it is reachable from the page whenever there is a conversation, even with nothing told yet.
+- **Add a conversation** (only for someone active, on a page that has something told) asks "How were you in touch with Tyler?": Message · Call · Video · In person. Nothing else is asked.
 - No count, frequency, streak, health or "last contacted". "You reached out · <date>" under the name is gone (CC-20).
 
 ## Item states and where they go
