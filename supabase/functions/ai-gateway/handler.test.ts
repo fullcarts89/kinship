@@ -439,3 +439,34 @@ Deno.test("every answer says how long the gateway took (Server-Timing), and noth
     await res.body?.cancel();
   }
 });
+
+// ─── K4 (CC-22): the gateway hands the app each name in question, and takes its answer ───
+
+Deno.test("K4: 'Which Sam?' on a line held for 'Which Anthony?' reaches the app (open_names), and a participants answer is resolved and written", async () => {
+  const note = "Anthony and Sam love ice skating with Chris";
+  const people = [
+    { id: "person-anthony", display_name: "Anthony", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-anthony-test", display_name: "Anthony Test", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-sam-eden", display_name: "Sam Eden", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-sam-d", display_name: "Sam Doughty", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-chris", display_name: "Chris", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+  ];
+  const proposal = {
+    items: [{
+      ...BEN_PROPOSAL.items[0], kind: "fact", person: "p1", person_mention: "Anthony", statement: note, evidence: [note], date_text: null,
+      detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "interest" },
+    }],
+    needs_clarification: null,
+  };
+  const w = world({ note, people, model: { output: proposal } });
+  const first = await call(w, post(extract));
+  eq(first.status, 200);
+  const [held] = first.body.held as { open_names?: { text: string; candidate_ids: string[] }[]; with_person_ids?: string[] }[];
+  eq(held.open_names, [{ text: "Sam", candidate_ids: ["person-sam-eden", "person-sam-d"] }]);
+  eq(held.with_person_ids, ["person-chris"]);
+  const w2 = world({ note, people, review: { ...w.writes[0].review!, created_at: STORED_AT } as StoredReview });
+  const { status } = await call(w2, post(resolveBody([{ index: 0, person_id: "person-anthony-test", participants: [{ text: "Sam", person_id: "person-sam-eden" }] }])));
+  eq(status, 200);
+  const [it] = w2.resolves[0].items;
+  eq([it.person_id, [...(it.with_person_ids ?? [])].sort(), it.statement], ["person-anthony-test", ["person-chris", "person-sam-eden"], note]);
+});

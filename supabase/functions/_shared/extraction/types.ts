@@ -220,7 +220,10 @@ export type Flag =
   // Founder K4: someone else the line is about goes by a name two or more
   // people share ("Anthony and Sam love ice skating with Chris", two Sams).
   // Held: "Which Sam?" asks about that name only, never the whole line.
-  | "participant_ambiguous";
+  | "participant_ambiguous"
+  // Founder K5: the user's own news, kept with the person it names (or asked
+  // about), in the line's own words. Shown for a glance, never dropped.
+  | "user_news";
 
 export interface PlannedSpan {
   start: number;

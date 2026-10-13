@@ -135,7 +135,7 @@ const fact = (k = "p1") => item({ kind: "fact", subject: "user", person: k, stat
 Deno.test("K5-C: every name she has gone by, in otherwise identical notes, keeps the news for her", () => {
   for (const name of ["Wifey", "Cutie Pie", "Boo Boo", "Loo Loo"]) {
     const out = run(input(`I got the job, and can't wait to tell ${name}`, [LOO, BEN]), [fact("unknown")]);
-    eq(out.items.map((i) => [i.person_id, i.kind]), [["loo", "plan"]], name);
+    eq(out.items.map((i) => [i.person_id, i.kind]), [["loo", "moment"]], name);
   }
 });
 
@@ -146,19 +146,19 @@ Deno.test("K5-G: 'I got the job and want to tell Loo Loo later': the job is kept
     eq(out.items.length, 1);
     eq(out.items[0].person_id, "loo");
   }
-  eq(run(input(note, [LOO, BEN]), [fact()]).items[0].statement, "You got the job and want to tell Loo Loo later");
+  eq(run(input(note, [LOO, BEN]), [fact()]).items[0].statement, "You got the job");
 });
 
 Deno.test("K5-H: 'I didn't get the job and can't wait to tell Loo Loo': the 'didn't' survives the repair", () => {
   const note = "I didn't get the job and can't wait to tell Loo Loo";
   const out = run(input(note, [LOO, BEN]), [item({ kind: "fact", subject: "user", person: "p1", statement: "You didn't get the job", evidence: ["I didn't get the job"] })]);
-  eq(out.items.map((i) => i.statement), ["You didn't get the job and can't wait to tell Loo Loo"]);
+  eq(out.items.map((i) => [i.person_id, i.statement]), [["loo", "You didn't get the job"]]);
 });
 
 Deno.test("K5-I: 'I might get the job and can't wait to tell Loo Loo': kept as a maybe, never as certain", () => {
   const note = "I might get the job and can't wait to tell Loo Loo";
   const out = run(input(note, [LOO, BEN]), [item({ kind: "fact", subject: "user", person: "p1", statement: "You might get the job", evidence: ["I might get the job"] })]);
-  eq(out.items.map((i) => [i.statement, i.certainty]), [["You might get the job and can't wait to tell Loo Loo", "tentative"]]);
+  eq(out.items.map((i) => [i.person_id, i.statement, i.certainty]), [["loo", "You might get the job", "tentative"]]);
 });
 
 Deno.test("K5-J: a clear first clause with a malformed second reading: the first survives", () => {
@@ -167,7 +167,7 @@ Deno.test("K5-J: a clear first clause with a malformed second reading: the first
     fact(),
     item({ kind: "promise", subject: "user", person: "p1", statement: "You will tell Loo Loo", evidence: ["the words the note never said"] }),
   ]);
-  eq(out.items.map((i) => [i.person_id, i.statement]), [["loo", "You got the job, and can't wait to tell Loo Loo"]]);
+  eq(out.items.map((i) => [i.person_id, i.statement]), [["loo", "You got the job"]]);
   eq(out.dropped.map((d) => d.reason), ["no_evidence"]);
 });
 
@@ -176,7 +176,8 @@ Deno.test("K5-K: a relationship the model invented around a grounded fact is str
   const out = run(input(note, [{ ...LOO, relationship_label: null }, BEN]), [
     item({ kind: "plan", subject: "user", person: "p1", person_mention: "Loo Loo", statement: "You can't wait to tell your wife Loo Loo you got the job", evidence: [note] }),
   ]);
-  eq(out.items.map((i) => [i.person_id, i.statement, i.flags.includes("own_words")]), [["loo", "You got the job, and can't wait to tell Loo Loo", true]]);
+  eq(out.items.map((i) => [i.person_id, i.flags.includes("own_words")]), [["loo", true]]);
+  eq(/wife/u.test(out.items[0].statement), false, "the invented relationship is gone");
 });
 
 // ─── K7 ──────────────────────────────────────────────────────────────────

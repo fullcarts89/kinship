@@ -183,6 +183,8 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
   let skipped = 0;
   // Mirrors whose kept line is waiting in this same review: joined at the end.
   const joins: { owner: string; bag: string; people: string[]; alone: ResolvedItem }[] = [];
+  // Mirrors whose kept line has gone, by kept owner and words: one memory between them, never one each (reviewer A).
+  const alones = new Map<string, ResolvedItem>();
 
   for (const [index, item] of held.entries()) {
     const a = byIndex.get(index);
@@ -199,8 +201,10 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     // Held only for the user's yes (a sensitive or ambiguous reading): nothing is
     // written on silence or on an empty answer.
     const openNames = Array.isArray(item.open_names) ? item.open_names.filter((o) => o && typeof o.text === "string" && o.text.trim()) : [];
+    // Which Sam is never a yes to the memory itself: a line waiting for the
+    // user's yes (sensitive, say) still needs it, whatever else is asked (reviewer A).
     const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive") || flags.has("update_check") ||
-      flags.has("promise_owner") || openNames.length > 0;
+      flags.has("promise_owner");
     if (a.accept !== undefined && a.accept !== true) return { fail: "bad_answer" };
     if (!asksSomething && a.accept !== true) return { fail: "bad_answer" };
 
@@ -384,7 +388,10 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       const i = m ? statement.indexOf(m.text) : -1;
       return i < 0 ? Number.MAX_SAFE_INTEGER : i;
     };
-    withPeople = [...withPeople].sort((x, y) => at(x) - at(y));
+    // At most seven others (write_extraction's limit): the rest stay in the
+    // words, unlinked, never a refused answer (founder K4).
+    withPeople = [...withPeople].sort((x, y) => at(x) - at(y)).slice(0, 7);
+    mentions = mentions.filter((m) => m.person_id === null || m.person_id === personId || withPeople.includes(m.person_id));
 
     // ── Existing memory ──
     // A merge or supersede was worked out for the item as held; once the
@@ -482,7 +489,20 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       } else if (held.some((g, gi) => gi !== index && g.person_id === owner && mirrorBag(g.statement) === bag && byIndex.get(gi)?.skip !== true)) {
         joins.push({ owner, bag, people: joiners, alone });
       } else {
-        items.push(alone);
+        const key = `${owner}|${bag}`;
+        const together = alones.get(key);
+        if (together) {
+          const ids = [...(together.with_person_ids ?? []), personId, ...(alone.with_person_ids ?? [])];
+          together.with_person_ids = [...new Set(ids)].filter((id) => id !== together.person_id).slice(0, 7);
+          for (const m of alone.person_mentions ?? []) {
+            if (m.person_id && !(together.person_mentions ?? []).some((x) => x.person_id === m.person_id)) {
+              together.person_mentions = [...(together.person_mentions ?? []), m].slice(0, MAX_MENTIONS);
+            }
+          }
+        } else {
+          alones.set(key, alone);
+          items.push(alone);
+        }
       }
       continue;
     }

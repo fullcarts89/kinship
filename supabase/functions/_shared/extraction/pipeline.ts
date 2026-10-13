@@ -18,7 +18,7 @@
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
 import { inYourWords, leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
-import { findMention, leadingNames, MAX_MENTIONS, type MentionSubject, recordMentions, shortName } from "./names.ts";
+import { findMention, leadingNames, MAX_MENTIONS, type MentionSubject, recordMentions, shortName, usesName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
@@ -47,6 +47,7 @@ import {
   wordsOf,
 } from "./lexicon.ts";
 import { codePointLength, locateEvidence, type Span } from "../spans.ts";
+import { needsAcceptance } from "./acceptance.ts";
 import type {
   Clarification,
   DossierItem,
@@ -376,30 +377,39 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     : resolvePerson(ctx, raw, flags);
   if ("drop" in who) return who;
   if (userNews) {
-    // Filed on no one: the one person in People its sentence names (or whose
-    // page it was told on) is who it is kept for. With several, or with no
-    // one at all ("I got the job."), it is asked "Who is this about?", with
-    // "Don't keep this": never dropped (founder K5, as J4).
-    if (!who.person_key && !who.archived_ids?.length) {
-      const named = namedInSentence(ctx, sentence);
+    // Founder K5: the user's own news ("I got the job, and can't wait to tell
+    // Loo Loo") is kept, in the line's own words as already checked above
+    // (never widened to more of the note), with the one person its sentence
+    // says the user is telling, seeing or doing it with or for; else with the
+    // person whose page it was told on; else asked "Who is this about?"
+    // (Don't keep this), never dropped. The model's choice of whose page a
+    // line about the user goes on isn't trusted on its own, and someone not
+    // in People, or removed, is asked about as for anyone (J4, I3).
+    if (!who.new_person_name && !who.archived_ids?.length) {
+      const named = withSomeone(ctx, sentence);
       const page = ctx.input.capture.context_person_key ? ctx.byKey.get(ctx.input.capture.context_person_key) : undefined;
       const only = named.length === 1 ? named[0] : named.length === 0 ? page : undefined;
+      flags.delete("person_ambiguous");
+      flags.delete("person_disagreement");
       if (only) {
-        flags.delete("person_ambiguous");
+        if (who.person_key && who.person_key !== only.key) flags.add("subject_moved");
         who = { person_id: only.id, person_key: only.key, new_person_name: null };
       } else {
-        flags.delete("new_person");
         flags.add("person_ambiguous");
         who = { person_id: null, person_key: null, new_person_name: null };
       }
     }
-    const whole = sentenceSpan(text, primary);
-    spans.splice(0, spans.length, whole);
-    said = ownWords(text, [whole]);
-    // "can't wait to tell Loo Loo" is what the user means to do; "I finished
-    // the quilt for Ben" is something of theirs with Ben.
-    raw = { ...raw, kind: INTENDS.test(fold(whole.quote)) ? "plan" : "moment", detail: { ...raw.detail } };
-    flags.add("own_words");
+    if (raw.kind === "tradition" || raw.kind === "context") {
+      // What the user shares with them: theirs together, as it was proposed.
+      raw = { ...raw, subject: "shared" };
+      subject = "shared";
+    } else {
+      // "You can't wait to tell Loo Loo" is what the user means to do; "You
+      // got the job" or "You finished the quilt for Ben" is something of
+      // theirs with them (Between you).
+      raw = { ...raw, kind: INTENDS.test(said) ? "plan" : "moment", detail: { ...raw.detail } };
+    }
+    flags.add("user_news");
   }
   // A statement that plainly leads with someone else ("John is your
   // brother") is never left on the page the model chose (Ben's).
@@ -676,26 +686,32 @@ function ownWords(text: string, spans: PlannedSpan[]): string {
   return inYourWords(out.replace(/\s+/gu, " ").trim().replace(/[.。]+$/u, "").trim()).slice(0, 500);
 }
 
-/** Something the user means to do ("can't wait to tell Loo Loo", "want to call Ben"). */
-const INTENDS = /\b(?:can'?t wait to|cannot wait to|wants? to|going to|gonna|will|'ll|plan(?:s|ning)? to|need(?:s)? to|have to|hope to|looking forward to)\b/u;
+/** Something the user means to do, in their line's own words ("can't wait to tell Loo Loo", "want to call Ben"). */
+const INTENDS = /\b(?:can['’]?t wait to|cannot wait to|wants? to|going to|gonna|will|['’]ll|plan(?:s|ning)? to|need(?:s)? to|have to|hope to|looking forward to)\b/u;
 
-/** The whole sentence a quote is in, without its closing punctuation, as a span of the note. */
-function sentenceSpan(text: string, span: PlannedSpan): PlannedSpan {
-  const sentence = sentenceAroundSpan(text, span).trim().replace(/[.!?。]+$/u, "").trim();
-  const found = sentence ? locateEvidence(text, sentence) : null;
-  return found?.ok ? toPlannedSpan(text, found.span) : span;
-}
+/** Words before someone the user tells, sees or does something with or for ("tell Loo Loo", "for Ben", "with Sam"). */
+const WITH_SOMEONE = "tell|tells|told|telling|text|texts|texted|texting|call|calls|called|calling|see|sees|saw|seeing|show|shows|showed|showing|thank|thanked|thanking|meet|met|meeting|visit|visited|visiting|ask|asked|asking|invite|invited|inviting|congratulate|congratulated|hug|hugged|with|for|to";
 
-/** The people in People a sentence of the note names. */
-function namedInSentence(ctx: Context, sentence: string): RosterPerson[] {
-  const words = ` ${wordsOf(sentence).map(nameKey).join(" ")} `;
-  const capitalised = new Set((sentence.normalize("NFC").match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).filter((w) => /^\p{Lu}/u.test(w)).map(nameKey));
-  return ctx.namedInNote().filter((p) =>
-    namesFor(p).some((f) => {
-      const fk = nameKey(f);
-      return words.includes(` ${fk} `) || (fk.includes(" ") && capitalised.has(fk.split(/\s+/)[0]));
-    })
-  );
+/**
+ * The people in People a sentence names, written as names (capitalised: "hope"
+ * is never Hope), right after a word for telling, seeing or doing something
+ * with or for someone (founder K5). "I got the job and Ben got engaged" names
+ * Ben only for his own news, so it isn't Ben's.
+ */
+function withSomeone(ctx: Context, sentence: string): RosterPerson[] {
+  const esc = (n: string) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const forms = (p: RosterPerson) => namesFor(p).flatMap((f) => [f, f.split(/\s+/u)[0]]).filter((n) => usesName(sentence, n));
+  const named = ctx.namedInNote().filter((p) => forms(p).length > 0);
+  const told = named.filter((p) => forms(p).some((n) =>
+    new RegExp(`\\b(?:${WITH_SOMEONE})\\s+(?:my\\s+\\p{Ll}+\\s+)?${esc(n)}(?![\\p{L}\\p{M}])`, "u").test(sentence)));
+  // "tell Ben and Loo Loo": everyone in the list is told, so it's asked, never the first one.
+  for (const p of named) {
+    if (told.includes(p)) continue;
+    const listed = told.some((t) => forms(t).some((a) => forms(p).some((b) =>
+      new RegExp(`${esc(a)}(?:['’]s)?\\s*(?:,|and|&)\\s*${esc(b)}(?![\\p{L}\\p{M}])`, "u").test(sentence))));
+    if (listed) told.push(p);
+  }
+  return told;
 }
 
 /** "every Warriors playoff game" → "Warriors playoff game"; null without one. */
@@ -726,16 +742,23 @@ function participantsOf(
   const resolved: RosterPerson[] = [];
   const open: OpenName[] = [];
   const asked = ownerWords ? nameKey(ownerWords) : null;
+  // Written as a name in both the line and its evidence ("hope" is never Hope).
+  const named = (text: string, names: string[]) => names.some((n) => usesName(text, n) || usesName(text, n.split(/\s+/u)[0]));
   for (const p of ctx.namedInNote()) {
     if (p.key === ownerKey || resolved.some((o) => o.id === p.id)) continue;
+    // Who a "he" can mean is asked as who the line is about, never added as someone else (amb-071).
+    if (ownerCandidates?.includes(p.id)) continue;
     const names = namesFor(p);
-    if (!statementNames(statement, names) || !statementNames(quotes, names)) continue;
-    const first = names[0].split(/\s+/u)[0];
-    const sharing = ctx.candidatesFor(first);
-    const whole = names.some((n) => n.includes(" ") && fold(quotes).includes(fold(n)) && fold(statement).includes(fold(n)));
-    // "Tyler Shaffer" said in full settles "Tyler" for everyone else called Tyler.
-    const settledByName = sharing.some((c) => c.id !== p.id &&
-      namesFor(c).some((n) => n.includes(" ") && fold(quotes).includes(fold(n)) && fold(statement).includes(fold(n))));
+    if (!named(statement, names) || !named(quotes, names)) continue;
+    // The name as the line writes it: "Sammy" is Sam Eden's own nickname, never "which Sam?".
+    const form = names.find((n) => usesName(statement, n)) ?? names.map((n) => n.split(/\s+/u)[0]).find((n) => usesName(statement, n)) ?? names[0];
+    const first = form.split(/\s+/u)[0];
+    const sharing = ctx.candidatesFor(form.includes(" ") ? form : first);
+    // Someone removed from People goes by it too (founder I3): never attached on a guess.
+    if (ctx.archivedFor(first).length) continue;
+    // A full name in the note's own words settles it ("Tyler Shaffer", even if the line says "Tyler").
+    const whole = names.some((n) => n.includes(" ") && fold(quotes).includes(fold(n)));
+    const settledByName = sharing.some((c) => c.id !== p.id && namesFor(c).some((n) => n.includes(" ") && fold(quotes).includes(fold(n))));
     if (settledByName) continue;
     if (sharing.length > 1 && !whole) {
       // The name is who the line is about (settled, or asked as such): not someone else.
@@ -999,7 +1022,8 @@ function refileBySubject(
     return { person_id: candidates[0].id, person_key: candidates[0].key, new_person_name: null };
   }
   flags.add(candidates.length === 0 ? "new_person" : "person_ambiguous");
-  return { person_id: null, person_key: null, new_person_name: candidates.length === 0 ? said.slice(0, 100) : null };
+  // Asked under the name it leads with ("Which Sam?"), never everyone the line names.
+  return { person_id: null, person_key: null, new_person_name: candidates.length === 0 ? said.slice(0, 100) : null, ...(candidates.length > 1 ? { mention: said } : {}) };
 }
 
 // ─── Person resolution ──────────────────────────────────────────────────────
@@ -1095,8 +1119,12 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
     // ice skating with Chris", filed on no one): that name is who it's about,
     // decided or asked under its own words (founder K4), never one "Who is
     // this about?" for everyone it names.
-    const lead = leadingNames(raw.statement)[0];
-    if (lead && ctx.inNote(lead) && !SELF_WORDS.has(fold(lead))) {
+    // Only when the model said it couldn't tell ("unknown"; never over its "new"), only a
+    // name someone in People goes by ("Last weekend…" is no one), and never a possessive
+    // ("Ben's coworker Josh…" is about Josh).
+    const lead = modelKey === "unknown" ? leadingNames(raw.statement)[0] : undefined;
+    const possessive = !!lead && new RegExp(`^${lead.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:['’]s\\b|(?<=s)['’])`, "u").test(raw.statement.trim());
+    if (lead && !possessive && ctx.inNote(lead) && !SELF_WORDS.has(fold(lead)) && ctx.candidatesFor(lead).length > 0) {
       const r = resolvePerson(ctx, { ...raw, person_mention: lead }, flags);
       return "drop" in r || r.person_key ? r : { ...r, mention: r.mention ?? lead };
     }
@@ -1665,7 +1693,14 @@ function settleOpenNames(items: PlannedItem[]): void {
       if (!it.flags.some((f) => HOLD_FLAGS.includes(f)) && it.tier === "hold") it.tier = tierFor(new Set(it.flags));
       continue;
     }
-    if (!it.person_id) {
+    // Its own person is truly decided (never a "he" still in question), and the
+    // line is saved now (not waiting for a yes, an answer or anything else):
+    // only then is it kept and each name asked on its own (I10). Otherwise
+    // every name waits on the same line, so one answer, or one "Don't keep
+    // this", decides all of it (reviewer A, 13 Oct).
+    const settled = !!it.person_id && !it.flags.some((f) => UNSETTLED.includes(f));
+    const savedNow = settled && (it.tier === "auto" || (it.tier === "confirm" && !needsAcceptance(it)));
+    if (!savedNow) {
       it.open_names = open;
       if (!it.flags.includes("participant_ambiguous")) it.flags.push("participant_ambiguous");
       it.tier = "hold";
@@ -1681,7 +1716,8 @@ function settleOpenNames(items: PlannedItem[]): void {
       spans: it.spans.map((sp) => ({ ...sp })),
       action: { type: "new", target_id: null },
       tier: "hold",
-      flags: [...it.flags.filter((f) => f !== "shared_people" && f !== "participant_ambiguous"), "person_ambiguous"],
+      // Asked only which person the name is: nothing else of the kept line's (reviewer A, 13 Oct).
+      flags: ["person_ambiguous"],
       with_person_ids: undefined,
       self_relations: undefined,
       person_mentions: undefined,
