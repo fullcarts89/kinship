@@ -833,14 +833,47 @@ function whoTheUserTells(ctx: Context, sentence: string): { strong: RosterPerson
   const strong = listedAfter(told.filter((p) => !told.some((q) => q !== p &&
     toldAs(q).some((long) => toldAs(p).every((short) => fold(long).startsWith(`${fold(short)} `))))));
   const weak = listedAfter(named.filter((p) => formsOf(namesFor(p)).some((n) => after(WITH_OR_FOR, n))));
-  // Someone removed is told only when no one in People is told by a longer name holding theirs ("tell Ben Kim" with a
-  // removed Ben, "tell Loo Loo" with a removed Loo; reviewer A, r4).
+  // Someone removed is told unless every use of their name is inside a longer name told for someone in People
+  // ("tell Ben Kim" with a removed Ben, "tell Loo Loo" with a removed Loo; reviewer A, r4), never when they are
+  // also named on their own ("tell Ben Kim and Ben"), and their own full name is theirs (reviewer A, r5).
   const removed = (ctx.input.archived ?? []).flatMap((r) => {
-    const said = formsOf([r.display_name, r.full_name ?? "", ...(r.nicknames ?? [])]).find((n) => after(TELLS, n));
-    const inside = !!said && told.some((q) => toldAs(q).some((long) => fold(long).startsWith(`${fold(said)} `)));
-    return said && !inside ? [{ id: r.id, said }] : [];
+    const said = formsOf([r.display_name, r.full_name ?? "", ...(r.nicknames ?? [])])
+      .sort((a, b) => b.length - a.length).find((n) => after(TELLS, n));
+    if (!said) return [];
+    let rest = sentence;
+    for (const q of told) {
+      for (const long of toldAs(q)) if (fold(long).startsWith(`${fold(said)} `)) rest = rest.replace(new RegExp(esc(long), "gu"), " ");
+    }
+    return rest !== sentence && !usesName(rest, said) ? [] : [{ id: r.id, said }];
   });
   return { strong, weak, named, removed };
+}
+
+const NOT_A_NAME_AFTER = new Set(["his", "her", "their", "my", "your", "our", "its", "the", "a", "an", "this", "that"]);
+const CALENDAR = new Set(["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
+const TITLES = new Set(["aunt", "auntie", "uncle", "cousin", "dr", "mr", "mrs", "ms", "miss", "grandma", "grandpa", "coach"]);
+
+/**
+ * Whether the model's own statement writes `name` as a name (reviewer A, r4–r5): capitalised, and not only
+ * because of where it sits. Never the first word of a sentence ("Grant funding…", "Hope is…"), a month or a
+ * weekday ("in May"), after "his", "the" and the like ("his Mom"), or inside another capitalised name ("the
+ * Gates Grant").
+ */
+function modelWritesAsName(text: string, name: string): boolean {
+  if (CALENDAR.has(fold(name).trim())) return false;
+  const re = new RegExp(`(?<![\\p{L}\\p{M}'’-])${name.trim().split(/\s+/u).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+")}(?![\\p{L}\\p{M}]|-\\p{L})`, "gu");
+  for (const m of text.matchAll(re)) {
+    const at = m.index ?? 0;
+    if (!/^\p{Lu}/u.test(m[0])) continue;
+    const before = text.slice(0, at);
+    if (/(?:^|[.!?]\s*)$/u.test(before.trimEnd()) || before.trim() === "") continue;
+    const prev = before.match(/([\p{L}'’.-]+)\s+$/u)?.[1] ?? "";
+    if (NOT_A_NAME_AFTER.has(fold(prev))) continue;
+    if (/^\p{Lu}/u.test(prev) && !TITLES.has(fold(prev).replace(/\.$/u, ""))) continue;
+    return true;
+  }
+  return false;
 }
 
 /** "every Warriors playoff game" → "Warriors playoff game"; null without one. */
@@ -878,7 +911,7 @@ function participantsOf(
   // lower case still names Chris when the line writes "Chris", and a script without capitals names as written;
   // a word written as a word ("grant", "hope", "mom") is never someone (reviewer A, r3).
   const forms = (names: string[]) => [...names, ...names.map((n) => n.split(/\s+/u)[0])];
-  const asName = (n: string) => namesAsName(statement, n) || namesAsName(quotes, n) || namesAsName(modelStatement, n);
+  const asName = (n: string) => namesAsName(statement, n) || namesAsName(quotes, n) || modelWritesAsName(modelStatement, n);
   const named = (names: string[]) => forms(names).some((n) => saysWord(statement, n) && saysWord(quotes, n) && asName(n));
   // A full name in the note's own words settles the name only when every use of it there is that full name
   // ("Ben went to Tahoe with Tyler Shaffer"), never when it's also said alone ("Ben and Sam went…, but Sam Eden stayed home").

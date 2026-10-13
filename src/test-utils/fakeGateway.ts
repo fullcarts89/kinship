@@ -297,8 +297,11 @@ export class FakeGateway implements GatewayTransport {
   // ─── Writes, as write_extraction makes them ──────────────────────────
 
   private plan(note: string, it: ScriptedItem): Record<string, unknown> & { tier: string; person_id: string | null } {
-    const start = note.indexOf(it.quote);
-    if (start < 0) throw new Error(`scripted quote not in the note: ${it.quote}`);
+    const at = note.indexOf(it.quote);
+    if (at < 0) throw new Error(`scripted quote not in the note: ${it.quote}`);
+    // Code points, and at most 200 of them, as the real pipeline writes a span (reviewer A, r5).
+    const start = Array.from(note.slice(0, at)).length;
+    const quote = Array.from(it.quote).slice(0, 200).join("");
     return {
       kind: it.kind,
       person_id: it.person_id ?? null,
@@ -313,7 +316,7 @@ export class FakeGateway implements GatewayTransport {
       action: { type: "new", target_id: null },
       tier: it.tier,
       flags: it.flags ?? [],
-      spans: [{ start, end: start + it.quote.length, quote: it.quote }],
+      spans: [{ start, end: start + Array.from(it.quote).length, quote }],
     };
   }
 

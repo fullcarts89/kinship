@@ -598,7 +598,9 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
     } else {
       const candidates = candidatesFor(item, note, input.people);
       // Someone removed from People the name also fits (founder I3): asked, offered back.
-      const removedToo = (item.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
+      // Once brought back they are among the candidates: never offered twice (reviewer A, r5).
+      const removedToo = (item.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id))
+        .filter((p): p is Person => !!p && !candidates.some((c) => c.id === p.id));
       const first = (p: Person) => p.display_name.trim().split(/\s+/u)[0];
       const named = [...candidates, ...removedToo];
       const shared = named.length > 1 && named.every((p) => fold(first(p)) === fold(first(named[0])))

@@ -6,6 +6,8 @@
 import { portraitFor, recordFor, todayIso, earlierOf } from "@/hooks/useV2";
 import { voiced } from "@/features/memory/statements";
 import { answersFor, buildReview, newcomersIn, type Question, type ReviewView } from "@/features/tell/reviewModel";
+import { buildToday } from "@/features/today/todayModel";
+import { categoryOf, sectionOf } from "../../../../supabase/functions/_shared/semantic/categories";
 import { Gateway, type HeldAnswer } from "@/store/gateway";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
@@ -300,6 +302,32 @@ describe("K5: 'I got the job, and can't wait to tell Loo Loo' is never 'Nothing 
       expect(p.portrait.youSaid).toEqual([]);
     });
   }
+
+  // Founder (13 Oct, CC-22 §1): kept with Loo Loo, the user's news stays the user's. Subject truth (the user),
+  // person association (Loo Loo), relationship context (between you) and display eligibility are separate: it is
+  // never "Loo Loo got the job", never her Background (H15/B1), never a Today congratulation for her.
+  it("kept with Loo Loo, 'You got the job' is the user's news: never her biography, Background or good news", async () => {
+    const w = await world();
+    const loo = await looLoo(w);
+    const note = "I got the job, and can't wait to tell Loo Loo";
+    const t = await tell(w, note, (i) => ({ needs_clarification: null, items: [
+      item({ kind: "fact", subject: "user", person: key(i, loo.id), statement: "You got the job", evidence: ["I got the job"], detail: { category: "work" } }),
+    ] }));
+    await done(w, t.id);
+    const [kept] = serverItems(w).filter((m) => m.status === "active");
+    expect([kept.person_id, kept.subject_type, kept.statement]).toEqual([loo.id, "user", "You got the job"]);
+    const quotes = (await w.repos.memory.sourcesFor(kept.id)).map((s) => String(s.quote ?? ""));
+    expect([categoryOf(kept, quotes), sectionOf(kept, quotes)]).toEqual(["between_you", "between_you"]);
+    const p = await page(w, loo);
+    expect([p.portrait.lately, p.portrait.comingUp, p.portrait.youSaid].flat().map((l) => l.statement)).toEqual([]);
+    expect(p.knowsLines).toEqual(["You got the job"]);
+    expect(p.knowsLines.some((l) => /Loo Loo got|Loo Loo has/u.test(l))).toBe(false);
+    const today = buildToday({
+      now: new Date(w.server.clock), today: todayIso(new Date(w.server.clock)), reasons: [], items: serverItems(w), people: await w.repos.people.list(),
+      local: {}, primaries: [], handoff: null, told: 1, questions: 0, toLookAt: 0, provenance: () => null, activated: true, contacts: [],
+    });
+    expect(today.moment).toBeNull();
+  });
 
   it("the same with Ben, and with her old name 'Wifey'", async () => {
     for (const name of ["Ben", "Wifey"]) {

@@ -198,3 +198,15 @@ it("'Bring back Chris Old' on 'Which Chris?', then Remember: Chris Old is on the
   press(tree, "Remember");
   expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, accept: true, participants: [{ text: "Chris", person_id: "old" }] }]);
 });
+
+it("'Which Chris?' about the line itself, after Bring back: each person offered once (reviewer A, r5)", () => {
+  const note = "Chris got the job";
+  const chrisHeld: HeldItem = { ...sam, statement: note, spans: [{ start: 0, end: note.length, quote: note }], mention: "Chris", archived_ids: ["old"] };
+  const viewWith = (oldState: string) => buildReview({
+    row: row({ tier: "clarify", held: [chrisHeld] }), capture: { id: "c1", raw_text: note, context_person_id: null, status: "needs_review" }, items: [],
+    people: [{ id: "chris", display_name: "Chris", state: "active" }, { id: "old", display_name: "Chris Old", state: oldState }] as unknown as Person[],
+    related: [], offline: false, today: TODAY,
+  });
+  expect(viewWith("archived").questions[0].choices.map((c) => c.label)).toEqual(["Chris", "Bring back Chris Old", "Someone else"]);
+  expect(viewWith("active").questions[0].choices.map((c) => c.label)).toEqual(["Chris", "Chris Old", "Someone else"]);
+});

@@ -5,6 +5,7 @@
 import { planExtraction } from "./pipeline.ts";
 import { resolveHeld, type HeldItem } from "./resolve.ts";
 import { nameKey, wordsOf } from "./lexicon.ts";
+import { categoryOf } from "../semantic/categories.ts";
 import type { ExtractionInput, ModelProposal, PlannedItem, ProposedItem, RosterPerson } from "./types.ts";
 
 function eq<T>(actual: T, expected: T, msg = ""): void {
@@ -817,4 +818,65 @@ Deno.test("r4: someone removed is asked only when they are the one told ('tell B
   }
   const loo = run({ ...input("I got the job, and can't wait to tell Loo Loo", [LOO, BEN]), archived: [{ id: "loo-old", display_name: "Loo", full_name: null, nicknames: [] }] }, [userFact("unknown")]);
   eq(loo.items.map((i) => [i.person_id, i.tier !== "hold"]), [["loo", true]]);
+});
+
+// ─── Founder (13 Oct, CC-22 §1): the K5 fallback never becomes the recipient's biography (H15 / B1) ─
+
+Deno.test("K5/H15: the user's news kept with Loo Loo stays the user's in every shape: subject the user, placed Between you, never her Background", () => {
+  const job = "I got the job, and can't wait to tell Loo Loo";
+  const shapes: [string, ExtractionInput, ProposedItem][] = [
+    ["a fact about the user", input(job, [LOO, BEN]), userFact("p1")],
+    ["the user's milestone", input(job, [LOO, BEN]), item({ kind: "milestone", subject: "user", person: "p1", statement: "You got the job", evidence: ["I got the job"], detail: { milestone_type: "new_job" } })],
+    ["the plan to tell her", input(job, [LOO, BEN]), item({ kind: "plan", subject: "user", person: "p1", statement: "You can't wait to tell Loo Loo", evidence: ["can't wait to tell Loo Loo"] })],
+    ["told on her page", input("I got the job!", [LOO, BEN], "p1"), userFact("unknown")],
+    ["her old name", input(job.replace("Loo Loo", "Wifey"), [LOO, BEN]), userFact("p1")],
+  ];
+  for (const [shape, inp, reply] of shapes) {
+    const out = run(inp, [reply]);
+    for (const i of out.items) {
+      eq([i.person_id, i.subject_type], ["loo", "user"], shape);
+      eq(categoryOf({ ...i, user_state: "unreviewed" }, i.spans.map((s) => s.quote)), "between_you", shape);
+      eq(/Loo Loo (?:got|has)/u.test(i.statement), false, shape);
+    }
+  }
+  // Asked "Who is this about?" and answered Loo Loo: still the user's, and the answer can't make it hers.
+  const held = run(input("I got the job!", [LOO, BEN]), [userFact("unknown")]).items.map(asHeld);
+  const ctx = { note: "I got the job!", people: peopleOf([LOO, BEN]), related: [], existing: [] };
+  const r = resolveHeld(held, [{ index: 0, person_id: "loo" }], ctx);
+  if ("fail" in r) throw new Error(r.fail);
+  eq(r.items.map((i) => [i.person_id, i.subject_type, i.statement, categoryOf({ ...i, user_state: "unreviewed" }, i.spans.map((s) => s.quote))]),
+    [["loo", "user", "You got the job", "between_you"]]);
+  const flip = resolveHeld(held, [{ index: 0, person_id: "loo", subject: "person" } as never], ctx);
+  eq("fail" in flip ? flip.fail : "saved", "bad_answer");
+  // The contrast: Loo Loo's own news is hers, and sits in her Background.
+  const hers = run(input("Loo Loo got the job", [LOO, BEN]), [item({ person: "p1", person_mention: "Loo Loo", statement: "Loo Loo got the job", evidence: ["Loo Loo got the job"], detail: { category: "work" } })]);
+  eq(hers.items.map((i) => [i.subject_type, categoryOf({ ...i, user_state: "unreviewed" }, i.spans.map((s) => s.quote))]), [["person", "work"]]);
+});
+
+// ─── Reviewer A, round 5 (13 Oct) ─
+
+Deno.test("r5 P1-1: a capital in the model's statement is a name only where it is one (never a month, a sentence's first word, 'his Mom' or part of another name)", () => {
+  const roster = [person("p1", "ben", "Ben"), person("p2", "may", "May"), person("p3", "june", "June"), person("p4", "grant", "Grant Lee"), person("p5", "mom", "Mom"), person("p6", "hope", "Hope")];
+  for (const [note, statement] of [
+    ["ben is moving to denver in may", "Ben is moving to Denver in May 2027"],
+    ["ben's wedding is in june", "Ben's wedding is on June 14"],
+    ["ben got a grant for his research", "Grant funding for Ben's research came through in 2026"],
+    ["ben got the gates grant for his research", "Ben got the Gates Grant for his research in 2026"],
+    ["ben called his mom for a few hours", "Ben called his Mom for 3 hours"],
+    ["ben is in the hospital, hope he is out by the 20th", "Hope is that Ben is out of the hospital by October 20"],
+  ]) {
+    const out = run(input(note, roster), [item({ person: "p1", person_mention: "ben", statement, evidence: [note] })]);
+    eq(out.items.map((i) => i.with_person_ids ?? []), [[]], note);
+  }
+});
+
+Deno.test("r5 P1-2: someone removed is asked whenever they are named on their own, or by their own full name", () => {
+  const benKim = person("p6", "ben-kim", "Ben Kim");
+  const removedBen = [{ id: "ben-old", display_name: "Ben", full_name: null, nicknames: [] }];
+  for (const note of ["I got the job, and can't wait to tell Ben Kim and Ben", "I got the job, and can't wait to tell Ben Kim and text Ben", "I got the job, and can't wait to call Ben Kim and his brother Ben"]) {
+    const out = run({ ...input(note, [LOO, benKim]), archived: removedBen }, [userFact("unknown")]);
+    eq(out.items.map((i) => [i.person_id, i.tier, i.archived_ids]), [[null, "hold", ["ben-old"]]], note);
+  }
+  const ownName = run({ ...input("I got the job, and can't wait to tell Ben Kim", [LOO, benKim]), archived: [{ id: "bk-old", display_name: "Ben", full_name: "Ben Kim", nicknames: [] }] }, [userFact("unknown")]);
+  eq(ownName.items.map((i) => [i.person_id, i.tier, i.archived_ids]), [[null, "hold", ["bk-old"]]]);
 });
