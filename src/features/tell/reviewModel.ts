@@ -127,6 +127,12 @@ export interface Question {
   replaces: string | null;
   /** The held items it answers. */
   items: number[];
+  /**
+   * For a question about someone else a line is about (founder K4): the name
+   * it settles on each of those items ("Sam"). The pick fills only that name;
+   * "Not sure" leaves it out and keeps the line.
+   */
+  slots?: Record<number, string>;
   choices: Choice[];
   skip: { key: string; label: string };
 }
@@ -261,6 +267,15 @@ export function answersFor(
     for (const index of q.items) {
       const prev = byItem.get(index) ?? { index };
       if (prev.skip) continue;
+      // "Which Sam?" about someone else the line is about (founder K4): only
+      // that name is settled; "Not sure" (or a name not in People) leaves it out.
+      const slot = q.slots?.[index];
+      if (slot !== undefined) {
+        if (pick !== "skip" && typeof pick.person_id === "string") {
+          byItem.set(index, { ...prev, participants: [...(prev.participants ?? []), { text: slot, person_id: pick.person_id }] });
+        } else byItem.set(index, prev);
+        continue;
+      }
       // A "keep" pick (Remember, or Remember on another day) is the user's explicit yes.
       byItem.set(index, pick === "skip" ? { index, skip: true } : { ...prev, ...(q.type === "keep" ? { accept: true as const } : {}), ...pick });
     }
@@ -388,6 +403,8 @@ interface Need {
   detail?: string | null;
   /** What the question shows as being decided: the statement, or the note's own sentence. */
   about?: string;
+  /** Someone else the line is about, under this name (founder K4). */
+  slot?: string;
 }
 
 function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
@@ -400,12 +417,14 @@ function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
       const q = groups.get(need.group);
       if (q) {
         q.items.push(index);
+        if (need.slot !== undefined) q.slots = { ...(q.slots ?? {}), [index]: need.slot };
         if (!q.about.includes(about)) q.about.push(about);
         q.replaces = q.replaces ?? replaces;
       } else {
         groups.set(need.group, {
           key: `q${groups.size}`, type: need.type, prompt: need.prompt, reason: need.reason, about: [about], items: [index],
-          choices: need.choices, skip: { key: "skip", label: COPY.skip }, detail: need.detail ?? null, replaces,
+          ...(need.slot !== undefined ? { slots: { [index]: need.slot } } : {}),
+          choices: need.choices, skip: { key: "skip", label: need.slot !== undefined ? COPY.notSure : COPY.skip }, detail: need.detail ?? null, replaces,
         });
       }
     }
@@ -445,7 +464,7 @@ function unknownNames(item: HeldItem, people: Person[]): string[] {
   const out: string[] = [];
   for (const re of patterns) {
     for (const m of text.matchAll(re)) {
-      const w = m[1].replace(/['’]s$/u, "");
+      const w = withoutPossessive(m[1]);
       const k = fold(w);
       if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || out.some((o) => fold(o) === k)) continue;
       out.push(w);
@@ -470,18 +489,38 @@ export function newcomersIn(statement: string, note: string, people: Person[]): 
     new RegExp(`\\b(?:moving|living|traveling|travelling|going|staying|having a baby|expecting)\\b[^.!?]{0,40}?\\bwith\\s+${NAME}`, "gu"),
     new RegExp(`(?:^|[^\\p{L}])\\p{Lu}[\\p{Ll}\\p{M}'’-]+\\s+and\\s+${NAME}\\s+(?:are|were|have|had|got|just|will|went)\\b`, "gu"),
     new RegExp(`(?:^|[^\\p{L}])${NAME}\\s+and\\s+\\p{Lu}[\\p{Ll}\\p{M}'’-]+\\s+(?:are|were|have|had|got|just|will|went)\\b`, "gu"),
+    // Someone the person reaches out to, tells, texts or meets (founder K6:
+    // "Ben is thinking about reaching out to Josh about a job"): a person by
+    // the shape of the words, one or two of them ("…to Josh and Maria").
+    new RegExp(`\\b(?:${TO_SOMEONE})\\s+to\\s+${NAME}(?:\\s*(?:,|and|&)\\s*${NAME})?`, "gu"),
+    new RegExp(`\\b(?:${SOMEONE})\\s+${NAME}(?:\\s*(?:,|and|&)\\s*${NAME})?`, "gu"),
   ];
   const out: string[] = [];
   for (const re of patterns) {
     for (const m of statement.matchAll(re)) {
-      const w = m[1].replace(/['’]s$/u, "");
-      const k = fold(w);
-      if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || out.some((o) => fold(o) === k)) continue;
-      if (!new RegExp(`(^|[^\\p{L}])${w}([^\\p{L}]|$)`, "u").test(note)) continue;
-      out.push(w);
+      for (const g of [m[1], m[2]]) {
+        if (!g) continue;
+        const w = withoutPossessive(g);
+        const k = fold(w);
+        if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || KIN_WORD.test(k) || out.some((o) => fold(o) === k)) continue;
+        if (!new RegExp(`(^|[^\\p{L}])${w}([^\\p{L}]|$)`, "u").test(note)) continue;
+        out.push(w);
+      }
     }
   }
   return out;
+}
+
+/** "reaching out to", "talked to", "introduced Ben to", "wrote to": someone, never a place. */
+const TO_SOMEONE = "reach(?:es|ed|ing)?\\s+out|talk(?:s|ed|ing)?|spoke|speak(?:s|ing)?|wr(?:ite|ites|ote|iting)|introduc(?:e|es|ed|ing)\\s+\\p{Lu}[\\p{Ll}\\p{M}'’-]+|apologi[sz](?:e|es|ed|ing)";
+/** Verbs whose object is a person: "tell Josh", "texted Maria", "met Dana", "thank Sam". */
+const SOMEONE = "tell|tells|told|telling|text|texts|texted|texting|call|calls|called|calling|ask|asks|asked|asking|thank|thanks|thanked|thanking|congratulat(?:e|es|ed|ing)|invit(?:e|es|ed|ing)|hug|hugs|hugged|hugging|introduc(?:e|es|ed|ing)|meet|meets|met|meeting|visit(?:s|ed|ing)?\\s+with|hang(?:s|ing)?\\s+out\\s+with|hung\\s+out\\s+with|catch(?:es|ing)?\\s+up\\s+with|caught\\s+up\\s+with";
+/** A relation said as a name ("tell Mom"): never someone new to add. */
+const KIN_WORD = /^(?:mom|mum|mother|dad|father|grandma|grandpa|granny|nana|papa|aunt|auntie|uncle|sis|bro)$/u;
+
+/** A name without its possessive: "Chris's", "Chris’s" and "Chris'" are Chris (founder K7); "O'Connor" stays. */
+function withoutPossessive(word: string): string {
+  return word.replace(/['’]s$/u, "").replace(/(?<=s)['’]$/iu, "");
 }
 
 /** Capitalised words that start sentences or name things, never people. */
@@ -575,6 +614,28 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
         about: (pronoun || item.twin_person_id) && sentence ? sentence : undefined,
       });
     }
+  }
+  // Founder K4: someone else the line is about goes by a name two or more
+  // people share ("Anthony and Sam love ice skating with Chris"). Asked on
+  // its own, with every person the name can mean; never "Who is this about?"
+  // for the whole line, and never narrowed.
+  for (const open of Array.isArray(item.open_names) ? item.open_names : []) {
+    if (!open?.text) continue;
+    const live = input.people.filter((p) => p.state !== "archived");
+    const meant = live.filter((p) => (open.candidate_ids ?? []).includes(p.id));
+    if (meant.length < 2) continue;
+    needs.push({
+      type: "which_person",
+      group: `slot:${fold(open.text)}:${meant.map((p) => p.id).sort().join(",")}`,
+      prompt: `Which ${open.text} do you mean?`,
+      reason: `You have more than one ${open.text}.`,
+      choices: [
+        ...meant.map((p) => ({ key: `p:${p.id}`, label: personLabel(p, input.people), answer: { person_id: p.id } })),
+        { key: "pick", label: COPY.someoneElse, pick: "person" as const },
+      ],
+      about: item.spans[0]?.quote?.trim() || undefined,
+      slot: open.text,
+    });
   }
   if (!personInQuestion && item.flags.includes("subject_check") && item.person_id) {
     const person = input.people.find((p) => p.id === item.person_id);
@@ -675,7 +736,8 @@ function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[]
   }
   // The name the line asks about: "Which Anthony?" and "Which Sam?" are two
   // questions, each offering only the people that name can mean (founder I13).
-  const asked = item.mention ?? mentionsOf(item.person_mentions).find((m) => m.person_id === null)?.text;
+  const open = new Set((item.open_names ?? []).map((o) => fold(o.text)));
+  const asked = item.mention ?? mentionsOf(item.person_mentions).find((m) => m.person_id === null && !open.has(fold(m.text)))?.text;
   const mention = asked ? wordsOf(asked).join(" ") : "";
   if (mention) {
     const meant = live.filter((p) => nameForms(p).some((f) => f === mention || f.split(" ")[0] === mention));
@@ -689,10 +751,12 @@ function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[]
       return name.length > 0 && (name.every((w) => words.has(w)) || words.has(name[0]));
     });
   };
+  // Everyone its words name, never cut short (founder K4: a fifth person, the
+  // second Sam, was left off "Who is this about?").
   const fromItem = inWords(item.spans.map((s) => s.quote).join(" "));
-  if (fromItem.length > 1) return fromItem.slice(0, 4);
+  if (fromItem.length > 1) return fromItem.slice(0, 7);
   const fromNote = inWords(note);
-  return fromNote.length > 1 ? fromNote.slice(0, 4) : fromItem.length ? fromItem : fromNote;
+  return fromNote.length > 1 ? fromNote.slice(0, 7) : fromItem.length ? fromItem : fromNote;
 }
 
 /** The relation word, only when it is the user's own (it must be in the note). */
@@ -730,5 +794,5 @@ function nameForms(p: Person): string[] {
 }
 
 function wordsOf(s: string): string[] {
-  return (fold(s).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []).map((w) => w.replace(/['’]s$/u, ""));
+  return (fold(s).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []).map(withoutPossessive);
 }

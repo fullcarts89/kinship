@@ -98,7 +98,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
           else if (pane.line) props.onCorrect(pane.line.id, { person_id: id });
           back();
         }}
-        onAdd={(name, bringBack) => {
+        onAdd={pane.question?.slots ? undefined : (name, bringBack) => {
           if (pane.question) {
             if (bringBack) props.onRestore?.(bringBack);
             choose(pane.question, bringBack ? { person_id: bringBack } : { new_person: true, new_person_name: name });

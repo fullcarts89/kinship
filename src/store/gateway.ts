@@ -63,6 +63,8 @@ export type HeldItem = GatewayItem & {
   candidate_ids?: string[];
   /** Which words name whom; the open "who?" has the asked-about words with no person yet (founder I13). */
   person_mentions?: unknown;
+  /** Others it is about whose name two or more people share, each asked on its own (founder K4). */
+  open_names?: { text: string; candidate_ids: string[] }[];
 };
 
 export interface Clarification {
@@ -90,6 +92,8 @@ export interface HeldAnswer {
   date?: string | null;
   /** "Remember this": the user's yes to a reading held for it. */
   accept?: true;
+  /** "Which Sam?" for someone else the line is about (founder K4): that name, and who it is. */
+  participants?: { text: string; person_id: string }[];
 }
 
 export type Understood =
