@@ -376,9 +376,10 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     : resolvePerson(ctx, raw, flags);
   if ("drop" in who) return who;
   if (userNews) {
-    // Filed on no one: the one person in People its sentence names is who it
-    // is kept for. With no one at all there is no page for it (Kinship keeps
-    // what matters about the people you care about); with several, asked.
+    // Filed on no one: the one person in People its sentence names (or whose
+    // page it was told on) is who it is kept for. With several, or with no
+    // one at all ("I got the job."), it is asked "Who is this about?", with
+    // "Don't keep this": never dropped (founder K5, as J4).
     if (!who.person_key && !who.archived_ids?.length) {
       const named = namedInSentence(ctx, sentence);
       const page = ctx.input.capture.context_person_key ? ctx.byKey.get(ctx.input.capture.context_person_key) : undefined;
@@ -386,7 +387,11 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
       if (only) {
         flags.delete("person_ambiguous");
         who = { person_id: only.id, person_key: only.key, new_person_name: null };
-      } else if (named.length === 0) return { drop: "bad_kind_subject" };
+      } else {
+        flags.delete("new_person");
+        flags.add("person_ambiguous");
+        who = { person_id: null, person_key: null, new_person_name: null };
+      }
     }
     const whole = sentenceSpan(text, primary);
     spans.splice(0, spans.length, whole);

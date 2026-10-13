@@ -232,11 +232,21 @@ Deno.test("K5: a durable fact about someone, with an irrelevant second clause, k
   eq(out.items.map((i) => [i.person_id, i.statement]), [["ben", "Ben got the job"]]);
 });
 
-Deno.test("K5: news about only the user, with no one in People named, is still nothing (there's no page for it)", () => {
-  const out = run(input("I got the job!", [LOO, BEN]), [
+Deno.test("K5: news about only the user, with no one named and no page, is asked 'Who is this about?', never 'nothing'", () => {
+  for (const note of ["I got the job!", "I got the job and I'm excited."]) {
+    const out = run(input(note, [LOO, BEN]), [
+      item({ kind: "fact", subject: "user", person: "unknown", statement: "You got the job", evidence: ["I got the job"], detail: { category: "work" } }),
+    ]);
+    eq(out.tier, "clarify", note);
+    eq(out.items.map((i) => [i.person_id, i.tier, i.flags.includes("person_ambiguous"), i.statement]), [[null, "hold", true, note.startsWith("I got the job!") ? "You got the job" : "You got the job and you're excited"]], note);
+  }
+});
+
+Deno.test("K5: told on someone's page, the user's news is kept for them", () => {
+  const out = run(input("I got the job!", [LOO, BEN], "p2"), [
     item({ kind: "fact", subject: "user", person: "unknown", statement: "You got the job", evidence: ["I got the job"], detail: { category: "work" } }),
   ]);
-  eq(out.tier, "nothing");
+  eq(out.items.map((i) => [i.person_id, i.tier !== "hold"]), [["ben", true]]);
 });
 
 // ─── K7: "Chris' dog Fluffy has a vet appointment on Friday" ─────────────────
