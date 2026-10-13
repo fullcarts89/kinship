@@ -64,11 +64,18 @@ BEGIN
        AND NOT (next_state = 'surfaced' AND state IN ('acted', 'dismissed'));
   END IF;
   -- N6: "Not yet" lets the reason speak again while its window lasts. Only an
-  -- acted reason; never one done, put aside, expired or suppressed.
+  -- acted reason; never one done, put aside, expired or suppressed; never
+  -- one whose memory has gone meanwhile, or whose person isn't active (the
+  -- event itself is still recorded).
   IF NEW.event = 'return_not_yet' THEN
-    UPDATE public.reasons SET state = 'surfaced'
-     WHERE id = NEW.reason_id AND user_id = NEW.user_id
-       AND state = 'acted' AND window_end > clock_timestamp();
+    UPDATE public.reasons r SET state = 'surfaced'
+     WHERE r.id = NEW.reason_id AND r.user_id = NEW.user_id
+       AND r.state = 'acted' AND r.window_end > clock_timestamp()
+       AND EXISTS (SELECT 1 FROM public.people p
+                    WHERE p.id = r.person_id AND p.user_id = r.user_id AND p.state = 'active' AND p.deleted_at IS NULL)
+       AND NOT EXISTS (SELECT 1 FROM public.reason_evidence e JOIN public.memory_items m
+                         ON m.id = e.memory_item_id AND m.user_id = e.user_id
+                        WHERE e.reason_id = r.id AND (m.deleted_at IS NOT NULL OR m.status NOT IN ('active', 'resolved')));
   END IF;
   RETURN NEW;
 END;

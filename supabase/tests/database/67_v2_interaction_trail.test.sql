@@ -4,7 +4,7 @@
 -- and "Not yet" lets an acted reason speak again while its window is open,
 -- never one done, put aside, expired or past its window.
 BEGIN;
-SELECT plan(23);
+SELECT plan(27);
 
 \set A '''aaaaaaaa-6767-6767-6767-676767676767'''
 \set B '''bbbbbbbb-6767-6767-6767-676767676767'''
@@ -108,6 +108,40 @@ SELECT is((SELECT state FROM public.reasons WHERE id = '00000000-0000-0000-0000-
 INSERT INTO public.reason_events (reason_id, event) VALUES ('00000000-0000-0000-0000-000000006744', 'return_not_yet');
 SELECT is((SELECT state FROM public.reasons WHERE id = '00000000-0000-0000-0000-000000006744'), 'expired', 'expired stays expired');
 SELECT tests.reset_role();
+
+-- A person paused after the hand-off: "Not yet" is recorded, and the reason stays as it was (never reopened for them).
+SELECT tests.as_user(:A);
+INSERT INTO public.people (id, display_name, birthday, birthday_source) VALUES
+  ('00000000-0000-0000-0000-000000006704', 'Mia', '1991-10-14', 'contacts');
+SELECT tests.reset_role();
+INSERT INTO public.reasons (id, user_id, person_id, type, window_start, window_end, dedupe_key, state) VALUES
+  ('00000000-0000-0000-0000-000000006746', :A, '00000000-0000-0000-0000-000000006704', 'birthday', now() - interval '1 hour', now() + interval '1 day', 'n6-paused', 'acted');
+UPDATE public.people SET state = 'paused', version = version + 1 WHERE id = '00000000-0000-0000-0000-000000006704';
+SELECT tests.as_user(:A);
+SELECT lives_ok($$ INSERT INTO public.reason_events (reason_id, event) VALUES ('00000000-0000-0000-0000-000000006746', 'return_not_yet') $$,
+  '"Not yet" for someone paused meanwhile is still recorded');
+SELECT tests.reset_role();
+SELECT is((SELECT state FROM public.reasons WHERE id = '00000000-0000-0000-0000-000000006746'), 'acted', 'and never reopens a reason for a paused person');
+
+-- The memory a reason cites, forgotten after the hand-off: "Not yet" doesn't reopen it.
+SELECT tests.as_user(:A);
+INSERT INTO public.captures (id, source, raw_text) VALUES ('00000000-0000-0000-0000-000000006711', 'text', 'Ben has his interview Tuesday.');
+SELECT public.write_memory_item(
+  jsonb_build_object('id', '00000000-0000-0000-0000-000000006721', 'kind', 'event', 'person_id', '00000000-0000-0000-0000-000000006702',
+                     'statement', 'Ben has his interview Tuesday', 'origin', 'user', 'user_state', 'user_authored',
+                     'detail', '{"date": "2026-10-13", "date_precision": "day", "event_type": "interview", "followup_policy": "both"}'::jsonb),
+  jsonb_build_array(jsonb_build_object('source_kind', 'capture', 'capture_id', '00000000-0000-0000-0000-000000006711', 'span_start', 0, 'span_end', 3)));
+SELECT tests.reset_role();
+INSERT INTO public.reasons (id, user_id, person_id, type, window_start, window_end, dedupe_key, state) VALUES
+  ('00000000-0000-0000-0000-000000006747', :A, '00000000-0000-0000-0000-000000006702', 'upcoming_event', now() - interval '1 hour', now() + interval '1 day', 'n6-gone', 'acted');
+INSERT INTO public.reason_evidence (reason_id, memory_item_id, user_id) VALUES
+  ('00000000-0000-0000-0000-000000006747', '00000000-0000-0000-0000-000000006721', :A);
+SELECT tests.as_user(:A);
+UPDATE public.memory_items SET status = 'retracted', deleted_at = now(), version = version + 1 WHERE id = '00000000-0000-0000-0000-000000006721';
+SELECT lives_ok($$ INSERT INTO public.reason_events (reason_id, event) VALUES ('00000000-0000-0000-0000-000000006747', 'return_not_yet') $$,
+  '"Not yet" after the memory was forgotten is still recorded');
+SELECT tests.reset_role();
+SELECT is((SELECT state FROM public.reasons WHERE id = '00000000-0000-0000-0000-000000006747'), 'acted', 'and never reopens a reason whose memory is gone');
 
 -- Someone else's "Not yet" never touches this account's reason.
 INSERT INTO public.reasons (id, user_id, person_id, type, window_start, window_end, dedupe_key, state) VALUES
