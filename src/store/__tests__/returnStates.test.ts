@@ -3,14 +3,17 @@
 // return-loop steps Today's actions use, the encrypted store, sync and the
 // Today model. Paths 11 and 12 (N8's exact Undo of a reason, another live
 // closer) are database rules: pgTAP 60 and 66.
+import { execFileSync } from "child_process";
 import { randomUUID } from "crypto";
+import path from "path";
 import { buildToday, waitingReasonId, type ContactRow, type ReasonRow, type TodayInput } from "@/features/today/todayModel";
 import { buildPortrait } from "@/features/person/portraitModel";
-import { trailFor, type ContactEventRow } from "@/features/person/trail";
+import { reachedAbout, trailFor, type ContactEventRow } from "@/features/person/trail";
 import { ReasonLocal } from "@/store/reasonLocal";
 import type { ReasonEvent } from "@/store/reasons";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
-import { answerReturn, cancelHandOff, conversationId, handOff, type ReturnLoopDeps } from "@/store/returnLoop";
+import { answerReturn, cancelHandOff, conversationId, forgetConversation, handOff, handoffFor, type ReturnLoopDeps } from "@/store/returnLoop";
+import { portraitFor } from "@/hooks/useV2";
 import { detailFor, quietKey } from "@/features/today/momentDetail";
 import { prepareSchema } from "@/store/schema";
 import { SyncEngine } from "@/store/syncEngine";
@@ -41,10 +44,10 @@ const WAITING = waitingReasonId("p1", "2026-10-09");
 
 let n = 0;
 /** A phone; a new one seeds the people, a reopened one or a second phone has them from before or from sync. */
-async function phone(server: FakeServer, file = `rs-${randomUUID()}`, seed = true) {
+async function phone(server: FakeServer, file = `rs-${randomUUID()}`, seed = true, clock = () => NOW) {
   const db = await openSqlJsDb(file);
   await prepareSchema(db, A);
-  const store = new UserStore(db, A, { now: () => NOW.toISOString(), newId: () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}` });
+  const store = new UserStore(db, A, { now: () => clock().toISOString(), newId: () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}` });
   const engine = new SyncEngine(store, new FakeRemote(server, A));
   if (seed) {
     await store.create("people", { id: "tyler", display_name: "Tyler Shaffer", state: "active" });
@@ -53,7 +56,7 @@ async function phone(server: FakeServer, file = `rs-${randomUUID()}`, seed = tru
   const events: { reasonId: string; event: ReasonEvent }[] = [];
   const local = new ReasonLocal(store);
   const repos = repositoriesFor(store);
-  const deps: ReturnLoopDeps = { local, contacts: repos.contacts, record: (reasonId, event) => events.push({ reasonId, event }), now: () => NOW };
+  const deps: ReturnLoopDeps = { local, contacts: repos.contacts, record: (reasonId, event) => events.push({ reasonId, event }), now: clock };
   return { db, store, engine, local, repos, deps, events, file };
 }
 type Phone = Awaited<ReturnType<typeof phone>>;
@@ -385,4 +388,111 @@ describe("reviewer C, round 2 (13 Oct)", () => {
     const contacts: ContactRow[] = [{ person_id: "tyler", memory_item_id: "p1", occurred_at: NOW.toISOString() }];
     expect(waitingLine(await today(p, { items: [moved], contacts }))).toMatchObject({ label: "Waiting on Josh" });
   });
+});
+
+describe("reviewer E, round 2 (13 Oct): the paths only the screens took", () => {
+  it("Today's own hand-off: a Waiting and a due Coming up ask nothing after a Yes; a Moment asks 'Anything worth remembering?'; each carries its memory", async () => {
+    // Waiting on Tyler (due Oct 9; Monday Oct 12).
+    const p = await phone(new FakeServer());
+    const v = await today(p);
+    const w = detailFor(v, quietKey(waitingLine(v)!)!, "2026-10-12", () => "Tyler")!;
+    await handOff(p.deps, handoffFor(w.personId, "text", w.reason));
+    expect((await today(p)).returnCheck).toMatchObject({ reasonId: WAITING, followUp: "" });
+    expect((await answerReturn(p.deps, "yes"))?.followUp).toBe("");
+
+    // Coming up on its day (Friday Oct 9).
+    const fri = new Date(2026, 9, 9, 9);
+    const q = await phone(new FakeServer(), undefined, true, () => fri);
+    const cv = await today(q, { now: fri, today: "2026-10-09" });
+    const coming = cv.quiet.find((x) => x.kind === "coming" && x.itemId === "p1")!;
+    const c = detailFor(cv, quietKey(coming)!, "2026-10-09", () => "Tyler")!;
+    await handOff(q.deps, handoffFor(c.personId, "call", c.reason));
+    expect((await today(q, { now: fri, today: "2026-10-09" })).returnCheck).toMatchObject({ followUp: "" });
+    expect((await answerReturn(q.deps, "yes"))?.followUp).toBe("");
+    expect((await contactsOn(q)).map((x) => x.memory_item_id)).toEqual(["p1"]);
+
+    // A server Moment (Josh's interview tomorrow).
+    const r = await phone(new FakeServer());
+    const mv = await today(r, { reasons: [reasonRow("surfaced")] });
+    const m = detailFor(mv, mv.moment!.reasonId, "2026-10-12", () => "Josh")!;
+    await handOff(r.deps, handoffFor(m.personId, "text", m.reason));
+    expect((await today(r, { reasons: [reasonRow("acted")] })).returnCheck?.followUp).toMatch(/^Anything worth remembering/);
+    expect((await answerReturn(r.deps, "yes"))?.followUp).toMatch(/^Anything worth remembering/);
+    expect((await contactsOn(r)).map((x) => x.memory_item_id)).toEqual(["e1"]);
+  });
+
+  it("'Waiting on Tyler' put aside on this phone (Not now), or answered here, stays gone even with no conversation synced yet", async () => {
+    const p = await phone(new FakeServer());
+    await p.local.dismissed(WAITING, NOW.toISOString());
+    expect(waitingLine(await today(p, { contacts: [] }))).toBeNull();
+    const q = await phone(new FakeServer());
+    await handOff(q.deps, fromWaiting);
+    await answerReturn(q.deps, "yes");
+    expect(waitingLine(await today(q, { contacts: [] }))).toBeNull();
+  });
+
+  it("N2: the conversation is written before the answer is kept: a failed write keeps the question, and nothing is recorded", async () => {
+    const p = await phone(new FakeServer());
+    await handOff(p.deps, fromWaiting);
+    const failing = { ...p.deps, contacts: Object.assign(Object.create(p.repos.contacts), { confirm: () => Promise.reject(new Error("disk full")) }) };
+    await expect(answerReturn(failing, "yes")).rejects.toThrow("disk full");
+    expect((await p.local.read()).handoff?.answered).toBeUndefined();
+    expect((await today(p)).returnCheck).toMatchObject({ reasonId: WAITING });
+    expect(await contactsOn(p)).toEqual([]);
+  });
+
+  it("N4: a Yes two days later is dated when Kinship opened the conversation, with the phone's clock moving on", async () => {
+    let at = NOW;
+    const p = await phone(new FakeServer(), undefined, true, () => at);
+    await handOff(p.deps, fromWaiting);
+    at = new Date(NOW.getTime() + 2 * 86_400_000);
+    await answerReturn(p.deps, "yes");
+    expect((await contactsOn(p)).map((c) => c.occurred_at)).toEqual([NOW.toISOString()]);
+  });
+
+  it("N7: 'Not this' through the app's own step brings Waiting back", async () => {
+    const p = await phone(new FakeServer());
+    await handOff(p.deps, fromWaiting);
+    await answerReturn(p.deps, "yes");
+    expect(waitingLine(await today(p))).toBeNull();
+    const [c] = await contactsOn(p) as unknown as { id: string }[];
+    await forgetConversation(p.deps, c.id);
+    expect(waitingLine(await today(p))).toMatchObject({ label: "Waiting on Tyler" });
+  });
+
+  it("C4b, N10: on the page, only a conversation with Tyler about the promise, on or after its day, ends 'Waiting on Tyler'", async () => {
+    const p = await phone(new FakeServer());
+    await p.repos.memory.remember({ id: "p1", kind: "promise", person_id: "tyler", statement: promise.statement, detail: { due_date: "2026-10-09" } }, { userAuthored: true });
+    const waiting = async () => (await portraitFor(p.repos, tyler, NOW)).lately.some((l) => l.when === "Waiting on Tyler");
+    expect(await waiting()).toBe(true);
+    await p.repos.contacts.confirm({ person_id: "josh", channel: "text", source: "manual", memory_item_id: "p1", occurred_at: NOW.toISOString() });
+    expect(await waiting()).toBe(true);
+    await p.repos.contacts.confirm({ person_id: "tyler", channel: "text", source: "manual", memory_item_id: "p1", occurred_at: new Date(2026, 9, 8, 12).toISOString() });
+    expect(await waiting()).toBe(true);
+    await p.repos.contacts.confirm({ person_id: "tyler", channel: "text", source: "manual", memory_item_id: "p1", occurred_at: new Date(2026, 9, 10, 12).toISOString() });
+    expect(await waiting()).toBe(false);
+  });
+});
+
+describe("reviewer E, round 2 (13 Oct): reachedAbout on its own", () => {
+  it("only a conversation with the promise's own person, about it, on or after its day; never one deleted", () => {
+    const day = (iso: string) => iso.slice(0, 10);
+    const row = (over: Partial<ContactEventRow>): ContactEventRow =>
+      ({ id: "c", person_id: "tyler", channel: "text", occurred_at: "2026-10-10T12:00:00Z", memory_item_id: "p1", ...over }) as ContactEventRow;
+    expect([...reachedAbout([row({ person_id: "josh" })], [promise], day)]).toEqual([]);
+    expect([...reachedAbout([row({ occurred_at: "2026-10-08T12:00:00Z" })], [promise], day)]).toEqual([]);
+    expect([...reachedAbout([row({ memory_item_id: "e1" })], [promise], day)]).toEqual([]);
+    expect([...reachedAbout([row({ deleted_at: "2026-10-11T00:00:00Z" } as Partial<ContactEventRow>)], [promise], day)]).toEqual([]);
+    expect([...reachedAbout([row({})], [promise], day)]).toEqual(["p1"]);
+  });
+});
+
+describe("reviewer E, round 2 (13 Oct): days are the phone's own, never UTC (K2, K3)", () => {
+  // A time zone is the process's own (Jest's process.env is a copy): the probe runs in a Jest of its own, in each zone.
+  it.each(["Pacific/Kiritimati", "Pacific/Pago_Pago"])("in %s", (zone) => {
+    const out = execFileSync(process.execPath, [require.resolve("jest/bin/jest"), "--ci", "--no-cache", "--testMatch", "**/timeZones.probe.ts", "src/test-utils/timeZones.probe.ts"], {
+      env: { ...process.env, TZ: zone }, cwd: path.resolve(__dirname, "../../.."), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+    });
+    void out;
+  }, 120_000);
 });

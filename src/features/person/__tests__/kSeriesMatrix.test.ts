@@ -6,7 +6,7 @@
 // answers, the Kept card, the relationship page); only the model's reply is
 // written by hand. Fail open to separate lines or a question, never to a
 // wrong merge, a silent loss or invented certainty.
-import { noteFor, portraitFor, recordFor, todayIso, earlierOf } from "@/hooks/useV2";
+import { acceptLink, noteFor, portraitFor, recordFor, todayIso, earlierOf } from "@/hooks/useV2";
 import { voiced } from "@/features/memory/statements";
 import { linkSuggestions } from "@/features/person/links";
 import { answersFor, buildReview, newcomersIn, type Question, type ReviewView } from "@/features/tell/reviewModel";
@@ -261,8 +261,8 @@ describe("K6 end to end", () => {
     const items = (await w.store.list("memory_items")) as MemoryItem[];
     const [s] = linkSuggestions({ person: josh, people: await w.repos.people.list(), items, related: await w.repos.people.related(), answered: new Set() });
     expect(s.prompt).toMatch(/^Is this the Josh in /u);
-    const target = (await w.store.get("memory_items", s.targetId)) as MemoryItem;
-    await w.store.update("memory_items", s.targetId, { with_person_ids: [...(target.with_person_ids ?? []), josh.id] });
+    // Through the page's own Yes (reviewer E, r2).
+    await acceptLink(w.store, josh.id, s);
     await w.engine.sync();
     expect(live(w).map((m) => [m.person_id, m.with_person_ids])).toEqual([[ben.id, [josh.id]]]);
   });

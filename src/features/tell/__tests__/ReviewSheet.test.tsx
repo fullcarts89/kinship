@@ -104,3 +104,49 @@ it("renders no system vocabulary", () => {
     }
   }
 });
+
+// Reviewer E, round 2 (13 Oct): "Which Sam?" is which of the people the name can mean, or someone already
+// in People; never a new person (the line's own person is the one "Add" is for).
+it("'Which Sam?' → Someone else never offers 'Add'; 'Who is this about?' → Someone else does", () => {
+  const typeName = (tree: TestRenderer.ReactTestRenderer, name: string) => {
+    const field = tree.root.find((n: ReactTestInstance) => n.props.accessibilityLabel === "Search your people" && typeof n.props.onChangeText === "function");
+    act(() => field.props.onChangeText(name));
+  };
+  const climbing: HeldItem = {
+    kind: "fact", person_id: "ben", new_person_name: null, subject_type: "person", related: null,
+    statement: "Ben went climbing with Sam", detail: {}, certainty: "stated", sensitivity: "health", tier: "hold",
+    flags: ["participant_ambiguous"], spans: [{ start: 0, end: 26, quote: "Ben went climbing with Sam" }],
+    open_names: [{ text: "Sam", candidate_ids: ["lee", "diaz"] }],
+  };
+  const slot = render("Ben went climbing with Sam.", row({ tier: "clarify", held: [climbing] }), []);
+  expect(texts(slot.tree)).toContain("Which Sam do you mean?");
+  // Held for a yes (sensitive): "Which Sam?" is never the yes to the memory itself (N16).
+  expect(slot.props.view.questions.map((q) => [q.type, q.prompt, q.skip.label])).toEqual([
+    ["which_person", "Which Sam do you mean?", "Not sure"], ["keep", "Remember this about Ben?", "Don't keep this"],
+  ]);
+  press(slot.tree, "Someone else");
+  typeName(slot.tree, "Josh");
+  expect(texts(slot.tree).some((t) => /^Add /u.test(t))).toBe(false);
+
+  const owner = render("Sam is redoing his kitchen.", row({ tier: "clarify", held: [sam] }), []);
+  press(owner.tree, "Someone else");
+  typeName(owner.tree, "Josh");
+  expect(texts(owner.tree)).toContain("Add Josh");
+});
+
+it("a name asked on its own beside a line already kept says 'Not sure', never 'Don't keep this' (N15)", () => {
+  const twin: HeldItem = { ...sam, statement: "Ben went climbing with Sam", spans: [{ start: 0, end: 26, quote: "Ben went climbing with Sam" }], twin_person_id: "ben", mention: "Sam" };
+  const { props } = render("Ben went climbing with Sam.", row({ tier: "clarify", held: [twin] }), []);
+  expect(props.view.questions.map((q) => [q.prompt, q.skip.label])).toEqual([["Which Sam do you mean?", "Not sure"]]);
+});
+
+it("'Who is this about?' offers everyone the line names, never cut short (founder K4: up to seven)", () => {
+  const six = ["Ana", "Bea", "Cal", "Dev", "Eli", "Fay"].map((n) => ({ id: n.toLowerCase(), display_name: n, state: "active" })) as unknown as Person[];
+  const note = "Ana, Bea, Cal, Dev, Eli and Fay went to the lake";
+  const lake: HeldItem = { ...sam, statement: note, spans: [{ start: 0, end: note.length, quote: note }] };
+  const view = buildReview({
+    row: row({ tier: "clarify", held: [lake] }), capture: { id: "c1", raw_text: note, context_person_id: null, status: "needs_review" },
+    items: [], people: six, related: [], offline: false, today: TODAY,
+  });
+  expect(view.questions.map((q) => [q.prompt, q.choices.map((c) => c.label)])).toEqual([["Who is this about?", ["Ana", "Bea", "Cal", "Dev", "Eli", "Fay", "Someone else"]]]);
+});

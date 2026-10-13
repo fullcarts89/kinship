@@ -9,7 +9,7 @@ import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
 import { buildToday, isLocalReason, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
-import { answerReturn, cancelHandOff, handOff } from "@/store/returnLoop";
+import { answerReturn, cancelHandOff, forgetConversation, handOff } from "@/store/returnLoop";
 import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine, type TrailLine } from "@/features/person/portraitModel";
 import { reachedAbout, trailFor, type ContactEventRow } from "@/features/person/trail";
 import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
@@ -354,11 +354,7 @@ export function useV2Actions() {
      * A conversation recorded by mistake (founder I2): it leaves the trail, and
      * a "Waiting on …" it answered may ask again, on this phone as everywhere.
      */
-    forgetConversation: async (id: string) => {
-      const row = (await store.get("contact_events", id)) as { memory_item_id?: unknown } | null;
-      await repositoriesFor(store).contacts.forget(id);
-      if (typeof row?.memory_item_id === "string") await reasonLocal.reopenWaiting(row.memory_item_id);
-    },
+    forgetConversation: (id: string) => forgetConversation({ local: reasonLocal, contacts: repositoriesFor(store).contacts }, id),
   };
 }
 
@@ -452,14 +448,9 @@ export function useTodayActions() {
       if (!isLocalReason(m.reasonId)) reasons.record(m.reasonId, "dismissed_not_now");
       track("reason_dismissed", { reason_type: reasonTypeName(m.type), mode: "not_now" });
     },
-    handedOff: async (h: {
-      reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType;
-      ask?: string; about?: string | null; followUp?: string; itemId?: string | null;
-    }) => {
-      await handOff(loop, {
-        reasonId: h.reasonId, personId: h.personId, channel: h.channel, type: h.type, itemId: h.itemId ?? null,
-        ask: h.ask || undefined, about: h.about || undefined, followUp: h.followUp,
-      });
+    /** A hand-off made by `handoffFor`, remembered before the other app opens. */
+    handedOff: async (h: Omit<Handoff, "at" | "answered"> & { type: TodayReasonType }) => {
+      await handOff(loop, h);
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
     },
     /** The app didn't open: nothing was handed off after all (the Moment may speak again, also after a sync). */
@@ -537,6 +528,18 @@ export function usePortrait(personId: string): Portrait {
 
 const LINKS_ANSWERED = "person_links_answered";
 
+/** Yes to "Is this the Josh in …?": the same memory is about them too, or the related person is them; never a copy. */
+export async function acceptLink(store: UserStore, personId: string, s: LinkSuggestion): Promise<void> {
+  if (s.kind === "related") {
+    await store.update("related_people", s.targetId, { promoted_person_id: personId });
+    return;
+  }
+  const item = (await store.get("memory_items", s.targetId)) as MemoryItem | null;
+  if (!item) return;
+  const others = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
+  await store.update("memory_items", s.targetId, { with_person_ids: [...new Set([...others, personId])] });
+}
+
 /** "Is this the Michelle in 'Sam is married to Michelle'?" on Michelle's page, once. */
 export function usePersonLinks(personId: string) {
   const { store } = useV2Session();
@@ -558,15 +561,7 @@ export function usePersonLinks(personId: string) {
   return {
     suggestions: q.data ?? [],
     yes: async (s: LinkSuggestion) => {
-      if (s.kind === "related") {
-        await store.update("related_people", s.targetId, { promoted_person_id: personId });
-      } else {
-        const item = (await store.get("memory_items", s.targetId)) as MemoryItem | null;
-        if (item) {
-          const others = Array.isArray(item.with_person_ids) ? item.with_person_ids : [];
-          await store.update("memory_items", s.targetId, { with_person_ids: [...new Set([...others, personId])] });
-        }
-      }
+      await acceptLink(store, personId, s);
       await remember(s.key);
     },
     no: (s: LinkSuggestion) => remember(s.key),

@@ -39,6 +39,26 @@ export interface ReturnLoopDeps {
   now: () => Date;
 }
 
+/** What a Moment's reason gives its hand-off: the Moment detail's own words, "" for followUp kept ("ask nothing after"). */
+export interface HandoffReason {
+  id: string;
+  type: ReasonType;
+  ask?: string;
+  about?: string | null;
+  followUp?: string;
+  itemId?: string | null;
+}
+
+/** The hand-off Kinship remembers for a reason, before the other app opens (Today's actions use exactly this). */
+export function handoffFor(personId: string, channel: Handoff["channel"], r: HandoffReason): Omit<Handoff, "at" | "answered"> {
+  return {
+    reasonId: r.id, personId, channel, type: r.type, itemId: r.itemId ?? null,
+    ask: r.ask || undefined, about: r.about || undefined,
+    // "" is an answer: nothing to ask after a Waiting or a due promise's Yes (founder K3).
+    followUp: r.followUp,
+  };
+}
+
 /** Kinship opened a conversation from a Moment. Unset fields are left out ("" for followUp means "ask nothing after"). */
 export async function handOff(d: ReturnLoopDeps, h: Omit<Handoff, "at" | "answered">): Promise<void> {
   const kept = Object.fromEntries(Object.entries(h).filter(([, v]) => v !== undefined)) as Omit<Handoff, "at" | "answered">;
@@ -79,6 +99,17 @@ export async function answerReturn(d: ReturnLoopDeps, answer: "yes" | "not_yet")
   if (!h) return null;
   if (!isLocalReason(h.reasonId)) d.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
   return h;
+}
+
+/**
+ * A conversation recorded by mistake ("Not this", founder I2): it leaves the
+ * trail, and a "Waiting on …" it answered may ask again, on this phone as
+ * everywhere.
+ */
+export async function forgetConversation(d: Pick<ReturnLoopDeps, "local" | "contacts">, id: string): Promise<void> {
+  const row = (await d.contacts.get(id)) as { memory_item_id?: unknown } | null;
+  await d.contacts.forget(id);
+  if (typeof row?.memory_item_id === "string") await d.local.reopenWaiting(row.memory_item_id);
 }
 
 async function unrecordConversation(d: ReturnLoopDeps, h: Handoff): Promise<void> {

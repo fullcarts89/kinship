@@ -5,8 +5,8 @@
 import React, { useCallback, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { usePeople, useTodayActions } from "@/hooks/useV2";
+import { handoffFor, type HandoffReason } from "@/store/returnLoop";
 import { channelsFor, openChannel, pickContact, routesFor, type ContactRoutes, type HandoffChannel } from "@/platform/handoff";
-import type { ReasonType } from "./todayModel";
 import { HandoffSheet } from "./HandoffSheet";
 
 export interface HandoffRequest {
@@ -15,7 +15,7 @@ export interface HandoffRequest {
   heading: string;
   mention: string[];
   /** Present when the hand-off acts on a reason (it gets a return check, with the reason). */
-  reason?: { id: string; type: ReasonType; ask?: string; about?: string | null; followUp?: string; itemId?: string | null };
+  reason?: HandoffReason;
 }
 
 /**
@@ -42,10 +42,7 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
     // Messages this app may be suspended or closed, and the return question
     // must be waiting when the user comes back, whatever happened meanwhile.
     if (r.reason) {
-      await actions.handedOff({
-        reasonId: r.reason.id, personId: r.personId, channel, type: r.reason.type,
-        ask: r.reason.ask, about: r.reason.about ?? null, followUp: r.reason.followUp, itemId: r.reason.itemId ?? null,
-      });
+      await actions.handedOff({ ...handoffFor(r.personId, channel, r.reason), type: r.reason.type });
     }
     const ok = await openChannel(channel, rt).finally(() => {
       opening.current = false;
