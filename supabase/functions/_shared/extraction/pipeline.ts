@@ -43,6 +43,7 @@ import {
   relationKey,
   sentenceAround,
   wordingCertainty,
+  wordingSensitivities,
   withoutPossessive,
   wordsOf,
 } from "./lexicon.ts";
@@ -353,6 +354,18 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     // user's news with someone in People: kept for them, in the sentence's
     // own words (decided once who it is with is known, below).
     userNews = true;
+  }
+  // "I got the job and want to tell Loo Loo later", read only as the plan to
+  // tell her: the news it tells is the user's own clause just before it, and
+  // is kept with it, in the note's words (founder K5; reviewer E, 13 Oct).
+  // Never anyone else's words: see toldNews.
+  if (raw.kind === "plan" && subject === "user") {
+    const told = toldNews(ctx, text, primary, said);
+    if (told) {
+      spans.splice(0, 1, told);
+      said = ownWords(text, [told]);
+      flags.add("own_words");
+    }
   }
 
   // ── Person ──
@@ -712,6 +725,41 @@ function ownWords(text: string, spans: PlannedSpan[]): string {
     end = Math.max(end, s.end);
   }
   return inYourWords(out.replace(/\s+/gu, " ").trim().replace(/[.。]+$/u, "").trim()).slice(0, 500);
+}
+
+/** "You want to tell Loo Loo later": the plan only tells someone, without saying what. */
+const TELL_ONLY = new RegExp(
+  "^(?:you\\s+)?(?:really\\s+|just\\s+)?(?:can['’]?t wait to|cannot wait to|want to|are going to|will|plan to|need to|have to|hope to|are excited to|are looking forward to)\\s+" +
+    "(?:tell|text|call|show|ring|message|email)\\s+(?:my\\s+\\p{Ll}+|\\p{Lu}[\\p{L}\\p{M}'’-]*(?:\\s+\\p{Lu}[\\p{L}\\p{M}'’-]*)?|him|her|them|everyone|everybody)" +
+    "(?:\\s+(?:later|tonight|tomorrow|soon|first|today|right away|this weekend))?\\s*[.!]?$",
+  "iu",
+);
+
+/**
+ * The user's own news a plan to tell someone tells (founder K5): in the same
+ * sentence, just before it, joined by "and" or a comma ("I got the job and
+ * want to tell Loo Loo later"). Only the user's own short clause: no one
+ * else's name, no number or contact detail, nothing sensitive, no hedge and
+ * no instruction; otherwise null, and the plan stays as it is.
+ */
+function toldNews(ctx: Context, text: string, span: PlannedSpan, said: string): PlannedSpan | null {
+  if (!TELL_ONLY.test(said.trim())) return null;
+  const chars = Array.from(text);
+  let a = span.start;
+  while (a > 0 && !/[.!?\n]/u.test(chars[a - 1])) a--;
+  const before = chars.slice(a, span.start).join("");
+  const m = before.match(/^(\s*)(.*?)\s*(?:,\s*and|,|;|\band)\s*$/u);
+  const news = m?.[2]?.trim();
+  if (!m || !news) return null;
+  const capitals = news.match(/\p{Lu}[\p{L}\p{M}'’-]*/gu) ?? [];
+  const someoneNamed = capitals.some((w, i) =>
+    !/^I(?:['’](?:m|ve|d|ll))?$/u.test(w) && (i > 0 || !news.startsWith(w) || ctx.candidatesFor(w).length > 0 || ctx.archivedFor(w).length > 0));
+  if (
+    !userIsActor(news) || someoneNamed || news.split(/\s+/u).length > 12 || /[\d;:,—–()"“”]/u.test(news) || CONTACT_DETAIL.test(news) ||
+    looksLikeInstruction(news) || wordingSensitivities(news).length > 0 || wordingCertainty(news) !== null
+  ) return null;
+  const start = a + Array.from(m[1]).length;
+  return { start, end: span.end, quote: chars.slice(start, span.end).join("") };
 }
 
 /** Something the user means to do, in their line's own words ("can't wait to tell Loo Loo", "want to call Ben"). */

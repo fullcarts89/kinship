@@ -453,6 +453,13 @@ Deno.test("A3: the model's 'new' is never overridden by a possessive lead ('Ben'
   }
 });
 
+Deno.test("A3b (reviewer E r2): nor by a plain lead: 'Ben met Josh at the gym', read as someone new, is never auto-saved on Ben", () => {
+  for (const note of ["Ben met Josh at the gym.", "Ben and Josh started a band."]) {
+    const out = run(input(note, RA), [item({ person: "new", person_mention: null, statement: note.replace(/\.$/u, ""), evidence: [note.replace(/\.$/u, "")] })]);
+    eq(out.items.some((i) => i.person_id === "ben" && i.tier !== "hold"), false, note);
+  }
+});
+
 Deno.test("A4: a capitalised word at the start that is no one in People is never 'Who is Last?'", () => {
   for (const note of ["Last weekend Anthony and Sam went skating with Chris", "Christmas at Anthony's was lovely", "On Sunday, Anthony and Sam went skating"]) {
     const out = run(input(note, RA), [item({ person: "unknown", person_mention: null, statement: note, evidence: [note] })]);
@@ -460,11 +467,22 @@ Deno.test("A4: a capitalised word at the start that is no one in People is never
   }
 });
 
-Deno.test("A5: a name asked on its own never inherits the kept line's other questions, so its answer always succeeds", () => {
-  const note = "Chris's sister went ice skating with Anthony Test and Sam";
-  const out = run(input(note, RA), [item({ person: "p5", person_mention: "Chris's sister", subject: "related", related_relation: "sister", statement: note, evidence: [note] })]);
-  const twins = out.items.filter((i) => i.twin_person_id);
-  eq(twins.every((t) => JSON.stringify(t.flags) === JSON.stringify(["person_ambiguous"])), true);
+Deno.test("A5: a name asked on its own never inherits the kept line's other flags, so its answer always succeeds", () => {
+  // Reviewer E (r2): the first version used a line about a relative, which asks about no other names, so it checked nothing.
+  const note = "Anthony Test and Sam love ice skating with Chris";
+  const out = run(input(note, RA), [item({ person: "p5", person_mention: "Chris", statement: note, evidence: [note] })]);
+  const kept = out.items.find((i) => i.person_id === "chris")!;
+  eq(kept.flags.includes("shared_people"), true, "the kept line has a flag of its own to inherit");
+  eq(out.items.filter((i) => i.twin_person_id).map((t) => [t.mention, t.flags]), [["Sam", ["person_ambiguous"]]]);
+});
+
+Deno.test("A5b (known limit, unchanged since before K4): a line about a relative, or a promise, links no one else and asks about no other name", () => {
+  const rel = "Chris's sister went ice skating with Anthony Test and Sam";
+  const r = run(input(rel, RA), [item({ person: "p5", person_mention: "Chris's sister", subject: "related", related_relation: "sister", statement: rel, evidence: [rel] })]);
+  eq(r.items.map((i) => [i.person_id, i.with_person_ids ?? [], i.twin_person_id ?? null]), [["chris", [], null]]);
+  const pr = "Ben promised Anthony Test he'd call Sam Eden Friday";
+  const p = run(input(pr, RA), [item({ kind: "promise", person: "p8", person_mention: "Ben", statement: pr, evidence: [pr], date_text: "Friday" })]);
+  eq(p.items.map((i) => [i.person_id, i.with_person_ids ?? []]), [["ben", []]]);
 });
 
 Deno.test("A6: the kept line gone, several names answered: one memory between them, never one each", () => {
@@ -589,3 +607,20 @@ for (const note of ["Chris's sister went ice skating with Anthony Test", "Chris'
     eq(options.some((o) => /sister/u.test(o)), true, JSON.stringify(options));
   });
 }
+
+Deno.test("amb-071 (reviewer E r2): a 'he' that could be Ben or Josh never makes Ben someone else on the line, even when the line names him", () => {
+  const roster = [person("p1", "ben", "Ben"), person("p2", "josh", "Josh"), person("p3", "chris", "Chris")];
+  const note = "Ben and Josh came over. He loves skating with Chris and Ben.";
+  const out = run(input(note, roster), [item({ kind: "fact", person: "p2", person_mention: "He", statement: "Josh loves skating with Chris and Ben", evidence: ["He loves skating with Chris and Ben"] })]);
+  const line = out.items[0];
+  eq([line.tier, line.with_person_ids ?? [], [...(line.candidate_ids ?? [])].sort()], ["hold", ["chris"], ["ben", "josh"]]);
+});
+
+Deno.test("K5 (reviewer E r2, N22): the user's own tradition with someone is theirs together, never dropped", () => {
+  const note = "Every Christmas I bake cookies with Loo Loo";
+  const out = run(input(note, RB2), [item({
+    kind: "tradition", subject: "user", person: "p1", person_mention: "Loo Loo", statement: "Every Christmas you bake cookies with Loo Loo", evidence: [note],
+    detail: { recurrence: "yearly", anchor: "Christmas" },
+  })]);
+  eq(out.items.map((i) => [i.person_id, i.kind, i.subject_type]), [["loo", "tradition", "shared"]]);
+});
