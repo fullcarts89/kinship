@@ -68,7 +68,7 @@ export interface PortraitViewProps {
   between: PortraitLineData[];
   /** The newest conversations the user confirmed, under Between you (founder I2). */
   trail?: TrailLineData[];
-  /** "Add a conversation": a conversation Kinship couldn't know about. */
+  /** "Add a conversation": a conversation Kinship couldn't know about (only for someone active). */
   onInTouch?: () => void;
   total: number;
   onBack: () => void;
@@ -320,7 +320,7 @@ export function PortraitView(props: PortraitViewProps) {
         </View>
       ) : null}
 
-      {props.total > 0 ? (
+      {props.total > 0 || props.trail?.length ? (
         <Pressable
           accessibilityRole="link"
           onPress={props.onKnows}

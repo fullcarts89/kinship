@@ -39,23 +39,59 @@ export interface ReturnLoopDeps {
   now: () => Date;
 }
 
-/** Kinship opened a conversation from a Moment. */
+/** Kinship opened a conversation from a Moment. Unset fields are left out ("" for followUp means "ask nothing after"). */
 export async function handOff(d: ReturnLoopDeps, h: Omit<Handoff, "at" | "answered">): Promise<void> {
-  await d.local.handedOff({ ...h, at: d.now().toISOString() });
+  const kept = Object.fromEntries(Object.entries(h).filter(([, v]) => v !== undefined)) as Omit<Handoff, "at" | "answered">;
+  await d.local.handedOff({ ...kept, at: d.now().toISOString() });
   if (!isLocalReason(h.reasonId)) d.record(h.reasonId, "acted", h.channel);
+}
+
+/**
+ * The one conversation a hand-off can become, by a key of the hand-off: a Yes
+ * written twice (the app closed between writing it and keeping the answer)
+ * is still one row. A UUID-shaped FNV-1a digest; not a secret, only stable.
+ */
+export function conversationId(h: Pick<Handoff, "reasonId" | "personId" | "at">): string {
+  const text = `${h.reasonId}|${h.personId}|${h.at}`;
+  const words = [0x811c9dc5, 0x01000193, 0x9e3779b9, 0x85ebca6b].map((seed) => {
+    let x = seed >>> 0;
+    for (let i = 0; i < text.length; i++) x = Math.imul(x ^ text.charCodeAt(i), 0x01000193) >>> 0;
+    return x.toString(16).padStart(8, "0");
+  }).join("");
+  return `${words.slice(0, 8)}-${words.slice(8, 12)}-5${words.slice(13, 16)}-${((parseInt(words[16], 16) & 0x3) | 0x8).toString(16)}${words.slice(17, 20)}-${words.slice(20, 32)}`;
+}
+
+/**
+ * The other app never opened: nothing was handed off. The Moment may speak
+ * again, on this phone and, after a sync, whatever the server last heard
+ * ("acted" was sent before the app opened).
+ */
+export async function cancelHandOff(d: ReturnLoopDeps, reasonId: string): Promise<void> {
+  await d.local.cancel(reasonId, d.now().toISOString());
+  if (!isLocalReason(reasonId)) d.record(reasonId, "return_not_yet");
 }
 
 /** The return check's answer. Null when nothing was waiting for one (or it was already answered). */
 export async function answerReturn(d: ReturnLoopDeps, answer: "yes" | "not_yet"): Promise<Handoff | null> {
-  const h = await d.local.answered(answer, d.now().toISOString());
+  // The conversation is written before the answer is kept (and only once, by its key).
+  const h = await d.local.answered(answer, d.now().toISOString(), answer === "yes" ? (x) => recordConversation(d, x) : undefined);
   if (!h) return null;
+  if (!isLocalReason(h.reasonId)) d.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
+  return h;
+}
+
+async function recordConversation(d: ReturnLoopDeps, h: Handoff): Promise<void> {
+  const id = conversationId(h);
+  if (await d.contacts.get(id)) return;
   const server = !isLocalReason(h.reasonId);
-  if (server) d.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
-  if (answer === "yes") {
+  {
     const moment = momentTypeOf(h.type);
     await d.contacts.confirm({
+      id,
       person_id: h.personId,
       channel: h.channel,
+      // When the conversation was: Kinship opened it then; the answer can come up to three days later.
+      occurred_at: h.at,
       // A Moment made on this phone has no server reason: its kind says what was answered.
       // (A hand-off remembered by an older build carries neither: the user's own word.)
       source: server || moment ? "return_check" : "manual",
@@ -64,5 +100,4 @@ export async function answerReturn(d: ReturnLoopDeps, answer: "yes" | "not_yet")
       ...(h.itemId ? { memory_item_id: h.itemId } : {}),
     });
   }
-  return h;
 }

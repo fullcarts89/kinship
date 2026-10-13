@@ -405,6 +405,8 @@ interface Need {
   about?: string;
   /** Someone else the line is about, under this name (founder K4). */
   slot?: string;
+  /** The skip, when it isn't "Don't keep this" (a name asked about on a line that is kept either way). */
+  skipLabel?: string;
 }
 
 function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
@@ -424,7 +426,7 @@ function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
         groups.set(need.group, {
           key: `q${groups.size}`, type: need.type, prompt: need.prompt, reason: need.reason, about: [about], items: [index],
           ...(need.slot !== undefined ? { slots: { [index]: need.slot } } : {}),
-          choices: need.choices, skip: { key: "skip", label: need.slot !== undefined ? COPY.notSure : COPY.skip }, detail: need.detail ?? null, replaces,
+          choices: need.choices, skip: { key: "skip", label: need.skipLabel ?? (need.slot !== undefined ? COPY.notSure : COPY.skip) }, detail: need.detail ?? null, replaces,
         });
       }
     }
@@ -514,9 +516,9 @@ export function newcomersIn(statement: string, note: string, people: Person[]): 
 /** "reaching out to", "talked to", "introduced Ben to", "wrote to": someone, never a place. */
 const TO_SOMEONE = "reach(?:es|ed|ing)?\\s+out|talk(?:s|ed|ing)?|spoke|speak(?:s|ing)?|wr(?:ite|ites|ote|iting)|introduc(?:e|es|ed|ing)\\s+\\p{Lu}[\\p{Ll}\\p{M}'’-]+|apologi[sz](?:e|es|ed|ing)";
 /** Verbs whose object is a person: "tell Josh", "texted Maria", "met Dana", "thank Sam". */
-const SOMEONE = "tell|tells|told|telling|text|texts|texted|texting|call|calls|called|calling|ask|asks|asked|asking|thank|thanks|thanked|thanking|congratulat(?:e|es|ed|ing)|invit(?:e|es|ed|ing)|hug|hugs|hugged|hugging|introduc(?:e|es|ed|ing)|meet|meets|met|meeting|visit(?:s|ed|ing)?\\s+with|hang(?:s|ing)?\\s+out\\s+with|hung\\s+out\\s+with|catch(?:es|ing)?\\s+up\\s+with|caught\\s+up\\s+with";
-/** A relation said as a name ("tell Mom"): never someone new to add. */
-const KIN_WORD = /^(?:mom|mum|mother|dad|father|grandma|grandpa|granny|nana|papa|aunt|auntie|uncle|sis|bro)$/u;
+const SOMEONE = "(?:get|gets|got|getting)\\s+in\\s+touch\\s+with|contact|contacted|contacting|email|emailed|emailing|message|messaged|messaging|tell|tells|told|telling|text|texts|texted|texting|call|calls|called|calling|ask|asks|asked|asking|thank|thanks|thanked|thanking|congratulat(?:e|es|ed|ing)|invit(?:e|es|ed|ing)|hug|hugs|hugged|hugging|introduc(?:e|es|ed|ing)|meet|meets|met|meeting|visit(?:s|ed|ing)?\\s+with|hang(?:s|ing)?\\s+out\\s+with|hung\\s+out\\s+with|catch(?:es|ing)?\\s+up\\s+with|caught\\s+up\\s+with";
+/** A relation said as a name ("tell Mom"), a title, or a name that is no one's (a brand, a service): never someone new to add. */
+const KIN_WORD = /^(?:mom|mum|mother|mama|momma|mommy|dad|father|daddy|papa|grandma|grandmother|grandpa|grandfather|granny|nana|aunt|auntie|uncle|cousin|sis|bro|dr|doctor|mr|mrs|ms|miss|santa|god|congress|alexa|siri|google|apple|amazon|microsoft|meta|facebook|instagram|netflix|uber|lyft|stripe|zoom|slack|delta|united|verizon|comcast|halloween)$/u;
 
 /** A name without its possessive: "Chris's", "Chris’s" and "Chris'" are Chris (founder K7); "O'Connor" stays. */
 function withoutPossessive(word: string): string {
@@ -612,6 +614,8 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
         // Sam?" about "Michelle and Sam might be moving…", founder I10),
         // which is one memory, never shown as a second.
         about: (pronoun || item.twin_person_id) && sentence ? sentence : undefined,
+        // That kept line stays either way: skipping only leaves this name out.
+        ...(item.twin_person_id ? { skipLabel: COPY.notSure } : {}),
       });
     }
   }
@@ -695,7 +699,8 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       ],
     });
   }
-  if (needs.length === 0 && item.person_id) {
+  // Held for the user's yes: asked even when a name in it is asked too ("Which Sam?" is never a yes to the memory).
+  if (needs.every((n) => n.slot !== undefined) && item.person_id && !PERSON_FLAGS.some((f) => item.flags.includes(f))) {
     // Held only for the user's yes: sensitive, or a day that reads two ways.
     const person = input.people.find((p) => p.id === item.person_id);
     const when = whenLabel(item.kind, item.detail ?? {}, input.today);

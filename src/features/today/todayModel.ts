@@ -580,6 +580,8 @@ export function buildToday(input: TodayInput): TodayView {
     if (typeof due !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(due) || daysBetween(due, today) < 1 || daysBetween(due, today) > 3) continue;
     const handled = input.local[waitingReasonId(m.id, due)];
     if (handled?.acted || handled?.done || handled?.dismissed || reached(m.id, due)) continue;
+    // A return question about this promise is open (handed off from Coming up, or the Moment): it asks instead.
+    if (view.returnCheck && input.handoff?.itemId === m.id) continue;
     const p = activePerson(m.person_id) as Person;
     const verb = m.statement.match(/\b(?:he|she|they)\s*(?:['’]d|would|['’]ll|will)\s+([a-z]+)/iu)?.[1];
     const source = input.provenance(m.id);

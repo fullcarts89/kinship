@@ -362,6 +362,8 @@ export class ContactRepo {
    * about, when there is a memory (founder I2).
    */
   async confirm(fields: {
+    /** A stable id, when the same conversation could be written twice (returnLoop.ts). */
+    id?: string;
     person_id: string;
     channel: Channel;
     source: "return_check" | "capture" | "manual" | "calendar_confirmed";
@@ -379,6 +381,10 @@ export class ContactRepo {
 
   forPerson(personId: string): Promise<Data[]> {
     return this.store.list("contact_events", { personId });
+  }
+
+  get(id: string): Promise<Data | null> {
+    return this.store.get("contact_events", id);
   }
 
   /** "Not this": a conversation recorded by mistake leaves the trail (founder I2). */

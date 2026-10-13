@@ -205,22 +205,24 @@ describe("K5: 'I got the job, and can't wait to tell Loo Loo' is never 'Nothing 
     return p;
   }
 
-  for (const [shape, reply] of [
-    ["a fact about the user", (k: string) => item({ kind: "fact", subject: "user", person: k, statement: "You got the job", evidence: ["I got the job"], detail: { category: "work" } })],
+  for (const [shape, reply, line, section] of [
+    ["a fact about the user", (k: string) => item({ kind: "fact", subject: "user", person: k, statement: "You got the job", evidence: ["I got the job"], detail: { category: "work" } }),
+      "You got the job", "between"],
     ["the user's milestone", (k: string) => item({ kind: "milestone", subject: "user", person: k, person_mention: "Loo Loo", statement: "You got the job and can't wait to tell Loo Loo",
-      evidence: ["I got the job, and can't wait to tell Loo Loo"], detail: { milestone_type: "new_job" } })],
-    ["filed on no one", () => item({ kind: "fact", subject: "user", person: "unknown", statement: "You got the job", evidence: ["I got the job"], detail: { category: "work" } })],
+      evidence: ["I got the job, and can't wait to tell Loo Loo"], detail: { milestone_type: "new_job" } }), "You got the job and can't wait to tell Loo Loo", "comingUp"],
+    ["filed on no one", () => item({ kind: "fact", subject: "user", person: "unknown", statement: "You got the job", evidence: ["I got the job"], detail: { category: "work" } }),
+      "You got the job", "between"],
   ] as const) {
-    it(`read as ${shape}: kept on Loo Loo's page in the note's own words, under Coming up`, async () => {
+    it(`read as ${shape}: kept on Loo Loo's page in the line's own words, never 'Nothing to remember'`, async () => {
       const w = await world();
       const loo = await looLoo(w);
       const note = "I got the job, and can't wait to tell Loo Loo";
       const t = await tell(w, note, (i) => ({ needs_clarification: null, items: [reply(key(i, loo.id))] }));
       expect(t.review.mode).toBe("card");
-      expect(t.review.lines.map((l) => l.statement)).toEqual(["You got the job, and can't wait to tell Loo Loo"]);
+      expect(t.review.lines.map((l) => [l.statement, l.person?.label])).toEqual([[line, "Loo Loo"]]);
       await done(w, t.id);
       const p = await page(w, loo);
-      expect(p.portrait.comingUp.map((l) => l.statement)).toEqual(["You got the job, and can't wait to tell Loo Loo"]);
+      expect(p.portrait[section].map((l) => l.statement)).toEqual([line]);
       expect(p.portrait.youSaid).toEqual([]);
     });
   }

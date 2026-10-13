@@ -82,3 +82,12 @@ describe("I2: every conversation in What Kinship knows", () => {
     expect(forgotten).toEqual(["c1"]);
   });
 });
+
+describe("reviewer C (13 Oct): conversations are always reachable", () => {
+  it("a page with nothing told but a conversation still links to What Kinship knows, and offers no 'Add a conversation' there", () => {
+    const shown = textsOf(portrait({ lately: [], total: 0, onInTouch: undefined }));
+    expect(shown).toContain("What Kinship knows about Tyler →");
+    expect(shown).not.toContain(IN_TOUCH.action);
+  });
+});
+

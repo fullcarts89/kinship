@@ -40,17 +40,18 @@ export function trailVerb(channel: string, person: Person | null): string {
 
 /**
  * Every confirmed conversation with them, newest first. "About" is the
- * memory it was about, while that memory is still current and theirs; never
- * a sensitive line Kinship hasn't been told to keep.
+ * memory it was about, in the words the page shows (`items` are voiced by the
+ * caller), while that memory is current and about them.
  */
 export function trailFor(contacts: ContactEventRow[], items: MemoryItem[], person: Person, now: Date): TrailLine[] {
   const byId = new Map(items.map((m) => [m.id, m]));
+  const theirs = (m: MemoryItem) => m.person_id === person.id || (Array.isArray(m.with_person_ids) && m.with_person_ids.includes(person.id));
   return contacts
     .filter((c) => c.person_id === person.id && !c.deleted_at && typeof c.occurred_at === "string")
     .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at) || b.id.localeCompare(a.id))
     .map((c) => {
       const m = c.memory_item_id ? byId.get(c.memory_item_id) : undefined;
-      const current = !!m && !m.deleted_at && (m.status === "active" || m.status === "resolved");
+      const current = !!m && !m.deleted_at && (m.status === "active" || m.status === "resolved") && theirs(m);
       return { id: c.id, label: `${trailVerb(c.channel, person)} · ${momentLabel(c.occurred_at, now, false)}`, about: current ? m!.statement : null };
     });
 }
@@ -61,7 +62,7 @@ export function reachedAbout(contacts: ContactEventRow[], items: MemoryItem[], l
   for (const m of items) {
     const due = (m.detail as Record<string, unknown> | null)?.due_date;
     if (m.kind !== "promise" || typeof due !== "string") continue;
-    if (contacts.some((c) => !c.deleted_at && c.memory_item_id === m.id && localDay(c.occurred_at) >= due)) out.add(m.id);
+    if (contacts.some((c) => !c.deleted_at && c.memory_item_id === m.id && c.person_id === m.person_id && localDay(c.occurred_at) >= due)) out.add(m.id);
   }
   return out;
 }

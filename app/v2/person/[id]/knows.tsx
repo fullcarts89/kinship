@@ -45,7 +45,11 @@ export default function KnowsScreen() {
       onSettle={(conflictId, choice) => fail(settleConflict(conflictId, choice))}
       focusItemId={typeof focusItem === "string" ? focusItem : null}
       trail={trail}
-      onForgetConversation={(cid) => fail(forgetConversation(cid))}
+      // Asked first, as for any line (founder I2): a conversation recorded by mistake.
+      onForgetConversation={(cid) => Alert.alert(FORGET_COPY.title, trail.find((t) => t.id === cid)?.label ?? "", [
+        { text: FORGET_COPY.cancel, style: "cancel" },
+        { text: FORGET_COPY.forget, style: "destructive", onPress: () => fail(forgetConversation(cid)) },
+      ])}
     >
       <Sheet visible={!!pane} onDismiss={close} label="Change">
         {pane?.kind === "name" && person ? (

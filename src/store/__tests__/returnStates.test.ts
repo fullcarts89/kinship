@@ -10,7 +10,8 @@ import { trailFor, type ContactEventRow } from "@/features/person/trail";
 import { ReasonLocal } from "@/store/reasonLocal";
 import type { ReasonEvent } from "@/store/reasons";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
-import { answerReturn, handOff, type ReturnLoopDeps } from "@/store/returnLoop";
+import { answerReturn, cancelHandOff, conversationId, handOff, type ReturnLoopDeps } from "@/store/returnLoop";
+import { detailFor, quietKey } from "@/features/today/momentDetail";
 import { prepareSchema } from "@/store/schema";
 import { SyncEngine } from "@/store/syncEngine";
 import { UserStore } from "@/store/userStore";
@@ -265,5 +266,94 @@ describe("K2: someone else's promise, due Fri Oct 9, by calendar day where the u
     for (const d of [10, 11, 12]) expect(at(d)).toEqual(["waiting:Waiting on Tyler:Did Tyler send it?"]);
     expect(at(13)).toEqual([]);
     expect(JSON.stringify([8, 9, 10, 11, 12, 13].map(at))).not.toMatch(/overdue|late|days? ago|still haven/i);
+  });
+});
+
+describe("reviewers C, D, E (13 Oct): the return loop's edges", () => {
+  it("C1: never 'Waiting on …' on the page of someone remembered or paused", () => {
+    for (const state of ["remembered", "paused"]) {
+      const p = buildPortrait({ person: { ...tyler, state } as Person, items: [{ item: promise, provenance: "x", noteId: null, when: "By Fri, Oct 9" }], today: "2026-10-12" });
+      expect([state, p.lately.map((l) => l.when)]).toEqual([state, [null]]);
+    }
+  });
+
+  it("C3: a Yes is dated when Kinship opened the conversation, not when it was answered", async () => {
+    const p = await phone(new FakeServer());
+    await handOff(p.deps, fromWaiting);
+    const later = { ...p.deps, now: () => new Date(NOW.getTime() + 2 * 86_400_000) };
+    await answerReturn(later, "yes");
+    expect((await contactsOn(p)).map((c) => c.occurred_at)).toEqual([NOW.toISOString()]);
+  });
+
+  it("C3: handed off from Coming up before the day, the return question asks; 'Waiting on' never asks the same at once", async () => {
+    const p = await phone(new FakeServer());
+    await handOff({ ...p.deps, now: () => new Date(2026, 9, 8, 9) }, { reasonId: "coming:p1:2026-10-09", personId: "tyler", channel: "text", type: "coming", itemId: "p1", followUp: "" });
+    const v = await today(p, { now: new Date(2026, 9, 10, 9), today: "2026-10-10" });
+    expect(v.returnCheck).not.toBeNull();
+    expect(waitingLine(v)).toBeNull();
+  });
+
+  it("C4: 'Not this' on the conversation brings Waiting back, on this phone as on any other", async () => {
+    const p = await phone(new FakeServer());
+    await handOff(p.deps, fromWaiting);
+    await answerReturn(p.deps, "yes");
+    expect(waitingLine(await today(p))).toBeNull();
+    const [c] = await contactsOn(p) as unknown as { id: string }[];
+    await p.repos.contacts.forget(c.id);
+    await p.local.reopenWaiting("p1");
+    expect(waitingLine(await today(p))).toMatchObject({ label: "Waiting on Tyler" });
+  });
+
+  it("C5: every write to the device's record is one at a time: a 'shown' racing an answer never undoes it", async () => {
+    for (const answer of ["yes", "not_yet"] as const) {
+      const p = await phone(new FakeServer());
+      await handOff(p.deps, { reasonId: "r1", personId: "josh", channel: "text", type: "upcoming_event", itemId: "e1" });
+      await Promise.all([p.local.shown("r1", "josh", "2026-10-12"), answerReturn(p.deps, answer), p.local.shown("r2", "josh", "2026-10-12")]);
+      const r1 = (await p.local.read()).local.r1;
+      expect([answer, r1.firstShown, answer === "yes" ? r1.done : r1.notYet]).toEqual([answer, "2026-10-12", NOW.toISOString()]);
+      if (answer === "not_yet") expect(r1.acted).toBeUndefined();
+    }
+  });
+
+  it("C6: the other app never opened: the Moment speaks again, also after a sync brings back 'acted'", async () => {
+    const p = await phone(new FakeServer());
+    await handOff(p.deps, { reasonId: "r1", personId: "josh", channel: "text", type: "upcoming_event", itemId: "e1" });
+    await cancelHandOff(p.deps, "r1");
+    expect(p.events.map((e) => e.event)).toEqual(["acted", "return_not_yet"]);
+    expect((await today(p, { reasons: [reasonRow("acted")] })).moment?.reasonId).toBe("r1");
+  });
+
+  it("E2: 'Waiting on Tyler' through its real detail: the hand-off carries the promise and asks nothing after", async () => {
+    const p = await phone(new FakeServer());
+    const v = await today(p);
+    const d = detailFor(v, quietKey(waitingLine(v)!)!, "2026-10-12", () => "Tyler")!;
+    await handOff(p.deps, { reasonId: d.reason.id, personId: d.personId, channel: "text", type: d.reason.type, itemId: d.reason.itemId, ask: d.reason.ask, about: d.reason.about, followUp: d.reason.followUp });
+    expect((await today(p)).returnCheck).toMatchObject({ reasonId: WAITING, followUp: "" });
+    await answerReturn(p.deps, "yes");
+    expect((await contactsOn(p)).map((c) => [c.memory_item_id, (c as unknown as Record<string, unknown>).moment_type])).toEqual([["p1", "waiting"]]);
+  });
+
+  it("E9: the app closed after the conversation was written but before the answer was kept: asked again, still one conversation", async () => {
+    const p = await phone(new FakeServer());
+    await handOff(p.deps, fromWaiting);
+    const h = (await p.local.read()).handoff!;
+    await p.repos.contacts.confirm({ id: conversationId(h), person_id: "tyler", channel: "text", source: "return_check", moment_type: "waiting", memory_item_id: "p1", occurred_at: h.at });
+    expect((await today(p)).returnCheck).not.toBeNull();
+    expect(await answerReturn(p.deps, "yes")).not.toBeNull();
+    expect(await contactsOn(p)).toHaveLength(1);
+  });
+
+  it("E11/E12: a promise with only words for its day never waits; the return question is there at 71 hours", async () => {
+    const p = await phone(new FakeServer());
+    const vague = { ...promise, detail: { due_hint: "in October" } } as MemoryItem;
+    expect(waitingLine(await today(p, { items: [vague] }))).toBeNull();
+    await handOff(p.deps, fromWaiting);
+    expect((await today(p, { now: new Date(NOW.getTime() + 71 * 3600_000) })).returnCheck).not.toBeNull();
+  });
+
+  it("D: the trail says what a conversation was about only when that memory is about this person", () => {
+    const row = { id: "c1", person_id: "tyler", channel: "text", occurred_at: NOW.toISOString(), memory_item_id: "e1" };
+    expect(trailFor([row], [interview], tyler, NOW).map((t) => t.about)).toEqual([null]);
+    expect(trailFor([{ ...row, memory_item_id: "p1" }], [promise], tyler, NOW).map((t) => t.about)).toEqual([promise.statement]);
   });
 });

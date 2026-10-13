@@ -9,7 +9,7 @@
 import { noteFor, portraitFor, recordFor, todayIso, earlierOf } from "@/hooks/useV2";
 import { voiced } from "@/features/memory/statements";
 import { linkSuggestions } from "@/features/person/links";
-import { answersFor, buildReview, type Question, type ReviewView } from "@/features/tell/reviewModel";
+import { answersFor, buildReview, newcomersIn, type Question, type ReviewView } from "@/features/tell/reviewModel";
 import { Gateway, type HeldAnswer } from "@/store/gateway";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
@@ -113,7 +113,6 @@ async function page(w: World, p: Person) {
 }
 
 const serverItems = (w: World) => [...w.server.table("memory_items").values()] as unknown as MemoryItem[];
-const asked = (r: ReviewView) => r.questions.map((q) => [q.prompt, q.choices.map((c) => c.label), q.skip.label]);
 const live = (w: World) => serverItems(w).filter((m) => m.status === "active" && !m.deleted_at);
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { cardFor } = require("@/features/tell/TellFlow") as typeof import("@/features/tell/TellFlow");
@@ -294,10 +293,9 @@ describe("adversarial: nothing plausible disappears, no wrong person is chosen, 
       item({ kind: "promise", subject: "person", person: key(i, chris.id), person_mention: "Chris' brother Sam", statement: "Sam promised Anthony he'd send Josh the contractor number",
         evidence: ["Chris' brother Sam promised Anthony he'd send Josh the contractor number Friday"], date_text: "Friday" }),
     ] }));
-    expect(t.review.mode).not.toBe("nothing");
-    // Nothing saved on a guess: whatever is asked, no Sam or Anthony is chosen for the user.
-    expect(live(w).filter((m) => m.person_id !== chris.id)).toEqual([]);
-    expect(t.review.questions.length + t.review.lines.length).toBeGreaterThan(0);
+    // Asked narrowly ("Which Sam?", with both Sams), nothing saved on a guess, nothing dropped.
+    expect(t.review.questions.map((q) => [q.prompt, q.choices.map((c) => c.label)])).toEqual([["Which Sam do you mean?", ["Sam Eden", "Sam Doughty", "Someone else"]]]);
+    expect(live(w)).toEqual([]);
   });
 
   it("B: \"Loo Loo and Sam Eden want to call Chris' vet Friday.\" (an earlier name, a full name, a possessive)", async () => {
@@ -325,7 +323,7 @@ describe("adversarial: nothing plausible disappears, no wrong person is chosen, 
         evidence: ["Anthony and Sam promised Chris they'd call Josh Friday"], date_text: "Friday" }),
     ] }));
     expect(t.review.mode).toBe("sheet");
-    expect(t.review.questions[0].prompt).toBe("Which Anthony do you mean?");
+    expect(t.review.questions.map((q) => [q.prompt, q.choices.map((c) => c.label)])).toEqual([["Which Anthony do you mean?", ["Anthony", "Anthony Test", "Someone else"]]]);
     expect(live(w)).toEqual([]);
   });
 
@@ -338,5 +336,40 @@ describe("adversarial: nothing plausible disappears, no wrong person is chosen, 
     await a.w.engine.sync();
     expect(live(a.w)).toEqual([]);
     expect([...a.w.server.table("contact_events").values()]).toEqual([]);
+  });
+});
+
+describe("reviewer E (13 Oct): the paths the first tests didn't reach", () => {
+  it("E5: 'Which Sam?' → Someone else → Antonio, through the review's own answers: only the Sam changes", async () => {
+    const a = await k4World();
+    const [antonio] = await typed(a.w, "Antonio");
+    const [qa, qs] = a.t.review.questions;
+    const answers = answersFor(a.t.review.questions, { [qa.key]: { person_id: a.anthony.id }, [qs.key]: { person_id: antonio.id } });
+    await a.w.understanding.answer(a.t.id, answers!);
+    await a.w.understanding.run();
+    await done(a.w, a.t.id);
+    expect(live(a.w).map((m) => [m.person_id, [...(m.with_person_ids ?? [])].sort(), m.statement]))
+      .toEqual([[a.anthony.id, [a.chris.id, antonio.id].sort(), "Anthony and Antonio love ice skating with Chris"]]);
+  });
+
+  it("E6: the page and What Kinship knows read the conversations kept in the store, in the words the page shows", async () => {
+    const w = await world();
+    const [tyler] = await typed(w, "Tyler");
+    await w.repos.contacts.confirm({ person_id: tyler.id, channel: "call", source: "manual", occurred_at: new Date(w.server.clock).toISOString() });
+    await w.engine.sync();
+    const p = await page(w, tyler);
+    expect(p.portrait.trail.map((t) => t.label)).toEqual([expect.stringMatching(/^You called · /u)]);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { trailOf } = require("@/hooks/useV2") as typeof import("@/hooks/useV2");
+    expect((await trailOf(w.repos, tyler.id, new Date(w.server.clock))).map((t) => t.label)).toEqual(p.portrait.trail.map((t) => t.label));
+  });
+
+  it("K6 (reviewer A): never a brand, a title or a relation word; and contact / email / message / got in touch with someone", () => {
+    for (const s of ["Ben is reaching out to Stripe about a job", "Ben called Verizon about the bill", "Ben is seeing Dr. Patel", "Ben told Santa", "Ben texted Mama", "Ben emailed Google"]) {
+      expect([s, newcomersIn(s, s, [])]).toEqual([s, []]);
+    }
+    for (const s of ["Ben wants to contact Josh", "Ben emailed Josh", "Ben messaged Josh", "Ben got in touch with Josh"]) {
+      expect([s, newcomersIn(s, s, [])]).toEqual([s, ["Josh"]]);
+    }
   });
 });

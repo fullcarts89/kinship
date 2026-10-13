@@ -9,7 +9,7 @@ import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
 import { buildToday, isLocalReason, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
-import { answerReturn, handOff } from "@/store/returnLoop";
+import { answerReturn, cancelHandOff, handOff } from "@/store/returnLoop";
 import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine, type TrailLine } from "@/features/person/portraitModel";
 import { reachedAbout, trailFor, type ContactEventRow } from "@/features/person/trail";
 import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
@@ -331,7 +331,7 @@ export function runsOf(text: string, spans: { start: number; end: number }[]): {
 // ─── Actions beyond Understanding ───────────────────────────────────────
 
 export function useV2Actions() {
-  const { store } = useV2Session();
+  const { store, reasonLocal } = useV2Session();
   return {
     addPerson: async (name: string) => {
       return repositoriesFor(store).people.add({ display_name: name.normalize("NFC").trim() });
@@ -350,8 +350,15 @@ export function useV2Actions() {
     /** A conversation Kinship couldn't know about, in the user's own word (founder I2). Nothing else is asked. */
     inTouch: (personId: string, channel: "text" | "call" | "video" | "in_person") =>
       repositoriesFor(store).contacts.confirm({ person_id: personId, channel, source: "manual" }),
-    /** A conversation recorded by mistake (founder I2). */
-    forgetConversation: (id: string) => repositoriesFor(store).contacts.forget(id),
+    /**
+     * A conversation recorded by mistake (founder I2): it leaves the trail, and
+     * a "Waiting on …" it answered may ask again, on this phone as everywhere.
+     */
+    forgetConversation: async (id: string) => {
+      const row = (await store.get("contact_events", id)) as { memory_item_id?: unknown } | null;
+      await repositoriesFor(store).contacts.forget(id);
+      if (typeof row?.memory_item_id === "string") await reasonLocal.reopenWaiting(row.memory_item_id);
+    },
   };
 }
 
@@ -451,12 +458,12 @@ export function useTodayActions() {
     }) => {
       await handOff(loop, {
         reasonId: h.reasonId, personId: h.personId, channel: h.channel, type: h.type, itemId: h.itemId ?? null,
-        ...(h.ask ? { ask: h.ask } : {}), ...(h.about ? { about: h.about } : {}), ...(h.followUp !== undefined ? { followUp: h.followUp } : {}),
+        ask: h.ask || undefined, about: h.about || undefined, followUp: h.followUp,
       });
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
     },
-    /** The app didn't open: nothing was handed off after all. */
-    handoffFailed: (reasonId: string) => reasonLocal.cancel(reasonId),
+    /** The app didn't open: nothing was handed off after all (the Moment may speak again, also after a sync). */
+    handoffFailed: (reasonId: string) => cancelHandOff(loop, reasonId),
     /** "Yes": the one place a conversation is recorded (plan §15, founder I2); answered once. */
     returned: async (answer: "yes" | "not_yet") => {
       const h = await answerReturn(loop, answer);
@@ -621,7 +628,7 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
   // The conversations the user confirmed (founder I2), under Between you;
   // "You reached out · <date>" under the name is gone with it (CC-20).
   const contacts = (await repos.contacts.forPerson(person.id)) as unknown as ContactEventRow[];
-  const trail = trailFor(contacts, all, person, now);
+  const trail = trailFor(contacts, all.map((m) => voiced(m, people)), person, now);
   const reached = reachedAbout(contacts, all, (iso) => todayIso(new Date(iso)));
   return buildPortrait({ person, items, today, birthday, birthdayDay, trail, reached });
 }
@@ -631,7 +638,8 @@ export async function trailOf(repos: Repositories, personId: string, now: Date):
   const person = (await repos.people.list()).find((p) => p.id === personId && !p.deleted_at);
   if (!person) return [];
   const contacts = (await repos.contacts.forPerson(personId)) as unknown as ContactEventRow[];
-  return trailFor(contacts, await repos.memory.aboutPerson(personId), person, now);
+  const people = await repos.people.list();
+  return trailFor(contacts, (await repos.memory.aboutPerson(personId)).map((m) => voiced(m, people)), person, now);
 }
 
 export function useTrail(personId: string): TrailLine[] {

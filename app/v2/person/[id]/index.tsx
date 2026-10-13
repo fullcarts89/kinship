@@ -53,7 +53,7 @@ export default function PersonScreen() {
       youSaid={portrait.youSaid}
       between={portrait.between}
       trail={portrait.trail}
-      onInTouch={() => setInTouch(true)}
+      onInTouch={portrait.person?.state === "active" ? () => setInTouch(true) : undefined}
       total={portrait.total}
       onBack={() => router.back()}
       onLine={setItemId}

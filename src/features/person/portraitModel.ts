@@ -165,7 +165,8 @@ export function buildPortrait(input: {
           const day = typeof precision === "string" && precision !== "day" ? null : dayOf(it);
           if (day && daysFrom(today, day) >= 0) coming.push({ x, at: day });
           else if (day && daysFrom(today, day) >= -R.recentEventDays) {
-            const waiting = input.reached?.has(it.id) ? null : `Waiting on ${shortName(person) || person.display_name}`;
+            // Never for someone remembered or paused (as Today never speaks of them).
+            const waiting = input.reached?.has(it.id) || person.state !== "active" ? null : `Waiting on ${shortName(person) || person.display_name}`;
             lately.push({ x: { ...x, when: waiting }, at: day });
           } else if (!day && daysFrom(today, told) >= -R.latelyDays) lately.push({ x, at: told });
         } else said.push({ x, at: told });
