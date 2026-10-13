@@ -2,7 +2,7 @@
 // when the app comes back, shows the one moment (or a quiet day), hands off
 // to the real conversation, and asks once, on return, whether they connected.
 import React, { useCallback, useEffect, useState } from "react";
-import { AppState } from "react-native";
+import { Alert, AppState } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TodayView } from "@/features/today/TodayView";
@@ -110,7 +110,7 @@ export default function TodayScreen() {
             // "Anything worth remembering?" only after a conversation worth it, never after a
             // promise's logistics; it is optional, and "nothing" undoes nothing (founder I2).
             if (answer === "yes" && h && rc && rc.followUp) setAfterReturn({ personId: rc.personId, personName: rc.personName, followUp: rc.followUp });
-          });
+          }, () => Alert.alert("That couldn't be saved", "Nothing was lost. Try again in a moment."));
         }}
         onRemember={() => {
           if (afterReturn) flow.focusTell(afterReturn.personId);

@@ -73,16 +73,23 @@ export async function cancelHandOff(d: ReturnLoopDeps, reasonId: string): Promis
 
 /** The return check's answer. Null when nothing was waiting for one (or it was already answered). */
 export async function answerReturn(d: ReturnLoopDeps, answer: "yes" | "not_yet"): Promise<Handoff | null> {
-  // The conversation is written before the answer is kept (and only once, by its key).
-  const h = await d.local.answered(answer, d.now().toISOString(), answer === "yes" ? (x) => recordConversation(d, x) : undefined);
+  // The conversation is written before the answer is kept (and only once, by its key). A "Not yet"
+  // after a Yes that was written but not kept (the app closed in between) takes it back.
+  const h = await d.local.answered(answer, d.now().toISOString(), (x) => answer === "yes" ? recordConversation(d, x) : unrecordConversation(d, x));
   if (!h) return null;
   if (!isLocalReason(h.reasonId)) d.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
   return h;
 }
 
+async function unrecordConversation(d: ReturnLoopDeps, h: Handoff): Promise<void> {
+  const id = conversationId(h);
+  if (await d.contacts.get(id)) await d.contacts.forget(id);
+}
+
 async function recordConversation(d: ReturnLoopDeps, h: Handoff): Promise<void> {
   const id = conversationId(h);
-  if (await d.contacts.get(id)) return;
+  // Already written (or written and then "Not this"): never a second row, never a throw.
+  if (await d.contacts.get(id, { includeDeleted: true })) return;
   const server = !isLocalReason(h.reasonId);
   {
     const moment = momentTypeOf(h.type);

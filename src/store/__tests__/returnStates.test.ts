@@ -357,3 +357,32 @@ describe("reviewers C, D, E (13 Oct): the return loop's edges", () => {
     expect(trailFor([{ ...row, memory_item_id: "p1" }], [promise], tyler, NOW).map((t) => t.about)).toEqual([promise.statement]);
   });
 });
+
+describe("reviewer C, round 2 (13 Oct)", () => {
+  it("N1: a Yes written just before the app closed, then 'Not yet': no conversation is left, and Waiting asks again", async () => {
+    const p = await phone(new FakeServer());
+    await handOff(p.deps, fromWaiting);
+    const h = (await p.local.read()).handoff!;
+    await p.repos.contacts.confirm({ id: conversationId(h), person_id: "tyler", channel: "text", source: "return_check", moment_type: "waiting", memory_item_id: "p1", occurred_at: h.at });
+    await answerReturn(p.deps, "not_yet");
+    expect(await contactsOn(p).then((cs) => cs.filter((c) => !c.deleted_at))).toEqual([]);
+    expect(waitingLine(await today(p))).toMatchObject({ label: "Waiting on Tyler" });
+  });
+
+  it("N2: the same, then 'Not this' on it, then Yes: the answer is kept, nothing throws, no second row", async () => {
+    const p = await phone(new FakeServer());
+    await handOff(p.deps, fromWaiting);
+    const h = (await p.local.read()).handoff!;
+    await p.repos.contacts.confirm({ id: conversationId(h), person_id: "tyler", channel: "text", source: "return_check", moment_type: "waiting", memory_item_id: "p1", occurred_at: h.at });
+    await p.repos.contacts.forget(conversationId(h));
+    await expect(answerReturn(p.deps, "yes")).resolves.not.toBeNull();
+    expect((await today(p)).returnCheck).toBeNull();
+  });
+
+  it("N3: a conversation with Tyler never stops 'Waiting on Sam' after the promise is moved to Sam", async () => {
+    const p = await phone(new FakeServer());
+    const moved = { ...promise, person_id: "josh" } as MemoryItem;
+    const contacts: ContactRow[] = [{ person_id: "tyler", memory_item_id: "p1", occurred_at: NOW.toISOString() }];
+    expect(waitingLine(await today(p, { items: [moved], contacts }))).toMatchObject({ label: "Waiting on Josh" });
+  });
+});

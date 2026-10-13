@@ -383,8 +383,8 @@ export class ContactRepo {
     return this.store.list("contact_events", { personId });
   }
 
-  get(id: string): Promise<Data | null> {
-    return this.store.get("contact_events", id);
+  get(id: string, opts: { includeDeleted?: boolean } = {}): Promise<Data | null> {
+    return this.store.get("contact_events", id, opts);
   }
 
   /** "Not this": a conversation recorded by mistake leaves the trail (founder I2). */
