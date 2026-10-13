@@ -9,9 +9,17 @@ export function fold(text: string): string {
   return text.normalize("NFC").toLowerCase().replace(/[’‘`]/g, "'");
 }
 
-/** Accent-insensitive comparison key for names ("José" ≈ "jose"). */
+/**
+ * A name without a possessive ending: "Chris's", "Chris’s" and "Chris'" are
+ * Chris (founder K7). Only an ending: "O'Connor" keeps its apostrophe.
+ */
+export function withoutPossessive(word: string): string {
+  return word.replace(/['’]s$/u, "").replace(/(?<=s)['’]$/iu, "");
+}
+
+/** Accent-insensitive comparison key for names ("José" ≈ "jose"; "Chris'" ≈ "chris"). */
 export function nameKey(text: string): string {
-  return fold(text).normalize("NFD").replace(/\p{M}+/gu, "").replace(/'s$/, "").trim();
+  return withoutPossessive(fold(text).normalize("NFD").replace(/\p{M}+/gu, "").trim()).trim();
 }
 
 /**
@@ -196,7 +204,7 @@ export function inventedRelations(generated: string, source: string, known: stri
 }
 
 export function wordsOf(text: string): string[] {
-  return fold(text).split(/[^\p{L}\p{N}'-]+/u).filter(Boolean).map((w) => w.replace(/'s$/, ""));
+  return fold(text).split(/[^\p{L}\p{N}'-]+/u).filter(Boolean).map(withoutPossessive).filter(Boolean);
 }
 
 // ─── Pronouns and kinship references ────────────────────────────────────────
@@ -317,7 +325,7 @@ export function selfRelationPhrase(text: string): { relation: string; name: stri
     "iu",
   ));
   if (!m || NOT_PEOPLE.has(fold(m[2]))) return null;
-  return { relation: singularRelation(m[1]), name: m[2].replace(/['’]s$/u, "") };
+  return { relation: singularRelation(m[1]), name: withoutPossessive(m[2]) };
 }
 
 /**
@@ -331,9 +339,9 @@ export function statedSelfRelations(note: string): { name: string; relation: str
   const text = note.normalize("NFC");
   const out: { name: string; relation: string }[] = [];
   const add = (name: string, rel: string) => {
-    if (NOT_PEOPLE.has(fold(name).replace(/['’]s$/u, ""))) return;
+    if (NOT_PEOPLE.has(withoutPossessive(fold(name)))) return;
     const relation = singularRelation(rel);
-    if (!out.some((o) => fold(o.name) === fold(name))) out.push({ name: name.replace(/['’]s$/u, ""), relation });
+    if (!out.some((o) => fold(o.name) === fold(name))) out.push({ name: withoutPossessive(name), relation });
   };
   // "Ben is my brother", "Ben and John are my brothers", "Ben, John and Susan are my siblings".
   const listIs = new RegExp(`((?:${NAME_RE})(?:\\s*,\\s*${NAME_RE})*(?:\\s*,?\\s+and\\s+${NAME_RE})?)\\s+(?:is|are|was|were)\\s+(?:both\\s+|all\\s+)?(?:my|our)\\s+(?:(?:older|younger|little|big|baby|twin|oldest|youngest|eldest)\\s+)?(${REL_ALT})s?\\b`, "gu");

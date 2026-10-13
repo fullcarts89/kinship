@@ -18,7 +18,7 @@
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
 import { inYourWords, leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
-import { findMention, MAX_MENTIONS, type MentionSubject, recordMentions, shortName } from "./names.ts";
+import { findMention, leadingNames, MAX_MENTIONS, type MentionSubject, recordMentions, shortName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
@@ -43,6 +43,7 @@ import {
   relationKey,
   sentenceAround,
   wordingCertainty,
+  withoutPossessive,
   wordsOf,
 } from "./lexicon.ts";
 import { codePointLength, locateEvidence, type Span } from "../spans.ts";
@@ -56,6 +57,7 @@ import type {
   Flag,
   Kind,
   ModelProposal,
+  OpenName,
   PlannedItem,
   PlannedSpan,
   ProposedItem,
@@ -117,6 +119,8 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     }
   }
 
+  collapseMirrors(ctx, items, dropped);
+  settleOpenNames(items);
   markHeldMirrors(ctx, items);
   const clarification = chooseClarification(ctx, items);
   recordItemMentions(ctx, items);
@@ -305,6 +309,8 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
 
   // ── Kind / subject consistency ──
   let subject = raw.subject;
+  // The user's own news read as a fact or a milestone about the user (founder K5).
+  let userNews = false;
   const clause = clauseAroundSpan(text, primary);
   const mine = userIsActor(clause) || userIsActor(primary.quote);
   const theirs = !mine && (theyPromisedMe(clause) || theyPromisedMe(primary.quote) || theyPromisedMe(sentence));
@@ -340,7 +346,12 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
       }
     }
   } else if (subject === "user" && raw.kind !== "plan" && raw.kind !== "moment" && raw.kind !== "event") {
-    return { drop: "bad_kind_subject" };
+    // "I got the job, and can't wait to tell Loo Loo", read as a fact or a
+    // milestone about the user, used to be dropped here, so a note with
+    // clear meaning came back "Nothing to remember" (founder K5). It is the
+    // user's news with someone in People: kept for them, in the sentence's
+    // own words (decided once who it is with is known, below).
+    userNews = true;
   }
 
   // ── Person ──
@@ -364,6 +375,27 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     ? knownRelated.who
     : resolvePerson(ctx, raw, flags);
   if ("drop" in who) return who;
+  if (userNews) {
+    // Filed on no one: the one person in People its sentence names is who it
+    // is kept for. With no one at all there is no page for it (Kinship keeps
+    // what matters about the people you care about); with several, asked.
+    if (!who.person_key && !who.archived_ids?.length) {
+      const named = namedInSentence(ctx, sentence);
+      const page = ctx.input.capture.context_person_key ? ctx.byKey.get(ctx.input.capture.context_person_key) : undefined;
+      const only = named.length === 1 ? named[0] : named.length === 0 ? page : undefined;
+      if (only) {
+        flags.delete("person_ambiguous");
+        who = { person_id: only.id, person_key: only.key, new_person_name: null };
+      } else if (named.length === 0) return { drop: "bad_kind_subject" };
+    }
+    const whole = sentenceSpan(text, primary);
+    spans.splice(0, spans.length, whole);
+    said = ownWords(text, [whole]);
+    // "can't wait to tell Loo Loo" is what the user means to do; "I finished
+    // the quilt for Ben" is something of theirs with Ben.
+    raw = { ...raw, kind: INTENDS.test(fold(whole.quote)) ? "plan" : "moment", detail: { ...raw.detail } };
+    flags.add("own_words");
+  }
   // A statement that plainly leads with someone else ("John is your
   // brother") is never left on the page the model chose (Ben's).
   if (subject === "person" && who.person_key && !knownRelated) who = refileBySubject(ctx, said, who, flags);
@@ -500,10 +532,17 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // two copies. Only people the statement itself names, and only when who it
   // is about is settled.
   const unsure = flags.has("pronoun_multiple") || flags.has("person_ambiguous") || flags.has("person_disagreement");
-  const withPeople = who.person_id && !unsure && subject !== "related" && raw.kind !== "promise"
-    ? alsoAbout(ctx, said, spans, who.person_key)
-    : [];
+  // Founder K4: everyone else it names stays part of it while who it is
+  // about is still asked ("Anthony and Sam love ice skating with Chris":
+  // Chris is never lost to "Which Anthony?"), and a name two people share is
+  // asked about on its own, never dropped.
+  const settled = who.person_id && !unsure ? who.person_key : null;
+  const others = subject !== "related" && raw.kind !== "promise"
+    ? participantsOf(ctx, said, spans, settled, settled ? null : subjectWords(raw, who), who.candidate_ids)
+    : { resolved: [], open: [] };
+  const withPeople = others.resolved;
   if (withPeople.length) flags.add("shared_people");
+  if (others.open.length && !settled) flags.add("participant_ambiguous");
   // "Ben is my brother", "my daughter Kaiya": a relationship the note states
   // outright, for the people this memory is about. Never inferred.
   const selfRelations: Record<string, string> = {};
@@ -548,16 +587,19 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
       ...(who.archived_ids?.length ? { archived_ids: who.archived_ids, ...(who.mention ? { mention: who.mention } : {}) } : {}),
       ...(subjectWords(raw, who) ? { subject_words: subjectWords(raw, who)! } : {}),
       ...(who.candidate_ids && tier === "hold" ? { candidate_ids: who.candidate_ids } : {}),
+      ...(others.open.length ? { open_names: others.open } : {}),
     },
   };
 }
 
 /** The note's own words for who a line is about, as a name ("my daughter Kaiya" → Kaiya; "Ben's" → Ben). */
 function subjectWords(raw: ProposedItem, who: { new_person_name: string | null; mention?: string }): string | null {
-  const words = who.mention ?? who.new_person_name ?? (raw.person_mention ?? "")
-    .split(/\s*[,(]/u)[0]
+  const mention = (raw.person_mention ?? "").split(/\s*[,(]/u)[0];
+  // "Chris' dog Fluffy" names Chris (founder K7), as "Sarah's sister" names Sarah.
+  const possessor = mention.match(/^(.+?)['’]s\s+\S/u)?.[1] ?? mention.match(/^(.+?s)['’]\s+\S/iu)?.[1];
+  const words = who.mention ?? who.new_person_name ?? (possessor ?? mention)
     .replace(/^(?:my|our)\s+\S+\s+/iu, "")
-    .replace(/['’]s$/u, "")
+    .replace(/['’]s$/u, "").replace(/(?<=s)['’]$/iu, "")
     .trim();
   return words || null;
 }
@@ -589,6 +631,11 @@ function recordItemMentions(ctx: Context, items: PlannedItem[]): void {
     if (!person) {
       const asked = findMention(item.statement, [item.mention, item.subject_words].filter((w): w is string => !!w));
       if (asked && !mentions.some((m) => m.text === asked)) mentions.unshift({ person_id: null, text: asked, name: null });
+    }
+    // Each open name keeps its words for no one yet: its own answer fills it (founder K4).
+    for (const o of item.open_names ?? []) {
+      const text = findMention(item.statement, [o.text]);
+      if (text && !mentions.some((m) => fold(m.text) === fold(text))) mentions.push({ person_id: null, text, name: null });
     }
     if (mentions.length) item.person_mentions = mentions.slice(0, MAX_MENTIONS);
   }
@@ -624,6 +671,28 @@ function ownWords(text: string, spans: PlannedSpan[]): string {
   return inYourWords(out.replace(/\s+/gu, " ").trim().replace(/[.。]+$/u, "").trim()).slice(0, 500);
 }
 
+/** Something the user means to do ("can't wait to tell Loo Loo", "want to call Ben"). */
+const INTENDS = /\b(?:can'?t wait to|cannot wait to|wants? to|going to|gonna|will|'ll|plan(?:s|ning)? to|need(?:s)? to|have to|hope to|looking forward to)\b/u;
+
+/** The whole sentence a quote is in, without its closing punctuation, as a span of the note. */
+function sentenceSpan(text: string, span: PlannedSpan): PlannedSpan {
+  const sentence = sentenceAroundSpan(text, span).trim().replace(/[.!?。]+$/u, "").trim();
+  const found = sentence ? locateEvidence(text, sentence) : null;
+  return found?.ok ? toPlannedSpan(text, found.span) : span;
+}
+
+/** The people in People a sentence of the note names. */
+function namedInSentence(ctx: Context, sentence: string): RosterPerson[] {
+  const words = ` ${wordsOf(sentence).map(nameKey).join(" ")} `;
+  const capitalised = new Set((sentence.normalize("NFC").match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).filter((w) => /^\p{Lu}/u.test(w)).map(nameKey));
+  return ctx.namedInNote().filter((p) =>
+    namesFor(p).some((f) => {
+      const fk = nameKey(f);
+      return words.includes(` ${fk} `) || (fk.includes(" ") && capitalised.has(fk.split(/\s+/)[0]));
+    })
+  );
+}
+
 /** "every Warriors playoff game" → "Warriors playoff game"; null without one. */
 function everyPhrase(text: string): string | null {
   const m = text.normalize("NFC").match(/\b(?:every|each)\s+([^,.;!?]+?)(?:\s+together)?(?=[,.;!?]|$)/iu);
@@ -631,20 +700,49 @@ function everyPhrase(text: string): string | null {
   return anchor && anchor.length <= 80 ? anchor : null;
 }
 
-/** Others on the roster this statement names, whose names are also in its evidence. */
-function alsoAbout(ctx: Context, statement: string, spans: PlannedSpan[], personKey: string | null): RosterPerson[] {
+/**
+ * Everyone else on the roster this statement names, with their name also in
+ * its evidence (founder K4). One person a name can mean is part of it; a
+ * name two or more people share ("Sam") is an open name, asked about on its
+ * own with every person it can mean: never guessed onto anyone, and never
+ * dropped. Who the line is about is left out: settled (`ownerKey`), or still
+ * asked under its own words (`ownerWords`, or a "he" that can mean
+ * `ownerCandidates`).
+ */
+function participantsOf(
+  ctx: Context,
+  statement: string,
+  spans: PlannedSpan[],
+  ownerKey: string | null,
+  ownerWords: string | null,
+  ownerCandidates?: string[],
+): { resolved: RosterPerson[]; open: OpenName[] } {
   const quotes = spans.map((s) => s.quote).join(" ");
-  const out: RosterPerson[] = [];
+  const resolved: RosterPerson[] = [];
+  const open: OpenName[] = [];
+  const asked = ownerWords ? nameKey(ownerWords) : null;
   for (const p of ctx.namedInNote()) {
-    if (p.key === personKey || out.some((o) => o.id === p.id)) continue;
+    if (p.key === ownerKey || resolved.some((o) => o.id === p.id)) continue;
     const names = namesFor(p);
     if (!statementNames(statement, names) || !statementNames(quotes, names)) continue;
-    // A name two people share ("Sam") is never guessed onto both.
     const first = names[0].split(/\s+/u)[0];
-    if (ctx.candidatesFor(first).length > 1 && !names.some((n) => n.includes(" ") && fold(quotes).includes(fold(n)))) continue;
-    out.push(p);
+    const sharing = ctx.candidatesFor(first);
+    const whole = names.some((n) => n.includes(" ") && fold(quotes).includes(fold(n)) && fold(statement).includes(fold(n)));
+    // "Tyler Shaffer" said in full settles "Tyler" for everyone else called Tyler.
+    const settledByName = sharing.some((c) => c.id !== p.id &&
+      namesFor(c).some((n) => n.includes(" ") && fold(quotes).includes(fold(n)) && fold(statement).includes(fold(n))));
+    if (settledByName) continue;
+    if (sharing.length > 1 && !whole) {
+      // The name is who the line is about (settled, or asked as such): not someone else.
+      if (sharing.some((c) => c.key === ownerKey) || nameKey(first) === asked) continue;
+      if (ownerCandidates?.some((id) => sharing.some((c) => c.id === id))) continue;
+      if (!open.some((o) => nameKey(o.text) === nameKey(first))) open.push({ text: first, candidate_ids: sharing.map((c) => c.id) });
+      continue;
+    }
+    if (asked && names.some((n) => nameKey(n) === asked || nameKey(n.split(/\s+/u)[0]) === asked)) continue;
+    resolved.push(p);
   }
-  return out.slice(0, 7);
+  return { resolved: resolved.slice(0, 7), open: open.slice(0, 3) };
 }
 
 // A weekday is relative too: "Wednesday" means a different day next week.
@@ -682,7 +780,7 @@ function askConfirmed(ctx: Context, mention: string, raw?: ProposedItem): boolea
 
 // A pronoun that could point at two named people ("Ben and Josh went
 // climbing. He fell.") waits for the user, like any other ambiguity.
-const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict", "person_archived", "promise_owner"];
+const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict", "person_archived", "promise_owner", "participant_ambiguous"];
 
 function tierFor(flags: Set<Flag>): Tier {
   if (HOLD_FLAGS.some((f) => flags.has(f))) return "hold";
@@ -844,7 +942,7 @@ function possessiveRelation(sentence: string, person: RosterPerson): boolean {
   const names = namesFor(person);
   return names.some((n) => {
     const first = fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`\\b${first}'s (?:\\w+ )?(mom|mother|mum|dad|father|sister|brother|son|daughter|kid|kids|wife|husband|partner|boyfriend|girlfriend|fianc\\S*|grandma|grandmother|grandpa|grandfather|aunt|uncle|cousin|niece|nephew|boss|roommate|friend|baby|parents?)\\b`).test(s);
+    return new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?(mom|mother|mum|dad|father|sister|brother|son|daughter|kid|kids|wife|husband|partner|boyfriend|girlfriend|fianc\\S*|grandma|grandmother|grandpa|grandfather|aunt|uncle|cousin|niece|nephew|boss|roommate|friend|baby|parents?)\\b`).test(s);
   });
 }
 
@@ -988,6 +1086,15 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   if (!mention) {
     if (context && ctx.byKey.has(context) && (modelKey === context || modelKey === "unknown")) return pick(ctx.byKey.get(context)!);
     if (ctx.byKey.has(modelKey) && ctx.namedInNote().some((p) => p.key === modelKey)) return pick(ctx.byKey.get(modelKey)!);
+    // The statement leads with a name the note says ("Anthony and Sam love
+    // ice skating with Chris", filed on no one): that name is who it's about,
+    // decided or asked under its own words (founder K4), never one "Who is
+    // this about?" for everyone it names.
+    const lead = leadingNames(raw.statement)[0];
+    if (lead && ctx.inNote(lead) && !SELF_WORDS.has(fold(lead))) {
+      const r = resolvePerson(ctx, { ...raw, person_mention: lead }, flags);
+      return "drop" in r || r.person_key ? r : { ...r, mention: r.mention ?? lead };
+    }
     return unresolved("person_ambiguous");
   }
 
@@ -1012,9 +1119,10 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   const pronounRelation = fold(mention).match(/^(his|her|their)\s+\S+$/);
   if (pronounRelation && raw.subject === "related") return resolvePerson(ctx, { ...raw, person_mention: pronounRelation[1] }, flags);
 
-  const folded = fold(mention).replace(/'s$/, "");
-  // "Sarah's sister" names Sarah; the relation is the subject's business.
-  const possessor = mention.match(/^(.+?)['’]s\s+\S/u)?.[1];
+  const folded = withoutPossessive(fold(mention));
+  // "Sarah's sister" names Sarah, as "Chris' dog" names Chris (founder K7);
+  // the relation is the subject's business.
+  const possessor = mention.match(/^(.+?)['’]s\s+\S/u)?.[1] ?? mention.match(/^(.+?s)['’]\s+\S/iu)?.[1];
   if (possessor && !PRONOUNS.has(fold(possessor))) {
     return resolvePerson(ctx, { ...raw, person_mention: possessor }, flags);
   }
@@ -1066,15 +1174,15 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   const candidates = ctx.candidatesFor(mention);
   // Someone the user removed from People (founder I3): offered back, never
   // added again as someone new; with someone here who fits too, asked.
-  const removed = ctx.archivedFor(mention.replace(/['’]s$/, ""));
+  const removed = ctx.archivedFor(withoutPossessive(mention));
   if (removed.length) {
     flags.add(candidates.length ? "person_ambiguous" : "person_archived");
-    return { person_id: null, person_key: null, new_person_name: null, archived_ids: removed, mention: mention.replace(/['’]s$/, "") };
+    return { person_id: null, person_key: null, new_person_name: null, archived_ids: removed, mention: withoutPossessive(mention) };
   }
   if (candidates.length === 0) {
     // Someone not on the roster. Must look like a name and be in the note.
     if (!/^\p{Lu}/u.test(mention)) return unresolved("person_ambiguous");
-    return unresolved("new_person", mention.replace(/['’]s$/, "").slice(0, 100));
+    return unresolved("new_person", withoutPossessive(mention).slice(0, 100));
   }
   if (candidates.length === 1) {
     const c = candidates[0];
@@ -1343,6 +1451,9 @@ function withinDays(a: string, b: string, days: number): boolean {
 
 function sameItem(a: PlannedItem, b: PlannedItem): boolean {
   if (a.kind !== b.kind || a.person_key !== b.person_key || a.subject_type !== b.subject_type) return false;
+  // Two lines still waiting on "who?" under different names ("Anthony", "Sam")
+  // are about different people, whatever their words (founder K4).
+  if (!a.person_key && fold(a.subject_words ?? "") !== fold(b.subject_words ?? "")) return false;
   if (a.related?.id !== b.related?.id || a.related?.relation !== b.related?.relation) return false;
   if (a.kind === "event" && a.detail.event_type === b.detail.event_type && a.detail.date && a.detail.date === b.detail.date) return true;
   return fold(a.statement) === fold(b.statement);
@@ -1398,20 +1509,20 @@ function mentionFor(ctx: Context, item: PlannedItem): string | null {
   // The capitalised words in the evidence that match two or more roster people.
   for (const s of item.spans) {
     for (const w of s.quote.match(/\p{Lu}[\p{L}'’-]*/gu) ?? []) {
-      const clean = w.replace(/['’]s$/, "");
+      const clean = withoutPossessive(w);
       if (ctx.candidatesFor(clean).length > 1) return clean;
     }
   }
   for (const s of item.spans) {
     const w = s.quote.match(/\p{Lu}[\p{L}'’-]*/u)?.[0];
-    if (w && !ALWAYS_OK.has(nameKey(w))) return w.replace(/['’]s$/, "");
+    if (w && !ALWAYS_OK.has(nameKey(w))) return withoutPossessive(w);
   }
   return null;
 }
 
 function possessiveRelationWord(sentence: string, person: RosterPerson): string | null {
   const first = fold(person.display_name).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return fold(sentence).match(new RegExp(`\\b${first}'s (?:\\w+ )?([a-z-]+)`))?.[1] ?? null;
+  return fold(sentence).match(new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?([a-z-]+)`))?.[1] ?? null;
 }
 
 // Re-exported for tests.
@@ -1475,6 +1586,109 @@ function sharedTwin(ctx: Context, item: PlannedItem): void {
   item.action = { type: "merge", target_id: twin.id };
 }
 
+/** The same thing in the same sentence, its names in any order (a mirrored reading). */
+function mirrors(a: PlannedItem, b: PlannedItem): boolean {
+  return sameKindFamily(a.kind, b.kind) && a.subject_type === b.subject_type && a.subject_type !== "related" &&
+    sameWhen(a.detail, b.detail) && mirrorBag(a.statement) === mirrorBag(b.statement) &&
+    a.spans.some((s) => b.spans.some((t) => s.start < t.end && t.start < s.end));
+}
+
+/**
+ * One sentence about several people, read once for each of them (founder
+ * K4, K1): "Anthony and Tyler are brothers" and "Tyler and Anthony are
+ * brothers" are one memory, on both. Lines that are each settled become the
+ * first of them, also about the others; lines that are each still waiting
+ * on "who?" become one line, its other names asked on their own. A settled
+ * line with others still in question keeps them as questions that join it
+ * (founder I10, `markHeldMirrors`). Never across sentences or different words.
+ */
+function collapseMirrors(ctx: Context, items: PlannedItem[], dropped: ExtractionOutcome["dropped"]): void {
+  const groups: PlannedItem[][] = [];
+  for (const it of items) {
+    const g = groups.find((x) => x.some((y) => mirrors(y, it)));
+    if (g) g.push(it);
+    else groups.push([it]);
+  }
+  for (const g of groups) {
+    if (g.length < 2) continue;
+    const settled = g.filter((i) => i.person_id && i.tier !== "hold");
+    const waiting = g.filter((i) => !i.person_id && i.tier === "hold" && i.flags.includes("person_ambiguous") && !i.twin_person_id);
+    const keep = settled[0] ?? waiting[0];
+    if (!keep) continue;
+    const merged = keep.person_id ? settled.slice(1) : waiting.slice(1);
+    for (const m of merged) {
+      const people = [...(keep.with_person_ids ?? []), ...(m.person_id ? [m.person_id] : []), ...(m.with_person_ids ?? [])];
+      const withIds = [...new Set(people)].filter((id) => id !== keep.person_id).slice(0, 7);
+      if (withIds.length) keep.with_person_ids = withIds;
+      if (!keep.person_id) {
+        // Its name in question is one more name to ask about on the kept line.
+        const open = [...(keep.open_names ?? [])];
+        const own = m.subject_words ? [{ text: m.subject_words, candidate_ids: ctx.candidatesFor(m.subject_words).map((p) => p.id) }] : [];
+        for (const o of [...own, ...(m.open_names ?? [])]) {
+          if (fold(o.text) !== fold(keep.subject_words ?? "") && !open.some((x) => fold(x.text) === fold(o.text))) open.push(o);
+        }
+        if (open.length) {
+          keep.open_names = open;
+          if (!keep.flags.includes("participant_ambiguous")) keep.flags.push("participant_ambiguous");
+        }
+      }
+      for (const sp of m.spans) if (!keep.spans.some((x) => x.start === sp.start && x.end === sp.end)) keep.spans.push(sp);
+      if (keep.with_person_ids?.length && !keep.flags.includes("shared_people")) keep.flags.push("shared_people");
+      items.splice(items.indexOf(m), 1);
+      dropped.push({ reason: "duplicate", kind: m.kind });
+    }
+  }
+}
+
+/**
+ * Open names (founder K4), once mirrors are one: a name another line of the
+ * same sentence is itself asked about is asked once, there. On a line still
+ * waiting on "who?", each is a question of its own on that line. On a
+ * settled line, the line is kept and each name becomes a question that joins
+ * it once answered (as founder I10): the memory is never held hostage to
+ * "Which Sam?".
+ */
+function settleOpenNames(items: PlannedItem[]): void {
+  for (const it of [...items]) {
+    const open = (it.open_names ?? []).filter((o) =>
+      !items.some((x) => x !== it && !x.person_id && x.tier === "hold" && fold(x.subject_words ?? "") === fold(o.text) && mirrors(x, it)) &&
+      o.candidate_ids.length > 1
+    );
+    if (!open.length) {
+      delete it.open_names;
+      it.flags = it.flags.filter((f) => f !== "participant_ambiguous");
+      if (!it.flags.some((f) => HOLD_FLAGS.includes(f)) && it.tier === "hold") it.tier = tierFor(new Set(it.flags));
+      continue;
+    }
+    if (!it.person_id) {
+      it.open_names = open;
+      if (!it.flags.includes("participant_ambiguous")) it.flags.push("participant_ambiguous");
+      it.tier = "hold";
+      continue;
+    }
+    delete it.open_names;
+    const twins: PlannedItem[] = open.map((o) => ({
+      ...it,
+      person_id: null,
+      person_key: null,
+      new_person_name: null,
+      detail: { ...it.detail },
+      spans: it.spans.map((sp) => ({ ...sp })),
+      action: { type: "new", target_id: null },
+      tier: "hold",
+      flags: [...it.flags.filter((f) => f !== "shared_people" && f !== "participant_ambiguous"), "person_ambiguous"],
+      with_person_ids: undefined,
+      self_relations: undefined,
+      person_mentions: undefined,
+      candidate_ids: undefined,
+      twin_person_id: it.person_id!,
+      mention: o.text,
+      subject_words: o.text,
+    }));
+    items.splice(items.indexOf(it) + 1, 0, ...twins);
+  }
+}
+
 /**
  * "Michelle and Sam might be moving to Australia" with two Sams: the model
  * mirrors it, one line for each of them. Michelle's is kept; Sam's is held
@@ -1487,11 +1701,13 @@ function sharedTwin(ctx: Context, item: PlannedItem): void {
  */
 function markHeldMirrors(ctx: Context, items: PlannedItem[]): void {
   for (const h of items) {
-    if (h.tier !== "hold" || h.person_id || !h.flags.includes("person_ambiguous") || h.with_person_ids?.length) continue;
-    const mention = mentionFor(ctx, h);
+    if (h.tier !== "hold" || h.person_id || !h.flags.includes("person_ambiguous") || h.twin_person_id) continue;
+    const mention = h.subject_words && ctx.candidatesFor(h.subject_words).length > 1 ? h.subject_words : mentionFor(ctx, h);
     if (!mention || ctx.candidatesFor(mention).length < 2) continue;
     const twin = items.find((p) =>
       p !== h && p.person_id && p.person_key && sameKindFamily(p.kind, h.kind) && p.subject_type === h.subject_type &&
+      // Others it already names (Chris, founder K4) are the kept line's people too.
+      (h.with_person_ids ?? []).every((id) => id === p.person_id || (p.with_person_ids ?? []).includes(id)) &&
       sameWhen(p.detail, h.detail) && mirrorBag(p.statement) === mirrorBag(h.statement) &&
       p.spans.some((s) => h.spans.some((t) => s.start < t.end && t.start < s.end)) &&
       statementNames(p.statement, [mention]) && namesPerson(h.statement, ctx.byKey.get(p.person_key))

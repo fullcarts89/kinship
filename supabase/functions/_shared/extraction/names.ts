@@ -17,7 +17,7 @@
 //   * A rename also keeps the earlier name as another name the person goes by
 //     (people.nicknames), so a later note that still says it finds them.
 
-import { kinshipReference, PRONOUNS } from "./lexicon.ts";
+import { kinshipReference, PRONOUNS, withoutPossessive } from "./lexicon.ts";
 
 export interface NamedPerson {
   id: string;
@@ -113,7 +113,7 @@ export function leadingNames(statement: string): string[] {
   const rest = statement.trim().replace(/^You and\s+/u, "");
   const block = rest.match(LEADING_NAMES)?.[0] ?? "";
   return block.split(/\s*(?:,|\band\b|&)\s*/u)
-    .map((n) => n.replace(/['’]s$/u, "").trim())
+    .map((n) => withoutPossessive(n).trim())
     .filter((n) => n && nameLike(n));
 }
 
@@ -309,8 +309,10 @@ export function withSubjectReassigned(
   mentions: PersonMention[],
   fromId: string | null,
   to: MentionSubject,
+  /** Which open words, when a line has several still waiting (founder K4). */
+  fromText?: string,
 ): { statement: string; mentions: PersonMention[] } {
-  const subject = mentions.find((m) => m.person_id === fromId);
+  const subject = mentions.find((m) => m.person_id === fromId && (fromText === undefined || fold(m.text) === fold(fromText)));
   const rest = mentions.filter((m) => m !== subject && m.person_id !== to.person.id);
   const already = mentions.find((m) => m !== subject && m.person_id === to.person.id);
   // The chosen person is already named in the line ("Michelle and Sam…" moved

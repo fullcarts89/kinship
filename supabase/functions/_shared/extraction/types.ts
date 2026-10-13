@@ -216,7 +216,11 @@ export type Flag =
   // Founder J11: the model called it a promise but no one commits to
   // anything in the words. Kept as what it says (the user's plan, or a fact
   // about the person), never a to-do, shown for a glance.
-  | "not_a_promise";
+  | "not_a_promise"
+  // Founder K4: someone else the line is about goes by a name two or more
+  // people share ("Anthony and Sam love ice skating with Chris", two Sams).
+  // Held: "Which Sam?" asks about that name only, never the whole line.
+  | "participant_ambiguous";
 
 export interface PlannedSpan {
   start: number;
@@ -272,6 +276,21 @@ export interface PlannedItem {
    * the answer puts the chosen person there.
    */
   person_mentions?: PersonMention[];
+  /**
+   * Others the line is about whose name two or more people share, while who
+   * the line is about is itself still asked (founder K4): each is its own
+   * question with every person that name can mean, answered on its own, and
+   * never dropped for being unclear.
+   */
+  open_names?: OpenName[];
+}
+
+/** A name in a line that two or more people go by: asked which one (founder K4). */
+export interface OpenName {
+  /** The name as the line says it ("Sam"). */
+  text: string;
+  /** Everyone in People that name can mean, never narrowed. */
+  candidate_ids: string[];
 }
 
 export interface Clarification {

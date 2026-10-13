@@ -320,6 +320,8 @@ function present(i: PlannedItem) {
     ...(i.candidate_ids ? { candidate_ids: i.candidate_ids } : {}),
     // A held line's open "who?" keeps its words with no one yet (resolve.ts).
     ...(i.person_mentions?.length ? { person_mentions: i.person_mentions } : {}),
+    // Others it is about whose name two people share, each asked on its own (founder K4).
+    ...(i.open_names?.length ? { open_names: i.open_names } : {}),
   };
 }
 
@@ -345,7 +347,10 @@ async function resolveReview(
 
   const { people, related } = await caller.loadPeople();
   const chosen = new Set<string>();
-  for (const a of answers as HeldAnswer[]) if (typeof a?.person_id === "string") chosen.add(a.person_id);
+  for (const a of answers as HeldAnswer[]) {
+    if (typeof a?.person_id === "string") chosen.add(a.person_id);
+    for (const pa of Array.isArray(a?.participants) ? a.participants : []) if (typeof pa?.person_id === "string") chosen.add(pa.person_id);
+  }
   for (const i of review.items) if (i.person_id) chosen.add(i.person_id);
   // A held mirror joins the line kept for its twin (founder I10): load that line too.
   for (const i of review.items) if (typeof i.twin_person_id === "string") chosen.add(i.twin_person_id);

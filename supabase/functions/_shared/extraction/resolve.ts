@@ -58,6 +58,8 @@ export interface HeldItem {
   archived_ids?: string[];
   /** Which words name whom; the open "who?" has the asked-about words with no person (founder I13). */
   person_mentions?: PersonMention[];
+  /** Others it is about whose name two or more people share, each asked on its own (founder K4). */
+  open_names?: { text: string; candidate_ids: string[] }[];
 }
 
 /** The user's answer for one held item. */
@@ -85,6 +87,12 @@ export interface HeldAnswer {
   date?: string | null;
   /** "Remember this": keep the item as proposed (required when nothing else is asked). */
   accept?: boolean;
+  /**
+   * "Which Sam?" for someone else the line is about (founder K4): one of its
+   * open names, and who it is. An open name left unanswered ("Not sure", or a
+   * build before this question) is left out of the memory, never guessed.
+   */
+  participants?: { text: string; person_id: string }[];
 }
 
 export interface ResolvePerson {
@@ -181,7 +189,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     if (!a) return { fail: "unanswered" };
     if (a.skip === true) {
       if (a.person_id !== undefined || a.new_person !== undefined || a.subject !== undefined || a.date !== undefined || a.accept !== undefined ||
-          a.also_person_ids !== undefined || a.replaces !== undefined || a.owner !== undefined) return { fail: "bad_answer" };
+          a.also_person_ids !== undefined || a.replaces !== undefined || a.owner !== undefined || a.participants !== undefined) return { fail: "bad_answer" };
       skipped++;
       continue;
     }
@@ -190,8 +198,9 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     const needsPerson = item.person_id === null || PERSON_FLAGS.some((f) => flags.has(f));
     // Held only for the user's yes (a sensitive or ambiguous reading): nothing is
     // written on silence or on an empty answer.
+    const openNames = Array.isArray(item.open_names) ? item.open_names.filter((o) => o && typeof o.text === "string" && o.text.trim()) : [];
     const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive") || flags.has("update_check") ||
-      flags.has("promise_owner");
+      flags.has("promise_owner") || openNames.length > 0;
     if (a.accept !== undefined && a.accept !== true) return { fail: "bad_answer" };
     if (!asksSomething && a.accept !== true) return { fail: "bad_answer" };
 
@@ -307,6 +316,22 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       withPeople = [...new Set([...withPeople, ...a.also_person_ids])].filter((id) => id !== personId);
     }
 
+    // ── Others it is about, one name at a time (founder K4) ──
+    // "Which Sam?" settles only that name: who the line is about, and everyone
+    // else it names, stay as they are.
+    const participants: { text: string; person_id: string }[] = [];
+    if (a.participants !== undefined) {
+      if (!Array.isArray(a.participants) || a.participants.length > openNames.length) return { fail: "bad_answer" };
+      for (const pa of a.participants) {
+        if (!pa || typeof pa.text !== "string" || typeof pa.person_id !== "string") return { fail: "bad_answer" };
+        if (!openNames.some((o) => fold(o.text) === fold(pa.text)) || participants.some((x) => fold(x.text) === fold(pa.text))) return { fail: "bad_answer" };
+        const p = ctx.people.find((x) => x.id === pa.person_id);
+        if (!p || p.state === "archived") return { fail: "unknown_person" };
+        participants.push({ text: pa.text, person_id: p.id });
+      }
+      withPeople = [...new Set([...withPeople, ...participants.map((x) => x.person_id)])].filter((id) => id !== personId);
+    }
+
     // ── The words: the line names who the user chose (Gate B, founder I13) ──
     // Said as Kinship says each name: "Ben" from "Ben Oxnard", a chosen "Cutie Pie" whole (founder I12).
     const subjectFor = (id: string): MentionSubject | null => {
@@ -320,8 +345,9 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     let statement = item.statement;
     let mentions = mentionsOf(item.person_mentions);
     const chosen = needsPerson && subjectType !== "related" ? subjectFor(personId) : null;
+    const openTexts = new Set(openNames.map((o) => fold(o.text)));
     if (chosen) {
-      const asked = mentions.find((m) => m.person_id === null);
+      const asked = mentions.find((m) => m.person_id === null && !openTexts.has(fold(m.text)));
       if (asked) {
         // "Which Sam?" → Someone else → Chris: "Sam" was another person's name, and
         // the line now says Chris. "Who is Liz?" → Elizabeth: "Liz" is nobody else's
@@ -336,12 +362,29 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         statement = names.length > 1 ? withSpokenNames(statement, names) : withSpokenName(statement, names[0]);
       }
     }
+    // Each open name answered: its words now name who the user chose ("Sam"
+    // stays for a Sam; another person's name for anyone else, as above).
+    for (const pa of participants) {
+      if (pa.person_id === personId) continue;
+      const who = subjectFor(pa.person_id);
+      if (!who) continue;
+      const someoneElses = ctx.people.some((p) => p.id !== pa.person_id && goesBy(p, pa.text, p.mention_names ?? []));
+      const theirs = someoneElses && !goesBy(who.person, pa.text, who.also ?? []) ? who : { ...who, also: [...(who.also ?? []), pa.text] };
+      ({ statement, mentions } = withSubjectReassigned(statement, mentions, null, theirs, pa.text));
+    }
     // Words for everyone it is about now, and for no one else.
     const about = [personId, ...withPeople];
     mentions = mentions.filter((m) => m.person_id !== null && about.includes(m.person_id));
     const unnamed = about.filter((id) => !mentions.some((m) => m.person_id === id))
       .map(subjectFor).filter((x): x is MentionSubject => !!x);
     mentions = [...mentions, ...recordMentions(statement, unnamed)].slice(0, MAX_MENTIONS);
+    // Said in the note's order ("Kept for Anthony Test, Sam Eden and Chris", founder K4).
+    const at = (id: string) => {
+      const m = mentions.find((x) => x.person_id === id);
+      const i = m ? statement.indexOf(m.text) : -1;
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    withPeople = [...withPeople].sort((x, y) => at(x) - at(y));
 
     // ── Existing memory ──
     // A merge or supersede was worked out for the item as held; once the
