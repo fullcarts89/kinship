@@ -15,7 +15,7 @@ export interface HandoffRequest {
   heading: string;
   mention: string[];
   /** Present when the hand-off acts on a reason (it gets a return check, with the reason). */
-  reason?: { id: string; type: ReasonType; ask?: string; about?: string | null; followUp?: string };
+  reason?: { id: string; type: ReasonType; ask?: string; about?: string | null; followUp?: string; itemId?: string | null };
 }
 
 /**
@@ -44,7 +44,7 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
     if (r.reason) {
       await actions.handedOff({
         reasonId: r.reason.id, personId: r.personId, channel, type: r.reason.type,
-        ask: r.reason.ask, about: r.reason.about ?? null, followUp: r.reason.followUp,
+        ask: r.reason.ask, about: r.reason.about ?? null, followUp: r.reason.followUp, itemId: r.reason.itemId ?? null,
       });
     }
     const ok = await openChannel(channel, rt).finally(() => {

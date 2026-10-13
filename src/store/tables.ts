@@ -73,7 +73,7 @@ export const TABLES: readonly TableSpec[] = [
   },
   {
     name: "contact_events", key: "id", appInsert: true, appUpdate: true, tombstones: true, personColumn: "person_id",
-    writable: ["person_id", "channel", "occurred_at", "source", "reason_id", "capture_id", "deleted_at"],
+    writable: ["person_id", "channel", "occurred_at", "source", "reason_id", "capture_id", "memory_item_id", "moment_type", "deleted_at"],
   },
   {
     name: "user_settings", key: "user_id", appInsert: true, appUpdate: true, tombstones: false,

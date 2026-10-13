@@ -29,6 +29,9 @@ function parse<T>(raw: string | null, fallback: T): T {
 }
 
 export class ReasonLocal {
+  /** Answers one at a time, so a second tap sees the first (founder K3, I2). */
+  private answering: Promise<unknown> = Promise.resolve();
+
   constructor(private readonly store: UserStore) {}
 
   async read(): Promise<ReasonLocalState> {
@@ -80,13 +83,24 @@ export class ReasonLocal {
     this.store.notify();
   }
 
-  /** The return check's answer. "Not yet" lets the reason speak again while its window lasts. */
-  async answered(answer: "yes" | "not_yet", at: string): Promise<Handoff | null> {
+  /**
+   * The return check's answer, once per hand-off: null when nothing waits for
+   * one, or it was already answered (a second tap changes nothing). "Not yet"
+   * lets the reason speak again while its window lasts, also after a sync has
+   * brought the server's "acted" back (founder N6).
+   */
+  answered(answer: "yes" | "not_yet", at: string): Promise<Handoff | null> {
+    const run = this.answering.then(() => this.answerOnce(answer, at));
+    this.answering = run.catch(() => undefined);
+    return run;
+  }
+
+  private async answerOnce(answer: "yes" | "not_yet", at: string): Promise<Handoff | null> {
     const { handoff } = await this.read();
-    if (!handoff) return null;
+    if (!handoff || handoff.answered) return null;
     await setMeta(this.store.db, HANDOFF, JSON.stringify({ ...handoff, answered: answer }));
-    if (answer === "yes") await this.patch(handoff.reasonId, { done: at });
-    else await this.patch(handoff.reasonId, { acted: undefined });
+    if (answer === "yes") await this.patch(handoff.reasonId, { done: at, notYet: undefined });
+    else await this.patch(handoff.reasonId, { acted: undefined, notYet: at });
     this.store.notify();
     return handoff;
   }

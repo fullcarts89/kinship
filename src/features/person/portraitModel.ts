@@ -4,17 +4,21 @@
 // docs/product/relationship-page-rules.md; change them there first.
 //
 //   Lately          what's going on with them now: active facts and open
-//                   threads, and events that have just happened
+//                   threads, events that have just happened, and a promise
+//                   of theirs whose day has passed ("Waiting on Tyler")
 //   Coming up       their birthday within a month, dated events ahead,
-//                   plans not yet resolved
+//                   plans not yet resolved; never anything whose day has
+//                   passed (founder K2)
 //   You said you'd  promises still open
-//   Between you     what you share: context, traditions, shared moments
+//   Between you     what you share: context, traditions, shared moments,
+//                   and the conversations you confirmed (founder I2)
 //
 // Nothing here ranks the person, counts anything for display, or decides
 // what matters by inference: order is by time only. Everything not shown on
 // the portrait stays in What Kinship knows, one tap away.
 
 import type { MemoryItem, Person } from "@/store/repositories";
+import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 
 export interface PortraitLine {
   /** The memory item; "birthday" for the person's own birthday line. */
@@ -30,6 +34,17 @@ export interface PortraitLine {
   was?: string | null;
 }
 
+/**
+ * One conversation the user confirmed (founder I2): "You messaged · Oct 12",
+ * and what it was about in their words. History, never a count, a
+ * frequency, a streak or "last contacted".
+ */
+export interface TrailLine {
+  id: string;
+  label: string;
+  about: string | null;
+}
+
 export interface Portrait {
   person: Person | null;
   label: string | null;
@@ -37,12 +52,12 @@ export interface Portrait {
   comingUp: PortraitLine[];
   youSaid: PortraitLine[];
   between: PortraitLine[];
+  /** The newest conversations, under Between you; the rest are in What Kinship knows (founder I2). */
+  trail: TrailLine[];
   /** Everything Kinship keeps about them (for "What Kinship knows"). */
   total: number;
   /** Some of what Kinship knows isn't on the portrait (shown as the link, never as a number). */
   more: boolean;
-  /** "You reached out · Oct 6": the last time the user said yes to having reached them (H10). Never a count. */
-  reachedOut?: string | null;
 }
 
 /** Product rules (docs/product/relationship-page-rules.md). */
@@ -57,6 +72,8 @@ export const PORTRAIT_RULES = {
   birthdayDays: 30,
   /** At most this many lines per section; the rest stay in What Kinship knows. */
   perSection: 3,
+  /** Conversations shown under Between you (founder I2); every one is in What Kinship knows. */
+  trail: 3,
 } as const;
 
 export interface PortraitItem {
@@ -103,10 +120,14 @@ export function buildPortrait(input: {
   /** The person's birthday line, when it's within PORTRAIT_RULES.birthdayDays (computed by the caller). */
   birthday?: PortraitLine | null;
   birthdayDay?: string | null;
+  /** Every conversation the user confirmed with them, newest first (founder I2). */
+  trail?: TrailLine[];
+  /** Their promises the user has since reached them about (a confirmed conversation on or after its day; founder K2, K3). */
+  reached?: ReadonlySet<string>;
 }): Portrait {
   const { person, today } = input;
   const R = PORTRAIT_RULES;
-  const empty: Portrait = { person, label: null, lately: [], comingUp: [], youSaid: [], between: [], total: 0, more: false };
+  const empty: Portrait = { person, label: null, lately: [], comingUp: [], youSaid: [], between: [], trail: [], total: 0, more: false };
   if (!person) return empty;
   const items = input.items.filter((x) => live(x.item));
   const out: Portrait = {
@@ -133,10 +154,20 @@ export function buildPortrait(input: {
         if (!active) break;
         // Someone else's promise to the user ("Tyler said he'd send you his
         // contractor's number") is never under "You said you'd": it's what's
-        // coming from them (stabilization Gate F).
+        // coming from them (stabilization Gate F). Coming up only while its
+        // day is today or later (founder K2). Past its day and still open, it
+        // is something going on with them: Lately for a month after its day,
+        // as "Waiting on Tyler" (never "overdue", "late" or a count of days),
+        // and without that once the user has reached them about it. With no
+        // day, or only a month or a year, there is no "past its day".
         if (it.subject_type === "person") {
-          if (day && daysFrom(today, day) >= -R.recentEventDays) coming.push({ x, at: day });
-          else if (!day && daysFrom(today, told) >= -R.latelyDays) lately.push({ x, at: told });
+          const precision = (it.detail as Record<string, unknown> | null)?.date_precision;
+          const day = typeof precision === "string" && precision !== "day" ? null : dayOf(it);
+          if (day && daysFrom(today, day) >= 0) coming.push({ x, at: day });
+          else if (day && daysFrom(today, day) >= -R.recentEventDays) {
+            const waiting = input.reached?.has(it.id) ? null : `Waiting on ${shortName(person) || person.display_name}`;
+            lately.push({ x: { ...x, when: waiting }, at: day });
+          } else if (!day && daysFrom(today, told) >= -R.latelyDays) lately.push({ x, at: told });
         } else said.push({ x, at: told });
         break;
       case "plan": {
@@ -185,7 +216,8 @@ export function buildPortrait(input: {
   out.comingUp = comingLines.slice(0, R.perSection).map((c) => c.line);
   out.youSaid = said.sort(newest).slice(0, R.perSection).map((y) => line(y.x));
   out.between = between.sort(newest).slice(0, R.perSection).map((y) => line(y.x));
+  out.trail = (input.trail ?? []).slice(0, R.trail);
   const shown = new Set([...out.lately, ...out.comingUp, ...out.youSaid, ...out.between].map((l) => l.itemId));
-  out.more = items.some((x) => !shown.has(x.item.id));
+  out.more = items.some((x) => !shown.has(x.item.id)) || (input.trail ?? []).length > R.trail;
   return out;
 }

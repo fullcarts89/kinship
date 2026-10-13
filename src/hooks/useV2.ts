@@ -8,8 +8,10 @@ import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
-import { buildToday, isBirthdayReason, isLocalReason, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
-import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine } from "@/features/person/portraitModel";
+import { buildToday, isLocalReason, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
+import { answerReturn, handOff } from "@/store/returnLoop";
+import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine, type TrailLine } from "@/features/person/portraitModel";
+import { reachedAbout, trailFor, type ContactEventRow } from "@/features/person/trail";
 import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
 import { legacyActivation, NO_ACTIVATION, nextStep, setupFinished, setupStepsFor, type SetupNeeds } from "@/features/setup/activation";
 import { useActivation, type ActivationState } from "./useActivation";
@@ -345,6 +347,11 @@ export function useV2Actions() {
     removePerson: (personId: string) => repositoriesFor(store).people.archive(personId),
     /** "Bring back": the same person, with everything they had (I3). */
     bringBack: (personId: string) => repositoriesFor(store).people.restore(personId),
+    /** A conversation Kinship couldn't know about, in the user's own word (founder I2). Nothing else is asked. */
+    inTouch: (personId: string, channel: "text" | "call" | "video" | "in_person") =>
+      repositoriesFor(store).contacts.confirm({ person_id: personId, channel, source: "manual" }),
+    /** A conversation recorded by mistake (founder I2). */
+    forgetConversation: (id: string) => repositoriesFor(store).contacts.forget(id),
   };
 }
 
@@ -405,9 +412,11 @@ export function useToday(
     const quotes = (id: string) => (byItem.get(id) ?? [])
       .filter((s) => s.source_kind === "capture" && !s.deleted_at && typeof s.quote === "string")
       .map((s) => String(s.quote));
+    // Conversations the user confirmed: a "Waiting on …" already acted on doesn't keep asking (K3).
+    const contacts = (await store.list("contact_events")) as unknown as ContactRow[];
     return buildToday({
       now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
-      handoff: local.handoff, told, questions, toLookAt, provenance, quotes,
+      handoff: local.handoff, told, questions, toLookAt, provenance, quotes, contacts,
       activated: activation.activated, firstName: activation.firstName, pending, dataKnown,
     });
   }, [questions, toLookAt, minute, activation.activated, activation.firstName, activation.activation === null, JSON.stringify(pending ?? null)]);
@@ -417,6 +426,10 @@ export function useToday(
 /** What Today can do: refresh reasons, mark one shown, put it aside, hand off, answer the return check. */
 export function useTodayActions() {
   const { store, reasons, reasonLocal } = useV2Session();
+  const loop = {
+    local: reasonLocal, contacts: repositoriesFor(store).contacts, now: () => new Date(),
+    record: (id: string, event: Parameters<typeof reasons.record>[1], channel?: string) => reasons.record(id, event, channel),
+  };
   return {
     refresh: (force = false) => reasons.refresh({ force, timeZone: timeZone() ?? null }),
     shown: async (m: { reasonId: string; personId: string; type: TodayReasonType; score: number }) => {
@@ -434,31 +447,20 @@ export function useTodayActions() {
     },
     handedOff: async (h: {
       reasonId: string; personId: string; channel: Handoff["channel"]; type: TodayReasonType;
-      ask?: string; about?: string | null; followUp?: string;
+      ask?: string; about?: string | null; followUp?: string; itemId?: string | null;
     }) => {
-      await reasonLocal.handedOff({
-        reasonId: h.reasonId, personId: h.personId, channel: h.channel, at: new Date().toISOString(),
-        ...(h.ask ? { ask: h.ask } : {}), ...(h.about ? { about: h.about } : {}), ...(h.followUp ? { followUp: h.followUp } : {}),
+      await handOff(loop, {
+        reasonId: h.reasonId, personId: h.personId, channel: h.channel, type: h.type, itemId: h.itemId ?? null,
+        ...(h.ask ? { ask: h.ask } : {}), ...(h.about ? { about: h.about } : {}), ...(h.followUp !== undefined ? { followUp: h.followUp } : {}),
       });
-      if (!isLocalReason(h.reasonId)) reasons.record(h.reasonId, "acted", h.channel);
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
     },
     /** The app didn't open: nothing was handed off after all. */
     handoffFailed: (reasonId: string) => reasonLocal.cancel(reasonId),
-    /** "Yes": the one place a connection is recorded (plan §15). */
+    /** "Yes": the one place a conversation is recorded (plan §15, founder I2); answered once. */
     returned: async (answer: "yes" | "not_yet") => {
-      const h = await reasonLocal.answered(answer, new Date().toISOString());
-      if (!h) return null;
-      if (!isLocalReason(h.reasonId)) reasons.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
-      track("return_check_answered", { answer, minutes_since_handoff_bucket: minutesBucket(Date.now() - Date.parse(h.at)) });
-      if (answer === "yes") {
-        // A birthday moment is worked out on this phone and has no server
-        // reason to name, so its "Yes" is recorded as the user's own word
-        // (manual). Server birthday reasons (RSN-05) will carry the reason.
-        await repositoriesFor(store).contacts.confirm(isLocalReason(h.reasonId)
-          ? { person_id: h.personId, channel: h.channel, source: "manual" }
-          : { person_id: h.personId, channel: h.channel, source: "return_check", reason_id: h.reasonId });
-      }
+      const h = await answerReturn(loop, answer);
+      if (h) track("return_check_answered", { answer, minutes_since_handoff_bucket: minutesBucket(Date.now() - Date.parse(h.at)) });
       return h;
     },
     linkContact: (personId: string, contactId: string) => store.update("people", personId, { contact_ref: contactId }),
@@ -616,12 +618,26 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
       };
     }
   }
-  // The last time the user said they reached them: a quiet line, never a count or a streak.
-  const contacts = (await repos.contacts.forPerson(person.id)) as { occurred_at?: unknown; deleted_at?: unknown }[];
-  const last = contacts.filter((c) => !c.deleted_at && typeof c.occurred_at === "string")
-    .map((c) => String(c.occurred_at)).sort().pop();
-  const portrait = buildPortrait({ person, items, today, birthday, birthdayDay });
-  return last ? { ...portrait, reachedOut: `You reached out · ${momentLabel(last, now, false)}` } : portrait;
+  // The conversations the user confirmed (founder I2), under Between you;
+  // "You reached out · <date>" under the name is gone with it (CC-20).
+  const contacts = (await repos.contacts.forPerson(person.id)) as unknown as ContactEventRow[];
+  const trail = trailFor(contacts, all, person, now);
+  const reached = reachedAbout(contacts, all, (iso) => todayIso(new Date(iso)));
+  return buildPortrait({ person, items, today, birthday, birthdayDay, trail, reached });
+}
+
+/** Every conversation the user confirmed with them, for What Kinship knows (founder I2). */
+export async function trailOf(repos: Repositories, personId: string, now: Date): Promise<TrailLine[]> {
+  const person = (await repos.people.list()).find((p) => p.id === personId && !p.deleted_at);
+  if (!person) return [];
+  const contacts = (await repos.contacts.forPerson(personId)) as unknown as ContactEventRow[];
+  return trailFor(contacts, await repos.memory.aboutPerson(personId), person, now);
+}
+
+export function useTrail(personId: string): TrailLine[] {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, (repos) => trailOf(repos, personId, new Date()), [personId]);
+  return q.data ?? [];
 }
 
 /** One remembered item, for its correction sheet. */

@@ -34,6 +34,25 @@ export function removeCopy(name: string): { title: string; body: string; cancel:
   };
 }
 
+/** One conversation the user confirmed (founder I2): "You messaged · Oct 12", and what it was about. */
+export interface TrailLineData {
+  id: string;
+  label: string;
+  about: string | null;
+}
+
+/** Manual entry for what Kinship can't know (founder I2): one tap to open, one to say how. */
+export const IN_TOUCH = {
+  action: "Add a conversation",
+  title: (name: string) => `How were you in touch with ${name}?`,
+  choices: [
+    { channel: "text", label: "Message" },
+    { channel: "call", label: "Call" },
+    { channel: "video", label: "Video" },
+    { channel: "in_person", label: "In person" },
+  ],
+} as const;
+
 export interface PortraitViewProps {
   personId: string;
   name: string | null;
@@ -41,14 +60,16 @@ export interface PortraitViewProps {
   short?: string | null;
   label: string | null;
   remembered: boolean;
-  /** "You reached out · Oct 6" (H10). */
-  reachedOut?: string | null;
   /** Tapping the name corrects it (H1). */
   onRename?: () => void;
   lately: PortraitLineData[];
   comingUp: PortraitLineData[];
   youSaid: PortraitLineData[];
   between: PortraitLineData[];
+  /** The newest conversations the user confirmed, under Between you (founder I2). */
+  trail?: TrailLineData[];
+  /** "Add a conversation": a conversation Kinship couldn't know about. */
+  onInTouch?: () => void;
   total: number;
   onBack: () => void;
   onLine: (itemId: string) => void;
@@ -89,7 +110,7 @@ function withWhen(l: PortraitLineData, leading = false): string {
  * step darker. "You told Kinship · Oct 5" is shown once per run of lines that
  * share it, not under every line (the line's sheet always has it).
  */
-function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusItemId, focus }: {
+function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusItemId, focus, after }: {
   title: string;
   lines: PortraitLineData[];
   ochre?: boolean;
@@ -98,9 +119,11 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusIte
   onSource: (noteId: string) => void;
   focusItemId?: string | null;
   focus?: ReturnType<typeof useLineFocus>;
+  /** More of the section after its lines (Between you's conversations, founder I2). */
+  after?: React.ReactNode;
 }) {
   const p = usePalette();
-  if (!lines.length) return null;
+  if (!lines.length && !after) return null;
   return (
     <View
       onLayout={(e) => focus?.onGroup(title, e.nativeEvent.layout.y)}
@@ -146,7 +169,22 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusIte
           </View>
         );
       })}
+      {after}
     </View>
+  );
+}
+
+/** Conversations the user confirmed: history in their words, never a count or "last contacted" (founder I2). */
+function Trail({ lines, first }: { lines: TrailLineData[]; first: boolean }) {
+  return (
+    <>
+      {lines.map((t, i) => (
+        <View key={t.id} accessible accessibilityLabel={t.about ? `${t.label}. ${t.about}` : t.label} style={{ marginTop: first && i === 0 ? space.m : space.s }}>
+          <Line>{t.label}</Line>
+          {t.about ? <Small style={{ marginTop: space.xs }}>{t.about}</Small> : null}
+        </View>
+      ))}
+    </>
   );
 }
 
@@ -221,7 +259,6 @@ export function PortraitView(props: PortraitViewProps) {
             </View>
           ) : null}
           {props.remembered ? <Small style={{ marginTop: space.xs }}>Remembered</Small> : null}
-          {props.reachedOut ? <Small style={{ marginTop: space.xs }}>{props.reachedOut}</Small> : null}
         </View>
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>
@@ -259,7 +296,21 @@ export function PortraitView(props: PortraitViewProps) {
       <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
       <Section title="Coming up" lines={props.comingUp} leadWithWhen onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
       <Section title="You said you'd" lines={props.youSaid} ochre onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
-      <Section title="Between you" lines={props.between} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      <Section
+        title="Between you"
+        lines={props.between}
+        onLine={props.onLine}
+        onSource={props.onSource}
+        focusItemId={props.focusItemId}
+        focus={focus}
+        after={props.trail?.length ? <Trail lines={props.trail} first={!props.between.length} /> : null}
+      />
+      {/* What Kinship can't know (founder I2): never on a page with nothing told yet. */}
+      {props.onInTouch && !empty ? (
+        <View style={{ alignItems: "flex-start", marginTop: space.m, marginLeft: -space.xs }}>
+          <Pill variant="quiet" size="small" label={IN_TOUCH.action} accessibilityHint={IN_TOUCH.title(first)} onPress={props.onInTouch} />
+        </View>
+      ) : null}
       {empty ? (
         <View style={{ marginTop: space.xl, alignItems: "flex-start" }}>
           <Body>{`What you tell Kinship about ${first} will be here: what's going on with them, what's coming up, what you said you'd do.`}</Body>

@@ -9,7 +9,7 @@ import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { ConflictChoice } from "@/store/conflictCopy";
-import { Body, Emphasis, Line, Pill, Provenance, Screen, Small, Title, Token, TokenRow, useLineFocus, usePalette } from "@/ui";
+import { Body, Emphasis, Label, Line, Pill, Provenance, Screen, Small, Title, Token, TokenRow, useLineFocus, usePalette } from "@/ui";
 
 /** "Forget this?" (founder native pass F5: "Keep it" also named the Tell button, with another meaning). */
 export const FORGET_COPY = { title: "Forget this?", cancel: "Cancel", forget: "Forget" } as const;
@@ -37,6 +37,10 @@ export interface PersonRecordViewProps {
   onSettle: (conflictId: number, choice: "keep_current" | "use_mine") => void;
   /** "View Ben" from a Moment whose line isn't on Ben's page (founder I1): this list lands on it. */
   focusItemId?: string | null;
+  /** Every conversation the user confirmed with them, newest first (founder I2). */
+  trail?: { id: string; label: string; about: string | null }[];
+  /** "Not this" on a conversation recorded by mistake. */
+  onForgetConversation?: (id: string) => void;
   children?: React.ReactNode;
 }
 
@@ -131,6 +135,24 @@ export function PersonRecordView(props: PersonRecordViewProps) {
           </View>
         ))}
       </View>
+      {props.trail?.length ? (
+        <View style={{ marginTop: space.x3 }}>
+          <Label tone="inkBody" accessibilityRole="header">Between you</Label>
+          <View style={{ marginTop: space.s, borderTopWidth: 1, borderTopColor: p.hairline }}>
+            {props.trail.map((t) => (
+              <View key={t.id} style={{ paddingVertical: space.l, borderBottomWidth: 1, borderBottomColor: p.hairline }}>
+                <Line>{t.label}</Line>
+                {t.about ? <Small style={{ marginTop: space.xs }}>{t.about}</Small> : null}
+                {props.onForgetConversation ? (
+                  <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.s }}>
+                    <Pill variant="quiet" label="Not this" accessibilityLabel={`Not this: ${t.label}`} onPress={() => props.onForgetConversation?.(t.id)} />
+                  </View>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
       {props.children}
     </Screen>
   );

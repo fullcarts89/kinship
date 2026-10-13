@@ -14,7 +14,7 @@
 // is never a stale detail.
 
 import { dayLabel } from "@/features/memory/format";
-import { daysBetween, type MomentView, type QuietView, type ReasonType, type TodayView } from "./todayModel";
+import { daysBetween, type MomentView, type QuietView, type ReasonType, type TodayView, waitingReasonId } from "./todayModel";
 
 export interface MomentDetail {
   /** Which moment or line this is (internal: never shown). */
@@ -35,8 +35,8 @@ export interface MomentDetail {
   provenance: string | null;
   /** The note it came from (the Source). */
   noteId: string | null;
-  /** What a Message or Call carries, so the return check asks about it. */
-  reason: { id: string; type: ReasonType; ask: string; about: string | null; followUp: string };
+  /** What a Message or Call carries, so the return check asks about it (and a Yes records what it was about, I2). */
+  reason: { id: string; type: ReasonType; ask: string; about: string | null; followUp: string; itemId: string | null };
   /** The hand-off sheet's heading and "You could mention", when the sheet is needed. */
   heading: string;
   mention: string[];
@@ -69,7 +69,7 @@ export function behind(day: string, today: string): string {
 /** The key a Coming up or "Waiting on …" line opens its detail by (also its hand-off's local reason id). */
 export function quietKey(q: QuietView): string | null {
   if (q.kind === "coming") return `coming:${q.itemId ?? `birthday-${q.personId}`}:${q.day}`;
-  if (q.kind === "waiting") return `waiting:${q.itemId}:${q.day}`;
+  if (q.kind === "waiting") return waitingReasonId(q.itemId, q.day);
   return null;
 }
 
@@ -99,7 +99,7 @@ function fromMoment(m: MomentView, today: string): MomentDetail {
     why,
     when: day && !m.toldDay ? dayLabel(day, today) : null,
     provenance: m.provenance, noteId: m.noteId,
-    reason: { id: m.reasonId, type: m.type, ask: m.ask, about: m.memory, followUp: m.followUp },
+    reason: { id: m.reasonId, type: m.type, ask: m.ask, about: m.memory, followUp: m.followUp, itemId: m.itemId },
     heading: m.heading, mention: m.mention,
   };
 }
@@ -112,7 +112,8 @@ function fromQuiet(q: Extract<QuietView, { kind: "coming" | "waiting" }>, key: s
       why: `It was due ${behind(q.day, today)}.`,
       when: dayLabel(q.day, today),
       provenance: q.provenance, noteId: q.noteId,
-      reason: { id: key, type: "waiting", ask: `Did you reach ${name}?`, about: q.memory, followUp: `Anything worth remembering from talking with ${name}?` },
+      // A promise's logistics ("his contractor's number"): nothing more to ask after a Yes (I2).
+      reason: { id: key, type: "waiting", ask: `Did you reach ${name}?`, about: q.memory, followUp: "", itemId: q.itemId },
       heading: `Message ${name}`, mention: [],
     };
   }
@@ -123,7 +124,10 @@ function fromQuiet(q: Extract<QuietView, { kind: "coming" | "waiting" }>, key: s
     why: birthday ? `${name}'s birthday is ${ahead(q.day, today)}.` : q.due ? `It's due ${ahead(q.day, today)}.` : `It's ${ahead(q.day, today)}.`,
     when: dayLabel(q.day, today),
     provenance: q.provenance, noteId: q.noteId,
-    reason: { id: key, type: "coming", ask: `Did you reach ${name}?`, about: q.text, followUp: `Anything worth remembering from talking with ${name}?` },
+    reason: {
+      id: key, type: "coming", ask: `Did you reach ${name}?`, about: q.text,
+      followUp: q.due ? "" : `Anything worth remembering from talking with ${name}?`, itemId: q.itemId,
+    },
     heading: `Message ${name}`, mention: [],
   };
 }
