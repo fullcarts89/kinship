@@ -13,7 +13,7 @@ import { ReasonLocal } from "@/store/reasonLocal";
 import type { ReasonEvent } from "@/store/reasons";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { answerReturn, cancelHandOff, conversationId, forgetConversation, handOff, handoffFor, type ReturnLoopDeps } from "@/store/returnLoop";
-import { portraitFor } from "@/hooks/useV2";
+import { acceptLink, portraitFor } from "@/hooks/useV2";
 import { detailFor, quietKey } from "@/features/today/momentDetail";
 import { prepareSchema } from "@/store/schema";
 import { SyncEngine } from "@/store/syncEngine";
@@ -471,6 +471,40 @@ describe("reviewer E, round 2 (13 Oct): the paths only the screens took", () => 
     expect(await waiting()).toBe(true);
     await p.repos.contacts.confirm({ person_id: "tyler", channel: "text", source: "manual", memory_item_id: "p1", occurred_at: new Date(2026, 9, 10, 12).toISOString() });
     expect(await waiting()).toBe(false);
+  });
+});
+
+describe("reviewer C, round 3 (13 Oct): every field of the hand-off, and the link Yes", () => {
+  it("handoffFor: an empty ask or about is no ask or about; \"\" for followUp stays; type, item and channel carried", () => {
+    const h = handoffFor("tyler", "call", { id: WAITING, type: "waiting", ask: "", about: "", followUp: "", itemId: "p1" });
+    expect(h).toEqual({ reasonId: WAITING, personId: "tyler", channel: "call", type: "waiting", itemId: "p1", ask: undefined, about: undefined, followUp: "" });
+    expect(handoffFor("anthony", "text", { id: "r2", type: "upcoming_event", ask: "Did you reach Anthony about the wedding?", about: "Anthony's wedding", followUp: "Anything?", itemId: "e9" }))
+      .toEqual({ reasonId: "r2", personId: "anthony", channel: "text", type: "upcoming_event", itemId: "e9", ask: "Did you reach Anthony about the wedding?", about: "Anthony's wedding", followUp: "Anything?" });
+    expect(handoffFor("josh", "text", { id: "r1", type: "upcoming_event", about: null })).toEqual({
+      reasonId: "r1", personId: "josh", channel: "text", type: "upcoming_event", itemId: null, ask: undefined, about: undefined, followUp: undefined,
+    });
+  });
+
+  it("the return question asks in the detail's own words, about its memory, and the conversation records which kind of Moment it was", async () => {
+    const p = await phone(new FakeServer());
+    const v = await today(p);
+    const w = detailFor(v, quietKey(waitingLine(v)!)!, "2026-10-12", () => "Tyler")!;
+    await handOff(p.deps, handoffFor(w.personId, "text", w.reason));
+    expect((await today(p)).returnCheck).toMatchObject({ ask: "Did you reach Tyler?", about: promise.statement });
+    await answerReturn(p.deps, "yes");
+    expect((await contactsOn(p)).map((c) => [(c as unknown as Record<string, unknown>).moment_type, (c as unknown as Record<string, unknown>).source])).toEqual([["waiting", "return_check"]]);
+  });
+
+  it("acceptLink: Yes adds them to the memory beside everyone already on it, once; a related person becomes them", async () => {
+    const p = await phone(new FakeServer());
+    const item = await p.repos.memory.remember({ kind: "fact", person_id: "tyler", statement: "Tyler and Ana went to Tahoe with Josh", with_person_ids: ["ana"] }, { userAuthored: true });
+    const link = { key: "k", kind: "item" as const, targetId: item.id, prompt: "Is this the Josh in …?" };
+    await acceptLink(p.store, "josh", link);
+    await acceptLink(p.store, "josh", link);
+    expect(((await p.store.get("memory_items", item.id)) as MemoryItem).with_person_ids).toEqual(["ana", "josh"]);
+    const rel = await p.store.create("related_people", { person_id: "tyler", relation: "brother", name: "Josh" });
+    await acceptLink(p.store, "josh", { key: "r", kind: "related", targetId: String(rel.id), prompt: "Is this Tyler's brother Josh?" });
+    expect(((await p.store.get("related_people", String(rel.id))) as Record<string, unknown>).promoted_person_id).toBe("josh");
   });
 });
 

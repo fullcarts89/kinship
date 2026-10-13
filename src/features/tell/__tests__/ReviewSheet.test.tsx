@@ -150,3 +150,43 @@ it("'Who is this about?' offers everyone the line names, never cut short (founde
   });
   expect(view.questions.map((q) => [q.prompt, q.choices.map((c) => c.label)])).toEqual([["Who is this about?", ["Ana", "Bea", "Cal", "Dev", "Eli", "Fay", "Someone else"]]]);
 });
+
+// Reviewer C, round 3 (13 Oct): bringing someone back from "Which Chris?" re-reads People; the question must stay
+// the same question, so the pick isn't lost when "Remember this?" follows.
+it("'Bring back Chris Old' on 'Which Chris?', then Remember: Chris Old is on the line", () => {
+  const before = [
+    { id: "ben", display_name: "Ben", state: "active" }, { id: "chris", display_name: "Chris", state: "active" },
+    { id: "old", display_name: "Chris Old", state: "archived" },
+  ] as unknown as Person[];
+  const after = before.map((x) => (x.id === "old" ? { ...x, state: "active" } : x)) as Person[];
+  const note = "Ben went to rehab with Chris";
+  const rehab: HeldItem = {
+    kind: "fact", person_id: "ben", new_person_name: null, subject_type: "person", related: null,
+    statement: note, detail: {}, certainty: "stated", sensitivity: "health", tier: "hold",
+    flags: ["participant_ambiguous"], spans: [{ start: 0, end: note.length, quote: note }],
+    open_names: [{ text: "Chris", candidate_ids: ["chris"], archived_ids: ["old"] }],
+  };
+  const viewFor = (ppl: Person[]) => buildReview({
+    row: row({ tier: "clarify", held: [rehab] }), capture: { id: "c1", raw_text: note, context_person_id: null, status: "needs_review" },
+    items: [], people: ppl, related: [], offline: false, today: TODAY,
+  });
+  const first = viewFor(before);
+  expect(first.questions.map((q) => [q.prompt, q.reason, q.choices.map((c) => c.label)])).toEqual([
+    ["Which Chris do you mean?", "One Chris was removed from People.", ["Chris", "Bring back Chris Old", "Someone else"]],
+    ["Remember this about Ben?", expect.anything(), expect.any(Array)],
+  ]);
+  const props: ReviewSheetProps = {
+    view: first, visible: true, people: before, today: TODAY, onRestore: jest.fn(),
+    onDismiss: jest.fn(), onDone: jest.fn(), onUndo: jest.fn(), onReject: jest.fn(), onCorrect: jest.fn(),
+    onAnswer: jest.fn(), onOpenNote: jest.fn(), onActivity: jest.fn(),
+  };
+  let tree!: TestRenderer.ReactTestRenderer;
+  act(() => {
+    tree = TestRenderer.create(<ReviewSheet {...props} />);
+  });
+  press(tree, "Bring back Chris Old");
+  expect(props.onRestore).toHaveBeenCalledWith("old");
+  act(() => tree.update(<ReviewSheet {...props} view={viewFor(after)} people={after} />));
+  press(tree, "Remember");
+  expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, accept: true, participants: [{ text: "Chris", person_id: "old" }] }]);
+});

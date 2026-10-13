@@ -750,3 +750,20 @@ Deno.test("r3: the plan never repeats news another line of the note already keep
   const notTelling = run(input("I got the job and Mom will be thrilled", [LOO, MOM]), [tell("Mom will be thrilled")]);
   eq(notTelling.items.some((i) => /thrilled/u.test(i.statement) && /got the job/u.test(i.statement)), false);
 });
+
+Deno.test("r3 (S3): someone removed is accepted only for the name that offered them back", () => {
+  const roster = [person("p1", "ben", "Ben"), person("p2", "chris", "Chris"), person("p3", "sam-eden", "Sam Eden"), person("p4", "sam-d", "Sam Doughty")];
+  const note = "Last weekend Ben went to rehab with Chris and Sam";
+  const inp = { ...input(note, roster), archived: [{ id: "chris-old", display_name: "Chris Old", full_name: null, nicknames: [] }] };
+  const out = run(inp, [item({ person: "p1", person_mention: "Ben", statement: "Ben went to rehab with Chris and Sam", evidence: [note], sensitivity: "health" })]);
+  const held = out.items.filter((i) => i.tier === "hold").map(asHeld);
+  const at = held.findIndex((h) => (h.open_names ?? []).length === 2);
+  eq(at >= 0, true, JSON.stringify(out.items.map((i) => i.open_names)));
+  const people = [...peopleOf(roster), { id: "chris-old", display_name: "Chris Old", state: "archived" }];
+  const answer = (sam: string) => held.map((_, index) => index === at
+    ? { index, accept: true as const, participants: [{ text: "Chris", person_id: "chris" }, { text: "Sam", person_id: sam }] } : { index, skip: true as const });
+  const wrong = resolveHeld(held, answer("chris-old"), { note, people, related: [], existing: [] });
+  eq("fail" in wrong ? wrong.fail : "saved", "unknown_person");
+  const right = resolveHeld(held, answer("sam-eden"), { note, people, related: [], existing: [] });
+  eq("fail" in right ? right.fail : [...(right.items[0].with_person_ids ?? [])].sort(), ["chris", "sam-eden"]);
+});

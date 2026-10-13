@@ -497,9 +497,9 @@ export function newcomersIn(statement: string, note: string, people: Person[]): 
     new RegExp(`\\b(?:${TO_SOMEONE})\\s+to\\s+${NAME}(?:\\s*(?:,|and|&)\\s*${NAME})?`, "gu"),
     new RegExp(`\\b(?:${SOMEONE})\\s+${NAME}(?:\\s*(?:,|and|&)\\s*${NAME})?`, "gu"),
   ];
-  // The last two (K6) also fit a service ("called Delta", "emailed Google"); the shapes before them don't
-  // ("Susan is getting married to Siri" is someone).
-  const reachedOnly = patterns.length - 2;
+  // Every shape but the first also fits a service ("called Delta", "traveling with Uber", "Ben and Google are…");
+  // marrying, dating or divorcing someone doesn't ("Susan is getting married to Siri" is someone; reviewer C, r3).
+  const servicesFrom = 1;
   const out: string[] = [];
   for (const [n, re] of patterns.entries()) {
     for (const m of statement.matchAll(re)) {
@@ -507,7 +507,7 @@ export function newcomersIn(statement: string, note: string, people: Person[]): 
         if (!g) continue;
         const w = withoutPossessive(g);
         const k = fold(w);
-        if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || KIN_WORD.test(k) || (n >= reachedOnly && SERVICE_WORD.test(k)) || out.some((o) => fold(o) === k)) continue;
+        if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || KIN_WORD.test(k) || (n >= servicesFrom && SERVICE_WORD.test(k)) || out.some((o) => fold(o) === k)) continue;
         if (!new RegExp(`(^|[^\\p{L}])${w}([^\\p{L}]|$)`, "u").test(note)) continue;
         out.push(w);
       }
@@ -610,7 +610,7 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
         group: `who:${pronoun ?? ""}:${candidates.map((p) => p.id).sort().join(",")}`,
         prompt: pronoun ? `Who is “${pronoun}”?` : shared ? `Which ${shared} do you mean?` : "Who is this about?",
         reason: pronoun ? null
-          : shared ? `You have more than one ${shared}.`
+          : shared ? (candidates.length > 1 ? `You have more than one ${shared}.` : `One ${shared} was removed from People.`)
           : newNames.length ? `${newNames.join(" and ")} ${newNames.length > 1 ? "aren't" : "isn't"} in your people yet.`
           : "I couldn't tell who this is about.",
         choices,
@@ -633,13 +633,15 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
     const live = input.people.filter((p) => p.state !== "archived");
     const meant = live.filter((p) => (open.candidate_ids ?? []).includes(p.id));
     // Someone removed from People went by it too (founder I3): offered back, and asked even with one person left.
-    const removed = (open.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id && p.state === "archived")).filter((p): p is Person => !!p);
+    // Whatever their state now: brought back from this very question, it stays the same question, and its answer
+    // stands (reviewer C, r3: the restore re-read People, the question changed, and the pick was lost).
+    const removed = (open.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
     if (meant.length + removed.length < 2 || meant.length === 0) continue;
     needs.push({
       type: "which_person",
       group: `slot:${fold(open.text)}:${meant.map((p) => p.id).sort().join(",")}`,
       prompt: `Which ${open.text} do you mean?`,
-      reason: `You have more than one ${open.text}.`,
+      reason: meant.length > 1 ? `You have more than one ${open.text}.` : `One ${open.text} was removed from People.`,
       choices: [
         ...meant.map((p) => ({ key: `p:${p.id}`, label: personLabel(p, input.people), answer: { person_id: p.id } })),
         ...removed.map((p) => ({ key: `back:${p.id}`, label: `Bring back ${personLabel(p, input.people)}`, answer: { person_id: p.id }, restore: p.id })),

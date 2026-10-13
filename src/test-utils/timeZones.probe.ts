@@ -45,6 +45,19 @@ if (zone === "Pacific/Kiritimati") {
     });
     expect(v.quiet.find((q) => q.kind === "waiting")).toMatchObject({ label: "Waiting on Tyler" });
   });
+
+  it("Pago Pago: on Tyler's page too, that evening's conversation doesn't end 'Waiting on Tyler'", async () => {
+    const monday = new Date(Date.UTC(2026, 9, 12, 20)); // Oct 12, 9am there
+    const db = await openSqlJsDb(`tz-${randomUUID()}`);
+    await prepareSchema(db, A);
+    const store = new UserStore(db, A, { now: () => monday.toISOString(), newId: () => randomUUID() });
+    const repos = repositoriesFor(store);
+    await store.create("people", { id: "tyler", display_name: "Tyler Shaffer", state: "active" });
+    await repos.memory.remember({ id: "p1", kind: "promise", person_id: "tyler", statement: promise("2026-10-10").statement, detail: { due_date: "2026-10-10" } }, { userAuthored: true });
+    await repos.contacts.confirm({ person_id: "tyler", channel: "text", source: "manual", memory_item_id: "p1", occurred_at: evening.toISOString() });
+    const page = await portraitFor(repos, tyler, monday);
+    expect(page.lately.find((l) => l.itemId === "p1")?.when).toBe("Waiting on Tyler");
+  });
 } else {
   it("runs only in a zone it knows", () => {
     throw new Error(`unexpected zone ${zone}`);

@@ -372,6 +372,11 @@ describe("K6: someone a kept line names who isn't in People yet", () => {
       expect(newcomersIn(s, s, [])).toEqual([]);
     }
     expect(newcomersIn("Susan is getting married to Siri", "Susan is getting married to Siri", [])).toEqual(["Siri"]);
+    // Reviewer C, r3: "…with Uber" and "Ben and Google are…" fit a service as well as "called Tesla" does.
+    const ben = [{ id: "b", display_name: "Ben", state: "active" }] as unknown as Person[];
+    for (const s of ["Ben is traveling with Delta to Paris", "Ben is going to the airport with Uber", "Ben and Google are talking about a job"]) {
+      expect([s, newcomersIn(s, s, ben)]).toEqual([s, []]);
+    }
   });
 
   it("a name two people in People share is asked about ('Which Sam?'), never offered as someone new", async () => {
