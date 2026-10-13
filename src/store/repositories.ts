@@ -19,7 +19,7 @@ export type CaptureSource =
   | "post_handoff" | "post_encounter" | "photo" | "onboarding";
 export type MemoryKind =
   | "fact" | "event" | "promise" | "plan" | "thread" | "moment" | "milestone" | "tradition" | "context";
-export type Channel = "text" | "call" | "facetime" | "whatsapp" | "email" | "in_person" | "other";
+export type Channel = "text" | "call" | "facetime" | "whatsapp" | "email" | "in_person" | "video" | "other";
 
 export interface Person extends Data {
   id: string;
@@ -355,23 +355,41 @@ export class MemoryRepo {
 export class ContactRepo {
   constructor(private readonly store: UserStore) {}
 
-  /** Confirmed contact only: the return check's yes, a capture, or a manual entry. Never a hand-off alone. */
+  /**
+   * Confirmed contact only: the return check's yes, a capture, or a manual
+   * entry. Never a hand-off alone. A return check names what it answered: a
+   * server reason, or the kind of Moment made on this phone; with what it was
+   * about, when there is a memory (founder I2).
+   */
   async confirm(fields: {
+    /** A stable id, when the same conversation could be written twice (returnLoop.ts). */
+    id?: string;
     person_id: string;
     channel: Channel;
     source: "return_check" | "capture" | "manual" | "calendar_confirmed";
     reason_id?: string;
     capture_id?: string;
     occurred_at?: string;
+    memory_item_id?: string;
+    moment_type?: string;
   }): Promise<Data> {
-    if (fields.source === "return_check" && !fields.reason_id) {
-      throw new StoreWriteError("a return-check contact names its reason");
+    if (fields.source === "return_check" && !fields.reason_id && !fields.moment_type) {
+      throw new StoreWriteError("a return-check contact names its reason or its Moment");
     }
     return this.store.create("contact_events", { occurred_at: this.store.now(), ...fields });
   }
 
   forPerson(personId: string): Promise<Data[]> {
     return this.store.list("contact_events", { personId });
+  }
+
+  get(id: string, opts: { includeDeleted?: boolean } = {}): Promise<Data | null> {
+    return this.store.get("contact_events", id, opts);
+  }
+
+  /** "Not this": a conversation recorded by mistake leaves the trail (founder I2). */
+  forget(id: string): Promise<void> {
+    return this.store.remove("contact_events", id);
   }
 }
 

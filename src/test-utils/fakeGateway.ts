@@ -197,7 +197,8 @@ export class FakeGateway implements GatewayTransport {
     const note = String(capture.raw_text);
     for (const item of review.items) {
       for (const s of item.spans as { start: number; end: number; quote: string }[]) {
-        if (note.slice(s.start, s.end) !== s.quote) return refuse(409, "review_changed");
+        // As resolve_capture_review: code points, and the stored quote is at most 200 of them (reviewer A, r4).
+        if (Array.from(note).slice(s.start, s.end).slice(0, 200).join("") !== s.quote) return refuse(409, "review_changed");
       }
     }
     const answers = body.answers as HeldAnswer[];
@@ -250,6 +251,14 @@ export class FakeGateway implements GatewayTransport {
     return ok({ status: "resolved", saved: out, new_people: Object.values(created), skipped });
   }
 
+  private removedFrom(captureId: string): { person_id: string; statement: string }[] {
+    const all = (t: "memory_items" | "memory_item_sources") => [...this.server.table(t).values()].filter((r) => r.user_id === this.userId) as Record<string, unknown>[];
+    const ids = new Set(all("memory_item_sources").filter((x) => x.capture_id === captureId).map((x) => x.memory_item_id));
+    return all("memory_items")
+      .filter((m) => ids.has(m.id) && (m.deleted_at || m.status === "superseded"))
+      .map((m) => ({ person_id: String(m.person_id), statement: String(m.statement) }));
+  }
+
   private realAnswer(captureId: string, note: string, review: StoredReview, answers: HeldAnswer[]): TransportReply {
     const people = withLineNames(this.rows<PersonRow & { state: string }>("people"), this.rows<{ person_mentions?: unknown }>("memory_items"));
     const r = resolveHeld(review.items as unknown as ResolveHeldItem[], answers as never, {
@@ -264,6 +273,8 @@ export class FakeGateway implements GatewayTransport {
         subject_related_id: (m.subject_related_id as string | null) ?? null, statement: String(m.statement), status: String(m.status),
         user_state: String(m.user_state),
       })),
+      // As the gateway's loadRemoved: this capture's lines the user has since removed.
+      removed: this.removedFrom(captureId),
     });
     if ("fail" in r) return refuse(400, "invalid_answer", r.fail);
     const created: Record<string, string> = {};
@@ -286,8 +297,11 @@ export class FakeGateway implements GatewayTransport {
   // ─── Writes, as write_extraction makes them ──────────────────────────
 
   private plan(note: string, it: ScriptedItem): Record<string, unknown> & { tier: string; person_id: string | null } {
-    const start = note.indexOf(it.quote);
-    if (start < 0) throw new Error(`scripted quote not in the note: ${it.quote}`);
+    const at = note.indexOf(it.quote);
+    if (at < 0) throw new Error(`scripted quote not in the note: ${it.quote}`);
+    // Code points, and at most 200 of them, as the real pipeline writes a span (reviewer A, r5).
+    const start = Array.from(note.slice(0, at)).length;
+    const quote = Array.from(it.quote).slice(0, 200).join("");
     return {
       kind: it.kind,
       person_id: it.person_id ?? null,
@@ -302,7 +316,7 @@ export class FakeGateway implements GatewayTransport {
       action: { type: "new", target_id: null },
       tier: it.tier,
       flags: it.flags ?? [],
-      spans: [{ start, end: start + it.quote.length, quote: it.quote }],
+      spans: [{ start, end: start + Array.from(it.quote).length, quote }],
     };
   }
 

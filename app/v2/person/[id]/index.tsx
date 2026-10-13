@@ -2,17 +2,18 @@
 // provenance for the note; Message and Call open the real conversation;
 // Tell adds something about them (an unsent note about them waits here).
 import React, { useState } from "react";
-import { Alert } from "react-native";
+import { Alert, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { ItemSheet } from "@/features/person/ItemSheet";
-import { PortraitView, removeCopy } from "@/features/person/PortraitView";
+import { IN_TOUCH, PortraitView, removeCopy } from "@/features/person/PortraitView";
 import { KeptCard } from "@/features/tell/TellDock";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TellSheet } from "@/features/tell/TellSheet";
 import { useHandoff } from "@/features/today/useHandoff";
 import { todayIso, useItemLine, usePeople, usePersonLinks, usePortrait, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { NamePane } from "@/features/tell/Pickers";
-import { Sheet } from "@/ui";
+import { Pill, Sheet, Title } from "@/ui";
+import { space } from "@/design/tokens";
 import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
 export default function PersonScreen() {
@@ -28,7 +29,8 @@ export default function PersonScreen() {
   const [itemId, setItemId] = useState<string | null>(null);
   const [telling, setTelling] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const { rename, removePerson } = useV2Actions();
+  const [inTouch, setInTouch] = useState(false);
+  const { rename, removePerson, inTouch: recordInTouch } = useV2Actions();
   const item = useItemLine(itemId);
   const name = portrait.person?.display_name ?? null;
   // Said the way Kinship says their name everywhere (founder I12).
@@ -46,11 +48,12 @@ export default function PersonScreen() {
       short={first}
       label={portrait.label}
       remembered={portrait.person?.state === "remembered"}
-      reachedOut={portrait.reachedOut ?? null}
       lately={portrait.lately}
       comingUp={portrait.comingUp}
       youSaid={portrait.youSaid}
       between={portrait.between}
+      trail={portrait.trail}
+      onInTouch={portrait.person?.state === "active" ? () => setInTouch(true) : undefined}
       total={portrait.total}
       onBack={() => router.back()}
       onLine={setItemId}
@@ -109,6 +112,22 @@ export default function PersonScreen() {
               },
             ]);
           }} />
+        ) : null}
+      </Sheet>
+      {/* A conversation Kinship couldn't know about (founder I2): how, and nothing more. */}
+      <Sheet visible={inTouch} onDismiss={() => setInTouch(false)} label={IN_TOUCH.title(first)}>
+        {inTouch ? (
+          <View style={{ gap: space.m }}>
+            <Title>{IN_TOUCH.title(first)}</Title>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
+              {IN_TOUCH.choices.map((c) => (
+                <Pill key={c.channel} label={c.label} onPress={() => {
+                  setInTouch(false);
+                  fail(recordInTouch(personId, c.channel));
+                }} />
+              ))}
+            </View>
+          </View>
         ) : null}
       </Sheet>
       <TellSheet person={telling && name ? { id: personId, name: first } : null} onClose={() => setTelling(false)} />

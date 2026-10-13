@@ -58,6 +58,8 @@ export interface HeldItem {
   archived_ids?: string[];
   /** Which words name whom; the open "who?" has the asked-about words with no person (founder I13). */
   person_mentions?: PersonMention[];
+  /** Others it is about whose name two or more people share, each asked on its own (founder K4). */
+  open_names?: { text: string; candidate_ids: string[]; archived_ids?: string[] }[];
 }
 
 /** The user's answer for one held item. */
@@ -85,6 +87,12 @@ export interface HeldAnswer {
   date?: string | null;
   /** "Remember this": keep the item as proposed (required when nothing else is asked). */
   accept?: boolean;
+  /**
+   * "Which Sam?" for someone else the line is about (founder K4): one of its
+   * open names, and who it is. An open name left unanswered ("Not sure", or a
+   * build before this question) is left out of the memory, never guessed.
+   */
+  participants?: { text: string; person_id: string }[];
 }
 
 export interface ResolvePerson {
@@ -123,6 +131,11 @@ export interface ResolveContext {
   related: ResolveRelated[];
   /** The chosen people's active memories, for exact-duplicate merges. */
   existing: ResolveExisting[];
+  /**
+   * Lines this note wrote that the user has since removed ("Not this"): a
+   * held mirror of one never brings it back (reviewer A, 13 Oct).
+   */
+  removed?: { person_id: string; statement: string }[];
 }
 
 /** One item for write_extraction; person_id may be "new:<n>", a person the RPC creates first. */
@@ -175,13 +188,15 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
   let skipped = 0;
   // Mirrors whose kept line is waiting in this same review: joined at the end.
   const joins: { owner: string; bag: string; people: string[]; alone: ResolvedItem }[] = [];
+  // Mirrors whose kept line has gone, by kept owner and words: one memory between them, never one each (reviewer A).
+  const alones = new Map<string, ResolvedItem>();
 
   for (const [index, item] of held.entries()) {
     const a = byIndex.get(index);
     if (!a) return { fail: "unanswered" };
     if (a.skip === true) {
       if (a.person_id !== undefined || a.new_person !== undefined || a.subject !== undefined || a.date !== undefined || a.accept !== undefined ||
-          a.also_person_ids !== undefined || a.replaces !== undefined || a.owner !== undefined) return { fail: "bad_answer" };
+          a.also_person_ids !== undefined || a.replaces !== undefined || a.owner !== undefined || a.participants !== undefined) return { fail: "bad_answer" };
       skipped++;
       continue;
     }
@@ -190,6 +205,9 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     const needsPerson = item.person_id === null || PERSON_FLAGS.some((f) => flags.has(f));
     // Held only for the user's yes (a sensitive or ambiguous reading): nothing is
     // written on silence or on an empty answer.
+    const openNames = Array.isArray(item.open_names) ? item.open_names.filter((o) => o && typeof o.text === "string" && o.text.trim()) : [];
+    // Which Sam is never a yes to the memory itself: a line waiting for the
+    // user's yes (sensitive, say) still needs it, whatever else is asked (reviewer A).
     const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive") || flags.has("update_check") ||
       flags.has("promise_owner");
     if (a.accept !== undefined && a.accept !== true) return { fail: "bad_answer" };
@@ -307,6 +325,27 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       withPeople = [...new Set([...withPeople, ...a.also_person_ids])].filter((id) => id !== personId);
     }
 
+    // ── Others it is about, one name at a time (founder K4) ──
+    // "Which Sam?" settles only that name: who the line is about, and everyone
+    // else it names, stay as they are.
+    const participants: { text: string; person_id: string }[] = [];
+    if (a.participants !== undefined) {
+      if (!Array.isArray(a.participants) || a.participants.length > openNames.length) return { fail: "bad_answer" };
+      for (const pa of a.participants) {
+        if (!pa || typeof pa.text !== "string" || typeof pa.person_id !== "string") return { fail: "bad_answer" };
+        const open = openNames.find((o) => fold(o.text) === fold(pa.text));
+        if (!open || participants.some((x) => fold(x.text) === fold(pa.text))) return { fail: "bad_answer" };
+        const p = ctx.people.find((x) => x.id === pa.person_id);
+        // Someone removed from People only when this name offered them back (founder I3).
+        if (!p || (p.state === "archived" && !(Array.isArray(open.archived_ids) && open.archived_ids.includes(p.id)))) return { fail: "unknown_person" };
+        // The person chosen as who the line is about is one this name can mean: the name is them, said
+        // once ("Who is this about?" Anthony, then "Which Anthony?" Anthony Test never attaches both; reviewer A).
+        if (needsPerson && Array.isArray(open.candidate_ids) && open.candidate_ids.includes(personId)) continue;
+        participants.push({ text: pa.text, person_id: p.id });
+      }
+      withPeople = [...new Set([...withPeople, ...participants.map((x) => x.person_id)])].filter((id) => id !== personId);
+    }
+
     // ── The words: the line names who the user chose (Gate B, founder I13) ──
     // Said as Kinship says each name: "Ben" from "Ben Oxnard", a chosen "Cutie Pie" whole (founder I12).
     const subjectFor = (id: string): MentionSubject | null => {
@@ -320,8 +359,9 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     let statement = item.statement;
     let mentions = mentionsOf(item.person_mentions);
     const chosen = needsPerson && subjectType !== "related" ? subjectFor(personId) : null;
+    const openTexts = new Set(openNames.map((o) => fold(o.text)));
     if (chosen) {
-      const asked = mentions.find((m) => m.person_id === null);
+      const asked = mentions.find((m) => m.person_id === null && !openTexts.has(fold(m.text)));
       if (asked) {
         // "Which Sam?" → Someone else → Chris: "Sam" was another person's name, and
         // the line now says Chris. "Who is Liz?" → Elizabeth: "Liz" is nobody else's
@@ -336,12 +376,32 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         statement = names.length > 1 ? withSpokenNames(statement, names) : withSpokenName(statement, names[0]);
       }
     }
+    // Each open name answered: its words now name who the user chose ("Sam"
+    // stays for a Sam; another person's name for anyone else, as above).
+    for (const pa of participants) {
+      if (pa.person_id === personId) continue;
+      const who = subjectFor(pa.person_id);
+      if (!who) continue;
+      const someoneElses = ctx.people.some((p) => p.id !== pa.person_id && goesBy(p, pa.text, p.mention_names ?? []));
+      const theirs = someoneElses && !goesBy(who.person, pa.text, who.also ?? []) ? who : { ...who, also: [...(who.also ?? []), pa.text] };
+      ({ statement, mentions } = withSubjectReassigned(statement, mentions, null, theirs, pa.text));
+    }
     // Words for everyone it is about now, and for no one else.
     const about = [personId, ...withPeople];
     mentions = mentions.filter((m) => m.person_id !== null && about.includes(m.person_id));
     const unnamed = about.filter((id) => !mentions.some((m) => m.person_id === id))
       .map(subjectFor).filter((x): x is MentionSubject => !!x);
     mentions = [...mentions, ...recordMentions(statement, unnamed)].slice(0, MAX_MENTIONS);
+    // Said in the note's order ("Kept for Anthony Test, Sam Eden and Chris", founder K4).
+    const at = (id: string) => {
+      const m = mentions.find((x) => x.person_id === id);
+      const i = m ? statement.indexOf(m.text) : -1;
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    // At most seven others (write_extraction's limit): the rest stay in the
+    // words, unlinked, never a refused answer (founder K4).
+    withPeople = [...withPeople].sort((x, y) => at(x) - at(y)).slice(0, 7);
+    mentions = mentions.filter((m) => m.person_id === null || m.person_id === personId || withPeople.includes(m.person_id));
 
     // ── Existing memory ──
     // A merge or supersede was worked out for the item as held; once the
@@ -438,8 +498,29 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         });
       } else if (held.some((g, gi) => gi !== index && g.person_id === owner && mirrorBag(g.statement) === bag && byIndex.get(gi)?.skip !== true)) {
         joins.push({ owner, bag, people: joiners, alone });
+      } else if (
+        held.some((g, gi) => gi !== index && g.person_id === owner && mirrorBag(g.statement) === bag) ||
+        (ctx.removed ?? []).some((r) => r.person_id === owner && mirrorBag(r.statement) === bag)
+      ) {
+        // The line it mirrors was declined in this review ("Don't keep this") or
+        // removed since it was kept: which Sam never brings that memory back
+        // (reviewer A, 13 Oct: "Michelle and Sam are getting divorced").
+        skipped++;
       } else {
-        items.push(alone);
+        const key = `${owner}|${bag}`;
+        const together = alones.get(key);
+        if (together) {
+          const ids = [...(together.with_person_ids ?? []), personId, ...(alone.with_person_ids ?? [])];
+          together.with_person_ids = [...new Set(ids)].filter((id) => id !== together.person_id).slice(0, 7);
+          for (const m of alone.person_mentions ?? []) {
+            if (m.person_id && !(together.person_mentions ?? []).some((x) => x.person_id === m.person_id)) {
+              together.person_mentions = [...(together.person_mentions ?? []), m].slice(0, MAX_MENTIONS);
+            }
+          }
+        } else {
+          alones.set(key, alone);
+          items.push(alone);
+        }
       }
       continue;
     }

@@ -2,7 +2,7 @@
 // when the app comes back, shows the one moment (or a quiet day), hands off
 // to the real conversation, and asks once, on return, whether they connected.
 import React, { useCallback, useEffect, useState } from "react";
-import { AppState } from "react-native";
+import { Alert, AppState } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TodayView } from "@/features/today/TodayView";
@@ -97,7 +97,7 @@ export default function TodayScreen() {
           if (!moment) return;
           handoff.start({
             personId: moment.personId, personName: moment.personName, heading: moment.heading, mention: moment.mention,
-            reason: { id: moment.reasonId, type: moment.type, ask: moment.ask, about: moment.statement, followUp: moment.followUp },
+            reason: { id: moment.reasonId, type: moment.type, ask: moment.ask, about: moment.statement, followUp: moment.followUp, itemId: moment.itemId },
           });
         }}
         onOpenMoment={() => moment && setDetailKey(moment.reasonId)}
@@ -106,9 +106,11 @@ export default function TodayScreen() {
         onReturn={(answer) => {
           const rc = view.returnCheck;
           if (answer === "yes") void reachedSomeone();
-          void actions.returned(answer).then(() => {
-            if (answer === "yes" && rc) setAfterReturn({ personId: rc.personId, personName: rc.personName, followUp: rc.followUp });
-          });
+          void actions.returned(answer).then((h) => {
+            // "Anything worth remembering?" only after a conversation worth it, never after a
+            // promise's logistics; it is optional, and "nothing" undoes nothing (founder I2).
+            if (answer === "yes" && h && rc && rc.followUp) setAfterReturn({ personId: rc.personId, personName: rc.personName, followUp: rc.followUp });
+          }, () => Alert.alert("That couldn't be saved", "Nothing was lost. Try again in a moment."));
         }}
         onRemember={() => {
           if (afterReturn) flow.focusTell(afterReturn.personId);

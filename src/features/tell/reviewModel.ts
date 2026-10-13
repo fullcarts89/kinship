@@ -127,6 +127,12 @@ export interface Question {
   replaces: string | null;
   /** The held items it answers. */
   items: number[];
+  /**
+   * For a question about someone else a line is about (founder K4): the name
+   * it settles on each of those items ("Sam"). The pick fills only that name;
+   * "Not sure" leaves it out and keeps the line.
+   */
+  slots?: Record<number, string>;
   choices: Choice[];
   skip: { key: string; label: string };
 }
@@ -261,6 +267,15 @@ export function answersFor(
     for (const index of q.items) {
       const prev = byItem.get(index) ?? { index };
       if (prev.skip) continue;
+      // "Which Sam?" about someone else the line is about (founder K4): only
+      // that name is settled; "Not sure" (or a name not in People) leaves it out.
+      const slot = q.slots?.[index];
+      if (slot !== undefined) {
+        if (pick !== "skip" && typeof pick.person_id === "string") {
+          byItem.set(index, { ...prev, participants: [...(prev.participants ?? []), { text: slot, person_id: pick.person_id }] });
+        } else byItem.set(index, prev);
+        continue;
+      }
       // A "keep" pick (Remember, or Remember on another day) is the user's explicit yes.
       byItem.set(index, pick === "skip" ? { index, skip: true } : { ...prev, ...(q.type === "keep" ? { accept: true as const } : {}), ...pick });
     }
@@ -388,6 +403,10 @@ interface Need {
   detail?: string | null;
   /** What the question shows as being decided: the statement, or the note's own sentence. */
   about?: string;
+  /** Someone else the line is about, under this name (founder K4). */
+  slot?: string;
+  /** The skip, when it isn't "Don't keep this" (a name asked about on a line that is kept either way). */
+  skipLabel?: string;
 }
 
 function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
@@ -400,12 +419,14 @@ function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
       const q = groups.get(need.group);
       if (q) {
         q.items.push(index);
+        if (need.slot !== undefined) q.slots = { ...(q.slots ?? {}), [index]: need.slot };
         if (!q.about.includes(about)) q.about.push(about);
         q.replaces = q.replaces ?? replaces;
       } else {
         groups.set(need.group, {
           key: `q${groups.size}`, type: need.type, prompt: need.prompt, reason: need.reason, about: [about], items: [index],
-          choices: need.choices, skip: { key: "skip", label: COPY.skip }, detail: need.detail ?? null, replaces,
+          ...(need.slot !== undefined ? { slots: { [index]: need.slot } } : {}),
+          choices: need.choices, skip: { key: "skip", label: need.skipLabel ?? (need.slot !== undefined ? COPY.notSure : COPY.skip) }, detail: need.detail ?? null, replaces,
         });
       }
     }
@@ -445,7 +466,7 @@ function unknownNames(item: HeldItem, people: Person[]): string[] {
   const out: string[] = [];
   for (const re of patterns) {
     for (const m of text.matchAll(re)) {
-      const w = m[1].replace(/['’]s$/u, "");
+      const w = withoutPossessive(m[1]);
       const k = fold(w);
       if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || out.some((o) => fold(o) === k)) continue;
       out.push(w);
@@ -470,18 +491,58 @@ export function newcomersIn(statement: string, note: string, people: Person[]): 
     new RegExp(`\\b(?:moving|living|traveling|travelling|going|staying|having a baby|expecting)\\b[^.!?]{0,40}?\\bwith\\s+${NAME}`, "gu"),
     new RegExp(`(?:^|[^\\p{L}])\\p{Lu}[\\p{Ll}\\p{M}'’-]+\\s+and\\s+${NAME}\\s+(?:are|were|have|had|got|just|will|went)\\b`, "gu"),
     new RegExp(`(?:^|[^\\p{L}])${NAME}\\s+and\\s+\\p{Lu}[\\p{Ll}\\p{M}'’-]+\\s+(?:are|were|have|had|got|just|will|went)\\b`, "gu"),
+    // Someone the person reaches out to, tells, texts or meets (founder K6:
+    // "Ben is thinking about reaching out to Josh about a job"): a person by
+    // the shape of the words, one or two of them ("…to Josh and Maria").
+    new RegExp(`\\b(?:${TO_SOMEONE})\\s+to\\s+${NAME}(?:\\s*(?:,|and|&)\\s*${NAME})?`, "gu"),
+    new RegExp(`\\b(?:${SOMEONE})\\s+${NAME}(?:\\s*(?:,|and|&)\\s*${NAME})?`, "gu"),
   ];
+  // Every shape but the first also fits a service ("called Delta", "traveling with Uber", "Ben and Google are…");
+  // marrying, dating or divorcing someone doesn't ("Susan is getting married to Siri" is someone; reviewer C, r3).
+  const servicesFrom = 1;
   const out: string[] = [];
-  for (const re of patterns) {
+  for (const [n, re] of patterns.entries()) {
     for (const m of statement.matchAll(re)) {
-      const w = m[1].replace(/['’]s$/u, "");
-      const k = fold(w);
-      if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || out.some((o) => fold(o) === k)) continue;
-      if (!new RegExp(`(^|[^\\p{L}])${w}([^\\p{L}]|$)`, "u").test(note)) continue;
-      out.push(w);
+      for (const g of [m[1], m[2]]) {
+        if (!g) continue;
+        const w = withoutPossessive(g);
+        const k = fold(w);
+        if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || KIN_WORD.test(k) || (n >= servicesFrom && SERVICE_WORD.test(k)) ||
+          (n >= patterns.length - 2 && ASSISTANT_WORD.test(k)) || out.some((o) => fold(o) === k)) continue;
+        if (!new RegExp(`(^|[^\\p{L}])${w}([^\\p{L}]|$)`, "u").test(note)) continue;
+        out.push(w);
+      }
     }
   }
   return out;
+}
+
+/** "reaching out to", "talked to", "introduced Ben to", "wrote to": someone, never a place. */
+const TO_SOMEONE = "reach(?:es|ed|ing)?\\s+out|talk(?:s|ed|ing)?|spoke|speak(?:s|ing)?|wr(?:ite|ites|ote|iting)|introduc(?:e|es|ed|ing)\\s+\\p{Lu}[\\p{Ll}\\p{M}'’-]+|apologi[sz](?:e|es|ed|ing)";
+/** Verbs whose object is a person: "tell Josh", "texted Maria", "met Dana", "thank Sam". */
+const SOMEONE = "(?:get|gets|got|getting)\\s+in\\s+touch\\s+with|contact|contacted|contacting|email|emailed|emailing|message|messaged|messaging|tell|tells|told|telling|text|texts|texted|texting|call|calls|called|calling|ask|asks|asked|asking|thank|thanks|thanked|thanking|congratulat(?:e|es|ed|ing)|invit(?:e|es|ed|ing)|hug|hugs|hugged|hugging|introduc(?:e|es|ed|ing)|meet|meets|met|meeting|visit(?:s|ed|ing)?\\s+with|hang(?:s|ing)?\\s+out\\s+with|hung\\s+out\\s+with|catch(?:es|ing)?\\s+up\\s+with|caught\\s+up\\s+with";
+/** A relation said as a name ("tell Mom") or a title: never someone new to add. */
+const KIN_WORD = /^(?:mom|mum|mother|mama|momma|mommy|dad|father|daddy|papa|grandma|grandmother|grandpa|grandfather|granny|nana|aunt|auntie|uncle|cousin|sis|bro|dr|doctor|mr|mrs|ms|miss|santa|god)$/u;
+/** A name that is no one's when it is reached out to (a brand, a service): "called Delta", "emailed Google". */
+/** An assistant's name, which is also a given name: never someone new when "asked" or "told", still someone to marry or move with (reviewer A, r4). */
+const ASSISTANT_WORD = /^(?:alexa|siri)$/u;
+const SERVICE_WORD = /^(?:congress|google|apple|amazon|microsoft|meta|facebook|instagram|netflix|uber|lyft|stripe|zoom|slack|delta|united|verizon|comcast|halloween|airbnb|tesla|target|support|walmart|costco|paypal|venmo|ups|fedex)$/u;
+
+/** Someone removed from People offered back (I3); once brought back (the question re-read People), simply them. */
+function backChoice(people: Person[]) {
+  return (p: Person): Choice => p.state === "archived"
+    ? { key: `back:${p.id}`, label: `Bring back ${personLabel(p, people)}`, answer: { person_id: p.id }, restore: p.id }
+    : { key: `back:${p.id}`, label: personLabel(p, people), answer: { person_id: p.id } };
+}
+
+/** Why a name with one person left in People is asked: someone removed went by it too. */
+function removedReason(name: string, removed: number): string {
+  return removed > 1 ? `Others called ${name} were removed from People.` : `Another ${name} was removed from People.`;
+}
+
+/** A name without its possessive: "Chris's", "Chris’s" and "Chris'" are Chris (founder K7); "O'Connor" stays. */
+function withoutPossessive(word: string): string {
+  return word.replace(/['’]s$/u, "").replace(/(?<=s)['’]$/iu, "");
 }
 
 /** Capitalised words that start sentences or name things, never people. */
@@ -537,7 +598,9 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
     } else {
       const candidates = candidatesFor(item, note, input.people);
       // Someone removed from People the name also fits (founder I3): asked, offered back.
-      const removedToo = (item.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
+      // Once brought back they are among the candidates: never offered twice (reviewer A, r5).
+      const removedToo = (item.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id))
+        .filter((p): p is Person => !!p && !candidates.some((c) => c.id === p.id));
       const first = (p: Person) => p.display_name.trim().split(/\s+/u)[0];
       const named = [...candidates, ...removedToo];
       const shared = named.length > 1 && named.every((p) => fold(first(p)) === fold(first(named[0])))
@@ -550,7 +613,7 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       const newNames = candidates.length === 0 ? unknownNames(item, input.people) : [];
       const choices: Choice[] = [
         ...candidates.map((p) => ({ key: `p:${p.id}`, label: personLabel(p, input.people), answer: { person_id: p.id } })),
-        ...removedToo.map((p) => ({ key: `back:${p.id}`, label: `Bring back ${personLabel(p, input.people)}`, answer: { person_id: p.id }, restore: p.id })),
+        ...removedToo.map(backChoice(input.people)),
         // A pronoun that could be either of two people may be both of them.
         ...(pronoun && candidates.length === 2 && !shared
           ? [{ key: "both", label: "Both", answer: { person_id: candidates[0].id, also_person_ids: [candidates[1].id] } }]
@@ -564,7 +627,7 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
         group: `who:${pronoun ?? ""}:${candidates.map((p) => p.id).sort().join(",")}`,
         prompt: pronoun ? `Who is “${pronoun}”?` : shared ? `Which ${shared} do you mean?` : "Who is this about?",
         reason: pronoun ? null
-          : shared ? `You have more than one ${shared}.`
+          : shared ? (candidates.length > 1 ? `You have more than one ${shared}.` : removedReason(shared, removedToo.length))
           : newNames.length ? `${newNames.join(" and ")} ${newNames.length > 1 ? "aren't" : "isn't"} in your people yet.`
           : "I couldn't tell who this is about.",
         choices,
@@ -573,8 +636,37 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
         // Sam?" about "Michelle and Sam might be moving…", founder I10),
         // which is one memory, never shown as a second.
         about: (pronoun || item.twin_person_id) && sentence ? sentence : undefined,
+        // That kept line stays either way: skipping only leaves this name out.
+        ...(item.twin_person_id ? { skipLabel: COPY.notSure } : {}),
       });
     }
+  }
+  // Founder K4: someone else the line is about goes by a name two or more
+  // people share ("Anthony and Sam love ice skating with Chris"). Asked on
+  // its own, with every person the name can mean; never "Who is this about?"
+  // for the whole line, and never narrowed.
+  for (const open of Array.isArray(item.open_names) ? item.open_names : []) {
+    if (!open?.text) continue;
+    const live = input.people.filter((p) => p.state !== "archived");
+    const meant = live.filter((p) => (open.candidate_ids ?? []).includes(p.id));
+    // Someone removed from People went by it too (founder I3): offered back, and asked even with one person left.
+    // Whatever their state now: brought back from this very question, it stays the same question, and its answer
+    // stands (reviewer C, r3: the restore re-read People, the question changed, and the pick was lost).
+    const removed = (open.archived_ids ?? []).map((id) => input.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
+    if (meant.length + removed.length < 2 || meant.length === 0) continue;
+    needs.push({
+      type: "which_person",
+      group: `slot:${fold(open.text)}:${meant.map((p) => p.id).sort().join(",")}`,
+      prompt: `Which ${open.text} do you mean?`,
+      reason: meant.length > 1 ? `You have more than one ${open.text}.` : removedReason(open.text, removed.length),
+      choices: [
+        ...meant.map((p) => ({ key: `p:${p.id}`, label: personLabel(p, input.people), answer: { person_id: p.id } })),
+        ...removed.map(backChoice(input.people)),
+        { key: "pick", label: COPY.someoneElse, pick: "person" as const },
+      ],
+      about: item.spans[0]?.quote?.trim() || undefined,
+      slot: open.text,
+    });
   }
   if (!personInQuestion && item.flags.includes("subject_check") && item.person_id) {
     const person = input.people.find((p) => p.id === item.person_id);
@@ -634,7 +726,8 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       ],
     });
   }
-  if (needs.length === 0 && item.person_id) {
+  // Held for the user's yes: asked even when a name in it is asked too ("Which Sam?" is never a yes to the memory).
+  if (needs.every((n) => n.slot !== undefined) && item.person_id && !PERSON_FLAGS.some((f) => item.flags.includes(f))) {
     // Held only for the user's yes: sensitive, or a day that reads two ways.
     const person = input.people.find((p) => p.id === item.person_id);
     const when = whenLabel(item.kind, item.detail ?? {}, input.today);
@@ -675,7 +768,8 @@ function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[]
   }
   // The name the line asks about: "Which Anthony?" and "Which Sam?" are two
   // questions, each offering only the people that name can mean (founder I13).
-  const asked = item.mention ?? mentionsOf(item.person_mentions).find((m) => m.person_id === null)?.text;
+  const open = new Set((item.open_names ?? []).map((o) => fold(o.text)));
+  const asked = item.mention ?? mentionsOf(item.person_mentions).find((m) => m.person_id === null && !open.has(fold(m.text)))?.text;
   const mention = asked ? wordsOf(asked).join(" ") : "";
   if (mention) {
     const meant = live.filter((p) => nameForms(p).some((f) => f === mention || f.split(" ")[0] === mention));
@@ -689,10 +783,12 @@ function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[]
       return name.length > 0 && (name.every((w) => words.has(w)) || words.has(name[0]));
     });
   };
+  // Everyone its words name, never cut short (founder K4: a fifth person, the
+  // second Sam, was left off "Who is this about?").
   const fromItem = inWords(item.spans.map((s) => s.quote).join(" "));
-  if (fromItem.length > 1) return fromItem.slice(0, 4);
+  if (fromItem.length > 1) return fromItem.slice(0, 7);
   const fromNote = inWords(note);
-  return fromNote.length > 1 ? fromNote.slice(0, 4) : fromItem.length ? fromItem : fromNote;
+  return fromNote.length > 1 ? fromNote.slice(0, 7) : fromItem.length ? fromItem : fromNote;
 }
 
 /** The relation word, only when it is the user's own (it must be in the note). */
@@ -730,5 +826,5 @@ function nameForms(p: Person): string[] {
 }
 
 function wordsOf(s: string): string[] {
-  return (fold(s).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []).map((w) => w.replace(/['’]s$/u, ""));
+  return (fold(s).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []).map(withoutPossessive);
 }

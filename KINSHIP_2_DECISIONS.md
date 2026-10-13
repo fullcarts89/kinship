@@ -1045,3 +1045,59 @@ I1 now, then H16 with N7. B1 runs alongside.
 - Update the ledger and coverage, and keep FIXED distinct from VERIFIED.
 - Scoped commits.
 - Surface a genuine product contradiction. Don't manufacture founder decisions.
+
+## CC-22. Narrow K-series remediation, then I2 + N6 + K3 + K2; an internal verification gate (12–13 Oct 2026)
+From the founder's "Narrow K-series remediation + I2/N6/K2, then resume Phase 4" brief and its addendum, "Do not hand this remediation pass back until you have self-verified it". Where this differs from CC-21, this is newer.
+
+### Status framing
+- Gate 0 stays CLOSED. These are new native findings from continued Phase 4 testing (the 12 Oct local build of `main` `90a5cf0`), fixed in one narrow trust and correctness pass. The approved Phase 4 sequence then resumes; this is not a stabilization loop.
+- FIXED stays distinct from VERIFIED. Nothing is VERIFIED from automated tests.
+
+### Order
+K4 → K5 → K7 → K6 → I2 + N6 + K3 + K2. K1 stays with shared semantics / Phase 4B unless a tiny, safe display-only fix exists, offered as an option.
+
+### What each fix must do (the founder's words, condensed)
+- **K4:** every genuinely participating person is kept. An ambiguous name gets every valid candidate for that exact name; one answer settles only that name ("Who is Sam?" is never "Who is this whole statement about?"); "Someone else" resolves only that slot; a shared statement stays one shared memory; no duplicate one-person mirrors. Unresolved mention, owner, shared participants and correction target stay separate concepts. Not fixed by adding "Both" everywhere.
+- **K5:** plausible durable content never silently disappears because of a model, classification or guard error. "I got the job, and can't wait to tell Loo Loo" keeps the durable statement; what is grounded is kept and only what Kinship genuinely can't know is asked. Never "Nothing to remember in that one" for a note with clear meaning.
+- **K7:** Chris', Chris's and Chris’s resolve to the person Chris; the apostrophe is never part of a name; real apostrophes (O'Connor) still work. One unambiguous match resolves normally.
+- **K6:** a named participant not in People is offered on the Kept card: "Josh isn't in People yet. Add Josh so this also shows on Josh's page." **Add Josh** · **Not now** (the I4 / H21 pattern). The owner stays the owner.
+- **K3:** "Did the interaction happen?" is separate from "Was anything worth remembering?". Yes and then "nothing" still means it happened, and the original Waiting reason doesn't keep asking.
+- **N6:** Not yet makes the reason eligible again within its window, also after a sync. Yes → acted/completed; Not yet → eligible again; Dismiss → stays dismissed.
+- **K2:** Coming up is future-facing only. Someone else's unresolved promise past its day → the quiet "Waiting on <Person>"; acted → not Waiting; resolved or cancelled → not active. No guilt language ("3 days overdue", "late", "you still haven't"). `relationship-page-rules.md` and `today-eligibility.md` say so explicitly.
+- **I2:** know it + ask it (infer it stays I2b). A confirmed interaction is a quiet event under Between you ("You messaged · Oct 12 · About the contractor number" or similarly restrained). No standalone "You reached out" under the name, no last-contacted, counts, frequency, streaks, health, neglect or ranking. Manual entry: Message · Call · Video · In person, nothing required beyond that. "Anything worth remembering?" stays optional and non-blocking, only when the interaction justifies it, never after trivial logistics, and "nothing" never undoes the interaction. The approved additive migration from the Phase 4 brief; N8's exact Undo preserved.
+- **Scope:** no Tell redesign, no general entity system or graph, no broader semantic memory, no taxonomy change, no unrelated prompt changes.
+
+### The verification gate (addendum)
+- A written "What finished looks like", marked PASS / FAIL / NOT PROVABLE WITHOUT DEVICE at the end; NOT PROVABLE WITHOUT DEVICE only for native feel or OS integration.
+- Independent reviewers (identity, content preservation, the return loop, database and Undo, test quality) try to disprove that the work is finished.
+- Matrices: K4-A…J, K5-A…K, the K7 name list, K6-A…G, K2 boundaries on a fixed clock, the K3/N6 return-loop paths 1–12, cross-feature adversarial cases A–E.
+- Break the tests on purpose (K4, K5's silent drop, K2's 30-day rule, N6) and report which tests caught it.
+- Full suites, a static diff review, an execution / deployment-layer table, an existing-data review, and a privacy and performance check.
+- **Stop condition:** content can still disappear, a person can still be dropped silently, Yes can leave Waiting alive, Not yet can't restore the reason, a past promise can show under Coming up, an alias or possessive picks the wrong identity, or tests pass only because expectations were weakened. Then the pass isn't ready.
+- The founder's native pass is last-mile validation, not the first integration test.
+
+### Implementation choices this pass made (approved by the founder, 13 Oct: CC-23)
+These follow the brief but went beyond its exact words; the founder approved them, with CC-23's clarification to the first:
+1. **K5, how the user's own news is kept:** in the line's own words (never more of the note), with the person its sentence says the user tells, texts, calls, messages or thanks ("tell Loo Loo", also in a short sentence right after that is itself the telling: "I got the job! Can't wait to tell Loo Loo."; seeing, meeting or visiting never decide, since they fit a place or a month too); else the person its own quoted words name ("tell my wife"); else the model's or the page's person only when "with" or "for" confirms it; else the page it was told on, when the sentence names no one; else held as "Who is this about?" (**Choose who** · **Don't keep this**, J4's existing copy), never "Nothing to remember". Someone removed from People who is told is always asked and offered back, even beside someone in People with the same first name (I3). "You got the job" is a moment (Between you); "You can't wait to tell Loo Loo" a plan (Coming up). Kinship keeps memories with people; About You is still deferred. (The first version kept the whole sentence; the independent review showed it could carry a phone number, an instruction or someone else's private news, so it was withdrawn.)
+   - **The one exception:** a plan that only tells someone ("You want to tell Loo Loo later") keeps the user's own good news just before it in the same sentence ("You got the job and want to tell Loo Loo later"), so the news it tells isn't lost. Only from a short fixed set of the user's own news (got the job, an offer, a promotion; got engaged; graduated; passed an exam; bought a house; finished a race; didn't get the job), only when no other line of the note already keeps it, and only from the telling's own words. (A version that took any short clause of the user's was withdrawn after review: it could carry a loss, a relapse or someone else's news without a yes.)
+2. **K4, a name left open:** its question's skip reads **Not sure** (existing copy): the line is kept for everyone else and that name is left unlinked, never guessed.
+3. **K2, on the person's page:** past its day and still open, the promise is in Lately for 30 days (the existing rule for things that just happened) with "Waiting on Tyler" where its date would be; plain once the user has reached them about it; then only in What Kinship knows.
+4. **I2 copy:** "You messaged", "You called", "You had a video call", "You emailed", "You saw Tyler", "You were in touch", each "· Oct 12", with the memory it was about underneath in the user's words; **Add a conversation** and "How were you in touch with Tyler?" (Message · Call · Video · In person); **Not this** on a conversation in What Kinship knows.
+5. **I2, when "Anything worth remembering?" is skipped:** after a Yes to "Waiting on …" or to a Coming up promise falling due, anyone's (logistics). Asked as before after news, a milestone, a birthday, an event or a plain Coming up line.
+6. **I2, moment types:** `coming_up` and `waiting` are added to the brief's `moment_type` list, because I1's Coming up and Waiting lines hand off too.
+7. **K4, what counts as a name:** a name written as a name, capitalised in the line, in the note or in the model's own statement ("ben went to tahoe with chris", read "Ben went to Tahoe with Chris"), or in a script without capitals (小明). A word written as a word is never someone ("a grant", "his mom", "a chance"). With no capital anywhere, the names stay in the words, unlinked.
+8. **K4 and I3, a name someone removed also went by:** asked on its own ("Which Chris do you mean?" with Chris · **Bring back Chris Old** · Someone else), even with one person left in People; never attached on a guess, never dropped. A full name settles it.
+9. **I10, a name beside a line the user turned down:** if the line it belongs to was declined in the same review, or removed since it was kept, answering "Which Sam?" saves nothing; it never brings the memory back.
+
+### Known limits, for the founder (unchanged since before K4)
+- A line about a relative ("Chris's sister went skating with Anthony Test and Sam") or a promise ("Ben promised Anthony he'd call Sam") links no one else and asks about no other name; the names stay in the words. Extending K4 to these is possible later, and would need its own rules (whose page a promise shows on).
+- **K1:** the duplicate already on Tyler's page stays (no data cleanup without authorisation). A display-only collapse of two identical lines from the same note is possible; it is offered, not built.
+
+## CC-23. The K-series report approved; K5 never becomes the recipient's biography; K1, I1 and B2 settled (13 Oct 2026)
+From the founder, on the K-series report (`docs/product/k-series-report.md`).
+
+- **CC-22's implementation choices are approved**, with one clarification to K5. A durable fact about the user never silently disappears, but keeping it with the person the user means to tell does not make it a fact about that person. "I got the job, and can't wait to tell Loo Loo" keeps the news and the relationship context; it never renders on Loo Loo's Background or in What Kinship knows as though Loo Loo got the job. Subject truth (the user), person association (Loo Loo), shared / relationship context and display eligibility are separate concepts. A regression pins it across the chain: the line is saved as the user's (`subject_type` user), no answer can make it hers, H15 / B1 place it Between you (never Background), and Today never congratulates her for it. About You stays deferred.
+- **Also approved:** "Not sure" leaving the unresolved name unlinked; the quiet "Waiting on <Person>" lifecycle; the I2 trail copy; skipping "Anything worth remembering?" after routine Waiting / promise logistics; the `coming_up` and `waiting` moment types; conservative name detection; a removed namesake offered back; declined lines never resurfacing.
+- **K1:** no display-only collapse. New notes are fixed; the founder's old duplicate stays as known legacy data and is never changed automatically. Shared semantics will solve the general representation.
+- **I1, Message / Call (settled, no longer an open question):** if the Moment's person has a valid destination, launch it. If contact resolution can safely link or select that same person's contact, use it. Never let the user choose an unrelated person to message or call. With no valid destination and no safe resolution path, the action is omitted.
+- **B2 is approved** (B1 reviewed and accepted). After this remediation is merged and deployed, B2 may proceed in parallel with the founder's native validation. Stop and report after B2, before B3.

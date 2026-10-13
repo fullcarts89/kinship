@@ -6,7 +6,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { FORGET_COPY, PersonRecordView } from "@/features/person/PersonRecordView";
 import { DatePane, KindPane, NamePane, namedChoices, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
-import { todayIso, usePeople, usePersonRecord, useUnderstanding, useV2Actions } from "@/hooks/useV2";
+import { todayIso, usePeople, usePersonRecord, useTrail, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { Sheet } from "@/ui";
 import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
@@ -18,7 +18,9 @@ export default function KnowsScreen() {
   const { person, lines } = usePersonRecord(String(id));
   const people = usePeople();
   const u = useUnderstanding();
-  const { settleConflict, rename } = useV2Actions();
+  const { settleConflict, rename, forgetConversation } = useV2Actions();
+  // Every conversation the user confirmed with them (founder I2).
+  const trail = useTrail(String(id));
   const [pane, setPane] = useState<Pane | null>(null);
   const today = todayIso();
   const fail = (what: Promise<unknown>) =>
@@ -42,6 +44,12 @@ export default function KnowsScreen() {
       onSource={(noteId) => router.push(`/v2/source/${noteId}`)}
       onSettle={(conflictId, choice) => fail(settleConflict(conflictId, choice))}
       focusItemId={typeof focusItem === "string" ? focusItem : null}
+      trail={trail}
+      // Asked first, as for any line (founder I2): a conversation recorded by mistake.
+      onForgetConversation={(cid) => Alert.alert(FORGET_COPY.title, trail.find((t) => t.id === cid)?.label ?? "", [
+        { text: FORGET_COPY.cancel, style: "cancel" },
+        { text: FORGET_COPY.forget, style: "destructive", onPress: () => fail(forgetConversation(cid)) },
+      ])}
     >
       <Sheet visible={!!pane} onDismiss={close} label="Change">
         {pane?.kind === "name" && person ? (

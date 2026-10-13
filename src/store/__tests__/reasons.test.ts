@@ -66,11 +66,13 @@ it("'Not yet' lets the reason speak again; 'Yes' marks it done", async () => {
   const local = new ReasonLocal(s);
   await local.handedOff({ reasonId: "r3", personId: "josh", channel: "call", at: "2026-10-12T16:00:00Z" });
   await local.answered("not_yet", "2026-10-12T17:00:00Z");
-  expect((await local.read()).local.r3).toEqual({});
+  // No longer acted, and marked "Not yet", so a sync's "acted" doesn't silence it (founder N6).
+  expect((await local.read()).local.r3).toEqual({ notYet: "2026-10-12T17:00:00Z" });
   await local.handedOff({ reasonId: "r3", personId: "josh", channel: "call", at: "2026-10-12T18:00:00Z" });
   await local.answered("yes", "2026-10-12T19:00:00Z");
   const state = await local.read();
   expect(state.local.r3.done).toBe("2026-10-12T19:00:00Z");
+  expect(state.local.r3.notYet).toBeUndefined();
   expect(state.handoff?.answered).toBe("yes");
 });
 

@@ -29,6 +29,19 @@ function parse<T>(raw: string | null, fallback: T): T {
 }
 
 export class ReasonLocal {
+  /**
+   * Every write, one at a time: each reads and rewrites the same record, so
+   * an answer, a "shown" from a sync and a "Not now" can never undo one
+   * another, and a second tap sees the first (founder K3, N6, I2).
+   */
+  private queue: Promise<unknown> = Promise.resolve();
+
+  private serial<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(fn);
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
   constructor(private readonly store: UserStore) {}
 
   async read(): Promise<ReasonLocalState> {
@@ -51,7 +64,11 @@ export class ReasonLocal {
   }
 
   /** The moment was shown today (once per day is enough). */
-  async shown(reasonId: string, personId: string, day: string): Promise<void> {
+  shown(reasonId: string, personId: string, day: string): Promise<void> {
+    return this.serial(() => this.shownNow(reasonId, personId, day));
+  }
+
+  private async shownNow(reasonId: string, personId: string, day: string): Promise<void> {
     const state = await this.read();
     if (state.local[reasonId]?.firstShown) return;
     await this.patch(reasonId, { firstShown: day });
@@ -60,33 +77,73 @@ export class ReasonLocal {
     this.store.notify();
   }
 
-  async dismissed(reasonId: string, at: string): Promise<void> {
-    await this.patch(reasonId, { dismissed: at });
-    this.store.notify();
+  dismissed(reasonId: string, at: string): Promise<void> {
+    return this.serial(async () => {
+      await this.patch(reasonId, { dismissed: at });
+      this.store.notify();
+    });
   }
 
   /** Kinship opened a conversation: remembered for the return check. */
-  async handedOff(handoff: Handoff): Promise<void> {
-    await this.patch(handoff.reasonId, { acted: handoff.at });
-    await setMeta(this.store.db, HANDOFF, JSON.stringify(handoff));
-    this.store.notify();
+  handedOff(handoff: Handoff): Promise<void> {
+    return this.serial(async () => {
+      await this.patch(handoff.reasonId, { acted: handoff.at });
+      await setMeta(this.store.db, HANDOFF, JSON.stringify(handoff));
+      this.store.notify();
+    });
   }
 
-  /** The other app never opened: the hand-off didn't happen. */
-  async cancel(reasonId: string): Promise<void> {
-    const { handoff } = await this.read();
-    if (handoff?.reasonId === reasonId && !handoff.answered) await setMeta(this.store.db, HANDOFF, JSON.stringify(null));
-    await this.patch(reasonId, { acted: undefined });
-    this.store.notify();
+  /**
+   * The other app never opened: the hand-off didn't happen. Marked "not yet",
+   * so a sync's "acted" (sent before the app opened) doesn't silence it.
+   */
+  cancel(reasonId: string, at: string = new Date().toISOString()): Promise<void> {
+    return this.serial(async () => {
+      const { handoff } = await this.read();
+      if (handoff?.reasonId === reasonId && !handoff.answered) await setMeta(this.store.db, HANDOFF, JSON.stringify(null));
+      await this.patch(reasonId, { acted: undefined, notYet: at });
+      this.store.notify();
+    });
   }
 
-  /** The return check's answer. "Not yet" lets the reason speak again while its window lasts. */
-  async answered(answer: "yes" | "not_yet", at: string): Promise<Handoff | null> {
+  /**
+   * A conversation about this promise was "Not this" (founder I2, K3): its
+   * "Waiting on …" may ask again, as it does on every other phone.
+   */
+  reopenWaiting(itemId: string): Promise<void> {
+    return this.serial(async () => {
+      const all = parse<Record<string, LocalReason>>(await getMeta(this.store.db, REASONS), {});
+      for (const id of Object.keys(all)) {
+        if (id.startsWith(`waiting:${itemId}:`)) all[id] = { ...all[id], done: undefined, acted: undefined };
+      }
+      await setMeta(this.store.db, REASONS, JSON.stringify(all));
+      this.store.notify();
+    });
+  }
+
+  /**
+   * The return check's answer, once per hand-off: null when nothing waits for
+   * one, or it was already answered (a second tap changes nothing). "Not yet"
+   * lets the reason speak again while its window lasts, also after a sync has
+   * brought the server's "acted" back (founder N6).
+   */
+  answered(answer: "yes" | "not_yet", at: string, record?: (h: Handoff) => Promise<void>): Promise<Handoff | null> {
+    return this.serial(() => this.answerOnce(answer, at, record));
+  }
+
+  /**
+   * `record` runs first, before the answer is kept: if the app is closed in
+   * between, the question is still there and asks again, and `record` must
+   * be safe to run twice (returnLoop.ts writes the conversation by a key of
+   * the hand-off, so a second run finds it).
+   */
+  private async answerOnce(answer: "yes" | "not_yet", at: string, record?: (h: Handoff) => Promise<void>): Promise<Handoff | null> {
     const { handoff } = await this.read();
-    if (!handoff) return null;
+    if (!handoff || handoff.answered) return null;
+    if (record) await record(handoff);
     await setMeta(this.store.db, HANDOFF, JSON.stringify({ ...handoff, answered: answer }));
-    if (answer === "yes") await this.patch(handoff.reasonId, { done: at });
-    else await this.patch(handoff.reasonId, { acted: undefined });
+    if (answer === "yes") await this.patch(handoff.reasonId, { done: at, notYet: undefined });
+    else await this.patch(handoff.reasonId, { acted: undefined, notYet: at });
     this.store.notify();
     return handoff;
   }

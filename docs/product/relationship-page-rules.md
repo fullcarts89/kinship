@@ -8,10 +8,10 @@ The page is a portrait, not a record. It shows a few true, sourced lines about w
 
 | Section | What can appear | Order | At most |
 |---|---|---|---|
-| **Lately** | Active facts and open threads told in the last **120 days**; dated events that happened in the last **30 days**; undated events told in the last 120 days | Newest first; lines from the same note keep the note's order | 3 |
-| **Coming up** | Their birthday within **30 days** (from its source: Contacts, a note, or their own edit); dated events and milestones in the next **120 days**; active plans (undated or seasonal) | Soonest first; undated plans last | 3 |
+| **Lately** | Active facts and open threads told in the last **120 days**; dated events that happened in the last **30 days**; undated events told in the last 120 days; **someone else's promise whose day has passed**, still open, for **30 days** after its day (founder K2, below) | Newest first; lines from the same note keep the note's order | 3 |
+| **Coming up** | Their birthday within **30 days** (from its source: Contacts, a note, or their own edit); dated events and milestones in the next **120 days**; active plans (undated or seasonal); someone else's promise **until the end of its day**. **Never anything whose day has passed** (founder K2) | Soonest first; undated plans last | 3 |
 | **You said you'd** | Open promises (yours) | Newest first | 3 |
-| **Between you** | Shared context, traditions, shared moments (active or resolved) | Newest first | 3 |
+| **Between you** | Shared context, traditions, shared moments (active or resolved); then **the conversations the user confirmed** (founder I2, below) | Newest first | 3 + 3 conversations |
 
 - A section appears only when it has a line.
 - When something Kinship knows isn't on the page, the page shows **"What Kinship knows about Priya →"**. It never shows a count.
@@ -19,6 +19,31 @@ The page is a portrait, not a record. It shows a few true, sourced lines about w
 - A page with nothing told yet says: "What you tell Kinship about Sarah will be here: what's going on with them, what's coming up, what you said you'd do." It also shows "Tell Kinship about Sarah". A Contacts birthday doesn't count as something told.
 
 These numbers are product rules, not technical limits. They are founder questions (see `activation-pass.md`).
+
+## Someone else's promise (founder K2, CC-22)
+
+"Tyler said he'd send you his contractor's number Friday" is Tyler's promise to the user: never under "You said you'd". Days are calendar days where the user is.
+
+| When | On Tyler's page | On Today |
+|---|---|---|
+| Before its day | Coming up: "By Fri, Oct 9 · …" | Coming up, within the next 7 days |
+| On its day | Coming up | Coming up ("Today") |
+| Days 1–3 after, still open | Lately, with **"Waiting on Tyler"** where its date was | **Waiting on Tyler** · "Did Tyler send it?" (`today-eligibility.md`) |
+| Days 4–30 after, still open | Lately, "Waiting on Tyler" | nothing |
+| More than 30 days after | Only in What Kinship knows | nothing |
+| The user reached Tyler about it (a Yes to the return check, on any phone) | Lately, plain: no "Waiting" | nothing: Waiting doesn't keep asking (K3) |
+| Resolved ("Tyler sent it") or cancelled | Not on the page (What Kinship knows keeps it as history) | nothing |
+| No day, or only a month or a year | Lately while told in the last 120 days, never "Waiting" | never |
+
+Never "overdue", "late", "you still haven't" or a count of days. Never "Waiting on …" for someone remembered or paused (the line stays, plainly, as Today stays silent about them).
+
+## Conversations (founder I2, CC-22)
+
+- Only conversations the user confirmed: a Yes to Today's return check, or their own entry. Opening Messages or Phone is never one; "Not yet" records nothing.
+- Under Between you, the newest three: "You messaged · Oct 12" (dated when Kinship opened the conversation) and, underneath, the memory it was about in the words the page shows (only while that memory is current and about this person). The words by channel: You messaged · You called · You had a video call · You emailed · You saw Tyler · You were in touch.
+- What Kinship knows lists every one, newest first, each with **Not this** (asked first) for one recorded by mistake; it is reachable from the page whenever there is a conversation, even with nothing told yet.
+- **Add a conversation** (only for someone active, on a page that has something told) asks "How were you in touch with Tyler?": Message · Call · Video · In person. Nothing else is asked.
+- No count, frequency, streak, health or "last contacted". "You reached out · <date>" under the name is gone (CC-20).
 
 ## Item states and where they go
 

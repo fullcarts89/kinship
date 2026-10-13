@@ -268,7 +268,7 @@ export function inYourWords(words: string): string {
 const NOT_A_LEAD = new Set(["you", "your", "the", "a", "an", "his", "her", "their", "our", "my", "he", "she", "they", "we", "it", "this", "that", "mom", "dad", "mum"]);
 
 function key(word: string): string {
-  return word.normalize("NFC").toLowerCase().replace(/[’‘`]/gu, "'").normalize("NFD").replace(/\p{M}+/gu, "").replace(/'s$/u, "").trim();
+  return word.normalize("NFC").toLowerCase().replace(/[’‘`]/gu, "'").normalize("NFD").replace(/\p{M}+/gu, "").replace(/'s$/u, "").replace(/(?<=s)'$/u, "").trim();
 }
 
 /**
@@ -280,15 +280,16 @@ export function leadingName(statement: string): string | null {
   const words = statement.trim().split(/\s+/u).map((w) => w.replace(/[.,;:!?]+$/u, ""));
   const w0 = words[0] ?? "";
   if (!/^\p{Lu}/u.test(w0)) return null;
-  const possessive = /['’]s$/u.test(w0);
-  const first = w0.replace(/['’]s$/u, "");
+  // "John's dog died", and "Chris' dog died" for a name ending in s (founder K7).
+  const possessive = /['’]s$/u.test(w0) || /s['’]$/iu.test(w0);
+  const first = w0.replace(/['’]s$/u, "").replace(/(?<=s)['’]$/iu, "");
   if (!first || NOT_A_LEAD.has(key(first))) return null;
   if (possessive) return first;
   let name = first;
   let next = 1;
   const w1 = words[1] ?? "";
   if (/^\p{Lu}/u.test(w1) && !/^(and|or)$/iu.test(w1)) {
-    name = `${first} ${w1.replace(/['’]s$/u, "")}`;
+    name = `${first} ${w1.replace(/['’]s$/u, "").replace(/(?<=s)['’]$/iu, "")}`;
     next = 2;
   }
   // "Ben and Sam…", "Ben & Sam…": a pair, not one person.

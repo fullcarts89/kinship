@@ -66,6 +66,7 @@ function world(opts: {
   closes?: boolean;
   /** Memory already kept, per person (loadItems answers for the ids asked). */
   items?: ItemRow[];
+  removed?: { person_id: string; statement: string }[];
 } = {}): World {
   const w: World = { modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, deps: undefined as unknown as GatewayDeps };
   const caller: GatewayCaller = {
@@ -85,6 +86,7 @@ function world(opts: {
       related: [],
     }),
     loadItems: (ids) => Promise.resolve((opts.items ?? []).filter((m) => ids.includes(m.person_id))),
+    loadRemoved: () => Promise.resolve(opts.removed ?? []),
     loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
     closeReview: (id) => {
       w.closes.push(id);
@@ -438,4 +440,69 @@ Deno.test("every answer says how long the gateway took (Server-Timing), and noth
     if (!/^total;dur=\d+$/.test(timing)) throw new Error(`no Server-Timing: ${timing}`);
     await res.body?.cancel();
   }
+});
+
+// ─── K4 (CC-22): the gateway hands the app each name in question, and takes its answer ───
+
+Deno.test("K4: 'Which Sam?' on a line held for 'Which Anthony?' reaches the app (open_names), and a participants answer is resolved and written", async () => {
+  const note = "Anthony and Sam love ice skating with Chris";
+  const people = [
+    { id: "person-anthony", display_name: "Anthony", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-anthony-test", display_name: "Anthony Test", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-sam-eden", display_name: "Sam Eden", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-sam-d", display_name: "Sam Doughty", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-chris", display_name: "Chris", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+  ];
+  const proposal = {
+    items: [{
+      ...BEN_PROPOSAL.items[0], kind: "fact", person: "p1", person_mention: "Anthony", statement: note, evidence: [note], date_text: null,
+      detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "interest" },
+    }],
+    needs_clarification: null,
+  };
+  const w = world({ note, people, model: { output: proposal } });
+  const first = await call(w, post(extract));
+  eq(first.status, 200);
+  const [held] = first.body.held as { open_names?: { text: string; candidate_ids: string[] }[]; with_person_ids?: string[] }[];
+  eq(held.open_names, [{ text: "Sam", candidate_ids: ["person-sam-eden", "person-sam-d"] }]);
+  eq(held.with_person_ids, ["person-chris"]);
+  const w2 = world({ note, people, review: { ...w.writes[0].review!, created_at: STORED_AT } as StoredReview });
+  const { status } = await call(w2, post(resolveBody([{ index: 0, person_id: "person-anthony-test", participants: [{ text: "Sam", person_id: "person-sam-eden" }] }])));
+  eq(status, 200);
+  const [it] = w2.resolves[0].items;
+  eq([it.person_id, [...(it.with_person_ids ?? [])].sort(), it.statement], ["person-anthony-test", ["person-chris", "person-sam-eden"], note]);
+});
+
+Deno.test("reviewer A (13 Oct): a held 'Which Sam?' whose kept line the user has since removed brings nothing back", async () => {
+  const note = "Anthony and Sam love ice skating with Chris";
+  const people = [
+    { id: "person-anthony", display_name: "Anthony", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-sam-eden", display_name: "Sam Eden", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-sam-d", display_name: "Sam Doughty", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+    { id: "person-chris", display_name: "Chris", full_name: null, nicknames: [], relationship_label: null, state: "active" },
+  ];
+  const proposal = {
+    items: [{
+      ...BEN_PROPOSAL.items[0], kind: "fact", person: "p4", person_mention: "Chris", statement: note, evidence: [note], date_text: null,
+      detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "interest" },
+    }],
+    needs_clarification: null,
+  };
+  const w = world({ note, people, model: { output: proposal } });
+  eq((await call(w, post(extract))).status, 200);
+  const review = { ...w.writes[0].review!, created_at: STORED_AT } as StoredReview;
+  eq(review.items.map((i) => [i.mention, i.twin_person_id]), [["Sam", "person-chris"]]);
+  const answer = resolveBody([{ index: 0, person_id: "person-sam-eden" }]);
+  // Kept: the answer joins Chris's line.
+  const line: ItemRow = {
+    id: "m-chris", person_id: "person-chris", kind: "fact", subject_type: "person", subject_related_id: null,
+    statement: note, certainty: "stated", status: "active", user_state: "unreviewed", detail: { category: "interest" },
+  };
+  const kept = world({ note, people, review, items: [line] });
+  eq((await call(kept, post(answer))).status, 200);
+  eq(kept.resolves[0].items.map((i) => [i.person_id, i.with_person_ids, i.action]), [["person-chris", ["person-sam-eden"], { type: "merge", target_id: "m-chris" }]]);
+  // Removed with "Not this": nothing written for it.
+  const gone = world({ note, people, review, removed: [{ person_id: "person-chris", statement: note }] });
+  eq((await call(gone, post(answer))).status, 200);
+  eq(gone.resolves[0]?.items ?? [], []);
 });

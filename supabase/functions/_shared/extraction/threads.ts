@@ -85,7 +85,7 @@ const STOP = new Set([
 
 /** A rough stem: "moving"/"moved"/"move" → "mov", "Alameda" → "alam", "knees" → "kne". */
 function stem(word: string): string {
-  let w = word.toLocaleLowerCase().replace(/['’]s$/u, "");
+  let w = word.toLocaleLowerCase().replace(/['’]s$/u, "").replace(/(?<=s)['’]$/u, "");
   for (const suffix of ["ing", "ed", "es", "s", "e"]) {
     if (w.length - suffix.length >= 3 && w.endsWith(suffix)) {
       w = w.slice(0, -suffix.length);
@@ -104,7 +104,7 @@ function tokens(statement: string, names: Set<string>): Token[] {
   const words = statement.normalize("NFC").match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? [];
   const out: Token[] = [];
   words.forEach((raw, i) => {
-    const w = raw.replace(/['’]s$/u, "");
+    const w = raw.replace(/['’]s$/u, "").replace(/(?<=s)['’]$/iu, "");
     const k = w.toLocaleLowerCase();
     if (k.length < 3 || STOP.has(k) || names.has(k) || /n['’]t$/u.test(k)) return;
     out.push({ stem: stem(w), proper: i > 0 && /^\p{Lu}/u.test(w) });

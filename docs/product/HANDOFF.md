@@ -1,5 +1,23 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 13 Oct 2026: the K-series remediation pass (CC-22).** This supersedes the addenda below where they differ.
+> - **State:**
+>   - `main` = `90a5cf0` (PR #23 Phase 4 slice 1, PR #24 the Xcode 27 pod fix).
+>   - Production: ai-gateway **v8** (since 10 Oct, = `609be4a`); migrations through `20261009090000`.
+>   - The branch `claude/awesome-edison-3cuf6z` is ahead of `main` with the K-series pass. Not merged; no PR open.
+> - **Built on the branch (FIXED, none VERIFIED):** K4, K5, K7 (server and app), K6 (app), K3, N6, K2, I2 (know it + ask it), with migration `20261013090000_v2_interaction_trail`. K1: new notes already became one line (PR #19 / I10), plus K4's mirror collapse; the founder's existing duplicate stays (no cleanup).
+> - **The internal verification gate is in `k-series-verification.md`:** "What finished looks like", the matrices, break-the-test results, the reviewers' findings, the deployment table. The next native check is `k-series-native-checklist.md`.
+> - **Founder's steps, in order, when they say so:**
+>   1. Merge the branch into `main` (a PR; `main` requires one), with a merge commit.
+>   2. The ai-gateway redeploy from `main`.
+>   3. `npx supabase db push`.
+>   4. The build.
+>   K4, K5 and K7 run in ai-gateway: without the redeploy the phone tests old server code.
+> - **Builds while the EAS quota is out (until 1 Nov):** `eas build --local` on the founder's Mac (Xcode 27, CocoaPods, fastlane and the Apple WWDR G3 certificate are installed), with `SENTRY_DISABLE_AUTO_UPLOAD=true`; install by cable with `xcrun devicectl device install app`.
+> - **Founder decisions (CC-23):** CC-22's choices approved, with K5 never becoming the recipient's biography (pinned by a regression); no K1 collapse (the old duplicate stays as legacy data); I1's Message / Call rule settled; B2 approved, to proceed after merge and deploy in parallel with the native check, stopping after B2 before B3.
+> - **Next:** B2 after merge and deploy (in parallel with the native check), then stop before B3; H4 (4A step 6) after the native check.
+> - **Readiness: READY FOR FOUNDER NATIVE PASS** once merged, redeployed, db-pushed and built, in that order (the internal verification gate passed after five review rounds; CC-23). Nothing is VERIFIED.
+
 > **Addendum, 8 Oct 2026, late: Phase 4 slice 1 built** (`KINSHIP_2_DECISIONS.md` CC-20, CC-21). This supersedes the addenda below where they differ.
 > - **State:** branch `claude/awesome-edison-3cuf6z`, ahead of `main` (`609be4a`). Not merged; no PR open.
 > - **Built on the branch, native check pending:**
@@ -13,6 +31,7 @@
 >   - B1 is the closed categorization taxonomy: `supabase/functions/_shared/semantic/categories.ts` and 44 evals. It is computed, never stored, and not displayed.
 >   - **B2 waits for the founder to see B1's result.**
 > - **Next in 4A:** I2 (with N6), then H4.
+> - **New founder findings (12 Oct), STILL OPEN:** K1 (mirrored duplicate lines on Tyler's page) and K2 (a past-due promise under Coming up). Root causes are in `bug-ledger.md`; they aren't yet placed in Phase 4's order.
 > - **Founder's steps:** the ai-gateway redeploy and the re-run of gate rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b; then merge; `npx supabase db push`; then the build, when they say so. This branch changes nothing in ai-gateway.
 > - **The next native gate:** `phase4-native-checklist.md`.
 > - **Readiness:** NOT READY. This means Phase 4 is not yet ready for its next planned native dogfood milestone. It is not a return to Gate 0 stabilization (CC-21).

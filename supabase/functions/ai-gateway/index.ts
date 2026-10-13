@@ -93,6 +93,18 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
       if (error) throw new Error("dossier read failed");
       return data as ItemRow[];
     },
+    async loadRemoved(captureId) {
+      const sources = await db.from("memory_item_sources").select("memory_item_id").eq("capture_id", captureId).limit(200);
+      if (sources.error) throw new Error("sources read failed");
+      const ids = [...new Set(((sources.data ?? []) as { memory_item_id: string }[]).map((r) => r.memory_item_id))];
+      if (ids.length === 0) return [];
+      // Removed by the user ("Not this"), or replaced by a later note: an answer never brings back its old words
+      // (reviewers A, r3 and r4).
+      const { data, error } = await db.from("memory_items").select("person_id, statement")
+        .in("id", ids).or("deleted_at.not.is.null,status.eq.superseded");
+      if (error) throw new Error("removed read failed");
+      return data as { person_id: string; statement: string }[];
+    },
     async loadReview(captureId) {
       const { data, error } = await db.from("capture_reviews").select("items, clarification, created_at").eq("capture_id", captureId).maybeSingle();
       if (error) throw new Error("review read failed");

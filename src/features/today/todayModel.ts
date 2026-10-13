@@ -80,6 +80,8 @@ export interface LocalReason {
   dismissed?: string;
   /** "Yes" to the return check. */
   done?: string;
+  /** "Not yet" to the return check: it may speak again, whatever the server last said (founder N6). */
+  notYet?: string;
 }
 
 export interface Handoff {
@@ -92,8 +94,24 @@ export interface Handoff {
   ask?: string;
   /** The memory it was about, in the user's words: "Ben got promoted". */
   about?: string | null;
-  /** After a yes: "Anything worth remembering from congratulating Ben?" */
+  /** After a yes: "Anything worth remembering from congratulating Ben?"; "" when nothing is worth asking (a promise's logistics). */
   followUp?: string;
+  /** Which kind of Moment it came from, and the memory it was about: what a Yes records (founder I2). */
+  type?: ReasonType;
+  itemId?: string | null;
+}
+
+/** A conversation the user confirmed (contact_events), as Today needs it (founder K3). */
+export interface ContactRow {
+  person_id: string;
+  memory_item_id?: string | null;
+  occurred_at: string;
+  deleted_at?: string | null;
+}
+
+/** The local reason a "Waiting on …" line hands off with (also its detail's key). */
+export function waitingReasonId(itemId: string, day: string): string {
+  return `waiting:${itemId}:${day}`;
 }
 
 export interface TodayInput {
@@ -138,6 +156,8 @@ export interface TodayInput {
   provenance: (itemId: string) => { line: string; noteId: string | null } | null;
   /** The note's own words behind an item (its sources' quotes): what a milestone is read from (H16). */
   quotes?: (itemId: string) => string[];
+  /** Conversations the user confirmed (founder K3: a "Waiting on …" they already acted on doesn't keep asking). */
+  contacts?: ContactRow[];
 }
 
 export interface MomentView {
@@ -359,9 +379,12 @@ export function buildToday(input: TodayInput): TodayView {
   // The one moment.
   let best: { r: ReasonRow; item: MemoryItem; score: number } | null = null;
   for (const r of input.reasons) {
-    if (r.deleted_at || !["candidate", "scheduled", "surfaced"].includes(r.state)) continue;
-    if (r.type !== "upcoming_event" && r.type !== "event_followup") continue;
     const local = input.local[r.id];
+    // "Not yet" on this device: the server's "acted" from the hand-off doesn't
+    // silence it, whether or not the server has heard the answer (founder N6).
+    const open = ["candidate", "scheduled", "surfaced"].includes(r.state) || (r.state === "acted" && !!local?.notYet);
+    if (r.deleted_at || !open) continue;
+    if (r.type !== "upcoming_event" && r.type !== "event_followup") continue;
     if (local?.acted || local?.dismissed || local?.done) continue;
     const itemId = evidenceOf(r);
     const item = itemId ? items.get(itemId) : undefined;
@@ -546,11 +569,20 @@ export function buildToday(input: TodayInput): TodayView {
   }
   const seen = new Set<string>(view.moment ? [view.moment.personId] : []);
   // Someone's promise to the user, a few days past its day: one gentle check (Gate F).
+  // Once the user acted on it (handed off, or said they reached them, on any
+  // device), it doesn't keep asking (founder K3).
+  const reached = (m: MemoryItem, due: string) => (input.contacts ?? []).some((c) =>
+    !c.deleted_at && c.memory_item_id === m.id && c.person_id === m.person_id && typeof c.occurred_at === "string" &&
+    daysBetween(due, isoDay(new Date(c.occurred_at))) >= 0);
   for (const m of input.items) {
     if (view.quiet.length >= 4) break;
     if (!live(m) || m.kind !== "promise" || m.subject_type !== "person" || !activePerson(m.person_id) || seen.has(m.person_id)) continue;
     const due = (m.detail as Record<string, unknown>)?.due_date;
-    if (typeof due !== "string" || daysBetween(due, today) < 1 || daysBetween(due, today) > 3) continue;
+    if (typeof due !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(due) || daysBetween(due, today) < 1 || daysBetween(due, today) > 3) continue;
+    const handled = input.local[waitingReasonId(m.id, due)];
+    if (handled?.acted || handled?.done || handled?.dismissed || reached(m, due)) continue;
+    // A return question about this promise is open (handed off from Coming up, or the Moment): it asks instead.
+    if (view.returnCheck && input.handoff?.itemId === m.id) continue;
     const p = activePerson(m.person_id) as Person;
     const verb = m.statement.match(/\b(?:he|she|they)\s*(?:['’]d|would|['’]ll|will)\s+([a-z]+)/iu)?.[1];
     const source = input.provenance(m.id);
