@@ -59,7 +59,7 @@ export interface HeldItem {
   /** Which words name whom; the open "who?" has the asked-about words with no person (founder I13). */
   person_mentions?: PersonMention[];
   /** Others it is about whose name two or more people share, each asked on its own (founder K4). */
-  open_names?: { text: string; candidate_ids: string[] }[];
+  open_names?: { text: string; candidate_ids: string[]; archived_ids?: string[] }[];
 }
 
 /** The user's answer for one held item. */
@@ -131,6 +131,11 @@ export interface ResolveContext {
   related: ResolveRelated[];
   /** The chosen people's active memories, for exact-duplicate merges. */
   existing: ResolveExisting[];
+  /**
+   * Lines this note wrote that the user has since removed ("Not this"): a
+   * held mirror of one never brings it back (reviewer A, 13 Oct).
+   */
+  removed?: { person_id: string; statement: string }[];
 }
 
 /** One item for write_extraction; person_id may be "new:<n>", a person the RPC creates first. */
@@ -328,9 +333,14 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       if (!Array.isArray(a.participants) || a.participants.length > openNames.length) return { fail: "bad_answer" };
       for (const pa of a.participants) {
         if (!pa || typeof pa.text !== "string" || typeof pa.person_id !== "string") return { fail: "bad_answer" };
-        if (!openNames.some((o) => fold(o.text) === fold(pa.text)) || participants.some((x) => fold(x.text) === fold(pa.text))) return { fail: "bad_answer" };
+        const open = openNames.find((o) => fold(o.text) === fold(pa.text));
+        if (!open || participants.some((x) => fold(x.text) === fold(pa.text))) return { fail: "bad_answer" };
         const p = ctx.people.find((x) => x.id === pa.person_id);
-        if (!p || p.state === "archived") return { fail: "unknown_person" };
+        // Someone removed from People only when this name offered them back (founder I3).
+        if (!p || (p.state === "archived" && !(Array.isArray(open.archived_ids) && open.archived_ids.includes(p.id)))) return { fail: "unknown_person" };
+        // The person chosen as who the line is about is one this name can mean: the name is them, said
+        // once ("Who is this about?" Anthony, then "Which Anthony?" Anthony Test never attaches both; reviewer A).
+        if (needsPerson && Array.isArray(open.candidate_ids) && open.candidate_ids.includes(personId)) continue;
         participants.push({ text: pa.text, person_id: p.id });
       }
       withPeople = [...new Set([...withPeople, ...participants.map((x) => x.person_id)])].filter((id) => id !== personId);
@@ -488,6 +498,14 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         });
       } else if (held.some((g, gi) => gi !== index && g.person_id === owner && mirrorBag(g.statement) === bag && byIndex.get(gi)?.skip !== true)) {
         joins.push({ owner, bag, people: joiners, alone });
+      } else if (
+        held.some((g, gi) => gi !== index && g.person_id === owner && mirrorBag(g.statement) === bag) ||
+        (ctx.removed ?? []).some((r) => r.person_id === owner && mirrorBag(r.statement) === bag)
+      ) {
+        // The line it mirrors was declined in this review ("Don't keep this") or
+        // removed since it was kept: which Sam never brings that memory back
+        // (reviewer A, 13 Oct: "Michelle and Sam are getting divorced").
+        skipped++;
       } else {
         const key = `${owner}|${bag}`;
         const together = alones.get(key);

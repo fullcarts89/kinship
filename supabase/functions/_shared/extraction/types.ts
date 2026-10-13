@@ -294,6 +294,8 @@ export interface OpenName {
   text: string;
   /** Everyone in People that name can mean, never narrowed. */
   candidate_ids: string[];
+  /** People removed from People who went by it too (founder I3): offered back, and asked even with one person left. */
+  archived_ids?: string[];
 }
 
 export interface Clarification {

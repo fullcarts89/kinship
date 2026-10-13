@@ -44,6 +44,8 @@ export interface GatewayCaller {
   loadCapture(id: string): Promise<CaptureRow | null>;
   loadPeople(): Promise<{ people: PersonRow[]; related: RelatedRow[] }>;
   loadItems(personIds: string[]): Promise<ItemRow[]>;
+  /** Under the caller's RLS: lines this capture wrote that the user has since removed (reviewer A, 13 Oct). */
+  loadRemoved(captureId: string): Promise<{ person_id: string; statement: string }[]>;
   /** Under the caller's RLS: the held items and question still waiting on this capture (C-2). */
   loadReview(captureId: string): Promise<StoredReview | null>;
   /** As the user: dismiss what's held ("not now"); false when nothing was waiting. */
@@ -355,6 +357,8 @@ async function resolveReview(
   // A held mirror joins the line kept for its twin (founder I10): load that line too.
   for (const i of review.items) if (typeof i.twin_person_id === "string") chosen.add(i.twin_person_id);
   const existing = chosen.size ? await caller.loadItems([...chosen].filter((id) => people.some((p) => p.id === id))) : [];
+  // A held mirror of a line the user removed since never brings it back.
+  const removed = review.items.some((i) => typeof i.twin_person_id === "string") ? await caller.loadRemoved(captureId) : [];
   const resolution = resolveHeld(review.items, answers as HeldAnswer[], {
     note: capture.raw_text.normalize("NFC"),
     people: people.map((p) => ({
@@ -366,6 +370,7 @@ async function resolveReview(
       id: m.id, person_id: m.person_id, kind: m.kind, subject_type: m.subject_type,
       subject_related_id: m.subject_related_id, statement: m.statement, status: m.status, user_state: m.user_state,
     })),
+    removed,
   });
   if ("fail" in resolution) return json({ error: "invalid_answer", reason: resolution.fail }, 400, cors);
 

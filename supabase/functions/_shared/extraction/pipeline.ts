@@ -18,7 +18,7 @@
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
 import { inYourWords, leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
-import { findMention, leadingNames, MAX_MENTIONS, type MentionSubject, recordMentions, shortName, usesName } from "./names.ts";
+import { findMention, leadingNames, MAX_MENTIONS, type MentionSubject, namesAsName, recordMentions, saysWord, shortName, usesName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
@@ -379,21 +379,47 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   if (userNews) {
     // Founder K5: the user's own news ("I got the job, and can't wait to tell
     // Loo Loo") is kept, in the line's own words as already checked above
-    // (never widened to more of the note), with the one person its sentence
-    // says the user is telling, seeing or doing it with or for; else with the
-    // person whose page it was told on; else asked "Who is this about?"
-    // (Don't keep this), never dropped. The model's choice of whose page a
-    // line about the user goes on isn't trusted on its own, and someone not
-    // in People, or removed, is asked about as for anyone (J4, I3).
+    // (never widened to more of the note), never dropped. Whose page:
+    //   * the one person the user tells, texts, calls, sees… in its sentence
+    //     (or a short sentence right after with no subject of its own: "I got
+    //     the job! Can't wait to tell Loo Loo.");
+    //   * else the person the line's own quotes name, confirmed by the code
+    //     ("tell my wife" → her label; the mention resolved);
+    //   * else the model's person or the page's, only when the sentence
+    //     confirms it ("…for Ben", "…with Ben");
+    //   * else the page it was told on, when the sentence names no one;
+    //   * else asked "Who is this about?" (Don't keep this). "with" or "for"
+    //     never decides on its own ("moving to Austin", "saving for May").
+    // Someone not in People is asked as for anyone; someone removed is offered back (J4, I3).
     if (!who.new_person_name && !who.archived_ids?.length) {
-      const named = withSomeone(ctx, sentence);
+      const near = withFollowing(text, primary, sentence);
+      const told = whoTheUserTells(ctx, near);
       const page = ctx.input.capture.context_person_key ? ctx.byKey.get(ctx.input.capture.context_person_key) : undefined;
-      const only = named.length === 1 ? named[0] : named.length === 0 ? page : undefined;
+      const unsure = flags.has("person_ambiguous") || flags.has("person_disagreement") || flags.has("pronoun_multiple");
+      // The model's mention counts only inside the line's own quotes: "Ben" in "…and Ben's new number is…" is another clause's.
+      const mention = fold((raw.person_mention ?? "").trim());
+      const quoted = mention && spans.some((sp) =>
+        new RegExp(`(?<![\\p{L}\\p{M}])${mention.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{M}])`, "u").test(fold(sp.quote)));
+      const byWords = who.person_key && !unsure && quoted && !SELF_WORDS.has(mention.replace(/['’](re|ve|ll|d|m)$/u, ""))
+        ? ctx.byKey.get(who.person_key) : undefined;
+      const modelOnly = who.person_key && !byWords ? ctx.byKey.get(who.person_key) : undefined;
+      let only: RosterPerson | undefined;
+      if (told.strong.length) only = told.strong.length === 1 ? told.strong[0] : undefined;
+      else if (byWords) only = byWords;
+      else {
+        only = [modelOnly, page].find((p): p is RosterPerson => !!p && told.weak.includes(p));
+        if (!only && !told.named.length && page) only = page;
+      }
       flags.delete("person_ambiguous");
       flags.delete("person_disagreement");
+      flags.delete("pronoun_multiple");
       if (only) {
         if (who.person_key && who.person_key !== only.key) flags.add("subject_moved");
         who = { person_id: only.id, person_key: only.key, new_person_name: null };
+      } else if (!told.strong.length && told.removed.length) {
+        // No one in People is told by that name (they'd be `strong`): "Bring back <name>?" (I3).
+        flags.add("person_archived");
+        who = { person_id: null, person_key: null, new_person_name: null, archived_ids: told.removed.map((r) => r.id), mention: told.removed[0].said };
       } else {
         flags.add("person_ambiguous");
         who = { person_id: null, person_key: null, new_person_name: null };
@@ -452,7 +478,8 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     // "Sarah's sister has surgery" filed as Sarah herself is the costliest
     // subject error; if the evidence says "<name>'s <relation>", ask.
     const person = ctx.byKey.get(who.person_key)!;
-    if (possessiveRelation(sentence, person)) flags.add("subject_check");
+    // On the user's own news the only question is whose page ("tell Ben's wife" isn't about her, reviewer B).
+    if (!userNews && possessiveRelation(sentence, person)) flags.add("subject_check");
   }
 
   // ── Certainty: wording can only lower it ──
@@ -466,7 +493,8 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   if (certainty === "reported") flags.add("reported");
 
   // ── Sensitivity: wording can only raise it ──
-  const floor = floorSensitivity(raw.sensitivity, allEvidence, raw.kind === "event" ? raw.detail.event_type : null);
+  // The user's own news: from its own words, never a neighbouring clause about someone else (reviewer B).
+  const floor = floorSensitivity(raw.sensitivity, userNews ? spans.map((sp) => sp.quote).join(" ") : allEvidence, raw.kind === "event" ? raw.detail.event_type : null);
   let sensitivity = floor.sensitivity;
   // A pet's vet visit isn't a person's protected health (founder G43): it
   // doesn't wait for a yes. A death, or the person's own health, still does.
@@ -689,29 +717,53 @@ function ownWords(text: string, spans: PlannedSpan[]): string {
 /** Something the user means to do, in their line's own words ("can't wait to tell Loo Loo", "want to call Ben"). */
 const INTENDS = /\b(?:can['’]?t wait to|cannot wait to|wants? to|going to|gonna|will|['’]ll|plan(?:s|ning)? to|need(?:s)? to|have to|hope to|looking forward to)\b/u;
 
-/** Words before someone the user tells, sees or does something with or for ("tell Loo Loo", "for Ben", "with Sam"). */
-const WITH_SOMEONE = "tell|tells|told|telling|text|texts|texted|texting|call|calls|called|calling|see|sees|saw|seeing|show|shows|showed|showing|thank|thanked|thanking|meet|met|meeting|visit|visited|visiting|ask|asked|asking|invite|invited|inviting|congratulate|congratulated|hug|hugged|with|for|to";
+/** Verbs whose object is someone the user tells, sees or reaches (founder K5): enough on their own. */
+const TELLS = "tell|tells|told|telling|text|texts|texted|texting|call|calls|called|calling|ring|see|sees|saw|seeing|show|shows|showed|showing|" +
+  "thank|thanked|thanking|meet|met|meeting|visit|visited|visiting|ask|asked|asking|invite|invited|inviting|congratulate|congratulated|hug|hugged|" +
+  "message|messaged|messaging|email|emailed|emailing";
+/** Words that only confirm who it is with ("…with Ben", "…for Ben"): never enough on their own. */
+const WITH_OR_FOR = "with|for";
+
+/** The line's sentence, and a short one right after it with no subject of its own ("I got the job! Can't wait to tell Loo Loo."). */
+function withFollowing(text: string, span: PlannedSpan, sentence: string): string {
+  const next = sentenceAfter(text, span);
+  return next && /^(?:can['’]?t|cannot|can not|want|wanna|going|gonna|need|have to|hope|looking forward|so excited|excited)\b/iu.test(next)
+    ? `${sentence} ${next}` : sentence;
+}
 
 /**
- * The people in People a sentence names, written as names (capitalised: "hope"
- * is never Hope), right after a word for telling, seeing or doing something
- * with or for someone (founder K5). "I got the job and Ben got engaged" names
- * Ben only for his own news, so it isn't Ben's.
+ * Who a sentence says the user tells, sees or does something with or for
+ * (founder K5), by name as written (capitalised: "hope" is never Hope):
+ * `strong` after a verb of telling or reaching, with anyone listed after
+ * them ("tell Ben and Loo Loo"); `weak` after "with" or "for"; `named` all
+ * the people in People it names; `removed`, people removed from People told
+ * the same way (offered back, I3).
  */
-function withSomeone(ctx: Context, sentence: string): RosterPerson[] {
+function whoTheUserTells(ctx: Context, sentence: string): { strong: RosterPerson[]; weak: RosterPerson[]; named: RosterPerson[]; removed: { id: string; said: string }[] } {
   const esc = (n: string) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const forms = (p: RosterPerson) => namesFor(p).flatMap((f) => [f, f.split(/\s+/u)[0]]).filter((n) => usesName(sentence, n));
-  const named = ctx.namedInNote().filter((p) => forms(p).length > 0);
-  const told = named.filter((p) => forms(p).some((n) =>
-    new RegExp(`\\b(?:${WITH_SOMEONE})\\s+(?:my\\s+\\p{Ll}+\\s+)?${esc(n)}(?![\\p{L}\\p{M}])`, "u").test(sentence)));
-  // "tell Ben and Loo Loo": everyone in the list is told, so it's asked, never the first one.
-  for (const p of named) {
-    if (told.includes(p)) continue;
-    const listed = told.some((t) => forms(t).some((a) => forms(p).some((b) =>
-      new RegExp(`${esc(a)}(?:['’]s)?\\s*(?:,|and|&)\\s*${esc(b)}(?![\\p{L}\\p{M}])`, "u").test(sentence))));
-    if (listed) told.push(p);
-  }
-  return told;
+  // The verb may open the sentence ("Tell Loo Loo…"); the name must be written as a name.
+  const lower = sentence.replace(/(^|[.!?]\s+)(\p{Lu})/gu, (_m, a: string, b: string) => a + b.toLowerCase());
+  // "tell Ben's wife" tells someone else: a possessive is never the one told.
+  const after = (words: string, n: string) =>
+    new RegExp(`\\b(?:${words})\\s+(?:my\\s+\\p{Ll}+\\s+)?${esc(n)}(?![\\p{L}\\p{M}]|['’]s?(?![\\p{L}\\p{M}]))`, "u").test(lower) && usesName(sentence, n);
+  const formsOf = (names: string[]) => names.filter(Boolean).flatMap((f) => [f, f.split(/\s+/u)[0]]).filter((n) => usesName(sentence, n));
+  const named = ctx.namedInNote().filter((p) => formsOf(namesFor(p)).length > 0);
+  const listedAfter = (people: RosterPerson[]) => {
+    for (const p of named) {
+      if (people.includes(p)) continue;
+      const listed = people.some((t) => formsOf(namesFor(t)).some((a) => formsOf(namesFor(p)).some((b) =>
+        new RegExp(`${esc(a)}(?:['’]s)?\\s*(?:,|and|&)\\s*${esc(b)}(?![\\p{L}\\p{M}])`, "u").test(sentence))));
+      if (listed) people.push(p);
+    }
+    return people;
+  };
+  const strong = listedAfter(named.filter((p) => formsOf(namesFor(p)).some((n) => after(TELLS, n))));
+  const weak = listedAfter(named.filter((p) => formsOf(namesFor(p)).some((n) => after(WITH_OR_FOR, n))));
+  const removed = (ctx.input.archived ?? []).flatMap((r) => {
+    const said = formsOf([r.display_name, r.full_name ?? "", ...(r.nicknames ?? [])]).find((n) => after(TELLS, n));
+    return said ? [{ id: r.id, said }] : [];
+  });
+  return { strong, weak, named, removed };
 }
 
 /** "every Warriors playoff game" → "Warriors playoff game"; null without one. */
@@ -742,29 +794,45 @@ function participantsOf(
   const resolved: RosterPerson[] = [];
   const open: OpenName[] = [];
   const asked = ownerWords ? nameKey(ownerWords) : null;
-  // Written as a name in both the line and its evidence ("hope" is never Hope).
-  const named = (text: string, names: string[]) => names.some((n) => usesName(text, n) || usesName(text, n.split(/\s+/u)[0]));
-  for (const p of ctx.namedInNote()) {
+  // In both the line and its evidence, and written as a name in one of them: "hope" is never Hope, while a
+  // note typed in lower case ("ben went to tahoe with chris") or in a script without capitals still names them.
+  const forms = (names: string[]) => names.flatMap((n) => [n, n.split(/\s+/u)[0]]);
+  const named = (names: string[]) => forms(names).some((n) =>
+    saysWord(statement, n) && saysWord(quotes, n) && (namesAsName(statement, n) || namesAsName(quotes, n) || namesAsName(quotes, n, true)));
+  // A full name in the note's own words settles the name only when every use of it there is that full name
+  // ("Ben went to Tahoe with Tyler Shaffer"), never when it's also said alone ("Ben and Sam went…, but Sam Eden stayed home").
+  const esc = (n: string) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const settles = (full: string, first: string) => {
+    const q = fold(quotes);
+    const f = fold(full);
+    if (!f.includes(" ") || !new RegExp(`(?<![\\p{L}\\p{M}])${esc(f)}(?![\\p{L}\\p{M}])`, "u").test(q)) return false;
+    const rest = q.split(f).join(" ");
+    return !new RegExp(`(?<![\\p{L}\\p{M}])${esc(fold(first))}(?![\\p{L}\\p{M}])`, "u").test(rest);
+  };
+  // Everyone in People, as `named` reads them: "sam" in a note typed in lower case is Sam Eden's first name too.
+  for (const p of ctx.input.roster) {
     if (p.key === ownerKey || resolved.some((o) => o.id === p.id)) continue;
     // Who a "he" can mean is asked as who the line is about, never added as someone else (amb-071).
     if (ownerCandidates?.includes(p.id)) continue;
     const names = namesFor(p);
-    if (!named(statement, names) || !named(quotes, names)) continue;
+    if (!named(names)) continue;
     // The name as the line writes it: "Sammy" is Sam Eden's own nickname, never "which Sam?".
-    const form = names.find((n) => usesName(statement, n)) ?? names.map((n) => n.split(/\s+/u)[0]).find((n) => usesName(statement, n)) ?? names[0];
+    const form = forms(names).find((n) => namesAsName(statement, n)) ?? forms(names).find((n) => saysWord(statement, n)) ?? names[0];
     const first = form.split(/\s+/u)[0];
     const sharing = ctx.candidatesFor(form.includes(" ") ? form : first);
-    // Someone removed from People goes by it too (founder I3): never attached on a guess.
-    if (ctx.archivedFor(first).length) continue;
-    // A full name in the note's own words settles it ("Tyler Shaffer", even if the line says "Tyler").
-    const whole = names.some((n) => n.includes(" ") && fold(quotes).includes(fold(n)));
-    const settledByName = sharing.some((c) => c.id !== p.id && namesFor(c).some((n) => n.includes(" ") && fold(quotes).includes(fold(n))));
+    const whole = names.some((n) => settles(n, first));
+    const settledByName = sharing.some((c) => c.id !== p.id && namesFor(c).some((n) => settles(n, first)));
     if (settledByName) continue;
-    if (sharing.length > 1 && !whole) {
+    // Someone removed from People goes by it too (founder I3): a full name settles it; a first name alone is
+    // asked ("Which Chris?"), never attached on a guess and never dropped.
+    const removedToo = !whole && !form.includes(" ") ? ctx.archivedFor(first) : [];
+    if ((sharing.length > 1 || removedToo.length) && !whole) {
       // The name is who the line is about (settled, or asked as such): not someone else.
       if (sharing.some((c) => c.key === ownerKey) || nameKey(first) === asked) continue;
       if (ownerCandidates?.some((id) => sharing.some((c) => c.id === id))) continue;
-      if (!open.some((o) => nameKey(o.text) === nameKey(first))) open.push({ text: first, candidate_ids: sharing.map((c) => c.id) });
+      if (!open.some((o) => nameKey(o.text) === nameKey(first))) {
+        open.push({ text: first, candidate_ids: sharing.map((c) => c.id), ...(removedToo.length ? { archived_ids: removedToo } : {}) });
+      }
       continue;
     }
     if (asked && names.some((n) => nameKey(n) === asked || nameKey(n.split(/\s+/u)[0]) === asked)) continue;
@@ -965,12 +1033,14 @@ function inventedNumber(statement: string, text: string): boolean {
   return nums.some((n) => !text.includes(n));
 }
 
+const POSSESSED_RELATION = "mom|mother|mum|dad|father|sister|brother|son|daughter|kid|kids|wife|husband|partner|boyfriend|girlfriend|fianc\\S*|grandma|grandmother|grandpa|grandfather|aunt|uncle|cousin|niece|nephew|boss|roommate|friend|baby|parents?";
+
 function possessiveRelation(sentence: string, person: RosterPerson): boolean {
   const s = fold(sentence);
   const names = namesFor(person);
   return names.some((n) => {
     const first = fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?(mom|mother|mum|dad|father|sister|brother|son|daughter|kid|kids|wife|husband|partner|boyfriend|girlfriend|fianc\\S*|grandma|grandmother|grandpa|grandfather|aunt|uncle|cousin|niece|nephew|boss|roommate|friend|baby|parents?)\\b`).test(s);
+    return new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})\\b`).test(s);
   });
 }
 
@@ -1555,7 +1625,11 @@ function mentionFor(ctx: Context, item: PlannedItem): string | null {
 
 function possessiveRelationWord(sentence: string, person: RosterPerson): string | null {
   const first = fold(person.display_name).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return fold(sentence).match(new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?([a-z-]+)`))?.[1] ?? null;
+  const s = fold(sentence);
+  // The relation itself ("Chris's younger sister" → sister), else the word right after the name: never the
+  // verb after it ("Chris's sister went…" was offered as "Chris's went", reviewer A).
+  return s.match(new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})\\b`))?.[1] ??
+    s.match(new RegExp(`\\b${first}(?:'s|(?<=s)') ([a-z-]+)`))?.[1] ?? null;
 }
 
 // Re-exported for tests.
@@ -1685,7 +1759,7 @@ function settleOpenNames(items: PlannedItem[]): void {
   for (const it of [...items]) {
     const open = (it.open_names ?? []).filter((o) =>
       !items.some((x) => x !== it && !x.person_id && x.tier === "hold" && fold(x.subject_words ?? "") === fold(o.text) && mirrors(x, it)) &&
-      o.candidate_ids.length > 1
+      (o.candidate_ids.length > 1 || (!!o.archived_ids?.length && o.candidate_ids.length === 1))
     );
     if (!open.length) {
       delete it.open_names;
@@ -1725,6 +1799,8 @@ function settleOpenNames(items: PlannedItem[]): void {
       twin_person_id: it.person_id!,
       mention: o.text,
       subject_words: o.text,
+      // Someone removed who went by it too is offered back (I3).
+      ...(o.archived_ids?.length ? { archived_ids: o.archived_ids } : {}),
     }));
     items.splice(items.indexOf(it) + 1, 0, ...twins);
   }

@@ -72,6 +72,39 @@ export function usesName(statement: string, name: string): boolean {
   return false;
 }
 
+/**
+ * Given names that are also everyday English words: written in lower case
+ * they are the word ("I hope…", "…and will celebrate"), never the person.
+ */
+const EVERYDAY_WORD_NAMES = new Set([
+  "hope", "will", "may", "june", "april", "august", "grace", "faith", "joy", "mark", "bill", "rose", "summer", "autumn",
+  "dawn", "frank", "rich", "art", "guy", "pat", "sue", "chase", "hunter", "jack", "max", "ray", "rob", "lily", "ivy",
+  "daisy", "amber", "ruby", "pearl", "holly", "olive", "violet", "page", "ginger", "penny", "sandy", "sky", "river",
+  "reed", "drew", "dean", "gene", "carol", "cash", "chip", "buck", "bud", "dot", "don", "sunny", "honey", "angel",
+  "star", "storm", "rain", "jade", "hazel", "crystal", "destiny", "harmony", "melody", "patience", "prudence", "constance",
+  "victor", "noble", "earnest", "forrest", "glen", "dale", "heath", "wade", "lane", "west", "young", "price", "miles",
+  "major", "king", "bishop", "baker", "cook", "carter", "mason", "taylor", "hunter", "fisher", "porter", "bob",
+]);
+
+/**
+ * Whether `text` names `name` as a name. Capitalised as written ("hope" is
+ * never Hope). A name in a script without capitals (小明, דנה) counts as written;
+ * one that isn't also an everyday word counts in any case when `anyCase`
+ * (a note typed in lower case still names "chris").
+ */
+export function namesAsName(text: string, name: string, anyCase = false): boolean {
+  if (!name.trim()) return false;
+  if (usesName(text, name)) return true;
+  const cased = /[\p{Lu}\p{Ll}]/u.test(name);
+  if (cased && !(anyCase && !EVERYDAY_WORD_NAMES.has(fold(name).trim()))) return false;
+  return wordRe(name).test(text);
+}
+
+/** Whether `text` says `name` as a whole word, in any case. */
+export function saysWord(text: string, name: string): boolean {
+  return !!name.trim() && wordRe(name).test(text);
+}
+
 /** Every capitalised whole-word use of `from` becomes `to`; a possessive stays a possessive. */
 export function replaceName(statement: string, from: string, to: string): string {
   if (!from.trim() || !to.trim()) return statement;

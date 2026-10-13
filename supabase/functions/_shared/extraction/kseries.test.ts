@@ -278,6 +278,70 @@ Deno.test("K5 (reviewer B): another line's hedge never leaks into the user's new
   eq(out.items.find((i) => i.statement === "You got the job")?.certainty, "stated");
 });
 
+// Reviewer B, round 2 (13 Oct): whose page the user's news goes to. A verb of telling or reaching decides; "with",
+// "for" and a name elsewhere in the sentence only confirm; anything else is asked. Nothing is ever dropped.
+const AUSTIN = person("p6", "austin", "Austin");
+const PARIS = person("p7", "paris", "Paris");
+const MAY = person("p8", "may", "May");
+const RB2 = [LOO, BEN, AUSTIN, PARIS, MAY];
+for (const [note, page] of [
+  ["I got the job and I'm moving to Austin", "p2"],
+  ["I got the job and I'm flying to Paris", null],
+  ["I got the job and I'm saving for May", null],
+] as [string, string | null][]) {
+  Deno.test(`K5 (reviewer B r2): "${note}" never files the news on a place or a month that's also someone's name`, () => {
+    const out = run(input(note, RB2, page), [userFact(page ?? "unknown")]);
+    eq(out.items.map((i) => [i.person_id, i.tier, i.statement]), [[null, "hold", "You got the job"]], note);
+  });
+}
+
+Deno.test("K5 (reviewer B r2): 'tell Ben's wife' is never asked 'Is this about Ben's wife?', and never filed on Ben on a guess", () => {
+  const out = run(input("I got the job and can't wait to tell Ben's wife", RB2), [userFact("p2", { person_mention: "Ben" })]);
+  eq(out.items.map((i) => [i.person_id, i.tier, i.flags.includes("subject_check")]), [[null, "hold", false]]);
+});
+
+Deno.test("K5 (reviewer B r2): news kept for Ben is never asked 'Is this about Ben's wife?' because she's in the sentence", () => {
+  const out = run(input("I told Ben I got the job, and Ben's wife threw a party", RB2), [userFact("p2")]);
+  eq(out.items.map((i) => [i.person_id, i.tier !== "hold", i.flags.includes("subject_check")]), [["ben", true, false]]);
+});
+
+Deno.test("K5 (reviewer B r2): a name in a neighbouring clause never takes the news from the person the line names", () => {
+  const note = "Loo Loo cried when I told her I got the job, then we went out with Ben";
+  const named = run(input(note, RB2), [userFact("p1", { person_mention: "Loo Loo", evidence: ["Loo Loo cried when I told her I got the job"] })]);
+  eq(named.items.map((i) => [i.person_id, i.tier !== "hold"]), [["loo", true]]);
+  const bare = run(input(note, RB2), [userFact("p1")]);
+  eq(bare.items.map((i) => [i.person_id, i.tier]), [[null, "hold"]], "the model's page alone, with Ben named: asked");
+});
+
+Deno.test("K5 (reviewer B r2): 'with Ben' on Loo Loo's page is asked, never decided either way", () => {
+  const out = run(input("I got the job and celebrated with Ben", RB2, "p1"), [userFact("unknown")]);
+  eq(out.items.map((i) => [i.person_id, i.tier, i.flags.includes("person_ambiguous")]), [[null, "hold", true]]);
+});
+
+for (const note of ["I got the job! Can't wait to tell Loo Loo.", "Tell Loo Loo I got the job"]) {
+  Deno.test(`K5 (reviewer B r2): "${note}" is Loo Loo's, wherever the telling is`, () => {
+    const out = run(input(note, RB2), [userFact("unknown")]);
+    eq(out.items.map((i) => [i.person_id, i.tier !== "hold", i.statement]), [["loo", true, "You got the job"]]);
+  });
+}
+
+Deno.test("K5 (reviewer B r2): 'tell my wife' is the person the code finds by that label", () => {
+  const note = "I got the job and can't wait to tell my wife";
+  const out = run(input(note, RB2), [userFact("p1", { person_mention: "my wife", evidence: [note] })]);
+  eq(out.items.map((i) => [i.person_id, i.tier !== "hold"]), [["loo", true]]);
+});
+
+Deno.test("K5 (reviewer B r2): telling someone removed from People offers them back (I3)", () => {
+  const inp = { ...input("I got the job, and can't wait to tell Ben", [LOO]), archived: [{ id: "ben-old", display_name: "Ben", full_name: null, nicknames: [] }] };
+  const out = run(inp, [userFact("unknown")]);
+  eq(out.items.map((i) => [i.person_id, i.tier, i.flags.includes("person_archived"), i.archived_ids, i.mention]), [[null, "hold", true, ["ben-old"], "Ben"]]);
+});
+
+Deno.test("K5 (reviewer B r2): the news's sensitivity is its own, never a neighbouring clause's", () => {
+  const out = run(input("I got the job and told Ben, whose dad just died", RB2), [userFact("p2")]);
+  eq(out.items.map((i) => [i.person_id, i.statement, i.sensitivity]), [["ben", "You got the job", "none"]]);
+});
+
 Deno.test("K4 (reviewer B, amb-071): a 'he' line never makes its own possible people participants", () => {
   const roster = [person("p1", "ben", "Ben"), person("p2", "josh", "Josh")];
   const note = "Ben told Josh he's moving to Austin.";
@@ -414,12 +478,76 @@ Deno.test("A6: the kept line gone, several names answered: one memory between th
   eq([...new Set([r.items[0].person_id, ...(r.items[0].with_person_ids ?? [])])].sort(), ["anthony", "chris", "sam-eden"]);
 });
 
-Deno.test("A7: a name someone removed from People also goes by is never attached on a guess (I3)", () => {
+Deno.test("A7: a name someone removed from People also goes by is never attached on a guess, and is asked, never dropped (I3; reviewer A r2)", () => {
   const roster = [person("p1", "anthony", "Anthony"), person("p2", "kaiya-lee", "Kaiya Lee")];
   const note = "Anthony and Kaiya went ice skating";
   const inp = { ...input(note, roster), archived: [{ id: "kaiya-old", display_name: "Kaiya", full_name: null, nicknames: [] }] };
   const out = run(inp, [item({ person: "p1", person_mention: "Anthony", statement: note, evidence: [note] })]);
-  eq(out.items.map((i) => [i.person_id, i.with_person_ids ?? []]), [["anthony", []]]);
+  eq(out.items.map((i) => [i.person_id, i.with_person_ids ?? [], i.mention ?? null, i.twin_person_id ?? null, i.archived_ids ?? []]),
+    [["anthony", [], null, null, []], [null, [], "Kaiya", "anthony", ["kaiya-old"]]]);
+  // Either answer joins Anthony's line: Kaiya Lee, or the Kaiya brought back.
+  for (const pick of ["kaiya-lee", "kaiya-old"]) {
+    const people = [...peopleOf(roster), { id: "kaiya-old", display_name: "Kaiya", state: "archived" }];
+    const existing = [{ id: "m-a", person_id: "anthony", kind: "fact", subject_type: "person", subject_related_id: null, statement: note, status: "active", user_state: "unreviewed" }];
+    const r = resolveHeld([asHeld(out.items[1])], [{ index: 0, person_id: pick }], { note, people, related: [], existing });
+    if ("fail" in r) throw new Error(r.fail);
+    eq(r.items.map((i) => [i.person_id, i.with_person_ids]), [["anthony", [pick]]]);
+  }
+});
+
+Deno.test("reviewer A r2 (N2): a full name is never blocked by someone removed who shared its first name", () => {
+  const roster = [person("p1", "ben", "Ben"), person("p3", "sam-eden", "Sam Eden")];
+  const note = "Ben and Sam Eden went to Tahoe";
+  const inp = { ...input(note, roster), archived: [{ id: "sam-old", display_name: "Sam Smith", full_name: null, nicknames: [] }] };
+  const out = run(inp, [item({ person: "p1", person_mention: "Ben", statement: note, evidence: [note] })]);
+  eq(out.items.map((i) => [i.person_id, i.with_person_ids]), [["ben", ["sam-eden"]]]);
+});
+
+Deno.test("reviewer A r2 (N2): on a line still held, a slot offers back someone removed, and only that name may bring them back", () => {
+  const roster = [...K4_ROSTER];
+  const note = "Last weekend Anthony and Chris went skating";
+  const inp = { ...input(note, roster), archived: [{ id: "chris-old", display_name: "Chris Old", full_name: null, nicknames: [] }] };
+  const out = run(inp, [item({ person: "p1", person_mention: "Anthony", statement: "Anthony and Chris went skating", evidence: [note], sensitivity: "health" })]);
+  const line = out.items.find((i) => i.tier === "hold" && i.open_names?.length);
+  eq(line?.open_names?.some((o) => o.text === "Chris" && (o.archived_ids ?? []).includes("chris-old")), true);
+  const people = [...peopleOf(roster), { id: "chris-old", display_name: "Chris Old", state: "archived" }];
+  const held = out.items.filter((i) => i.tier === "hold").map(asHeld);
+  const at = held.findIndex((h) => h.open_names?.length);
+  const answer = (who: string) => held.map((h, index) => index === at
+    ? { index, accept: true as const, ...(h.person_id ? {} : { person_id: "anthony" }), participants: [{ text: "Chris", person_id: who }] }
+    : { index, skip: true as const });
+  const back = resolveHeld(held, answer("chris-old"), { note, people, related: [], existing: [] });
+  if ("fail" in back) throw new Error(back.fail);
+  eq(back.items[0].with_person_ids?.includes("chris-old"), true);
+  const stranger = resolveHeld(held, answer("someone-removed"), { note, people: [...people, { id: "someone-removed", display_name: "Chris Q", state: "archived" }], related: [], existing: [] });
+  eq("fail" in stranger ? stranger.fail : "saved", "unknown_person");
+});
+
+Deno.test("reviewer A r2 (N1): a note in lower case, or a name in a script without capitals, still names them; 'hope' is never Hope", () => {
+  const BEN2 = person("p1", "ben", "Ben");
+  const lower = run(input("ben went to tahoe with chris", [BEN2, person("p2", "chris", "Chris")]),
+    [item({ person: "p1", person_mention: "ben", statement: "Ben went to Tahoe with Chris", evidence: ["ben went to tahoe with chris"] })]);
+  eq(lower.items.map((i) => [i.person_id, i.with_person_ids]), [["ben", ["chris"]]]);
+  for (const [name, key] of [["小明", "xm"], ["דנה", "dana"]]) {
+    const note = `Ben went to Tahoe with ${name}`;
+    const out = run(input(note, [BEN2, person("p3", key, name)]), [item({ person: "p1", person_mention: "Ben", statement: note, evidence: [note] })]);
+    eq(out.items.map((i) => [i.person_id, i.with_person_ids]), [["ben", [key]]], name);
+  }
+  for (const statement of ["You hope Ben got the job", "i hope ben got the job"]) {
+    const out = run(input("i hope ben got the job", [BEN2, person("p3", "hope", "Hope")]), [item({ person: "p1", person_mention: "ben", statement, evidence: ["i hope ben got the job"] })]);
+    eq(out.items.map((i) => [i.person_id, i.with_person_ids ?? []]), [["ben", []]], statement);
+  }
+  // The K4 note in lower case: both names still asked, Chris kept.
+  const k4lower = "anthony and sam love ice skating with chris";
+  const k = run(input(k4lower, K4_ROSTER), [skating({ person: "p5", person_mention: "chris", evidence: [k4lower] })]);
+  eq(k.items.map((i) => [i.person_id, i.mention ?? null]), [["chris", null], [null, "Anthony"], [null, "Sam"]]);
+});
+
+Deno.test("reviewer A r2 (N3): a full name said elsewhere in the sentence never settles which Sam the line means", () => {
+  const roster = [person("p1", "ben", "Ben"), person("p3", "sam-eden", "Sam Eden"), person("p4", "sam-d", "Sam Doughty")];
+  const note = "Ben and Sam went to Tahoe, but Sam Eden stayed home.";
+  const out = run(input(note, roster), [item({ person: "p1", person_mention: "Ben", statement: "Ben and Sam went to Tahoe", evidence: [note.slice(0, -1)] })]);
+  eq(out.items.map((i) => [i.person_id, i.with_person_ids ?? [], i.mention ?? null]), [["ben", [], null], [null, [], "Sam"]]);
 });
 
 Deno.test("A8: a full name in the note settles it, even when the line shortens it", () => {
@@ -440,3 +568,24 @@ Deno.test("K5 (reviewer E): two people named, filed on no one: asked, never a gu
   const out = run(input("I got the job, and can't wait to tell Ben and Loo Loo", [LOO, BEN]), [userFact("unknown")]);
   eq(out.items.map((i) => [i.person_id, i.tier]), [[null, "hold"]]);
 });
+
+Deno.test("reviewer A r2 (N4): 'Who is this about?' Anthony, then 'Which Anthony?' Anthony Test: one Anthony, the one chosen as who it's about", () => {
+  const note = "Last weekend Anthony and Sam went skating with Chris";
+  const out = run(input(note, K4_ROSTER), [item({ person: "unknown", statement: note, evidence: [note] })]);
+  const held = out.items.filter((i) => i.tier === "hold").map(asHeld);
+  eq(held.length, 1);
+  eq((held[0].open_names ?? []).map((o) => o.text), ["Anthony", "Sam"]);
+  const r = resolveHeld(held, [{ index: 0, person_id: "anthony", participants: [{ text: "Anthony", person_id: "anthony-test" }, { text: "Sam", person_id: "sam-eden" }] }],
+    { note, people: peopleOf(K4_ROSTER), related: [], existing: [] });
+  if ("fail" in r) throw new Error(r.fail);
+  eq([r.items[0].person_id, [...(r.items[0].with_person_ids ?? [])].sort()], ["anthony", ["chris", "sam-eden"]]);
+});
+
+for (const note of ["Chris's sister went ice skating with Anthony Test", "Chris's younger sister went ice skating with Anthony Test"]) {
+  Deno.test(`reviewer A r2: "${note}" asks 'Is this about Chris, or Chris's sister?', never 'Chris's went'`, () => {
+    const out = run(input(note, K4_ROSTER), [item({ person: "p5", person_mention: "Chris", statement: note, evidence: [note] })]);
+    const options = out.clarification?.options ?? [];
+    eq(options.some((o) => /went|younger/u.test(o)), false, JSON.stringify(options));
+    eq(options.some((o) => /sister/u.test(o)), true, JSON.stringify(options));
+  });
+}
