@@ -734,11 +734,6 @@ Deno.test("r3 P2: 'tell Ben Kim' with a Ben too tells Ben Kim", () => {
   eq(out.items.map((i) => [i.person_id, i.tier !== "hold"]), [["ben-kim", true]]);
 });
 
-Deno.test("r3 (pre-existing): the note's own words never drop a 'don't' just before the quote", () => {
-  const note = "I got the job and don't want to tell Mom";
-  const out = run(input(note, [LOO, person("p9", "mom", "Mom")]), [item({ kind: "plan", subject: "user", person: "p9", person_mention: "Mom", statement: "You want to tell Mom", evidence: ["want to tell Mom"] })]);
-  eq(out.items.map((i) => [i.statement, i.spans[0].quote]), [["Don't want to tell Mom", "don't want to tell Mom"]]);
-});
 
 Deno.test("r3: the plan never repeats news another line of the note already keeps, and widens only from the telling itself", () => {
   const MOM = person("p9", "mom", "Mom");
@@ -766,4 +761,60 @@ Deno.test("r3 (S3): someone removed is accepted only for the name that offered t
   eq("fail" in wrong ? wrong.fail : "saved", "unknown_person");
   const right = resolveHeld(held, answer("sam-eden"), { note, people, related: [], existing: [] });
   eq("fail" in right ? right.fail : [...(right.items[0].with_person_ids ?? [])].sort(), ["chris", "sam-eden"]);
+});
+
+// ─── Reviewer A, round 4 (13 Oct) ─
+
+Deno.test("r4 P0-A: a line kept in the note's lower-case words still keeps everyone the model wrote as a name", () => {
+  const roster = [person("p1", "ben", "Ben"), person("p2", "maya", "Maya"), person("p3", "chris", "Chris")];
+  for (const [note, statement, who] of [
+    ["ben and maya are coming over friday", "Ben and Maya are coming over on Friday, October 16", ["maya"]],
+    ["ben and maya have been married ten years", "Ben and Maya have been married 10 years", ["maya"]],
+    ["ben went to tahoe with chris for a few days", "Ben went to Tahoe with Chris for 3 days", ["chris"]],
+    ["ben and maya didn't go to tahoe", "Ben and Maya went to Tahoe", ["maya"]],
+  ] as [string, string, string[]][]) {
+    const out = run(input(note, roster), [item({ person: "p1", person_mention: "ben", statement, evidence: [note] })]);
+    eq(out.items.map((i) => [i.person_id, i.with_person_ids ?? [], i.flags.includes("own_words")]), [["ben", who, true]], note);
+  }
+  const sams = [person("p1", "ben", "Ben"), person("p3", "sam-eden", "Sam Eden"), person("p4", "sam-d", "Sam Doughty")];
+  const note = "ben went to tahoe with sam for a few days";
+  const out = run(input(note, sams), [item({ person: "p1", person_mention: "ben", statement: "Ben went to Tahoe with Sam for 3 days", evidence: [note] })]);
+  eq(out.items.map((i) => [i.person_id, i.mention ?? null]), [["ben", null], [null, "Sam"]]);
+  // A word written as a word stays a word.
+  const grant = run(input("ben got a grant for his research", [person("p1", "ben", "Ben"), person("p2", "grant", "Grant Lee")]),
+    [item({ person: "p1", person_mention: "ben", statement: "Ben got a grant for his research in 2026", evidence: ["ben got a grant for his research"] })]);
+  eq(grant.items.map((i) => i.with_person_ids ?? []), [[]]);
+});
+
+Deno.test("r4 P1-A: kept in the note's own words, a line never says the opposite ('Why not call Mom' is never 'Not call Mom')", () => {
+  const roster = [person("p1", "mom", "Mom"), person("p2", "ben", "Ben")];
+  for (const [note, evidence, owner] of [
+    ["Why not call Mom this weekend", "call Mom this weekend", "p1"],
+    ["Why not invite Ben to dinner on Friday?", "invite Ben to dinner on Friday", "p2"],
+    ["I can't not tell Mom about the job", "tell Mom about the job", "p1"],
+    ["I didn't not want to tell Mom", "want to tell Mom", "p1"],
+  ] as const) {
+    const out = run(input(note, roster), [item({ kind: "plan", subject: "user", person: owner, statement: `You want to ${evidence.replace(/^want to /u, "")}`, evidence: [evidence] })]);
+    eq(out.items.some((i) => /^Not\b/iu.test(i.statement)), false, note);
+  }
+});
+
+Deno.test("r4 P1-B: no quote is ever longer than the 200 code points a stored quote may be", () => {
+  const long = "want to tell Mom about the whole thing with the apartment and the landlord and the deposit and the neighbours and the parking and the noise upstairs and everything else that has been going on since the start of september";
+  eq(Array.from(long).length > 200, true, "longer than a stored quote may be");
+  const note = `I got the job and don't ${long}`;
+  for (const [person_, extra] of [["p1", {}], ["new", { person_mention: "Dana" }]] as const) {
+    const out = run(input(note, [person("p1", "mom", "Mom")]), [item({ kind: "plan", subject: "user", person: person_, statement: "You want to tell Mom about the apartment", evidence: [long], ...extra })]);
+    eq(out.items.every((i) => i.spans.every((s) => Array.from(s.quote).length <= 200)), true, person_);
+  }
+});
+
+Deno.test("r4: someone removed is asked only when they are the one told ('tell Ben Kim' with a removed Ben is Ben Kim's)", () => {
+  const benKim = person("p6", "ben-kim", "Ben Kim");
+  for (const removed of [{ id: "ben-old", display_name: "Ben", full_name: null, nicknames: [] }, { id: "ben-old", display_name: "Ben Old", full_name: null, nicknames: [] }]) {
+    const out = run({ ...input("I got the job, and can't wait to tell Ben Kim", [LOO, benKim]), archived: [removed] }, [userFact("unknown")]);
+    eq(out.items.map((i) => [i.person_id, i.tier !== "hold"]), [["ben-kim", true]], removed.display_name);
+  }
+  const loo = run({ ...input("I got the job, and can't wait to tell Loo Loo", [LOO, BEN]), archived: [{ id: "loo-old", display_name: "Loo", full_name: null, nicknames: [] }] }, [userFact("unknown")]);
+  eq(loo.items.map((i) => [i.person_id, i.tier !== "hold"]), [["loo", true]]);
 });

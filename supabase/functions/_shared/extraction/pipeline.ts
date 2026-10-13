@@ -299,12 +299,6 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   const unfaithful = inventedName(ctx, statement) || inventedNumber(statement, text) ||
     inventedSensitiveTerms(statement, text).length > 0 || inventedRelations(statement, text, ctx.knownRelations).length > 0 ||
     negationLost || !voiced.certain;
-  // The note's own words keep a "don't" just before the quote ("…and don't want to tell Mom" quoted as "want to
-  // tell Mom" read "Want to tell Mom": the meaning flipped; reviewer A, r3).
-  if (negationLost && !hasNegation(primary.quote)) {
-    const wider = withNegationBefore(text, primary);
-    if (wider) spans.splice(0, 1, wider);
-  }
   // Never an instruction or a contact detail, whichever quote it was in.
   let said = unfaithful
     ? ownWords(text, spans.filter((s, i) => i === 0 ||
@@ -606,7 +600,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // asked about on its own, never dropped.
   const settled = who.person_id && !unsure ? who.person_key : null;
   const others = subject !== "related" && raw.kind !== "promise"
-    ? participantsOf(ctx, said, spans, settled, settled ? null : subjectWords(raw, who), who.candidate_ids)
+    ? participantsOf(ctx, said, spans, settled, settled ? null : subjectWords(raw, who), who.candidate_ids, statement)
     : { resolved: [], open: [] };
   const withPeople = others.resolved;
   if (withPeople.length) flags.add("shared_people");
@@ -739,16 +733,6 @@ function ownWords(text: string, spans: PlannedSpan[]): string {
   return inYourWords(out.replace(/\s+/gu, " ").trim().replace(/[.。]+$/u, "").trim()).slice(0, 500);
 }
 
-/** The quote widened back over a negation right before it ("don't ", "never "), or null. */
-function withNegationBefore(text: string, span: PlannedSpan): PlannedSpan | null {
-  const chars = Array.from(text);
-  const before = chars.slice(Math.max(0, span.start - 24), span.start).join("");
-  const m = before.match(/(?:^|[^\p{L}'’])((?:don['’]t|do not|doesn['’]t|does not|didn['’]t|did not|won['’]t|will not|can['’]t|cannot|never|not|no longer)\s+)$/iu);
-  if (!m) return null;
-  const start = span.start - Array.from(m[1]).length;
-  return { start, end: span.end, quote: chars.slice(start, span.end).join("") };
-}
-
 /** "You want to tell Loo Loo later": the plan only tells someone, without saying what. */
 const TELL_ONLY = new RegExp(
   "^(?:you\\s+)?(?:really\\s+|just\\s+)?(?:can['’]?t wait to|cannot wait to|want to|are going to|will|plan to|need to|have to|hope to|are excited to|are looking forward to)\\s+" +
@@ -849,9 +833,12 @@ function whoTheUserTells(ctx: Context, sentence: string): { strong: RosterPerson
   const strong = listedAfter(told.filter((p) => !told.some((q) => q !== p &&
     toldAs(q).some((long) => toldAs(p).every((short) => fold(long).startsWith(`${fold(short)} `))))));
   const weak = listedAfter(named.filter((p) => formsOf(namesFor(p)).some((n) => after(WITH_OR_FOR, n))));
+  // Someone removed is told only when no one in People is told by a longer name holding theirs ("tell Ben Kim" with a
+  // removed Ben, "tell Loo Loo" with a removed Loo; reviewer A, r4).
   const removed = (ctx.input.archived ?? []).flatMap((r) => {
     const said = formsOf([r.display_name, r.full_name ?? "", ...(r.nicknames ?? [])]).find((n) => after(TELLS, n));
-    return said ? [{ id: r.id, said }] : [];
+    const inside = !!said && told.some((q) => toldAs(q).some((long) => fold(long).startsWith(`${fold(said)} `)));
+    return said && !inside ? [{ id: r.id, said }] : [];
   });
   return { strong, weak, named, removed };
 }
@@ -879,6 +866,9 @@ function participantsOf(
   ownerKey: string | null,
   ownerWords: string | null,
   ownerCandidates?: string[],
+  // The model's own statement: a line kept in the note's lower-case words ("ben and maya are coming over friday")
+  // still knows "Maya" is a name from it (reviewer A, r4).
+  modelStatement = statement,
 ): { resolved: RosterPerson[]; open: OpenName[] } {
   const quotes = spans.map((s) => s.quote).join(" ");
   const resolved: RosterPerson[] = [];
@@ -888,8 +878,8 @@ function participantsOf(
   // lower case still names Chris when the line writes "Chris", and a script without capitals names as written;
   // a word written as a word ("grant", "hope", "mom") is never someone (reviewer A, r3).
   const forms = (names: string[]) => [...names, ...names.map((n) => n.split(/\s+/u)[0])];
-  const named = (names: string[]) => forms(names).some((n) =>
-    saysWord(statement, n) && saysWord(quotes, n) && (namesAsName(statement, n) || namesAsName(quotes, n)));
+  const asName = (n: string) => namesAsName(statement, n) || namesAsName(quotes, n) || namesAsName(modelStatement, n);
+  const named = (names: string[]) => forms(names).some((n) => saysWord(statement, n) && saysWord(quotes, n) && asName(n));
   // A full name in the note's own words settles the name only when every use of it there is that full name
   // ("Ben went to Tahoe with Tyler Shaffer"), never when it's also said alone ("Ben and Sam went…, but Sam Eden stayed home").
   const esc = (n: string) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -909,7 +899,7 @@ function participantsOf(
     if (!named(names)) continue;
     // The name as the line writes it, whole names and nicknames first: "Sammy" is Sam Eden's own nickname,
     // never "which Sam?" (reviewer A, r3: a first name ahead of the nickname lost Sam Eden).
-    const form = forms(names).find((n) => namesAsName(statement, n)) ?? forms(names).find((n) => namesAsName(quotes, n)) ?? names[0];
+    const form = forms(names).find((n) => namesAsName(statement, n)) ?? forms(names).find((n) => saysWord(statement, n) && asName(n)) ?? names[0];
     const first = form.split(/\s+/u)[0];
     const sharing = ctx.candidatesFor(form.includes(" ") ? form : first);
     const whole = names.some((n) => settles(n, first));

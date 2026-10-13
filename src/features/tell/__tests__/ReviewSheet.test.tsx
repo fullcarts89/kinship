@@ -171,8 +171,14 @@ it("'Bring back Chris Old' on 'Which Chris?', then Remember: Chris Old is on the
     items: [], people: ppl, related: [], offline: false, today: TODAY,
   });
   const first = viewFor(before);
+  const twoGone = buildReview({
+    row: row({ tier: "clarify", held: [{ ...rehab, open_names: [{ text: "Chris", candidate_ids: ["chris"], archived_ids: ["old", "older"] }] }] }),
+    capture: { id: "c1", raw_text: note, context_person_id: null, status: "needs_review" }, items: [],
+    people: [...before, { id: "older", display_name: "Chris Older", state: "archived" } as unknown as Person], related: [], offline: false, today: TODAY,
+  });
+  expect(twoGone.questions[0].reason).toBe("Others called Chris were removed from People.");
   expect(first.questions.map((q) => [q.prompt, q.reason, q.choices.map((c) => c.label)])).toEqual([
-    ["Which Chris do you mean?", "One Chris was removed from People.", ["Chris", "Bring back Chris Old", "Someone else"]],
+    ["Which Chris do you mean?", "Another Chris was removed from People.", ["Chris", "Bring back Chris Old", "Someone else"]],
     ["Remember this about Ben?", expect.anything(), expect.any(Array)],
   ]);
   const props: ReviewSheetProps = {
@@ -186,6 +192,8 @@ it("'Bring back Chris Old' on 'Which Chris?', then Remember: Chris Old is on the
   });
   press(tree, "Bring back Chris Old");
   expect(props.onRestore).toHaveBeenCalledWith("old");
+  // Brought back, they are simply one of the choices (reviewer A, r4), and the question is the same question.
+  expect(viewFor(after).questions[0].choices.map((c) => c.label)).toEqual(["Chris", "Chris Old", "Someone else"]);
   act(() => tree.update(<ReviewSheet {...props} view={viewFor(after)} people={after} />));
   press(tree, "Remember");
   expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, accept: true, participants: [{ text: "Chris", person_id: "old" }] }]);

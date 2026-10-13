@@ -98,9 +98,10 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
       if (sources.error) throw new Error("sources read failed");
       const ids = [...new Set(((sources.data ?? []) as { memory_item_id: string }[]).map((r) => r.memory_item_id))];
       if (ids.length === 0) return [];
-      // Removed by the user ("Not this"): never a line a later note superseded (reviewer A, r3).
+      // Removed by the user ("Not this"), or replaced by a later note: an answer never brings back its old words
+      // (reviewers A, r3 and r4).
       const { data, error } = await db.from("memory_items").select("person_id, statement")
-        .in("id", ids).not("deleted_at", "is", null);
+        .in("id", ids).or("deleted_at.not.is.null,status.eq.superseded");
       if (error) throw new Error("removed read failed");
       return data as { person_id: string; statement: string }[];
     },

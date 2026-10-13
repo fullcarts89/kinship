@@ -507,7 +507,8 @@ export function newcomersIn(statement: string, note: string, people: Person[]): 
         if (!g) continue;
         const w = withoutPossessive(g);
         const k = fold(w);
-        if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || KIN_WORD.test(k) || (n >= servicesFrom && SERVICE_WORD.test(k)) || out.some((o) => fold(o) === k)) continue;
+        if (known.has(k) || PRONOUN.test(k) || NOT_NAMES.has(k) || KIN_WORD.test(k) || (n >= servicesFrom && SERVICE_WORD.test(k)) ||
+          (n >= patterns.length - 2 && ASSISTANT_WORD.test(k)) || out.some((o) => fold(o) === k)) continue;
         if (!new RegExp(`(^|[^\\p{L}])${w}([^\\p{L}]|$)`, "u").test(note)) continue;
         out.push(w);
       }
@@ -523,7 +524,21 @@ const SOMEONE = "(?:get|gets|got|getting)\\s+in\\s+touch\\s+with|contact|contact
 /** A relation said as a name ("tell Mom") or a title: never someone new to add. */
 const KIN_WORD = /^(?:mom|mum|mother|mama|momma|mommy|dad|father|daddy|papa|grandma|grandmother|grandpa|grandfather|granny|nana|aunt|auntie|uncle|cousin|sis|bro|dr|doctor|mr|mrs|ms|miss|santa|god)$/u;
 /** A name that is no one's when it is reached out to (a brand, a service): "called Delta", "emailed Google". */
-const SERVICE_WORD = /^(?:congress|alexa|siri|google|apple|amazon|microsoft|meta|facebook|instagram|netflix|uber|lyft|stripe|zoom|slack|delta|united|verizon|comcast|halloween|airbnb|tesla|target|support|walmart|costco|paypal|venmo|ups|fedex)$/u;
+/** An assistant's name, which is also a given name: never someone new when "asked" or "told", still someone to marry or move with (reviewer A, r4). */
+const ASSISTANT_WORD = /^(?:alexa|siri)$/u;
+const SERVICE_WORD = /^(?:congress|google|apple|amazon|microsoft|meta|facebook|instagram|netflix|uber|lyft|stripe|zoom|slack|delta|united|verizon|comcast|halloween|airbnb|tesla|target|support|walmart|costco|paypal|venmo|ups|fedex)$/u;
+
+/** Someone removed from People offered back (I3); once brought back (the question re-read People), simply them. */
+function backChoice(people: Person[]) {
+  return (p: Person): Choice => p.state === "archived"
+    ? { key: `back:${p.id}`, label: `Bring back ${personLabel(p, people)}`, answer: { person_id: p.id }, restore: p.id }
+    : { key: `back:${p.id}`, label: personLabel(p, people), answer: { person_id: p.id } };
+}
+
+/** Why a name with one person left in People is asked: someone removed went by it too. */
+function removedReason(name: string, removed: number): string {
+  return removed > 1 ? `Others called ${name} were removed from People.` : `Another ${name} was removed from People.`;
+}
 
 /** A name without its possessive: "Chris's", "Chris’s" and "Chris'" are Chris (founder K7); "O'Connor" stays. */
 function withoutPossessive(word: string): string {
@@ -596,7 +611,7 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       const newNames = candidates.length === 0 ? unknownNames(item, input.people) : [];
       const choices: Choice[] = [
         ...candidates.map((p) => ({ key: `p:${p.id}`, label: personLabel(p, input.people), answer: { person_id: p.id } })),
-        ...removedToo.map((p) => ({ key: `back:${p.id}`, label: `Bring back ${personLabel(p, input.people)}`, answer: { person_id: p.id }, restore: p.id })),
+        ...removedToo.map(backChoice(input.people)),
         // A pronoun that could be either of two people may be both of them.
         ...(pronoun && candidates.length === 2 && !shared
           ? [{ key: "both", label: "Both", answer: { person_id: candidates[0].id, also_person_ids: [candidates[1].id] } }]
@@ -610,7 +625,7 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
         group: `who:${pronoun ?? ""}:${candidates.map((p) => p.id).sort().join(",")}`,
         prompt: pronoun ? `Who is “${pronoun}”?` : shared ? `Which ${shared} do you mean?` : "Who is this about?",
         reason: pronoun ? null
-          : shared ? (candidates.length > 1 ? `You have more than one ${shared}.` : `One ${shared} was removed from People.`)
+          : shared ? (candidates.length > 1 ? `You have more than one ${shared}.` : removedReason(shared, removedToo.length))
           : newNames.length ? `${newNames.join(" and ")} ${newNames.length > 1 ? "aren't" : "isn't"} in your people yet.`
           : "I couldn't tell who this is about.",
         choices,
@@ -641,10 +656,10 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       type: "which_person",
       group: `slot:${fold(open.text)}:${meant.map((p) => p.id).sort().join(",")}`,
       prompt: `Which ${open.text} do you mean?`,
-      reason: meant.length > 1 ? `You have more than one ${open.text}.` : `One ${open.text} was removed from People.`,
+      reason: meant.length > 1 ? `You have more than one ${open.text}.` : removedReason(open.text, removed.length),
       choices: [
         ...meant.map((p) => ({ key: `p:${p.id}`, label: personLabel(p, input.people), answer: { person_id: p.id } })),
-        ...removed.map((p) => ({ key: `back:${p.id}`, label: `Bring back ${personLabel(p, input.people)}`, answer: { person_id: p.id }, restore: p.id })),
+        ...removed.map(backChoice(input.people)),
         { key: "pick", label: COPY.someoneElse, pick: "person" as const },
       ],
       about: item.spans[0]?.quote?.trim() || undefined,

@@ -197,7 +197,8 @@ export class FakeGateway implements GatewayTransport {
     const note = String(capture.raw_text);
     for (const item of review.items) {
       for (const s of item.spans as { start: number; end: number; quote: string }[]) {
-        if (note.slice(s.start, s.end) !== s.quote) return refuse(409, "review_changed");
+        // As resolve_capture_review: code points, and the stored quote is at most 200 of them (reviewer A, r4).
+        if (Array.from(note).slice(s.start, s.end).slice(0, 200).join("") !== s.quote) return refuse(409, "review_changed");
       }
     }
     const answers = body.answers as HeldAnswer[];
@@ -254,7 +255,7 @@ export class FakeGateway implements GatewayTransport {
     const all = (t: "memory_items" | "memory_item_sources") => [...this.server.table(t).values()].filter((r) => r.user_id === this.userId) as Record<string, unknown>[];
     const ids = new Set(all("memory_item_sources").filter((x) => x.capture_id === captureId).map((x) => x.memory_item_id));
     return all("memory_items")
-      .filter((m) => ids.has(m.id) && m.deleted_at)
+      .filter((m) => ids.has(m.id) && (m.deleted_at || m.status === "superseded"))
       .map((m) => ({ person_id: String(m.person_id), statement: String(m.statement) }));
   }
 

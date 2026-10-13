@@ -211,6 +211,20 @@ describe("reviewer A, round 2 (13 Oct): a name asked about never brings back a m
     }
   });
 
+  it("the kept line replaced by a later note, then 'Which Anthony?' and 'Which Sam?' answered: its old words never come back (reviewer A, r4)", async () => {
+    const w = await world();
+    const [anthony, , samEden, , chris] = await typed(w, "Anthony", "Anthony Test", "Sam Eden", "Sam Doughty", "Chris");
+    const t = await tell(w, K4, (i) => ({ needs_clarification: null, items: [
+      item({ kind: "fact", person: key(i, chris.id), person_mention: "Chris", statement: K4, evidence: [K4], detail: { category: "interest" } }),
+    ] }));
+    const [kept] = serverItems(w).filter((m) => m.status === "active");
+    w.server.serverWrite("memory_items", kept.id, A, { status: "superseded" });
+    await w.engine.sync();
+    const picks = t.review.questions.map((q) => (q.prompt.includes("Anthony") ? { person_id: anthony.id } : { person_id: samEden.id }));
+    await pick(w, t.id, t.review.questions, picks);
+    expect(serverItems(w).filter((m) => m.status === "active" && !m.deleted_at)).toEqual([]);
+  });
+
   it("the kept line removed with 'Not this', then 'Which Anthony?' and 'Which Sam?' answered: nothing comes back", async () => {
     const w = await world();
     const [anthony, , samEden, , chris] = await typed(w, "Anthony", "Anthony Test", "Sam Eden", "Sam Doughty", "Chris");
@@ -374,6 +388,11 @@ describe("K6: someone a kept line names who isn't in People yet", () => {
     expect(newcomersIn("Susan is getting married to Siri", "Susan is getting married to Siri", [])).toEqual(["Siri"]);
     // Reviewer C, r3: "…with Uber" and "Ben and Google are…" fit a service as well as "called Tesla" does.
     const ben = [{ id: "b", display_name: "Ben", state: "active" }] as unknown as Person[];
+    // Reviewer A, r4: an assistant's name is also a given name: never someone asked or told, still someone to move with.
+    expect(newcomersIn("Ben asked Alexa to play music", "Ben asked Alexa to play music", ben)).toEqual([]);
+    for (const s of ["Ben and Alexa are moving to Denver", "Ben is moving to Denver with Alexa", "Ben and Alexa got engaged"]) {
+      expect([s, newcomersIn(s, s, ben)]).toEqual([s, ["Alexa"]]);
+    }
     for (const s of ["Ben is traveling with Delta to Paris", "Ben is going to the airport with Uber", "Ben and Google are talking about a job"]) {
       expect([s, newcomersIn(s, s, ben)]).toEqual([s, []]);
     }
