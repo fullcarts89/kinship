@@ -55,10 +55,13 @@ function Root() {
   );
 }
 
-/** A brand-new signed-in local account with the app's session over it (setup not yet done). */
-export async function signedIn() {
-  const { client, userId, email } = await localAccount();
-  const db = await openSqlJsDb(`bb-${randomUUID()}`);
+/**
+ * A brand-new signed-in local account with the app's session over it (setup
+ * not yet done). `device`: a phone's slower store and network round trip.
+ */
+export async function signedIn(device: { statementMs?: number; networkMs?: number } = {}) {
+  const { client, userId, email } = await localAccount({ networkMs: device.networkMs });
+  const db = await openSqlJsDb(`bb-${randomUUID()}`, { statementMs: device.statementMs });
   await prepareSchema(db, userId);
   const store = new UserStore(db, userId, { newId: randomUUID });
   const engine = new SyncEngine(store, new SupabaseRemote(client));

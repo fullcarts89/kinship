@@ -86,7 +86,16 @@ export class SyncEngine {
         report.fullResync = true;
       }
       await this.push(report);
-      for (const table of PULL_ORDER) report.pulled += await this.pull(table);
+      // Every table's changes are asked for at once, then applied in order: one
+      // round trip, not one per table (founder K12: ~10 s of a phone's sync
+      // waiting on 9 requests in a row, twice, between Tell and Today).
+      // As before, the tables before one that couldn't be read are applied, and none after it (H14).
+      const changes = await Promise.allSettled(PULL_ORDER.map((table) => this.fetchChanges(table)));
+      for (const [i, table] of PULL_ORDER.entries()) {
+        const got = changes[i];
+        if (got.status === "rejected") throw got.reason;
+        report.pulled += await this.applyChanges(table, got.value);
+      }
       if (report.fullResync || (await this.reconcileDue())) {
         report.reconciled = await this.reconcile();
       }
@@ -242,7 +251,8 @@ export class SyncEngine {
 
   // ─── Pull ─────────────────────────────────────────────────────────────
 
-  private async pull(table: MirroredTable): Promise<number> {
+  /** A table's server changes since its cursor, every page (nothing is written yet). */
+  private async fetchChanges(table: MirroredTable): Promise<{ rows: Row[]; newest: string | null }> {
     const state = await this.store.db.get<{ cursor: string | null }>(
       "SELECT cursor FROM sync_state WHERE tbl = ?", [table],
     );
@@ -251,22 +261,45 @@ export class SyncEngine {
       : null;
     let after: { updated_at: string; key: string } | null = null;
     let newest = state?.cursor ?? null;
-    let applied = 0;
+    const all: Row[] = [];
     const key = spec(table).key;
     for (;;) {
       const rows = await this.remote.changedSince(table, since, after, this.opts.pageSize);
       for (const row of rows) {
-        if (await this.applyServerRow(table, row)) applied++;
+        all.push(row);
         if (!newest || Date.parse(row.updated_at) > Date.parse(newest)) newest = row.updated_at;
       }
       if (rows.length < this.opts.pageSize) break;
       const last = rows[rows.length - 1];
       after = { updated_at: last.updated_at, key: String(last[key]) };
     }
+    return { rows: all, newest };
+  }
+
+  /** Applies a table's fetched changes in order, then moves its cursor. */
+  private async applyChanges(table: MirroredTable, changes: { rows: Row[]; newest: string | null }): Promise<number> {
+    // Rows already known at that version (the overlap window brings them back on every sync) are skipped from
+    // one read, not a transaction each; any other row is checked again inside its own transaction.
+    const key = spec(table).key;
+    const known = new Map<string, number>();
+    const ids = [...new Set(changes.rows.map((row) => String(row[key])))];
+    for (let i = 0; i < ids.length; i += 400) {
+      const chunk = ids.slice(i, i + 400);
+      const rows = await this.store.db.all<{ id: string; version: number }>(
+        `SELECT id, version FROM mirror WHERE tbl = ? AND id IN (${chunk.map(() => "?").join(",")})`, [table, ...chunk],
+      );
+      for (const r of rows) known.set(String(r.id), Number(r.version));
+    }
+    let applied = 0;
+    for (const row of changes.rows) {
+      const have = known.get(String(row[key]));
+      if (have !== undefined && have >= Number(row.version)) continue;
+      if (await this.applyServerRow(table, row)) applied++;
+    }
     await this.store.db.run(
       `INSERT INTO sync_state (tbl, cursor, last_pull_at) VALUES (?, ?, ?)
        ON CONFLICT (tbl) DO UPDATE SET cursor = excluded.cursor, last_pull_at = excluded.last_pull_at`,
-      [table, newest, this.store.now()],
+      [table, changes.newest, this.store.now()],
     );
     return applied;
   }

@@ -29,18 +29,25 @@ let sqlPromise: Promise<SqlJsStatic> | null = null;
 /** In-memory "files" keyed by name, so tests can reopen or delete a user's store. */
 export const memoryFiles = new Map<string, Uint8Array>();
 
-export async function openSqlJsDb(name?: string): Promise<SqlDb & { persist(): void }> {
+/**
+ * `statementMs`: each statement also takes this long, on the one connection (a
+ * phone's encrypted store is slower than sql.js in memory; acceptance harness).
+ */
+export async function openSqlJsDb(name?: string, opts: { statementMs?: number } = {}): Promise<SqlDb & { persist(): void }> {
   sqlPromise ??= initSqlJs();
   const SQL = await sqlPromise;
   const raw = new SQL.Database(name ? memoryFiles.get(name) : undefined);
   let inTx = false;
   let queue: Promise<unknown> = Promise.resolve();
+  const slow = opts.statementMs ? () => new Promise((res) => setTimeout(res, opts.statementMs)) : null;
 
   const exec: SqlExecutor = {
     async run(sql, params = []) {
+      if (slow) await slow();
       raw.run(sql, params);
     },
     async all<T>(sql: string, params: SqlValue[] = []): Promise<T[]> {
+      if (slow) await slow();
       const stmt = raw.prepare(sql);
       try {
         stmt.bind(params);
