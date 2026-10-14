@@ -15,7 +15,7 @@ type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine } | { k
 export default function KnowsScreen() {
   // `item`: "View Ben" from a Moment whose line isn't on Ben's page lands on it here (founder I1).
   const { id, item: focusItem } = useLocalSearchParams<{ id: string; item?: string }>();
-  const { person, lines } = usePersonRecord(String(id));
+  const { person, lines, loading } = usePersonRecord(String(id));
   const people = usePeople();
   const u = useUnderstanding();
   const { settleConflict, rename, forgetConversation } = useV2Actions();
@@ -44,6 +44,7 @@ export default function KnowsScreen() {
   return (
     <PersonRecordView
       name={person?.display_name ?? null}
+      loading={loading}
       short={person ? shortName(person) : null}
       label={typeof person?.relationship_label === "string" && person.relationship_label ? person.relationship_label : null}
       onRename={() => setPane({ kind: "name" })}

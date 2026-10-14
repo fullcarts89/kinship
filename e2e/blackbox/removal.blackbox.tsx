@@ -38,8 +38,10 @@ for (const shape of ["hand: event on Chris", "live 1 (13 Oct, 1 of the runs)"]) 
     if (rows.filter((m) => /vet appointment/u.test(m.statement)).every((m) => m.deleted_at || m.status !== "active")) { serverMs = Date.now() - tapped; break; }
     await settle(100);
   }
-  console.log(`K14 (${shape}): visible ${visibleMs} ms (poll ${gone} ms), server ${serverMs} ms; still on screen: ${JSON.stringify(texts(r).filter((t) => /Fluffy|Understanding/u.test(t)))}`);
+  console.log(`K14 (${shape}): visible ${visibleMs} ms (poll ${gone} ms), server ${serverMs} ms; still on screen: ${JSON.stringify(texts(r).filter((t) => /Fluffy|Understanding|Kept|Nothing/u.test(t)))}`);
   alert.mockRestore();
+  // Removed is done: the note never goes back to "Understanding…" (founder K14).
+  expect(texts(r).filter((t) => t === "Understanding…")).toEqual([]);
 });
 
 // The same on a phone-like device and account (stand-ins, stated as such): every statement on the one store
@@ -78,8 +80,14 @@ it("K14 on a phone-like device and account: Not this leaves the screen within 30
   await show(r, { screen: "knows", id: chris.id });
   const forget = () => r.root.findAll((n) => typeof n.props.accessibilityLabel === "string" &&
     n.props.accessibilityLabel.startsWith("Not this: ") && /Fluffy/u.test(n.props.accessibilityLabel) && typeof n.props.onPress === "function");
-  await until(r, () => forget().length > 0, "the line in What Kinship knows", 60000);
+  let saidGone = false;
+  await until(r, (shown) => {
+    saidGone = saidGone || shown.includes("This person isn't here any more.");
+    return forget().length > 0;
+  }, "the line in What Kinship knows", 60000);
   const pageMs = Date.now() - opened;
+  // Opening someone's page on a slow phone never says they're gone while it reads.
+  expect(saidGone).toBe(false);
   const label = String(forget()[0].props.accessibilityLabel);
   const line = label.slice("Not this: ".length);
   const alert = jest.spyOn(Alert, "alert").mockImplementation((_t, _m, buttons) => {

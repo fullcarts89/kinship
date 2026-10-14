@@ -210,7 +210,9 @@ export class Understanding {
   /** How many items the reading saved that haven't reached this phone yet (sync in flight). */
   async arriving(reading: Reading | null): Promise<number> {
     let n = 0;
-    for (const s of reading?.saved ?? []) if (!(await this.store.get("memory_items", s.id))) n++;
+    // Only lines not on the phone yet: one the user has since removed has arrived (founder K14: "Not this"
+    // left the note saying "Understanding…" for good).
+    for (const s of reading?.saved ?? []) if (!(await this.store.get("memory_items", s.id, { includeDeleted: true }))) n++;
     return n;
   }
 

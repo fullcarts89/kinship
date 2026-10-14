@@ -45,6 +45,7 @@ export default function PersonScreen() {
     <PortraitView
       personId={personId}
       name={name}
+      loading={portrait.loading}
       short={first}
       label={portrait.label}
       remembered={portrait.person?.state === "remembered"}
