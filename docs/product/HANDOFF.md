@@ -16,7 +16,8 @@
 > - **Builds while the EAS quota is out (until 1 Nov):** `eas build --local` on the founder's Mac (Xcode 27, CocoaPods, fastlane and the Apple WWDR G3 certificate are installed), with `SENTRY_DISABLE_AUTO_UPLOAD=true`; install by cable with `xcrun devicectl device install app`.
 > - **Founder decisions (CC-23):** CC-22's choices approved, with K5 never becoming the recipient's biography (pinned by a regression); no K1 collapse (the old duplicate stays as legacy data); I1's Message / Call rule settled; B2 approved, to proceed after merge and deploy in parallel with the native check, stopping after B2 before B3.
 > - **Next:** B2 after merge and deploy (in parallel with the native check), then stop before B3; H4 (4A step 6) after the native check.
-> - **Readiness: READY FOR FOUNDER NATIVE PASS** once merged, redeployed, db-pushed and built, in that order (the internal verification gate passed after five review rounds; CC-23). Nothing is VERIFIED.
+> - **13 Oct, late:** merged (`bc43dfd`), ai-gateway v9 deployed, migration applied, build installed. The founder's native pass failed K4, K2 and N6 (ledger K8–K14). Roadmap work (H4, B2) is stopped for a reliability gate proven through the real app path (`k-series-postmortem.md`).
+> - **Readiness: NOT READY.** Nothing is VERIFIED.
 
 > **Addendum, 8 Oct 2026, late: Phase 4 slice 1 built** (`KINSHIP_2_DECISIONS.md` CC-20, CC-21). This supersedes the addenda below where they differ.
 > - **State:** branch `claude/awesome-edison-3cuf6z`, ahead of `main` (`609be4a`). Not merged; no PR open.
