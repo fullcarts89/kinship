@@ -530,3 +530,25 @@ describe("reviewer E, round 2 (13 Oct): days are the phone's own, never UTC (K2,
     void out;
   }, 120_000);
 });
+
+describe("founder 13 Oct native pass: Today has one truth (K11), and the return question doesn't wait for the clock (K13)", () => {
+  it("K11: never 'Nothing needs you today' while anything is on Today: a Coming up line, Waiting on, a question", async () => {
+    const p = await phone(new FakeServer());
+    const callJohn = { ...promise, id: "j1", person_id: "josh", subject_type: "user", statement: "You need to call Josh tonight", detail: { due_date: "2026-10-12" } } as MemoryItem;
+    const v = await today(p, { items: [callJohn] });
+    expect(v.quiet.some((q) => q.kind === "coming")).toBe(true);
+    expect([v.quietDay, v.firstUse]).toEqual([false, null]);
+    const waiting = await today(p);
+    expect([waitingLine(waiting) !== null, waiting.quietDay]).toEqual([true, false]);
+    const nothing = await today(p, { items: [] });
+    expect(nothing.quietDay).toBe(true);
+  });
+
+  it("K13: a hand-off stamped after Today's clock was read is asked at once", async () => {
+    const p = await phone(new FakeServer());
+    await handOff({ ...p.deps, now: () => new Date(NOW.getTime() + 20_000) }, fromWaiting);
+    const v = await today(p, { now: NOW });
+    expect(v.returnCheck).toMatchObject({ reasonId: WAITING });
+    expect(v.quietDay).toBe(false);
+  });
+});

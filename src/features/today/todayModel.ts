@@ -363,7 +363,9 @@ export function buildToday(input: TodayInput): TodayView {
   // The return check: from the moment the user is back, until answered (up to three days).
   const h = input.handoff;
   if (h && !h.answered) {
-    const since = now.getTime() - Date.parse(h.at);
+    // A hand-off stamped after this view's clock was read (Message tapped since Today last recomputed) is one
+    // just made: asked at once, never held until the clock's next minute (founder K13: up to a minute's wait).
+    const since = Math.max(0, now.getTime() - Date.parse(h.at));
     const p = activePerson(h.personId);
     if (p && since >= 0 && since <= RETURN_MAX_MS) {
       const name = firstName(p);
@@ -640,12 +642,15 @@ export function buildToday(input: TodayInput): TodayView {
   // First use is not a quiet day (contract §8).
   const here = input.people.filter((p) => !p.deleted_at && p.state !== "archived");
   const firstUse = here.length === 0 || !(input.activated ?? input.told > 0);
-  const nothing = !view.moment && !view.returnCheck;
+  const noMoment = !view.moment && !view.returnCheck;
   const asking = pending ? asks.length : input.questions;
   // Never "Nothing needs you today" while Kinship is waiting on the user.
-  view.waiting = nothing && asking > 0 ? (asking === 1 ? "one" : "some") : null;
-  view.firstUse = firstUse && nothing && !view.waiting ? { hasPeople: here.length > 0 } : null;
-  view.quietDay = nothing && !firstUse && !view.waiting;
+  view.waiting = noMoment && asking > 0 ? (asking === 1 ? "one" : "some") : null;
+  // One truth for the whole screen (founder K11): anything on Today (a Moment, the return question, or any
+  // line under them: a question, Coming up, Waiting on…, Kept) means it is neither a quiet day nor first use.
+  const empty = noMoment && view.quiet.length === 0;
+  view.firstUse = firstUse && empty && !view.waiting ? { hasPeople: here.length > 0 } : null;
+  view.quietDay = empty && !firstUse && !view.waiting;
   if (input.dataKnown === false) {
     view.firstUse = null;
     view.quietDay = false;
