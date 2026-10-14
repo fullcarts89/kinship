@@ -55,11 +55,26 @@ function rosterOf(body: { messages?: { content?: unknown }[] }): Map<string, str
   return out;
 }
 
-/** Replies name people as "@Display Name"; the account's own keys replace them (and back, when recording). */
-function withKeys(v: unknown, roster: Map<string, string>): unknown {
+/** Existing memories as the gateway sent them: statement → key ("Anthony and Sam love…" → "m1"). */
+function memoriesOf(body: { messages?: { content?: unknown }[] }): Map<string, string> {
+  const content = body.messages?.[0]?.content;
+  const text = typeof content === "string" ? content
+    : Array.isArray(content) ? content.map((c) => (c && typeof c === "object" && "text" in c ? String((c as { text: unknown }).text) : "")).join("") : "";
+  const block = text.match(/<existing_memories>\n([\s\S]*?)\n?<\/existing_memories>/u)?.[1] ?? "";
+  const out = new Map<string, string>();
+  for (const line of block.split("\n")) {
+    const m = line.match(/^(m\d+): .*? — (.*)$/u);
+    if (m) out.set(m[2].trim(), m[1]);
+  }
+  return out;
+}
+
+/** Replies name people as "@Display Name" and existing memories as "@memory:<its words>"; the account's own keys replace them. */
+function withKeys(v: unknown, roster: Map<string, string>, memories = new Map<string, string>()): unknown {
+  if (typeof v === "string" && v.startsWith("@memory:")) return memories.get(v.slice(8)) ?? null;
   if (typeof v === "string" && v.startsWith("@")) return roster.get(v.slice(1)) ?? "unknown";
-  if (Array.isArray(v)) return v.map((x) => withKeys(x, roster));
-  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === "person" || k === "target" || typeof x === "object" ? withKeys(x, roster) : x]));
+  if (Array.isArray(v)) return v.map((x) => withKeys(x, roster, memories));
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === "person" || k === "target" || typeof x === "object" ? withKeys(x, roster, memories) : x]));
   return v;
 }
 function withNames(v: unknown, roster: Map<string, string>): unknown {
@@ -118,6 +133,6 @@ Deno.serve({ port: PORT, hostname: "0.0.0.0" }, async (req) => {
   if (!reply) return Response.json({ type: "error", error: { type: "invalid_request_error", message: `no captured reply for this note` } }, { status: 400 });
   const label = selected.get(note!) ?? reply.variants[0].label;
   const v = reply.variants.find((x) => x.label === label) ?? reply.variants[0];
-  return Response.json(message(withKeys(v.output, rosterOf(body)), body.model ?? "stub"));
+  return Response.json(message(withKeys(v.output, rosterOf(body), memoriesOf(body)), body.model ?? "stub"));
 });
 console.log(`model stub on :${PORT} (${RECORD ? `record, up to ${RECORD_LIMIT}` : "replay"})`);
