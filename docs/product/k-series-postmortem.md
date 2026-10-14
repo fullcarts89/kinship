@@ -134,3 +134,31 @@ Each item names the evidence level it needs:
 | The founder's short native check | FOUNDER-DEVICE (only then VERIFIED) |
 
 The report will keep UNIT, INTEGRATION, BLACK-BOX, LIVE-MODEL, NATIVE-SIMULATOR and FOUNDER-DEVICE evidence apart.
+
+## G. Reliability gate results (13 Oct, night)
+
+Branch `claude/native-pass-13oct`: `ca48f33` (K10), `959ecec` (K11, K13), `ae17ba4` (K8, K9), `6e4e831` (K12, K14), `512d44c` (N9, N10). Each was reproduced before it was fixed. Nothing is VERIFIED.
+
+**Harness tiers used.** BLACK-BOX means the real screens, session classes, network client, database functions and ai-gateway, over a local Supabase stack, driven only through what's on screen. Its stand-ins are sql.js for SQLCipher; mocks for routing, auth context, safe area, contacts, hand-off and AppState; and the model replayed from captured live replies. LIVE-MODEL means the same path with each call forwarded to the real model (17 calls tonight, 10 earlier). The phone-like profile adds 3 ms per store statement, 250 ms per round trip, and 160 earlier lines in the account.
+
+| Root cause | Proof |
+|---|---|
+| K8/K9: the model tells one sentence as one piece per person and asks "which Sam?" alongside. Each piece became a memory; the ask made Chris's own piece ask whose it was, and the answer renamed Chris. Re-telling made a duplicate | Pre-fix code, live reply: five questions with repeats, three memories, "Anthony Test goes ice skating with Anthony and Sam" |
+| K10: an answered line merged into a same-words memory on another day | `k10.blackbox` on the pre-fix code |
+| K11: the headline ignored the lines under it | `today.blackbox` on the pre-fix code |
+| K13: Today recomputed on minute ticks; negative elapsed time | `today.blackbox` on the pre-fix code |
+| K12: 21 sequential requests per note, plus a transaction per recent row per sync | Phone-like: 10.4 s Tell → screen with no model time; now 2.5 s |
+| K14: removal waited for a full page rebuild; the note then said "Understanding…" for good | Phone-like, 80 lines: 727 ms; now 69 ms |
+
+| Check | Result |
+|---|---|
+| K4 runs A and B, 14 reply shapes (9 live-captured), replay | 28/28: one memory, the right people, no repeat, pages agree, nothing on reopening |
+| K4 on an account with the 12 Oct line, 9 shapes × A/B | 18/18: one memory |
+| K4 live, 12 runs (6 A, 6 B) | 12/12, same invariants |
+| K2 live, 3 runs | 3/3 "By Fri, Oct 9"; never Oct 12 |
+| N6 live, 2 runs | 2/2 one truth on Today; return question 0–1 ms after foreground |
+| Live model latency (12 calls) | 5.1–7.9 s, median 6.1 s |
+| NATIVE-SIMULATOR | NOT RUN. The e2e-sim build of `512d44c` doesn't launch on the only installed simulator runtime, iOS 27.0, which needs the UIScene life cycle (N11). Maestro isn't installed either: its install needs the Command Line Tools updated (26.5 → 27, the founder's password) |
+| FOUNDER-DEVICE | Pending: `reliability-gate-device-checklist.md` |
+
+**Not done from F:** the native-simulator rows, pgTAP (no migration changed this gate; the runner needs Linux Postgres binaries), and independent reviewers (self-review only). **Deploy:** merge, then the ai-gateway deploy from `main`, then a new build. No migration this gate.
