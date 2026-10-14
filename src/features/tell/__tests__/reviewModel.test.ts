@@ -393,3 +393,16 @@ describe("J11: 'Whose promise?' when a promise's owner is genuinely unclear", ()
     expect(answersFor(v.questions, { q0: { owner: "user" } })).toEqual([{ index: 0, owner: "user" }]);
   });
 });
+
+it("K4: a memory kept for several people names them in the order the line does, whoever it is filed on", () => {
+  const anthony = person("at", "Anthony Test");
+  const samEden = person("se", "Sam Eden");
+  const chris = person("chris", "Chris");
+  const note = "Anthony and Sam love ice skating with Chris";
+  const line = item("m1", {
+    person_id: "chris", with_person_ids: ["se", "at"], statement: note,
+    person_mentions: [{ person_id: "chris", text: "Chris", name: "Chris" }, { person_id: "at", text: "Anthony", name: "Anthony Test" }, { person_id: "se", text: "Sam", name: "Sam Eden" }],
+  });
+  const v = view(note, row("review", { tier: "auto", saved: [{ id: "m1", tier: "auto" }] }), [line], [anthony, samEden, chris]);
+  expect(v.heading).toBe("Kept for Anthony Test, Sam Eden and Chris");
+});

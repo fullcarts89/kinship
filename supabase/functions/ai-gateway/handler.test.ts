@@ -85,7 +85,7 @@ function world(opts: {
       people: opts.people ?? [{ id: "person-ben", display_name: "Ben", full_name: "Ben Ortiz", nicknames: [], relationship_label: "college roommate", state: "active" }],
       related: [],
     }),
-    loadItems: (ids) => Promise.resolve((opts.items ?? []).filter((m) => ids.includes(m.person_id))),
+    loadItems: (ids, o) => Promise.resolve((opts.items ?? []).filter((m) => ids.includes(m.person_id) || (!!o?.shared && (m.with_person_ids ?? []).some((x) => ids.includes(x))))),
     loadRemoved: () => Promise.resolve(opts.removed ?? []),
     loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
     closeReview: (id) => {

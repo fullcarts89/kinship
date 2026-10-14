@@ -94,7 +94,7 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
   const items: PlannedItem[] = [];
   const known: string[] = [];
 
-  const proposed = Array.isArray(proposal?.items) ? proposal.items : [];
+  const proposed = oneSentenceOneMemory(input, text, Array.isArray(proposal?.items) ? proposal.items : [], proposal?.needs_clarification ?? null);
   // Every line's own words, so a hedge in one never hedges another (founder I12b).
   ctx.evidence = proposed.slice(0, MAX_ITEMS).map((raw) => evidenceSpans(text, raw));
   for (const [i, raw] of proposed.entries()) {
@@ -576,9 +576,14 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // The model asked who this is about ("he's" with Ben and Josh both named).
   // When code confirms two people fit those words, ask instead of filing it.
   // A "subject" question about a pronoun ("he's") is the same question.
+  // A name the line has as someone else it is about ("which Sam?" on Chris's
+  // "Anthony and Sam love ice skating with Chris") is asked on its own, as K4
+  // asks it: never who the whole line is about (founder K4, 13 Oct live runs).
   if ((ctx.ask?.about === "person" || (ctx.ask?.about === "subject" && isPronounMention(ctx.ask.mention))) &&
       ctx.ask.mention && askConfirmed(ctx, ctx.ask.mention, raw) &&
-      spans.some((s) => fold(s.quote).includes(fold(ctx.ask!.mention!).trim()))) {
+      spans.some((s) => fold(s.quote).includes(fold(ctx.ask!.mention!).trim())) &&
+      (isPronounMention(ctx.ask.mention) || !raw.person_mention?.trim() || isPronounMention(raw.person_mention) ||
+        nameKey(withoutPossessive(raw.person_mention)) === nameKey(withoutPossessive(ctx.ask.mention)))) {
     flags.add(PRONOUNS.has(fold(ctx.ask.mention).replace(/'(s|ll|d|re)$/, "").trim()) ? "pronoun_multiple" : "person_ambiguous");
   }
   if (looseTradition) flags.add("tradition");
@@ -650,6 +655,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
       ...(subjectWords(raw, who) ? { subject_words: subjectWords(raw, who)! } : {}),
       ...(who.candidate_ids && tier === "hold" ? { candidate_ids: who.candidate_ids } : {}),
       ...(others.open.length ? { open_names: others.open } : {}),
+      ...(ALONE.has(proposed) && tier === "hold" ? { alone: ALONE.get(proposed)! } : {}),
     },
   };
 }
@@ -997,6 +1003,117 @@ function tierFor(flags: Set<Flag>): Tier {
   if (HOLD_FLAGS.some((f) => flags.has(f))) return "hold";
   if (flags.size > 0) return "confirm"; // any other flag means "show it, let them fix it"
   return "auto";
+}
+
+// ─── One sentence about several people is one memory (founder K4, 13 Oct) ───
+
+/** Words a restatement adds, drops or swaps ("loves", "goes", "with"): never what a line is about. */
+const RESTATED = new Set([
+  "the", "and", "with", "for", "who", "that", "this", "they", "them", "their", "his", "her", "him", "you", "your",
+  "are", "was", "were", "been", "has", "have", "had", "does", "did", "goes", "going", "went", "love", "loves",
+  "loved", "like", "likes", "liked", "enjoy", "enjoys", "enjoyed", "both", "also", "too", "together", "really", "all",
+]);
+
+/**
+ * The live model often tells one sentence about several people as one line
+ * each, in its own words, each dropping the others ("Anthony loves ice
+ * skating with Chris", "Sam loves ice skating with Chris", "Chris goes ice
+ * skating with Anthony and Sam"). Each of those was then its own memory,
+ * asked about on its own: the K4 question loop, a person renamed in
+ * another's line, one memory per person (founder's 13 Oct native pass,
+ * reproduced with the live model). When one sentence of the note is told as
+ * such pieces — each filed on a different person it names, the same kind and
+ * the same content, at least one of them leaving out someone the others name
+ * — they become one line in the sentence's own words, filed on the one person
+ * among them the note itself settles (else the first it names); the rest are
+ * asked as K4 asks them. Left alone: lines that each name everyone (mirrors,
+ * `collapseMirrors`), different things said of different people ("Ben got a
+ * job and Sam had a baby"), a sentence about the user ("John and Ben are my
+ * brothers": one relation each) or with more in it than the pieces.
+ *
+ * And when the model keeps nothing but asks who a name in the note is, the
+ * sentence is kept, held for the user's answer: never "Nothing to remember".
+ */
+/** The merged line's piece about its owner alone, by the merged line (see `PlannedItem.alone`). */
+const ALONE = new WeakMap<ProposedItem, string>();
+
+function oneSentenceOneMemory(input: ExtractionInput, text: string, proposed: ProposedItem[], asked: ModelProposal["needs_clarification"]): ProposedItem[] {
+  const nameWords = new Set(input.roster.flatMap((p) => namesFor(p)).flatMap((n) => wordsOf(fold(n))));
+  const content = (t: string) => new Set(wordsOf(fold(t)).map((w) => w.replace(/(?<=\p{L}{3})s$/u, ""))
+    .filter((w) => w.length > 2 && !RESTATED.has(w) && !nameWords.has(w)));
+  const people = (mention: string | null) => {
+    const m = (mention ?? "").trim();
+    if (!m || PRONOUNS.has(fold(m))) return [];
+    const k = nameKey(withoutPossessive(m));
+    return input.roster.filter((p) => namesFor(p).some((n) => nameKey(n) === k || nameKey(n).split(/\s+/u)[0] === k));
+  };
+  const said = (statement: string, mention: string) => saysWord(statement, mention);
+  if (!proposed.length && asked?.about === "person" && asked.mention && fold(text).includes(fold(asked.mention))) {
+    const at = fold(text).indexOf(fold(asked.mention));
+    const sentence = sentenceAround(text, at, at + asked.mention.length).trim().replace(/[.!?]+$/u, "");
+    if (sentence && !wordsOf(fold(sentence)).some((w) => SELF_WORDS.has(w))) {
+      return [{
+        kind: "fact", person: "unknown", person_mention: asked.mention, subject: "person", related_relation: null, related_name: null,
+        statement: sentence, evidence: [sentence], certainty: "stated", sensitivity: "none", confidence: 0.5, date_text: null,
+        date_direction: "future", existing: { action: "new", target: null },
+        detail: { event_type: null, event_goal: null, category: null, attribute: null, value: null, firmness: null, topic: null,
+          place: null, milestone_type: null, recurrence: null, anchor: null, aspect: null, time_of_day: null },
+      } as ProposedItem];
+    }
+  }
+  const bySentence = new Map<string, number[]>();
+  proposed.forEach((raw, i) => {
+    if (!wellFormed(raw) || raw.subject !== "person" || !["fact", "thread", "context"].includes(raw.kind) || raw.date_text) return;
+    if (!raw.person_mention?.trim() || PRONOUNS.has(fold(raw.person_mention.trim()))) return;
+    const spans = evidenceSpans(text, raw);
+    if (!spans.length) return;
+    const sentence = sentenceAroundSpan(text, spans[0]).trim();
+    bySentence.set(sentence, [...(bySentence.get(sentence) ?? []), i]);
+  });
+  const replaced = new Map<number, ProposedItem | null>();
+  for (const [sentence, idx] of bySentence) {
+    if (idx.length < 2) continue;
+    const group = idx.map((i) => proposed[i]);
+    const mentions = group.map((g) => g.person_mention!.trim());
+    if (new Set(mentions.map(fold)).size !== group.length || new Set(group.map((g) => g.kind)).size !== 1) continue;
+    if (wordsOf(fold(sentence)).some((w) => SELF_WORDS.has(w)) || RELATIVE_TIME.test(sentence)) continue;
+    if (!mentions.every((m) => said(sentence, m))) continue;
+    // Pieces: at least one line leaves out someone another names.
+    if (!group.some((g) => mentions.some((m) => !said(g.statement, m)))) continue;
+    const whole = content(sentence);
+    const each = group.map((g) => content(g.statement));
+    const common = each.reduce((a, b) => new Set([...a].filter((w) => b.has(w))));
+    const told = new Set(each.flatMap((w) => [...w]));
+    if (!common.size || each.some((w) => !w.size || [...w].filter((x) => whole.has(x)).length * 5 < w.size * 3)) continue;
+    if ([...whole].filter((w) => told.has(w)).length * 3 < whole.size * 2) continue;
+    const first = (g: ProposedItem) => fold(sentence).indexOf(fold(g.person_mention!.trim()));
+    const owner = group.find((g) => g.person !== "unknown" && g.person !== "new" && people(g.person_mention).length === 1) ??
+      [...group].sort((a, b) => first(a) - first(b))[0];
+    const words = sentence.replace(/[.!?]+$/u, "");
+    const confidence = Math.max(...group.map((g) => clamp01(Number(g.confidence))));
+    const merged: ProposedItem = { ...owner, statement: words, evidence: [words], confidence, existing: { action: "new", target: null } };
+    const own = owner.person_mention!.trim();
+    if (said(owner.statement, own) && mentions.every((m) => fold(m) === fold(own) || !said(owner.statement, m))) {
+      ALONE.set(merged, owner.statement.trim().replace(/[.!?]+$/u, ""));
+    }
+    replaced.set(idx[0], merged);
+    for (const i of idx.slice(1)) replaced.set(i, null);
+  }
+  // A line about several people filed on one whose name two people share
+  // ("Anthony and Sam love ice skating with Chris" on a Sam) is filed on the
+  // one its words lead with: every shared name is then asked as one of the
+  // others, where "Not sure" keeps the line (founder K4, run B).
+  const lead = (raw: ProposedItem): ProposedItem => {
+    if (!wellFormed(raw) || raw.subject !== "person" || !["fact", "thread", "context"].includes(raw.kind) || raw.date_text) return raw;
+    const m = raw.person_mention?.trim() ?? "";
+    if (!m || people(m).length < 2) return raw;
+    const names = leadingNames(raw.statement);
+    if (names.length < 2 || !names.slice(1).some((n) => fold(n) === fold(m)) || fold(names[0]) === fold(m)) return raw;
+    const first = people(names[0]);
+    if (!first.length) return raw;
+    return { ...raw, person: first.length === 1 ? first[0].key : "unknown", person_mention: names[0] };
+  };
+  return proposed.flatMap((raw, i) => replaced.has(i) ? (replaced.get(i) ? [replaced.get(i)!] : []) : [lead(raw)]);
 }
 
 function wellFormed(raw: ProposedItem): boolean {
@@ -1779,28 +1896,60 @@ function sameSharedPlanned(a: PlannedItem, b: PlannedItem): boolean {
 /**
  * The same shared memory, already remembered for any of the people in it
  * ("John and Ben went to Tahoe", on John), becomes one memory: this one is
- * filed with it and merged, never a second current line. Different days or
- * different words stay separate (silence beats a wrong merge).
+ * filed with it and merged, never a second current line. Told again with
+ * some of its people still asked ("Anthony and Sam love ice skating with
+ * Chris", kept for Sam Eden and Chris on 12 Oct; founder K4, 13 Oct), it is
+ * still that memory: the people it has stay, a name it already has someone
+ * for is never asked again, and the rest are asked to join it. Never when a
+ * name in it means someone else this time. Different days or different words
+ * stay separate (silence beats a wrong merge).
  */
 function sharedTwin(ctx: Context, item: PlannedItem): void {
-  if (item.action.type !== "new" || !item.person_key || !item.with_person_ids?.length) return;
+  if (item.action.type !== "new" || !item.person_key || !(item.with_person_ids?.length || item.open_names?.length)) return;
   const keyOfId = new Map(ctx.input.roster.map((r) => [r.id, r.key]));
-  const withKeys = item.with_person_ids.map((id) => keyOfId.get(id)).filter((k): k is string => !!k);
+  const withKeys = (item.with_person_ids ?? []).map((id) => keyOfId.get(id)).filter((k): k is string => !!k);
   const mine = participants(item.person_key, withKeys);
-  const twin = ctx.input.dossier.find((t) =>
-    t.status === "active" && sameKindFamily(t.kind, item.kind) && t.subject_type === item.subject_type &&
-    t.user_state !== "edited" && t.user_state !== "user_authored" &&
-    participants(t.person_key, t.with_person_keys) === mine &&
-    wordBag(t.statement) === wordBag(item.statement) && sameWhen(t.detail, item.detail)
-  );
+  const mineKeys = new Set([item.person_key, ...withKeys]);
+  const words = new Set(wordsOf(fold(item.statement)));
+  const saysAName = (k: string) => {
+    const p = ctx.byKey.get(k);
+    return !!p && namesFor(p).some((n) => words.has(fold(n)) || words.has(fold(n).split(/\s+/u)[0]));
+  };
+  const sharesAName = (a: string, b: string) => {
+    const pa = ctx.byKey.get(a);
+    const pb = ctx.byKey.get(b);
+    if (!pa || !pb) return false;
+    const of = (p: RosterPerson) => new Set(namesFor(p).flatMap((n) => [fold(n), fold(n).split(/\s+/u)[0]]).filter((n) => words.has(n)));
+    const nb = of(pb);
+    return [...of(pa)].some((n) => nb.has(n));
+  };
+  const twin = ctx.input.dossier.find((t) => {
+    if (t.status !== "active" || !sameKindFamily(t.kind, item.kind) || t.subject_type !== item.subject_type) return false;
+    if (t.user_state === "edited" || t.user_state === "user_authored") return false;
+    if (wordBag(t.statement) !== wordBag(item.statement) || !sameWhen(t.detail, item.detail)) return false;
+    if (participants(t.person_key, t.with_person_keys) === mine) return true;
+    const theirs = new Set([t.person_key, ...(t.with_person_keys ?? [])]);
+    if (![...mineKeys].some((k) => theirs.has(k))) return false;
+    const onlyTheirs = [...theirs].filter((k) => !mineKeys.has(k));
+    const onlyMine = [...mineKeys].filter((k) => !theirs.has(k));
+    return onlyTheirs.every(saysAName) && !onlyTheirs.some((a) => onlyMine.some((b) => sharesAName(a, b)));
+  });
   if (!twin) return;
   const owner = ctx.byKey.get(twin.person_key);
   if (!owner) return;
-  const others = [item.person_key, ...withKeys].filter((k) => k !== twin.person_key)
-    .map((k) => ctx.byKey.get(k)?.id).filter((id): id is string => !!id);
+  const theirKeys = [twin.person_key, ...(twin.with_person_keys ?? [])];
+  const others = [...new Set([...theirKeys, item.person_key, ...withKeys])].filter((k) => k !== twin.person_key)
+    .map((k) => ctx.byKey.get(k)?.id).filter((id): id is string => !!id).slice(0, 7);
   item.person_id = owner.id;
   item.person_key = owner.key;
   item.with_person_ids = others;
+  // A name the memory already has someone for was answered when it was kept: never asked again.
+  const theirIds = new Set(theirKeys.map((k) => ctx.byKey.get(k)?.id).filter((id): id is string => !!id));
+  if (item.open_names) {
+    const open = item.open_names.filter((o) => !o.candidate_ids.some((id) => theirIds.has(id)));
+    if (open.length) item.open_names = open;
+    else delete item.open_names;
+  }
   // Merged as what it already is ("went to Tahoe" kept as an event before).
   if (item.kind !== twin.kind) {
     item.kind = twin.kind;
@@ -1915,6 +2064,7 @@ function settleOpenNames(items: PlannedItem[]): void {
       twin_person_id: it.person_id!,
       mention: o.text,
       subject_words: o.text,
+      alone: undefined,
       // Someone removed who went by it too is offered back (I3).
       ...(o.archived_ids?.length ? { archived_ids: o.archived_ids } : {}),
     }));

@@ -6,7 +6,7 @@
 import { noteFor, portraitFor, recordFor, todayIso, earlierOf } from "@/hooks/useV2";
 import { voiced } from "@/features/memory/statements";
 import { linkSuggestions } from "@/features/person/links";
-import { buildReview, type ReviewView } from "@/features/tell/reviewModel";
+import { answersFor, buildReview, type ReviewView } from "@/features/tell/reviewModel";
 import { Gateway, type HeldAnswer } from "@/store/gateway";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
@@ -194,7 +194,8 @@ describe("I13 (re-seen): every path that says who a line is about", () => {
       ["Which Anthony do you mean?", ["Anthony", "Anthony Lopez", "Someone else"]],
       ["Which Sam do you mean?", ["Sam Eden", "Sam Doughty", "Someone else"]],
     ]);
-    await answer(w, t.id, [{ index: 0, person_id: chris.id }, { index: 1, person_id: chris.id }]);
+    // Told as a line each, it is one line in the note's words (founder K4): both questions are answered as the sheet answers them.
+    await answer(w, t.id, answersFor(t.review.questions, Object.fromEntries(t.review.questions.map((q) => [q.key, { person_id: chris.id }])))!);
     expect((await page(w, chris)).shown).toEqual(["Chris loves watching Dragonball Z"]);
     expect(serverItems(w).map((m) => [m.person_id, m.statement])).toEqual([[chris.id, "Chris loves watching Dragonball Z"]]);
     expect((await noteFor(w.store, t.id, new Date(w.server.clock)))!.runs!.map((r) => r.text).join("")).toBe(note);
@@ -344,7 +345,7 @@ describe("J7: the user's own answer about who a line is about is never reopened 
         item({ kind: "fact", person: key(i, samEden.id), person_mention: "Sam", statement: "Sam loves watching Dragonball Z", evidence: ["Anthony and Sam love watching Dragonball Z"], detail: { category: "interest" } }),
       ],
     }));
-    await answer(w, t.id, [{ index: 0, person_id: chris.id }, { index: 1, person_id: chris.id }]);
+    await answer(w, t.id, answersFor(t.review.questions, Object.fromEntries(t.review.questions.map((q) => [q.key, { person_id: chris.id }])))!);
     for (const p of [anthony, anthonyL, samEden, samD]) expect(await suggestionsFor(w, p)).toEqual([]);
 
     // The founder's own line from 7 Oct, kept before the fix: "Sam loves…" on Chris, no record of its words.

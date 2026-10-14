@@ -286,6 +286,13 @@ export interface PlannedItem {
    * never dropped for being unclear.
    */
   open_names?: OpenName[];
+  /**
+   * A line told by the model as one piece per person and kept as one in the
+   * note's words (founder K4): the piece about who it is filed on, alone
+   * ("Anthony loves watching Dragonball Z"). Its words once every other name
+   * in it is answered with that same person (founder I13). Code only.
+   */
+  alone?: string;
 }
 
 /** A name in a line that two or more people go by: asked which one (founder K4). */

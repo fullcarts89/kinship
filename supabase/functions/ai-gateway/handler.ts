@@ -43,7 +43,8 @@ export interface GatewayCaller {
   /** Under the caller's RLS: null unless it is theirs and live. */
   loadCapture(id: string): Promise<CaptureRow | null>;
   loadPeople(): Promise<{ people: PersonRow[]; related: RelatedRow[] }>;
-  loadItems(personIds: string[]): Promise<ItemRow[]>;
+  /** Under the caller's RLS: their active memories filed on these people; with `shared`, also those about them. */
+  loadItems(personIds: string[], opts?: { shared?: boolean }): Promise<ItemRow[]>;
   /** Under the caller's RLS: lines this capture wrote that the user has since removed (reviewer A, 13 Oct). */
   loadRemoved(captureId: string): Promise<{ person_id: string; statement: string }[]>;
   /** Under the caller's RLS: the held items and question still waiting on this capture (C-2). */
@@ -324,6 +325,8 @@ function present(i: PlannedItem) {
     ...(i.person_mentions?.length ? { person_mentions: i.person_mentions } : {}),
     // Others it is about whose name two people share, each asked on its own (founder K4).
     ...(i.open_names?.length ? { open_names: i.open_names } : {}),
+    // One line for a sentence the model told person by person: its words about one of them alone (founder I13/K4).
+    ...(i.alone ? { alone: i.alone } : {}),
   };
 }
 
@@ -354,9 +357,12 @@ async function resolveReview(
     for (const pa of Array.isArray(a?.participants) ? a.participants : []) if (typeof pa?.person_id === "string") chosen.add(pa.person_id);
   }
   for (const i of review.items) if (i.person_id) chosen.add(i.person_id);
+  // Everyone else a held line is already about: a memory kept with them may be this one told again (founder K4).
+  for (const i of review.items) for (const id of Array.isArray(i.with_person_ids) ? i.with_person_ids : []) if (typeof id === "string") chosen.add(id);
   // A held mirror joins the line kept for its twin (founder I10): load that line too.
   for (const i of review.items) if (typeof i.twin_person_id === "string") chosen.add(i.twin_person_id);
-  const existing = chosen.size ? await caller.loadItems([...chosen].filter((id) => people.some((p) => p.id === id))) : [];
+  // Shared memories too: the same words told again join one kept about some of the same people (founder K4).
+  const existing = chosen.size ? await caller.loadItems([...chosen].filter((id) => people.some((p) => p.id === id)), { shared: true }) : [];
   // A held mirror of a line the user removed since never brings it back.
   const removed = review.items.some((i) => typeof i.twin_person_id === "string") ? await caller.loadRemoved(captureId) : [];
   const resolution = resolveHeld(review.items, answers as HeldAnswer[], {
@@ -369,7 +375,7 @@ async function resolveReview(
     existing: existing.map((m) => ({
       id: m.id, person_id: m.person_id, kind: m.kind, subject_type: m.subject_type,
       subject_related_id: m.subject_related_id, statement: m.statement, status: m.status, user_state: m.user_state,
-      detail: m.detail ?? null,
+      detail: m.detail ?? null, with_person_ids: m.with_person_ids ?? null,
     })),
     removed,
   });

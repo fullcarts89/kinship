@@ -84,12 +84,15 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
       const rows = mentions.error ? [] : (mentions.data ?? []) as { person_mentions?: unknown }[];
       return { people: withLineNames(people.data as PersonRow[], rows), related: related.data as RelatedRow[] };
     },
-    async loadItems(personIds) {
+    async loadItems(personIds, opts) {
       if (personIds.length === 0) return [];
-      const { data, error } = await db.from("memory_items")
-        .select("id, person_id, kind, subject_type, subject_related_id, statement, certainty, status, user_state, detail, updated_at, with_person_ids")
-        .in("person_id", personIds).is("deleted_at", null).in("status", ["active", "resolved"])
-        .order("updated_at", { ascending: false }).limit(40);
+      const ids = personIds.filter((id) => /^[0-9a-f-]{36}$/iu.test(id));
+      if (ids.length === 0) return [];
+      const base = db.from("memory_items")
+        .select("id, person_id, kind, subject_type, subject_related_id, statement, certainty, status, user_state, detail, updated_at, with_person_ids");
+      const whose = opts?.shared ? base.or(`person_id.in.(${ids.join(",")}),with_person_ids.ov.{${ids.join(",")}}`) : base.in("person_id", ids);
+      const { data, error } = await whose.is("deleted_at", null).in("status", ["active", "resolved"])
+        .order("updated_at", { ascending: false }).limit(opts?.shared ? 80 : 40);
       if (error) throw new Error("dossier read failed");
       return data as ItemRow[];
     },

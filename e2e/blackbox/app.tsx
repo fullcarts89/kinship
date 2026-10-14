@@ -150,6 +150,15 @@ export async function tap(r: TestRenderer.ReactTestRenderer, label: string) {
   await settle();
 }
 
+/** Taps the last control with this label (the topmost sheet's, when a screen behind it has one too). */
+export async function tapLast(r: TestRenderer.ReactTestRenderer, label: string) {
+  const all = r.root.findAll((n) => n.props.accessibilityLabel === label && typeof n.props.onPress === "function");
+  if (!all.length) throw new Error(`nothing to tap called "${label}". On screen: ${JSON.stringify(texts(r))}`);
+  const target = all[all.length - 1];
+  await act(async () => { await target.props.onPress(); });
+  await settle();
+}
+
 export function canTap(r: TestRenderer.ReactTestRenderer, label: string): boolean {
   return !!pressable(r, label);
 }

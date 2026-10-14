@@ -9,4 +9,6 @@ module.exports = {
   testMatch: ["<rootDir>/e2e/blackbox/**/*.blackbox.tsx"],
   setupFilesAfterEnv: ["<rootDir>/e2e/blackbox/setup.ts"],
   testTimeout: 240000,
+  // One suite at a time: the model stub's chosen reply per note is shared state.
+  maxWorkers: 1,
 };

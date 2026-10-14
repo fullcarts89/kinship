@@ -5,6 +5,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import { execFileSync } from "child_process";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 function env(): Record<string, string> {
@@ -61,4 +62,27 @@ export async function useReply(note: string, label: string): Promise<void> {
 /** Rows as the server holds them (service key; reading, for assertions only). */
 export async function serverRows<T = Record<string, unknown>>(table: string, userId: string): Promise<T[]> {
   return await admin(`/rest/v1/${table}?user_id=eq.${userId}&select=*`) as T[];
+}
+
+/**
+ * A shared line as an earlier build left it in this local test account: the
+ * note, the memory and its source, in one transaction (every memory needs its
+ * source). Local database container only; fixtures for this account only.
+ */
+export function legacyLine(userId: string, note: string, ownerId: string, withIds: string[], mentions: { person_id: string; text: string; name: string }[]): void {
+  for (const id of [userId, ownerId, ...withIds]) if (!/^[0-9a-f-]{36}$/u.test(id)) throw new Error("ids only");
+  const q = (t: string) => `$q$${t.replace(/\$q\$/gu, "")}$q$`;
+  const sql = `begin;
+with c as (
+  insert into public.captures (user_id, source, raw_text, status, occurred_at, time_zone)
+  values ('${userId}', 'text', ${q(note)}, 'extracted', '2026-10-12T20:00:00Z', 'America/Los_Angeles') returning id
+), m as (
+  insert into public.memory_items (user_id, kind, person_id, with_person_ids, statement, detail, origin, extraction_confidence, person_mentions)
+  values ('${userId}', 'fact', '${ownerId}', array[${withIds.map((x) => `'${x}'`).join(",")}]::uuid[], ${q(note)},
+    '{"category":"interest"}'::jsonb, 'extracted', 0.93, ${q(JSON.stringify(mentions))}::jsonb) returning id
+)
+insert into public.memory_item_sources (user_id, memory_item_id, capture_id, source_kind, span_start, span_end, quote)
+select '${userId}', m.id, c.id, 'capture', 0, ${note.length}, ${q(note)} from c, m;
+commit;`;
+  execFileSync("docker", ["exec", "-i", "supabase_db_kinship", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], { input: sql, stdio: ["pipe", "ignore", "pipe"] });
 }

@@ -112,35 +112,39 @@ const dbzHeld = () => {
 };
 
 Deno.test("I13: a line held for 'which Anthony / which Sam' keeps the asked-about words for no one yet", () => {
+  // Told as a line each (the model's shape), it is one line in the note's words (founder K4, 13 Oct).
   const held = dbzHeld();
-  eq(held.map((h) => [h.person_id, h.person_mentions]), [
-    [null, [{ person_id: null, text: "Anthony", name: null }]],
-    [null, [{ person_id: null, text: "Sam", name: null }]],
+  eq(held.map((h) => [h.person_id, h.statement, h.person_mentions]), [
+    [null, "Anthony and Sam love watching Dragonball Z", [{ person_id: null, text: "Anthony", name: null }, { person_id: null, text: "Sam", name: null }]],
   ]);
 });
 
 Deno.test("I13 (re-seen): both answered Someone else → Chris: one line on Chris that names Chris, from both parts of the note", () => {
   const held = dbzHeld().map(asHeld);
-  const r = resolveHeld(held, [{ index: 0, person_id: "chris" }, { index: 1, person_id: "chris" }], { note: DBZ, people: DBZ_PEOPLE, related: [], existing: [] });
+  const r = resolveHeld(held, [{ index: 0, person_id: "chris", participants: [{ text: "Sam", person_id: "chris" }] }], { note: DBZ, people: DBZ_PEOPLE, related: [], existing: [] });
   if ("fail" in r) throw new Error(r.fail);
-  eq(r.items.map((i) => [i.person_id, i.statement]), [["chris", "Chris loves watching Dragonball Z"]]);
+  eq(r.items.length, 1, "one line, never one per name");
+  eq(r.items[0].person_id, "chris");
+  eq(r.items[0].statement, "Chris loves watching Dragonball Z", "'Anthony' was another person's name, so the line now says Chris, about Chris alone");
   eq(r.items[0].person_mentions, [{ person_id: "chris", text: "Chris", name: "Chris" }]);
   eq(r.items[0].spans.length, 1, "the same words of the note, once");
 });
 
 Deno.test("I13: answered with a Sam: the words stay ('Sam' is his name), recorded as his", () => {
   const held = dbzHeld().map(asHeld);
-  const r = resolveHeld(held, [{ index: 0, skip: true }, { index: 1, person_id: "sam-eden" }], { note: DBZ, people: DBZ_PEOPLE, related: [], existing: [] });
+  const r = resolveHeld(held, [{ index: 0, person_id: "anthony", participants: [{ text: "Sam", person_id: "sam-eden" }] }], { note: DBZ, people: DBZ_PEOPLE, related: [], existing: [] });
   if ("fail" in r) throw new Error(r.fail);
-  eq(r.items.map((i) => [i.person_id, i.statement, i.person_mentions]), [["sam-eden", "Sam loves watching Dragonball Z", [{ person_id: "sam-eden", text: "Sam", name: "Sam Eden" }]]]);
+  eq(r.items.map((i) => [i.person_id, i.with_person_ids, i.statement]), [["anthony", ["sam-eden"], "Anthony and Sam love watching Dragonball Z"]]);
+  eq(r.items[0].person_mentions?.find((m) => m.text === "Sam"), { person_id: "sam-eden", text: "Sam", name: "Sam Eden" });
 });
 
 Deno.test("I13: the chosen person goes by the name (a Samantha called Sam): the words stay", () => {
   const sammy: ResolvePerson = { id: "samantha", display_name: "Samantha Reyes", full_name: "Samantha Reyes", nicknames: [], state: "active", mention_names: ["Sam"] };
   const held = dbzHeld().map(asHeld);
-  const r = resolveHeld(held, [{ index: 0, skip: true }, { index: 1, person_id: "samantha" }], { note: DBZ, people: [...DBZ_PEOPLE, sammy], related: [], existing: [] });
+  const r = resolveHeld(held, [{ index: 0, person_id: "anthony", participants: [{ text: "Sam", person_id: "samantha" }] }], { note: DBZ, people: [...DBZ_PEOPLE, sammy], related: [], existing: [] });
   if ("fail" in r) throw new Error(r.fail);
-  eq(r.items.map((i) => [i.statement, i.person_mentions]), [["Sam loves watching Dragonball Z", [{ person_id: "samantha", text: "Sam", name: "Samantha Reyes" }]]]);
+  eq(r.items.map((i) => i.statement), ["Anthony and Sam love watching Dragonball Z"]);
+  eq(r.items[0].person_mentions?.find((m) => m.text === "Sam"), { person_id: "samantha", text: "Sam", name: "Samantha Reyes" });
 });
 
 Deno.test("I13 with 1b: 'Who is Liz?' answered Elizabeth: 'Liz' is the user's own word for her, kept and recorded as hers", () => {
