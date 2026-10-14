@@ -1,0 +1,93 @@
+{
+ "note": "I need to call John tonight",
+ "variants": [
+  {
+   "label": "hand: promise",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "promise",
+      "person": "@John",
+      "person_mention": "John",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You need to call John tonight",
+      "evidence": [
+       "I need to call John tonight"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": "tonight",
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "hand: plan",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "plan",
+      "person": "@John",
+      "person_mention": "John",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You need to call John tonight",
+      "evidence": [
+       "I need to call John tonight"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": "tonight",
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

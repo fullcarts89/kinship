@@ -1,0 +1,93 @@
+{
+ "note": "Ben said he'd send me the photos last Friday",
+ "variants": [
+  {
+   "label": "hand: promise last Friday",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "promise",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben said he'd send you the photos",
+      "evidence": [
+       "Ben said he'd send me the photos last Friday"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": "last Friday",
+      "date_direction": "past",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "hand: promise last Friday future",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "promise",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben said he'd send you the photos",
+      "evidence": [
+       "Ben said he'd send me the photos last Friday"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": "last Friday",
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -23,6 +23,7 @@
   "exclude": [
     "node_modules",
     "supabase/functions",
-    "evals"
+    "evals",
+    "e2e/model-stub.ts"
   ]
 }
