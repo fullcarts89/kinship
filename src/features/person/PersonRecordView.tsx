@@ -24,6 +24,8 @@ export interface RecordLine {
 
 export interface PersonRecordViewProps {
   name: string | null;
+  /** Still being read: an empty screen, never "isn't here any more". */
+  loading?: boolean;
   /** The name Kinship says (names.ts shortName): "Michelle" from Contacts, a chosen "Cutie Pie" whole (founder I12). */
   short?: string | null;
   label: string | null;
@@ -51,7 +53,7 @@ export function PersonRecordView(props: PersonRecordViewProps) {
   if (!props.name) {
     return (
       <Screen onBack={props.onBack}>
-        <Body>{"This person isn't here any more."}</Body>
+        {props.loading ? null : <Body>{"This person isn't here any more."}</Body>}
       </Screen>
     );
   }

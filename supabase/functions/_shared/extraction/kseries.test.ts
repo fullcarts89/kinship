@@ -140,12 +140,102 @@ Deno.test("K4 (the same words filed once on each of them): never merged into one
   eq(out.items[0].with_person_ids, ["chris"]);
 });
 
-Deno.test("K4 (a line for Anthony and a line for Sam, each 'with Chris'): Chris stays on both", () => {
+Deno.test("K4 (live, 13 Oct: a line for Anthony and one for Sam, each 'with Chris', each leaving out the other): one line in the note's words, Chris kept, each name asked once", () => {
   const out = run(k4(), [
     skating({ person: "p1", person_mention: "Anthony", statement: "Anthony loves ice skating with Chris" }),
     skating({ person: "p3", person_mention: "Sam", statement: "Sam loves ice skating with Chris" }),
   ]);
-  eq(held(out.items).map((h) => [asked(h), h.with_person_ids]), [[["Anthony"], ["chris"]], [["Sam"], ["chris"]]]);
+  eq(out.items.map((i) => [i.statement, i.tier, i.with_person_ids, asked(i)]), [[K4, "hold", ["chris"], ["Anthony", "Sam"]]]);
+  eq(out.clarification?.question, "Which Anthony do you mean?");
+});
+
+Deno.test("K4 (live, 13 Oct: those two and 'Chris goes ice skating with Anthony and Sam', the model asking which Sam): one line kept for Chris, Anthony and Sam asked once each to join it", () => {
+  const out = planExtraction(k4(), { items: [
+    skating({ person: "p5", person_mention: "Chris", statement: "Chris goes ice skating with Anthony and Sam", confidence: 0.75 }),
+    skating({ person: "p1", person_mention: "Anthony", statement: "Anthony loves ice skating with Chris", confidence: 0.45 }),
+    skating({ person: "p4", person_mention: "Sam", statement: "Sam loves ice skating with Chris", confidence: 0.4 }),
+  ], needs_clarification: { about: "person", mention: "Sam" } } as ModelProposal);
+  eq(kept(out.items).map((i) => [i.person_id, i.statement]), [["chris", K4]], "the note's words, never the model's restatement");
+  eq(held(out.items).map((h) => [h.mention, h.twin_person_id, h.person_id]), [["Anthony", "chris", null], ["Sam", "chris", null]]);
+  const all = out.items.map((p) => asHeld({ ...p, tier: "hold" }));
+  const answers = all.map((h, index) => h.person_id ? { index, accept: true as const } : { index, person_id: h.mention === "Anthony" ? "anthony-test" : "sam-eden" });
+  const r = resolveHeld(all, answers, { note: K4, people: peopleOf(K4_ROSTER), related: [], existing: [] });
+  if ("fail" in r) throw new Error(r.fail);
+  eq(r.items.map((i) => [i.person_id, [...(i.with_person_ids ?? [])].sort(), i.statement]), [["chris", ["anthony-test", "sam-eden"], K4]]);
+});
+
+Deno.test("K4 (live, 13 Oct: nothing kept, only 'which Anthony?'): the sentence is held for the answer, never 'Nothing to remember'", () => {
+  const out = planExtraction(k4(), { items: [], needs_clarification: { about: "person", mention: "Anthony" } } as ModelProposal);
+  eq(out.items.map((i) => [i.statement, i.tier, i.with_person_ids, asked(i)]), [[K4, "hold", ["chris"], ["Anthony", "Sam"]]]);
+});
+
+// ─── K4 told again (the founder's account on 13 Oct: the 12 Oct line already kept) ──
+
+const LEGACY = {
+  key: "m1", id: "legacy", person_key: "p3", kind: "fact" as const, subject_type: "person" as const, related_key: null, statement: K4,
+  certainty: "stated" as const, status: "active" as const, user_state: "unreviewed" as const, detail: { category: "interest" }, with_person_keys: ["p5"],
+};
+const retold = () => ({ ...k4(), dossier: [LEGACY] });
+
+Deno.test("K4 told again (12 Oct line on Sam Eden and Chris), kept for Chris: joins that memory; Sam is never asked again, Anthony is", () => {
+  const out = run(retold(), [skating({ person: "p5", person_mention: "Chris" })]);
+  eq(kept(out.items).map((i) => [i.person_id, i.with_person_ids, i.action]), [["sam-eden", ["chris"], { type: "merge", target_id: "legacy" }]]);
+  eq(held(out.items).map((h) => [h.mention, h.twin_person_id]), [["Anthony", "sam-eden"]]);
+  const all = out.items.map((p) => asHeld({ ...p, tier: "hold" }));
+  const answers = all.map((h, index) => h.person_id ? { index, accept: true as const } : { index, person_id: "anthony-test" });
+  const existing = [{ id: "legacy", person_id: "sam-eden", kind: "fact", subject_type: "person", subject_related_id: null, statement: K4, status: "active", user_state: "unreviewed", with_person_ids: ["chris"] }];
+  const r = resolveHeld(all, answers, { note: K4, people: peopleOf(K4_ROSTER), related: [], existing });
+  if ("fail" in r) throw new Error(r.fail);
+  eq(r.items.map((i) => [i.person_id, i.action, [...(i.with_person_ids ?? [])].sort()]), [["sam-eden", { type: "merge", target_id: "legacy" }, ["anthony-test", "chris"]]]);
+});
+
+Deno.test("K4 told again, held for which Anthony and answered (run B, Sam not sure): one memory, the earlier line, now about Anthony Test too", () => {
+  const out = run(retold(), [skating({ person: "p1", person_mention: "Anthony" })]);
+  const existing = [{ id: "legacy", person_id: "sam-eden", kind: "fact", subject_type: "person", subject_related_id: null, statement: K4, status: "active", user_state: "unreviewed", with_person_ids: ["chris"] }];
+  const r = resolveHeld(out.items.map(asHeld), [{ index: 0, person_id: "anthony-test" }], { note: K4, people: peopleOf(K4_ROSTER), related: [], existing });
+  if ("fail" in r) throw new Error(r.fail);
+  eq(r.items.map((i) => [i.person_id, i.action, [...(i.with_person_ids ?? [])].sort(), i.statement]), [["sam-eden", { type: "merge", target_id: "legacy" }, ["anthony-test", "chris"], K4]]);
+});
+
+Deno.test("K4 told again, but 'Sam' was kept as Sam Doughty then and is answered Sam Eden now: never merged into one memory with two Sams", () => {
+  const out = run(k4(), [skating({ person: "p1", person_mention: "Anthony" })]);
+  const existing = [{ id: "legacy", person_id: "sam-d", kind: "fact", subject_type: "person", subject_related_id: null, statement: K4, status: "active", user_state: "unreviewed", with_person_ids: ["chris"] }];
+  const r = resolveHeld(out.items.map(asHeld), [{ index: 0, person_id: "anthony-test", participants: [{ text: "Sam", person_id: "sam-eden" }] }], { note: K4, people: peopleOf(K4_ROSTER), related: [], existing });
+  if ("fail" in r) throw new Error(r.fail);
+  eq(r.items.map((i) => [i.person_id, i.action.type, [...(i.with_person_ids ?? [])].sort()]), [["anthony-test", "new", ["chris", "sam-eden"]]]);
+  const extraction = run({ ...k4(), dossier: [{ ...LEGACY, person_key: "p4" }] }, [skating({ person: "p5", person_mention: "Chris" })]);
+  eq(kept(extraction.items).map((i) => [i.person_id, i.action.type]), [["sam-d", "merge"]], "told again kept for Chris: Sam Doughty's line, its Sam not asked again");
+});
+
+Deno.test("K4 (filed by the model on a Sam): filed on the one its words lead with, so 'Which Sam?' is one of the others and can be 'Not sure'", () => {
+  const out = run(k4(), [skating({ person: "p3", person_mention: "Sam" })]);
+  eq(out.items.map((i) => [i.tier, i.statement, i.with_person_ids, (i.open_names ?? []).map((o) => o.text)]), [["hold", K4, ["chris"], ["Sam"]]]);
+  eq(out.clarification?.question, "Which Anthony do you mean?");
+  const resolved = resolveHeld(out.items.map(asHeld), [{ index: 0, person_id: "anthony-test" }], { note: K4, people: peopleOf(K4_ROSTER), related: [], existing: [] });
+  if ("fail" in resolved) throw new Error(resolved.fail);
+  eq(resolved.items.map((i) => [i.person_id, i.with_person_ids, i.statement]), [["anthony-test", ["chris"], K4]], "Sam not sure: the line stays, Sam's word with it");
+});
+
+Deno.test("K4 (pieces, left alone): different things about different people, a sentence about the user, and lines that each name everyone", () => {
+  const roster = [person("p1", "ben", "Ben"), person("p2", "sam", "Sam")];
+  const two = "Ben got a job and Sam had a baby";
+  const apart = run(input(two, roster), [
+    item({ person: "p1", person_mention: "Ben", statement: "Ben got a job", evidence: [two], detail: { category: "work" } }),
+    item({ person: "p2", person_mention: "Sam", statement: "Sam had a baby", evidence: [two], detail: { category: "family" } }),
+  ]);
+  eq(apart.items.map((i) => i.statement), ["Ben got a job", "Sam had a baby"]);
+  const mine = "Ben and Sam love skating with me";
+  const user = run(input(mine, roster), [
+    item({ person: "p1", person_mention: "Ben", statement: "Ben loves skating with you", evidence: [mine], detail: { category: "interest" } }),
+    item({ person: "p2", person_mention: "Sam", statement: "Sam loves skating with you", evidence: [mine], detail: { category: "interest" } }),
+  ]);
+  eq(user.items.every((i) => !/\bme\b/u.test(i.statement)), true, "never the user's 'me' in Kinship's voice");
+  const more = "Ben and Sam love skating, and Ben is moving to Denver";
+  const longer = run(input(more, roster), [
+    item({ person: "p1", person_mention: "Ben", statement: "Ben loves skating", evidence: [more], detail: { category: "interest" } }),
+    item({ person: "p2", person_mention: "Sam", statement: "Sam loves skating", evidence: [more], detail: { category: "interest" } }),
+  ]);
+  eq(longer.items.every((i) => !i.statement.includes("Denver")), true, "never more than the pieces said");
 });
 
 Deno.test("K4: a settled line with one name two people share keeps the line and asks only which one (I10 shape), never holds the whole memory", () => {
@@ -879,4 +969,62 @@ Deno.test("r5 P1-2: someone removed is asked whenever they are named on their ow
   }
   const ownName = run({ ...input("I got the job, and can't wait to tell Ben Kim", [LOO, benKim]), archived: [{ id: "bk-old", display_name: "Ben", full_name: "Ben Kim", nicknames: [] }] }, [userFact("unknown")]);
   eq(ownName.items.map((i) => [i.person_id, i.tier, i.archived_ids]), [[null, "hold", ["bk-old"]]]);
+});
+
+// ─── Founder 13 Oct native pass: K10, no invented dates ─
+
+import { resolveDate } from "./dates.ts";
+
+Deno.test("K10 date matrix (Tue 13 Oct 2026, America/Los_Angeles): grounded days only, precision never raised, two readings flagged", () => {
+  const at = "2026-10-13T19:00:00Z";
+  const cases: [string, "past" | "future", string, string | null, string, boolean][] = [
+    // phrase, direction, date, end, precision, ambiguous (asked)
+    ["yesterday", "past", "2026-10-12", null, "day", false],
+    ["last Friday", "past", "2026-10-09", null, "day", true],
+    ["last Friday", "future", "2026-10-09", null, "day", true],
+    ["this Friday", "future", "2026-10-16", null, "day", false],
+    ["next Friday", "future", "2026-10-23", null, "day", true],
+    ["Friday", "future", "2026-10-16", null, "day", false],
+    ["Friday", "past", "2026-10-09", null, "day", false],
+    ["last Monday", "past", "2026-10-05", null, "day", true],
+    ["tonight", "future", "2026-10-13", null, "day", false],
+    ["tomorrow", "future", "2026-10-14", null, "day", false],
+    ["Oct 9", "past", "2026-10-09", null, "day", false],
+    ["October 9", "past", "2026-10-09", null, "day", false],
+    ["in October", "future", "2026-10-01", "2026-10-31", "month", false],
+    ["in 2026", "future", "2026-01-01", "2026-12-31", "year", false],
+  ];
+  for (const [phrase, dir, date, end, precision, ambiguous] of cases) {
+    const r = resolveDate(phrase, at, "America/Los_Angeles", dir);
+    eq([phrase, dir, r?.date, r?.date_end ?? null, r?.precision, r?.ambiguous], [phrase, dir, date, end, precision, ambiguous]);
+  }
+  // Never Monday 12 Oct for "last Friday", whichever way the model leans.
+  for (const dir of ["past", "future"] as const) eq(resolveDate("last Friday", at, "America/Los_Angeles", dir)?.date !== "2026-10-12", true);
+});
+
+Deno.test("K10: a promise's day that reads two ways can be chosen in review (its due date), and is kept as chosen", () => {
+  const note = "Ben said he'd send me the photos last Friday";
+  const out = run({ ...input(note, [BEN]), capture: { ...input(note, [BEN]).capture, occurred_at: "2026-10-13T19:00:00Z" } },
+    [item({ kind: "promise", person: "p2", person_mention: "Ben", statement: "Ben said he'd send you the photos", evidence: [note], date_text: "last Friday", date_direction: "past" })]);
+  eq(out.items.map((i) => [i.detail.due_date, i.flags.includes("date_ambiguous")]), [["2026-10-09", true]]);
+  const ctx = { note, people: peopleOf([BEN]), related: [], existing: [] };
+  const kept = resolveHeld(out.items.map(asHeld), [{ index: 0, accept: true }], ctx);
+  if ("fail" in kept) throw new Error(kept.fail);
+  eq(kept.items[0].detail.due_date, "2026-10-09");
+  const chosen = resolveHeld(out.items.map(asHeld), [{ index: 0, accept: true, date: "2026-10-02" }], ctx);
+  if ("fail" in chosen) throw new Error(chosen.fail);
+  eq(chosen.items[0].detail.due_date, "2026-10-02");
+});
+
+Deno.test("K10: the same promise told for another day is never merged into the first ('…yesterday', then '…last Friday')", () => {
+  const note = "Ben said he'd send me the photos last Friday";
+  const out = run({ ...input(note, [BEN]), capture: { ...input(note, [BEN]).capture, occurred_at: "2026-10-13T19:00:00Z" } },
+    [item({ kind: "promise", person: "p2", person_mention: "Ben", statement: "Ben said he'd send you the photos", evidence: [note], date_text: "last Friday", date_direction: "past" })]);
+  const existing = [{ id: "m-y", person_id: "ben", kind: "promise", subject_type: "person", subject_related_id: null, statement: "Ben said he'd send you the photos", status: "active", user_state: "unreviewed", detail: { due_date: "2026-10-12" } }];
+  const r = resolveHeld(out.items.map(asHeld), [{ index: 0, accept: true }], { note, people: peopleOf([BEN]), related: [], existing });
+  if ("fail" in r) throw new Error(r.fail);
+  eq(r.items.map((i) => [i.action.type, i.detail.due_date]), [["new", "2026-10-09"]]);
+  const sameDay = resolveHeld(out.items.map(asHeld), [{ index: 0, accept: true }], { note, people: peopleOf([BEN]), related: [], existing: [{ ...existing[0], detail: { due_date: "2026-10-09" } }] });
+  if ("fail" in sameDay) throw new Error(sameDay.fail);
+  eq(sameDay.items.map((i) => i.action.type), ["merge"]);
 });

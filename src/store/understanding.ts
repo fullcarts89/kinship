@@ -210,7 +210,9 @@ export class Understanding {
   /** How many items the reading saved that haven't reached this phone yet (sync in flight). */
   async arriving(reading: Reading | null): Promise<number> {
     let n = 0;
-    for (const s of reading?.saved ?? []) if (!(await this.store.get("memory_items", s.id))) n++;
+    // Only lines not on the phone yet: one the user has since removed has arrived (founder K14: "Not this"
+    // left the note saying "Understanding…" for good).
+    for (const s of reading?.saved ?? []) if (!(await this.store.get("memory_items", s.id, { includeDeleted: true }))) n++;
     return n;
   }
 
@@ -860,8 +862,11 @@ export class Understanding {
       // An answer reported as already given: did it land as the user meant?
       if (reading.answered) {
         const items = await this.itemsFor(row.capture_id, reading);
+        // A person chosen is on a kept line as its person or as someone else it's about (founder K4: "Which
+        // Sam?" joins the line kept for Chris); only someone on none of them means the answer didn't land.
+        const on = (id: string) => items.some((i) => i.person_id === id || (Array.isArray(i.with_person_ids) && i.with_person_ids.includes(id)));
         const missed = reading.answered.some((a) =>
-          a.person_id && !items.some((i) => i.person_id === a.person_id));
+          (a.person_id && !on(a.person_id)) || (a.participants ?? []).some((pa) => !on(pa.person_id)));
         await this.save(row.capture_id, {
           reading: { ...reading, answered: undefined },
           ...(missed && row.notice === null ? { notice: "changed_elsewhere" as const } : {}),

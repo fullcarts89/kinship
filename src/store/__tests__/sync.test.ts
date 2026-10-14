@@ -319,3 +319,44 @@ describe("timestamps (device check B2)", () => {
     expect(server.calls.filter((x) => x.startsWith("update captures"))).toEqual([]);
   });
 });
+
+describe("one round trip per pull (founder K12)", () => {
+  it("asks every table for its changes at once, then applies them in order; rows already known open no transaction", async () => {
+    const server = new FakeServer();
+    const d = await device(server);
+    const ben = await d.store.create("people", { display_name: "Ben" });
+    await d.store.create("captures", { source: "text", raw_text: "Ben runs Chicago Sunday.", context_person_id: ben.id, status: "skipped" });
+    await d.engine.sync();
+    const remote = new FakeRemote(server, A);
+    let inFlight = 0;
+    let most = 0;
+    const engine = new SyncEngine(d.store, {
+      ...remote,
+      insert: remote.insert.bind(remote),
+      update: remote.update.bind(remote),
+      changedSince: async (...args: Parameters<FakeRemote["changedSince"]>) => {
+        inFlight++;
+        most = Math.max(most, inFlight);
+        await new Promise((res) => setTimeout(res, 5));
+        try {
+          return await remote.changedSince(...args);
+        } finally {
+          inFlight--;
+        }
+      },
+      manifest: remote.manifest.bind(remote),
+      fetchByKeys: remote.fetchByKeys.bind(remote),
+      insertMemoryItem: remote.insertMemoryItem.bind(remote),
+    });
+    const transaction = jest.spyOn(d.db, "transaction");
+    const report = await engine.sync();
+    expect(most).toBeGreaterThan(5);
+    // Ben and his note come back in the overlap window, already known at their versions.
+    expect([report.pulled, transaction.mock.calls.length]).toEqual([0, 0]);
+    // A newer version from the server is still applied.
+    server.table("people").set(ben.id as string, { ...server.table("people").get(ben.id as string)!, display_name: "Benji", version: 2, updated_at: "2026-10-05T12:00:01.000Z" });
+    expect((await engine.sync()).pulled).toBe(1);
+    expect((await d.store.get("people", ben.id as string))?.display_name).toBe("Benji");
+    transaction.mockRestore();
+  });
+});

@@ -55,3 +55,6 @@ coverage/
 # Supabase CLI local state
 supabase/.temp/
 supabase/.branches/
+
+# Acceptance harness: live model captures stay local (never committed)
+e2e/.captured/

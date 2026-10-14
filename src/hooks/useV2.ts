@@ -224,10 +224,11 @@ export function usePeople(): Person[] {
   return q.data ?? [];
 }
 
-export function usePersonRecord(personId: string) {
+export function usePersonRecord(personId: string): { person: Person | null; lines: RecordLine[]; loading: boolean } {
   const { store } = useV2Session();
   const q = useStoreQuery(store, (repos) => recordFor(repos, personId, new Date()), [personId]);
-  return q.data ?? { person: null, lines: [] as RecordLine[] };
+  // Still being read is never "isn't here any more" (a large account on a phone takes a moment).
+  return q.data ? { ...q.data, loading: false } : { person: null, lines: [], loading: true };
 }
 
 /** What Kinship knows about someone: every live item, newest first, with its source (the hook and tests share it). */
@@ -514,14 +515,15 @@ export type { Portrait, PortraitLine } from "@/features/person/portraitModel";
  * sectioning and density rules live in portraitModel.ts
  * (docs/product/relationship-page-rules.md); this only gathers the data.
  */
-export function usePortrait(personId: string): Portrait {
+export function usePortrait(personId: string): Portrait & { loading: boolean } {
   const { store } = useV2Session();
   const q = useStoreQuery(store, async (repos) => {
     const people = await repos.people.list();
     const person = people.find((p) => p.id === personId && !p.deleted_at) ?? null;
     return portraitFor(repos, person, new Date());
   }, [personId]);
-  return q.data ?? buildPortrait({ person: null, items: [], today: todayIso() });
+  // Still being read is never "isn't here any more" (a large account on a phone takes a moment).
+  return q.data ? { ...q.data, loading: false } : { ...buildPortrait({ person: null, items: [], today: todayIso() }), loading: true };
 }
 
 // ─── Someone added after they were mentioned (G20) ──────────────────────

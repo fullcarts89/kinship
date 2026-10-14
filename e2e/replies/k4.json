@@ -1,0 +1,1332 @@
+{
+ "note": "Anthony and Sam love ice skating with Chris",
+ "variants": [
+  {
+   "label": "hand: on Anthony",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Anthony",
+      "person_mention": "Anthony",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony and Sam love ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "hand: on Chris",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony and Sam love ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "hand: on no one",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "unknown",
+      "person_mention": null,
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony and Sam love ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "hand: a line each",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Anthony",
+      "person_mention": "Anthony",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony loves ice skating with Sam and Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Sam Eden",
+      "person_mention": "Sam",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Sam loves ice skating with Anthony and Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris loves ice skating with Anthony and Sam",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "legacy: on Sam Eden",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Sam Eden",
+      "person_mention": "Sam",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony and Sam love ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "legacy: on Chris, update",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony and Sam love ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "update",
+       "target": "@memory:Anthony and Sam love ice skating with Chris"
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "legacy: on Chris, same",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony and Sam love ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "same",
+       "target": "@memory:Anthony and Sam love ice skating with Chris"
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "legacy: on Sam Eden, same",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Sam Eden",
+      "person_mention": "Sam",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony and Sam love ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "same",
+       "target": "@memory:Anthony and Sam love ice skating with Chris"
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "legacy: on Anthony, update",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Anthony",
+      "person_mention": "Anthony",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony and Sam love ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "update",
+       "target": "@memory:Anthony and Sam love ice skating with Chris"
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "legacy: on no one, same",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "unknown",
+      "person_mention": null,
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony and Sam love ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "same",
+       "target": "@memory:Anthony and Sam love ice skating with Chris"
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "live 1 (13 Oct, 1 of the runs)",
+   "output": {
+    "items": [],
+    "needs_clarification": {
+     "about": "person",
+     "mention": "Anthony"
+    }
+   }
+  },
+  {
+   "label": "live 2 (13 Oct, 3 of the runs)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Anthony",
+      "person_mention": "Anthony",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.45,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Sam Doughty",
+      "person_mention": "Sam",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Sam loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.4,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris goes ice skating with Anthony and Sam",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.75,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "ice skating",
+       "value": "with Anthony and Sam",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": {
+     "about": "person",
+     "mention": "Sam"
+    }
+   }
+  },
+  {
+   "label": "live 3 (13 Oct, 1 of the runs)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Anthony",
+      "person_mention": "Anthony",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.45,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Sam Doughty",
+      "person_mention": "Sam",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Sam loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.4,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris goes ice skating with Anthony and Sam, who love it",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.75,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "ice skating",
+       "value": "with Anthony and Sam",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": {
+     "about": "person",
+     "mention": "Anthony"
+    }
+   }
+  },
+  {
+   "label": "live 4 (13 Oct, 1 of the runs)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris goes ice skating with Anthony and Sam, who love it",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.7,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "ice skating",
+       "value": "with Anthony and Sam",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Anthony",
+      "person_mention": "Anthony",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.45,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Sam Doughty",
+      "person_mention": "Sam",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Sam loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.4,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": {
+     "about": "person",
+     "mention": "Anthony"
+    }
+   }
+  },
+  {
+   "label": "live 5 (13 Oct, 1 of the runs)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris goes ice skating with Anthony and Sam",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.7,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "ice skating",
+       "value": "with Anthony and Sam",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Anthony",
+      "person_mention": "Anthony",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.45,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Sam Doughty",
+      "person_mention": "Sam",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Sam loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.4,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": {
+     "about": "person",
+     "mention": "Anthony"
+    }
+   }
+  },
+  {
+   "label": "live 6 (13 Oct, 1 of the runs)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Anthony",
+      "person_mention": "Anthony",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.45,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Sam Doughty",
+      "person_mention": "Sam",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Sam loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.4,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": {
+     "about": "person",
+     "mention": "Anthony"
+    }
+   }
+  },
+  {
+   "label": "live 7 (13 Oct, 1 of the runs)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Anthony",
+      "person_mention": "Anthony",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.45,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Sam Doughty",
+      "person_mention": "Sam",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Sam loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.45,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": {
+     "about": "person",
+     "mention": "Sam"
+    }
+   }
+  },
+  {
+   "label": "live 8 (13 Oct, 1 of the runs)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris goes ice skating with Anthony and Sam",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.7,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "ice skating",
+       "value": "with Anthony and Sam",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Anthony",
+      "person_mention": "Anthony",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Anthony loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.5,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Sam Doughty",
+      "person_mention": "Sam",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Sam loves ice skating with Chris",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.5,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "loves",
+       "value": "ice skating with Chris",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": {
+     "about": "person",
+     "mention": "Sam"
+    }
+   }
+  },
+  {
+   "label": "live 9 (13 Oct evening, 1 of 12 runs)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris goes ice skating with Anthony and Sam, who love skating with him",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.7,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "ice skating",
+       "value": "with Anthony and Sam",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

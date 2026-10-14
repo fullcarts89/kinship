@@ -369,7 +369,12 @@ function headingFor(input: ReviewInput, lines: ItemLine[]): string {
       .flatMap((m) => (Array.isArray(m.with_person_ids) ? m.with_person_ids : [])))]
       .map((id) => input.people.find((x) => x.id === id))
       .filter((x): x is Person => !!x && x.id !== p?.id);
-    if (p) return `Kept for ${listOf([p, ...shared].map((x) => personLabel(x, input.people)))}`;
+    // Said in the note's order, whoever the line is filed on ("Kept for Anthony Test, Sam Eden and Chris", founder K4).
+    const at = (id: string) => Math.min(Number.MAX_SAFE_INTEGER, ...input.items.filter((m) => m.person_id === p?.id)
+      .flatMap((m) => mentionsOf(m.person_mentions).filter((pm) => pm.person_id === id).map((pm) => m.statement.indexOf(pm.text)))
+      .filter((i) => i >= 0));
+    const inOrder = p ? [p, ...shared].map((x, i) => ({ x, i, at: at(x.id) })).sort((a, b) => a.at - b.at || a.i - b.i).map((e) => e.x) : [];
+    if (p) return `Kept for ${listOf(inOrder.map((x) => personLabel(x, input.people)))}`;
   }
   if (lines.length) return COPY.remember;
   // Nothing kept yet: the note's subject isn't known, so never the page's
@@ -731,7 +736,8 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
     // Held only for the user's yes: sensitive, or a day that reads two ways.
     const person = input.people.find((p) => p.id === item.person_id);
     const when = whenLabel(item.kind, item.detail ?? {}, input.today);
-    const ambiguousDay = item.flags.includes("date_ambiguous") && typeof item.detail?.date === "string";
+    // A promise's day is its due date: one that reads two ways can be chosen too (founder K10).
+    const ambiguousDay = item.flags.includes("date_ambiguous") && (typeof item.detail?.date === "string" || typeof item.detail?.due_date === "string");
     const sensitive = item.sensitivity !== "none" || item.flags.includes("sensitive") || item.flags.includes("sensitivity_raised");
     needs.push({
       type: "keep",

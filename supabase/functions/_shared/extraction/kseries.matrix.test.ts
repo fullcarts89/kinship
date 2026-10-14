@@ -84,14 +84,15 @@ Deno.test("K4-H: both names answered with the same person: one memory, never two
   const r = answer(R4, K4, k4().items, [{ index: 0, person_id: "chris", participants: [{ text: "Sam", person_id: "chris" }] }]);
   eq(r.length, 1);
   eq([r[0].owner, r[0].with], ["chris", []]);
-  // As a line for each of them (I13 row 3's shape): still one.
+  // As a line for each of them (I13 row 3's shape): one line in the note's words, so still one.
   const dbz = "Anthony and Sam love watching Dragonball Z";
   const out = run(input(dbz, R4), [
     item({ person: "p1", person_mention: "Anthony", statement: "Anthony loves watching Dragonball Z", evidence: [dbz] }),
     item({ person: "p3", person_mention: "Sam", statement: "Sam loves watching Dragonball Z", evidence: [dbz] }),
   ]);
-  eq(answer(R4, dbz, out.items, [{ index: 0, person_id: "chris" }, { index: 1, person_id: "chris" }]),
-    [{ owner: "chris", with: [], statement: "Chris loves watching Dragonball Z" }]);
+  eq(out.items.length, 1);
+  const both = answer(R4, dbz, out.items, [{ index: 0, person_id: "chris", participants: [{ text: "Sam", person_id: "chris" }] }]);
+  eq(both, [{ owner: "chris", with: [], statement: "Chris loves watching Dragonball Z" }]);
 });
 
 Deno.test("K4-H (edge): both answered with someone the line already names fails open to the user's own words, never a guess or a loss", () => {
@@ -99,8 +100,8 @@ Deno.test("K4-H (edge): both answered with someone the line already names fails 
     item({ person: "p1", person_mention: "Anthony", statement: "Anthony loves ice skating with Chris", evidence: [K4] }),
     item({ person: "p3", person_mention: "Sam", statement: "Sam loves ice skating with Chris", evidence: [K4] }),
   ]);
-  const r = answer(R4, K4, out.items, [{ index: 0, person_id: "chris" }, { index: 1, person_id: "chris" }]);
-  eq(r.map((x) => [x.owner, x.statement]), [["chris", "Anthony loves ice skating with Chris"], ["chris", "Sam loves ice skating with Chris"]]);
+  const r = answer(R4, K4, out.items, [{ index: 0, person_id: "chris", participants: [{ text: "Sam", person_id: "chris" }] }]);
+  eq(r.map((x) => [x.owner, x.with, x.statement]), [["chris", [], K4]]);
 });
 
 Deno.test("K4-I: one name in question and one plainly settled: the settled one is never dropped", () => {

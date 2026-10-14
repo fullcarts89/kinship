@@ -60,6 +60,8 @@ export interface HeldItem {
   person_mentions?: PersonMention[];
   /** Others it is about whose name two or more people share, each asked on its own (founder K4). */
   open_names?: { text: string; candidate_ids: string[]; archived_ids?: string[] }[];
+  /** Its words about who it is filed on alone, when the model told the sentence person by person (founder I13/K4). */
+  alone?: string;
 }
 
 /** The user's answer for one held item. */
@@ -122,6 +124,19 @@ export interface ResolveExisting {
   status: string;
   /** Edited or written by the user: never updated by a reading. */
   user_state?: string;
+  /** Its day (date, due_date), so a different day is never merged away (founder K10). */
+  detail?: Record<string, unknown> | null;
+  /** Everyone else it is about: the same words told again join it (founder K4). */
+  with_person_ids?: string[] | null;
+}
+
+/** Two lines' days agree: the same day, or one of them has none. */
+function sameDay(a: Record<string, unknown> | null | undefined, b: Record<string, unknown> | null | undefined): boolean {
+  const day = (d: Record<string, unknown> | null | undefined) =>
+    typeof d?.due_date === "string" ? d.due_date : typeof d?.date === "string" ? d.date : null;
+  const x = day(a);
+  const y = day(b);
+  return !x || !y || x === y;
 }
 
 export interface ResolveContext {
@@ -306,10 +321,12 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         return { fail: "bad_date" };
       }
     } else if (flags.has("date_ambiguous") && a.date !== undefined) {
-      // The user picks the right day for a date that could be read two ways.
-      if (typeof a.date !== "string" || !validDay(a.date) || !("date" in detail)) return { fail: "bad_date" };
+      // The user picks the right day for a date that could be read two ways; a promise's day is its due date
+      // ("by last Friday" told on a Tuesday: the 9th or the 2nd; founder K10).
+      if (typeof a.date !== "string" || !validDay(a.date) || !("date" in detail || "due_date" in detail)) return { fail: "bad_date" };
       delete detail.date_end;
-      detail = item.kind === "plan" ? { ...detail, date: a.date } : { ...detail, date: a.date, date_precision: "day" };
+      detail = "due_date" in detail && !("date" in detail) ? { ...detail, due_date: a.date }
+        : item.kind === "plan" ? { ...detail, date: a.date } : { ...detail, date: a.date, date_precision: "day" };
     } else if (a.date !== undefined) {
       return { fail: "bad_answer" };
     }
@@ -360,6 +377,19 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     let mentions = mentionsOf(item.person_mentions);
     const chosen = needsPerson && subjectType !== "related" ? subjectFor(personId) : null;
     const openTexts = new Set(openNames.map((o) => fold(o.text)));
+    // Every other name in it answered with that same person ("Anthony and Sam love watching Dragonball Z",
+    // both → Chris): it is about them alone, in the words the model had for one of them ("Chris loves
+    // watching Dragonball Z"), never "Chris and Sam love…" (founder I13 re-seen, with K4's one line). Not when
+    // the line already names them: then it fails open to the user's own words (K4-H).
+    const theirsAlone = openNames.length > 0 && openNames.every((o) =>
+      (a.participants ?? []).some((pa) => fold(pa.text) === fold(o.text) && pa.person_id === personId));
+    if (chosen && typeof item.alone === "string" && item.alone.trim() && theirsAlone && !mentions.some((m) => m.person_id === personId)) {
+      const asked = mentions.find((m) => m.person_id === null && !openTexts.has(fold(m.text)));
+      if (asked && fold(item.alone).includes(fold(asked.text))) {
+        statement = item.alone;
+        mentions = [asked];
+      }
+    }
     if (chosen) {
       const asked = mentions.find((m) => m.person_id === null && !openTexts.has(fold(m.text)));
       if (asked) {
@@ -445,10 +475,12 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       }
     }
     if (action.type === "new" && !personId.startsWith("new:")) {
-      // The same thing, already remembered for this person, is one memory.
+      // The same thing, already remembered for this person, is one memory: never one told for another day
+      // ("…yesterday" kept for Mon 12, then "…last Friday": the Friday was merged away and Mon 12 shown; K10).
       const twin = ctx.existing.find((m) =>
         m.person_id === personId && m.status === "active" && m.kind === item.kind && m.subject_type === subjectType &&
-        (m.subject_related_id ?? null) === (related?.id ?? null) && fold(m.statement).trim() === fold(statement).trim()
+        (m.subject_related_id ?? null) === (related?.id ?? null) && fold(m.statement).trim() === fold(statement).trim() &&
+        sameDay(m.detail, detail)
       );
       if (twin) action = { type: "merge", target_id: twin.id };
     }
@@ -524,6 +556,26 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       }
       continue;
     }
+    // ── The same words, already kept about some of the same people (founder K4, 13 Oct) ──
+    // "Anthony and Sam love ice skating with Chris" kept on 12 Oct for Sam Eden
+    // and Chris, told again and answered Anthony Test, Sam Eden and Chris: one
+    // memory about all of them, never a second with the same words. Never when
+    // a name in it means someone else this time (a "Sam" kept as Sam Doughty).
+    const shared = resolved.action.type === "new" && !personId.startsWith("new:")
+      ? sameWordsShared(resolved, ctx) : null;
+    if (shared) {
+      const everyone = [...new Set([shared.person_id, ...(shared.with_person_ids ?? []), personId, ...withPeople])];
+      const joiners = everyone.filter((id) => id !== shared.person_id && !(shared.with_person_ids ?? []).includes(id));
+      const joining = recordMentions(shared.statement, joiners.map(subjectFor).filter((x): x is MentionSubject => !!x));
+      const { person_mentions: _own, ...rest } = resolved;
+      items.push({
+        ...rest, kind: shared.kind, person_id: shared.person_id, statement: shared.statement,
+        action: { type: "merge", target_id: shared.id },
+        ...(everyone.length > 1 ? { with_person_ids: everyone.filter((id) => id !== shared.person_id).slice(0, 7) } : {}),
+        ...(joining.length ? { person_mentions: joining } : {}),
+      });
+      continue;
+    }
     items.push(resolved);
   }
 
@@ -537,6 +589,29 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     line.with_person_ids = [...new Set([...(line.with_person_ids ?? []), ...j.people])].filter((id) => id !== line.person_id);
   }
   return { items: oneEach(items), newPeople, skipped };
+}
+
+/**
+ * An active memory with these same words, about at least one of the same
+ * people, the same kind and day, that the user hasn't written or edited, and
+ * where no name the words use means one person in it and another in this
+ * one (founder K4).
+ */
+function sameWordsShared(it: ResolvedItem, ctx: ResolveContext): ResolveExisting | null {
+  const mine = new Set([it.person_id, ...(it.with_person_ids ?? [])]);
+  const words = [...new Set(wordsOf(it.statement))];
+  const person = (id: string) => ctx.people.find((p) => p.id === id);
+  return ctx.existing.find((m) => {
+    if (m.status !== "active" || m.person_id === it.person_id || m.kind !== it.kind || m.subject_type !== it.subject_type) return false;
+    if ((m.subject_related_id ?? null) !== (it.related?.id ?? null) || m.user_state === "edited" || m.user_state === "user_authored") return false;
+    if (fold(m.statement).trim() !== fold(it.statement).trim() || !sameDay(m.detail, it.detail)) return false;
+    const theirs = new Set([m.person_id, ...(m.with_person_ids ?? [])]);
+    if (![...mine].some((id) => theirs.has(id))) return false;
+    const onlyTheirs = [...theirs].filter((id) => !mine.has(id)).map(person);
+    const onlyMine = [...mine].filter((id) => !theirs.has(id)).map(person);
+    return !words.some((w) => onlyTheirs.some((a) => a && goesBy(a, w, a.mention_names ?? [])) &&
+      onlyMine.some((b) => b && goesBy(b, w, b.mention_names ?? [])));
+  }) ?? null;
 }
 
 /**

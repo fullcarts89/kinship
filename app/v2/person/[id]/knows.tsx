@@ -15,7 +15,7 @@ type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine } | { k
 export default function KnowsScreen() {
   // `item`: "View Ben" from a Moment whose line isn't on Ben's page lands on it here (founder I1).
   const { id, item: focusItem } = useLocalSearchParams<{ id: string; item?: string }>();
-  const { person, lines } = usePersonRecord(String(id));
+  const { person, lines, loading } = usePersonRecord(String(id));
   const people = usePeople();
   const u = useUnderstanding();
   const { settleConflict, rename, forgetConversation } = useV2Actions();
@@ -26,20 +26,35 @@ export default function KnowsScreen() {
   const fail = (what: Promise<unknown>) =>
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
   const close = () => setPane(null);
+  // "Not this" takes the line off the screen at once, never brought back by a read that started before it;
+  // it comes back, with the alert, only if it couldn't be removed (founder K14: within 300 ms, not seconds).
+  const [forgotten, setForgotten] = useState<ReadonlySet<string>>(() => new Set());
+  const forget = (lineId: string) => {
+    setForgotten((s) => new Set(s).add(lineId));
+    void fail(u.reject(lineId).catch((err: unknown) => {
+      setForgotten((s) => {
+        const next = new Set(s);
+        next.delete(lineId);
+        return next;
+      });
+      throw err;
+    }));
+  };
 
   return (
     <PersonRecordView
       name={person?.display_name ?? null}
+      loading={loading}
       short={person ? shortName(person) : null}
       label={typeof person?.relationship_label === "string" && person.relationship_label ? person.relationship_label : null}
       onRename={() => setPane({ kind: "name" })}
-      lines={lines}
+      lines={forgotten.size ? lines.filter((l) => !forgotten.has(l.line.id)) : lines}
       onBack={() => router.back()}
       onChange={(line, kind) => setPane({ kind, line })}
       onForget={(r) =>
         Alert.alert(FORGET_COPY.title, r.line.statement, [
           { text: FORGET_COPY.cancel, style: "cancel" },
-          { text: FORGET_COPY.forget, style: "destructive", onPress: () => fail(u.reject(r.line.id)) },
+          { text: FORGET_COPY.forget, style: "destructive", onPress: () => forget(r.line.id) },
         ])}
       onSource={(noteId) => router.push(`/v2/source/${noteId}`)}
       onSettle={(conflictId, choice) => fail(settleConflict(conflictId, choice))}
