@@ -122,6 +122,17 @@ export interface ResolveExisting {
   status: string;
   /** Edited or written by the user: never updated by a reading. */
   user_state?: string;
+  /** Its day (date, due_date), so a different day is never merged away (founder K10). */
+  detail?: Record<string, unknown> | null;
+}
+
+/** Two lines' days agree: the same day, or one of them has none. */
+function sameDay(a: Record<string, unknown> | null | undefined, b: Record<string, unknown> | null | undefined): boolean {
+  const day = (d: Record<string, unknown> | null | undefined) =>
+    typeof d?.due_date === "string" ? d.due_date : typeof d?.date === "string" ? d.date : null;
+  const x = day(a);
+  const y = day(b);
+  return !x || !y || x === y;
 }
 
 export interface ResolveContext {
@@ -306,10 +317,12 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         return { fail: "bad_date" };
       }
     } else if (flags.has("date_ambiguous") && a.date !== undefined) {
-      // The user picks the right day for a date that could be read two ways.
-      if (typeof a.date !== "string" || !validDay(a.date) || !("date" in detail)) return { fail: "bad_date" };
+      // The user picks the right day for a date that could be read two ways; a promise's day is its due date
+      // ("by last Friday" told on a Tuesday: the 9th or the 2nd; founder K10).
+      if (typeof a.date !== "string" || !validDay(a.date) || !("date" in detail || "due_date" in detail)) return { fail: "bad_date" };
       delete detail.date_end;
-      detail = item.kind === "plan" ? { ...detail, date: a.date } : { ...detail, date: a.date, date_precision: "day" };
+      detail = "due_date" in detail && !("date" in detail) ? { ...detail, due_date: a.date }
+        : item.kind === "plan" ? { ...detail, date: a.date } : { ...detail, date: a.date, date_precision: "day" };
     } else if (a.date !== undefined) {
       return { fail: "bad_answer" };
     }
@@ -445,10 +458,12 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       }
     }
     if (action.type === "new" && !personId.startsWith("new:")) {
-      // The same thing, already remembered for this person, is one memory.
+      // The same thing, already remembered for this person, is one memory: never one told for another day
+      // ("…yesterday" kept for Mon 12, then "…last Friday": the Friday was merged away and Mon 12 shown; K10).
       const twin = ctx.existing.find((m) =>
         m.person_id === personId && m.status === "active" && m.kind === item.kind && m.subject_type === subjectType &&
-        (m.subject_related_id ?? null) === (related?.id ?? null) && fold(m.statement).trim() === fold(statement).trim()
+        (m.subject_related_id ?? null) === (related?.id ?? null) && fold(m.statement).trim() === fold(statement).trim() &&
+        sameDay(m.detail, detail)
       );
       if (twin) action = { type: "merge", target_id: twin.id };
     }

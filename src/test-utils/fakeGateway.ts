@@ -271,7 +271,7 @@ export class FakeGateway implements GatewayTransport {
       existing: this.rows<Record<string, unknown>>("memory_items").filter((m) => m.status === "active").map((m) => ({
         id: String(m.id), person_id: String(m.person_id), kind: String(m.kind), subject_type: String(m.subject_type),
         subject_related_id: (m.subject_related_id as string | null) ?? null, statement: String(m.statement), status: String(m.status),
-        user_state: String(m.user_state),
+        user_state: String(m.user_state), detail: (m.detail as Record<string, unknown> | null) ?? null,
       })),
       // As the gateway's loadRemoved: this capture's lines the user has since removed.
       removed: this.removedFrom(captureId),

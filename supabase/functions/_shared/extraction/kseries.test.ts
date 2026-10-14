@@ -880,3 +880,61 @@ Deno.test("r5 P1-2: someone removed is asked whenever they are named on their ow
   const ownName = run({ ...input("I got the job, and can't wait to tell Ben Kim", [LOO, benKim]), archived: [{ id: "bk-old", display_name: "Ben", full_name: "Ben Kim", nicknames: [] }] }, [userFact("unknown")]);
   eq(ownName.items.map((i) => [i.person_id, i.tier, i.archived_ids]), [[null, "hold", ["bk-old"]]]);
 });
+
+// ─── Founder 13 Oct native pass: K10, no invented dates ─
+
+import { resolveDate } from "./dates.ts";
+
+Deno.test("K10 date matrix (Tue 13 Oct 2026, America/Los_Angeles): grounded days only, precision never raised, two readings flagged", () => {
+  const at = "2026-10-13T19:00:00Z";
+  const cases: [string, "past" | "future", string, string | null, string, boolean][] = [
+    // phrase, direction, date, end, precision, ambiguous (asked)
+    ["yesterday", "past", "2026-10-12", null, "day", false],
+    ["last Friday", "past", "2026-10-09", null, "day", true],
+    ["last Friday", "future", "2026-10-09", null, "day", true],
+    ["this Friday", "future", "2026-10-16", null, "day", false],
+    ["next Friday", "future", "2026-10-23", null, "day", true],
+    ["Friday", "future", "2026-10-16", null, "day", false],
+    ["Friday", "past", "2026-10-09", null, "day", false],
+    ["last Monday", "past", "2026-10-05", null, "day", true],
+    ["tonight", "future", "2026-10-13", null, "day", false],
+    ["tomorrow", "future", "2026-10-14", null, "day", false],
+    ["Oct 9", "past", "2026-10-09", null, "day", false],
+    ["October 9", "past", "2026-10-09", null, "day", false],
+    ["in October", "future", "2026-10-01", "2026-10-31", "month", false],
+    ["in 2026", "future", "2026-01-01", "2026-12-31", "year", false],
+  ];
+  for (const [phrase, dir, date, end, precision, ambiguous] of cases) {
+    const r = resolveDate(phrase, at, "America/Los_Angeles", dir);
+    eq([phrase, dir, r?.date, r?.date_end ?? null, r?.precision, r?.ambiguous], [phrase, dir, date, end, precision, ambiguous]);
+  }
+  // Never Monday 12 Oct for "last Friday", whichever way the model leans.
+  for (const dir of ["past", "future"] as const) eq(resolveDate("last Friday", at, "America/Los_Angeles", dir)?.date !== "2026-10-12", true);
+});
+
+Deno.test("K10: a promise's day that reads two ways can be chosen in review (its due date), and is kept as chosen", () => {
+  const note = "Ben said he'd send me the photos last Friday";
+  const out = run({ ...input(note, [BEN]), capture: { ...input(note, [BEN]).capture, occurred_at: "2026-10-13T19:00:00Z" } },
+    [item({ kind: "promise", person: "p2", person_mention: "Ben", statement: "Ben said he'd send you the photos", evidence: [note], date_text: "last Friday", date_direction: "past" })]);
+  eq(out.items.map((i) => [i.detail.due_date, i.flags.includes("date_ambiguous")]), [["2026-10-09", true]]);
+  const ctx = { note, people: peopleOf([BEN]), related: [], existing: [] };
+  const kept = resolveHeld(out.items.map(asHeld), [{ index: 0, accept: true }], ctx);
+  if ("fail" in kept) throw new Error(kept.fail);
+  eq(kept.items[0].detail.due_date, "2026-10-09");
+  const chosen = resolveHeld(out.items.map(asHeld), [{ index: 0, accept: true, date: "2026-10-02" }], ctx);
+  if ("fail" in chosen) throw new Error(chosen.fail);
+  eq(chosen.items[0].detail.due_date, "2026-10-02");
+});
+
+Deno.test("K10: the same promise told for another day is never merged into the first ('…yesterday', then '…last Friday')", () => {
+  const note = "Ben said he'd send me the photos last Friday";
+  const out = run({ ...input(note, [BEN]), capture: { ...input(note, [BEN]).capture, occurred_at: "2026-10-13T19:00:00Z" } },
+    [item({ kind: "promise", person: "p2", person_mention: "Ben", statement: "Ben said he'd send you the photos", evidence: [note], date_text: "last Friday", date_direction: "past" })]);
+  const existing = [{ id: "m-y", person_id: "ben", kind: "promise", subject_type: "person", subject_related_id: null, statement: "Ben said he'd send you the photos", status: "active", user_state: "unreviewed", detail: { due_date: "2026-10-12" } }];
+  const r = resolveHeld(out.items.map(asHeld), [{ index: 0, accept: true }], { note, people: peopleOf([BEN]), related: [], existing });
+  if ("fail" in r) throw new Error(r.fail);
+  eq(r.items.map((i) => [i.action.type, i.detail.due_date]), [["new", "2026-10-09"]]);
+  const sameDay = resolveHeld(out.items.map(asHeld), [{ index: 0, accept: true }], { note, people: peopleOf([BEN]), related: [], existing: [{ ...existing[0], detail: { due_date: "2026-10-09" } }] });
+  if ("fail" in sameDay) throw new Error(sameDay.fail);
+  eq(sameDay.items.map((i) => i.action.type), ["merge"]);
+});

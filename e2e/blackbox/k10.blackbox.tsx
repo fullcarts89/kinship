@@ -34,5 +34,10 @@ it("K10: '…yesterday' then '…last Friday': what is remembered, and on which 
     .map((m) => [m.statement, m.status, m.deleted_at ? "deleted" : "", m.detail?.due_date ?? null, m.detail?.due_hint ?? null]);
   const ben = (await acct.repos.people.list()).find((p) => p.display_name === "Ben")!;
   await show(r, { screen: "person", id: ben.id });
-  console.log(`K10\n  first review: ${JSON.stringify(first)}\n  second review: ${JSON.stringify(second)}\n  stored: ${JSON.stringify(rows)}\n  Ben's page: ${JSON.stringify(texts(r).filter((t) => /photos|By |Waiting|Oct/u.test(t)))}`);
+  const page = texts(r).filter((t) => /photos|By |Waiting|Oct/u.test(t));
+  console.log(`K10\n  first review: ${JSON.stringify(first)}\n  second review: ${JSON.stringify(second)}\n  stored: ${JSON.stringify(rows)}\n  Ben's page: ${JSON.stringify(page)}`);
+  // What the review promised for "last Friday" is what's kept: Fri 9 Oct, its own line, never merged into Mon 12.
+  expect(second).toContain("Ben · By Fri, Oct 9");
+  const live = rows.filter((x) => x[1] === "active" && !x[2]);
+  expect(live.map((x) => [x[3], x[4]]).sort()).toEqual([["2026-10-09", "last Friday"], ["2026-10-12", "yesterday"]]);
 });

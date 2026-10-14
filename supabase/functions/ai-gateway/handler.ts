@@ -369,6 +369,7 @@ async function resolveReview(
     existing: existing.map((m) => ({
       id: m.id, person_id: m.person_id, kind: m.kind, subject_type: m.subject_type,
       subject_related_id: m.subject_related_id, statement: m.statement, status: m.status, user_state: m.user_state,
+      detail: m.detail ?? null,
     })),
     removed,
   });

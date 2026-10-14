@@ -731,7 +731,8 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
     // Held only for the user's yes: sensitive, or a day that reads two ways.
     const person = input.people.find((p) => p.id === item.person_id);
     const when = whenLabel(item.kind, item.detail ?? {}, input.today);
-    const ambiguousDay = item.flags.includes("date_ambiguous") && typeof item.detail?.date === "string";
+    // A promise's day is its due date: one that reads two ways can be chosen too (founder K10).
+    const ambiguousDay = item.flags.includes("date_ambiguous") && (typeof item.detail?.date === "string" || typeof item.detail?.due_date === "string");
     const sensitive = item.sensitivity !== "none" || item.flags.includes("sensitive") || item.flags.includes("sensitivity_raised");
     needs.push({
       type: "keep",
