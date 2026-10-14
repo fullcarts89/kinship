@@ -6,11 +6,10 @@ import type TestRenderer from "react-test-renderer";
 import { act } from "react-test-renderer";
 import { mount, setUp, settle, show, signedIn, tap, tell, texts, until, unmount, canTap } from "./app";
 import { serverRows } from "./localStack";
+import { k4Run } from "./k4flow";
 import { harness } from "./state";
 
 const live = process.env.LIVE === "1" ? describe : describe.skip;
-const K4 = "Anthony and Sam love ice skating with Chris";
-const K4_PEOPLE = ["Anthony", "Anthony Test", "Sam Eden", "Sam Doughty", "Chris"];
 const K2 = "Ben said he'd send me the photos last Friday";
 const N6 = "I need to call John tonight";
 const K7 = "Chris' dog Fluffy has a vet appointment on Friday";
@@ -54,24 +53,13 @@ async function appState(state: "background" | "active") {
 }
 
 live("LIVE model, through the real app path", () => {
-  for (let n = 1; n <= 10; n++) {
+  // K4 with the live model's own reply each time, every invariant of the checklist asserted (k4flow.ts).
+  for (let n = 1; n <= 12; n++) {
     const run = n % 2 === 1 ? "A" : "B";
     it(`K4 live #${n}, run ${run}`, async () => {
-      const acct = await signedIn();
-      const r = await mount();
-      await setUp(r, K4_PEOPLE);
-      const names = new Map((await acct.repos.people.list()).map((p) => [p.id, p.display_name]));
       const t0 = Date.now();
-      await tell(r, K4);
-      const readingMs = await until(r, (s) => s.some((t) => QUESTION.test(t) || READING.test(t)), "the reading", 120000);
-      const w = await walk(r, run);
-      await settle(800);
-      const card = texts(r).slice(texts(r).findIndex((t) => /^Kept for|^Kept as/u.test(t)));
-      if (canTap(r, "Done")) await tap(r, "Done");
-      await settle(500);
-      await acct.engine.sync();
-      const rows = await saved(acct.userId, names);
-      console.log(`LIVE K4 #${n} run ${run} | reading ${readingMs} ms (${Date.now() - t0} ms total)\n  asked: ${JSON.stringify(w.asked)} loop=${w.loop}\n  choices: ${JSON.stringify(w.choices)}\n  card: ${JSON.stringify(card.slice(0, 12))}\n  saved: ${JSON.stringify(rows)}`);
+      const { asked, card } = await k4Run(run, `live #${n}`, 120000);
+      console.log(`LIVE K4 #${n} run ${run} | ${Date.now() - t0} ms | asked ${JSON.stringify(asked)} | ${card}`);
     });
   }
 
@@ -95,6 +83,11 @@ live("LIVE model, through the real app path", () => {
       await show(r, { screen: "person", id: ben.id });
       const page = texts(r).filter((t) => /photos|Waiting|By |Oct/u.test(t));
       console.log(`LIVE K2 #${n} | reading ${readingMs} ms\n  review: ${JSON.stringify(before.filter((t) => /photos|By |Oct|Remember|Ben/u.test(t)))}\n  asked: ${JSON.stringify(w.asked)}\n  saved: ${JSON.stringify(rows)}\n  Ben's page: ${JSON.stringify(page)}`);
+      // "Last Friday" told on Tue 13 Oct is Fri 9 Oct: never Mon 12 Oct, never a day more precise than said.
+      const photos = rows.filter((m) => /photos/u.test(m.statement));
+      expect(photos.length).toBeGreaterThan(0);
+      expect(photos.map((m) => m.due).filter((d) => d !== null && d !== "2026-10-09")).toEqual([]);
+      expect([...before, ...page].filter((t) => /Oct 12|Mon, Oct 12/u.test(t))).toEqual([]);
     });
   }
 
@@ -132,6 +125,12 @@ live("LIVE model, through the real app path", () => {
         } else log.push(`no Message on the detail: ${JSON.stringify(texts(r))}`);
       }
       console.log(log.join("\n  "));
+      // One truth on Today at every step; the return question within a second of coming back.
+      expect(log.filter((l) => /John/u.test(l) && /quiet=true/u.test(l))).toEqual([]);
+      const askedAt = log.map((l) => l.match(/question (-?\d+) ms after foreground/u)?.[1]).find((x) => x !== undefined);
+      expect(askedAt === undefined ? null : Number(askedAt)).not.toBeNull();
+      expect(Number(askedAt)).toBeGreaterThanOrEqual(0);
+      expect(Number(askedAt)).toBeLessThanOrEqual(1000);
     });
   }
 

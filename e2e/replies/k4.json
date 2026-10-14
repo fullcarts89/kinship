@@ -1283,6 +1283,50 @@
      "mention": "Sam"
     }
    }
+  },
+  {
+   "label": "live 9 (13 Oct evening, 1 of 12 runs)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris goes ice skating with Anthony and Sam, who love skating with him",
+      "evidence": [
+       "Anthony and Sam love ice skating with Chris"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.7,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "interest",
+       "attribute": "ice skating",
+       "value": "with Anthony and Sam",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
   }
  ]
 }
