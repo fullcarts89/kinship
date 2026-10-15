@@ -1,5 +1,23 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 14–15 Oct 2026: the founder's device check failed; next thread.** This supersedes the addenda below where they differ.
+> - **State:**
+>   - `main` = `b9bf364` (PR #26, the reliability gate), with ai-gateway deployed from it on 14 Oct.
+>   - The app built from it (`8a21c5b`, the same files) is on Thor iPhone (iOS 26.6.2).
+>   - Branch `claude/native-pass-14oct` = `main` plus the ledger and summary below; not merged, no PR.
+> - **The founder's check** (`reliability-gate-device-checklist.md`) failed at steps 1, 2, 4, 5, 7 and 8, and stopped at step 10. Logged as K15–K23. **Nothing fixed yet.**
+> - **Read first:** `device-check-14oct-summary.md` (each issue, its cause or candidates, the recommended fix and the order) and the ledger rows K15–K23. K20 is reproduced: a plan-shaped "call John tonight" never reaches Today.
+> - **Agreed testing rule:** no build reaches the founder's phone until every checklist step passes on the simulator, with:
+>   - the live model,
+>   - the founder's exact People (Anthony, Anthony Lopez, Sam Eden, Sam Doughty, Chris, Ben, John),
+>   - data like theirs,
+>   - every reply shape.
+>
+>   That needs N11 first: Xcode 27 builds don't launch on the iOS 27 simulator.
+> - **Harness:** `e2e/README.md`. Colima, the local Supabase stack, `functions serve` and the replay stub may still be running from the last session; `npx jest -c e2e/jest.blackbox.config.js`, `LIVE=1` for live. The model key is in the gitignored `supabase/functions/.env.local`.
+> - **Deploys:** run `supabase functions deploy` from a checkout under the home folder (Colima can't see /tmp). Merging from a session was blocked by the auto-mode check; the founder merges on GitHub.
+> - **Readiness: NOT READY.** H4 and B2 stay stopped.
+
 > **Addendum, 13 Oct 2026, night: the reliability gate (K8–K14).** This supersedes the addenda below where they differ.
 > - **State:** branch `claude/native-pass-13oct`, ahead of `main` (`bc43dfd`); not merged, no PR. Production: ai-gateway v9 (`bc43dfd`), migrations through `20261013090000`.
 > - **On the branch (FIXED, none VERIFIED):** K8, K9 (`ae17ba4`), K10 (`ca48f33`), K11, K13 (`959ecec`), K12, K14 (`6e4e831`), N9, N10 (`512d44c`); so K4, K2 and N6 are FIXED again. N11 is logged (Xcode 27 builds don't launch on iOS 27).
