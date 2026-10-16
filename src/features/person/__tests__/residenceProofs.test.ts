@@ -6,7 +6,7 @@
 // and through the acceptance harness.
 import { voiced } from "@/features/memory/statements";
 import { answersFor, buildReview, type ReviewView } from "@/features/tell/reviewModel";
-import { earlierOf, portraitFor, todayIso } from "@/hooks/useV2";
+import { earlierOf, portraitFor, recordFor, todayIso } from "@/hooks/useV2";
 import { Gateway } from "@/store/gateway";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
@@ -109,7 +109,7 @@ describe("B3: residence semantics through the app", () => {
     await done(w, (await tell(w, "Susan lives in California.", home(w, "Susan lives in California"))).id);
     const t = await tell(w, "Susan lives in Alameda.", home(w, "Susan lives in Alameda"));
     expect(t.review.mode).toBe("card");
-    expect(t.review.lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan lives in Alameda", null]]);
+    expect(t.review.lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan lives in Alameda", []]]);
     await done(w, t.id);
     expect(await lines(w)).toEqual({ current: ["Susan lives in Alameda", "Susan lives in California"], replaced: [], facets: ["Alameda", "California"] });
     const fresh = (await w.repos.people.list()).find((p) => p.id === w.susan.id) as Person;
@@ -121,7 +121,7 @@ describe("B3: residence semantics through the app", () => {
     const w = await world();
     await done(w, (await tell(w, "Susan lives in Alameda.", home(w, "Susan lives in Alameda"))).id);
     const t = await tell(w, "Susan moved to Colorado.", home(w, "Susan moved to Colorado"));
-    expect(t.review.lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan moved to Colorado", "Susan lives in Alameda"]]);
+    expect(t.review.lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan moved to Colorado", ["Susan lives in Alameda"]]]);
     await done(w, t.id);
     expect(await lines(w)).toMatchObject({ current: ["Susan moved to Colorado"], replaced: ["Susan lives in Alameda"] });
     const closer = [...w.server.table("memory_items").values()].find((m) => m.statement === "Susan moved to Colorado")!;
@@ -172,7 +172,7 @@ describe("B3: residence semantics through the app", () => {
     const t = await tell(w, "Susan lives in Pilsen.", (i) => home(w, "Susan lives in Pilsen", {
       action: "supersede", target: i.dossier.find((d) => d.id === illinois.id)?.key ?? null,
     })(i));
-    expect(t.review.lines.map((l) => l.replaces)).toEqual([null]);
+    expect(t.review.lines.map((l) => l.replaces)).toEqual([[]]);
     await done(w, t.id);
     expect((await lines(w)).current).toEqual(["Susan lives in Illinois", "Susan lives in Pilsen"]);
   });
@@ -216,7 +216,7 @@ describe("N13: a line the user edited is read again (brief §5)", () => {
     const w = await world();
     const id = await edited(w);
     const t = await tell(w, "Susan moved to Colorado.", home(w, "Susan moved to Colorado"));
-    expect(t.review.lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan moved to Colorado", "Susan lives in Alameda"]]);
+    expect(t.review.lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan moved to Colorado", ["Susan lives in Alameda"]]]);
     await done(w, t.id);
     expect(await lines(w)).toMatchObject({ current: ["Susan moved to Colorado"], replaced: ["Susan lives in Alameda"] });
     const closer = [...w.server.table("memory_items").values()].find((m) => m.statement === "Susan moved to Colorado")!;
@@ -253,7 +253,7 @@ describe("N14: a bare locality never silently replaces a broader residence", () 
     const t = await tell(w, "Susan lives in Hollywood.", (i) => home(w, "Susan lives in Hollywood", {
       action: "supersede", target: i.dossier.find((d) => d.id === ca.id)?.key ?? null,
     })(i));
-    expect(t.review.lines.map((l) => l.replaces)).toEqual([null]);
+    expect(t.review.lines.map((l) => l.replaces)).toEqual([[]]);
     await done(w, t.id);
     expect(await lines(w)).toMatchObject({ current: ["Susan lives in California", "Susan lives in Hollywood"], replaced: [] });
   });
@@ -272,7 +272,7 @@ describe("N14: a bare locality never silently replaces a broader residence", () 
     const t = await tell(w, "Susan lives in Hollywood.", (i) => home(w, "Susan lives in Hollywood", {
       action: "supersede", target: i.dossier.find((d) => d.id === la.id)?.key ?? null,
     })(i));
-    expect(t.review.lines.map((l) => l.replaces)).toEqual([null]);
+    expect(t.review.lines.map((l) => l.replaces)).toEqual([[]]);
     await done(w, t.id);
     expect(await lines(w)).toMatchObject({ current: ["Susan lives in Hollywood", "Susan lives in Los Angeles"], replaced: [] });
   });
@@ -288,8 +288,97 @@ describe("N14: a bare locality never silently replaces a broader residence", () 
     const w = await world();
     await done(w, (await tell(w, "Susan lives in Alameda.", home(w, "Susan lives in Alameda"))).id);
     const t = await tell(w, "Susan lives in Portland, OR.", home(w, "Susan lives in Portland, OR"));
-    expect(t.review.lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan lives in Portland, OR", "Susan lives in Alameda"]]);
+    expect(t.review.lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan lives in Portland, OR", ["Susan lives in Alameda"]]]);
     await done(w, t.id);
     expect(await lines(w)).toMatchObject({ current: ["Susan lives in Portland, OR"], replaced: ["Susan lives in Alameda"] });
+  });
+});
+
+describe("B4: a note closes every line it can't be true with, and says so (brief §8 rule 2, §10)", () => {
+  /** The user's own edit of a line that keeps its words (the repository's correct(), as the harness does): the line is theirs, its reading stays. */
+  async function editKeepingWords(w: World, statement: string): Promise<MemoryItem> {
+    const line = ((await w.store.list("memory_items")) as MemoryItem[]).find((m) => m.statement === statement)!;
+    await w.repos.memory.correct(line.id, { statement });
+    await w.engine.sync();
+    const after = (await w.store.get("memory_items", line.id)) as MemoryItem;
+    expect(after.user_state).toBe("edited");
+    return after;
+  }
+  const serverLine = (w: World, statement: string) => [...w.server.table("memory_items").values()].find((m) => m.statement === statement)!;
+
+  it("California, Alameda, then 'moved to Colorado': the Kept card says both lines it replaces, and both are closed (res-006)", async () => {
+    const w = await world();
+    await done(w, (await tell(w, "Susan lives in California.", home(w, "Susan lives in California"))).id);
+    await done(w, (await tell(w, "Susan lives in Alameda.", home(w, "Susan lives in Alameda"))).id);
+    const t = await tell(w, "Susan moved to Colorado.", home(w, "Susan moved to Colorado"));
+    expect(t.review.mode).toBe("card");
+    expect(t.review.lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan moved to Colorado", ["Susan lives in Alameda", "Susan lives in California"]]]);
+    await done(w, t.id);
+    expect(await lines(w)).toEqual({
+      current: ["Susan moved to Colorado"], replaced: ["Susan lives in Alameda", "Susan lives in California"], facets: ["Alameda", "California", "Colorado"],
+    });
+    const closer = serverLine(w, "Susan moved to Colorado");
+    expect([closer.supersedes_id, closer.closes_ids, (closer.detail as Record<string, unknown>).transition])
+      .toEqual([serverLine(w, "Susan lives in Alameda").id, [serverLine(w, "Susan lives in California").id], "changed"]);
+    // What Kinship knows keeps everything it replaced traceable (Gate E), in the same order.
+    const fresh = (await w.repos.people.list()).find((p) => p.id === w.susan.id) as Person;
+    const knows = await recordFor(w.repos, fresh.id, new Date(w.server.clock));
+    expect(knows.lines.find((l) => l.line.statement === "Susan moved to Colorado")!.line.replaces).toEqual(["Susan lives in Alameda", "Susan lives in California"]);
+  });
+
+  it("California, an edited Alameda, then 'lives in Colorado': one question; 'Susan moved' replaces both, 'Still there' nothing", async () => {
+    const w = await world();
+    await done(w, (await tell(w, "Susan lives in California.", home(w, "Susan lives in California"))).id);
+    await done(w, (await tell(w, "Susan lives in Alameda.", home(w, "Susan lives in Alameda"))).id);
+    const alameda = await editKeepingWords(w, "Susan lives in Alameda");
+    const t = await tell(w, "Susan lives in Colorado.", home(w, "Susan lives in Colorado"));
+    expect(t.review.questions.map((q) => [q.prompt, q.choices.map((c) => c.label)])).toEqual([["Is Susan still in Alameda?", ["Still there", "Susan moved"]]]);
+    expect((await lines(w)).replaced).toEqual([]);
+    // The answer, then the Kept card: it says both lines the answer replaced.
+    const [q] = t.review.questions;
+    const moved = q.choices.find((c) => c.label === "Susan moved")!;
+    await w.understanding.answer(t.id, answersFor([q], { [q.key]: "answer" in moved ? moved.answer : "skip" })!);
+    await w.understanding.run();
+    await w.engine.sync();
+    expect((await review(w, t.id)).lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan lives in Colorado", ["Susan lives in Alameda", "Susan lives in California"]]]);
+    await done(w, t.id);
+    expect(await lines(w)).toMatchObject({ current: ["Susan lives in Colorado"], replaced: ["Susan lives in Alameda", "Susan lives in California"] });
+    const closer = serverLine(w, "Susan lives in Colorado");
+    expect([closer.supersedes_id, closer.closes_ids, (closer.detail as Record<string, unknown>).transition])
+      .toEqual([alameda.id, [serverLine(w, "Susan lives in California").id], "changed"]);
+
+    const stay = await world();
+    await done(stay, (await tell(stay, "Susan lives in California.", home(stay, "Susan lives in California"))).id);
+    await done(stay, (await tell(stay, "Susan lives in Alameda.", home(stay, "Susan lives in Alameda"))).id);
+    await editKeepingWords(stay, "Susan lives in Alameda");
+    const s = await tell(stay, "Susan lives in Colorado.", home(stay, "Susan lives in Colorado"));
+    await pick(stay, s.id, "Still there");
+    expect(await lines(stay)).toMatchObject({ current: ["Susan lives in Alameda", "Susan lives in California", "Susan lives in Colorado"], replaced: [] });
+    expect(serverLine(stay, "Susan lives in Colorado").closes_ids).toEqual([]);
+  });
+
+  it("an edited California among the closures closes on the user's own cue (§21); the question's answer never reaches a second edited line", async () => {
+    const w = await world();
+    await done(w, (await tell(w, "Susan lives in California.", home(w, "Susan lives in California"))).id);
+    const california = await editKeepingWords(w, "Susan lives in California");
+    await done(w, (await tell(w, "Susan lives in Alameda.", home(w, "Susan lives in Alameda"))).id);
+    const t = await tell(w, "Susan moved to Colorado.", home(w, "Susan moved to Colorado"));
+    expect(t.review.lines.map((l) => l.replaces)).toEqual([["Susan lives in Alameda", "Susan lives in California"]]);
+    await done(w, t.id);
+    expect(await lines(w)).toMatchObject({ current: ["Susan moved to Colorado"], replaced: ["Susan lives in Alameda", "Susan lives in California"] });
+    expect(serverLine(w, "Susan moved to Colorado").closes_ids).toEqual([california.id]);
+
+    // Both edited, no cue: "Susan moved" answers the question about Alameda alone. California, the user's own
+    // words that no question named, stays current (fail open; a choice for the founder's review, brief §23).
+    const both = await world();
+    await done(both, (await tell(both, "Susan lives in California.", home(both, "Susan lives in California"))).id);
+    await editKeepingWords(both, "Susan lives in California");
+    await done(both, (await tell(both, "Susan lives in Alameda.", home(both, "Susan lives in Alameda"))).id);
+    await editKeepingWords(both, "Susan lives in Alameda");
+    const b = await tell(both, "Susan lives in Colorado.", home(both, "Susan lives in Colorado"));
+    expect(b.review.questions.map((q) => q.prompt)).toEqual(["Is Susan still in Alameda?"]);
+    await pick(both, b.id, "Susan moved");
+    expect(await lines(both)).toMatchObject({ current: ["Susan lives in California", "Susan lives in Colorado"], replaced: ["Susan lives in Alameda"] });
+    expect(serverLine(both, "Susan lives in Colorado").closes_ids).toEqual([]);
   });
 });

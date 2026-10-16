@@ -23,7 +23,7 @@
 import { voiced } from "@/features/memory/statements";
 import type { HeldAnswer, HeldItem } from "@/store/gateway";
 import { SWITCHABLE_KINDS, takesDate } from "@/store/memoryDetail";
-import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
+import { closedBy, type MemoryItem, type Person, type RelatedPerson } from "@/store/repositories";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
@@ -79,8 +79,12 @@ export interface ItemLine {
    * anyone it's about now. The correction offers only them (founder I11).
    */
   named?: string[];
-  /** The earlier memory this one updates, in its words ("Sam is interviewing at Stripe"). */
-  replaces: string | null;
+  /**
+   * The earlier memories this one replaced, in their words ("Sam is interviewing
+   * at Stripe"): what it superseded, then every other line it closed with it
+   * (Phase 4B B4). Empty when it replaced nothing.
+   */
+  replaces: string[];
   /** value: the exact day, when there is one (for the date picker). */
   when: { label: string; value: string | null; changeable: boolean } | null;
   kind: {
@@ -315,7 +319,8 @@ export function itemLine(item: MemoryItem, input: Pick<ReviewInput, "people" | "
     also: alsoPeople.map((p) => personLabel(p, input.people)),
     alsoIds: alsoPeople.map((p) => p.id),
     ...(named.length > 1 ? { named } : {}),
-    replaces: typeof item.supersedes_id === "string" ? input.earlier?.[item.supersedes_id] ?? null : null,
+    // Everything it replaced (Gate E; B4: every line a note closed), so the user can say no to any of it.
+    replaces: closedBy(item).map((id) => input.earlier?.[id]).filter((s): s is string => typeof s === "string"),
     // Shown only when there is a time to show (an event without one says so).
     when: when ? { label: when, value: exactDay(item), changeable: takesDate(item.kind) } : null,
     kind: item.kind === "promise"
