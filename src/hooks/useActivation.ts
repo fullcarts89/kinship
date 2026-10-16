@@ -8,7 +8,7 @@
 // is missing something. Copies only ever merge upward (never go back a step).
 import { useCallback, useEffect, useRef } from "react";
 import {
-  firstNameFrom, mergeActivation, parseActivation, sameActivation, withActivated, withStep,
+  firstNameFrom, mergeActivation, parseActivation, sameActivation, withActivated, withBringBack, withStep,
   type Activation, type ActivationStep,
 } from "@/features/setup/activation";
 import { supabase } from "@/lib/supabase";
@@ -37,6 +37,8 @@ export interface ActivationState {
   firstName: string | null;
   record: (step: ActivationStep) => Promise<void>;
   activate: () => Promise<void>;
+  /** "Got it" on how Kinship brings things back, after the first Tell (founder H4). */
+  seeBringBack: () => Promise<void>;
   /** Writes a whole record (the one-time decision for an older account). */
   adopt: (a: Activation) => Promise<void>;
   saveFirstName: (name: string) => Promise<void>;
@@ -89,6 +91,7 @@ export function useActivation(): ActivationState {
     firstName: firstNameFrom(meta) ?? firstNameFrom({ kinship_first_name: q.data?.firstName ?? null }),
     record: (step) => update((a) => withStep(a, step, now())),
     activate: () => update((a) => withActivated(a, now())),
+    seeBringBack: () => update((a) => withBringBack(a, now())),
     adopt: (a) => update((cur) => mergeActivation(cur, a) ?? a),
     saveFirstName: async (name) => {
       const clean = name.normalize("NFC").trim().split(/\s+/u)[0] ?? "";

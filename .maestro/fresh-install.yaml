@@ -98,10 +98,16 @@ appId: com.zenroost.kinship
 - back
 - back
 
-# Today: greets by name; once the first Tell is memory, first use is over
+# Today: greets by name; once the first Tell is memory, first use is over, and Today shows once how Kinship
+# brings things back, with her own first Tell (it has a day to come) (founder H4)
 - tapOn: "Today"
 - assertVisible: "Good (morning|afternoon|evening), Dana."
 - assertNotVisible: "This is where Kinship brings things back."
+- assertVisible: "This is where Kinship brings things back, when they matter."
+- assertVisible: "Maya starts her new job.*"
+- assertVisible: "Did you reach Maya\\?"
+- tapOn: "Got it"
+- assertNotVisible: "This is where Kinship brings things back, when they matter."
 
 # Hand-off from the relationship page (opens Messages; nothing is sent)
 - tapOn: "People"

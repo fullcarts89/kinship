@@ -6,6 +6,7 @@
 > - **Evidence (per row in `bug-ledger.md`):** unit and integration green; black-box replay with the founder's People for every captured shape; live model (K4 ×12, K20 ×8, K23 ×4); **native simulator** on iOS 27 with the live model for every blocker. K20's phone cause was caught live on the simulator: told again the next day, the model merges into yesterday's promise.
 > - **Founder's steps, when they say so:** merge (merge commit), deploy ai-gateway from `main`, build and install (no db push), then `blocker-device-checklist-15oct.md` (four checks, about 5 minutes).
 > - **Simulator tier:** works again since N11; how to build and drive it is in `e2e/README.md`.
+> - **H4 (Phase 4A's last step) is built** on `claude/h4-bring-back` (on top of the blocker branch): once the first Tell is memory, Today shows once how Kinship brings things back, with the user's own first Tell when it has a day to come, else the one example; Got it and it's gone, on every phone. Unit, first-run gate, black-box, and the native simulator (fresh account, live model). Copy beyond the approved headline is a proposal (`approved-design-coverage.md`, "H4"). With it, **Phase 4A is code-complete**; its native check comes with the founder's next build.
 > - **In parallel:** Phase 4B · B2 runs in its own session and branch (`phase4b-b2`), stopping before B3.
 > - **Readiness: NOT READY** until the founder's device check passes.
 

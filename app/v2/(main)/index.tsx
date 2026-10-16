@@ -12,6 +12,7 @@ import { detailFor, quietKey } from "@/features/today/momentDetail";
 import { reachedSomeone } from "@/platform/haptics";
 import { todayIso, usePeople, usePersonFocus, useToday, useTodayActions } from "@/hooks/useV2";
 import { afterSheets } from "@/ui/sheetStack";
+import { useActivation } from "@/hooks/useActivation";
 import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 
 /** The longest Today waits for its first refresh before showing an empty state. */
@@ -27,6 +28,7 @@ export default function TodayScreen() {
   const handoff = useHandoff();
   const people = usePeople();
   const focus = usePersonFocus();
+  const activation = useActivation();
   // The Moment detail (founder I1): which one is open. It's looked up in
   // Today's current view every render, so a retracted or replaced memory
   // closes it rather than leaving it stale.
@@ -126,6 +128,7 @@ export default function TodayScreen() {
         settling={settling}
         onTellFirst={() => flow.focusTell(null)}
         onAddPeople={() => router.push("/v2/people/add")}
+        onBringBackSeen={() => void activation.seeBringBack()}
       />
       <MomentDetailSheet
         detail={detail}

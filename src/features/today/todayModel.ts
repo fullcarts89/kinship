@@ -163,7 +163,20 @@ export interface TodayInput {
   quotes?: (itemId: string) => string[];
   /** Conversations the user confirmed (founder K3: a "Waiting on …" they already acted on doesn't keep asking). */
   contacts?: ContactRow[];
+  /**
+   * When the first Tell became memory, and whether the user has since seen how Kinship brings things back
+   * (founder H4): Today shows it once, right after.
+   */
+  bringBack?: { activatedAt: string | null; seen: boolean };
 }
+
+/**
+ * How Kinship brings things back, shown once after the first Tell (founder H4): with the user's own first
+ * Tell when it has a day still to come, else the one grounded example ("See how it works"'s Ben).
+ */
+export type BringBackView =
+  | { kind: "own"; personId: string; personName: string; statement: string; day: string; when: string }
+  | { kind: "example" };
 
 export interface MomentView {
   reasonId: string;
@@ -249,7 +262,14 @@ export interface TodayView {
   firstUse: { hasPeople: boolean } | null;
   /** The account's data hasn't reached this phone yet: Today shows its paper, never a guess (H9). */
   unknown?: boolean;
+  /** How Kinship brings things back, once, after the first Tell (founder H4). */
+  bringBack?: BringBackView | null;
 }
+
+/** How long after the first Tell Today may still show how Kinship brings things back (H4). */
+const BRING_BACK_DAYS = 3;
+/** The first Tell's own lines: kept within this long of the moment it became memory. */
+const FIRST_TELL_MS = 30 * 60 * 1000;
 
 export const THRESHOLD = 55;
 /** Coming up lines shown before the rest fold into "and N more". */
@@ -656,7 +676,33 @@ export function buildToday(input: TodayInput): TodayView {
     view.quietDay = false;
     view.unknown = true;
   }
+  view.bringBack = input.dataKnown === false ? null : bringBackFor(input, live, activePerson);
   return view;
+}
+
+/**
+ * H4: once the first Tell is memory, Today shows once how Kinship brings things back. The user's own first
+ * Tell is preferred when one of its lines has a day still to come (the soonest); else the example. Never
+ * for an account long in use, and never again after "Got it".
+ */
+function bringBackFor(input: TodayInput, live: (m: MemoryItem | undefined) => m is MemoryItem, activePerson: (id: string) => Person | null): BringBackView | null {
+  const b = input.bringBack;
+  if (!b || b.seen || !b.activatedAt) return null;
+  const at = Date.parse(b.activatedAt);
+  if (!Number.isFinite(at) || input.now.getTime() - at > BRING_BACK_DAYS * 86_400_000) return null;
+  const own = input.items
+    .filter((m) => live(m) && activePerson(m.person_id) && ["event", "plan", "promise", "milestone"].includes(m.kind) &&
+      Math.abs(Date.parse(String(m.created_at ?? "")) - at) <= FIRST_TELL_MS)
+    .map((m) => ({ m, day: m.kind === "promise" ? dueDay(m) : eventDay(m) }))
+    .filter((x): x is { m: MemoryItem; day: string } => !!x.day && daysBetween(input.today, x.day) >= 0)
+    .sort((x, y) => x.day.localeCompare(y.day))[0];
+  if (!own) return { kind: "example" };
+  const p = activePerson(own.m.person_id) as Person;
+  const n = daysBetween(input.today, own.day);
+  // When, said loosely: what comes back and exactly when depends on what it is (Coming up before, a
+  // follow-up after an event, the day itself for what the user means to do), so never a promised day.
+  const when = n === 0 ? "Today" : n === 1 ? "Tomorrow" : n < 7 ? `Around ${WEEKDAYS[new Date(Date.UTC(Number(own.day.slice(0, 4)), Number(own.day.slice(5, 7)) - 1, Number(own.day.slice(8, 10)))).getUTCDay()]}` : `Around ${dayLabel(own.day, input.today)}`;
+  return { kind: "own", personId: p.id, personName: firstName(p), statement: own.m.statement, day: own.day, when };
 }
 
 /**
