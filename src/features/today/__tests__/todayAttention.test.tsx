@@ -29,23 +29,31 @@ it("a quiet day says so, but not while a Kept card is up", () => {
   expect(texts(true)).not.toContain("Nothing needs you today.");
 });
 
-// K19 (founder device check, 14 Oct): after reopening, Today was only "Wednesday, 14 October" and "Good
-// afternoon." while a note's card was up. Today now says where the note is, then shows the result.
-function shown(attention: boolean, telling: "understanding" | "asking" | "done" | null): string[] {
+// K24 (founder, 16 Oct): while a note is being understood, asked about or kept, the Tell dock alone says so.
+// Today never shows a second "Understanding…" as its headline (the K19 headline is gone), and a quiet day's
+// "Nothing needs you today." waits until the note settles; whatever Today really has stays.
+function shown(view: TodayViewModel, attention: boolean): string[] {
   let r!: TestRenderer.ReactTestRenderer;
   act(() => {
     r = TestRenderer.create(
-      <TodayView view={quiet} afterReturn={null} attention={attention} telling={telling} settling={false}
+      <TodayView view={view} afterReturn={null} attention={attention} settling={false}
         onPrimary={noop} onNotNow={noop} onProvenance={noop} onReturn={noop} onRemember={noop} onNothing={noop} onQuiet={noop} />,
     );
   });
   return r.root.findAllByType(Text).map((t) => [t.props.children].flat().join(""));
 }
 
-it("K19: never only a date and a greeting while a note is understood, asked about or kept", () => {
-  expect(shown(true, "understanding")).toEqual(["Tuesday, 6 October", "Good morning.", "Understanding…"]);
-  expect(shown(true, "asking")).toEqual(["Tuesday, 6 October", "Good morning.", "One thing to check."]);
-  expect(shown(true, "done")).toEqual(["Tuesday, 6 October", "Good morning.", "Nothing else needs you today."]);
-  expect(shown(true, null)).toContain("Nothing else needs you today.");
-  expect(shown(false, null)).toEqual(["Tuesday, 6 October", "Good morning.", "Nothing needs you today."]);
+it("K24: a quiet day while a note is read: the date and greeting only, never a headline saying Understanding", () => {
+  expect(shown(quiet, true)).toEqual(["Tuesday, 6 October", "Good morning."]);
+  // Settled: Today recomputes as usual.
+  expect(shown(quiet, false)).toEqual(["Tuesday, 6 October", "Good morning.", "Nothing needs you today."]);
+});
+
+it("K24: with something on Today, it stays while a note is read", () => {
+  const busy: TodayViewModel = {
+    ...quiet, quietDay: false,
+    quiet: [{ kind: "coming", label: "Tomorrow", text: "Call Matt", personId: "matt", itemId: "m", day: "2026-10-07", due: true, hope: null, provenance: null, noteId: null }],
+  };
+  expect(shown(busy, true)).toEqual(["Tuesday, 6 October", "Good morning.", "Tomorrow", "Call Matt"]);
+  expect(shown(busy, true).filter((t) => /Understanding/u.test(t))).toEqual([]);
 });

@@ -17,11 +17,6 @@ export interface TodayViewProps {
    * note just told): Today never says "Nothing needs you today" over it (H19).
    */
   attention?: boolean;
-  /**
-   * Where the note just told is (founder K19): Today says so itself while it's understood or asked about,
-   * then shows the result, so it is never only a date and a greeting.
-   */
-  telling?: "understanding" | "asking" | "done" | null;
   /** After "Yes": the same reason carried on ("Anything worth remembering from congratulating Ben?"). */
   afterReturn: { personId: string; personName: string; followUp?: string } | null;
   onPrimary: () => void;
@@ -74,14 +69,6 @@ export const BRING_BACK_COPY = {
   exampleBack: "It comes back here: “How did it go for Ben?”",
   exampleAsk: "Did you ask Ben how it went?",
   done: "Got it",
-} as const;
-
-/** Today's headline while a note just told is on screen (founder K19): never a bare header. */
-export const TELLING_COPY = {
-  understanding: "Understanding…",
-  asking: "One thing to check.",
-  /** The note's card is up and nothing else is on Today: the quiet day, said beside what was just kept (H19). */
-  done: "Nothing else needs you today.",
 } as const;
 
 export function TodayView(props: TodayViewProps) {
@@ -169,11 +156,10 @@ export function TodayView(props: TodayViewProps) {
         <View style={{ marginTop: space.x4 }}>
           <Display>Nothing needs you today.</Display>
         </View>
-      ) : view.quietDay && !props.afterReturn && props.attention ? (
-        <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
-          <Display>{TELLING_COPY[props.telling ?? "done"]}</Display>
-        </View>
       ) : null}
+      {/* While a note just told is on screen (being understood, asked about or kept), the Tell dock alone
+          says so (founder K24, 16 Oct): Today keeps whatever it really has, never a second "Understanding…",
+          and a quiet day's headline waits until the note settles. */}
 
       {quiet.length ? (
         <View style={{ marginTop: space.x4, borderTopWidth: 1, borderTopColor: p.hairline, paddingTop: space.l, gap: space.l }}>
