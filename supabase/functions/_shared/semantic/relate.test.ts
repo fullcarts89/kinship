@@ -26,6 +26,10 @@ const P = {
   georgiaGE: c("country:GE", "country"),
   georgiaUS: c("region:US.GA", "region", US),
   france: c("country:FR", "country"),
+  hollywoodFL: c("city:7", "city", "region:US.FL", US),
+  portlandOR: c("city:8", "city", "region:US.OR", US),
+  portlandME: c("city:9", "city", "region:US.ME", US),
+  denver: c("city:10", "city", "region:US.CO", US),
 };
 function f(words: string, cands: Candidate[], usual: Candidate | null = cands.length === 1 ? cands[0] : null, pinned: Candidate | null = null): FacetLike {
   return { value_text: words, value_norm: words.toLowerCase(), place_ref: pinned?.ref ?? null, candidates: cands, usual_ref: usual?.ref ?? null };
@@ -45,6 +49,10 @@ const F = {
   france: f("France", [P.france]),
   bayArea: f("the Bay Area", []),
   logan: f("Logan Square", []),
+  hollywood: f("Hollywood", [P.hollywoodFL]),
+  hollywoodFL: f("Hollywood, FL", [P.hollywoodFL], P.hollywoodFL, P.hollywoodFL),
+  portland: f("Portland", [P.portlandOR, P.portlandME], P.portlandOR),
+  denver: f("Denver", [P.denver]),
 };
 const cue = (kind: Cue["kind"], text: string): Cue => ({ kind, start: 0, end: text.length, text });
 const MOVED = [cue("change", "moved to")];
@@ -71,6 +79,31 @@ Deno.test("the B2 finding: a city abroad is AMBIGUOUS, never DISJOINT", () => {
   eq(pairClass(F.pilsen, F.chicago), "AMBIGUOUS");
   eq(pairClass(F.chicago, F.pilsen), "AMBIGUOUS");
   eq(pairClass(F.chicago, F.illinois), "E_CONTAINS_N", "at home, the data is enough");
+});
+
+Deno.test("N14: a bare locality outside a broader residence is AMBIGUOUS, never DISJOINT", () => {
+  // The rule, not one name: any city the user didn't qualify, read outside a region or country Kinship holds.
+  eq(pairClass(F.hollywood, F.california), "AMBIGUOUS", "'Hollywood' next to 'lives in California' (Hollywood, FL in the data)");
+  eq(pairClass(F.portland, F.colorado), "AMBIGUOUS", "'Portland' next to 'lives in Colorado'");
+  eq(pairClass(F.denver, F.california), "AMBIGUOUS", "'Denver' next to 'lives in California'");
+  eq(pairClass(F.chicago, F.texas), "AMBIGUOUS");
+  // The user's own qualifier says which place it is: ordinary DISJOINT.
+  eq(pairClass(F.hollywoodFL, F.california), "DISJOINT", "'Hollywood, FL' is the user's reading");
+  // Unchanged: a region or city replacing a city, a region replacing a region, a city inside the region.
+  eq(pairClass(F.colorado, F.alameda), "DISJOINT", "Alameda → 'lives in Colorado' replaces Alameda");
+  eq(pairClass(F.oakland, F.alameda), "DISJOINT", "city for city");
+  eq(pairClass(F.colorado, F.california), "DISJOINT", "region for region");
+  eq(pairClass(F.denver, F.colorado), "E_CONTAINS_N");
+  eq(pairClass(F.pilsen, F.illinois), "AMBIGUOUS", "Pilsen stays as it was");
+  // So: no cue, two lines (California isn't closed); a change, one question; "not California", corrected.
+  const ca = line("ca", F.california);
+  eq(relateResidence({ facet: F.hollywood, cues: [] }, [ca], null), { outcome: "NEW" });
+  const asked = relateResidence({ facet: F.hollywood, cues: MOVED }, [ca], null);
+  eq(asked.outcome === "CONFLICT" ? [asked.asks.id, asked.closes, asked.stay] : asked, ["ca", ["ca"], "facet"]);
+  const notCA = [cue("not", "not California")];
+  eq(relateResidence({ facet: F.hollywood, cues: notCA }, [ca], null), { outcome: "SUPERSEDES", closes: ["ca"], transition: "corrected", cue: notCA[0] });
+  eq(relateResidence({ facet: F.hollywoodFL, cues: [] }, [ca], null), { outcome: "SUPERSEDES", closes: ["ca"], transition: null, cue: null });
+  eq(relateResidence({ facet: F.colorado, cues: [] }, [line("al", F.alameda)], null), { outcome: "SUPERSEDES", closes: ["al"], transition: null, cue: null });
 });
 
 Deno.test("the decision table, class by cue (§8)", () => {

@@ -21,6 +21,7 @@ import { resolveHeld, type HeldItem as ResolveHeldItem } from "../../supabase/fu
 import type { ExtractionInput, ModelProposal } from "../../supabase/functions/_shared/extraction/types";
 import type { PlaceIndex } from "../../supabase/functions/_shared/semantic/placeIndex";
 import { residenceEligible } from "../../supabase/functions/_shared/semantic/residence";
+import { type LineToRead, rederive } from "../../supabase/functions/_shared/semantic/rederive";
 
 export interface ScriptedItem {
   kind: string;
@@ -105,6 +106,8 @@ export class FakeGateway implements GatewayTransport {
     };
     // As the gateway loads them: each person with the words their own lines use for them (founder I12).
     const people = withLineNames(this.rows<PersonRow>("people"), this.rows<{ person_mentions?: unknown }>("memory_items"));
+    // The safety net (§5): a line that lost its reading to an edit nobody reported is read again first.
+    if (this.places) this.reread(this.rows<{ id: string }>("memory_items").map((m) => m.id));
     const facets = this.places ? this.rows<FacetRow>("memory_item_facets") : [];
     const input = {
       ...buildInput(capture, people, this.rows<RelatedRow>("related_people"), this.rows<ItemRow>("memory_items"), facets),
@@ -115,7 +118,7 @@ export class FakeGateway implements GatewayTransport {
   }
 
   async post(body: Record<string, unknown>): Promise<TransportReply> {
-    const kind = body.action === "close_review" ? "close" : body.action === "resolve_review" ? "answer" : "understand";
+    const kind = body.action === "close_review" ? "close" : body.action === "resolve_review" ? "answer" : body.action === "rederive" ? "rederive" : "understand";
     this.calls.push(kind);
     this.onCall?.();
     if (this.pause) await this.pause;
@@ -139,7 +142,12 @@ export class FakeGateway implements GatewayTransport {
 
   // ─── The gateway's behaviour ──────────────────────────────────────────
 
-  private handle(kind: "close" | "answer" | "understand", body: Record<string, unknown>): TransportReply {
+  private handle(kind: "close" | "answer" | "understand" | "rederive", body: Record<string, unknown>): TransportReply {
+    if (kind === "rederive") {
+      const ids = (body.input_ref as Record<string, unknown> | undefined)?.memory_item_ids;
+      if (!Array.isArray(ids) || ids.length === 0 || ids.length > 20) return refuse(400, "invalid_request");
+      return ok({ status: "rederived", results: this.reread(ids as string[]) });
+    }
     const captureId = String((body.input_ref as Record<string, unknown> | undefined)?.capture_id ?? "");
     if (kind === "close") {
       const capture = this.capture(captureId);
@@ -335,6 +343,37 @@ export class FakeGateway implements GatewayTransport {
       flags: it.flags ?? [],
       spans: [{ start, end: start + Array.from(it.quote).length, quote }],
     };
+  }
+
+  /**
+   * Re-derivation (rederive.ts, as the gateway runs it) and write_facets' re-checks: of these lines, each that
+   * had a residence reading and has none now is read again from the user's own words. Per line, the result.
+   */
+  readonly rereads: string[] = [];
+  private reread(ids: string[]): { id: string; result: string }[] {
+    if (!this.places) return [];
+    const facets = [...this.server.table("memory_item_facets").values()].filter((f) => f.user_id === this.userId);
+    const out: { id: string; result: string }[] = [];
+    for (const itemId of ids) {
+      const mine = facets.filter((f) => f.memory_item_id === itemId && f.slot === "residence");
+      if (!mine.length || mine.some((f) => !f.deleted_at)) continue;
+      const m = this.server.table("memory_items").get(itemId);
+      if (!m || m.user_id !== this.userId || m.deleted_at || m.status === "retracted") continue;
+      const quotes = [...this.server.table("memory_item_sources").values()]
+        .filter((q) => q.memory_item_id === itemId && !q.deleted_at && typeof q.quote === "string").map((q) => String(q.quote));
+      const w = rederive(m as unknown as LineToRead, quotes, this.places);
+      const f = w?.facets[0];
+      if (!w || !f) continue;
+      const own = ["edited", "user_authored"].includes(String(m.user_state)) ? String(m.statement).includes(f.value_text) : quotes.some((q) => q.includes(f.value_text));
+      if (!own) {
+        out.push({ id: itemId, result: "dropped" });
+        continue;
+      }
+      this.rereads.push(itemId);
+      this.server.serverWrite("memory_item_facets", id("b"), this.userId, { memory_item_id: itemId, ...f, deleted_at: null });
+      out.push({ id: itemId, result: "written" });
+    }
+    return out;
   }
 
   /**

@@ -35,6 +35,15 @@
 // therefore AMBIGUOUS, never DISJOINT: two lines without a cue, one question
 // with a change. Proposed in docs (brief §22); the founder decides.
 //
+// The same holds at home (founder, 16 Oct, N14): a bare city the user didn't
+// qualify, read outside a broader residence (a region or country), is
+// AMBIGUOUS too. "Hollywood" next to "lives in California" reads as
+// Hollywood, Florida, and may be the Hollywood in Los Angeles: without a cue
+// both lines stay; with a change the user is asked ("Is Susan still in
+// California?"); "Hollywood, FL" is the user's own reading and replaces
+// California as any DISJOINT pair does. A city replacing a city, or a region
+// replacing a city ("Alameda" → "lives in Colorado"), is unchanged.
+//
 // Pure: no I/O, no model.
 
 import type { Candidate } from "./placeIndex.ts";
@@ -103,6 +112,16 @@ function countryOf(c: Candidate): string {
   return c.level === "country" ? c.ref : c.ancestors.find((a) => a.startsWith("country:")) ?? c.ref;
 }
 
+/**
+ * N is read as a city the user didn't qualify, and E as a region or country
+ * that doesn't contain it (founder, N14). The place data has cities and no
+ * neighbourhoods, so a bare locality can always be a part of somewhere else
+ * that shares its name; only the user's own qualifier says which it is.
+ */
+export function localityUnderBroader(n: FacetLike, un: Candidate, ue: Candidate): boolean {
+  return un.level === "city" && ue.level !== "city" && !n.place_ref && !contains(ue, un);
+}
+
 /** The pair's class, from the readings only (brief §8). */
 export function pairClass(n: FacetLike, e: FacetLike): PairClass {
   if (n.value_norm === e.value_norm) return "SAME";
@@ -119,6 +138,10 @@ export function pairClass(n: FacetLike, e: FacetLike): PairClass {
     if (other) return "AMBIGUOUS";
     // A city abroad may be a neighbourhood the data doesn't know (B2 finding: "Pilsen").
     if (countryOf(un) !== countryOf(ue) && (un.level === "city" || ue.level === "city")) return "AMBIGUOUS";
+    // A bare locality outside a broader residence (founder, N14: "Hollywood" next to "California"): the
+    // data has no neighbourhoods, so it can't say the words mean that city and not a part of E. Only the
+    // user's own qualifier ("Hollywood, FL", place_ref) establishes it.
+    if (localityUnderBroader(n, un, ue)) return "AMBIGUOUS";
     return "DISJOINT";
   }
   // No usual reading on one side: containment only when every pairing agrees.

@@ -34,6 +34,7 @@ import type { Certainty, Kind, ModelProposal, PlannedItem, ProposedItem, Subject
 import { shortName } from "../../supabase/functions/_shared/extraction/names.ts";
 import { type FacetLike, pairClass, usualReading } from "../../supabase/functions/_shared/semantic/relate.ts";
 import { residenceEligible } from "../../supabase/functions/_shared/semantic/residence.ts";
+import { rederive } from "../../supabase/functions/_shared/semantic/rederive.ts";
 import { residenceQuestion } from "../../supabase/functions/_shared/semantic/questions.ts";
 
 // ─── The corpus ───────────────────────────────────────────────────────────────
@@ -74,7 +75,15 @@ interface MoveStep {
   correct_person: { step: number; to: string };
   expect: Record<string, never>;
 }
-type Step = NoteStep | UndoStep | MoveStep;
+/**
+ * The user edits a line's words (What Kinship knows): its reading is tombstoned at once (the B2 trigger) and,
+ * when the app reports the edit (the default), read again (§5, N13). Unreported, the next Tell reads it.
+ */
+interface EditStep {
+  edit: { step: number; statement: string; report?: boolean };
+  expect: { facet?: boolean; value_text?: string };
+}
+type Step = NoteStep | UndoStep | MoveStep | EditStep;
 interface Page {
   current?: string[];
   history?: string[];
@@ -101,7 +110,6 @@ const PLACES = placeIndex();
 const DEFERRED: Record<string, string> = {
   "res-006#3:closes": "B4 (closes_ids): the most specific line (Alameda) closes now; California closes with it in B4",
   "res-006#3:contradiction": "B4 (closes_ids): until then California stays current beside Colorado, as before B3",
-  "res-018:pages": "re-derivation after an edit (§5) is not in B3: a line moved to someone else has no reading until it ships",
 };
 
 // ─── A small database, with write_extraction's rules ─────────────────────────
@@ -121,6 +129,7 @@ interface Row {
   supersedes_id: string | null;
   with_person_ids: string[];
   deleted: boolean;
+  version: number;
   /** The notes (steps) it has a source in. */
   steps: number[];
   tick: number;
@@ -133,6 +142,8 @@ interface Source {
   item: string;
   step: number;
   quote: string;
+  /** A user_edit source: the words are the line's own, as the user edited it. */
+  edit?: true;
 }
 
 class World {
@@ -166,6 +177,8 @@ class World {
 
   input(step: number, note: string) {
     const live = this.rows.filter((r) => !r.deleted && (r.status === "active" || r.status === "resolved"));
+    // The safety net (§5): a line here that lost its reading and has none now is read again first.
+    for (const r of live) if (!this.liveFacet(r.id) && this.facets.some((f) => f.item === r.id)) this.reread(r.id);
     const items: ItemRow[] = live.map((r) => ({
       id: r.id, person_id: r.person_id, kind: r.kind as ItemRow["kind"], subject_type: r.subject_type as ItemRow["subject_type"],
       subject_related_id: r.subject_related_id, statement: r.statement, certainty: r.certainty as ItemRow["certainty"], status: r.status,
@@ -210,7 +223,7 @@ class World {
         id, person_id: it.person_id!, kind: it.kind, subject_type: it.subject_type, subject_related_id: relatedId,
         statement: it.statement, certainty: it.certainty, sensitivity: it.sensitivity, status: "active", user_state: "unreviewed",
         detail: { ...it.detail }, supersedes_id: action === "supersede" ? target!.id : null, with_person_ids: it.with_person_ids ?? [],
-        deleted: false, steps: [], tick: ++this.tick,
+        deleted: false, version: 1, steps: [], tick: ++this.tick,
       });
       if (action === "supersede") target!.status = "superseded";
       const facet = (it.facets ?? []).find((f) => f.slot === "residence");
@@ -267,11 +280,41 @@ class World {
     }
   }
 
-  /** I13: the line moves to someone else; its reading is tombstoned at once (the B2 trigger). */
+  /**
+   * I13: the line moves to someone else, and names them (the app's correction: an edit); its reading is
+   * tombstoned at once (the B2 trigger), and the app reports the edit (§5).
+   */
   move(id: string, to: string): void {
     const r = this.row(id)!;
+    const from = this.people.find((p) => p.id === r.person_id)?.display_name;
     r.person_id = this.personId(to);
+    this.edit(id, from ? r.statement.replace(from, to) : r.statement, true, 0);
+  }
+
+  /** The user's edit (MemoryRepo.correct): the words change, the line is edited, its reading is tombstoned. */
+  edit(id: string, statement: string, report: boolean, step: number): void {
+    const r = this.row(id)!;
+    r.statement = statement;
+    r.user_state = "edited";
+    r.version++;
+    // Its user_edit source: the line's words are now the user's own (provenance).
+    this.sources.push({ item: id, step, quote: statement, edit: true });
     for (const f of this.facets) if (f.item === id) f.live = false;
+    if (report) this.reread(id);
+  }
+
+  /** Re-derivation (rederive.ts, as the gateway runs it) and write_facets' re-checks (20261015090000). */
+  reread(id: string): void {
+    const r = this.row(id)!;
+    if (r.deleted || this.liveFacet(id) || !this.facets.some((f) => f.item === id)) return;
+    const quotes = this.sources.filter((s) => s.item === id && !s.edit).map((s) => s.quote);
+    const w = rederive({ ...r, with_person_ids: r.with_person_ids }, quotes, PLACES);
+    const facet = w?.facets[0];
+    if (!w || w.version !== r.version || !facet || !residenceEligible(r)) return;
+    const own = r.user_state === "edited" || r.user_state === "user_authored"
+      ? r.statement.includes(facet.value_text)
+      : quotes.some((q) => q.includes(facet.value_text));
+    if (own) this.facets.push({ ...facet, item: id, live: true });
   }
 
   /** The current residence lines of one person and subject (active, with a live reading). */
@@ -397,6 +440,16 @@ function run(f: Fixture): Result {
       w.move(w.wrote.get(step.correct_person.step)!, step.correct_person.to);
       return;
     }
+    if ("edit" in step) {
+      const id = w.wrote.get(step.edit.step)!;
+      w.edit(id, step.edit.statement, step.edit.report ?? true, at);
+      const facet = w.liveFacet(id);
+      if (step.expect.facet !== undefined && !!facet !== step.expect.facet) fail(`${tag}: after the edit, facet ${!!facet}, expected ${step.expect.facet}`);
+      if (step.expect.value_text !== undefined && facet?.value_text !== step.expect.value_text) {
+        fail(`${tag}: after the edit, words ${facet?.value_text}, expected ${step.expect.value_text}`);
+      }
+      return;
+    }
     w.notes.set(at, step.note);
     const input = w.input(at, step.note);
     const outcome = planExtraction(input, proposal(f, step, w, input));
@@ -475,7 +528,9 @@ function run(f: Fixture): Result {
       const cur = w.current(p.id);
       for (let i = 0; i < cur.length; i++) {
         for (let j = i + 1; j < cur.length; j++) {
-          if (pairClass(w.liveFacet(cur[i].id)!, w.liveFacet(cur[j].id)!) === "DISJOINT") {
+          // Both ways: a pair is a contradiction only when neither reading could hold with the other (N14 is one-way).
+          const [a, b] = [w.liveFacet(cur[i].id)!, w.liveFacet(cur[j].id)!];
+          if (pairClass(a, b) === "DISJOINT" && pairClass(b, a) === "DISJOINT") {
             metric("temporal_contradiction", `${tag}: ${cur[i].statement} / ${cur[j].statement}`, `${tag}:contradiction`);
           }
         }

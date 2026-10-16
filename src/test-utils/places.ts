@@ -13,6 +13,7 @@ const PLACES = {
     rows: [
       ["region:CZ.87", "Plzeň Region", "Plzen Region", "country:CZ"], ["region:US.CA", "California", "California", "country:US"],
       ["region:US.CO", "Colorado", "Colorado", "country:US"], ["region:US.IL", "Illinois", "Illinois", "country:US"],
+      ["region:US.FL", "Florida", "Florida", "country:US"],
     ],
   },
   cities: {
@@ -23,6 +24,7 @@ const PLACES = {
       ["city:5322737", "Alameda", "Alameda", "region:US.CA", "country:US", 78630],
       ["city:5378538", "Oakland", "Oakland", "region:US.CA", "country:US", 419267],
       ["city:5419384", "Denver", "Denver", "region:US.CO", "country:US", 729019],
+      ["city:4158928", "Hollywood", "Hollywood", "region:US.FL", "country:US", 149728],
     ],
   },
   aliases: { columns: ["alias", "ref"], rows: [["CA", "region:US.CA"]] },

@@ -1,0 +1,130 @@
+{
+ "note": "Chris' dog Fluffy has a vet appointment on Tuesday",
+ "derived_from": "k7.json, word for word with Tuesday for Friday (N15, 16 Oct): the removal suite's note never names the run's own weekday",
+ "variants": [
+  {
+   "label": "hand: event on Chris",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "event",
+      "person": "@Chris",
+      "person_mention": "Chris'",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris' dog Fluffy has a vet appointment on Tuesday",
+      "evidence": [
+       "Chris' dog Fluffy has a vet appointment on Tuesday"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": "Tuesday",
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": "medical",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "live 1 (13 Oct, 1 of the runs)",
+   "output": {
+    "items": [
+     {
+      "kind": "event",
+      "person": "@Chris",
+      "person_mention": "Chris'",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris' dog Fluffy has a vet appointment on Tuesday",
+      "evidence": [
+       "Chris' dog Fluffy has a vet appointment on Tuesday"
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "Tuesday",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "medical",
+       "event_goal": "",
+       "category": "",
+       "attribute": "",
+       "value": "",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Chris",
+      "person_mention": "Chris'",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Chris has a dog named Fluffy",
+      "evidence": [
+       "Chris' dog Fluffy"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "pet",
+       "attribute": "dog",
+       "value": "Fluffy",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

@@ -3,6 +3,7 @@
 import type { StructuredRequest, StructuredResult } from "../_shared/ai/model.ts";
 import type { FacetRow, ItemRow } from "../_shared/extraction/context.ts";
 import type { PlaceIndex } from "../_shared/semantic/placeIndex.ts";
+import type { FacetWrite, LineToRead } from "../_shared/semantic/rederive.ts";
 import { placeIndex } from "../_shared/semantic/places/dataset.ts";
 import type { ResolvedItem } from "../_shared/extraction/resolve.ts";
 import {
@@ -50,6 +51,8 @@ interface World {
   releases: string[];
   logs: CallLog[];
   quota: number;
+  /** write_facets calls (Phase 4B B3 re-derivation), and when they ran relative to the extraction's write. */
+  facetWrites: { items: FacetWrite[]; beforeWrite: boolean }[];
 }
 
 function world(opts: {
@@ -72,8 +75,15 @@ function world(opts: {
   /** Residence readings of those lines (Phase 4B B3); null: they couldn't be read. */
   facets?: FacetRow[] | null;
   places?: PlaceIndex;
+  /** Lines that had a reading and lost it (loadUnread answers for the ids asked). */
+  unread?: { line: LineToRead; quotes: string[] }[];
+  /** write_facets' answer per line; default written. */
+  facetResult?: string;
 } = {}): World {
-  const w: World = { modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, deps: undefined as unknown as GatewayDeps };
+  const w: World = {
+    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [],
+    deps: undefined as unknown as GatewayDeps,
+  };
   const caller: GatewayCaller = {
     userId: "u1",
     hasConsent: () => Promise.resolve(opts.consent ?? true),
@@ -92,6 +102,7 @@ function world(opts: {
     }),
     loadItems: (ids, o) => Promise.resolve((opts.items ?? []).filter((m) => ids.includes(m.person_id) || (!!o?.shared && (m.with_person_ids ?? []).some((x) => ids.includes(x))))),
     loadRemoved: () => Promise.resolve(opts.removed ?? []),
+    loadUnread: (ids) => Promise.resolve((opts.unread ?? []).filter((u) => ids.includes(u.line.id))),
     loadFacets: (ids) => Promise.resolve(opts.facets === null ? null : (opts.facets ?? []).filter((f) => ids.includes(f.memory_item_id))),
     loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
     closeReview: (id) => {
@@ -109,6 +120,10 @@ function world(opts: {
       if (opts.writeThrows) return Promise.reject(new Error("write failed (23503)"));
       w.writes.push({ needsReview, items, version, review });
       return Promise.resolve(items.map((_, i) => ({ id: `item-${i}`, action: "new" })));
+    },
+    writeFacets: (_u, items) => {
+      w.facetWrites.push({ items, beforeWrite: w.writes.length === 0 });
+      return Promise.resolve(items.map((i) => ({ id: i.memory_item_id, result: opts.facetResult ?? "written" })));
     },
     log: (row) => {
       if (opts.logThrows) return Promise.reject(new Error("log down"));
@@ -578,4 +593,70 @@ Deno.test("B3: readings that can't be read, or no place data: the note is unders
   const none = home("Susan moved to Colorado.", { places: undefined });
   await call(none, post(extract));
   eq(none.writes[0].items[0].facets, undefined);
+});
+
+// ─── Re-derivation after an edit (Phase 4B B3; brief §5, N13) ────────────────
+
+// "Susan lives in California", read as California, then edited by the user to "Susan lives in Alameda": the
+// B2 trigger tombstoned the reading, so the line has none until it is read again.
+const EDITED_LINE: ItemRow = { ...ALAMEDA_LINE, id: "item-edited", user_state: "edited" };
+const EDITED_UNREAD = {
+  line: {
+    id: "item-edited", version: 2, kind: "fact", subject_type: "person", certainty: "stated", sensitivity: "none", with_person_ids: [],
+    statement: "Susan lives in Alameda", user_state: "edited",
+  },
+  quotes: ["Susan lives in California"],
+};
+const rederiveBody = (ids: unknown) => ({ action: "rederive", input_ref: { memory_item_ids: ids } });
+
+Deno.test("N13: an edit, reported, is read again from the user's own words: owner only, no consent, model or quota", async () => {
+  const w = world({ consent: false, flag: false, people: SUSAN, places: placeIndex(), unread: [EDITED_UNREAD] });
+  eq((await call(w, post(rederiveBody(["item-edited"]), null))).status, 401);
+  for (const bad of [[], "item-edited", ["not-a-uuid"], Array.from({ length: 21 }, () => crypto.randomUUID())]) {
+    eq((await call(w, post(rederiveBody(bad)))).status, 400, JSON.stringify(bad));
+  }
+  const id = "0b5e6c1e-7d5f-4a43-9b2f-3a0d2f6c1e01";
+  const ok = world({ consent: false, flag: false, people: SUSAN, places: placeIndex(), unread: [{ ...EDITED_UNREAD, line: { ...EDITED_UNREAD.line, id } }] });
+  const { status, body } = await call(ok, post(rederiveBody([id, id])));
+  eq([status, body], [200, { status: "rederived", results: [{ id, result: "written" }] }], "content-free");
+  const [write] = ok.facetWrites[0].items;
+  eq([write.memory_item_id, write.version, write.facets[0].value_text, write.facets[0].usual_ref, write.facets[0].decided_by],
+    [id, 2, "Alameda", "city:5322737", "rule"], "the edited words, never the note's California");
+  eq([ok.modelCalls.length, ok.quota, ok.logs.length], [0, 0, 0]);
+  // Words that no longer say where she lives: nothing written; the line stays without a reading.
+  const plain = world({ people: SUSAN, places: placeIndex(), unread: [{ ...EDITED_UNREAD, line: { ...EDITED_UNREAD.line, id, statement: "Susan loves Alameda" } }] });
+  eq((await call(plain, post(rederiveBody([id])))).body, { status: "rederived", results: [] });
+  eq(plain.facetWrites, []);
+  // No place data: nothing to read with.
+  const none = world({ people: SUSAN, unread: [EDITED_UNREAD] });
+  eq((await call(none, post(rederiveBody([id])))).body, { status: "rederived", results: [] });
+});
+
+Deno.test("N13: the next Tell reads an edited line again first, so 'moved to Colorado' closes the edited Alameda as a change", async () => {
+  const w = home("Susan moved to Colorado.", { items: [EDITED_LINE], facets: [], unread: [EDITED_UNREAD] });
+  eq((await call(w, post(extract))).status, 200);
+  eq(w.facetWrites.map((f) => [f.beforeWrite, f.items[0].memory_item_id, f.items[0].facets[0].value_text]), [[true, "item-edited", "Alameda"]]);
+  const [it] = w.writes[0].items;
+  eq([it.action, it.detail.transition, it.cue], [{ type: "supersede", target_id: "item-edited" }, "changed", { start: 6, end: 14 }]);
+});
+
+Deno.test("N13: after the safety net, a bare 'lives in Colorado' asks about the edited Alameda, and 'Actually … not Alameda' corrects it", async () => {
+  const bare = home("Susan lives in Colorado.", { items: [EDITED_LINE], facets: [], unread: [EDITED_UNREAD] });
+  const { body } = await call(bare, post(extract));
+  eq([body.held.length, body.held[0].still_in], [1, { target_id: "item-edited", words: "Alameda", stay: "words" }]);
+  eq(bare.writes[0].items, [], "never a silent replacement of the user's own words");
+  const note = "Actually Susan lives in Colorado, not Alameda.";
+  const corrected = home(note, {
+    items: [EDITED_LINE], facets: [], unread: [EDITED_UNREAD],
+    model: { output: { ...homeProposal("Susan lives in Colorado"), items: [{ ...homeProposal("Susan lives in Colorado").items[0], evidence: ["Susan lives in Colorado, not Alameda"] }] } },
+  });
+  await call(corrected, post(extract));
+  const [it] = corrected.writes[0].items;
+  eq([it.action, it.detail.transition], [{ type: "supersede", target_id: "item-edited" }, "corrected"], "never history");
+});
+
+Deno.test("N13: a reading the database refused is never used: the edited line stays as it is (fail open)", async () => {
+  const w = home("Susan moved to Colorado.", { items: [EDITED_LINE], facets: [], unread: [EDITED_UNREAD], facetResult: "dropped" });
+  await call(w, post(extract));
+  eq(w.writes[0].items[0].action.type, "new");
 });

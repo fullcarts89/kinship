@@ -24,12 +24,21 @@
 //                   transaction; consent and the flag still apply, because
 //                   the answer turns an AI reading into memory
 //   close_review    "not now" for everything held: only the signed-in owner
+//
+// And one that is model-free (Phase 4B B3; brief §5):
+//   rederive        the app reports that the user changed lines: each that had a
+//                   residence reading and lost it is read again from the user's
+//                   own words (rederive.ts) and written by write_facets. No
+//                   processor is involved, so it needs no AI consent, flag or
+//                   quota; only the signed-in owner. The next Tell about that
+//                   person does the same for any such line (the safety net)
 
 import { bearerToken } from "../_shared/auth.ts";
 import type { ModelCaller, StructuredResult } from "../_shared/ai/model.ts";
 import { type Capability, CAPABILITIES } from "../_shared/ai/registry.ts";
 import { buildInput, type CaptureRow, dossierPeople, type FacetRow, type ItemRow, type PersonRow, type RelatedRow } from "../_shared/extraction/context.ts";
 import type { PlaceIndex } from "../_shared/semantic/placeIndex.ts";
+import { type FacetWrite, type LineToRead, MAX_REREAD, rederive } from "../_shared/semantic/rederive.ts";
 import { needsAcceptance } from "../_shared/extraction/acceptance.ts";
 import { type HeldAnswer, type HeldItem, resolveHeld, type ResolvedItem } from "../_shared/extraction/resolve.ts";
 import { type PersonMention, storableMention } from "../_shared/extraction/names.ts";
@@ -48,6 +57,11 @@ export interface GatewayCaller {
   loadItems(personIds: string[], opts?: { shared?: boolean }): Promise<ItemRow[]>;
   /** Under the caller's RLS: the live residence readings of these lines (Phase 4B B3); null when they couldn't be read. */
   loadFacets(itemIds: string[]): Promise<FacetRow[] | null>;
+  /**
+   * Under the caller's RLS: those of these lines that had a residence reading and have none now (Phase 4B
+   * B3, re-derivation), live and not retracted, each with the quotes of its live sources. At most MAX_REREAD.
+   */
+  loadUnread(itemIds: string[]): Promise<{ line: LineToRead; quotes: string[] }[]>;
   /** Under the caller's RLS: lines this capture wrote that the user has since removed (reviewer A, 13 Oct). */
   loadRemoved(captureId: string): Promise<{ person_id: string; statement: string }[]>;
   /** Under the caller's RLS: the held items and question still waiting on this capture (C-2). */
@@ -131,6 +145,8 @@ export interface ServiceOps {
     review: PendingReview | null,
   ): Promise<{ id: string; action: string }[]>;
   log(row: CallLog): Promise<void>;
+  /** write_facets: readings re-checked against the database, per line written / unchanged / dropped. */
+  writeFacets(userId: string, items: FacetWrite[]): Promise<{ id: string; result: string }[]>;
   /** The answered review, written and closed in one transaction (resolve_capture_review). */
   resolve(
     userId: string,
@@ -189,6 +205,15 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
         const closed = await caller.closeReview(captureId);
         return json({ status: closed ? "closed" : "nothing_waiting" }, 200, cors);
       }
+      // An edit, reported: read the line's residence again (model-free; the owner only).
+      if (body?.action === "rederive") {
+        const ids = (body.input_ref as Record<string, unknown> | undefined)?.memory_item_ids;
+        if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_REREAD || !ids.every((id) => typeof id === "string" && UUID.test(id))) {
+          return json({ error: "invalid_request" }, 400, cors);
+        }
+        const results = deps.places ? await reread(deps.places, deps.service, caller, [...new Set(ids as string[])]) : [];
+        return json({ status: "rederived", results: results.map(({ id, result }) => ({ id, result })) }, 200, cors);
+      }
       if (!(await caller.hasConsent(deps.consentVersion))) return json({ error: "consent_required" }, 403, cors);
       if (!body) return json({ error: "invalid_request" }, 400, cors);
       const cap = caps[String(body.capability ?? "relationship_extract")];
@@ -230,6 +255,13 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
       // note is understood without residence (never as though none of those lines had a reading).
       const facets = deps.places && items.length ? await caller.loadFacets(items.map((i) => i.id)) : [];
       const places = facets ? deps.places : undefined;
+      // The safety net (§5): a line here that lost its reading to an edit the app never reported is read
+      // again first, so the note relates to what the line says now. Unread, it stays without (fail open).
+      if (facets && deps.places) {
+        const live = new Set(facets.map((f) => f.memory_item_id));
+        const unread = items.map((i) => i.id).filter((id) => !live.has(id));
+        if (unread.length) facets.push(...(await reread(deps.places, deps.service, caller, unread).catch(() => [])).flatMap((r) => r.facet));
+      }
       const input = { ...buildInput(capture, people, related, items, facets ?? []), ...(places ? { places } : {}) };
       const run = await runExtraction(input, cap, deps.model);
       const version = `${cap.promptVersion}+${cap.model}`;
@@ -348,6 +380,37 @@ function present(i: PlannedItem) {
     ...(i.cue ? { cue: i.cue } : {}),
     ...(i.still_in ? { still_in: i.still_in } : {}),
   };
+}
+
+/**
+ * Re-derivation (§5): of these lines, each that had a residence reading and lost it is read again from the
+ * user's own words and written by write_facets, which re-checks it. Returns each line's result, and the
+ * reading as the dossier holds it for the lines whose reading is now live.
+ */
+async function reread(
+  places: PlaceIndex,
+  service: ServiceOps,
+  caller: GatewayCaller,
+  itemIds: string[],
+): Promise<{ id: string; result: string; facet: FacetRow[] }[]> {
+  const lines = await caller.loadUnread(itemIds.slice(0, 200));
+  const writes = lines.slice(0, MAX_REREAD).map(({ line, quotes }) => rederive(line, quotes, places)).filter((w): w is FacetWrite => !!w);
+  if (!writes.length) return [];
+  const written = await service.writeFacets(caller.userId, writes);
+  return writes.map((w) => {
+    const result = written.find((r) => r.id === w.memory_item_id)?.result ?? "dropped";
+    const f = w.facets[0];
+    return {
+      id: w.memory_item_id,
+      result,
+      facet: result === "written" || result === "unchanged"
+        ? [{
+          memory_item_id: w.memory_item_id, slot: f.slot, value_text: f.value_text, value_norm: f.value_norm, place_ref: f.place_ref,
+          candidates: f.candidates, usual_ref: f.usual_ref,
+        }]
+        : [],
+    };
+  });
 }
 
 /** The user's answer to what was held: checked, written and closed, no model call. */
