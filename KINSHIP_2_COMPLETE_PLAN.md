@@ -203,6 +203,8 @@ Everything else serves that, or waits.
 
 **Challenging the default classification:** proactive push is required, not optional. A beta without push measures app-opening habits, which is the engagement metric the product rejects. Calendar briefs are *not* required: they're the second loop, and the first loop must work without a calendar.
 
+> **CC-25 (16 Oct 2026).** The minimum above is restated as *the smallest coherent Kinship*: Tell · Understand · Memory · Today · Delivery · Trust. Delivery is the minimal version (the Moment Today already chose, one private push within D4's caps), committed **next**, before broader Alpha; the household dogfood may run its first round without it. Export, deletion and Remembered / Paused block broader Alpha, not the household dogfood. Ask, Intentions, chapters, calendar, Siri, voice, share, Landscape, reflection, subscriptions and growth are multipliers. Monthly reflection is downgraded to later validation; the widget is held. See §28 and [Part 2](#part-2--founder-decisions) CC-25.
+
 ---
 
 ### 5. Relationship-memory domain model
@@ -620,6 +622,8 @@ score = base_weight(type)
       × (1 + 0.15 · quiet_stretch)   ← only for reconnect and plan types, and only when a real reason exists
 ```
 
+> **CC-25:** the quiet-stretch multiplier and the reconnect and plan rows that depend on it are **held, not built**. Quietness is never the reason to contact someone and never visible. Confirmed interaction patterns may become one private timing input only if later evidence justifies it and the founder approves. The memory-native candidates come first: promise and open thread **next**, hard time in Alpha.
+
 **Inputs never used:** elapsed time alone, number of items or captures per person, relationship label as importance, how often the user opens the app, or any cross-person comparison.
 
 **Selection:** the top candidate becomes the primary moment if `score ≥ 55`. Up to two secondary lines come from different people, and only from these types: birthday-tomorrow, year-ago, review, upcoming-this-week. If nothing reaches 55, Today shows "Nothing needs you today." That is a valid, designed state, not an empty state to fill.
@@ -675,6 +679,8 @@ The channel list comes from the person's device contact (via `contact_ref`), rea
 
 ### 16. Pre-interaction briefs
 
+> **CC-25 working interpretation:** a brief is likely Moment detail for a planned encounter, with the calendar as one more evidence source, rather than a separate Brief product. Explore later. The approved Brief board stays INTENTIONALLY DEFERRED (D6); any change to its form needs founder approval in `approved-design-coverage.md`.
+
 **Decision: Next, not V1.** Ship them in the first release after the core loop passes its beta gate (§30).
 
 - **Why not V1:** they add the calendar permission, attendee-to-person resolution, a second notification class and a second loop. The first loop has to prove itself without them. They are also the most "sales-prep"-shaped feature and need careful copy.
@@ -697,6 +703,8 @@ After: 2–3 h after event end, Today asks "How was dinner with David?" (in-app 
 ---
 
 ### 17. Reconnect
+
+> **CC-25:** not a separate system. Working interpretation: a Today candidate type, possibly gated by an explicit Intention and a real reason. The rhythm computation below is **held under the rhythm rule** (never a judgment of the relationship, never neglect, never visible, never the reason; possibly a private timing input later, on evidence and with the founder's approval). Explore later.
 
 **Next, not V1.** It needs two things at once:
 
@@ -846,6 +854,8 @@ The full component, engine and dependency list is in [Part 5](#part-5--deletion-
 
 ### 21. Native capture surfaces
 
+> **CC-25:** capture where life happens, in this order: Siri / Action Button (Alpha direction), then a simple on-device mic in Tell, then a text share extension (both explore later). The full Listening screen is questioned before implementation (it remains an approved, deferred board surface). The widget is held unless evidence changes.
+
 | Surface | User value | Effort | Native code | Privacy risk | Platform constraint | Offline | Test burden | Recommendation |
 |---|---|---|---|---|---|---|---|---|
 | **Voice (in-app Tell)** | Very high: 15-second capture after dinner | M (1–1.5 wk) | Yes: `expo-speech-recognition` (SFSpeechRecognizer) via config plugin; dev build (already in `eas.json`) | Low if `requiresOnDeviceRecognition: true`; high if a server fallback exists | On-device needs iOS 17+ for this module path and a supported locale/device (`supportsOnDeviceRecognition()` at runtime); iOS 26 `SpeechAnalyzer` is on-device by design but needs a custom module and per-locale model download | Works offline when on-device | Medium: devices × locales matrix | **V1-beta (week 3 of beta, flag `voice_capture`)**, on-device required, typing offered when unavailable. Spike `SpeechAnalyzer` for iOS 26 as a Next upgrade |
@@ -858,6 +868,8 @@ The full component, engine and dependency list is in [Part 5](#part-5--deletion-
 ---
 
 ### 22. Notifications and background intelligence
+
+> **CC-25:** the first delivery is deliberately small: the primary Moment Today already selected, as one private notification, with D4's caps as the ceiling, quiet hours, back-off, a global pause, and permission asked only after a genuinely useful Moment. Sensitive and hard-time content is always private on the lock screen. Never engagement optimization, streaks, "come back to Kinship" or an inactivity reason. The tiers, the weekly brief (later, a Sunday delivery form of Today) and the full planner below come afterwards, by evidence.
 
 Kinship must work while it is closed. All of this is server-side, on `pg_cron` + `pgmq` + edge functions + the Expo Push Service (APNs underneath).
 
@@ -917,6 +929,8 @@ Tool choice: PostHog (EU or US cloud) with IP capture off, autocapture off and s
 ---
 
 ### 24. Metrics
+
+> **CC-25:** the smallest internal measurement of showing-up moments is committed **next**, around the wife dogfood. It is an internal product metric only: never a user-facing dashboard, count, frequency, score or "people neglected", and content-free under F0-D4.
 
 #### The North Star: a *showing-up moment*
 
@@ -1075,13 +1089,25 @@ The domain code shared between the app and Deno lives in `packages/domain/` (pla
 
 ### 28. Build sequence
 
-> **Current sequence (founder, CC-18, 7 Oct 2026):** Gate 0 Final Trust Closure → Phase 4 UX Hardening & Relationship Loop Completion → wife dogfood → Alpha (with Ask Kinship as the first Alpha candidate). The "Phase 4: Alpha" row below now comes after the wife dogfood. See `KINSHIP_2_DECISIONS.md` CC-18 and `docs/product/HANDOFF.md`.
+> **Current sequence (founder, CC-18, 7 Oct 2026):** Gate 0 Final Trust Closure → Phase 4 UX Hardening & Relationship Loop Completion → wife dogfood → Alpha (with Ask Kinship as the first Alpha candidate). The "Phase 4: Alpha" row below now comes after the wife dogfood. See [Part 2](#part-2--founder-decisions) CC-18 and `docs/product/HANDOFF.md`.
 >
 > **Status (founder, CC-19, 8 Oct 2026):** Gate 0 is **closed**. Phase 4 has started:
 > - **4A**, UX and the loop: I4, I6, I1, H16, I2, H4.
 > - **4B**, semantic memory for H15. Residence comes first, as derived facets in Postgres with deterministic composition; there is no knowledge graph and no embeddings. Its schema work waits for the founder's review of `docs/product/phase4-implementation-brief.md`.
 >
-> See `KINSHIP_2_DECISIONS.md` CC-19.
+> See [Part 2](#part-2--founder-decisions) CC-19.
+
+> **The roadmap after Phase 4 (founder, CC-25, 16 Oct 2026).** Capture and memory are infrastructure; the return, the showing-up moment, is the product value. *Once Kinship can remember well, the roadmap priority shifts from making memory more sophisticated to proving that memory changes what happens between real people.* Phase 4B's order is unchanged. After B9 and the employer evaluation the roadmap pivots to return value, and no semantic slot is added unless an Ask / retrieval failure or another concrete need pulls it. The buckets below govern sequencing after Phase 4; the phase table further down is the original plan, kept for history and for the backend order it still describes. Full text: [Part 2](#part-2--founder-decisions) CC-25.
+>
+> | Bucket | Items |
+> |---|---|
+> | **A. Committed / current** | B4 → B5 → B6 (stop for the founder) → B7 → B8 → B9 → employer semantics evaluation → low-coaching wife dogfood |
+> | **B. Commit next** | Internal showing-up measurement (never user-facing); promise reasons (RSN-06); open-thread reasons (RSN-07); minimal proactive push (the Moment Today already chose, one private notification, D4 caps as the ceiling, pause, permission after a useful Moment); the trust floor before broader Alpha (Remembered / Paused, export, delete-account v2, safe duplicate merge) |
+> | **C. Alpha direction** | Grounded Ask (v1 search over statements with sources, then bounded synthesis only if needed; Ask and `retrieval_answer` are one capability); hard-time reasons (RSN-09) once delivery and privacy are proven; I2b for surfaced plans; reason feedback ("Not helpful" mutes a kind of reason for a person for a bounded period); Siri / Action Button; required Alpha trust and ops work |
+> | **D. Explore later** | Intentions v0 (a user-authored sentence used as a relevance signal); chapters / life groups (user-named, many-to-many, a People filter); calendar as an evidence source; reconnect as a Today candidate; About You in Settings; year-ago and an occasional or yearly reflection; a dock mic / voice; a text share extension; the Landscape / Garden checkpoint; the Opportunity Engine's external-event experiment; subscriptions and pricing; growth systems |
+> | **E. Hold / drop / absorb** | Rhythm as a user-facing or neglect mechanism; a separate reconnect engine; a separate Brief product; monthly reporting by default; About You as a primary destination; the widget; semantic slots ahead of Ask evidence; `reason_generate` unless copy problems emerge; a general chatbot; a task manager; scores; timeline-heavy CRM UI; Garden vitality and growth mechanics |
+>
+> **The standing test:** *does this strengthen the smallest coherent Kinship (Tell · Understand · Memory · Today · Delivery · Trust), or is it trying to create another product inside Kinship?*
 
 The design direction's order starts with the look (tokens → sprig → Tell). The audit's order starts with trust. The dependencies say: trust and schema first, then **one vertical slice through everything**, then breadth. Visual language ships *with* the first surfaces, never as a separate reskin. The Garden never blocks validation.
 
@@ -1360,6 +1386,8 @@ None of the three concepts is implemented until that checkpoint is reviewed.
 ### 35. Post-validation product hypotheses: Intentions and the Opportunity Engine
 
 *Added 2 October 2026 at Thor's direction. These are future product hypotheses. They are not part of Phase 1, the vertical slice or V1, and must not inflate them. Like the Relationship Landscape (§34), they are explored only after the core loop is validated.*
+
+> **CC-25:** Intentions v0 is preferred in its lightest form, something the user tells Kinship ("I want to make more space for Chris this fall"), used as an explicit relevance signal; no dashboards, progress, streaks, overdue states or goals Kinship imposes. LATER ALPHA, after the ordinary Moment loop proves value. The Opportunity Engine is likely Today's candidates and ranking plus explicit Intentions; external event data is a later, separate experiment.
 
 #### Intentions (user-directed relationship focus)
 
@@ -1920,6 +1948,747 @@ All 2.0 flags stay **off** by default. Internal and developer overrides (`user_f
 - **Operational invariant (OPS-1):** the Supabase GitHub integration's production branch is `main` and only `main`. Every schema change reaches production through a reviewed, CI-protected PR merged to `main`, and never from a working branch or by hand.
 - Before pushing migration files from any new environment or integration, check where that integration deploys.
 
+---
+
+## Checkpoint C review decisions (4 Oct 2026)
+
+The founder approved the Checkpoint C architecture (`docs/phase1/checkpoint-c-ai-verification.md`). Checkpoint C is **not complete**: no full model evaluation has run, PR #13 stays a draft, `ai_extraction` stays OFF, and Checkpoint D is not authorized. Paid evaluation is staged, and the founder authorizes each stage: (1) a small live smoke set on Opus 5.5 at low effort, (2) the full corpus on Opus 5.5 at low effort, (3) only after that passes, the cross-model comparison.
+
+### CC-1. Refusal fallback (C-1): APPROVED, fallbacks OFF
+If the primary model refuses a capture for `relationship_extract`, the raw capture is preserved, no memory is created, it is never sent to an unevaluated fallback model, and the product fails quietly. A fallback model may be enabled only after it has passed this capability's eval suite on its own. Trust before availability.
+
+### CC-2. Held items (C-2): APPROVED WITH AN AMENDMENT, now implemented
+Items that need clarification, have an ambiguous person or subject, need a new person, or carry other high-risk uncertainty never become `memory_items` until the user resolves them. The **pending-review state is durable**:
+- It is not memory.
+- It keeps the proposed interpretation, the question and its options, and provenance.
+- It survives a restart, and reopening it never triggers a new model run.
+- It is cleared when the item is resolved, when the source capture is deleted or its text purged, or after 30 days.
+
+Implemented as `capture_reviews` (migration `20261004100000`). The answer-to-memory write and the client sheet are later work.
+
+### CC-3. Minimal roster (C-3): STRONGLY APPROVED
+The model sees only the people a note plausibly concerns:
+- people it names;
+- people reached through a named relative;
+- the page's person;
+- likely family references.
+
+For each, it sees only what resolution needs. No phone numbers, emails, postal addresses, full contact lists or unrelated dossiers are sent. Recall is never bought with broader context.
+
+### CC-4. Date policy (C-4): APPROVED WITH AN AMBIGUITY RULE
+Dates stay deterministic. The model identifies the date words and code resolves them from the capture's time and time zone.
+
+- **Clearly unambiguous** expressions resolve automatically: "October 19", "tomorrow", "Sunday, October 11".
+- **Plausibly ambiguous** expressions keep the preferred candidate date but always require confirmation, and keep the user's words (`date_hint`):
+  - "next/last <weekday>";
+  - "next weekend";
+  - "this weekend" said during a weekend;
+  - a bare weekday equal to today;
+  - a weekday that contradicts its date;
+  - day/month order.
+
+The model is never the final arbiter of date ambiguity.
+
+### CC-5. AI usage logging (C-5): APPROVED
+`ai_calls` stays content-free. It has no `user_id` and records no text, names, statements, identifying labels, prompts, outputs, or capture, person or memory ids. Operational metadata only. Per-user quota stays in `ai_usage`. Investigating a reported bad result uses the durable capture or item records, which already carry the model, prompt and extraction version.
+
+### CC-6. Delete-after-extraction (C-6): BEHAVIOUR APPROVED, PROMISE MUST BE TRUTHFUL
+Kinship may delete the full note once it is understood and reviewed, keeping only the excerpts that support provenance. User-facing copy must not imply that nothing is retained. The meaning to convey: "Delete full notes after understanding. Kinship keeps only the excerpts needed to show where remembered details came from." A stronger mode that also removes excerpts ("Original source deleted") is future work and not required for V1.
+
+### CC-7. Language scope
+Relationship understanding is initially optimized and evaluated for **English**. Kinship does not claim equivalent multilingual quality. Non-English notes may fail toward silence, which is acceptable. Incorrect memory is not acceptable. Each future language needs its own fixtures for relations, certainty, subject, sensitivity and dates.
+
+### CC-8. Oracle results are not model results
+The oracle eval proves fixture coherence, grader behaviour, the guards and shared production/eval code. It does not measure model accuracy, latency or cost, is never described as a model metric, and never justifies enabling `ai_extraction`.
+
+---
+
+## Checkpoint C closeout decisions (4 Oct 2026)
+
+The founder reviewed the C.1 report and closed Checkpoint C. The founder labelled these decisions C-1 to C-5 in the closeout instructions; they are numbered CC-9 to CC-13 here so they don't collide with the earlier C-1 to C-6.
+
+### CC-9. Checkpoint C: APPROVED and CLOSED
+The extraction architecture and the Opus 5.5 low-effort baseline are approved.
+
+**Final record:**
+- code `66e15dd`;
+- prompt `relationship_extract/v5`;
+- eval `extraction-v2.3`;
+- corpus SHA-256 `7f9ca9348e02c8f6ac8a2a9dd4f47b36ff708034af48dee16e567043fb8fc291`.
+
+**The final run met every gate:**
+- every hard trust gate held;
+- wrong subject 0 on the ambiguity set;
+- C-4 100%;
+- every dated item resolved right, none lost and none silently wrong;
+- no threshold lowered.
+
+Checkpoint C is not reopened to chase perfect benchmark scores.
+
+### CC-10. core-083: ACCEPTED as a known, non-blocking issue
+In "I told Chrissy I'd help her move on the 24th", the model's promise began "Promised to…". The invented-name guard treats a first word that isn't in the note as suspicious, so it dropped the promise: one missed promise, nothing false saved.
+
+- **The guard is not loosened for this case.** core-083 stays in the corpus as a regression and known-issue fixture.
+- A future, narrow deterministic improvement may be considered only if it is shown to keep the same trust guarantees.
+- No paid run is needed for it now.
+
+### CC-11. Milestone vs event expectations: harmonize in the next corpus revision
+date-063 and date-136 (marathons) were filed as milestones with their time kept correctly and nothing invented. A completed achievement or first may legitimately be a milestone under the approved temporal model.
+
+Their expectations are aligned with that model in the next normal corpus revision. No paid run is spent on this alone.
+
+### CC-12. Confirmation friction (~52%) moves to Checkpoint D
+The confirmation policy is **not** changed at closeout. It becomes a product and UX calibration question, decided on evidence from D's content-free instrumentation.
+
+**Candidates for lower friction:**
+- clear coarse dates;
+- mid-confidence but strongly grounded items;
+- unambiguous single-person pronouns.
+
+**Always conservative:** sensitive information, true ambiguity, protected-memory conflicts and other trust-critical cases.
+
+### CC-13. Opus 5.5 low effort stays the initial extraction model
+No benchmarking of, or switch to, Sonnet, Haiku, DeepSeek, Mistral, Qwen or another open-weight model during this work. Alternatives are revisited after real product behaviour exists.
+
+### CC-14. PR #13 size and eval-artifact retention: APPROVED after audit
+The 400k-line diff was 97.7% pretty-printed raw eval output: 8.8 MB, 0.8 MB packed. See `docs/phase1/pr13-repository-size-audit.md`.
+
+- **Raw outputs of paid runs** are committed gzipped.
+- **In the tree:** only the approved baseline and the final smoke run. CI replays the approved baseline on every push.
+- **Superseded runs** stay byte-for-byte in git history at `673fd24`, which is reachable from `main` through the merge commit.
+- **Index:** `evals/results/RUNS.md` records every paid run's commit, prompt, eval version, corpus, model, result, cost and SHA-256.
+
+PR #13 merges with a merge commit, per repository policy.
+
+### CC-15. Checkpoint D1 authorized: Tell → Understand → Review → Memory
+This is conditional on the PR #13 merge gates, the deploy with `ai_extraction` OFF, and repository/deployed parity.
+
+**In scope:**
+- the C-2 resolve action;
+- the review and clarification surface;
+- correction and provenance;
+- content-free confirmation-friction instrumentation;
+- offline and restart behaviour;
+- gated internal dogfood, only through the existing per-account flag mechanism.
+
+**Out of scope until founder review:** Today, reasons, Garden, Intentions, Landscape and the Opportunity Engine.
+
+### CC-16. Core Trust Closure pass: founder direction on round-three feedback (6 Oct 2026)
+From the founder's "Core Trust Closure + Return Loop Pass" brief.
+
+- **Ask Kinship (`retrieval_answer`, E25 / ASK-01)** moves forward on the roadmap. It becomes a post-wife-dogfood / Alpha candidate, not "Next" after everything. It is not built in this pass. When built, it must:
+  - answer only from stored memory, with sources;
+  - say `not_found` rather than guess;
+  - never become a chat.
+- **Milestones (H16)** may support grounded Today reasons. Kinship never interrogates for missing fields (no "when is the wedding? where?"). An eligibility proposal is in `docs/product/next-ux-proposals.md`.
+- **Portrait unchanged (H15/H2).** Lately · Coming up · You said you'd · Between you. A reorganised **What Kinship knows** (Into · Hoping to · Background · Their people · Between you) is design only until approved.
+- **Bring back in first use (H4)** goes to the next UX/onboarding hardening phase. The acceptance criteria are written; no onboarding redesign now.
+- **Dogfood feedback (H6/H7).** "Got it right / Not quite" is stored on the note for review. Real failures become fixtures only after consent, manual review and de-identification (`docs/product/dogfood-feedback-to-evals.md`).
+- **Master bug ledger.** `docs/product/bug-ledger.md` is the canonical quality ledger. VERIFIED means founder-reproduced on a physical iPhone, nothing less.
+
+### CC-17. Next-UX approvals and dogfood telemetry (6 Oct 2026)
+The founder's review of `docs/product/next-ux-proposals.md`. These are approved for the **next UX phase**. None are built yet.
+
+- **H15/H2 What Kinship knows, sections: APPROVED with two changes.** The Portrait stays "what matters now"; What Kinship knows becomes organised durable memory.
+  - **"Hoping to" is semantic, not a bucket for every plan.** A line goes there only when its source expresses aspiration or desire, or it carries an `event_goal`. Ordinary plans stay neutral: either under a plainer umbrella such as "Plans & hopes", or elsewhere. The final label is decided at build.
+  - **Their people** lives in What Kinship knows, **not** on the Portrait: no mini family tree on the main page. Whether pets belong under that label is open ("People & pets" or another plain alternative).
+  - Unchanged and approved: Into · Background · Between you; empty sections disappear; no counts or completeness; newest first without ranking; a source on every line; no goal tracking.
+- **H16 Milestones as Today reasons: APPROVED.**
+  - **V1 list:** engagement, wedding, new job, promotion, baby, graduation, new home, retirement, move.
+  - **Timing:** an upcoming milestone with a known day is *eligible* within 3 days before, and on the day. Eligibility is not a guarantee: Today's existing priority logic decides whether it takes one of the limited slots, and it is never surfaced every day.
+  - **Unknown dates:** a milestone with an unknown date stays remembered. Kinship never asks for missing fields.
+  - **Anchor rule:** a reason may include someone not yet in People (Natalia keeps her name in "Anthony and Natalia's wedding is Saturday"), but at least one participant must be an established person. No Moments about events involving only untracked people.
+- **H4 Bring back in first use: APPROVED** for onboarding hardening, with the written constraints: one example, at most one extra screen, no carousel, no decorative motion, leads into Today.
+  - Preference, not a requirement: if the user's real first Tell creates an eligible future Moment, show that instead of the canned Ben example ("You just told Kinship this → here's how something like that comes back"). Fall back to the example otherwise, and drop the preference if it complicates onboarding substantially.
+- **H3 Ask Kinship: APPROVED as roadmap movement only.** The sequence is: Core trust → UX hardening / wife dogfood → **grounded Ask Kinship as an Alpha candidate**. It is not implemented now.
+  - Requirements as written: answers from memory only, with sources; "I don't know" when memory doesn't support an answer; its own grounding, refusal and privacy evals; never a general chatbot.
+  - Better People search is useful but is not a substitute: "Find John" and "What is John into?" are different jobs.
+- **H22 "August": no change; monitor.** The possible boundary rule is recorded but **not** locked as product behaviour. Wait for real examples of users disliking the interpretation.
+- These approved extensions (H15/H2, H16, H4) are entered in `approved-design-coverage.md`.
+- **Dogfood telemetry (N4): ENABLED in `dogfood-v2` only**, scoped to content-free performance and reliability telemetry. It covers the complete Tell lifecycle (Send → visible result, split into sync, gateway round trip, server, network and render where distinguishable), lifecycle failures, retries, timeouts and JavaScript-thread stalls (freeze investigation).
+  - Never sent: Tell text, memory text, names, contacts, relationship content, source content or location.
+  - Kept separate from "Got it right / Not quite", which is never sent in this scope.
+  - Fields and retention are documented in `docs/ops/analytics.md`. This must be re-reviewed before enabling anywhere outside dogfood.
+
+### CC-18. Round-4 decisions and the next build plan (7 Oct 2026)
+From the founder's review of the round-4 findings (`docs/product/founder-feedback-summary-4.md`). Where this conflicts with CC-16 or CC-17, this is newer.
+
+#### Gate 0 decisions (trust)
+- **I12 rename: option A.**
+  - Displayed memory text uses the person's **current** display name wherever the structured memory references that person. Prefer structured person references over loose string replacement.
+  - The original Tell and the stored interpretation are not rewritten. Source keeps the original words ("Wifey").
+  - Full chosen names and nicknames are kept in titles: "What Kinship knows about Cutie Pie", not "…Cutie".
+- **I13 is different from I12.** When the user corrects the *subject* from the wrong person to the right one, the displayed statement must stop naming the wrong person. The original wording is kept as prior / corrected history under the provenance rules (H30).
+- **I11 multi-person.** Correction may choose several people when the memory is genuinely shared. Ambiguity flows must **not** become a generic People multi-select form. *Kinship proposes what it can know; the user decides only what Kinship genuinely cannot know.*
+
+#### Phase 4 decisions (UX)
+- **I1 Moment detail: approved.** *Tap a reason → see the reason. Tap a person → see the person.*
+  - A Today / Coming up Moment opens a focused surface: the grounded reason or memory, why now, timing, Source, and human actions (Message / Call).
+  - "View Ben" is secondary. It deep-links to the relevant memory on the relationship page with brief, quiet emphasis.
+  - Not a generic, field-heavy detail page.
+- **I2 interaction history: approved. Not a CRM communication log.** It is a lightweight trail under **Between you**, built on *know it → infer it → ask it*:
+  - **Known channel:** a Message launched from a Moment plus **Yes** records "You messaged · Oct 6 · About getting together this weekend". It never asks "How did you connect?".
+  - **Inferred:** a grounded plan ("Did you end up playing games with Ben and Susan?") plus **Yes** may record an in-person interaction / game night.
+  - **Unknown:** a manual Add interaction gives one tap of **Message · Call · Video · In person**.
+  - **Keep three things separate:** interaction **type** (message, call, video, in person); **reason** (promotion, weekend plans…); **shared experience** (game night, dinner, a hike; these are contextual memories). The type picker never grows an activity taxonomy.
+  - **Provenance:** every durable interaction record has one — a confirmed hand-off, an explicit return answer, a manual entry, or another legitimate source.
+  - **Never:** counts, streaks, "last contacted", frequency pressure, relationship health, or ranking.
+  - **"Anything worth remembering?"** becomes optional and non-blocking. It shows after meaningful interactions and is omitted after routine logistics.
+  - **Target:** completing the loop usually takes **one tap** after the real-world action, and **two** only when Kinship genuinely lacks information.
+- **I4 Kept confirmation hierarchy: approved.**
+  - The order is:
+    1. what was kept;
+    2. something needing attention (e.g. "Pedro isn't in People yet. Add him so this can appear on his page too." **[Add Pedro] [Not now]**);
+    3. correction (**Correct this · Undo**);
+    4. dogfood feedback (**Did Kinship get this right? Got it right · Not quite**).
+  - "Add Pedro" is a real accessible control. Remove "Tap a line to correct it."
+  - Still Quiet Herbarium; no dashboard or card-stack feel.
+- **I6 keyboard: approved.**
+  - Native Done / dismiss accessory.
+  - Interactive drag-down dismissal.
+  - Today / People navigable with the keyboard open.
+  - Unsent draft preserved.
+  - Never needing to tap blank space or content to dismiss.
+  - **Bottom navigation stays.** Do not move primary navigation to the top. Any bottom-chrome change while editing is solved locally.
+- **H15/H2 What Kinship knows** (CC-17 confirmed, with refinements):
+  - "Hoping to" / aspirational wording only when the source expresses hope, desire, a goal or aspiration. Ordinary plans get neutral treatment.
+  - "Their people" lives in the reference view, not the portrait. If pets are included, the final label must read naturally.
+  - Empty sections disappear. No completeness, counts, rankings, goal tracking, checkboxes or CRM fields.
+  - Source and correction on every line.
+  - **I7 folds in:** meaningful superseded facts remain as clearly-past Background ("Previously interviewed with Box · Ended Oct 6"). They are never presented as current alongside the current state. A declined sensitive outcome stays out; only the allowed less-sensitive history is kept.
+- **H16 milestones:** confirmed as CC-17.
+  - The vocabulary is engagement, wedding, new job, promotion, baby, graduation, new home, retirement, move.
+  - Recognise, don't interrogate.
+  - A grounded date is eligible about 3 days before and on the day; Today priority decides, with no repetition just because it is eligible.
+  - No date: remember it, never ask.
+  - Anchored to at least one established person.
+- **H4 Bring back in first use:** confirmed as CC-17.
+  - Acceptance test: a new user can explain what Today is for without coaching.
+- **H3 Ask Kinship:** roadmap only (post-wife-dogfood / Alpha candidate). **H22:** no work; monitor.
+
+#### Telemetry
+- Content-free dogfood performance and reliability telemetry is **approved and already enabled** in `dogfood-v2` (PR #19; fields in `docs/ops/analytics.md`). Explicit "Got it right / Not quite" stays separate from passive telemetry.
+- **Approved additions, not built (carry into Gate 0):**
+  - time from Send to "Understanding…" visible;
+  - whether the app went to the background while a Tell was processing;
+  - coarse build version and platform for debugging.
+  
+  This reverses the earlier "no app version" line for the dogfood scope only.
+- Record retention and sampling before any non-dogfood rollout.
+
+#### Build plan
+The plan moves out of repeated broad stabilization:
+1. **Gate 0 — Final Trust Closure:**
+   - P0: I8, I10 (+ H13), I13, I12A;
+   - with it: I5, I9, I11, I3, I12b check, and the telemetry additions.
+   - Then a **short targeted** founder native gate, not another broad exploratory cycle.
+   - Old F/G items need not all become VERIFIED before UX work unless they block trust or the core loop. The ledger is kept accurate instead.
+2. **Phase 4 — UX Hardening & Relationship Loop Completion** (when Gate 0 passes):
+   - I4, I6;
+   - I1, H16;
+   - I2 with conditional "Anything worth remembering?";
+   - H15/H2 with I7;
+   - H4.
+   
+   It makes the existing product coherent. It is **not** speculative feature expansion.
+3. **Wife dogfood:** low-coaching.
+4. **Alpha candidates:** Ask Kinship first.
+
+This sits on top of `KINSHIP_2_COMPLETE_PLAN.md` §28: the plan's "Phase 4: Alpha" now comes after the wife dogfood.
+
+**Still not to build:** About You UI, Garden, Relationship Landscape, a generic graph, a broad Opportunity Engine, Intentions, a full timeline / "Your story together", a generic task manager, relationship scoring, health indicators, streaks, importance ranking, personality onboarding, a chatbot, subscriptions, broad model benchmark / model-swap work.
+
+### CC-19. Gate 0 closed; Phase 4 starts; semantic memory and H15 direction (8 Oct 2026)
+From the founder's "Gate 0 Closure + Phase 4 Transition + Semantic Memory / H15 Direction". Where this conflicts with CC-16 to CC-18 or with `docs/product/semantic-memory-investigation.md`, this is newer. The build brief is `docs/product/phase4-implementation-brief.md`.
+
+#### Gate 0: CLOSED
+- The founder ran the targeted remediation gate (`gate0-remediation-checklist.md`) on the remediation build (PR #22) and the targeted scenarios passed. There has been no freeze since the first dogfood pass.
+- **VERIFIED only where the founder's native test re-ran the original scenario.**
+- **Deployment gap (Phase 4 code review, 8 Oct).** Production ai-gateway was still version 7 during the gate: deployed 7 Oct 20:41 UTC and byte-identical to the PR #21 code. The server halves of PR #22 were therefore not running: I12 for new lines, I13's answer path, J1, J4's guard repair and J11.
+  - **VERIFIED:** J2, J5, J6, J7, J8, J9, plus I12's existing lines and J4's row 2c copy. These run on the phone or in the applied migration.
+  - **Stay FIXED** until ai-gateway is redeployed and gate rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b are re-run: I12 (new lines), I13, J1, J4, J11. This is a short re-check of deployed code, not a new stabilization cycle.
+- **G5 VERIFIED / resolved.** `app_stall` telemetry continues as passive observability, not as a blocker.
+- No new broad stabilization cycle. Only a genuinely new P0 trust failure reopens trust work.
+- **The Gate 0 invariants stay in force; breaking one is a regression:**
+  - sources preserved, provenance on every durable memory;
+  - corrections keep history; Undo is exact;
+  - the user's identity decisions win; plausible content is never silently destroyed;
+  - unknown identity is clarified, never guessed; current names stay distinct from source wording;
+  - multi-person memories stay grounded; no cross-account leakage; no silent relationship invention.
+
+#### The product (restated; unchanged)
+- Kinship helps you "remember what matters in the lives of the people you care about and bring it back when it matters, so you can show up."
+- The loop: Tell → Understand → Memory → Moment → Reason → real conversation → return → "Anything worth remembering?" → Tell.
+- Not a CRM, tracker, AI friend, chatbot, social network, productivity system or scoring system.
+- **Permanent rules:**
+  - silence beats a wrong detail;
+  - every durable statement has a source;
+  - nothing quantifies a relationship: no streaks, health scores, visible neglect, guilt, wilting, hidden points, importance ranking or "you haven't talked in X days".
+- **Intelligence is invisible by design:** no AI badges, sparkle, "Powered by …", confidence scores, ontology or graph terms, or inferred personality.
+- **Deterministic logic does deterministic work:** dates, contact import, birthdays, follow-up windows, candidate ranking, exact duplicates, notifications, hand-off, return checks, sprigs, sync, provenance.
+- **Model capabilities:** relationship_extract, person_resolve, memory_merge, reason_generate; later interaction_brief, reconnect_assist, reflection, retrieval_answer.
+- The Quiet Herbarium stays canonical: no cards, glass, gradients, dashboards or icon clutter.
+
+#### Phase 4A (UX and the loop): may proceed now
+These items need no semantic infrastructure. They refine CC-18:
+- **I4 Kept card:**
+  - order: what was kept → attention if needed → **Correct this · Undo** → "Did Kinship get this right?";
+  - attention example: "Pedro isn't in People yet. Add him so this can appear on his page too." **[Add Pedro] [Not now]**;
+  - "Tap a line to correct it." is dropped.
+- **I6 keyboard:**
+  - a Done / dismiss control and drag-down dismissal;
+  - Today and People are reachable with the keyboard open, and the draft is kept;
+  - the bottom navigation stays.
+- **I1 Moment detail:**
+  - tapping a reason opens a focused detail: the grounded line, why now, timing, Source, Message / Call;
+  - a secondary **View <Person>** deep-links to that memory on the person page, with brief quiet emphasis (this absorbs J3);
+  - Reduce Motion is respected; never a field-heavy page.
+- **H16 milestones:**
+  - the list: engagement, wedding, new job, promotion, baby, graduation, new home, retirement, move;
+  - eligibility is deterministic and narrow: about 3 days before through the day, only with a grounded date, and Today's ranking still decides;
+  - no nagging; an unknown date is remembered quietly, never asked for;
+  - someone not in People appears only when grounded through an established person;
+  - only explicit milestone or change evidence; a move is never inferred from a residence change.
+- **I2 interaction history:**
+  - a small dated trail under Between you, following know it → infer it → ask it (a Moment hand-off plus "Yes" gives "You messaged · Oct 6 · About getting together…"); manual entry offers Message / Call / Video / In person;
+  - interaction type, reason and shared experience stay distinct;
+  - grounded provenance only; no counts, last-contacted, frequency or streaks;
+  - one tap after the real action, two only when information is genuinely missing;
+  - **"Anything worth remembering?"** is optional and non-blocking, and omitted after routine or logistical contact.
+- **H4 Bring back in first use:**
+  - at most one extra screen (Tell → Remember → Bring back): no carousel, no decorative motion, Reduce Motion respected;
+  - the user's real first Tell is preferred, otherwise one grounded example;
+  - copy: "This is where Kinship brings things back, when they matter.";
+  - acceptance: a new user can explain Today without coaching.
+
+#### Semantic memory: the contract is APPROVED
+- **Outcomes:** SAME / REFINES / SUPERSEDES / CONFLICT / NEW, plus the transition `corrected`. RELATED is an eval label (or a later retrieval concept) only, never persisted. The definitions are those of the investigation §6.
+- **Principles:**
+  1. **Persist decisions, compute readings.**
+  2. **Compose only what the user said.** Reference data may relate two observations but never introduces words: "Lives in Alameda, California" only if both words were said.
+  3. **Fail open to separate lines.**
+- **No general knowledge graph.**
+  - Stay in Postgres: no Neo4j, Neptune, AGE or other semantic datastore, no arbitrary edges, no embeddings for inference.
+  - None of related_to / similar_to / might_like / probably_knows / probably_interested_in.
+  - The architecture: authoritative sourced observations + small derived structured representations + deterministic, read-time composition.
+- **Residence first (semantic v1).** It proves:
+  - derived facets and deterministic place handling;
+  - SAME / REFINES / SUPERSEDES / corrected / CONFLICT and composition;
+  - multi-source provenance, multi-item closure and exact Undo;
+  - H15 current / history and portrait de-duplication.
+
+  Another structured domain is added only after that.
+- **Employer is not a single-valued slot** (this overrides the investigation, which proposed one).
+  - Someone can have several current employers: Meta and Google stay compatible unless the source states a change ("left Meta for Google", "joined Google", "now works at Google").
+  - A qualifier may refine a specific employer.
+  - Structured employer is a Phase 4b candidate after residence. Basic WORK categorization doesn't wait for it.
+- **Place reference data:**
+  - a GeoNames-style subset (countries, first-level regions, prominent cities, common aliases such as CA and NYC), **pending the founder's licence and attribution confirmation**;
+  - no geometry, coordinates or neighbourhoods;
+  - server-side, read-only, versioned, deterministic, rebuildable and attribution-compliant; source, licence and attribution are documented before shipping.
+- **Don't over-resolve places.**
+  - Knowing that two places are compatible, or that one contains the other, is not the same as pinning an exact place. Candidate sets are kept while identity is unresolved.
+  - Never answer "Who lives in Alameda city?" from an unresolved identity.
+  - Use the minimum resolution; never manufacture specificity.
+- **The required residence cases:**
+
+  | | Told | Outcome | Shown |
+  |---|---|---|---|
+  | A | California, then Alameda | REFINES | "Lives in Alameda, California"; both sourced; no fake move |
+  | B | Alameda, then California (no change cue) | REFINES | Alameda's specificity kept |
+  | C | Alameda, then "moved to Colorado" | SUPERSEDES | "Lives in Colorado"; history "Previously lived in Alameda" |
+  | D | Alameda, then "Actually … Oakland, not Alameda" | corrected | "Lives in Oakland"; no "Previously lived in Alameda" |
+  | E | Alameda, then "moved to California" | CONFLICT | "Is Susan still in Alameda?" Still there · She moved |
+  | F | "staying in Denver this week" | — | Never a residence: trips, visits, events and temporary stays aren't |
+
+#### Structure: facets and categories
+- **Two kinds of structure:**
+  - semantic facets: residence in v1; later employer relationships, school, hometown, explicit family;
+  - a **closed organizational taxonomy**: BACKGROUND, WORK, EDUCATION, INTERESTS/HOBBIES, PREFERENCES, ASPIRATIONS/PLANS, THEIR PEOPLE, SHARED/BETWEEN YOU, HEALTH/SENSITIVE (existing rules), OTHER.
+- **How categories are assigned:**
+  - mapped from the existing kind / category / subject / detail first;
+  - the taxonomy is small and closed, and the model never invents labels;
+  - a categorization failure is safe: the memory is kept and falls back;
+  - the user is never asked for a category.
+- Basic Work / Education / Interests categorization is Phase 4. Structured education (institution normalization) can wait for Alpha.
+- **Interests stay natural language:** no carbonara → Italian, no basketball → sports.
+- **Their people:**
+  - built from sourced relationship information; typed family relations may wait for Alpha;
+  - never a family role from a surname, gender from a name, or transitive relations.
+
+#### H15 / I7 display
+- **Portrait vs What Kinship knows:**
+  - the Portrait is what matters now; What Kinship knows is organized reference;
+  - candidate sections: Background, Into, Hoping to, Their people, Between you;
+  - Work and Education sit in Background, or get their own sections if density warrants;
+  - no field grid, completeness meter, counts, progress, missing-info prompts or checklists; empty sections disappear.
+- **Portrait de-duplication:** the Portrait shows only the head observation ("Susan lives in Alameda"). It is recorded under H15 in `approved-design-coverage.md`.
+- **History:**
+  - refinement is not history; a correction is not history; a real change may be;
+  - meaningful durable history only;
+  - a declined sensitive outcome stays protected;
+  - no biography of transient health or progress chains.
+- **History dates** (these override the investigation's "Updated · Jan 4"):
+  - not "Updated · Jan 4" when that is only the day Kinship learned it; prefer "You told Kinship · Jan 4";
+  - "Moved · Jan 4", "Started" and "Ended" only when the source establishes the real date.
+- **Conflict questions are rare.** They are asked only when:
+  - the values may be incompatible;
+  - the current truth can't be determined safely;
+  - a wrong pick would display something false.
+
+  Never for data quality; never "Which Alameda?".
+- **A composed statement is a view:**
+  - it points to all its sources, and each source stays editable, retractable and traceable;
+  - correcting one source changes the composition deterministically;
+  - a composed sentence is never fed back as user speech.
+
+#### Existing data, Ask, evals
+- **Existing wrong supersessions: report only.**
+  - A dry-run report lists facet-eligible items, safe refinements, unresolved, ambiguous, contradictions and potential false supersessions.
+  - Any repair needs the founder's explicit approval under `data-cleanup-plan.md`.
+  - No account-specific hidden mutation.
+- **Ask stays Alpha** and is not implemented. Its foundation:
+  - facets for "where" questions;
+  - categories for hobbies, work, school and plans;
+  - natural-language retrieval only when needed;
+  - no embeddings now.
+- **The semantic eval corpus has zero tolerance for:** incorrect supersession, wrong SAME, incorrect refinement, an unsupported composed fact, lost provenance, temporal contradiction, a certainty upgrade, cross-person contamination. A missed refinement may fail open.
+- The required residence, employer (recorded for later) and categorization cases are listed in the brief §15. The existing non-residence regressions stay.
+
+#### Execution and authority
+- **4A:** I4, I6, I1, H16, I2, the conditional "Anything worth remembering?", H4.
+- **4B, in order:**
+  1. taxonomy;
+  2. residence facet schema;
+  3. place data;
+  4. deterministic residence detection and resolution;
+  5. SAME / REFINES / SUPERSEDES / corrected / CONFLICT;
+  6. multi-item closure;
+  7. exact Undo;
+  8. shared composer;
+  9. composed provenance;
+  10. dry-run / backfill report;
+  11. portrait de-duplication;
+  12. H15;
+  13. I7 history;
+  14. category display;
+  15. dogfood and evals;
+  16. then evaluate employer.
+- No ontology, graph, Ask, embeddings or personality.
+- **Authority:**
+  - Phase 4A may proceed where approved decisions already specify it.
+  - **Phase 4B schema, migration and semantic implementation does not begin until the founder has reviewed `docs/product/phase4-implementation-brief.md`.**
+- **After Phase 4:** a low-coaching wife dogfood. H15 should feel like "a person's memory gradually writing itself", not a contact record. Confusion is evidence.
+- **Still deferred:** Ask, generic chat, About You UI, Garden, Landscape, a generic graph, the Opportunity Engine, Intentions, a full Your Story Together, tasks, scoring, health, streaks, ranking, personality onboarding, subscriptions, model benchmarking, embeddings, arbitrary association.
+- **Readiness:** Gate 0 is closed. The current build is **NOT READY** for the wife dogfood; Phase 4 is the work in between.
+
+### CC-20. Phase 4 brief approved; history needs evidence of change; N8 first (8 Oct 2026)
+From the founder's review of `docs/product/phase4-implementation-brief.md`. Where this differs from CC-19, this is newer.
+
+- **The brief is APPROVED** with the changes below, and the **Phase 4B architecture is approved.**
+  - Phase 4A continues in the proposed order. Phase 4B may begin once the history rule below is in the contract.
+  - The report-only backfill checkpoint stays: no facet is written for an existing line before the founder has read the report.
+  - Not to be broadened into another architecture investigation or Gate 0 pass.
+- **Deployment verification, not stabilization.** The founder redeploys ai-gateway and re-runs gate rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b. Until the founder confirms the re-run, I12 (new lines), I13, J1, J4 and J11 stay FIXED.
+
+#### Decisions on the brief's open questions
+1. **Place data: GeoNames, YES.** The proposed CC BY 4.0 subset, versioned and rebuildable as described, with attribution in Settings › About and `THIRD_PARTY_NOTICES.md`.
+2. **I4 copy, approved:** "Pedro isn't in People yet. Add Pedro so this also shows on Pedro's page." with **Add Pedro** · **Not now**.
+3. **H10 / I2: YES.** The standalone "You reached out · <date>" under the person's name is removed and folded into the Between you interaction trail. No disguised last-contacted field.
+4. **I7 history outside residence:**
+   - shown under **Before**, as the old line in its own words;
+   - a transition date ("Ended · …") appears only when the source supplies it; otherwise "You told Kinship · <date>".
+5. **I2 scope:** know it + ask it first. Infer it becomes **I2b**, after the basic trail is proven.
+
+#### Supersession and history eligibility are separate decisions
+- **Supersession controls current truth.**
+  - A firm current-state statement that can't be current together with an earlier one supersedes it.
+  - Example: "Susan lives in Colorado" after "Susan lives in Alameda" makes Colorado the current residence.
+- **History requires evidence that the earlier truth existed and then changed.**
+  - Without an explicit change cue, Kinship doesn't know that Alameda was ever true and that Susan then moved.
+  - So the superseded line is **never** shown as history: no "Previously lived in Alameda".
+- **What counts as evidence:**
+  - an explicit change cue in the source: moved to, relocated to, now lives in, or another explicit change cue;
+  - or the user's own answer "She moved".
+- **A correction cue** stays `corrected` and is **never** history.
+- **How it is stored:** on the new item, as `detail.transition`.
+  - The values are progress, completed, cancelled, corrected and **`changed`** (new: an explicit change).
+  - No transition means "replaced as current truth only".
+- **History-eligible:** changed, completed, cancelled.
+- **Never history:** no transition, progress, corrected.
+- **Older supersessions:** those from before Phase 4B with no transition recorded are never history.
+- **Required fixtures:**
+
+  | Told | Current | History |
+  |---|---|---|
+  | Alameda → "lives in Colorado" | Colorado | Alameda is **not** shown as biography or history |
+  | Alameda → "moved to Colorado" | Colorado | Alameda is eligible for history |
+  | Alameda → "actually Colorado, not Alameda" | Colorado | `corrected`; Alameda is never history |
+
+#### N8: exact Undo is a trust invariant
+- The `resolves_id` and `reasons_refresh` fix is **approved**.
+- N8 ships at the **earliest schema opportunity**, and it must work before the next Phase 4 vertical-slice native gate.
+- Undo for semantic closures (`closes_ids`) ships complete together with multi-item closure. It is never left incomplete across later Phase 4 rounds.
+
+### CC-21. Continue Phase 4: I1, then H16 with N7, B1 alongside; deployment and the next build (8 Oct 2026)
+From the founder's "Continue Phase 4 Implementation" message. Where this differs from CC-20, this is newer.
+
+#### Status and readiness
+- **Gate 0 stays CLOSED.**
+  - The re-run of gate rows 1b, 2, 2b, 3, 5, 5b, 11 and 11b after the ai-gateway redeploy is deployment verification.
+  - When those rows pass on the phone, the server-side rows move from FIXED to VERIFIED, on the founder's say-so. G5 stays VERIFIED.
+  - No broad accuracy pass, unless a genuinely new P0 trust regression appears.
+- **"READINESS: NOT READY" means:** Phase 4 is not yet ready for its next planned native dogfood milestone. It does **not** mean Kinship is back in Gate 0 stabilization.
+
+#### Order
+I1 now, then H16 with N7. B1 runs alongside.
+
+#### I1, with J3
+- Tap a reason → see the reason. Tap a person → see the person.
+- A sheet, never a sheet on a sheet; I9 must not regress. Coming up items open the same detail.
+- Message and Call are never manufactured.
+- **View <Person>:**
+  - opens the page at the exact memory and scrolls it into view;
+  - brief quiet emphasis, with Reduce Motion respected;
+  - falls back to What Kinship knows.
+- Grounded only: no ids, scores, confidence, ontology or ranking.
+- Never stale after a retraction, and never focuses another person's line.
+
+#### H16, the nine milestone types
+- Explicit evidence only, never inferred from a semantic state change: a residence change never makes a "move" Moment.
+- Eligible from three days before through the day, with a day-level date.
+- Today's ranking decides. No nagging.
+- With no date, it is remembered quietly and the date is never asked for.
+- Someone not in People takes part only when grounded through an established person.
+
+#### N7, with H16
+- Distinguish day, month, year and no date.
+- Never substitute the day it was told when the note gave a broader date.
+- A year alone is never eligible for the window.
+
+#### B1, alongside
+- The closed taxonomy of brief §3: Background, Into, Hoping to, Plans, Their people, Between you.
+- Internally it distinguishes work, education, residence/background, interests, preferences, aspirations, plain plans, their people, shared/between you, and other.
+- **Semantics:**
+  - "Wants to learn pottery" → Hoping to.
+  - "Loves pottery" → Into.
+  - Ordinary plans → Plans.
+  - "Graduated from Berkeley" → Education, in Background.
+  - "Works at Meta" → Work, in Background.
+  - "Michelle is Susan's sister" → Their people.
+  - "Annual ski trip together" → Between you.
+  - "Prefers red wine" → Into, as a preference.
+  - Unclear → Background / Other.
+  - Never: carbonara → Italian, basketball → sports, surname → family role, name → gender, or transitive kin.
+- No model categories. No stored field unless computing it proves insufficient.
+- **A categorization mistake can never:**
+  - delete or suppress a line;
+  - change its words, provenance, certainty, sensitivity or supersession;
+  - create an edge.
+- It falls back safely and never asks the user.
+- **No B2 schema, migration or place-data work until B1 is complete, documented, and its result reported to the founder.**
+
+#### Deployment and the next build
+- **N8:** at the next merge to `main`, `npx supabase db push`. Then verify:
+  - Undo restores the old line;
+  - its Moment can return;
+  - Undo of a resolving note reopens the thread;
+  - dismissed stays dismissed;
+  - another live closer prevents restoration.
+- **I6:** native verification only, in the next meaningful build after I1. No keyboard dependency added pre-emptively.
+- **The next build bundles** I4, I6 and I1, plus H16 when ready, with the N8 migration applied. Not a build per commit.
+- **The next native dogfood checklist is concise:** I4, I6, I1, H16 if included, and N8. It is a Phase 4 UX and product gate, not a broad extraction stress test.
+
+#### Low-coaching direction
+- The larger Phase 4 question: does Kinship feel useful without the founder explaining it?
+- **Later dogfood weighs:**
+  - Today comprehension, Moment usefulness and actionability;
+  - friction in the return loop;
+  - how a person's page hangs together, and how What Kinship knows is organized;
+  - whether categorized memory feels natural rather than CRM-like;
+  - whether people understand why Kinship is worth returning to.
+- Don't optimize only for passing tests.
+
+#### Discipline
+- Failing tests first, and narrow behaviour.
+- Keep regression coverage, and never loosen old tests.
+- Update the ledger and coverage, and keep FIXED distinct from VERIFIED.
+- Scoped commits.
+- Surface a genuine product contradiction. Don't manufacture founder decisions.
+
+### CC-22. Narrow K-series remediation, then I2 + N6 + K3 + K2; an internal verification gate (12–13 Oct 2026)
+From the founder's "Narrow K-series remediation + I2/N6/K2, then resume Phase 4" brief and its addendum, "Do not hand this remediation pass back until you have self-verified it". Where this differs from CC-21, this is newer.
+
+#### Status framing
+- Gate 0 stays CLOSED. These are new native findings from continued Phase 4 testing (the 12 Oct local build of `main` `90a5cf0`), fixed in one narrow trust and correctness pass. The approved Phase 4 sequence then resumes; this is not a stabilization loop.
+- FIXED stays distinct from VERIFIED. Nothing is VERIFIED from automated tests.
+
+#### Order
+K4 → K5 → K7 → K6 → I2 + N6 + K3 + K2. K1 stays with shared semantics / Phase 4B unless a tiny, safe display-only fix exists, offered as an option.
+
+#### What each fix must do (the founder's words, condensed)
+- **K4:** every genuinely participating person is kept. An ambiguous name gets every valid candidate for that exact name; one answer settles only that name ("Who is Sam?" is never "Who is this whole statement about?"); "Someone else" resolves only that slot; a shared statement stays one shared memory; no duplicate one-person mirrors. Unresolved mention, owner, shared participants and correction target stay separate concepts. Not fixed by adding "Both" everywhere.
+- **K5:** plausible durable content never silently disappears because of a model, classification or guard error. "I got the job, and can't wait to tell Loo Loo" keeps the durable statement; what is grounded is kept and only what Kinship genuinely can't know is asked. Never "Nothing to remember in that one" for a note with clear meaning.
+- **K7:** Chris', Chris's and Chris’s resolve to the person Chris; the apostrophe is never part of a name; real apostrophes (O'Connor) still work. One unambiguous match resolves normally.
+- **K6:** a named participant not in People is offered on the Kept card: "Josh isn't in People yet. Add Josh so this also shows on Josh's page." **Add Josh** · **Not now** (the I4 / H21 pattern). The owner stays the owner.
+- **K3:** "Did the interaction happen?" is separate from "Was anything worth remembering?". Yes and then "nothing" still means it happened, and the original Waiting reason doesn't keep asking.
+- **N6:** Not yet makes the reason eligible again within its window, also after a sync. Yes → acted/completed; Not yet → eligible again; Dismiss → stays dismissed.
+- **K2:** Coming up is future-facing only. Someone else's unresolved promise past its day → the quiet "Waiting on <Person>"; acted → not Waiting; resolved or cancelled → not active. No guilt language ("3 days overdue", "late", "you still haven't"). `relationship-page-rules.md` and `today-eligibility.md` say so explicitly.
+- **I2:** know it + ask it (infer it stays I2b). A confirmed interaction is a quiet event under Between you ("You messaged · Oct 12 · About the contractor number" or similarly restrained). No standalone "You reached out" under the name, no last-contacted, counts, frequency, streaks, health, neglect or ranking. Manual entry: Message · Call · Video · In person, nothing required beyond that. "Anything worth remembering?" stays optional and non-blocking, only when the interaction justifies it, never after trivial logistics, and "nothing" never undoes the interaction. The approved additive migration from the Phase 4 brief; N8's exact Undo preserved.
+- **Scope:** no Tell redesign, no general entity system or graph, no broader semantic memory, no taxonomy change, no unrelated prompt changes.
+
+#### The verification gate (addendum)
+- A written "What finished looks like", marked PASS / FAIL / NOT PROVABLE WITHOUT DEVICE at the end; NOT PROVABLE WITHOUT DEVICE only for native feel or OS integration.
+- Independent reviewers (identity, content preservation, the return loop, database and Undo, test quality) try to disprove that the work is finished.
+- Matrices: K4-A…J, K5-A…K, the K7 name list, K6-A…G, K2 boundaries on a fixed clock, the K3/N6 return-loop paths 1–12, cross-feature adversarial cases A–E.
+- Break the tests on purpose (K4, K5's silent drop, K2's 30-day rule, N6) and report which tests caught it.
+- Full suites, a static diff review, an execution / deployment-layer table, an existing-data review, and a privacy and performance check.
+- **Stop condition:** content can still disappear, a person can still be dropped silently, Yes can leave Waiting alive, Not yet can't restore the reason, a past promise can show under Coming up, an alias or possessive picks the wrong identity, or tests pass only because expectations were weakened. Then the pass isn't ready.
+- The founder's native pass is last-mile validation, not the first integration test.
+
+#### Implementation choices this pass made (approved by the founder, 13 Oct: CC-23)
+These follow the brief but went beyond its exact words; the founder approved them, with CC-23's clarification to the first:
+1. **K5, how the user's own news is kept:** in the line's own words (never more of the note), with the person its sentence says the user tells, texts, calls, messages or thanks ("tell Loo Loo", also in a short sentence right after that is itself the telling: "I got the job! Can't wait to tell Loo Loo."; seeing, meeting or visiting never decide, since they fit a place or a month too); else the person its own quoted words name ("tell my wife"); else the model's or the page's person only when "with" or "for" confirms it; else the page it was told on, when the sentence names no one; else held as "Who is this about?" (**Choose who** · **Don't keep this**, J4's existing copy), never "Nothing to remember". Someone removed from People who is told is always asked and offered back, even beside someone in People with the same first name (I3). "You got the job" is a moment (Between you); "You can't wait to tell Loo Loo" a plan (Coming up). Kinship keeps memories with people; About You is still deferred. (The first version kept the whole sentence; the independent review showed it could carry a phone number, an instruction or someone else's private news, so it was withdrawn.)
+   - **The one exception:** a plan that only tells someone ("You want to tell Loo Loo later") keeps the user's own good news just before it in the same sentence ("You got the job and want to tell Loo Loo later"), so the news it tells isn't lost. Only from a short fixed set of the user's own news (got the job, an offer, a promotion; got engaged; graduated; passed an exam; bought a house; finished a race; didn't get the job), only when no other line of the note already keeps it, and only from the telling's own words. (A version that took any short clause of the user's was withdrawn after review: it could carry a loss, a relapse or someone else's news without a yes.)
+2. **K4, a name left open:** its question's skip reads **Not sure** (existing copy): the line is kept for everyone else and that name is left unlinked, never guessed.
+3. **K2, on the person's page:** past its day and still open, the promise is in Lately for 30 days (the existing rule for things that just happened) with "Waiting on Tyler" where its date would be; plain once the user has reached them about it; then only in What Kinship knows.
+4. **I2 copy:** "You messaged", "You called", "You had a video call", "You emailed", "You saw Tyler", "You were in touch", each "· Oct 12", with the memory it was about underneath in the user's words; **Add a conversation** and "How were you in touch with Tyler?" (Message · Call · Video · In person); **Not this** on a conversation in What Kinship knows.
+5. **I2, when "Anything worth remembering?" is skipped:** after a Yes to "Waiting on …" or to a Coming up promise falling due, anyone's (logistics). Asked as before after news, a milestone, a birthday, an event or a plain Coming up line.
+6. **I2, moment types:** `coming_up` and `waiting` are added to the brief's `moment_type` list, because I1's Coming up and Waiting lines hand off too.
+7. **K4, what counts as a name:** a name written as a name, capitalised in the line, in the note or in the model's own statement ("ben went to tahoe with chris", read "Ben went to Tahoe with Chris"), or in a script without capitals (小明). A word written as a word is never someone ("a grant", "his mom", "a chance"). With no capital anywhere, the names stay in the words, unlinked.
+8. **K4 and I3, a name someone removed also went by:** asked on its own ("Which Chris do you mean?" with Chris · **Bring back Chris Old** · Someone else), even with one person left in People; never attached on a guess, never dropped. A full name settles it.
+9. **I10, a name beside a line the user turned down:** if the line it belongs to was declined in the same review, or removed since it was kept, answering "Which Sam?" saves nothing; it never brings the memory back.
+
+#### Known limits, for the founder (unchanged since before K4)
+- A line about a relative ("Chris's sister went skating with Anthony Test and Sam") or a promise ("Ben promised Anthony he'd call Sam") links no one else and asks about no other name; the names stay in the words. Extending K4 to these is possible later, and would need its own rules (whose page a promise shows on).
+- **K1:** the duplicate already on Tyler's page stays (no data cleanup without authorisation). A display-only collapse of two identical lines from the same note is possible; it is offered, not built.
+
+### CC-23. The K-series report approved; K5 never becomes the recipient's biography; K1, I1 and B2 settled (13 Oct 2026)
+From the founder, on the K-series report (`docs/product/k-series-report.md`).
+
+- **CC-22's implementation choices are approved**, with one clarification to K5. A durable fact about the user never silently disappears, but keeping it with the person the user means to tell does not make it a fact about that person. "I got the job, and can't wait to tell Loo Loo" keeps the news and the relationship context; it never renders on Loo Loo's Background or in What Kinship knows as though Loo Loo got the job. Subject truth (the user), person association (Loo Loo), shared / relationship context and display eligibility are separate concepts. A regression pins it across the chain: the line is saved as the user's (`subject_type` user), no answer can make it hers, H15 / B1 place it Between you (never Background), and Today never congratulates her for it. About You stays deferred.
+- **Also approved:** "Not sure" leaving the unresolved name unlinked; the quiet "Waiting on <Person>" lifecycle; the I2 trail copy; skipping "Anything worth remembering?" after routine Waiting / promise logistics; the `coming_up` and `waiting` moment types; conservative name detection; a removed namesake offered back; declined lines never resurfacing.
+- **K1:** no display-only collapse. New notes are fixed; the founder's old duplicate stays as known legacy data and is never changed automatically. Shared semantics will solve the general representation.
+- **I1, Message / Call (settled, no longer an open question):** if the Moment's person has a valid destination, launch it. If contact resolution can safely link or select that same person's contact, use it. Never let the user choose an unrelated person to message or call. With no valid destination and no safe resolution path, the action is omitted.
+- **B2 is approved** (B1 reviewed and accepted). After this remediation is merged and deployed, B2 may proceed in parallel with the founder's native validation. Stop and report after B2, before B3.
+
+### CC-24. The blocker check passed; K24, K25 and the edited-fact rule for B3 decided (16 Oct 2026)
+From the founder, after the 16 Oct device check (build from `main` `e098dfc`) passed ("closing this out as passed, with these UI fixes planned").
+
+- **Direction (15 Oct, standing):** capture is now infrastructure; the product focus is what Kinship does with what it knows. A capture bug interrupts the roadmap only when it risks a core trust invariant; everything else is logged, prioritized, and the roadmap continues. Evidence stays tiered (UNIT · INTEGRATION · BLACK-BOX · LIVE-MODEL · NATIVE-SIMULATOR · FOUNDER-DEVICE), proportional to risk; only the founder's device makes an item VERIFIED.
+- **Deferred (15 Oct):** K18 to semantic memory (no four-choice duplicate surface now); K22 to H15/B8 (open commitments must be easy to find, never buried); K21 as optional resilience (stale automatic state is fixed in the automatic state).
+- **K24, Today while a Tell is processed: the Tell dock alone shows "Understanding…".** Today's headline never becomes "Understanding…", and the copy never appears twice. While a note is being understood, asked about or kept, a quiet day's "Nothing needs you today." is suppressed (not replaced by another processing headline) until the note settles; real Today content stays visible; afterwards Today recomputes normally. This supersedes K19's transitional headline; K19's single date format stays.
+- **K25, "Who is Matt?" may resolve through Contacts: approved.** The unresolved-person flow, in order: relevant existing people (the page's person) → **Choose from Contacts** → **Add <Name>** by name → Someone already here, with Don't keep this / Not sure as the question has it. Choosing a contact creates or links that person once (name, contact identity, birthday, as setup does), files the current memory on them and never leaves a second Matt; a contact already in People is reused; Contacts permission is asked, if at all, only after the user chooses it, and never needed to use Kinship; declined, Add by name stays. No automatic search or import of the address book.
+- **B3: a later explicit change may close a line the user edited.** A user edit is high-authority current truth at that point in time, not immutable. A later grounded user statement of a real change ("Susan moved to Colorado") supersedes the edited line (Alameda), and Alameda is eligible for quiet history, with its edit provenance kept and exact Undo restoring the edited version. "Now lives in" supersedes, and is history-eligible only if the change-cue contract counts it. A plain "Susan lives in Colorado" may replace current truth through the comparator but is not history-eligible. "Actually … not Alameda" is CORRECTED: never history. A model inference alone never overrides an edited line; supersession of an edited fact needs grounded later user evidence. Supersession and history eligibility stay separate decisions.
+- **B3's small migration is approved:** additive, narrowly scoped, exact-Undo compatible, provenance preserving; user edits are not weakened generally; no semantic behaviour or backfill beyond the approved B3 sequence. Design: `phase4-implementation-brief.md` §21.
+- **B3's design is approved as written** (founder, 16 Oct): `phase4-implementation-brief.md` §21, including the plain replacement of an edited line still asking "Is Susan still in Alameda?". B3 starts in a fresh session from the repo docs, after the founder's K24 / K25 / H4 device check (`next-native-checklist-16oct.md`).
+- **Roadmap:** H4 (built, merged) and B2 (built, merged, in production) stand; K24 folds into the Today work; K25 into identity resolution, not a broad identity-hardening pass. B3 starts only after the B2 report is reviewed.
+
+### CC-25. The roadmap after Phase 4: return value is the product (16 Oct 2026)
+From the founder's review of the 16 Oct roadmap audit (`docs/product/audits/2026-10-16-roadmap-audit.md`, a dated, non-canonical evidence artifact). Where this differs from CC-16 to CC-24 or from the plan, this is newer. **Strategy only:** it starts no build, and it changes nothing in Phase 4B's order or scope.
+
+#### The strategic interpretation (approved)
+- The north star, the identity outcome ("I'm someone who shows up"), the core loop, the permanent rules and the product boundaries (not a CRM, tracker, AI friend, social network, task manager or scoring system) are **unchanged**.
+- **Capture is infrastructure. Memory is infrastructure. The return, the showing-up moment, is the product value.**
+- The roadmap optimizes more and more for *"How often does what Kinship knows cause someone to do something meaningful for another person?"*, not *"How much can Kinship know?"*.
+- **The roadmap principle:** *once Kinship can remember well, the roadmap priority shifts from making memory more sophisticated to proving that memory changes what happens between real people.* It governs sequencing after Phase 4.
+- Still never: relationship health scores, streaks, visible neglect, hidden importance rankings, "you haven't contacted X in N days", guilt mechanics.
+
+#### The committed path: unchanged
+- **B4 → B5 → B6 (STOP for the founder before any backfill) → B7 → B8 → B9 → employer semantics evaluation → low-coaching wife dogfood.** B5 / B7 are **not** reordered (the audit's suggestion to put B7 first is not adopted).
+- Employer is an **evaluation**, not authorization for broad semantic-slot expansion.
+- **The post-B9 pivot.** B4–B8 are justified infrastructure and memory work, and B8 / B9 end the current infrastructure-heavy run. After B9 and the employer evaluation, the roadmap does **not** continue by default into employer implementation → school → hometown → moves → more ontology. It turns to return value: showing-up measurement, promise and open-thread reasons, minimal proactive delivery, Ask, and the broader-user trust floor.
+- **No new semantic slot because it can be modeled.** School, hometown, planned-move destinations, aliases, date-precision merge and full-text search are each pulled by a real Ask / retrieval failure or another concrete product need. This tightens the investigation's "wait until Alpha" (`semantic-memory-investigation.md` §14): arriving at Alpha is not a reason.
+
+#### Commit next (strategically approved; no build starts from this entry)
+1. **Measure showing-up moments.** The north-star unit (plan §24): Kinship surfaced a grounded reason → the user acted toward the real person → the return flow confirmed it. Build the **smallest internal measurement** that observes it.
+   - An internal product metric only. Never shown to the user: no relationship counts, contact frequency, scores, "people neglected" or user performance; no user-facing dashboard.
+   - Its purpose is to learn whether Kinship changes real-world behaviour.
+   - Content-free, under the existing analytics rules (F0-D4, CC-5). Any query over a specific account needs the founder's yes for that account id (standing rule).
+   - Timing: **NEXT**, around the wife dogfood.
+2. **Memory-native reasons.** A calendar can bring back a birthday; only Kinship can bring back a private thing the user was told, promised or should remember.
+   - **Promise reasons** (RSN-06), "You said you'd send David the contractor number.": **NEXT**. The guilt firewall stays: no "you still haven't", no accumulating overdue state, once-only or tightly bounded surfacing, easy dismissal.
+   - **Open-thread reasons** (RSN-07), "Did Josh decide about the startup?": **NEXT**.
+   - **Hard-time reasons** (RSN-09), "Mom's surgery is Thursday.": **ALPHA**, after the proactive-delivery and privacy path is proven. Stricter sensitivity, tone and privacy rules; never cheerful copy; lock screen always private.
+3. **Minimal proactive delivery.** "Bring it back when it matters" can't depend on the user remembering to open Kinship, but a large notification system does not come first. The first version:
+   - the same primary Moment Today already selected, as one private notification;
+   - a strict frequency budget (D4's caps are the ceiling), quiet hours and back-off, a global pause;
+   - permission asked only after the user has had a genuinely useful Moment;
+   - sensitive and hard-time lock-screen content always private;
+   - never engagement optimization, streaks, a generic "come back to Kinship", or a notification whose reason is inactivity.
+   - **Suggested validation:** wife dogfood round 1 on the core product without push; then minimal push; round 2 asks whether Kinship brings back useful things without feeling nagging or like a reminders app.
+   - Timing: **NEXT**, before broader Alpha.
+   - **The weekly brief comes later**, as a delivery form of Today (a Sunday push that opens Today), not a separate product.
+4. **The trust floor before broader Alpha:** Remembered / Paused person controls (D13, PER-06), export (SET-04), delete-account v2 (SET-05), and a safe duplicate-person merge (PER-05). They do **not** block the household dogfood; they **do** block meaningful outside-user Alpha. Remembered / Paused matters most for grief, estrangement, ex-partners and anyone the user wants kept but not surfaced: Kinship must be able to remember someone without bringing them back.
+
+#### Ask Kinship: the first major Alpha expansion (shape approved)
+- Not a general chatbot. **Ask = grounded retrieval over Kinship memory.** Kinship memory only; source-backed; clarifies where necessary; says "I don't know" / `not_found` when unsupported; no speculation; privacy evals; no general-world answers.
+- **Ask v1:** grounded search and retrieval that understands statements as well as names ("Alameda", "What gift did Susan mention?", "Who do I know in Alameda?", "What is John into?"), showing the matching memory with its sources. **Then, only if needed:** bounded synthesis across several retrieved memories.
+- Not constrained to single-person lookups when the grounded query is naturally multi-person.
+- The Ask surface and the `retrieval_answer` backend are **one capability**, not two roadmap items.
+
+#### Alpha direction
+Grounded Ask; hard-time reasons; **I2b** for appropriately surfaced plans; **reason feedback** in its minimal form (a quiet "Not helpful" on a Moment that mutes that kind of reason for that person for a bounded period; never a rating or survey interface); **Siri / Action Button**; the required Alpha trust and operations work (triage runbook, rings, accessibility, privacy policy, legacy 1.0 deletion).
+
+#### Explore later (preserved hypotheses, not near-term builds)
+- **Intentions v0, lightweight.** An intention may simply be something the user tells Kinship ("I want to make more space for Chris this fall", "I want to bring the Austin crew back together"), used as an explicit, user-authored relevance signal. Never intention dashboards, progress meters, streaks, overdue states, "you said six weeks ago…" or goals Kinship imposes. Kinship never decides "this relationship needs more attention"; the user may decide "I want to give this relationship more attention". Attractive partly because it may replace several larger systems. **LATER ALPHA**, only after the ordinary Moment loop proves value.
+- **Chapters / life groups.** People think in overlapping chapters (Family, College, Austin, Work, Bay Area). If validated, first as user-named, many-to-many, lightweight filtering and structure in People; AI may propose only from grounded user context, the user decides. Never closeness, ranking or importance. May later support Ask and Intentions. **Preferred over building a visual Relationship Landscape first.** LATER ALPHA / exploration.
+- Calendar as an evidence source; reconnect as a Today candidate; About You in Settings; year-ago resurfacing and an occasional or yearly reflection; a dock mic / voice; a text share extension; the Relationship Landscape / Garden checkpoint (GDN-00); the Opportunity Engine's external-event experiment; subscriptions and pricing; growth systems.
+- **Capture where life happens**, in this order: (1) Siri / Action Button; (2) a simple on-device mic in Tell; (3) later, a text share extension. The need is low-friction capture, not a large standalone voice product. **The full Listening screen is questioned before it is implemented** (it stays an approved board surface; see below).
+
+#### Working interpretations: fewer primitives
+The product's primitives are increasingly **Tell · Memory · Today · Ask · Intentions**, with candidate types, evidence sources, delivery channels and settings / trust controls beneath them. A capability does not automatically become its own product or surface. Working interpretations (directions for design, not built and not final forms):
+- **Calendar / interaction brief** → likely Moment detail for a planned encounter, with the calendar as an evidence source.
+- **Reconnect engine / reconnect assistance** → likely a Today candidate type, possibly gated by an explicit Intention and a real reason.
+- **Opportunity Engine** → likely Today's candidates and ranking plus explicit Intentions; external event data is a later, separate experiment.
+- **Ask Kinship + `retrieval_answer`** → one capability.
+- **Weekly brief** → likely a Sunday delivery form of Today.
+- **About You** → likely the user's own grounded memory in Settings, not necessarily a primary destination.
+- **Relationship Landscape** → test chapters / groups first; any visual stays an exploratory checkpoint.
+- **Monthly reflection** → not killed; downgraded to later validation. Alternatives to test: year-ago resurfacing, Ask over historical memory, an occasional or yearly reflection instead of a monthly report.
+
+#### Reconnect and rhythm
+- **Forbidden:** relationship-health or neglect inference; "You haven't talked in X days"; quietness itself as the reason to contact someone; using rhythm to judge relationship quality or imply neglect.
+- **Possibly useful later:** confirmed interaction patterns as one private, never-visible timing input, only if later evidence justifies it and the founder approves. **No implementation now.** The plan's rhythm computation (§17, T16) and quiet-stretch multiplier (§13) are held under this rule, not built; the audit's recommendation to strike them is not adopted.
+
+#### Hold / drop / absorb unless evidence changes
+Rhythm as a user-facing or neglect mechanism; a generic reconnect engine as a separate system; a separate interaction / calendar Brief product; monthly reporting as the default; About You as a primary profile destination; the widget; broad semantic-slot expansion before Ask evidence; `reason_generate` (model phrasing) unless real copy problems emerge; a general chatbot; a task manager; relationship scores; timeline-heavy CRM UI; Garden vitality and growth mechanics.
+
+#### The smallest coherent Kinship (a standing test)
+If everything optional disappeared, Kinship should still be exceptional with:
+1. **Tell:** one simple capture path.
+2. **Understand:** grounded extraction, clarification, sensitive confirmation, correction, exact Undo, sources.
+3. **Memory:** Portrait, What Kinship knows, grounded history.
+4. **Today:** one useful Moment, quiet secondary items, Moment detail, the real-world hand-off, the return check.
+5. **Delivery:** a small number of private, useful pushes of Moments Kinship already selected.
+6. **Trust:** consent, provenance, Remembered / Paused, export, deletion.
+
+Ask, Intentions, chapters, calendar, Siri, voice, share, Landscape, reflection, subscriptions and growth are **multipliers**, not requirements for proving the thesis. Every future roadmap proposal is reviewed with: ***"Does this strengthen the smallest coherent Kinship, or is it trying to create another product inside Kinship?"***
+
+#### Roadmap buckets (canonical; the plan §28 carries the same table)
+| Bucket | Items |
+|---|---|
+| **A. Committed / current** | B4–B9; employer evaluation; low-coaching wife dogfood |
+| **B. Commit next** | Showing-up measurement; promise reasons; open-thread reasons; minimal proactive push; the trust floor before broader Alpha |
+| **C. Alpha direction** | Grounded Ask; hard-time reasons; I2b for surfaced plans; reason feedback; Siri / Action Button; required Alpha trust and ops work |
+| **D. Explore later** | Intentions v0; chapters / life groups; calendar as an evidence source; reconnect as a Today candidate; About You in Settings; year-ago / occasional or yearly reflection; dock mic / voice; share extension; Landscape / Garden checkpoint; Opportunity Engine external-event experiment; subscriptions / pricing; growth systems |
+| **E. Hold / drop / absorb** | As listed above |
+
+#### Reconciliation with existing material
+- **Plan §4 ("proactive push is Required") and §28 Phase 3:** the requirement stands for broader Alpha, in the minimal form above; the household dogfood may run round 1 without it (contract §10's wife-dogfood minimum never included push).
+- **D4:** its caps (≤ 3 pushes / 7 days, ≤ 2 time-sensitive, private lock screen, back-off, pause) remain the ceiling; the "1 weekly brief" is later, as a delivery form of Today.
+- **Approved board surfaces are not removed.** Brief (coverage #19), Reconnect (#20), Reflection (#21) and the Listening screen (#29) stay INTENTIONALLY DEFERRED under their existing reasons. The working interpretations above guide their design when their time comes; any change to their approved form needs founder approval recorded in `approved-design-coverage.md` (contract §9, §11).
+- **Coverage §3 items 3 and 4** (export / delete-account v2 before alpha; the notification permission ask) are answered: export and delete-account v2 block broader Alpha; the permission ask comes with minimal push, after a genuinely useful Moment.
+- **CC-18 / CC-19 "still not to build"** lists (About You UI, Garden, Landscape, Intentions, Opportunity Engine…) stay in force for current work; this entry places them in Explore later in lighter forms.
+- **Audit recommendations not adopted as written** stay recommendations in the audit: B7 before B5; striking rhythm and the quiet-stretch multiplier; Ask v1 as one-person lookups; dropping the widget outright; "fold Your story together into B8" (still an open founder decision, coverage §3 item 1).
+
+#### Still open (not decided here)
+- **Your story together** (coverage #13) and the **"a year ago" quiet line**'s formal deferral (coverage #10; CC-25 places year-ago in Explore later).
+- **Before each Commit-next item is built:** its own brief for the founder (the showing-up measurement's form and accounts; promise / thread windows and copy; the minimal push's copy, budget within D4, permission moment and settings).
+- **The Listening screen:** re-confirm or change its approved form before voice work begins.
+- **The wife dogfood in two rounds** (without, then with push) is the founder's suggested validation; its exact timing is set when Phase 4 ends.
+- Unchanged from B3: the "moved from <line> to …" closure rule (brief §22 point 4).
+
 
 ---
 
@@ -2332,6 +3101,8 @@ There are 22 detailed epics (E00–E21) for Phases 0–5 and the first Phase 6 f
 
 ### E15 — Server notifications and weekly brief
 
+> **CC-25:** E15 starts smaller: one private notification of the Moment Today already chose, D4's caps as the ceiling, pause, permission after a useful Moment. Committed next, before broader Alpha. The weekly brief comes later as a delivery form of Today.
+
 - **Objective:** Kinship works while closed, within a strict budget (§22).
 - **User outcome:** the right nudge on the right morning, never on the lock screen in detail unless chosen.
 - **Architecture:** Expo push token registration; `devices`; `planner`, `sender` and `receipts` functions on `pg_cron`; `notification_outbox` and `notification_log`; the policy module.
@@ -2504,6 +3275,8 @@ There are 22 detailed epics (E00–E21) for Phases 0–5 and the first Phase 6 f
 ---
 
 ### Phase 6 epics, outlined (detailed after the beta gate)
+
+> **CC-25 (16 Oct 2026):** this order is superseded by the roadmap buckets in [Part 1](#part-1--operationalization--build-architecture) §28. E25 Ask is the first major Alpha expansion (one capability with `retrieval_answer`). E22 Reconnect is likely a Today candidate, with rhythm held. E21's brief is likely Moment detail with the calendar as an evidence source. E26's monthly letter is downgraded to later validation. E23 starts with chapters as a People filter before any visual. E24 starts with Siri / Action Button; the widget is held. Approved board surfaces stay deferred, not removed.
 
 | Epic | Objective | Key constraint | Flag |
 |---|---|---|---|
@@ -2795,6 +3568,8 @@ Each ticket is sized for one engineer or one coding agent to implement and revie
 ---
 
 ### Phase 6 — Next (after the beta gate; order set by evidence)
+
+> **CC-25 (16 Oct 2026):** sequencing after Phase 4 follows the buckets in [Part 1](#part-1--operationalization--build-architecture) §28. From the tickets above, RSN-06 and RSN-07, a minimal PUSH-01…08 subset, PER-05, PER-06, SET-04 and SET-05 are committed next; RSN-09 and ASK-01 are Alpha direction; RCN-01 (rhythm) is held; LTR-01 is downgraded to later validation; NAT-01 comes before NAT-02 and the widget.
 
 | ID | Ticket | Depends | Size |
 |---|---|---|---|

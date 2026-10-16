@@ -210,3 +210,4 @@ build → founder review → founder native pass → fix → founder approval �
 5. Merging is not approval. Before a merge, report implementation status, design coverage, native status, unresolved gaps, migrations, tests and readiness.
 6. Judge every change as a first-time user, on an empty account, before calling it done. Screenshots of seeded accounts hide emptiness.
 7. When this contract is wrong, change it in a PR the founder reviews; never route around it.
+8. **Review every roadmap proposal against the smallest coherent Kinship** (founder, CC-25): Tell · Understand · Memory · Today · Delivery · Trust. Ask: *does this strengthen the smallest coherent Kinship, or is it trying to create another product inside Kinship?* Once Kinship can remember well, the priority shifts from making memory more sophisticated to proving that memory changes what happens between real people. The current roadmap buckets are in `KINSHIP_2_DECISIONS.md` CC-25 and the plan §28.

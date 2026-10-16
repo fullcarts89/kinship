@@ -36,7 +36,7 @@
 | 20 | **Reconnect** | B2 "A reason to reconnect"; P §17 | A true reason after a quiet stretch | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Needs rhythm data + reason corpus (P §17) | Yes (plan §4 "Next") | Phase 6 (E22) |
 | 21 | **Reflection (monthly letter)** | B3 "September, looking back"; P E26 | Did I show up? | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Needs 4+ weeks of data | Yes (plan §4 "Next") | Phase 6 |
 | 22 | **Ask Kinship** | B3 "When did I last see Sam?"; P E25 | A cited answer from your own memory | NOT BUILT | NOT BUILT (People search finds people only) | No | — | — | — | ✗ | ✗ | ✓ | Retrieval capability not built (plan §4 "Next") | Yes (plan §4) | Phase 6 |
-| 23 | **Privacy / settings** | B3 "What Kinship knows" (settings); P E17 | Sources, switches, export, delete | PARTIAL — understanding switch + sign out | PARTIAL — adds the D2 disclosure and a Contacts line ("read on this phone; only the people you pick are saved") | Yes | Partial | Partial | ✗ | ✓ (understanding off/on) | ✓ (export, delete, lock-screen) | — | Export/delete-account v2 UI not built (E17) | **No — needs founder approval** | E17 before alpha |
+| 23 | **Privacy / settings** | B3 "What Kinship knows" (settings); P E17 | Sources, switches, export, delete | PARTIAL — understanding switch + sign out | PARTIAL — adds the D2 disclosure and a Contacts line ("read on this phone; only the people you pick are saved") | Yes | Partial | Partial | ✗ | ✓ (understanding off/on) | ✓ (export, delete, lock-screen) | — | Export/delete-account v2 UI not built (E17) | Yes (CC-25, 16 Oct: export and delete-account v2 block broader Alpha, not the household dogfood) | E17 before alpha |
 | 24 | **First-use empty states** | Contract §8; DD §I | Orientation and a next action, not a void | **NOT BUILT** (new accounts saw the mature quiet day) | **BUILT** — Today first-use orientation; People empty recovery; person empty invites Tell | Yes | Lab ✓ | Lab ✓ | ✗ | ✓ | ✓ | — | — | n/a | Native pass |
 | 25 | **Mature empty states** | DD §I.2 "Nothing needs you today" | Quiet is correct | BUILT | BUILT, now only for accounts that have told Kinship something | Yes | ✓ | ✓ | ✗ | ✓ | ✓ | — | — | n/a | — |
 | 26 | **Offline** | P §7 | Kept now, understood later | BUILT | BUILT; setup works offline except contacts are local anyway; consent saved when online (asked again if it couldn't save) | Yes | ✓ | ✓ | ✗ | ✓ | ✓ | — | — | n/a | Airplane-mode pass on device |
@@ -44,10 +44,10 @@
 | 28 | **Night appearance** | B3 "Good evening."; SYS | The night garden | BUILT | BUILT (new screens use tokens; night renders captured) | Yes | ✓ | — | ✗ | ✓ | ✓ | — | — | n/a | Native appearance switch |
 | 29 | **Listening (voice) screen** | B1 4th phone; P E18 | Speak a Tell; on-device | NOT BUILT | NOT BUILT; no mic shown anywhere | No | — | — | — | ✗ | ✗ (beta wk 3) | ✓ | D5: voice in beta week 3, on-device only | Yes (D5) | E18 |
 | 30 | **Garden / Landscape** | B3 Garden phone | — | Superseded | Superseded | — | — | — | — | ✗ | ✗ | ✓ | D7, plan §34 checkpoint | Yes (D7) | GDN-00 checkpoint |
-| 31 | **Notification permission ask** | P §22, PUSH-08 | Ask after the first real moment | NOT BUILT | NOT BUILT | No | — | — | — | ✗ (no push yet) | ✓ | — | Server push not built (E15) | **No — needs founder approval** | E15 |
+| 31 | **Notification permission ask** | P §22, PUSH-08 | Ask after the first real moment | NOT BUILT | NOT BUILT | No | — | — | — | ✗ (no push yet) | ✓ | — | Server push not built (E15) | Yes (CC-25, 16 Oct: asked with the minimal push, committed next, only after a genuinely useful Moment) | E15 |
 | 32 | **Siri / Action Button / widget / share sheet** | DD §C, P §21 | Capture from anywhere | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Native targets, Next/Later | Yes (plan §4) | E24 |
 | 33 | **Subscriptions, Intentions, Opportunity Engine** | D10, P §35 | — | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Post-validation | Yes (D10, §35) | — |
-| 34 | **Person states (Remembered / Paused)** | D13; P PER-06 | Hold grief and estrangement | PARTIAL (rendering only) | PARTIAL | Partly | ✓ | ✗ (no UI to set) | ✗ | ✗ | ✓ | — | — | — | PER-06 before alpha |
+| 34 | **Person states (Remembered / Paused)** | D13; P PER-06 | Hold grief and estrangement | PARTIAL (rendering only) | PARTIAL | Partly | ✓ | ✗ (no UI to set) | ✗ | ✗ | ✓ | — | — | — | PER-06 before broader Alpha (CC-25: trust floor; not blocking the household dogfood) |
 | 35 | **App icon, Terms, Privacy Policy pages** | DD §B identity | No 1.0 visual leaks | 1.0-styled | 1.0-styled | Yes (links from sign-in) | ✗ | — | ✗ | Rough edge | ✓ | — | — | — | Restyle; new icon |
 
 ---
@@ -76,8 +76,8 @@
 
 1. **Your story together** (#13): defer to Phase 3 PER-07, before alpha? A new account has nothing to show.
 2. **"A year ago" quiet line** (#10): defer to RSN-10?
-3. **Settings export / delete account v2 UI** (#23): the 1.0 flows exist server-side; the 2.0 screens are not built. Defer to E17 before alpha?
-4. **Notification permission ask** (#31): no push exists yet, so there is nothing to ask for. Defer with E15?
+3. **Settings export / delete account v2 UI** (#23): the 1.0 flows exist server-side; the 2.0 screens are not built. Defer to E17 before alpha? **Answered (CC-25):** before broader Alpha, with Remembered / Paused and a safe duplicate merge; not before the household dogfood.
+4. **Notification permission ask** (#31): no push exists yet, so there is nothing to ask for. Defer with E15? **Answered (CC-25):** it comes with the minimal push (committed next), after a genuinely useful Moment.
 5. Activation pass questions 1–7 in `activation-pass.md` §7 (day-of event moment, density numbers, superseded history's home, kind words in the review, reported promises, relationship labels, look-over for dense notes).
 
 ## Recovery pass (founder native pass, 5 Oct): what changed on approved surfaces
@@ -297,3 +297,27 @@ Built as approved (CC-19 case E, CC-20, CC-24, brief §8 and §21). No approved 
 | Tell › clarification (case E) | **One thing to check · Is Susan still in Alameda?**, the new line's own words under it, **Still there** · **Susan moved** · Don't keep this. Asked only when the new residence may not fit the one Kinship holds and the table can't decide (a move into a place that contains it, a move between two readings of a name, or a plain new place beside a line the user edited, §21); never "Which Alameda?". Both places are the user's own words. "Susan moved" replaces that line as a change; "Still there" keeps both; Don't keep this keeps the note only | The question: yes (CC-19, CC-24). **"Susan moved" for "She moved"** (Kinship never guesses a pronoun, CC-20's I4 rule): **proposal**. No reason line under the question: proposal |
 | Tell › review / Kept card | A residence the table replaces shows "Replaces: ~~Susan lives in Alameda~~" as any replacement does (H23) | Existing behaviour |
 | Settings › About | **Place data from GeoNames (geonames.org), CC BY 4.0**, under the Account section: the first build whose gateway reads the place data | Yes: CC-20, decision 1 (Settings › About and `THIRD_PARTY_NOTICES.md`). The v2 Settings sheet had no About section; it gains one line under its own label |
+
+
+## Roadmap update (founder, 16 Oct, CC-25): status of deferred and planned surfaces
+
+Strategy only; no surface is built, removed or redesigned by this entry. **No approved surface is dropped:** every board surface below keeps its status and deferral reason, and any change to its approved form still needs founder approval recorded here (contract §9, §11). The audit that prompted it is `audits/2026-10-16-roadmap-audit.md` (dated, non-canonical).
+
+| # | Surface | Status (unchanged) | Roadmap placement (CC-25) | Working interpretation, not a final form |
+|---|---|---|---|---|
+| 10 | Today › "a year ago" line | NOT BUILT | Explore later (year-ago resurfacing) | — The row's deferral approval stays open for the founder's explicit yes |
+| 13 | Your story together | NOT BUILT | Not placed; **still a founder decision** (§3 item 1) | Timeline-heavy CRM UI is on hold; a story "not a log" is not decided |
+| 19 | Brief | INTENTIONALLY DEFERRED (D6) | Explore later (calendar as an evidence source) | Likely Moment detail for a planned encounter, not a separate Brief product |
+| 20 | Reconnect | INTENTIONALLY DEFERRED | Explore later (reconnect as a Today candidate) | A Today candidate type, possibly gated by an explicit Intention and a real reason; rhythm held, never visible, never the reason |
+| 21 | Reflection (monthly letter) | INTENTIONALLY DEFERRED | Explore later, downgraded to validation | Year-ago resurfacing, Ask over history, or an occasional / yearly reflection instead of a monthly report |
+| 22 | Ask Kinship | INTENTIONALLY DEFERRED | **Alpha direction**, the first major Alpha expansion | v1 grounded search over statements with sources, then bounded synthesis if needed; one capability with `retrieval_answer`; not limited to one-person lookups; never a chat |
+| 23 | Privacy / settings (export, delete-account v2) | PARTIAL | **Commit next**, before broader Alpha | — |
+| 29 | Listening (voice) screen | NOT BUILT (D5) | Explore later; **questioned before implementation** | Capture order: Siri / Action Button → a simple on-device mic in Tell → a text share extension. The board stays approved; re-confirm or change it before voice work |
+| 30 | Garden / Landscape | Superseded (D7) | Explore later; chapters / life groups first | User-named, many-to-many groups as a People filter; any visual stays the GDN-00 checkpoint |
+| 31 | Notification permission ask | NOT BUILT | **Commit next**, with the minimal push | One private notification of the Moment Today chose; D4's caps the ceiling; pause |
+| 32 | Siri / Action Button / widget / share sheet | NOT BUILT | Siri / Action Button: **Alpha direction**; share: explore later; widget: **hold** | — |
+| 33 | Subscriptions, Intentions, Opportunity Engine | NOT BUILT | Explore later | Intentions v0 as a user-authored sentence used as a relevance signal (Later Alpha); the Opportunity Engine as Today's ranking plus Intentions, external events a later experiment |
+| 34 | Person states (Remembered / Paused) | PARTIAL | **Commit next**, before broader Alpha | — |
+| — | About You (G28) | Not an approved surface | Explore later, in Settings | The user's own grounded memory listed in Settings, not a primary destination |
+| — | Promise, open-thread, hard-time Moments on Today | Not built (RSN-06, RSN-07, RSN-09) | Promise and open thread: **commit next**; hard time: **Alpha direction** | Promise guilt firewall kept; hard-time copy never cheerful, lock screen always private |
+

@@ -180,11 +180,13 @@ Everything else serves that, or waits.
 | Calendar briefs / post-encounter prompt | Next | Adds a permission and entity resolution; valuable but separable |
 | Reconnect with openers | Next | Needs rhythm data and a reason corpus |
 | Siri / Action Button / widget / share extension | Next–Later | Native targets; test burden |
-| Ask Kinship | Next | Retrieval over the same store; low risk, low proof value |
+| Ask Kinship (grounded, `retrieval_answer`) | **Alpha candidate** (CC-16, CC-17): after core trust and UX hardening / wife dogfood | Real users asked recall questions unprompted; memory-only answers with sources, "I don't know" when unsupported, own evals, never a chatbot |
 | Monthly reflection | Next | Needs 4+ weeks of data anyway |
 | Rich history, night polish, photos in moments | Later | Delight, not proof |
 
 **Challenging the default classification:** proactive push is required, not optional. A beta without push measures app-opening habits, which is the engagement metric the product rejects. Calendar briefs are *not* required: they're the second loop, and the first loop must work without a calendar.
+
+> **CC-25 (16 Oct 2026).** The minimum above is restated as *the smallest coherent Kinship*: Tell · Understand · Memory · Today · Delivery · Trust. Delivery is the minimal version (the Moment Today already chose, one private push within D4's caps), committed **next**, before broader Alpha; the household dogfood may run its first round without it. Export, deletion and Remembered / Paused block broader Alpha, not the household dogfood. Ask, Intentions, chapters, calendar, Siri, voice, share, Landscape, reflection, subscriptions and growth are multipliers. Monthly reflection is downgraded to later validation; the widget is held. See §28 and `KINSHIP_2_DECISIONS.md` CC-25.
 
 ---
 
@@ -603,6 +605,8 @@ score = base_weight(type)
       × (1 + 0.15 · quiet_stretch)   ← only for reconnect and plan types, and only when a real reason exists
 ```
 
+> **CC-25:** the quiet-stretch multiplier and the reconnect and plan rows that depend on it are **held, not built**. Quietness is never the reason to contact someone and never visible. Confirmed interaction patterns may become one private timing input only if later evidence justifies it and the founder approves. The memory-native candidates come first: promise and open thread **next**, hard time in Alpha.
+
 **Inputs never used:** elapsed time alone, number of items or captures per person, relationship label as importance, how often the user opens the app, or any cross-person comparison.
 
 **Selection:** the top candidate becomes the primary moment if `score ≥ 55`. Up to two secondary lines come from different people, and only from these types: birthday-tomorrow, year-ago, review, upcoming-this-week. If nothing reaches 55, Today shows "Nothing needs you today." That is a valid, designed state, not an empty state to fill.
@@ -658,6 +662,8 @@ The channel list comes from the person's device contact (via `contact_ref`), rea
 
 ## 16. Pre-interaction briefs
 
+> **CC-25 working interpretation:** a brief is likely Moment detail for a planned encounter, with the calendar as one more evidence source, rather than a separate Brief product. Explore later. The approved Brief board stays INTENTIONALLY DEFERRED (D6); any change to its form needs founder approval in `approved-design-coverage.md`.
+
 **Decision: Next, not V1.** Ship them in the first release after the core loop passes its beta gate (§30).
 
 - **Why not V1:** they add the calendar permission, attendee-to-person resolution, a second notification class and a second loop. The first loop has to prove itself without them. They are also the most "sales-prep"-shaped feature and need careful copy.
@@ -680,6 +686,8 @@ After: 2–3 h after event end, Today asks "How was dinner with David?" (in-app 
 ---
 
 ## 17. Reconnect
+
+> **CC-25:** not a separate system. Working interpretation: a Today candidate type, possibly gated by an explicit Intention and a real reason. The rhythm computation below is **held under the rhythm rule** (never a judgment of the relationship, never neglect, never visible, never the reason; possibly a private timing input later, on evidence and with the founder's approval). Explore later.
 
 **Next, not V1.** It needs two things at once:
 
@@ -829,6 +837,8 @@ The full component, engine and dependency list is in `KINSHIP_2_DELETION_PLAN.md
 
 ## 21. Native capture surfaces
 
+> **CC-25:** capture where life happens, in this order: Siri / Action Button (Alpha direction), then a simple on-device mic in Tell, then a text share extension (both explore later). The full Listening screen is questioned before implementation (it remains an approved, deferred board surface). The widget is held unless evidence changes.
+
 | Surface | User value | Effort | Native code | Privacy risk | Platform constraint | Offline | Test burden | Recommendation |
 |---|---|---|---|---|---|---|---|---|
 | **Voice (in-app Tell)** | Very high: 15-second capture after dinner | M (1–1.5 wk) | Yes: `expo-speech-recognition` (SFSpeechRecognizer) via config plugin; dev build (already in `eas.json`) | Low if `requiresOnDeviceRecognition: true`; high if a server fallback exists | On-device needs iOS 17+ for this module path and a supported locale/device (`supportsOnDeviceRecognition()` at runtime); iOS 26 `SpeechAnalyzer` is on-device by design but needs a custom module and per-locale model download | Works offline when on-device | Medium: devices × locales matrix | **V1-beta (week 3 of beta, flag `voice_capture`)**, on-device required, typing offered when unavailable. Spike `SpeechAnalyzer` for iOS 26 as a Next upgrade |
@@ -841,6 +851,8 @@ The full component, engine and dependency list is in `KINSHIP_2_DELETION_PLAN.md
 ---
 
 ## 22. Notifications and background intelligence
+
+> **CC-25:** the first delivery is deliberately small: the primary Moment Today already selected, as one private notification, with D4's caps as the ceiling, quiet hours, back-off, a global pause, and permission asked only after a genuinely useful Moment. Sensitive and hard-time content is always private on the lock screen. Never engagement optimization, streaks, "come back to Kinship" or an inactivity reason. The tiers, the weekly brief (later, a Sunday delivery form of Today) and the full planner below come afterwards, by evidence.
 
 Kinship must work while it is closed. All of this is server-side, on `pg_cron` + `pgmq` + edge functions + the Expo Push Service (APNs underneath).
 
@@ -900,6 +912,8 @@ Tool choice: PostHog (EU or US cloud) with IP capture off, autocapture off and s
 ---
 
 ## 24. Metrics
+
+> **CC-25:** the smallest internal measurement of showing-up moments is committed **next**, around the wife dogfood. It is an internal product metric only: never a user-facing dashboard, count, frequency, score or "people neglected", and content-free under F0-D4.
 
 ### The North Star: a *showing-up moment*
 
@@ -1057,6 +1071,26 @@ The domain code shared between the app and Deno lives in `packages/domain/` (pla
 ---
 
 ## 28. Build sequence
+
+> **Current sequence (founder, CC-18, 7 Oct 2026):** Gate 0 Final Trust Closure → Phase 4 UX Hardening & Relationship Loop Completion → wife dogfood → Alpha (with Ask Kinship as the first Alpha candidate). The "Phase 4: Alpha" row below now comes after the wife dogfood. See `KINSHIP_2_DECISIONS.md` CC-18 and `docs/product/HANDOFF.md`.
+>
+> **Status (founder, CC-19, 8 Oct 2026):** Gate 0 is **closed**. Phase 4 has started:
+> - **4A**, UX and the loop: I4, I6, I1, H16, I2, H4.
+> - **4B**, semantic memory for H15. Residence comes first, as derived facets in Postgres with deterministic composition; there is no knowledge graph and no embeddings. Its schema work waits for the founder's review of `docs/product/phase4-implementation-brief.md`.
+>
+> See `KINSHIP_2_DECISIONS.md` CC-19.
+
+> **The roadmap after Phase 4 (founder, CC-25, 16 Oct 2026).** Capture and memory are infrastructure; the return, the showing-up moment, is the product value. *Once Kinship can remember well, the roadmap priority shifts from making memory more sophisticated to proving that memory changes what happens between real people.* Phase 4B's order is unchanged. After B9 and the employer evaluation the roadmap pivots to return value, and no semantic slot is added unless an Ask / retrieval failure or another concrete need pulls it. The buckets below govern sequencing after Phase 4; the phase table further down is the original plan, kept for history and for the backend order it still describes. Full text: `KINSHIP_2_DECISIONS.md` CC-25.
+>
+> | Bucket | Items |
+> |---|---|
+> | **A. Committed / current** | B4 → B5 → B6 (stop for the founder) → B7 → B8 → B9 → employer semantics evaluation → low-coaching wife dogfood |
+> | **B. Commit next** | Internal showing-up measurement (never user-facing); promise reasons (RSN-06); open-thread reasons (RSN-07); minimal proactive push (the Moment Today already chose, one private notification, D4 caps as the ceiling, pause, permission after a useful Moment); the trust floor before broader Alpha (Remembered / Paused, export, delete-account v2, safe duplicate merge) |
+> | **C. Alpha direction** | Grounded Ask (v1 search over statements with sources, then bounded synthesis only if needed; Ask and `retrieval_answer` are one capability); hard-time reasons (RSN-09) once delivery and privacy are proven; I2b for surfaced plans; reason feedback ("Not helpful" mutes a kind of reason for a person for a bounded period); Siri / Action Button; required Alpha trust and ops work |
+> | **D. Explore later** | Intentions v0 (a user-authored sentence used as a relevance signal); chapters / life groups (user-named, many-to-many, a People filter); calendar as an evidence source; reconnect as a Today candidate; About You in Settings; year-ago and an occasional or yearly reflection; a dock mic / voice; a text share extension; the Landscape / Garden checkpoint; the Opportunity Engine's external-event experiment; subscriptions and pricing; growth systems |
+> | **E. Hold / drop / absorb** | Rhythm as a user-facing or neglect mechanism; a separate reconnect engine; a separate Brief product; monthly reporting by default; About You as a primary destination; the widget; semantic slots ahead of Ask evidence; `reason_generate` unless copy problems emerge; a general chatbot; a task manager; scores; timeline-heavy CRM UI; Garden vitality and growth mechanics |
+>
+> **The standing test:** *does this strengthen the smallest coherent Kinship (Tell · Understand · Memory · Today · Delivery · Trust), or is it trying to create another product inside Kinship?*
 
 The design direction's order starts with the look (tokens → sprig → Tell). The audit's order starts with trust. The dependencies say: trust and schema first, then **one vertical slice through everything**, then breadth. Visual language ships *with* the first surfaces, never as a separate reskin. The Garden never blocks validation.
 
@@ -1335,6 +1369,8 @@ None of the three concepts is implemented until that checkpoint is reviewed.
 ## 35. Post-validation product hypotheses: Intentions and the Opportunity Engine
 
 *Added 2 October 2026 at Thor's direction. These are future product hypotheses. They are not part of Phase 1, the vertical slice or V1, and must not inflate them. Like the Relationship Landscape (§34), they are explored only after the core loop is validated.*
+
+> **CC-25:** Intentions v0 is preferred in its lightest form, something the user tells Kinship ("I want to make more space for Chris this fall"), used as an explicit relevance signal; no dashboards, progress, streaks, overdue states or goals Kinship imposes. LATER ALPHA, after the ordinary Moment loop proves value. The Opportunity Engine is likely Today's candidates and ranking plus explicit Intentions; external event data is a later, separate experiment.
 
 ### Intentions (user-directed relationship focus)
 

@@ -407,6 +407,8 @@ There are 22 detailed epics (E00–E21) for Phases 0–5 and the first Phase 6 f
 
 ## E15 — Server notifications and weekly brief
 
+> **CC-25:** E15 starts smaller: one private notification of the Moment Today already chose, D4's caps as the ceiling, pause, permission after a useful Moment. Committed next, before broader Alpha. The weekly brief comes later as a delivery form of Today.
+
 - **Objective:** Kinship works while closed, within a strict budget (§22).
 - **User outcome:** the right nudge on the right morning, never on the lock screen in detail unless chosen.
 - **Architecture:** Expo push token registration; `devices`; `planner`, `sender` and `receipts` functions on `pg_cron`; `notification_outbox` and `notification_log`; the policy module.
@@ -579,6 +581,8 @@ There are 22 detailed epics (E00–E21) for Phases 0–5 and the first Phase 6 f
 ---
 
 ## Phase 6 epics, outlined (detailed after the beta gate)
+
+> **CC-25 (16 Oct 2026):** this order is superseded by the roadmap buckets in `KINSHIP_2_OPERATIONALIZATION.md` §28. E25 Ask is the first major Alpha expansion (one capability with `retrieval_answer`). E22 Reconnect is likely a Today candidate, with rhythm held. E21's brief is likely Moment detail with the calendar as an evidence source. E26's monthly letter is downgraded to later validation. E23 starts with chapters as a People filter before any visual. E24 starts with Siri / Action Button; the widget is held. Approved board surfaces stay deferred, not removed.
 
 | Epic | Objective | Key constraint | Flag |
 |---|---|---|---|
