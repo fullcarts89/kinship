@@ -117,3 +117,25 @@ select '${userId}', m.id, c.id, 'capture', 0, char_length(c.raw_text), c.raw_tex
 commit;`;
   execFileSync("docker", ["exec", "-i", "supabase_db_kinship", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], { input: sql, stdio: ["pipe", "ignore", "pipe"] });
 }
+
+/**
+ * A line an earlier day's note left in this local test account (the founder's account had 13 Oct's "call
+ * John tonight" when 14 Oct's was told): the note, the memory and its source, in one transaction. Local
+ * database container only.
+ */
+export function earlierLine(userId: string, line: { kind: string; personId: string; subject: string; statement: string; detail: Record<string, unknown>; at: string }): void {
+  for (const id of [userId, line.personId]) if (!/^[0-9a-f-]{36}$/u.test(id)) throw new Error("ids only");
+  const q = (t: string) => `$q$${t.replace(/\$q\$/gu, "")}$q$`;
+  const sql = `begin;
+with c as (
+  insert into public.captures (user_id, source, raw_text, status, occurred_at, time_zone, created_at, updated_at)
+  values ('${userId}', 'text', ${q(line.statement)}, 'extracted', ${q(line.at)}, 'America/Los_Angeles', ${q(line.at)}, ${q(line.at)}) returning id
+), m as (
+  insert into public.memory_items (user_id, kind, person_id, subject_type, statement, detail, origin, extraction_confidence, created_at, updated_at)
+  values ('${userId}', ${q(line.kind)}, '${line.personId}', ${q(line.subject)}, ${q(line.statement)}, ${q(JSON.stringify(line.detail))}::jsonb, 'extracted', 0.93, ${q(line.at)}, ${q(line.at)}) returning id
+)
+insert into public.memory_item_sources (user_id, memory_item_id, capture_id, source_kind, span_start, span_end, quote, created_at, updated_at)
+select '${userId}', m.id, c.id, 'capture', 0, ${line.statement.length}, ${q(line.statement)}, ${q(line.at)}, ${q(line.at)} from c, m;
+commit;`;
+  execFileSync("docker", ["exec", "-i", "supabase_db_kinship", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], { input: sql, stdio: ["pipe", "ignore", "pipe"] });
+}

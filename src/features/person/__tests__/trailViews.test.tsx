@@ -91,3 +91,23 @@ describe("reviewer C (13 Oct): conversations are always reachable", () => {
   });
 });
 
+
+describe("K23: back from a conversation opened on the person's page (founder, 14 Oct)", () => {
+  it("asks the same return question Today asks, with what it was about, under the name", () => {
+    const answers: string[] = [];
+    const r = portrait({ returnCheck: { ask: "Did you reach Tyler?", about: "Call Tyler" }, onReturn: (a) => answers.push(a) });
+    const shown = textsOf(r);
+    expect(shown.indexOf("Did you reach Tyler?")).toBeGreaterThan(shown.indexOf("Tyler Shaffer"));
+    expect(shown.indexOf("Did you reach Tyler?")).toBeLessThan(shown.indexOf("Lately"));
+    expect(shown.slice(shown.indexOf("Did you reach Tyler?"), shown.indexOf("Did you reach Tyler?") + 4)).toEqual(["Did you reach Tyler?", "Call Tyler", "Yes", "Not yet"]);
+    for (const label of ["Yes", "Not yet"]) {
+      const pill = r.root.findAll((n) => n.props.accessibilityLabel === label && typeof n.props.onPress === "function")[0];
+      act(() => pill.props.onPress());
+    }
+    expect(answers).toEqual(["yes", "not_yet"]);
+  });
+
+  it("asks nothing when nothing is waiting for an answer", () => {
+    expect(textsOf(portrait({ returnCheck: null })).some((t) => /^Did you reach/u.test(t))).toBe(false);
+  });
+});

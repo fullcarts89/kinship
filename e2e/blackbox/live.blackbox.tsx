@@ -7,6 +7,7 @@ import { act } from "react-test-renderer";
 import { mount, setUp, settle, show, signedIn, tap, tell, texts, until, unmount, canTap } from "./app";
 import { serverRows } from "./localStack";
 import { k4Run } from "./k4flow";
+import { k20FromToday, k23FromPage } from "./k20flow";
 import { harness } from "./state";
 
 const live = process.env.LIVE === "1" ? describe : describe.skip;
@@ -37,7 +38,7 @@ async function walk(r: TestRenderer.ReactTestRenderer, run: "A" | "B"): Promise<
     if (!q) break;
     asked.push(q);
     choices.push(s.slice(s.indexOf(q), s.indexOf(q) + 8));
-    if (q.startsWith("Which Anthony") || q === "Who is this about?") await tap(r, canTap(r, "Anthony Test") ? "Anthony Test" : "Someone else");
+    if (q.startsWith("Which Anthony") || q === "Who is this about?") await tap(r, canTap(r, "Anthony Lopez") ? "Anthony Lopez" : "Someone else");
     else if (q.startsWith("Which Sam")) {
       if (run === "A") { await tap(r, "Someone else"); await tap(r, "Sam Eden"); } else await tap(r, "Not sure");
     } else if (canTap(r, "Remember")) await tap(r, "Remember");
@@ -88,6 +89,26 @@ live("LIVE model, through the real app path", () => {
       expect(photos.length).toBeGreaterThan(0);
       expect(photos.map((m) => m.due).filter((d) => d !== null && d !== "2026-10-09")).toEqual([]);
       expect([...before, ...page].filter((t) => /Oct 12|Mon, Oct 12/u.test(t))).toEqual([]);
+    });
+  }
+
+  // K20 / K19 / K23 (14 Oct) with the founder's People, half on an account that already has yesterday's
+  // "call John tonight" (theirs did): whatever shape the live model gives, the same invariants (k20flow.ts).
+  for (let n = 1; n <= 8; n++) {
+    const yesterday = n > 4;
+    const answer = n % 2 === 1 ? "yes" : "not_yet";
+    it(`K20 live #${n}${yesterday ? " (told again the next day)" : ""}, ${answer}`, async () => {
+      const t0 = Date.now();
+      const { askedMs } = await k20FromToday(`live #${n}`, answer, { yesterday, readingMs: 120000 });
+      console.log(`LIVE K20 #${n}${yesterday ? " told again" : ""} ${answer} | ${Date.now() - t0} ms | return question ${askedMs} ms after foreground`);
+    });
+  }
+  for (let n = 1; n <= 4; n++) {
+    const yesterday = n > 2;
+    const answer = n % 2 === 1 ? "yes" : "not_yet";
+    it(`K23 live #${n}${yesterday ? " (told again the next day)" : ""}, ${answer}`, async () => {
+      const { askedMs } = await k23FromPage(`live #${n}`, answer, { yesterday, readingMs: 120000 });
+      console.log(`LIVE K23 #${n}${yesterday ? " told again" : ""} ${answer} | return question ${askedMs} ms after foreground`);
     });
   }
 

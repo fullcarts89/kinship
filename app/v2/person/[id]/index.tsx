@@ -1,16 +1,17 @@
 // A person's page: the portrait (board 2). Tap a line to correct it, its
 // provenance for the note; Message and Call open the real conversation;
 // Tell adds something about them (an unsent note about them waits here).
-import React, { useState } from "react";
-import { Alert, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useState } from "react";
+import { Alert, AppState, View } from "react-native";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { reachedSomeone } from "@/platform/haptics";
 import { ItemSheet } from "@/features/person/ItemSheet";
 import { IN_TOUCH, PortraitView, removeCopy } from "@/features/person/PortraitView";
 import { KeptCard } from "@/features/tell/TellDock";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TellSheet } from "@/features/tell/TellSheet";
 import { useHandoff } from "@/features/today/useHandoff";
-import { todayIso, useItemLine, usePeople, usePersonLinks, usePortrait, useUnderstanding, useV2Actions } from "@/hooks/useV2";
+import { todayIso, useItemLine, usePeople, usePersonLinks, usePersonReturn, usePortrait, useTodayActions, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { NamePane } from "@/features/tell/Pickers";
 import { Pill, Sheet, Title } from "@/ui";
 import { space } from "@/design/tokens";
@@ -37,8 +38,22 @@ export default function PersonScreen() {
   const first = portrait.person ? shortName(portrait.person) : "";
   const fail = (what: Promise<unknown>) =>
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
+  // Back from Messages or Phone: the return question is asked here as on Today (founder K23).
+  const [now, setNow] = useState(() => new Date());
+  useFocusEffect(useCallback(() => {
+    setNow(new Date());
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") setNow(new Date());
+    });
+    return () => sub.remove();
+  }, []));
+  const back = usePersonReturn(personId, now);
+  const today = useTodayActions();
+  // Reaching out about something they said they'd do gets the same return question as Today's line
+  // about it (founder K23); with nothing to act on, opening a conversation asks nothing afterwards.
   const reachOut = () => handoff.start({
     personId, personName: first, heading: `Reach ${first}`, mention: [...portrait.lately, ...portrait.comingUp].slice(0, 2).map((l) => l.statement),
+    ...(back.reason ? { reason: back.reason } : {}),
   });
 
   return (
@@ -66,6 +81,11 @@ export default function PersonScreen() {
       onRename={() => setRenaming(true)}
       hasDraft={!!flow.draft(personId).trim()}
       focusItemId={typeof focusItem === "string" ? focusItem : null}
+      returnCheck={back.returnCheck}
+      onReturn={(answer) => {
+        if (answer === "yes") void reachedSomeone();
+        void today.returned(answer).catch(() => Alert.alert("That couldn't be saved", "Nothing was lost. Try again in a moment."));
+      }}
       // The note just told about them, and only about them (never another person's card).
       kept={flow.card && flow.card.personIds.includes(personId)
         ? <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} onRate={flow.rateCard} onAddNewcomer={flow.addNewcomer} />

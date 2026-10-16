@@ -27,7 +27,7 @@ export interface PickRow {
   personId: string;
   contactId: string | null;
   name: string;
-  /** The quiet line under the name: "Birthday · 10 October"; never a relationship. */
+  /** The quiet line under the name: "Birthday · Oct 10"; never a relationship. */
   why: string | null;
   /** ISO day; the year is 2000 when the contact has none. */
   birthday: string | null;
@@ -106,12 +106,12 @@ export function nextBirthday(birthday: string, today: string): string {
   return daysBetween(today, thisYear) >= 0 ? thisYear : at(y + 1);
 }
 
-/** "10 October". */
+/** "Oct 10": Kinship's one way to write a date (founder K19). */
 export function dayMonth(birthday: string): string {
-  return `${Number(birthday.slice(8, 10))} ${MONTHS[Number(birthday.slice(5, 7)) - 1]}`;
+  return `${MONTHS[Number(birthday.slice(5, 7)) - 1].slice(0, 3)} ${Number(birthday.slice(8, 10))}`;
 }
 
-/** "today", "tomorrow", "Saturday", "on 21 October". */
+/** "today", "tomorrow", "Saturday", "on Oct 21". */
 export function whenFromToday(day: string, today: string): string {
   const n = daysBetween(today, day);
   if (n === 0) return "today";

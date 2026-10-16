@@ -36,7 +36,7 @@ export const HOW_COPY = {
   kept: "Ben runs Chicago Sunday",
   goal: "Hoping to break four hours",
   told: "You told Kinship · Thursday",
-  today: "Monday, 12 October",
+  today: "Monday, Oct 12",
   moment: "How did it go for Ben?",
   context: "Ben runs Chicago Sunday · Sun, Oct 11",
   /** The event's own hope, kept with it (Today shows the same line). */

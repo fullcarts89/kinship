@@ -34,7 +34,7 @@ function pick(over: Partial<PeoplePickViewProps> = {}) {
   return render(
     <PeoplePickView
       label="Setting up · 1 of 2" access={{ state: "granted", limited: false }}
-      suggested={[row("Maya Okafor", "Birthday · 10 October"), row("Mom", "Family")]} everyone={[row("Ben Carter")]}
+      suggested={[row("Maya Okafor", "Birthday · Oct 10"), row("Mom", "Family")]} everyone={[row("Ben Carter")]}
       added={[]} results={null} query="" selected={new Set()} busy={false} error={null}
       onQuery={noop} onToggle={noop} onAddByName={noop} onAsk={noop} onSettings={noop} onShareMore={noop} onContinue={noop} onSkip={noop}
       {...over}
@@ -53,7 +53,7 @@ it("consent: the approved disclosure, the interim provider line, and the two cho
 it("the picker: board 1's question, the T8 lock line, nobody pre-selected", () => {
   const tree = pick();
   const t = texts(tree);
-  expect(t).toEqual(expect.arrayContaining([SETUP_COPY.pickTitle, SETUP_COPY.pickLock, "Suggested", "Everyone", "Maya Okafor", "Birthday · 10 October"]));
+  expect(t).toEqual(expect.arrayContaining([SETUP_COPY.pickTitle, SETUP_COPY.pickLock, "Suggested", "Everyone", "Maya Okafor", "Birthday · Oct 10"]));
   // One per row: the app's Pressable wraps React Native's, so match the outer one.
   const boxes = tree.root.findAll((n) => n.type === Pressable && n.props.accessibilityRole === "checkbox");
   expect(boxes).toHaveLength(3);

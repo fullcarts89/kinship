@@ -233,3 +233,26 @@ Narrow trust and correctness fixes on surfaces that already exist; no new surfac
 | 12 Relationship page › Coming up / Lately | Someone else's promise leaves Coming up after its day; Lately for 30 days as "Waiting on Tyler", plain once the user reached them about it | K2 | Coming up rule: yes (CC-22). The page's "Waiting on …" in Lately for 30 days: proposal (CC-22 §choices 3) |
 | 12 Relationship page › Between you, 14 What Kinship knows | The I2 trail (row above) | I2 | Yes (CC-19, CC-20); copy: proposal (CC-22 §choices 4) |
 
+
+## Blocker bundle (founder, 15 Oct): what changed on approved surfaces, and what was deferred
+
+The founder's 15 Oct direction: close N11, K20, K15–K17, K19, K23, defer the rest, and move to H4 and Phase 4B
+("capture is now infrastructure"). Narrow fixes on existing surfaces; no new surface. **Native:** every row
+below was run on the iOS 27 simulator with the live model and the founder's People (15 Oct); the founder's
+device check is `blocker-device-checklist-15oct.md`.
+
+| Surface | Change | Why | Founder approval |
+|---|---|---|---|
+| 10 Today › Coming up | What the user means to do today is on Today however it was kept: a promise due today (as before), a plan for today, their own event today (**Today · Call John**). Once they said Yes about it today it leaves Today; Not yet keeps it. Someone else's event on its day stays the Moment's (unchanged) | K20 | Yes: brief §4 ("Today must include Today") |
+| 10 Today › headline | While a note just told is on screen and nothing else is on Today: **Understanding…** (the dock's own word) while it's read, **One thing to check.** (existing Today copy) while it asks, then **Nothing else needs you today.** beside the kept card. Never only the date and the greeting | K19 | Behaviour yes: brief §6. **"Nothing else needs you today." is new wording**: proposal, for the founder's look on the device check |
+| 10 Today › date; setup › people | One date format: **Wednesday, Oct 14** on Today (board 1 wrote "Thursday, 1 October"); a birthday reads **Oct 10** (was "10 October") | K19 | Yes: brief §6 ("normalize date formatting to the approved single format"); the format is the app's existing "Fri, Oct 16" |
+| 12 Relationship page | Back from a Message or Call opened on the page, about something to act on (Today's line about them, else the open "You said you'd" nearest its day): the same return question Today asks, **Did you reach John?** with what it was about, under the name; Yes / Not yet as on Today. The hand-off sheet says "When you come back: “Did you reach John?”" as it does from Today. With nothing to act on, nothing is asked (opening an app is not contact) | K23 | Yes: brief §7 ("the action origin should not determine whether the return loop exists") |
+| Tell › Kept card / clarification | One sentence about a shared activity is one memory whatever the model's wording, kind or full names; both Sams are offered | K15–K17 | Yes: brief §5 (no surface change) |
+
+**Deferred (founder, 15 Oct brief):**
+
+| Item | Status | Reason | Founder approval |
+|---|---|---|---|
+| K18: a "looks like something you told Kinship" question (Keep earlier · Keep new · Keep both · Undo) | **INTENTIONALLY DEFERRED → semantic memory (Phase 4B, SAME / REFINES / SUPERSEDES)** | A new decision surface just before that architecture is built. Meanwhile telling a thing again never corrupts or merges across days (K20) | Yes: brief §8 |
+| K22: "You said you'd" placed first on the person page | **INTENTIONALLY DEFERRED → H15 / B8 person-page work** | Requirement kept: open commitments easy to find, never buried under static reference memory. Not redesigning the page twice | Yes: brief §9 |
+| K21: pull to refresh | **OPTIONAL RESILIENCE / POLISH** (later) | The product updates by itself; stale automatic state is fixed in the automatic state, never by teaching a manual refresh | Yes: brief §10 |

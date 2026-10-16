@@ -71,6 +71,10 @@ import { ASPECTS, CERTAINTIES, EVENT_TYPES, FACT_CATEGORIES, FIRMNESS, KINDS, RE
 export const MAX_ITEMS = 8;
 export const AUTO_SAVE_CONFIDENCE = 0.85;
 export const DROP_BELOW_CONFIDENCE = 0.6;
+/** A plain same-day phrase, as the user said it (founder K20). */
+const SAME_DAY = /\b(?:today|tonight|this (?:morning|afternoon|evening))\b/giu;
+/** Any other word for when: with one of these too, the day isn't plain, so none is taken. */
+const OTHER_WHEN = /\b(?:tomorrow|yesterday|weekend|week|month|year|next|last|later|soon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|\d)/iu;
 const CONTACT_DETAIL = /\b(phone|cell|mobile|landline)\b|\bnew number\b|\bnumber (?:ends|ending) in\b|[\w.+-]+@[\w-]+\.[a-z]{2,}|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b/i;
 /** Floor for items held because code confirms the person or subject is ambiguous. */
 export const HOLD_FLOOR_CONFIDENCE = 0.3;
@@ -533,6 +537,16 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
       if (["week", "season", "month"].includes(resolution.precision) && raw.kind !== "plan") flags.add("date_coarse");
     }
     // Date words that aren't in the note are ignored, never resolved.
+  }
+  // Something the user means to do today ("I need to call John tonight") whose day the model didn't
+  // return: the line's own words say it, so Today still has it (founder K20). Only one plain same-day
+  // phrase in the line's evidence, never a guess between two.
+  if (!resolution?.date && (raw.kind === "promise" || raw.kind === "plan" || raw.kind === "event") && raw.date_direction !== "past") {
+    const sameDay = spans.flatMap((sp) => [...sp.quote.matchAll(SAME_DAY)].map((m) => m[0].toLowerCase()));
+    if (new Set(sameDay).size === 1 && !spans.some((sp) => OTHER_WHEN.test(sp.quote))) {
+      const day = resolveDate(sameDay[0], ctx.anchor, ctx.input.capture.time_zone, "future");
+      if (day.date && day.precision === "day") resolution = day;
+    }
   }
 
   // Something the note says already happened, with no day at all ("John and
@@ -1074,26 +1088,37 @@ function oneSentenceOneMemory(input: ExtractionInput, text: string, proposed: Pr
   for (const [sentence, idx] of bySentence) {
     if (idx.length < 2) continue;
     const group = idx.map((i) => proposed[i]);
-    const mentions = group.map((g) => g.person_mention!.trim());
-    if (new Set(mentions.map(fold)).size !== group.length || new Set(group.map((g) => g.kind)).size !== 1) continue;
+    // Each piece's name as the sentence says it: the model may write the whole name ("Anthony Lopez")
+    // where the note says "Anthony" (founder K16, 14 Oct). A name the sentence doesn't say leaves it alone.
+    const spoken = (m: string) => said(sentence, m) ? m : said(sentence, m.split(/\s+/u)[0]) ? m.split(/\s+/u)[0] : null;
+    const mentions = group.map((g) => spoken(g.person_mention!.trim()));
+    if (mentions.some((m) => m === null)) continue;
+    const names = mentions as string[];
+    if (new Set(names.map(fold)).size !== group.length) continue;
     if (wordsOf(fold(sentence)).some((w) => SELF_WORDS.has(w)) || RELATIVE_TIME.test(sentence)) continue;
-    if (!mentions.every((m) => said(sentence, m))) continue;
-    // Pieces: at least one line leaves out someone another names.
-    if (!group.some((g) => mentions.some((m) => !said(g.statement, m)))) continue;
+    // Everyone of the user's people the sentence names, by the word it uses ("Anthony", "Sam", "Chris").
+    const named = [...new Set(input.roster.flatMap((p) => namesFor(p).flatMap((n) => [n, n.split(/\s+/u)[0]]))
+      .filter((n) => n && said(sentence, n)).map((n) => n.split(/\s+/u)[0]))];
+    // Pieces: at least one line leaves out someone the sentence names (and another line names): a line
+    // filed on Chris naming everyone, and one on Anthony leaving out Sam, is still one sentence in pieces.
+    if (!group.some((g) => [...names, ...named].some((m) => !said(g.statement, m) && group.some((h) => said(h.statement, m))))) continue;
     const whole = content(sentence);
     const each = group.map((g) => content(g.statement));
     const common = each.reduce((a, b) => new Set([...a].filter((w) => b.has(w))));
     const told = new Set(each.flatMap((w) => [...w]));
     if (!common.size || each.some((w) => !w.size || [...w].filter((x) => whole.has(x)).length * 5 < w.size * 3)) continue;
     if ([...whole].filter((w) => told.has(w)).length * 3 < whole.size * 2) continue;
-    const first = (g: ProposedItem) => fold(sentence).indexOf(fold(g.person_mention!.trim()));
-    const owner = group.find((g) => g.person !== "unknown" && g.person !== "new" && people(g.person_mention).length === 1) ??
-      [...group].sort((a, b) => first(a) - first(b))[0];
+    const at = (i: number) => fold(sentence).indexOf(fold(names[i]));
+    // Filed on the one person the note itself settles, by the name it says: "Anthony" filed by the model on
+    // Anthony Lopez is still a question when there are two Anthonys (never a guess).
+    const settled = group.findIndex((g, i) => g.person !== "unknown" && g.person !== "new" && people(names[i]).length === 1);
+    const o = settled >= 0 ? settled : group.map((_, i) => i).sort((a, b) => at(a) - at(b))[0];
+    const owner = settled >= 0 ? group[o] : { ...group[o], person: people(names[o]).length === 1 ? group[o].person : "unknown" };
     const words = sentence.replace(/[.!?]+$/u, "");
     const confidence = Math.max(...group.map((g) => clamp01(Number(g.confidence))));
-    const merged: ProposedItem = { ...owner, statement: words, evidence: [words], confidence, existing: { action: "new", target: null } };
-    const own = owner.person_mention!.trim();
-    if (said(owner.statement, own) && mentions.every((m) => fold(m) === fold(own) || !said(owner.statement, m))) {
+    const merged: ProposedItem = { ...owner, person_mention: names[o], statement: words, evidence: [words], confidence, existing: { action: "new", target: null } };
+    const own = names[o];
+    if (said(owner.statement, own) && names.every((m) => fold(m) === fold(own) || !said(owner.statement, m))) {
       ALONE.set(merged, owner.statement.trim().replace(/[.!?]+$/u, ""));
     }
     replaced.set(idx[0], merged);
@@ -1747,6 +1772,9 @@ function relateByModel(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<
     case "merge": {
       if (proposedTarget.kind !== n.kind) return none;
       if (CERTAINTY_RANK[proposedTarget.certainty] !== CERTAINTY_RANK[n.certainty]) return none;
+      // "I need to call John tonight", told again the next day, is the next day's call: merged into
+      // yesterday's line it would keep yesterday's day and never reach Today (founder K20, as K10).
+      if ((n.kind === "promise" || n.kind === "plan") && !keepsDay(proposedTarget.detail, n.detail)) return none;
       if (n.kind === "event") {
         if (proposedTarget.detail.event_type !== n.detail.event_type) return none;
         const a = proposedTarget.detail.date as string | undefined;
@@ -1880,10 +1908,21 @@ function participants(personKey: string | null, withKeys: string[] | undefined):
 }
 
 /** Dates agree when both are missing, or both are the same day. */
+/** A line's own day: an event's or plan's date, a promise's due date. */
+function dayOfDetail(d: Record<string, unknown>): string | null {
+  return typeof d.date === "string" ? d.date : typeof d.due_date === "string" ? d.due_date : null;
+}
+
 function sameWhen(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
-  const da = typeof a.date === "string" ? a.date : null;
-  const db = typeof b.date === "string" ? b.date : null;
+  const da = dayOfDetail(a);
+  const db = dayOfDetail(b);
   return !da || !db || da === db;
+}
+
+/** Merging `next` into `kept` loses no day: `next` has none, or the same one (founder K10, K20). */
+function keepsDay(kept: Record<string, unknown>, next: Record<string, unknown>): boolean {
+  const day = dayOfDetail(next);
+  return !day || day === dayOfDetail(kept);
 }
 
 function sameSharedPlanned(a: PlannedItem, b: PlannedItem): boolean {
@@ -1926,7 +1965,7 @@ function sharedTwin(ctx: Context, item: PlannedItem): void {
   const twin = ctx.input.dossier.find((t) => {
     if (t.status !== "active" || !sameKindFamily(t.kind, item.kind) || t.subject_type !== item.subject_type) return false;
     if (t.user_state === "edited" || t.user_state === "user_authored") return false;
-    if (wordBag(t.statement) !== wordBag(item.statement) || !sameWhen(t.detail, item.detail)) return false;
+    if (wordBag(t.statement) !== wordBag(item.statement) || !keepsDay(t.detail, item.detail)) return false;
     if (participants(t.person_key, t.with_person_keys) === mine) return true;
     const theirs = new Set([t.person_key, ...(t.with_person_keys ?? [])]);
     if (![...mineKeys].some((k) => theirs.has(k))) return false;

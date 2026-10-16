@@ -14,7 +14,7 @@
 // is never a stale detail.
 
 import { dayLabel } from "@/features/memory/format";
-import { daysBetween, type MomentView, type QuietView, type ReasonType, type TodayView, waitingReasonId } from "./todayModel";
+import { comingReasonId, daysBetween, type MomentView, type QuietView, type ReasonType, type TodayView, waitingReasonId } from "./todayModel";
 
 export interface MomentDetail {
   /** Which moment or line this is (internal: never shown). */
@@ -68,7 +68,7 @@ export function behind(day: string, today: string): string {
 
 /** The key a Coming up or "Waiting on …" line opens its detail by (also its hand-off's local reason id). */
 export function quietKey(q: QuietView): string | null {
-  if (q.kind === "coming") return `coming:${q.itemId ?? `birthday-${q.personId}`}:${q.day}`;
+  if (q.kind === "coming") return comingReasonId(q.itemId ?? `birthday-${q.personId}`, q.day);
   if (q.kind === "waiting") return waitingReasonId(q.itemId, q.day);
   return null;
 }

@@ -103,7 +103,8 @@
           "useSQLCipher": true
         }
       ],
-      "./plugins/withPodDeploymentTarget"
+      "./plugins/withPodDeploymentTarget",
+      "./plugins/withSceneLifecycle"
     ],
     "experiments": {
       "typedRoutes": true
