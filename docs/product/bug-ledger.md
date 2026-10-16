@@ -22,7 +22,7 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
   - **Re-seen (pass N)**: the problem happened again on device.
   - **Not re-tested**: no native evidence since the fix.
 
-*Update, 16 Oct 2026, late (Phase 4B B4, branch `claude/phase4b-b4-77358f`, PR #35):* B4 (multi-item closure and its exact Undo) is built; no migration. **The founder ran `b4-device-checklist.md` on a build with the gateway deployed from the branch: passed, no issues (FOUNDER-DEVICE PASS).** Not yet merged. Not a bug pass: no K or N item changes status. Found while building it: the Kept card never showed "Replaces" (only the review sheet did), now it does for every line a note replaced; and N16, a choice for the founder (the stored "Susan moved" answer closes only the line the question named, so a second edited line stays current).
+*Update, 16 Oct 2026, late (Phase 4B B4, branch `claude/phase4b-b4-77358f`, PR #35):* B4 (multi-item closure and its exact Undo) is built; no migration. **The founder ran `b4-device-checklist.md` on a build with the gateway deployed from the branch: passed, no issues (FOUNDER-DEVICE PASS).** Merged (PR #35, `a4ab5ac`). Not a bug pass: no K or N item changes status. Found while building it: the Kept card never showed "Replaces" (only the review sheet did), now it does for every line a note replaced; and N16, a choice for the founder (the stored "Susan moved" answer closes only the line the question named, so a second edited line stays current).
 
 *Update, 16 Oct 2026, night, later:* N14 widened to the city level (Los Angeles → "lives in Hollywood", Alameda → "lives in Portland"), at the founder's direction. The founder approved Pilsen, "Susan moved", N13 and N15 as built, and one closure until B4.
 
