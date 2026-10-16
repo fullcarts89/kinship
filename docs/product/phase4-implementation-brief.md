@@ -904,3 +904,53 @@ Added by the founder's trust check: an edited line among the closures (via the c
 4. Either order is safe: an app from before B4 against the new gateway shows the card without the lines while the server closes and restores correctly (the `closes_ids` mirror has been in the app since B2); the new app against the old gateway sees one closure per note, as B3.
 
 **Next step:** the founder reviews this PR (choice 1 / N16 in particular); after merge and deploy, B5 (`compose.ts`, the composed line and its sheet, §9, §12).
+
+---
+
+## 24. B5 as built (16 Oct 2026)
+
+**Status:** built on `claude/phase4b-b5-compose`, from `main` `ca4e208` (PR #36, CC-25, merged); in review. **No migration:** B2's schema carries everything the composer reads (`memory_item_facets`, mirrored since B2); the schema fingerprint of a fresh build is unchanged (md5 `abeadd9ad9b1d2041f9884299872c03e`, 983 lines, as after B3 and B4). **No gateway change:** the composer runs on the phone; the gateway code it shares (`relate.ts`) gained one exported helper, no behaviour. The app needs a build (the composed line and its sheet). **B6 is not started.** Readiness: **NOT READY**.
+
+**Commits:**
+- `8943818`: step 8, `compose.ts`, the shared composer; What Kinship knows reads it at read time.
+- `b01dca7`: step 9, the composed line in What Kinship knows, and the sheet of its members.
+- The `b5` black-box suite and this section.
+
+### What B5 is
+
+- **`supabase/functions/_shared/semantic/compose.ts`** (§9): pure and deterministic, no model and no place data. One group is a person's current residence lines of one subject and related person (active, a stated unshared non-sensitive fact, with a live reading: `currentResidence`). Ordered most specific first (`relate.ts`'s `specificityOf`: city < region < country; ties to the newest told), each line must contain the next under the usual-reading guard (`pairClass` E ⊇ N, or SAME). Then `Lives in ` + each line's own `value_text`, most specific first, joined with ", "; the same reading said once, in the most specific line's words, every line still a member. Any unknown, ambiguous or disjoint pair means every line on its own (fail open). A composed line carries its member ids, the rule version (`compose/v1`) and the dataset versions; the caller reads the union of its sources. `historyEligible` and the `previous` option render "Previously lived in …" over a closed chain whose every live closer records a change (changed, completed, cancelled); not shown anywhere yet (B8, §11).
+- **The phone composes every time What Kinship knows is read** (`recordFor` → `composedRecord.ts`): the lines and their mirrored readings (`MemoryRepo.residenceFacets`) go through the composer; a group that chains is one row where its newest member was, with the union of the members' sources in the existing provenance words ("You told Kinship · Oct 2 · and 1 other note"). Nothing is stored; the member lines stay the memory; the next note's dossier carries the member lines, never the composed one.
+- **The composed row** (`PersonRecordView`, §12): the words, the provenance, one **Edit**. The line, its provenance and Edit all open the members (**ComposedSheet**): the composed words and their provenance at the top, then each member as the page draws a line (`RecordRow`, extracted from the page: the same words, tokens, "Before:" and "Edited by you" lines, provenance to that note's Source view, **Edit**, **Not this**). No tokens and no "Not this" on the composed row itself: it is no memory. "View Susan" on a member lands on the composed line.
+- **Recomposition:** an edit is read again by the server (N13) and the page recomposes from the new reading ("Alameda" → "Oakland": "Lives in Oakland, California"; words the data doesn't know: two lines). Not this on a member takes it out at once and the rest are read again from the same inputs (`withoutForgotten`), never from the old words; the store's own read follows. A replacement ("moved to Colorado") closes the chain and the page says the closer and its "Before:" lines; Undo or Not this on the closer restores the members through the database's trigger and the line composes again, the same ids, the same provenance. Another phone, and this phone after a restart, read the same line from what synced down.
+- **Diagnostics:** a DISJOINT pair among current lines (the comparator's invariant broken) sends `compose_degraded` with the slot and a small count, never words.
+- **The corpus runs the product's composer.** `evals/semantic/residence.test.ts` read pages with its own copy of the §9 rules as test code until B5; it now reads them with `compose.ts` and `historyEligible` (80/80), and its zero-tolerance metrics still check the composed words against the members' own words independently.
+
+### Choices made within the brief (for review)
+
+1. **Where the composed line shows now:** What Kinship knows, as one row in the existing flat list, where the group's newest member was. The Background section is B8's; the Portrait is unchanged until B7 (Lately still shows "Susan lives in Alameda" and "Susan lives in California" as two lines).
+2. **One way in.** The composed row has no tokens and no "Not this" of its own; its line, its provenance and its Edit pill open the sheet. Sheet copy, **proposals:** screen-reader label "What this comes from"; under the composed words and their provenance, "From these notes. Change or remove any of them."; **Done**. The row's hint: "Double-tap to see the notes it comes from".
+3. **"Alameda, CA" beside "California" reads "Lives in Alameda, CA, California".** §9 says each line's own words, nothing expanded or dropped, so both are said. Rare (one note qualified, another not); logged as **N17** for the founder: whether a line whose place a more specific member's own qualifier already names may go unsaid (its note would stay a member and in the provenance).
+4. **"Degraded" means DISJOINT as the comparator read it** (the newer line as N). An AMBIGUOUS pair (Paris + Texas; N14's "Hollywood" next to "California") and an UNKNOWN one are kept apart on purpose and not reported.
+5. **History needs every live closer to record a change** (`historyEligible`): a line closed by one note as a change and by another as a correction is never history. The corpus's own reading took "some"; it now takes this. Nothing is displayed yet.
+6. **Never a sheet on a sheet:** Edit from the composed sheet closes it and opens the picker once it has left (`afterSheets`); Not this asks with the OS alert as the page does, and the sheet follows the recomposed line (one member left: that line shows as itself, the sheet closes).
+7. **The provenance of a composed line with an edited member** reads "Edited by you · Oct 9 · from your note, Oct 8" for the whole line: the existing words over the union (brief §12 "the existing provenance phrasing"). For the founder's look.
+8. **The test fake server** now restores what a retracted line replaced or closed (the database's trigger, emulated for Jest); test-utils only.
+
+### Evidence
+
+| Tier | Result |
+|---|---|
+| UNIT | PASS: Deno 420 (12 added: `compose.test.ts`, every §9 rule and the history rule); Jest 92 suites / 840 tests (`TZ=UTC`; added `composeProofs` 20 and `composedViews` 8); `npx tsc --noEmit` and `npx eslint app src` clean (0 errors; the 132 warnings are the legacy files' and were there before) |
+| INTEGRATION | PASS: the corpus 80/80 with the product's composer (zero-tolerance metrics 0; deferred 0; missed refinements 0). `composeProofs` through the real pipeline (`residence.ts`, `relate.ts`, the write rules, sync, `recordFor`): the required cases 1–15 and the California → Alameda → "moved to Colorado" → exact Undo scenario, Not this on the closer, "moved to Oakland", another phone and a restart. **Database:** no SQL changed; the existing pgTAP evidence re-run as is: 26 suites / 743 assertions, 0 failing, on Postgres 16.15 (Homebrew, the run-db-tests steps with psql in place of pg_prove); fingerprint md5 `abeadd9a…` unchanged |
+| BLACK-BOX | PASS: `b5.blackbox` 4/4 replayed (the real screens, the local stack with B2 + B3 applied, this branch's gateway on :8000 and its stub on :8791, `GATEWAY_URL` / `STUB_URL`): "Lives in Alameda, California" from two notes with "and 1 other note" and nothing composed stored; the sheet listing both notes with their own Edit and Not this; Not this on California from the sheet leaving "Susan lives in Alameda" (California retracted on the server, its reading gone); California → Alameda → "moved to Colorado" (the page says Colorado and both "Before:" lines) → Undo from the Kept card, the composed line back with the same server ids and readings. Regression against the same gateway: b3 20, b4 5, removal 3 |
+| LIVE-MODEL | PASS: `b5.blackbox` 4/4 with the live model (the stub in record mode, 16 Oct; 9 calls). The composed line, the sheet, Not this and the Undo scenario all held on the live replies |
+| NATIVE-SIMULATOR | NOT RUN: no build this session |
+| FOUNDER-DEVICE | NOT RUN |
+
+### Rollout
+
+1. Merge (a merge commit). **No migration**; compare the fingerprint anyway (unchanged, md5 `abeadd9a…`).
+2. No ai-gateway change is needed for B5 (B4's deploy still waits for the founder's go).
+3. A build (the composed line and its sheet). An app from before B5 shows the lines as it did; the new app against any gateway composes from whatever readings it has mirrored (none: as before).
+
+**Next step:** the founder reviews this PR (choices 2, 3 and 7, and N17); after merge, B6 (the report-only task and `residence_backfill_report`, §14), which stops for the founder before any facet is written for an existing line.
