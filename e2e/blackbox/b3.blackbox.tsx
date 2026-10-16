@@ -72,8 +72,9 @@ async function rows(a: Account) {
   const line = (re: RegExp) => items.find((m) => re.test(m.statement));
   return {
     items, line,
-    current: items.filter((m) => m.status === "active").map((m) => m.statement).sort(),
-    closed: items.filter((m) => m.status === "superseded").map((m) => m.statement).sort(),
+    // The words as kept, without a closing full stop (the live model writes the line either way).
+    current: items.filter((m) => m.status === "active").map((m) => m.statement.replace(/\.$/u, "")).sort(),
+    closed: items.filter((m) => m.status === "superseded").map((m) => m.statement.replace(/\.$/u, "")).sort(),
     reading: (m: Item | undefined) => (m ? facets.find((f) => f.memory_item_id === m.id)?.value_text ?? null : null),
   };
 }

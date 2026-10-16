@@ -24,6 +24,8 @@ if (!/^http:\/\/(127\.0\.0\.1|localhost):/u.test(API_URL)) throw new Error("the 
 const SERVICE = E.SERVICE_ROLE_KEY;
 const ANON = E.ANON_KEY;
 const STUB = process.env.STUB_URL ?? "http://127.0.0.1:8790";
+const GATEWAY = process.env.GATEWAY_URL;
+if (GATEWAY && !/^http:\/\/(127\.0\.0\.1|localhost):/u.test(GATEWAY)) throw new Error("the harness runs only against a local gateway");
 
 async function admin(path: string, init: RequestInit = {}) {
   const res = await fetch(`${API_URL}${path}`, {
@@ -56,9 +58,14 @@ export async function localAccount(opts: { networkMs?: number } = {}): Promise<{
     await new Promise((res) => setTimeout(res, opts.networkMs));
     return fetch(input, init);
   };
+  // A branch's own ai-gateway beside the shared `functions serve` (GATEWAY_URL, e.g. one run with
+  // `deno run` from that branch, see e2e/README.md): only the gateway's requests go there.
+  const viaGateway = (f: typeof fetch): typeof fetch => (input, init) =>
+    f(String(input).startsWith(`${API_URL}/functions/v1/`) ? String(input).replace(`${API_URL}/functions/v1`, GATEWAY!) : input, init);
+  const transport = opts.networkMs ? slowFetch : fetch;
   const client = createClient(API_URL, ANON, {
     auth: { persistSession: false, autoRefreshToken: false },
-    ...(opts.networkMs ? { global: { fetch: slowFetch } } : {}),
+    ...(opts.networkMs || GATEWAY ? { global: { fetch: GATEWAY ? viaGateway(transport) : transport } } : {}),
   });
   const { error } = await client.auth.signInWithPassword({ email, password });
   if (error) throw error;

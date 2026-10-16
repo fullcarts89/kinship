@@ -1,0 +1,49 @@
+{
+ "note": "Susan lives in Hollywood.",
+ "variants": [
+  {
+   "label": "live 1 (16 Oct, N13/N14, founder People + Susan)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Susan",
+      "person_mention": "Susan",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Susan lives in Hollywood",
+      "evidence": [
+       "Susan lives in Hollywood."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "home",
+       "attribute": "lives in",
+       "value": "Hollywood",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "supersede",
+       "target": "@memory:Susan lives in California"
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

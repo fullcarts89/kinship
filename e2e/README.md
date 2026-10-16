@@ -64,9 +64,9 @@ LIVE=1 npx jest -c e2e/jest.blackbox.config.js e2e/blackbox/live.blackbox.tsx
 | `k19.blackbox.tsx` | K19: Today never a bare header, told, asked, kept or reopened |
 | `today.blackbox.tsx` | N6 / K11 / K13 |
 | `k10.blackbox.tsx`, `dates.blackbox.tsx` | K2 / K10 dates |
-| `removal.blackbox.tsx` | K14 / N9 / N10, also on a phone-like profile |
+| `removal.blackbox.tsx` | K14 / N9 / N10, also on a phone-like profile. The note's weekday is never the run's own (N15): Friday, or Tuesday from Thursday to Saturday (UTC) |
 | `live.blackbox.tsx` | K4, K20, K23, K2, N6, K14 with the live model |
-| `b3.blackbox.tsx` | Phase 4B B3 residence: C with exact Undo, E (Susan moved / Still there), D, F, the Pilsen finding, the §21 rows through the real database, and today's edited-words limit. The local database needs the B2 and B3 migrations (`npx supabase migration up --local`) and this branch's gateway. Replies `e2e/replies/b3-*.json` (live, 16 Oct); with `LIVE=1` it runs on the live model |
+| `b3.blackbox.tsx` | Phase 4B B3 residence: C with exact Undo, E (Susan moved / Still there), D, F, the Pilsen finding, the §21 rows through the real database, N13 (a line edited on Susan's page is read again; then a move, a bare replacement, a correction, Undo; the next Tell's safety net) and N14 (a bare "Hollywood" next to "California"). The local database needs the B2 and B3 migrations (`npx supabase migration up --local`) and this branch's gateway. Replies `e2e/replies/b3-*.json` (live, 16 Oct); with `LIVE=1` it runs on the live model |
 
 ## The simulator build (NATIVE-SIMULATOR)
 
@@ -105,3 +105,4 @@ slower and builds from git.
 - Typing through the simulator tools drops text after a space: type a word at a time.
 - Never stop a process by its port (`lsof -ti tcp:… | xargs kill`): Colima's forwarder holds those sockets too, and killing it takes Docker down (16 Oct). Stop the stub or `functions serve` by its own PID.
 - A second stub for a branch's own replies can run beside the shared one (`STUB_PORT=8791`), with the gateway's env file pointed at it and `STUB_URL=http://127.0.0.1:8791` for the suites.
+- A branch's own ai-gateway can run beside the shared `functions serve` too, without stopping it: `deno run --config supabase/functions/deno.json --allow-net --allow-env --allow-read supabase/functions/ai-gateway/index.ts` from that branch (port 8000), with `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` from `supabase/.env.harness.local` and `ANTHROPIC_BASE_URL` set to the stub. Then `GATEWAY_URL=http://127.0.0.1:8000` sends the suites' gateway requests there (and only those). It skips the platform's JWT check in front of the function; the gateway checks the user itself.

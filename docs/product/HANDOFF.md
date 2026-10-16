@@ -1,10 +1,16 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 16 Oct 2026, night: PR #34 (B3) finished against the brief; B4 HAS NOT STARTED.** This supersedes the addenda below where they differ.
+> - **Three deltas on `claude/phase4b-b3-9be47a`** (brief §22): **N13**, §5's approved re-derivation (`_shared/semantic/rederive.ts`; ai-gateway `rederive`, model-free, owner only; the app reports an edit after it syncs; the next Tell is the safety net; `write_facets` re-checks; only lines B3 has read). **N14**, the founder's rule: a bare city outside a broader residence is AMBIGUOUS (two lines, or one question with a change); "Hollywood, FL" and ordinary DISJOINT (Alameda → Colorado) unchanged. **N15**, the removal suite's weekday (harness only). No migration changed.
+> - **Evidence:** unit, integration (corpus 65/65), black-box 16/16 plus every regression suite, live model 16/16. Native simulator not run for the deltas: the shared `functions serve` couldn't be swapped for the branch's gateway in this session (a branch gateway now runs beside it with `deno run` and `GATEWAY_URL`, e2e/README). Founder device not run.
+> - **Local stack:** unchanged. The shared `functions serve` (handoff worktree, replay) and the stub on :8790 were never stopped; this session's own stub (:8791) and gateway (:8000) were stopped afterwards.
+> - **Readiness: NOT READY.**
+
 > **Addendum, 16 Oct 2026, evening: Phase 4B B3 (residence semantics) is built; B4 not started.** This supersedes the addenda below where they differ.
 > - **Branch `claude/phase4b-b3-9be47a`** (from `main` `7bccd83`), PR against `main`. Not merged; nothing deployed. What was built, the choices, the evidence and what's needed before B4: `phase4-implementation-brief.md` §22.
 > - **Migration `20261016090000_v2_closure_of_edited_lines`** (§21, forward-only, two function bodies, no backfill). Applied to the **shared local stack** (with B2's `20261015090000`, which it lacked) for pgTAP and the harness. Production gets it only by the founder's merge; then compare the fingerprint (967 lines, `abeadd9a…`).
 > - **ai-gateway:** B3's residence reading runs in the gateway, so it needs a deploy from `main` after the merge, on the founder's go. The app build adds the question's screen side and Settings › About; deployment order is safe either way.
-> - **Founder decisions waiting:** the Pilsen rule (§22 point 4), "Susan moved" for "She moved", re-derivation after an edit (N13), the same-country neighbourhood limit (N14).
+> - **Founder decisions waiting:** the Pilsen rule (§22 point 4), "Susan moved" for "She moved". (N13 and N14 were settled and built later the same day: addendum above.)
 > - **Local stack:** the shared `functions serve` (handoff worktree, replay) and the stub on :8790 are as they were. During B3 Colima's forwarder was killed by a port-based `kill` and Colima was restarted (containers came back by themselves); never kill by port on this machine.
 > - **Readiness: NOT READY.**
 
