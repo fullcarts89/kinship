@@ -45,13 +45,16 @@ export interface AliasInput {
   note?: string;
 }
 
+/** A dump as sources.json lists it; unpinned (null) until --pin records it. */
+export type Pin = Omit<Source, "retrieved" | "bytes" | "sha256"> & {
+  retrieved: string | null;
+  bytes: number | null;
+  sha256: string | null;
+};
+
 export interface Pins {
   version: string;
-  sources: Array<Omit<Source, "retrieved" | "bytes" | "sha256"> & {
-    retrieved: string | null;
-    bytes: number | null;
-    sha256: string | null;
-  }>;
+  sources: Pin[];
 }
 
 export interface BuildInput {
