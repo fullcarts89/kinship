@@ -1,0 +1,49 @@
+{
+ "note": "Susan moved to California.",
+ "variants": [
+  {
+   "label": "live 1 (16 Oct, B3, founder People + Susan)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Susan",
+      "person_mention": "Susan",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Susan moved to California",
+      "evidence": [
+       "Susan moved to California."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": null,
+      "date_direction": "past",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "home",
+       "attribute": "moved to",
+       "value": "California",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

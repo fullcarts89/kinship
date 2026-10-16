@@ -496,10 +496,13 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     // change (resolve_capture_review finds the stored question that offered it).
     const residenceAsked = flags.has("residence_conflict") && !!item.still_in?.target_id;
     if (residenceAsked) {
-      if (typeof a.moved !== "boolean" || !unchanged) return { fail: "bad_answer" };
-      action = a.moved ? { type: "supersede", target_id: item.still_in!.target_id } : { type: "new", target_id: null };
+      // A build from before this question asks only "Remember this?": its yes is
+      // "Still there", which closes nothing (deployment order is safe either way).
+      const moved = typeof a.moved === "boolean" ? a.moved : a.accept === true ? false : null;
+      if (moved === null || !unchanged) return { fail: "bad_answer" };
+      action = moved ? { type: "supersede", target_id: item.still_in!.target_id } : { type: "new", target_id: null };
       delete detail.transition;
-      if (a.moved) detail = { ...detail, transition: "changed" };
+      if (moved) detail = { ...detail, transition: "changed" };
     } else if (a.moved !== undefined) {
       return { fail: "bad_answer" };
     }
@@ -626,7 +629,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
 
 function residenceFacets(item: HeldItem, a: HeldAnswer, asRead: boolean, action: string): Pick<ResolvedItem, "facets" | "cue"> {
   if (!asRead || !Array.isArray(item.facets) || !item.facets.length || action === "merge") return {};
-  if (a.moved === false && item.still_in?.stay === "words") return {};
+  if (a.moved !== true && item.still_in?.stay === "words") return {};
   return { facets: item.facets, ...(item.cue ? { cue: item.cue } : {}) };
 }
 

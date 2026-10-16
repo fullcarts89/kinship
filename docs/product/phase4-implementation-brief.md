@@ -760,3 +760,81 @@ Run in this worktree:
 - shared and cross-person lines are never closed.
 
 **Not in this migration:** any semantic behaviour or backfill beyond the approved B3 sequence (B6's report-only run and the founder's stop still come before any existing data changes).
+
+## 22. B3 as built (16 Oct 2026)
+
+**Status:** built on `claude/phase4b-b3-9be47a`, from `main` `7bccd83`; in review. Not merged; the migration is not in production; ai-gateway not deployed. **B4 is not started.** Readiness: **NOT READY**.
+
+### What B3 is
+
+- **`supabase/functions/_shared/semantic/residence.ts`** (§5): where someone lives now, read from the line's own span of the user's words with the committed `places-2026.10` (server only). It returns the facet in the shape `write_extraction` accepts, and the cues in the same span, in code points.
+- **`supabase/functions/_shared/semantic/relate.ts`** (§8): pair classes, the cue table, the protected-line rule of §21 and the combining rules. Pure.
+- **`pipeline.ts`**, behind the residence check: a line whose own words state a current residence (and only once who and what it is about are settled) is related to the person's current residence lines by the table. Every other line, and every relation to a line that isn't a residence, keeps today's path. Without place data nothing changes: the 416 extraction fixtures and both replays are unchanged.
+- **The gateway** reads the dossier lines' live facets (under the user's RLS) and sends each new line's facet and cue; a held residence line carries the question's line (`still_in`). `resolve.ts` turns the answer into a closure as a change ("Susan moved") or nothing ("Still there").
+- **The residence question** in the review (`reviewModel.ts`, `ReviewSheet` unchanged): **Is Susan still in Alameda?** · **Still there** · **Susan moved** · Don't keep this. Its words live in one shared place (`_shared/semantic/questions.ts`).
+- **The migration** `20261016090000_v2_closure_of_edited_lines` (§21) and pgTAP `69_v2_closure_of_edited_lines`.
+- **The semantic corpus** runner `evals/semantic/residence.test.ts` (48 sequences, frozen in `evals/semantic/MANIFEST.json`), in CI.
+- **Settings › About:** "Place data from GeoNames (geonames.org), CC BY 4.0" (CC-20, decision 1; B2 left it for the first build that uses the place data). One string shared with the dataset and `THIRD_PARTY_NOTICES.md`.
+
+B3 writes facets and closures **for new notes only**. No backfill, no re-derivation, no existing row changed (B6's report and the founder's stop come first). Nothing is composed or displayed differently (B5, B7, B8).
+
+### Choices made within the brief (for review)
+
+1. **"Current" is a line with a live facet** (§8). A residence told before B3 has none and keeps today's path, with one guard: the model may still replace such a line as today, but never with a place that fits it or could be it ("Alameda" after "California", or two readings), and never merge a different place into it. Found live on 16 Oct: the model proposed merging "Susan lives in Pilsen" into "Susan lives in Illinois".
+2. **A single reading is the usual reading, never a pin.** `place_ref` is set only by a qualifier in the same words ("Alameda, CA") (and, in B5, by the user's answer). The B2 column comment's "one reading in the data" isn't used for pinning, because of the Pilsen finding.
+3. **A region's people, for the usual reading**, are the sum of its cities' people in the data (regions have no population in GeoNames): "Colorado" is the state, not the town in Brazil; "Georgia" has no usual reading (the country and the state).
+4. **The Pilsen finding (§20) — proposal for the founder:** a city read in another country than the other line's place is **AMBIGUOUS, never DISJOINT** (the data has no neighbourhoods). Without a cue: two lines. With a change: one question. So "lives in Illinois" → "lives in Pilsen" never replaces Illinois, and "Pilsen" → "moved to Denver" asks "Is Susan still in Pilsen?" (fixture res-027 changed from the seeded "the model's target").
+5. **No usual reading on one side** (Georgia, Paris against a region it isn't in) is AMBIGUOUS too (§7: a missing reading fails open).
+6. **Aliases count only as written, in capitals** ("CA", "NYC", "OR"); "or", "me", "in" are never places. A place word in lower case counts when the data knows it ("susan lives in alameda").
+7. **Cues:** a correction wins over a change in the same words (never history). **"not <words>"** corrects only the line whose own words for the place follow it, compared exactly as the database compares them.
+8. **A line the user edited:** a DISJOINT pair with no cue asks (§21); with a change or correction cue it closes. A SAME pair writes a new line (the database never merges into an edited line). With an unknown place, the model's target closes it only with a cue in the user's words.
+9. **A residence whose person or subject is asked gets no reading**, and an answer that changes who it is about drops it (fail open): it was never related to anyone's residence.
+10. **"Still there"** keeps the new line's reading (it composes, case E), except beside a line the user edited that it can't be (§8 rule 1): then only its words. The user's pin of an AMBIGUOUS reading ("Paris, Texas") is **not written** in B3: it would write a facet on an existing line (B5).
+11. **One closure per note** (`supersedes_id`). `closes` (multi-item closure) is B4 (§18): "California → Alameda → moved to Colorado" closes Alameda now and California stays current, as before B3, until B4 (reported in the corpus).
+12. **A plan or thread today's path closes** stays today's, unless the table closes a residence line, which then takes the one closure (B4 carries both).
+13. **No stored clarification** for a residence-only hold: the app builds the question from the held line, and `write_extraction_with_review` (not replaced, §21) accepts only its four question types.
+14. **Facets that can't be read:** the note is understood without residence (never as if no line had one).
+15. **Deployment order is safe.** An app from before B3 shows a held residence line as "Remember this about Susan?"; its yes is read as "Still there" (nothing closes).
+
+### The migration: `20261016090000_v2_closure_of_edited_lines`
+
+Forward-only. Replaces `write_extraction` and `resolve_capture_review`, adds two internal helpers (`edited_line_closure_ok`, `span_signature`). No table or column change; no stored row updated; no backfill.
+
+- An edited or user-written line (supersede target or `closes` id) closes only when:
+  - **(a)** the new line's transition is `changed` or `corrected` and its `cue` lies inside one of its own spans, and the database reads the cue's characters itself: moved to · has moved (back) to · relocated to · moved from … to · now lives in · lives in … now (change); actually · I was wrong · I meant · correction · "not <the closed line's place words>" (correction); or
+  - **(b)** `resolve_capture_review` finds, in the **stored** review row, a held line with the residence question about exactly that line, the same person and the same words, and the answered line replaces it as a change. It passes that list to `write_extraction` for this capture, in the same transaction only (a transaction-local setting the API can't reach).
+- **Narrower than §21's words, on purpose:** the closed line must be a residence line (a live facet), about no one else, and the new line a stated, unshared, non-sensitive fact with its own reading.
+- **What the database can't know:** the user's tap. As for every answer, the gateway turns it into the items; the database guarantees that only a question it stored, about that line, can let an answer close an edited line, and that no model target alone ever does.
+- Provenance kept (`user_state` edited, history rows, the user_edit source); Undo returns the edited version (proved).
+- **pgTAP 69:** 52 assertions (every §21 case: cue in the span, outside it, not a cue, cue for the wrong transition, the model target alone, "She moved", "Still there", a question about another line or another item, `corrected`, Undo returning the edited words and a new version, `user_authored`, `closes`, someone else's line, a shared line even with a reading left on it, a line with no reading, a closer about two people, an unedited line unchanged). Six deliberate breakages of the migration were each caught.
+- **All 25 suites:** 711 assertions, on Postgres 16 (CI's) and **17.6** (the local Supabase container, a throwaway database; production's major version).
+- **Schema fingerprint** (fresh build): 967 lines, `abeadd9ad9b1d2041f9884299872c03e` (B2: 959, `68c5cd45…`). Compare production after the merge.
+
+### The corpus (§15)
+
+`evals/semantic/fixtures/residence.jsonl`: the 29 seeded sequences and 19 added (the Pilsen fixtures res-030 to res-032, the unknown → known move res-033, the §21 rows res-034 to res-040, stays, "doesn't live in", two people, "moved from … to", lower case, "Alameda, CA" as the same place). Seeded rows changed: res-012 and res-013's choices ("Susan moved"), res-025 (§21: a change cue closes the edited line), res-027 (point 4). Each sequence runs the gateway's own code end to end with the real place data; a page is read as B5 would compose it (test code, not the product's composer).
+
+- **48 / 48** pass; **zero-tolerance metrics: 0**; missed refinements: 0.
+- **Reported, not failed:** res-006's second closure (B4) and the contradiction it leaves meanwhile; res-018 (a line moved to someone else has no reading until re-derivation); portraits (B7).
+- Breakages of relate.ts and residence.ts (silent closure of an edited line, no Pilsen rule, B closing, stays read as residences, a change cue for a correction) each fail it.
+
+### Evidence
+
+| Tier | Result |
+|---|---|
+| UNIT | PASS: Deno 396 (with the residence, relate, pipeline, resolve and gateway suites); Jest 90 suites / 799 tests (`TZ=UTC`), reviewModel and ReviewSheet residence question, Settings › About; tsc and ESLint clean (0 errors) |
+| INTEGRATION | PASS: pgTAP 711 (PG 16 and 17.6); the corpus 48/48; Jest `residenceProofs` (7: the real pipeline, answer path, sync and review) |
+| BLACK-BOX | PASS: `b3.blackbox.tsx` 10/10 replayed (real screens, local stack with B2 + B3 applied, this branch's gateway): C with exact Undo, E (Susan moved / Still there), D, F, Pilsen, the three §21 rows through the real database, and today's edited-words limit. Regression: k4 36, k4legacy 18, k20 22, k19 2, k25 3, h4 2, k10 1, dates 2, today 2 pass; `removal` 3 fail because today is a Friday ("on Friday" reads two ways), and fail the same on `main`'s gateway (see the ledger) |
+| LIVE-MODEL | PASS: the same 10 with the live model (stub in record mode, 16 Oct); its replies are kept as `e2e/replies/b3-*.json` |
+| NATIVE-SIMULATOR | PASS: a Release build of this branch on the iOS 27 simulator (iPhone 18 Pro), the local stack, this branch's gateway and the **live model**, a fresh local account: "Susan lives in Alameda." kept; "Susan moved to California." → **One thing to check · Is Susan still in Alameda? · “Susan moved to California” · Still there · Susan moved · Don't keep this**; **Susan moved** → "Kept for Susan · Susan moved to California · Replaces: ~~Susan lives in Alameda~~" (server: Alameda superseded, California `changed` with its reading); **Undo** → Alameda current again. Settings shows **About · Place data from GeoNames (geonames.org), CC BY 4.0** |
+| FOUNDER-DEVICE | NOT RUN |
+
+### Before B4
+
+1. **Founder review** of this section, especially points 4 (Pilsen), 11 (one closure until B4) and the copy below.
+2. **Copy, proposals:** "Susan moved" for the approved "She moved" (CC-20: names, never guessed pronouns); the question has no reason line; "Don't keep this" and "One thing to check" are existing copy.
+3. **A decision: re-derivation after an edit (§5).** An edit of a line's words tombstones its reading (B2), and B3 doesn't read it again (that writes a facet on an existing line). So §21's closure reaches an edited line only when the edit kept its words; after a words edit, a later move leaves both lines current (fail open; nothing closed). The safety net of §5 ("the next Tell about that person re-derives") is the fix, narrowed to lines B3 has read. It needs the founder's yes on when.
+4. **Known limit, logged (N14):** a neighbourhood that shares its name with a city in the same country reads as that city ("Hollywood" next to "lives in California" reads as Hollywood, Florida, and replaces California as current truth, never as history). The Kept card's review says what it replaces, and Undo is exact. Options: a curated neighbourhood list (like the aliases), or no plain replacement from a region to a city outside it.
+5. **Rollout:** merge (a merge commit; the integration applies the migration; compare the fingerprint and `list_migrations`), then the ai-gateway deploy on the founder's go, then a build (the question's app side and Settings › About). Either order is safe (point 15).
+
+**Next step:** the founder reviews this PR and the proposals above; after merge and deploy, B4 (`closes_ids` writes and the Undo matrix, §10, §18).

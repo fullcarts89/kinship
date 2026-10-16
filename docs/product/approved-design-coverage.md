@@ -214,7 +214,7 @@ Gate 0 is closed, and Phase 4 has started. The build plan is `phase4-implementat
 | 14 What Kinship knows | Organized reference in sections: Background (residence as one composed line; work and education inside unless density warrants their own), Into, Hoping to, Their people, Between you. Empty sections disappear. No grid, counts, completeness or prompts | H15 / H2 | 4B | NOT BUILT. Its closed taxonomy is built (B1, `d4db346`): it places each line in one of these sections and is computed every time, never stored. Nothing shows it until B8, so the page is unchanged |
 | 14 What Kinship knows › Background | Clearly-past history only when the source shows a real change: an explicit cue ("moved to"), the user's "She moved", or a completed or cancelled thread. A plain replacement ("lives in Colorado" with no cue), a refinement and a correction are never history (CC-20). Outside residence: **Before** + the old line in its own words. Dates come only from the note ("You told Kinship · Jan 4"; "Moved · Jan 4" or "Ended" only when the note says so) | I7 | 4B | NOT BUILT |
 | 12 Relationship page (Portrait) › Lately | **Portrait de-duplication:** a residence told more and less precisely shows once, as the most specific line's own words ("Susan lives in Alameda", never also "Susan lives in California"). The Portrait's sections are otherwise unchanged | H15 (founder §28, 8 Oct) | 4B | NOT BUILT. Approved change to the Portrait: yes (CC-19) |
-| Tell › clarification | A residence conflict, rarely: "Is Susan still in Alameda?" **Still there · She moved**. Only when a wrong pick would show something false; never "Which Alameda?" | Semantic v1 (case E) | 4B | NOT BUILT |
+| Tell › clarification | A residence conflict, rarely: "Is Susan still in Alameda?" **Still there · She moved**. Only when a wrong pick would show something false; never "Which Alameda?" | Semantic v1 (case E) | 4B | **BUILT in B3** (native: simulator; see "B3" below). "She moved" reads "Susan moved": a proposal |
 
 Still not built and not approved to build: Ask, About You, Garden, Landscape, Intentions, full Your story together (row 13 stays NOT BUILT as recorded above).
 
@@ -287,3 +287,13 @@ The blocker bundle passed the founder's device check (build from `main` `e098dfc
 
 **Deviation, in the direction of privacy:** CC-24 allows asking for Contacts permission after the user chooses Choose from Contacts. The system picker needs none, so none is asked.
 
+
+## B3 residence semantics (Phase 4B, 16 Oct): what changed on approved surfaces
+
+Built as approved (CC-19 case E, CC-20, CC-24, brief §8 and §21). No approved surface removed; nothing composed or displayed differently on the Portrait or in What Kinship knows (that is B5, B7, B8). **Native:** the iOS 27 simulator with the live model; not on the founder's device.
+
+| Surface | Built | Founder approval |
+|---|---|---|
+| Tell › clarification (case E) | **One thing to check · Is Susan still in Alameda?**, the new line's own words under it, **Still there** · **Susan moved** · Don't keep this. Asked only when the new residence may not fit the one Kinship holds and the table can't decide (a move into a place that contains it, a move between two readings of a name, or a plain new place beside a line the user edited, §21); never "Which Alameda?". Both places are the user's own words. "Susan moved" replaces that line as a change; "Still there" keeps both; Don't keep this keeps the note only | The question: yes (CC-19, CC-24). **"Susan moved" for "She moved"** (Kinship never guesses a pronoun, CC-20's I4 rule): **proposal**. No reason line under the question: proposal |
+| Tell › review / Kept card | A residence the table replaces shows "Replaces: ~~Susan lives in Alameda~~" as any replacement does (H23) | Existing behaviour |
+| Settings › About | **Place data from GeoNames (geonames.org), CC BY 4.0**, under the Account section: the first build whose gateway reads the place data | Yes: CC-20, decision 1 (Settings › About and `THIRD_PARTY_NOTICES.md`). The v2 Settings sheet had no About section; it gains one line under its own label |

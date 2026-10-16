@@ -1,5 +1,13 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 16 Oct 2026, evening: Phase 4B B3 (residence semantics) is built; B4 not started.** This supersedes the addenda below where they differ.
+> - **Branch `claude/phase4b-b3-9be47a`** (from `main` `7bccd83`), PR against `main`. Not merged; nothing deployed. What was built, the choices, the evidence and what's needed before B4: `phase4-implementation-brief.md` §22.
+> - **Migration `20261016090000_v2_closure_of_edited_lines`** (§21, forward-only, two function bodies, no backfill). Applied to the **shared local stack** (with B2's `20261015090000`, which it lacked) for pgTAP and the harness. Production gets it only by the founder's merge; then compare the fingerprint (967 lines, `abeadd9a…`).
+> - **ai-gateway:** B3's residence reading runs in the gateway, so it needs a deploy from `main` after the merge, on the founder's go. The app build adds the question's screen side and Settings › About; deployment order is safe either way.
+> - **Founder decisions waiting:** the Pilsen rule (§22 point 4), "Susan moved" for "She moved", re-derivation after an edit (N13), the same-country neighbourhood limit (N14).
+> - **Local stack:** the shared `functions serve` (handoff worktree, replay) and the stub on :8790 are as they were. During B3 Colima's forwarder was killed by a port-based `kill` and Colima was restarted (containers came back by themselves); never kill by port on this machine.
+> - **Readiness: NOT READY.**
+
 > **Addendum, 16 Oct 2026: the blocker check passed; the next phase starts.** This supersedes the addenda below where they differ.
 > - **On `main` (`e098dfc`) and in production:** the blocker bundle ([#27](https://github.com/fullcarts89/kinship/pull/27)), H4 ([#30](https://github.com/fullcarts89/kinship/pull/30); [#28](https://github.com/fullcarts89/kinship/pull/28) merged into the blocker branch by mistake), B2 ([#29](https://github.com/fullcarts89/kinship/pull/29)). B2's migration was applied by the Supabase integration on merge (schema fingerprint 959 lines, `68c5cd45…`, checked); ai-gateway v11 deployed from `main`. Build from `e098dfc` installed on Thor iPhone.
 > - **Founder's device check: passed** ("closing this out as passed"). K4, K15–K17, K19, K20, K23 VERIFIED. Logged for the next phase: K24 (Today's headline during a Tell, a founder decision first) and K25 ("Who is Matt?" → Choose from Contacts; design recorded in `approved-design-coverage.md`).

@@ -233,7 +233,10 @@ Deno.test("residence question: 'Still there' closes nothing; the reading stays o
 
 Deno.test("residence question: only that answer, only for that question", () => {
   eq(resolveHeld([homeHeld("facet")], [{ index: 0 }], homeCtx()), { fail: "bad_answer" }, "an answer is needed");
-  eq(resolveHeld([homeHeld("facet")], [{ index: 0, accept: true }], homeCtx()), { fail: "bad_answer" }, "a yes is not an answer");
+  // A build from before the question asks only "Remember this?": its yes keeps both, and closes nothing.
+  const older = resolveHeld([homeHeld("words")], [{ index: 0, accept: true }], homeCtx());
+  if ("fail" in older) throw new Error(older.fail);
+  eq([older.items[0].action.type, older.items[0].detail.transition, older.items[0].facets], ["new", undefined, undefined]);
   eq(resolveHeld([homeHeld("facet")], [{ index: 0, skip: true, moved: true }], homeCtx()), { fail: "bad_answer" });
   const skipped = resolveHeld([homeHeld("facet")], [{ index: 0, skip: true }], homeCtx());
   eq("fail" in skipped ? skipped : [skipped.items.length, skipped.skipped], [0, 1], "Don't keep this: not memory");

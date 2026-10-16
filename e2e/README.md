@@ -66,6 +66,7 @@ LIVE=1 npx jest -c e2e/jest.blackbox.config.js e2e/blackbox/live.blackbox.tsx
 | `k10.blackbox.tsx`, `dates.blackbox.tsx` | K2 / K10 dates |
 | `removal.blackbox.tsx` | K14 / N9 / N10, also on a phone-like profile |
 | `live.blackbox.tsx` | K4, K20, K23, K2, N6, K14 with the live model |
+| `b3.blackbox.tsx` | Phase 4B B3 residence: C with exact Undo, E (Susan moved / Still there), D, F, the Pilsen finding, the §21 rows through the real database, and today's edited-words limit. The local database needs the B2 and B3 migrations (`npx supabase migration up --local`) and this branch's gateway. Replies `e2e/replies/b3-*.json` (live, 16 Oct); with `LIVE=1` it runs on the live model |
 
 ## The simulator build (NATIVE-SIMULATOR)
 
@@ -102,3 +103,5 @@ slower and builds from git.
 - Data like the founder's (an earlier day's line): `earlierLine` in `blackbox/localStack.ts` writes one into a
   local test account.
 - Typing through the simulator tools drops text after a space: type a word at a time.
+- Never stop a process by its port (`lsof -ti tcp:… | xargs kill`): Colima's forwarder holds those sockets too, and killing it takes Docker down (16 Oct). Stop the stub or `functions serve` by its own PID.
+- A second stub for a branch's own replies can run beside the shared one (`STUB_PORT=8791`), with the gateway's env file pointed at it and `STUB_URL=http://127.0.0.1:8791` for the suites.
