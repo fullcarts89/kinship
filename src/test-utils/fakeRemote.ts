@@ -62,6 +62,26 @@ export class FakeServer {
     }
   }
 
+  /**
+   * memory_items_restore_superseded (20261009090000, 20261015090000): a line retracted or removed gives
+   * back what it replaced and every line it closed, each unless another live line still replaces or
+   * closes it. The database restores from its last snapshot; here the line is simply current again
+   * (its words were never changed by the closure). Its reading was never touched, so it composes again.
+   */
+  restoreClosed(before: Row, after: Row): void {
+    const gone = (!before.deleted_at && after.deleted_at) || (before.status !== "retracted" && after.status === "retracted");
+    if (!gone) return;
+    const rows = [...this.table("memory_items").values()].filter((r) => r.user_id === after.user_id);
+    const live = rows.filter((r) => r.id !== after.id && !r.deleted_at && r.status !== "retracted");
+    const closes = [after.supersedes_id, ...(Array.isArray(after.closes_ids) ? after.closes_ids : [])].filter((x): x is string => typeof x === "string");
+    for (const id of closes) {
+      const t = rows.find((r) => r.id === id);
+      if (!t || t.deleted_at || t.status !== "superseded") continue;
+      const still = live.some((o) => o.supersedes_id === id || (Array.isArray(o.closes_ids) && o.closes_ids.includes(id)));
+      if (!still) this.serverWrite("memory_items", id, t.user_id, { status: "active", valid_to: null });
+    }
+  }
+
   /** Hard purge (what purge_tombstones does after 30 days). */
   purge(name: MirroredTable, key: string): void {
     this.table(name).delete(key);
@@ -112,7 +132,10 @@ export class FakeRemote implements Remote {
     }
     const before = structuredClone(row);
     const written = structuredClone(this.server.serverWrite(name, key, this.userId, fields));
-    if (name === "memory_items") this.server.facetTombstone(before, written);
+    if (name === "memory_items") {
+      this.server.facetTombstone(before, written);
+      this.server.restoreClosed(before, written);
+    }
     return written;
   }
 

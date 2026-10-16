@@ -225,10 +225,19 @@ export function decidePair(cls: PairClass, cues: readonly Cue[], e: CurrentResid
   }
 }
 
+/**
+ * How specific a reading is (city < region < country). Words the data
+ * doesn't know ("Logan Square") are taken as the most specific:
+ * neighbourhoods are. Shared with the composer (compose.ts), which orders a
+ * page's lines by it.
+ */
+export function specificityOf(f: FacetLike): number {
+  const u = usualReading(f);
+  return u ? LEVEL_RANK[u.level] ?? 0 : f.candidates.length ? LEVEL_RANK[f.candidates[0].level] ?? 0 : -1;
+}
+
 function specificity(e: CurrentResidence): number {
-  const u = usualReading(e.facet);
-  // Words the data doesn't know ("Logan Square") are taken as the most specific: neighbourhoods are.
-  return u ? LEVEL_RANK[u.level] ?? 0 : e.facet.candidates.length ? LEVEL_RANK[e.facet.candidates[0].level] ?? 0 : -1;
+  return specificityOf(e.facet);
 }
 
 function mostSpecificFirst(a: CurrentResidence, b: CurrentResidence): number {

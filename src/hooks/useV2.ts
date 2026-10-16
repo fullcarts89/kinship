@@ -8,6 +8,7 @@ import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
+import { composeRecordLines, type RecordInput } from "@/features/person/composedRecord";
 import { buildToday, isLocalReason, pageReasonFor, returnViewFor, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type ReturnView, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { answerReturn, cancelHandOff, forgetConversation, handOff } from "@/store/returnLoop";
 import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine, type TrailLine } from "@/features/person/portraitModel";
@@ -21,7 +22,7 @@ import { misfiledOn, voiced } from "@/features/memory/statements";
 import { linkSuggestions, type LinkSuggestion } from "@/features/person/links";
 import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
 import { getMeta, setMeta } from "@/store/schema";
-import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, track } from "@/platform/analytics";
+import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, smallCount, track } from "@/platform/analytics";
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { isOn } from "@/store/flags";
@@ -231,7 +232,12 @@ export function usePersonRecord(personId: string): { person: Person | null; line
   return q.data ? { ...q.data, loading: false } : { person: null, lines: [], loading: true };
 }
 
-/** What Kinship knows about someone: every live item, newest first, with its source (the hook and tests share it). */
+/**
+ * What Kinship knows about someone: every live item, newest first, with its
+ * source (the hook and tests share it). Residence lines that chain are said
+ * as one line (Phase 4B B5, composedRecord.ts), read here every time and
+ * never stored.
+ */
 export async function recordFor(repos: Repositories, personId: string, now: Date): Promise<{ person: Person | null; lines: RecordLine[] }> {
   const people = await repos.people.list();
   const person = people.find((p) => p.id === personId) ?? null;
@@ -241,24 +247,34 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
     .filter((m) => m.status === "active" || m.status === "resolved")
     .map((m) => voiced(m, people))
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-  const lines: RecordLine[] = [];
+  const inputs: RecordInput[] = [];
   const byItem = await repos.memory.sourcesByItem();
+  const facets = await repos.memory.residenceFacets();
   for (const item of items) {
     const sources = byItem.get(item.id) ?? [];
     const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
-    lines.push({
-      line: { ...itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }), editedFrom: editedFrom(sources) },
-      provenance: provenanceLine(sources.map((s) => ({
-        source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-      })), now, typeof item.origin === "string" ? item.origin : null),
-      noteId: notes[0]?.capture_id ?? null,
-      conflict: conflict
-        ? { id: conflict.id, title: CONFLICT_TITLE, choices: describeConflict(conflict, item), canUseMine: conflict.reason === "concurrent_edit" }
-        : null,
+    const origin = typeof item.origin === "string" ? item.origin : null;
+    inputs.push({
+      item,
+      sources,
+      facet: facets.get(item.id) ?? null,
+      row: {
+        line: { ...itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }), editedFrom: editedFrom(sources) },
+        provenance: provenanceLine(sources.map((s) => ({
+          source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
+        })), now, origin),
+        noteId: notes[0]?.capture_id ?? null,
+        conflict: conflict
+          ? { id: conflict.id, title: CONFLICT_TITLE, choices: describeConflict(conflict, item), canUseMine: conflict.reason === "concurrent_edit" }
+          : null,
+      },
     });
   }
+  const { lines, degraded } = composeRecordLines(inputs, now);
+  // Two current lines that can't both be true, shown apart: the comparator's invariant, reported without content.
+  if (degraded) track("compose_degraded", { slot: "residence", lines_n: smallCount(degraded) });
   return { person, lines };
 }
 

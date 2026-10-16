@@ -3,13 +3,28 @@
 // tokens, where it came from, Edit (founder native pass F5: the words were
 // changeable only by tapping them, which nobody could see) and "Not this".
 // From plain data.
+//
+// Residence lines that chain are one line here (Phase 4B B5, brief §12):
+// "Lives in Alameda, California", its provenance the union of its notes.
+// It is a view over its members: tapping it, its provenance or Edit opens
+// them (ComposedSheet), each with its own words, source, Edit and Not this.
+// Never place ids, readings, datasets or rule names.
 import React, { useRef } from "react";
 import { type ScrollView, Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { ConflictChoice } from "@/store/conflictCopy";
+import type { SourceFacts } from "@/features/memory/format";
+import type { ComposeMember } from "../../../supabase/functions/_shared/semantic/compose";
 import { Body, Emphasis, Label, Line, Pill, Provenance, Screen, Small, Title, Token, TokenRow, useLineFocus, usePalette } from "@/ui";
+
+/** The composed line's words (B5): what tapping it does, said for screen readers; nothing about how it was made. */
+export const COMPOSED_COPY = {
+  hint: "Double-tap to see the notes it comes from",
+  edit: "Edit",
+  editHint: "See and change the notes it comes from",
+} as const;
 
 /** "Forget this?" (founder native pass F5: "Keep it" also named the Tell button, with another meaning). */
 export const FORGET_COPY = { title: "Forget this?", cancel: "Cancel", forget: "Forget" } as const;
@@ -20,6 +35,29 @@ export interface RecordLine {
   /** The newest note it came from, for the Source view. */
   noteId: string | null;
   conflict: { id: number; title: string; choices: ConflictChoice[]; canUseMine: boolean } | null;
+  /**
+   * Several residence lines said as one (Phase 4B B5): "Lives in Alameda,
+   * California". `line` is its most specific member's; the row shows the
+   * composed words, its provenance is the union, and tapping it opens the
+   * members, each with its own Edit and Not this. Never a memory of its own.
+   */
+  composed?: ComposedRecord;
+}
+
+/** One line behind a composed line, with what reading it again needs. */
+export interface ComposedMember {
+  input: ComposeMember;
+  row: RecordLine;
+  sources: SourceFacts[];
+  /** Where the line came from (an extracted line's provenance can still be syncing). */
+  origin: string | null;
+}
+
+export interface ComposedRecord {
+  text: string;
+  /** The most specific first. */
+  memberIds: string[];
+  members: ComposedMember[];
 }
 
 export interface PersonRecordViewProps {
@@ -37,6 +75,8 @@ export interface PersonRecordViewProps {
   onForget: (line: RecordLine) => void;
   onSource: (noteId: string) => void;
   onSettle: (conflictId: number, choice: "keep_current" | "use_mine") => void;
+  /** A composed line (B5): opens its members. */
+  onComposed?: (line: RecordLine) => void;
   /** "View Ben" from a Moment whose line isn't on Ben's page (founder I1): this list lands on it. */
   focusItemId?: string | null;
   /** Every conversation the user confirmed with them, newest first (founder I2). */
@@ -75,67 +115,25 @@ export function PersonRecordView(props: PersonRecordViewProps) {
         onLayout={(e) => focus.onGroup("lines", e.nativeEvent.layout.y)}
         style={{ marginTop: space.xl, borderTopWidth: props.lines.length ? 1 : 0, borderTopColor: p.hairline }}
       >
-        {props.lines.map((r) => (
-          <View
-            key={r.line.id}
-            onLayout={(e) => focus.onLine("lines", r.line.id, e.nativeEvent.layout.y)}
-            style={{ paddingVertical: space.l, borderBottomWidth: 1, borderBottomColor: p.hairline }}
-          >
-            <Emphasis on={!!props.focusItemId && props.focusItemId === r.line.id}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={r.line.statement}
-              accessibilityHint="Double-tap to change the words"
-              onPress={() => props.onChange(r.line, "words")}
-              style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
+        {props.lines.map((r) => {
+          const ids = r.composed ? r.composed.memberIds : [r.line.id];
+          const focused = !!props.focusItemId && ids.includes(props.focusItemId);
+          return (
+            <View
+              key={r.line.id}
+              onLayout={(e) => ids.forEach((id) => focus.onLine("lines", id, e.nativeEvent.layout.y))}
+              style={{ paddingVertical: space.l, borderBottomWidth: 1, borderBottomColor: p.hairline }}
             >
-              <Line>{r.line.statement}</Line>
-            </Pressable>
-            <View style={{ marginTop: space.s }}>
-              <TokenRow>
-                {r.line.person?.changeable ? (
-                  <Token what="Who" value={r.line.person.label} onPress={() => props.onChange(r.line, "person")} />
-                ) : null}
-                {r.line.about ? <Token what="About" value={r.line.about} /> : null}
-                {r.line.also?.length ? <Token what="Also about" value={r.line.also.join(", ")} /> : null}
-                {r.line.when ? (
-                  <Token what="When" value={r.line.when.label} onPress={r.line.when.changeable ? () => props.onChange(r.line, "date") : undefined} />
-                ) : null}
-                {r.line.maybe ? <Token what="How sure" value="Maybe" /> : null}
-                <Token what="What" value={r.line.kind.label} onPress={r.line.kind.changeable ? () => props.onChange(r.line, "kind") : undefined} />
-              </TokenRow>
+              <Emphasis on={focused}>
+                {r.composed ? (
+                  <ComposedRow r={r} onComposed={props.onComposed ?? (() => undefined)} />
+                ) : (
+                  <RecordRow r={r} onChange={props.onChange} onForget={props.onForget} onSource={props.onSource} onSettle={props.onSettle} />
+                )}
+              </Emphasis>
             </View>
-            {/* Gate E: everything this updated stays traceable. */}
-            {r.line.replaces.map((text) => <Small key={text} style={{ marginTop: space.xs }}>{`Before: ${text}`}</Small>)}
-            {r.line.editedFrom ? (
-              <Small style={{ marginTop: space.xs }} accessibilityLabel={`Edited by you. Before: ${r.line.editedFrom}`}>
-                {"Edited by you · was: "}
-                <Text style={{ textDecorationLine: "line-through" }}>{r.line.editedFrom}</Text>
-              </Small>
-            ) : null}
-            <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
-              <View style={{ flex: 1 }}>
-                <Provenance line={r.provenance} onPress={r.noteId ? () => props.onSource(r.noteId as string) : undefined} />
-              </View>
-              <Pill variant="quiet" label="Edit" accessibilityLabel={`Edit: ${r.line.statement}`} accessibilityHint="Change the words" onPress={() => props.onChange(r.line, "words")} />
-              <Pill variant="quiet" label="Not this" accessibilityLabel={`Not this: ${r.line.statement}`} onPress={() => props.onForget(r)} />
-            </View>
-            {r.conflict ? (
-              <View style={{ marginTop: space.s }}>
-                <Small tone="ochreText">{r.conflict.title}</Small>
-                {r.conflict.choices.map((c) => (
-                  <View key={c.field} style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.xs }}>
-                    <Pill size="small" label={`${c.keep.label} ${c.keep.value}`} onPress={() => props.onSettle(r.conflict!.id, "keep_current")} />
-                    {r.conflict!.canUseMine ? (
-                      <Pill size="small" label={`${c.use.label} ${c.use.value}`} onPress={() => props.onSettle(r.conflict!.id, "use_mine")} />
-                    ) : null}
-                  </View>
-                ))}
-              </View>
-            ) : null}
-            </Emphasis>
-          </View>
-        ))}
+          );
+        })}
       </View>
       {props.trail?.length ? (
         <View style={{ marginTop: space.x3 }}>
@@ -157,5 +155,98 @@ export function PersonRecordView(props: PersonRecordViewProps) {
       ) : null}
       {props.children}
     </Screen>
+  );
+}
+
+/** One line: its words, its tokens, what it replaced, where it came from, Edit and Not this. The sheet of a composed line reuses it. */
+export function RecordRow({ r, onChange, onForget, onSource, onSettle }: {
+  r: RecordLine;
+  onChange: PersonRecordViewProps["onChange"];
+  onForget: PersonRecordViewProps["onForget"];
+  onSource: PersonRecordViewProps["onSource"];
+  onSettle: PersonRecordViewProps["onSettle"];
+}) {
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={r.line.statement}
+        accessibilityHint="Double-tap to change the words"
+        onPress={() => onChange(r.line, "words")}
+        style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
+      >
+        <Line>{r.line.statement}</Line>
+      </Pressable>
+      <View style={{ marginTop: space.s }}>
+        <TokenRow>
+          {r.line.person?.changeable ? (
+            <Token what="Who" value={r.line.person.label} onPress={() => onChange(r.line, "person")} />
+          ) : null}
+          {r.line.about ? <Token what="About" value={r.line.about} /> : null}
+          {r.line.also?.length ? <Token what="Also about" value={r.line.also.join(", ")} /> : null}
+          {r.line.when ? (
+            <Token what="When" value={r.line.when.label} onPress={r.line.when.changeable ? () => onChange(r.line, "date") : undefined} />
+          ) : null}
+          {r.line.maybe ? <Token what="How sure" value="Maybe" /> : null}
+          <Token what="What" value={r.line.kind.label} onPress={r.line.kind.changeable ? () => onChange(r.line, "kind") : undefined} />
+        </TokenRow>
+      </View>
+      {/* Gate E: everything this updated stays traceable. */}
+      {r.line.replaces.map((text) => <Small key={text} style={{ marginTop: space.xs }}>{`Before: ${text}`}</Small>)}
+      {r.line.editedFrom ? (
+        <Small style={{ marginTop: space.xs }} accessibilityLabel={`Edited by you. Before: ${r.line.editedFrom}`}>
+          {"Edited by you · was: "}
+          <Text style={{ textDecorationLine: "line-through" }}>{r.line.editedFrom}</Text>
+        </Small>
+      ) : null}
+      <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
+        <View style={{ flex: 1 }}>
+          <Provenance line={r.provenance} onPress={r.noteId ? () => onSource(r.noteId as string) : undefined} />
+        </View>
+        <Pill variant="quiet" label="Edit" accessibilityLabel={`Edit: ${r.line.statement}`} accessibilityHint="Change the words" onPress={() => onChange(r.line, "words")} />
+        <Pill variant="quiet" label="Not this" accessibilityLabel={`Not this: ${r.line.statement}`} onPress={() => onForget(r)} />
+      </View>
+      {r.conflict ? (
+        <View style={{ marginTop: space.s }}>
+          <Small tone="ochreText">{r.conflict.title}</Small>
+          {r.conflict.choices.map((c) => (
+            <View key={c.field} style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.xs }}>
+              <Pill size="small" label={`${c.keep.label} ${c.keep.value}`} onPress={() => onSettle(r.conflict!.id, "keep_current")} />
+              {r.conflict!.canUseMine ? (
+                <Pill size="small" label={`${c.use.label} ${c.use.value}`} onPress={() => onSettle(r.conflict!.id, "use_mine")} />
+              ) : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * A composed line (B5, brief §12): the words, the union of its sources, and
+ * one way in, to its members. No tokens of its own (it is no memory) and no
+ * "Not this" of its own: each member has them.
+ */
+function ComposedRow({ r, onComposed }: { r: RecordLine; onComposed: (line: RecordLine) => void }) {
+  const text = r.composed!.text;
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={text}
+        accessibilityHint={COMPOSED_COPY.hint}
+        onPress={() => onComposed(r)}
+        style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
+      >
+        <Line>{text}</Line>
+      </Pressable>
+      <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
+        <View style={{ flex: 1 }}>
+          <Provenance line={r.provenance} onPress={() => onComposed(r)} />
+        </View>
+        <Pill variant="quiet" label={COMPOSED_COPY.edit} accessibilityLabel={`${COMPOSED_COPY.edit}: ${text}`} accessibilityHint={COMPOSED_COPY.editHint} onPress={() => onComposed(r)} />
+      </View>
+    </>
   );
 }

@@ -147,6 +147,12 @@ export interface AnalyticsEvents {
   };
   capture_abandoned: { chars_bucket: CharsBucket };
   undo_capture: Record<string, never>;
+  /**
+   * The composer found current lines it was told are pairwise compatible and
+   * aren't (Phase 4B B5, brief §9): shown apart, never merged. Content-free:
+   * the slot and how many lines, never their words.
+   */
+  compose_degraded: { slot: "residence"; lines_n: SmallCount };
   reason_surfaced: { reason_type: ReasonType; surface: "today" | "push" | "brief"; score_bucket: ScoreBucket };
   reason_dismissed: { reason_type: ReasonType; mode: "not_now" | "not_helpful" };
   handoff_opened: { reason_type?: ReasonType; channel: Channel };
