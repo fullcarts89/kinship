@@ -1,5 +1,14 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 15 Oct 2026, night: the blocker bundle is closed internally; next is the founder's 5-minute check, then H4 and Phase 4B.** This supersedes the addenda below where they differ.
+> - **Founder direction (15 Oct):** capture is now infrastructure; fix only N11, K20, K15–K17, K19, K23; defer K18 (semantic memory), K22 (H15/B8), K21 (optional resilience); then H4, with B2 in parallel.
+> - **Branch `claude/native-pass-14oct`:** N11 `db7b424`, K20 + K15–K17 server `c9d084a`, K20 + K19 + K23 app `e7dafc1`, acceptance harness `5d573f1`, docs. Not merged.
+> - **Evidence (per row in `bug-ledger.md`):** unit and integration green; black-box replay with the founder's People for every captured shape; live model (K4 ×12, K20 ×8, K23 ×4); **native simulator** on iOS 27 with the live model for every blocker. K20's phone cause was caught live on the simulator: told again the next day, the model merges into yesterday's promise.
+> - **Founder's steps, when they say so:** merge (merge commit), deploy ai-gateway from `main`, build and install (no db push), then `blocker-device-checklist-15oct.md` (four checks, about 5 minutes).
+> - **Simulator tier:** works again since N11; how to build and drive it is in `e2e/README.md`.
+> - **In parallel:** Phase 4B · B2 runs in its own session and branch (`phase4b-b2`), stopping before B3.
+> - **Readiness: NOT READY** until the founder's device check passes.
+
 > **Addendum, 14–15 Oct 2026: the founder's device check failed; next thread.** This supersedes the addenda below where they differ.
 > - **State:**
 >   - `main` = `b9bf364` (PR #26, the reliability gate), with ai-gateway deployed from it on 14 Oct.
