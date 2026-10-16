@@ -25,10 +25,10 @@ it("suggests family names and birthdays within a month, alphabetically; everyone
   const l = buildPickLists(contacts, { today: TODAY, existing: none, newId: ids });
   expect(l.suggested.map((r) => r.name)).toEqual(["Maya Okafor", "Mom", "Uncle Ray"]);
   expect(l.everyone.map((r) => r.name)).toEqual(["Ben Carter", "Grandmaster Flash", "Zed Plumber"]);
-  expect(l.suggested.find((r) => r.name === "Maya Okafor")?.why).toBe("Birthday · 10 October");
+  expect(l.suggested.find((r) => r.name === "Maya Okafor")?.why).toBe("Birthday · Oct 10");
   // Shown as it was saved; never labelled "Family" (Gate C).
   expect(l.suggested.find((r) => r.name === "Mom")?.why).toBeNull();
-  expect(l.everyone.find((r) => r.name === "Ben Carter")?.why).toBe("Birthday · 3 February");
+  expect(l.everyone.find((r) => r.name === "Ben Carter")?.why).toBe("Birthday · Feb 3");
 });
 
 it("keeps the id it will save under, so the sprig never changes", () => {
@@ -86,7 +86,7 @@ it("already worth knowing: real birthdays within two weeks, soonest first; nothi
   ]);
   expect(worthKnowing([{ id: "d", name: "Dana", birthday: null }], TODAY)).toEqual([]);
   expect(whenFromToday("2026-10-06", TODAY)).toBe("tomorrow");
-  expect(whenFromToday("2026-10-15", TODAY)).toBe("on 15 October");
+  expect(whenFromToday("2026-10-15", TODAY)).toBe("on Oct 15");
 });
 
 it("search finds people in both lists", () => {

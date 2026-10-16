@@ -8,7 +8,7 @@ import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
-import { buildToday, isLocalReason, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type TodayInput, type TodayView } from "@/features/today/todayModel";
+import { buildToday, isLocalReason, pageReasonFor, returnViewFor, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type ReturnView, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { answerReturn, cancelHandOff, forgetConversation, handOff } from "@/store/returnLoop";
 import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine, type TrailLine } from "@/features/person/portraitModel";
 import { reachedAbout, trailFor, type ContactEventRow } from "@/features/person/trail";
@@ -524,6 +524,29 @@ export function usePortrait(personId: string): Portrait & { loading: boolean } {
   }, [personId]);
   // Still being read is never "isn't here any more" (a large account on a phone takes a moment).
   return q.data ? { ...q.data, loading: false } : { ...buildPortrait({ person: null, items: [], today: todayIso() }), loading: true };
+}
+
+/**
+ * A person's page (founder K23): the return question about them, wherever the hand-off started, and what a
+ * Message or Call from the page is about (the same reason Today's line about it has). `now` is the screen's
+ * clock, read again when the app comes back.
+ */
+export function usePersonReturn(personId: string, now: Date): { returnCheck: ReturnView | null; reason: ReturnType<typeof pageReasonFor> } {
+  const { store, reasonLocal } = useV2Session();
+  const minute = Math.floor(now.getTime() / 60_000);
+  const q = useStoreQuery(store, async (repos) => {
+    const people = await repos.people.list();
+    const person = people.find((p) => p.id === personId && !p.deleted_at) ?? null;
+    if (!person) return { returnCheck: null, reason: null };
+    const { handoff } = await reasonLocal.read();
+    // Said the way Today says it ("Call John", never "You need to call John").
+    const items = ((await store.list("memory_items")) as MemoryItem[]).filter((m) => m.person_id === personId).map((m) => voiced(m, people));
+    return {
+      returnCheck: handoff?.personId === personId ? returnViewFor(handoff, person, now) : null,
+      reason: person.state === "active" ? pageReasonFor(items, person, todayIso(now)) : null,
+    };
+  }, [personId, minute]);
+  return q.data ?? { returnCheck: null, reason: null };
 }
 
 // ─── Someone added after they were mentioned (G20) ──────────────────────

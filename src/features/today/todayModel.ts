@@ -114,6 +114,11 @@ export function waitingReasonId(itemId: string, day: string): string {
   return `waiting:${itemId}:${day}`;
 }
 
+/** The local reason a Coming up line hands off with (also its detail's key, and a person page's hand-off about it). */
+export function comingReasonId(itemId: string, day: string): string {
+  return `coming:${itemId}:${day}`;
+}
+
 export interface TodayInput {
   now: Date;
   /** Today as an ISO day where the user is. */
@@ -256,7 +261,8 @@ const COMING_SHOWN = 3;
  */
 const RETURN_MAX_MS = 72 * 60 * 60 * 1000;
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+/** Kinship's one way to write a date ("Fri, Oct 16"): Today's header says the weekday whole, "Wednesday, Oct 14" (founder K19). */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const CERTAINTY: Record<string, number> = { stated: 1, planned: 0.9, tentative: 0.7, reported: 0.6, wished: 0.5 };
 const USER_STATE: Record<string, number> = { confirmed: 1, edited: 1, user_authored: 1, unreviewed: 0.85 };
@@ -350,7 +356,7 @@ export function buildToday(input: TodayInput): TodayView {
   };
 
   const view: TodayView = {
-    dateLabel: `${WEEKDAYS[now.getDay()]}, ${now.getDate()} ${MONTHS[now.getMonth()]}`,
+    dateLabel: `${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`,
     greeting: greetingFor(now, input.firstName ?? null),
     returnCheck: null,
     moment: null,
@@ -361,22 +367,7 @@ export function buildToday(input: TodayInput): TodayView {
   };
 
   // The return check: from the moment the user is back, until answered (up to three days).
-  const h = input.handoff;
-  if (h && !h.answered) {
-    // A hand-off stamped after this view's clock was read (Message tapped since Today last recomputed) is one
-    // just made: asked at once, never held until the clock's next minute (founder K13: up to a minute's wait).
-    const since = Math.max(0, now.getTime() - Date.parse(h.at));
-    const p = activePerson(h.personId);
-    if (p && since >= 0 && since <= RETURN_MAX_MS) {
-      const name = firstName(p);
-      view.returnCheck = {
-        personId: p.id, personName: name, reasonId: h.reasonId, channel: h.channel,
-        ask: h.ask ?? `Did you reach ${name}?`,
-        about: h.about ?? null,
-        followUp: h.followUp ?? `Anything worth remembering from talking with ${name}?`,
-      };
-    }
-  }
+  view.returnCheck = returnViewFor(input.handoff, input.handoff ? activePerson(input.handoff.personId) : null, now);
 
   // The one moment.
   let best: { r: ReasonRow; item: MemoryItem; score: number } | null = null;
@@ -600,6 +591,14 @@ export function buildToday(input: TodayInput): TodayView {
   // restaurant"); nothing valid is dropped because something else arrived.
   const soon = (day: string) => daysBetween(today, day) >= 1 && daysBetween(today, day) <= 7;
   const dueSoon = (day: string) => daysBetween(today, day) >= 0 && daysBetween(today, day) <= 7;
+  // What the user means to do today is on Today, however it was kept (founder K20): a promise due
+  // today, a plan for today, or their own event today ("You're calling John tonight"), never one
+  // that already happened. Someone else's event on its day stays the Moment's (it speaks the day
+  // before and after). Once the user said Yes, they reached them about it today, it has been done.
+  const ownToday = (m: MemoryItem) => m.kind === "plan" ||
+    (m.kind === "event" && m.subject_type !== undefined && m.subject_type !== "person" && !(m.detail as Record<string, unknown>)?.happened);
+  const doneToday = (m: MemoryItem, day: string) => day === today && (!!input.local[comingReasonId(m.id, day)]?.done ||
+    (input.contacts ?? []).some((c) => !c.deleted_at && c.memory_item_id === m.id && typeof c.occurred_at === "string" && isoDay(new Date(c.occurred_at)) === today));
   type Coming = {
     personId: string; day: string; text: string; itemId: string | null; key: string;
     due: boolean; hope: string | null; provenance: string | null; noteId: string | null;
@@ -609,7 +608,8 @@ export function buildToday(input: TodayInput): TodayView {
       .filter((m) => live(m) && (m.kind === "event" || m.kind === "plan" || m.kind === "promise") &&
         m.id !== view.moment?.itemId && activePerson(m.person_id))
       .map((m) => ({ m, day: m.kind === "promise" ? dueDay(m) : eventDay(m) }))
-      .filter((x): x is { m: MemoryItem; day: string } => !!x.day && (x.m.kind === "promise" ? dueSoon(x.day) : soon(x.day)))
+      .filter((x): x is { m: MemoryItem; day: string } => !!x.day && (x.m.kind === "promise" || ownToday(x.m) ? dueSoon(x.day) : soon(x.day)) &&
+        !doneToday(x.m, x.day))
       .map(({ m, day }) => {
         const source = input.provenance(m.id);
         return {
@@ -657,6 +657,59 @@ export function buildToday(input: TodayInput): TodayView {
     view.unknown = true;
   }
   return view;
+}
+
+/**
+ * The return question for the last hand-off, wherever it started (Today, a Moment's detail, or the person's
+ * page; founder K23): from the moment the user is back until answered, up to three days. Null for someone
+ * no longer active.
+ */
+export function returnViewFor(h: Handoff | null, p: Person | null, now: Date): ReturnView | null {
+  if (!h || h.answered || !p || p.state !== "active" || p.deleted_at) return null;
+  // A hand-off stamped after this view's clock was read (Message tapped since Today last recomputed) is one
+  // just made: asked at once, never held until the clock's next minute (founder K13: up to a minute's wait).
+  const since = Math.max(0, now.getTime() - Date.parse(h.at));
+  if (!(since <= RETURN_MAX_MS)) return null;
+  const name = firstName(p);
+  return {
+    personId: p.id, personName: name, reasonId: h.reasonId, channel: h.channel,
+    ask: h.ask ?? `Did you reach ${name}?`,
+    about: h.about ?? null,
+    followUp: h.followUp ?? `Anything worth remembering from talking with ${name}?`,
+  };
+}
+
+/**
+ * What a Message or Call from a person's page is about (founder K23): what the user means to do with them
+ * today (Today's line), else the open "You said you'd" nearest its day. It gets the same return question,
+ * and the same Yes / Not yet, as Today's line about it. Null when there's nothing to act on: opening a
+ * conversation is never taken as a reason.
+ */
+export function pageReasonFor(items: MemoryItem[], person: Person, today: string): {
+  id: string; type: ReasonType; ask: string; about: string; followUp: string; itemId: string;
+} | null {
+  const live = (m: MemoryItem) => m.person_id === person.id && m.status === "active" && !m.deleted_at && m.sensitivity === "none";
+  const own = (m: MemoryItem) => (m.kind === "promise" && m.subject_type === "user") || m.kind === "plan" ||
+    (m.kind === "event" && m.subject_type !== undefined && m.subject_type !== "person");
+  const dayOf = (m: MemoryItem) => (m.kind === "promise" ? dueDay(m) : eventDay(m));
+  const open = items.filter((m) => live(m) && own(m));
+  const todays = open.filter((m) => dayOf(m) === today);
+  const said = open.filter((m) => m.kind === "promise")
+    .sort((a, b) => {
+      const da = dayOf(a);
+      const db = dayOf(b);
+      if (da && db) return Math.abs(daysBetween(today, da)) - Math.abs(daysBetween(today, db)) || da.localeCompare(db);
+      if (da || db) return da ? -1 : 1;
+      return String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""));
+    });
+  const m = todays[0] ?? said[0];
+  if (!m) return null;
+  const name = firstName(person);
+  return {
+    id: comingReasonId(m.id, dayOf(m) ?? today), type: "coming", ask: `Did you reach ${name}?`, about: m.statement,
+    // A promise's logistics: nothing more to ask after a Yes (founder I2), as Today's own line about it.
+    followUp: m.kind === "promise" ? "" : `Anything worth remembering from talking with ${name}?`, itemId: m.id,
+  };
 }
 
 /** Where a person's birthday came from, said the way every provenance line is. */

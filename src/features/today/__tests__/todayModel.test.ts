@@ -154,7 +154,7 @@ it("speaks of days the way people do", () => {
 
 it("a greeting and a date, and no system vocabulary anywhere", () => {
   const v = buildToday(input());
-  expect(v.dateLabel).toBe("Monday, 12 October");
+  expect(v.dateLabel).toBe("Monday, Oct 12");
   expect(v.greeting).toBe("Good morning.");
   const m = v.moment!;
   const shown = [v.dateLabel, v.greeting, m.statement, m.context, m.provenance, m.primary.label, m.primary.hint, m.heading,
@@ -297,5 +297,87 @@ describe("J9: a pet's vet visit is not a person's health (founder, 8 Oct)", () =
     expect(pet.moment?.statement).toBe("Ben's dog Mochi has a vet appointment");
     const own = buildToday(input({ items: [bens], reasons: [reason("r6", "upcoming_event", "ben", "p2", 12, 15)] }));
     expect(own.moment).toBeNull();
+  });
+});
+
+describe("K20: what the user means to do today is on Today, however it was kept (founder, 14 Oct)", () => {
+  const john = { id: "john", display_name: "John", state: "active" } as unknown as Person;
+  const tonight = (kind: string, detail: Record<string, unknown>, subject = "user") =>
+    item(`j-${kind}`, { kind: kind as MemoryItem["kind"], person_id: "john", subject_type: subject as MemoryItem["subject_type"], statement: "You need to call John tonight", detail });
+  const shapes = {
+    promise: tonight("promise", { due_date: "2026-10-12", due_hint: "tonight" }),
+    plan: tonight("plan", { date: "2026-10-12", firmness: "planned", when_hint: "tonight" }),
+    event: tonight("event", { date: "2026-10-12", date_precision: "day", event_type: "other", followup_policy: "none", time_of_day: "night" }),
+  };
+  const today = (m: MemoryItem, over: Partial<TodayInput> = {}) =>
+    buildToday(input({ items: [m], people: [...people, john], reasons: [], ...over }));
+  const johnLine = (v: ReturnType<typeof buildToday>) => v.quiet.find((q) => q.kind === "coming" && q.personId === "john");
+
+  it.each(Object.entries(shapes))("%s: a Today line about John, and never the quiet day", (_kind, m) => {
+    const v = today(m);
+    expect(johnLine(v)).toMatchObject({ label: "Today", text: "You need to call John tonight", itemId: m.id, day: "2026-10-12" });
+    expect([v.quietDay, v.firstUse]).toEqual([false, null]);
+  });
+
+  it("someone else's event on its day stays the Moment's: not a Coming up line", () => {
+    const race = item("r", { person_id: "john", statement: "John runs a race today", detail: { date: "2026-10-12", date_precision: "day", event_type: "race", followup_policy: "after" } });
+    expect(johnLine(today(race))).toBeUndefined();
+    expect(johnLine(today({ ...race, detail: { ...race.detail, date: "2026-10-13" } }))).toMatchObject({ label: "Tomorrow" });
+  });
+
+  it.each(Object.entries(shapes))("%s: after Yes it has been done, on this phone or any other; Not yet keeps it", (_kind, m) => {
+    const key = `coming:${m.id}:2026-10-12`;
+    expect(johnLine(today(m, { local: { [key]: { acted: "x", done: "x" } } }))).toBeUndefined();
+    expect(johnLine(today(m, { contacts: [{ person_id: "john", memory_item_id: m.id, occurred_at: new Date(2026, 9, 12, 8).toISOString() }] }))).toBeUndefined();
+    expect(johnLine(today(m, { local: { [key]: { acted: "x", notYet: "x" } } }))).toBeDefined();
+    // A conversation on another day about it, or one taken back ("Not this"), doesn't settle today's.
+    expect(johnLine(today(m, { contacts: [{ person_id: "john", memory_item_id: m.id, occurred_at: new Date(2026, 9, 10, 8).toISOString() }] }))).toBeDefined();
+    expect(johnLine(today(m, { contacts: [{ person_id: "john", memory_item_id: m.id, occurred_at: new Date(2026, 9, 12, 8).toISOString(), deleted_at: "x" }] }))).toBeDefined();
+  });
+
+  it("yesterday's 'call John tonight' is not today's", () => {
+    expect(johnLine(today({ ...shapes.promise, detail: { due_date: "2026-10-11" } }))).toBeUndefined();
+    expect(johnLine(today({ ...shapes.plan, detail: { date: "2026-10-11", firmness: "planned" } }))).toBeUndefined();
+  });
+});
+
+describe("K23: Message or Call from a person's page gets the same return question (founder, 14 Oct)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { pageReasonFor, returnViewFor } = require("../todayModel") as typeof import("../todayModel");
+  const john = { id: "john", display_name: "John", state: "active" } as unknown as Person;
+  const own = (id: string, kind: string, detail: Record<string, unknown>, over: Partial<MemoryItem> = {}) =>
+    item(id, { kind: kind as MemoryItem["kind"], person_id: "john", subject_type: "user", statement: `You said ${id}`, detail, ...over });
+
+  it("what the user means to do today comes first, with Today's own key for it, so a Yes settles Today's line too", () => {
+    const items = [own("later", "promise", { due_date: "2026-10-20" }), own("tonight", "plan", { date: "2026-10-12", firmness: "intended" })];
+    expect(pageReasonFor(items, john, "2026-10-12")).toEqual({
+      id: "coming:tonight:2026-10-12", type: "coming", ask: "Did you reach John?", about: "You said tonight",
+      followUp: "Anything worth remembering from talking with John?", itemId: "tonight",
+    });
+  });
+
+  it("else the open 'You said you'd' nearest its day, a promise asking nothing more after a Yes", () => {
+    const items = [own("undated", "promise", {}), own("friday", "promise", { due_date: "2026-10-16" }), own("yesterday", "promise", { due_date: "2026-10-11" })];
+    expect(pageReasonFor(items, john, "2026-10-12")).toMatchObject({ id: "coming:yesterday:2026-10-11", itemId: "yesterday", followUp: "" });
+    expect(pageReasonFor([own("undated", "promise", {})], john, "2026-10-12")).toMatchObject({ id: "coming:undated:2026-10-12" });
+  });
+
+  it("nothing to act on is no reason: someone else's promise, a fact, a sensitive or retracted line", () => {
+    expect(pageReasonFor([
+      own("theirs", "promise", { due_date: "2026-10-12" }, { subject_type: "person" }),
+      own("fact", "fact", {}),
+      own("health", "promise", { due_date: "2026-10-12" }, { sensitivity: "health" }),
+      own("gone", "promise", { due_date: "2026-10-12" }, { status: "retracted" }),
+      own("ben", "promise", { due_date: "2026-10-12" }, { person_id: "ben" }),
+    ], john, "2026-10-12")).toBeNull();
+  });
+
+  it("the return question is the same wherever the hand-off started; never for someone paused, or after three days", () => {
+    const h = { reasonId: "coming:tonight:2026-10-12", personId: "john", channel: "text" as const, at: NOW.toISOString(), ask: "Did you reach John?", about: "You said tonight", followUp: "" };
+    expect(returnViewFor(h, john, NOW)).toMatchObject({ ask: "Did you reach John?", about: "You said tonight", personName: "John" });
+    expect(buildToday(input({ handoff: h, people: [...people, john] })).returnCheck).toEqual(returnViewFor(h, john, NOW));
+    expect(returnViewFor({ ...h, answered: "yes" }, john, NOW)).toBeNull();
+    expect(returnViewFor(h, { ...john, state: "paused" } as Person, NOW)).toBeNull();
+    expect(returnViewFor(h, john, new Date(NOW.getTime() + 73 * 3_600_000))).toBeNull();
   });
 });

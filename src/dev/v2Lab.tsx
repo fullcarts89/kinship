@@ -446,7 +446,7 @@ export function V2Lab({ state }: { state: string }) {
       return (
         <PortraitView
           personId={picked.find((r) => r.name === "Sarah Kim")?.personId ?? ""} name="Sarah Kim" label={null} remembered={false} lately={[]} youSaid={[]} between={[]} total={0}
-          comingUp={[{ itemId: "birthday", statement: "Sarah's birthday", when: "14 October", provenance: "From Contacts", noteId: null, fixed: true }]}
+          comingUp={[{ itemId: "birthday", statement: "Sarah's birthday", when: "Oct 14", provenance: "From Contacts", noteId: null, fixed: true }]}
           onBack={noop} onLine={noop} onSource={noop} onKnows={noop} onMessage={noop} onCall={noop} onTell={noop}
         />
       );

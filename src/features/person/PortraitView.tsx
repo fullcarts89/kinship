@@ -8,7 +8,7 @@ import { type ScrollView, Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
 import { GUTTER, height, press, size, space } from "@/design/tokens";
-import { Body, Emphasis, Label, Line, Name, Pill, Provenance, QuietLine, Screen, Small, Sprig, useLineFocus, usePalette } from "@/ui";
+import { Body, Emphasis, Label, Line, MomentText, Name, Pill, Provenance, QuietLine, Screen, Small, Sprig, useLineFocus, usePalette } from "@/ui";
 
 export interface PortraitLineData {
   itemId: string;
@@ -95,6 +95,12 @@ export interface PortraitViewProps {
   hasDraft?: boolean;
   /** "View Ben" from a Moment (founder I1): the page lands on this line, which comes up quietly. */
   focusItemId?: string | null;
+  /**
+   * Back from a conversation Kinship opened with them, from here or from Today (founder K23): the same
+   * return question Today asks, "Did you reach John?", with what it was about.
+   */
+  returnCheck?: { ask: string; about: string | null } | null;
+  onReturn?: (answer: "yes" | "not_yet") => void;
   children?: React.ReactNode;
 }
 
@@ -264,6 +270,17 @@ export function PortraitView(props: PortraitViewProps) {
         </View>
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>
+
+      {props.returnCheck ? (
+        <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
+          <MomentText>{props.returnCheck.ask}</MomentText>
+          {props.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{props.returnCheck.about}</Small> : null}
+          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+            <Pill size="small" label="Yes" onPress={() => props.onReturn?.("yes")} />
+            <Pill size="small" label="Not yet" onPress={() => props.onReturn?.("not_yet")} />
+          </View>
+        </View>
+      ) : null}
 
       {props.links?.length ? (
         <View style={{ marginTop: space.xl, gap: space.m }}>
