@@ -67,6 +67,7 @@ LIVE=1 npx jest -c e2e/jest.blackbox.config.js e2e/blackbox/live.blackbox.tsx
 | `removal.blackbox.tsx` | K14 / N9 / N10, also on a phone-like profile. The note's weekday is never the run's own (N15): Friday, or Tuesday from Thursday to Saturday (UTC) |
 | `live.blackbox.tsx` | K4, K20, K23, K2, N6, K14 with the live model |
 | `b3.blackbox.tsx` | Phase 4B B3 residence: C with exact Undo, E (Susan moved / Still there), D, F, the Pilsen finding, the §21 rows through the real database, N13 (a line edited on Susan's page is read again; then a move, a bare replacement, a correction, Undo; the next Tell's safety net) and N14 (a bare "Hollywood" next to "California"). The local database needs the B2 and B3 migrations (`npx supabase migration up --local`) and this branch's gateway. Replies `e2e/replies/b3-*.json` (live, 16 Oct); with `LIVE=1` it runs on the live model |
+| `b4.blackbox.tsx` | Phase 4B B4 multi-item closure and its exact Undo (brief §8 rule 2, §10): res-006 through the screens (California → Alameda → "moved to Colorado": the Kept card says both lines it replaces, both close, Undo brings both back exactly), "Not this" on the closer from What Kinship knows (which lists both "Before:" lines), an edited Alameda beside California with a plain "lives in Colorado" ("Susan moved" closes both; Undo returns the edited line; "Still there" closes nothing), and an edited California among the closures closed on the user's own "moved to" (§21). Same stack and replies as `b3`; no new migration |
 
 ## The simulator build (NATIVE-SIMULATOR)
 

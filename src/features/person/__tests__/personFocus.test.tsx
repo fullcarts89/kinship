@@ -100,7 +100,7 @@ describe("I1: the person page lands on the memory", () => {
 
   it("What Kinship knows lands on the line too", async () => {
     const record = (id: string, statement: string): RecordLine => ({
-      line: { id, statement, kind: { label: "Fact", value: "fact", changeable: false } } as unknown as ItemLine,
+      line: { id, statement, replaces: [], kind: { label: "Fact", value: "fact", changeable: false } } as unknown as ItemLine,
       provenance: "You told Kinship · Oct 8", noteId: null, conflict: null,
     });
     const t = await render(

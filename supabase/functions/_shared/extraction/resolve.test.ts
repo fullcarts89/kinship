@@ -231,6 +231,20 @@ Deno.test("residence question: 'Still there' closes nothing; the reading stays o
   eq([words.items[0].action.type, words.items[0].facets], ["new", undefined], "beside a line the user edited: the words only (§8 rule 1)");
 });
 
+Deno.test("residence question (B4): 'Susan moved' also closes what the question carried; 'Still there' nothing", () => {
+  const multi: HeldItem = { ...homeHeld("words"), still_in: { target_id: "alameda-line", words: "Alameda", stay: "words", closes: ["california-line", "alameda-line", "california-line"] } };
+  const moved = resolveHeld([multi], [{ index: 0, moved: true }], homeCtx());
+  if ("fail" in moved) throw new Error(moved.fail);
+  eq([moved.items[0].action, moved.items[0].closes], [{ type: "supersede", target_id: "alameda-line" }, ["california-line"]],
+    "the rest, never the asked line twice");
+  const stayed = resolveHeld([multi], [{ index: 0, moved: false }], homeCtx());
+  if ("fail" in stayed) throw new Error(stayed.fail);
+  eq([stayed.items[0].action.type, stayed.items[0].closes], ["new", undefined]);
+  const older = resolveHeld([multi], [{ index: 0, accept: true }], homeCtx());
+  if ("fail" in older) throw new Error(older.fail);
+  eq(older.items[0].closes, undefined, "a build from before the question closes nothing");
+});
+
 Deno.test("residence question: only that answer, only for that question", () => {
   eq(resolveHeld([homeHeld("facet")], [{ index: 0 }], homeCtx()), { fail: "bad_answer" }, "an answer is needed");
   // A build from before the question asks only "Remember this?": its yes keeps both, and closes nothing.

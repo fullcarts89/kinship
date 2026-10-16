@@ -107,10 +107,7 @@ const FIXTURES: Fixture[] = TEXT.split("\n").filter((l) => l.trim()).map((l) => 
 const PLACES = placeIndex();
 
 /** What a later step of Phase 4B delivers: reported, never failed (and never silently skipped). */
-const DEFERRED: Record<string, string> = {
-  "res-006#3:closes": "B4 (closes_ids): the most specific line (Alameda) closes now; California closes with it in B4",
-  "res-006#3:contradiction": "B4 (closes_ids): until then California stays current beside Colorado, as before B3",
-};
+const DEFERRED: Record<string, string> = {};
 
 // ─── A small database, with write_extraction's rules ─────────────────────────
 
@@ -127,6 +124,8 @@ interface Row {
   user_state: string;
   detail: Record<string, unknown>;
   supersedes_id: string | null;
+  /** The other lines it closed (B4). */
+  closes_ids: string[];
   with_person_ids: string[];
   deleted: boolean;
   version: number;
@@ -199,9 +198,10 @@ class World {
   /**
    * write_extraction for one item (20261015090000, 20261016090000): the
    * target re-checked, an edited line closed only on the user's own
-   * evidence, the reading kept only on a new line, in its own words.
+   * evidence, every other closure (closes, B4) re-checked the same way and
+   * applied with it, the reading kept only on a new line, in its own words.
    */
-  write(step: number, it: PlannedItem | ResolvedItem, answered: string | null): { id: string; action: string } {
+  write(step: number, it: PlannedItem | ResolvedItem, answered: string | null): { id: string; action: string; closes: string[] } {
     const note = this.notes.get(step)!;
     const relatedId = this.relatedFor(it);
     let action = it.action.type;
@@ -214,6 +214,19 @@ class World {
           (action === "merge" && (target.kind !== it.kind || target.status !== "active")) ||
           (action === "supersede" && !["active", "resolved"].includes(target.status))) action = "new";
     }
+    // The other lines it closes: each re-checked as the target is, a doubtful one dropped; at most 8, in order.
+    const closes: string[] = [];
+    if (action !== "merge" && Array.isArray(it.closes)) {
+      for (const cid of it.closes) {
+        if (closes.length >= 8) break;
+        if (closes.includes(cid) || (action === "supersede" && cid === target!.id)) continue;
+        const c = this.row(cid);
+        if (!c || c.deleted || c.person_id !== it.person_id || c.subject_type !== it.subject_type || c.subject_related_id !== relatedId ||
+            !["active", "resolved"].includes(c.status)) continue;
+        if ((c.user_state === "edited" || c.user_state === "user_authored") && !this.editedLineClosure(note, it, c, answered)) continue;
+        closes.push(cid);
+      }
+    }
     let id: string;
     if (action === "merge") {
       id = target!.id;
@@ -222,10 +235,12 @@ class World {
       this.rows.push({
         id, person_id: it.person_id!, kind: it.kind, subject_type: it.subject_type, subject_related_id: relatedId,
         statement: it.statement, certainty: it.certainty, sensitivity: it.sensitivity, status: "active", user_state: "unreviewed",
-        detail: { ...it.detail }, supersedes_id: action === "supersede" ? target!.id : null, with_person_ids: it.with_person_ids ?? [],
-        deleted: false, version: 1, steps: [], tick: ++this.tick,
+        detail: { ...it.detail }, supersedes_id: action === "supersede" ? target!.id : null, closes_ids: closes,
+        with_person_ids: it.with_person_ids ?? [], deleted: false, version: 1, steps: [], tick: ++this.tick,
       });
+      // The apply triggers: what it replaces and every line it closes leave current truth (facets untouched).
       if (action === "supersede") target!.status = "superseded";
+      for (const cid of closes) this.row(cid)!.status = "superseded";
       const facet = (it.facets ?? []).find((f) => f.slot === "residence");
       const row = this.row(id)!;
       if (facet && residenceEligible(row) && it.spans.some((s) => s.quote.includes(facet.value_text))) {
@@ -236,7 +251,7 @@ class World {
     for (const s of it.spans) this.sources.push({ item: id, step, quote: s.quote });
     if (!row.steps.includes(step)) row.steps.push(step);
     row.tick = ++this.tick;
-    return { id, action };
+    return { id, action, closes };
   }
 
   private relatedFor(it: PlannedItem | ResolvedItem): string | null {
@@ -268,16 +283,26 @@ class World {
     return /^(actually|i was wrong|i meant|correction)$/u.test(words) || (/^not /u.test(words) && words.includes(facet.value_text.toLowerCase()));
   }
 
-  /** Undo of a note: its own lines go; what they closed comes back unless still closed by a live line (the restore trigger). */
+  /**
+   * Undo of a note: its own lines go; what they replaced and every line they
+   * closed comes back, each unless another live line still closes it (the
+   * restore trigger, 20261015090000; brief §10).
+   */
   undo(step: number): void {
     for (const r of this.rows) {
       if (r.deleted || !(r.steps.length === 1 && r.steps[0] === step)) continue;
       r.deleted = true;
       for (const f of this.facets) if (f.item === r.id) f.live = false;
-      const t = r.supersedes_id ? this.row(r.supersedes_id) : undefined;
-      if (t && !t.deleted && t.status === "superseded" &&
-          !this.rows.some((o) => o.id !== r.id && !o.deleted && o.supersedes_id === t.id)) t.status = "active";
+      for (const closed of [r.supersedes_id, ...r.closes_ids]) {
+        const t = closed ? this.row(closed) : undefined;
+        if (t && !t.deleted && t.status === "superseded" && !this.closedBy(t.id).some((o) => o.id !== r.id)) t.status = "active";
+      }
     }
+  }
+
+  /** The live lines that replace or close this one. */
+  closedBy(id: string): Row[] {
+    return this.rows.filter((o) => !o.deleted && (o.supersedes_id === id || o.closes_ids.includes(id)));
   }
 
   /**
@@ -355,7 +380,7 @@ function render(w: World, rows: Row[]): { lines: string[]; groups: Row[][] } {
 /** A closed residence line is history only when its live closer records a change (§11, CC-20). */
 function history(w: World, personId: string): string[] {
   return w.rows.filter((r) => !r.deleted && r.status === "superseded" && r.person_id === personId && r.subject_type === "person" &&
-    w.liveFacet(r.id) && w.rows.some((c) => !c.deleted && c.supersedes_id === r.id && c.detail.transition === "changed"))
+    w.liveFacet(r.id) && w.closedBy(r.id).some((c) => c.detail.transition === "changed"))
     .map((r) => `Previously lived in ${w.liveFacet(r.id)!.value_text}`);
 }
 
@@ -483,7 +508,7 @@ function run(f: Fixture): Result {
     }
 
     // ── Written (or answered), as the database writes it ──
-    let written: { id: string; action: string } | null = null;
+    let written: { id: string; action: string; closes: string[] } | null = null;
     let closer: PlannedItem | ResolvedItem = item;
     if (item.tier === "hold") {
       if (!step.answer) return;
@@ -503,19 +528,23 @@ function run(f: Fixture): Result {
     w.wrote.set(at, written.id);
     if (step.protect) w.row(written.id)!.user_state = "edited";
 
-    // ── What it closed ──
-    const closed = written.action === "supersede" ? [closer.action.target_id!] : [];
-    // A question's "Susan moved" closes the line the question named (checked above, by its words); nothing else does.
+    // ── What it closed: what it replaced, then every other line it closed (B4), the most specific first ──
+    const closed = [...(written.action === "supersede" ? [closer.action.target_id!] : []), ...written.closes];
+    // A question's "Susan moved" closes the line the question named (checked above, by its words) and what the
+    // question carried with it; nothing else does.
     const expected = (e.closes ?? []).map((s) => w.wrote.get(s) ?? "");
-    const allowed = e.outcome === "CONFLICT" ? (step.answer === "she_moved" && item.still_in ? [item.still_in.target_id] : []) : expected;
+    const allowed = e.outcome === "CONFLICT"
+      ? (step.answer === "she_moved" && item.still_in ? [item.still_in.target_id, ...(item.still_in.closes ?? [])] : [])
+      : expected;
     for (const id of closed) {
       if (!allowed.includes(id)) metric("incorrect_supersession", `${tag}: closed ${w.row(id)?.statement}`);
       const t = w.row(id)!;
       if (t.person_id !== closer.person_id || t.subject_type !== closer.subject_type) metric("cross_person_contamination", tag);
     }
-    if (e.outcome !== "CONFLICT" && e.closes) {
-      if (closed[0] !== expected[0]) fail(`${tag}: closed ${JSON.stringify(closed.map((id) => w.row(id)?.statement))}, expected steps ${JSON.stringify(e.closes)}`);
-      if (expected.length > 1) res.deferred.push(`${tag}:closes: ${DEFERRED[`${tag}:closes`] ?? "more than one closure (B4)"}`);
+    if (e.closes && (e.outcome !== "CONFLICT" || step.answer === "she_moved")) {
+      if (JSON.stringify(closed) !== JSON.stringify(expected)) {
+        fail(`${tag}: closed ${JSON.stringify(closed.map((id) => w.row(id)?.statement))}, expected steps ${JSON.stringify(e.closes)}`);
+      }
     }
     const transition = (closer.detail?.transition as string | undefined) ?? null;
     if (e.transition !== undefined && closed.length && transition !== e.transition) fail(`${tag}: transition ${transition}, expected ${e.transition}`);

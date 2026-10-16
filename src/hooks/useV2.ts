@@ -25,7 +25,7 @@ import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, track } from "
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { isOn } from "@/store/flags";
-import { repositoriesFor, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
+import { closedBy, repositoriesFor, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
 import type { HeldItem } from "@/store/gateway";
 import { questionWaiting } from "@/store/understanding";
 import type { UserStore } from "@/store/userStore";
@@ -75,9 +75,9 @@ export function useTell() {
  */
 export async function earlierOf(repos: Repositories, items: MemoryItem[], held: HeldItem[] = []): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  // Saved lines that replaced something, and held ones that would on a yes (H25).
+  // Saved lines that replaced something (every line they closed, B4), and held ones that would on a yes (H25).
   const targets = [
-    ...items.map((m) => (typeof m.supersedes_id === "string" ? m.supersedes_id : null)),
+    ...items.flatMap((m) => closedBy(m)),
     ...held.map((h) => (h.action && ["supersede", "resolves"].includes(h.action.type) ? h.action.target_id : null)),
   ];
   for (const id of targets) {

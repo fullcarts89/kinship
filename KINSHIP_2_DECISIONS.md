@@ -1217,4 +1217,4 @@ Ask, Intentions, chapters, calendar, Siri, voice, share, Landscape, reflection, 
 - **Before each Commit-next item is built:** its own brief for the founder (the showing-up measurement's form and accounts; promise / thread windows and copy; the minimal push's copy, budget within D4, permission moment and settings).
 - **The Listening screen:** re-confirm or change its approved form before voice work begins.
 - **The wife dogfood in two rounds** (without, then with push) is the founder's suggested validation; its exact timing is set when Phase 4 ends.
-- Unchanged from B3: the "moved from <line> to …" closure rule (brief §22 point 4).
+- Unchanged from B4: **N16**, whether the stored "Susan moved" answer closes only the line the question named (brief §23 choice 1). The "moved from <line> to …" rule was approved with B4.

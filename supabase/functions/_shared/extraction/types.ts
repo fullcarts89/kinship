@@ -314,8 +314,18 @@ export interface PlannedItem {
   facets?: ResidenceFacet[];
   /** The change or correction in the user's words that lets it close a line the user edited (code points; §21). */
   cue?: { start: number; end: number };
-  /** The residence question it is held for: which line, in that line's own words, and what "Still there" keeps. */
-  still_in?: { target_id: string; words: string; stay: "facet" | "words" };
+  /**
+   * The other current lines it closes besides its target, the most specific
+   * first (Phase 4B B4, brief §8 rule 2, §10): written as closes_ids, each
+   * re-checked by the database as the target is, and restored with it on Undo.
+   */
+  closes?: string[];
+  /**
+   * The residence question it is held for: which line, in that line's own
+   * words, what "Still there" keeps, and what else "Susan moved" closes
+   * (B4: the other lines the reading can't be true with, the most specific first).
+   */
+  still_in?: { target_id: string; words: string; stay: "facet" | "words"; closes?: string[] };
   /** How it relates to the residence Kinship holds (evals and tests). Code only; never written or sent. */
   residence?: Outcome;
 }

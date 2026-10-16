@@ -99,6 +99,33 @@ Deno.test("a line the user edited (§21)", () => {
   eq(one(input("Susan moved to Colorado.", [written]), item("Susan moved to Colorado")).action.target_id, "ala", "user_authored as edited");
 });
 
+Deno.test("B4: a note closes every line it can't be true with: the most specific is its target, the rest ride as closes", () => {
+  const cal = held("cal", "Susan lives in California");
+  const ala = held("ala", "Susan lives in Alameda");
+  // California → Alameda → "moved to Colorado" (brief §10, res-006): Alameda is replaced, California closes with it.
+  const note = "Susan moved to Colorado.";
+  const c = one(input(note, [cal, ala]), item("Susan moved to Colorado"));
+  eq([c.residence, c.action, c.closes, c.detail.transition, words(note, c.cue)],
+    ["SUPERSEDES", { type: "supersede", target_id: "ala" }, ["cal"], "changed", "moved to"]);
+  // No cue: both close as current truth only (CC-20), still both.
+  const plain = one(input("Susan lives in Colorado.", [cal, ala]), item("Susan lives in Colorado"));
+  eq([plain.action.target_id, plain.closes, plain.detail.transition], ["ala", ["cal"], undefined]);
+  // A move within California closes Alameda alone: nothing rides along.
+  const within = one(input("Susan moved to Oakland.", [cal, ala]), item("Susan moved to Oakland"));
+  eq([within.action.target_id, within.closes], ["ala", undefined]);
+  // Refines: nothing closes, nothing rides.
+  eq(one(input("Susan lives in Alameda.", [cal]), item("Susan lives in Alameda")).closes, undefined);
+  // Held (an edited Alameda, a plain "lives in Colorado"): the question carries what else "Susan moved" closes,
+  // and nothing closes before the answer.
+  const edited = held("ala", "Susan lives in Alameda", { user_state: "edited" });
+  const asked = one(input("Susan lives in Colorado.", [cal, edited]), item("Susan lives in Colorado"));
+  eq([asked.tier, asked.action.type, asked.closes, asked.still_in], ["hold", "new", undefined, { target_id: "ala", words: "Alameda", stay: "words", closes: ["cal"] }]);
+  // An edited California among the closures: it rides along with the cue the database re-reads (§21); the database decides.
+  const editedCal = held("cal", "Susan lives in California", { user_state: "edited" });
+  const viaCue = one(input(note, [editedCal, ala]), item("Susan moved to Colorado"));
+  eq([viaCue.action.target_id, viaCue.closes, viaCue.detail.transition, words(note, viaCue.cue)], ["ala", ["cal"], "changed", "moved to"]);
+});
+
 Deno.test("only current residence lines of the same person and subject, never shared ones", () => {
   const mike = held("mike", "Mike lives in Alameda", { person_key: "p2" });
   const sister = held("sis", "Susan's sister lives in Alameda", { subject_type: "related", related_key: "r1" });

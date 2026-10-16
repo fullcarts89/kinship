@@ -131,7 +131,7 @@ describe("round two, end to end", () => {
     const now = serverItems(w).find((m) => m.statement === "Sam got the Stripe job")!;
     expect([now.supersedes_id, (now.detail as Record<string, unknown>).transition]).toEqual([old.id, "completed"]);
     // "next week" was kept as a date, not words that go stale.
-    expect(knows.lines[0].line.replaces).toBe("Sam is starting a new job at Stripe");
+    expect(knows.lines[0].line.replaces).toEqual(["Sam is starting a new job at Stripe"]);
   });
 
   it("8, 9: 'Ben is my brother' and 'Ben and John are my brothers': kept without a question; what they are to you, on each", async () => {
@@ -256,7 +256,7 @@ describe("round two, end to end", () => {
     const { shown, knows } = await page(w, susan);
     expect(shown).toEqual(["Susan is not moving to Alameda anymore"]);
     expect(knows.lines.map((l) => l.line.statement)).toEqual(["Susan is not moving to Alameda anymore"]);
-    expect(knows.lines[0].line.replaces).toMatch(/^Susan is planning on moving to Alameda/);
+    expect(knows.lines[0].line.replaces[0]).toMatch(/^Susan is planning on moving to Alameda/);
   });
 
   it("17, 18: your promise reads as your to-do; Tyler's promise to you is his, coming up, never 'You said you'd'", async () => {

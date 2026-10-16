@@ -52,11 +52,24 @@ export interface MemoryItem extends Data {
   with_person_ids?: string[] | null;
   /** Which words in the statement name which of its people (founder I12/I13; names.ts PersonMention). */
   person_mentions?: unknown;
+  /** The one (most specific) memory this one replaced. */
+  supersedes_id?: string | null;
+  /** The other memories it closed with that one (Phase 4B B4; the server's alone, brief §1 B). */
+  closes_ids?: string[] | null;
 }
 
 /** Everyone a memory is about: the person it's filed on, and anyone it's shared with. */
 export function peopleOf(item: Pick<MemoryItem, "person_id" | "with_person_ids">): string[] {
   return [item.person_id, ...(Array.isArray(item.with_person_ids) ? item.with_person_ids : [])];
+}
+
+/**
+ * Every memory this one replaced: what it superseded, then every other line it
+ * closed with it (brief §10), the most specific first. A change says all of it.
+ */
+export function closedBy(item: Pick<MemoryItem, "supersedes_id" | "closes_ids">): string[] {
+  const ids = [item.supersedes_id, ...(Array.isArray(item.closes_ids) ? item.closes_ids : [])];
+  return ids.filter((id, i): id is string => typeof id === "string" && ids.indexOf(id) === i);
 }
 
 export interface MemorySource extends Data {

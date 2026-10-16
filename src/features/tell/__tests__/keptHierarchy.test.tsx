@@ -100,3 +100,24 @@ describe("I4: the Kept card's hierarchy", () => {
     expect(said).not.toContain("Pedro isn't in People yet.");
   });
 });
+
+describe("B4: the Kept card says everything a kept line replaced", () => {
+  it("shows one 'Replaces' line per replaced line, under the line, in the words the user said", () => {
+    const moved: KeptCardState = {
+      ...card, heading: "Kept for Susan", newcomers: undefined,
+      lines: [{ id: "m3", statement: "Susan moved to Colorado", replaces: ["Susan lives in Alameda", "Susan lives in California"] }],
+    };
+    const r = render(<KeptCard card={moved} onOpen={noop} onUndo={noop} onDismiss={noop} onRate={noop} />);
+    // The words alone (a "Replaces" line nests the struck words in their own Text).
+    const said = r.root.findAllByType(Text).map((t) => [t.props.children].flat().filter((c) => typeof c === "string").join("")).filter((s) => s.trim());
+    const from = said.indexOf("Susan moved to Colorado");
+    expect(from).toBeGreaterThan(-1);
+    expect(said.slice(from + 1, from + 5)).toEqual(["Replaces: ", "Susan lives in Alameda", "Replaces: ", "Susan lives in California"]);
+    expect(r.root.findAll((n) => n.props.accessibilityLabel === "Replaces: Susan lives in California").length).toBeGreaterThan(0);
+    // Undo is right there, so the user can say no to all of it.
+    expect(pressable(r, "Undo")).toBeTruthy();
+    // A line that replaced nothing says nothing.
+    const plain = render(<KeptCard card={card} onOpen={noop} onUndo={noop} onDismiss={noop} onRate={noop} />);
+    expect(words(plain).filter((w) => w.startsWith("Replaces"))).toEqual([]);
+  });
+});

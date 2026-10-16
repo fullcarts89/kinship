@@ -298,6 +298,16 @@ Built as approved (CC-19 case E, CC-20, CC-24, brief §8 and §21). No approved 
 | Tell › review / Kept card | A residence the table replaces shows "Replaces: ~~Susan lives in Alameda~~" as any replacement does (H23) | Existing behaviour |
 | Settings › About | **Place data from GeoNames (geonames.org), CC BY 4.0**, under the Account section: the first build whose gateway reads the place data | Yes: CC-20, decision 1 (Settings › About and `THIRD_PARTY_NOTICES.md`). The v2 Settings sheet had no About section; it gains one line under its own label |
 
+## B4 multi-item closure (Phase 4B, 16 Oct): what changed on approved surfaces
+
+Built as approved (CC-20: closure never without its exact Undo; brief §8 rule 2, §10). No approved surface removed; nothing composed or displayed differently on the Portrait or in What Kinship knows' sections (B5, B7, B8). **Native:** not run (no build this session).
+
+| Surface | Built | Founder approval |
+|---|---|---|
+| Tell › Kept card | Under a kept line, **Replaces: ~~Susan lives in Alameda~~** and **Replaces: ~~Susan lives in California~~**: one H23 line per line the note replaced, the most specific first, right above **Correct this · Undo**. Before B4 the card showed none of it; only the review sheet behind "Correct this" did | H23's approved element on I4's approved card: **a surface addition, for the founder's look** |
+| Tell › review, 14 What Kinship knows, line sheet | "Replaces: …" / "Before: …" once per replaced line (was: the one line it superseded) | Existing behaviour (H23, G40), now complete |
+| 12 Relationship page (Portrait) | Unchanged: "was: ~~…~~" keeps the most specific line | — |
+| Tell › clarification (case E) | Unchanged words. "Susan moved" now also closes every other line the reading can't be true with; "Still there" still closes nothing | Behaviour: CC-19 / brief §8 rule 1. Open: N16 (a second edited line the question never named stays current) |
 
 ## Roadmap update (founder, 16 Oct, CC-25): status of deferred and planned surfaces
 

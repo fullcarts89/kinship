@@ -42,10 +42,11 @@ export interface KeptCardState {
   /** "Kept for Ben"; null while understanding, or when there's nothing kept. */
   heading: string | null;
   /** What was kept, in the user's words (at most three; the rest is "more"). */
-  lines: { id: string; statement: string }[];
+  /** What was kept; `replaces`: everything that line replaced, in its words (H23; B4: every line a note closed). */
+  lines: { id: string; statement: string; replaces?: string[] }[];
   more: number;
   /** The kept lines past the first three: "and 1 more" shows them in place (founder J6). */
-  rest?: { id: string; statement: string }[];
+  rest?: { id: string; statement: string; replaces?: string[] }[];
   /** "Understanding…", "Nothing to remember in that one…", "One thing to check". */
   status: string | null;
   /** Who it belongs with: shown on their page, never on someone else's. */
@@ -126,7 +127,7 @@ const CARD_MODES: ReviewMode[] = ["understanding", "card", "nothing", "failed", 
 
 export function cardFor(view: ReviewView): KeptCardState | null {
   if (!CARD_MODES.includes(view.mode)) return null;
-  const lines = view.mode === "card" ? view.lines.map((l) => ({ id: l.id, statement: l.statement })) : [];
+  const lines = view.mode === "card" ? view.lines.map((l) => ({ id: l.id, statement: l.statement, ...(l.replaces?.length ? { replaces: l.replaces } : {}) })) : [];
   return {
     captureId: view.captureId,
     mode: view.mode as KeptCardState["mode"],
