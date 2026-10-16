@@ -586,6 +586,32 @@ Deno.test("B3: 'Susan moved' is written as a change of that line, with the readi
   eq([it.action, it.detail.transition, it.facets?.[0].value_text], [{ type: "supersede", target_id: "item-alameda" }, "changed", "California"]);
 });
 
+const CALIFORNIA_LINE: ItemRow = { ...ALAMEDA_LINE, id: "item-california", statement: "Susan lives in California" };
+const CALIFORNIA_FACET: FacetRow = {
+  memory_item_id: "item-california", slot: "residence", value_text: "California", value_norm: "california", place_ref: null,
+  candidates: [{ ref: "region:US.CA", level: "region", ancestors: ["country:US"] }], usual_ref: "region:US.CA",
+};
+
+Deno.test("B4: the write carries every other line the note closes, and the stored question what 'Susan moved' closes", async () => {
+  const both = { items: [CALIFORNIA_LINE, ALAMEDA_LINE], facets: [CALIFORNIA_FACET, ALAMEDA_FACET] };
+  const w = home("Susan moved to Colorado.", both);
+  eq((await call(w, post(extract))).status, 200);
+  const [it] = w.writes[0].items;
+  eq([it.action, it.closes, it.detail.transition], [{ type: "supersede", target_id: "item-alameda" }, ["item-california"], "changed"]);
+  // A plain "lives in Colorado" beside an edited Alameda asks; the review row keeps what else the answer closes.
+  const asked = home("Susan lives in Colorado.", { ...both, items: [CALIFORNIA_LINE, { ...ALAMEDA_LINE, user_state: "edited" }] });
+  const { body } = await call(asked, post(extract));
+  eq([body.held[0].still_in, asked.writes[0].items], [{ target_id: "item-alameda", words: "Alameda", stay: "words", closes: ["item-california"] }, []]);
+  const stored = { ...asked.writes[0].review!, created_at: STORED_AT } as StoredReview;
+  const answered = home("Susan lives in Colorado.", { ...both, review: stored });
+  await call(answered, post(resolveBody([{ index: 0, moved: true }])));
+  const [r] = answered.resolves[0].items;
+  eq([r.action, r.closes, r.detail.transition], [{ type: "supersede", target_id: "item-alameda" }, ["item-california"], "changed"]);
+  const stayed = home("Susan lives in Colorado.", { ...both, review: stored });
+  await call(stayed, post(resolveBody([{ index: 0, moved: false }])));
+  eq([stayed.resolves[0].items[0].action.type, stayed.resolves[0].items[0].closes], ["new", undefined]);
+});
+
 Deno.test("B3: readings that can't be read, or no place data: the note is understood without residence", async () => {
   const unread = home("Susan moved to Colorado.", { facets: null });
   await call(unread, post(extract));

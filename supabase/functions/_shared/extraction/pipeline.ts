@@ -695,6 +695,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
       ...(ALONE.has(proposed) && tier === "hold" ? { alone: ALONE.get(proposed)! } : {}),
       ...(home ? { facets: [home.facet] } : {}),
       ...(home?.cue ? { cue: home.cue } : {}),
+      ...(home?.closes.length ? { closes: home.closes } : {}),
       ...(home?.ask ? { still_in: home.ask } : {}),
       ...(home ? { residence: home.outcome } : {}),
     },
@@ -1847,6 +1848,8 @@ interface ResidenceStep {
   transition: "changed" | "corrected" | null;
   /** The cue that lets it close a line the user edited (the database re-reads it). */
   cue: { start: number; end: number } | null;
+  /** The other lines it closes besides its target, the most specific first (B4; the database re-checks each). */
+  closes: string[];
   /** Held: "Is Susan still in Alameda?" */
   ask: NonNullable<PlannedItem["still_in"]> | null;
 }
@@ -1892,20 +1895,26 @@ function residenceStep(
   const modelTarget = proposed && current.some((c) => c.id === proposed.id) ? proposed.id : null;
   const decision = relateResidence(found, current, modelTarget);
   const none = { type: "new" as const, target_id: null };
-  const base = { facet: found.facet, outcome: decision.outcome, cue: null, ask: null, transition: null };
+  const base = { facet: found.facet, outcome: decision.outcome, cue: null, closes: [], ask: null, transition: null };
 
   switch (decision.outcome) {
     case "SAME":
       return { ...base, decides: true, action: { type: "merge", target_id: decision.target } };
     case "SUPERSEDES":
+      // The most specific line is what it replaces; every other line it can't be true with closes with it
+      // (brief §8 rule 2, B4), each re-checked by the database and restored with it on Undo (§10).
       return {
         ...base, decides: true, action: { type: "supersede", target_id: decision.closes[0] }, transition: decision.transition,
         cue: decision.cue ? { start: decision.cue.start, end: decision.cue.end } : null,
+        closes: decision.closes.slice(1),
       };
     case "CONFLICT":
       return {
         ...base, decides: true, action: none,
-        ask: { target_id: decision.asks.id, words: decision.asks.facet.value_text, stay: decision.stay },
+        ask: {
+          target_id: decision.asks.id, words: decision.asks.facet.value_text, stay: decision.stay,
+          ...(decision.closes.length > 1 ? { closes: decision.closes.slice(1) } : {}),
+        },
       };
   }
 

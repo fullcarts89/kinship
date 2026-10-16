@@ -11,6 +11,7 @@ import { draftPreview } from "./drafts";
 import { press, radius, size, space, TOUCH } from "@/design/tokens";
 import { Body, KEYBOARD_BAR, Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
+import { Replaces } from "./ReviewSheet";
 import { trackStarted, useTellFlow, type KeptCardState } from "./TellFlow";
 
 /** A quiet one-line status (offline, and older callers). */
@@ -163,6 +164,8 @@ export function KeptCard({
               style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.surface : 1 })}
             >
               <Line numberOfLines={2}>{l.statement}</Line>
+              {/* Gate E / H23: a change says everything it replaces, so the user can say no (Undo). */}
+              {(l.replaces ?? []).map((text) => <Replaces key={text} text={text} />)}
             </Pressable>
           ))}
           {card.more > 0 && !everyLine ? (

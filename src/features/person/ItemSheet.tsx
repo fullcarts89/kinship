@@ -85,7 +85,7 @@ export function ItemSheet(props: ItemSheetProps) {
             <Provenance line={it.provenance} onPress={it.noteId ? () => props.onSource(it.noteId as string) : undefined} />
           </View>
           {line.edited ? <EditedFrom before={line.editedFrom ?? null} /> : null}
-          {line.replaces ? <Small style={{ marginTop: space.xs }}>{`Before: ${line.replaces}`}</Small> : null}
+          {line.replaces.map((text) => <Small key={text} style={{ marginTop: space.xs }}>{`Before: ${text}`}</Small>)}
           <Small style={{ marginTop: space.xl }}>{ITEM_COPY.tokens}</Small>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: space.m }}>
             <Pill variant="danger" size="small" label="Not this" accessibilityHint="Kinship forgets this" onPress={() => props.onForget(line.id)} />

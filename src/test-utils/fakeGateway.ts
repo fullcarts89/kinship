@@ -448,17 +448,31 @@ export class FakeGateway implements GatewayTransport {
         relatedId = id("c");
         this.server.serverWrite("related_people", relatedId, this.userId, { person_id: p.person_id, relation: rel.relation, name: rel.name, promoted_person_id: null, deleted_at: null });
       }
+      // The other lines it closes (closes, Phase 4B B4): each re-checked as the target is (the user's, live,
+      // same person and subject, current; an edited line only on the user's own cue), at most 8, in order.
+      const closes: string[] = [];
+      for (const cid of Array.isArray(p.closes) ? (p.closes as unknown[]) : []) {
+        if (closes.length >= 8 || typeof cid !== "string" || closes.includes(cid) || (type === "supersede" && cid === target!.id)) continue;
+        const c = this.server.table("memory_items").get(cid);
+        if (!c || c.deleted_at || c.user_id !== this.userId || c.person_id !== p.person_id || c.subject_type !== p.subject_type
+          || (c.subject_related_id ?? null) !== (p.subject_type === "related" ? relatedId : null)
+          || !["active", "resolved"].includes(String(c.status))
+          || (["edited", "user_authored"].includes(String(c.user_state)) && !this.editedLineClosure(captureId, p, c, answered))) continue;
+        closes.push(cid);
+      }
       itemId = this.writeNew("memory_items", {
         kind: p.kind, person_id: p.person_id, subject_type: p.subject_type, subject_related_id: p.subject_type === "related" ? relatedId : null,
         statement: p.statement, detail: p.detail, certainty: p.certainty, sensitivity: p.sensitivity,
         extraction_confidence: p.confidence, status: "active", user_state: "unreviewed", origin: "extracted",
-        supersedes_id: type === "supersede" ? target!.id : null, valid_from: null, valid_to: null, deleted_at: null,
+        supersedes_id: type === "supersede" ? target!.id : null, closes_ids: closes, valid_from: null, valid_to: null, deleted_at: null,
         with_person_ids: Array.isArray(p.with_person_ids) ? p.with_person_ids : [],
         person_mentions: mentions,
       });
-      if (type === "supersede") {
-        this.write("memory_items", String(target!.id), {
-          status: "superseded", ...(target!.kind === "fact" ? { valid_to: this.server.tick(0).slice(0, 10) } : {}),
+      // The apply triggers: what it replaces and every line it closes leave current truth (their facets stay).
+      for (const closed of [...(type === "supersede" ? [String(target!.id)] : []), ...closes]) {
+        const c = this.server.table("memory_items").get(closed)!;
+        this.write("memory_items", closed, {
+          status: "superseded", ...(c.kind === "fact" ? { valid_to: this.server.tick(0).slice(0, 10) } : {}),
         });
       }
       if (type === "resolves") this.write("memory_items", String(target!.id), { status: "resolved" });

@@ -105,8 +105,8 @@ export function PersonRecordView(props: PersonRecordViewProps) {
                 <Token what="What" value={r.line.kind.label} onPress={r.line.kind.changeable ? () => props.onChange(r.line, "kind") : undefined} />
               </TokenRow>
             </View>
-            {/* Gate E: what this updated stays traceable. */}
-            {r.line.replaces ? <Small style={{ marginTop: space.xs }}>{`Before: ${r.line.replaces}`}</Small> : null}
+            {/* Gate E: everything this updated stays traceable. */}
+            {r.line.replaces.map((text) => <Small key={text} style={{ marginTop: space.xs }}>{`Before: ${text}`}</Small>)}
             {r.line.editedFrom ? (
               <Small style={{ marginTop: space.xs }} accessibilityLabel={`Edited by you. Before: ${r.line.editedFrom}`}>
                 {"Edited by you · was: "}

@@ -216,7 +216,7 @@ describe("core trust closure", () => {
     expect([old.status, now.status, now.supersedes_id]).toEqual(["superseded", "active", old.id]);
     const knows = await recordFor(w.repos, natalia.id, new Date(w.server.clock));
     expect(knows.lines.map((l) => [l.line.statement, l.line.replaces])).toEqual([
-      ["Natalia is no longer interviewing with Box because she got rejected", "Natalia is interviewing with Box"],
+      ["Natalia is no longer interviewing with Box because she got rejected", ["Natalia is interviewing with Box"]],
     ]);
     // The first note still shows what came of it, marked as since updated.
     const src = await noteFor(w.store, first.id, new Date(w.server.clock));
@@ -424,7 +424,7 @@ describe("core trust closure", () => {
       items: [item({ kind: "fact", person: key(i, "Susan"), person_mention: "Susan", statement: "Susan is not moving to Oakland anymore",
         evidence: ["Susan is not moving to Oakland anymore"], detail: { category: "home" } })],
     }));
-    expect(off.review.lines[0].replaces).toBe("Susan is moving to Oakland in August");
+    expect(off.review.lines[0].replaces).toEqual(["Susan is moving to Oakland in August"]);
     await w.understanding.finish(off.id, "done");
     await w.understanding.run();
     const { portrait } = await page(w, susan);

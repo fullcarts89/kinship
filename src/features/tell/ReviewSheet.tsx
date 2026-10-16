@@ -259,8 +259,8 @@ function ReviewLine({
           </TokenRow>
         </View>
         {line.edited ? <Small style={{ marginTop: space.xs }}>Edited by you</Small> : null}
-        {/* Gate E: an update says what it replaces, so the user can say no. */}
-        {line.replaces ? <Replaces text={line.replaces} /> : null}
+        {/* Gate E: an update says everything it replaces, so the user can say no. */}
+        {line.replaces.map((text) => <Replaces key={text} text={text} />)}
         {line.newcomers?.length && onAddPerson ? (
           <View style={{ marginTop: space.xs, gap: space.xs }}>
             {line.newcomers.map((name) => (
@@ -354,8 +354,8 @@ function QuestionBlock({
   );
 }
 
-/** "Replaces: ~~Susan is moving to Oakland in August~~": Kinship revised what it knew (H23, H25). */
-function Replaces({ text }: { text: string }) {
+/** "Replaces: ~~Susan is moving to Oakland in August~~": Kinship revised what it knew (H23, H25). On the Kept card too (B4). */
+export function Replaces({ text }: { text: string }) {
   const p = usePalette();
   return (
     <Small style={{ marginTop: space.xs }} accessibilityLabel={`Replaces: ${text}`}>
