@@ -887,7 +887,14 @@ Added by the founder's trust check: an edited line among the closures (via the c
 
 ### Evidence
 
-(Filled in below once every run finished; see the PR.)
+| Tier | Result |
+|---|---|
+| UNIT | PASS: Deno 408 (3 added: the pipeline's `closes` and `still_in.closes`, the answer path, the gateway's write and stored question); Jest 90 suites / 812 tests (`TZ=UTC`; the Kept card's Replaces lines, every surface's list); `npx tsc --noEmit` and `npx eslint app src` clean (0 errors) |
+| INTEGRATION | PASS: the corpus 80/80 (7 added; DEFERRED empty; zero-tolerance metrics 0; withholding the closures from the pipeline fails 8 expectations in 5 sequences and reports 2 contradictions, then passes again). `residenceProofs` 19 (3 added). pgTAP 26 suites / 743 assertions (`70_v2_multi_closure` added, 32) on **Postgres 16** (CI's; Homebrew, the run-db-tests steps with psql in place of pg_prove) and **17.6** (the local container, a throwaway database). Schema fingerprint of a fresh build unchanged: md5 `abeadd9ad9b1d2041f9884299872c03e` |
+| BLACK-BOX | PASS: `b4.blackbox` 5/5 replayed (the real screens, the local stack with B2 + B3 applied, this branch's gateway on :8000 and its stub on :8791, `GATEWAY_URL` / `STUB_URL`): res-006 with the card's two Replaces lines and exact Undo; "Not this" from What Kinship knows (two Before lines); California + an edited Alameda + "lives in Colorado" ("Susan moved" closes both, Undo returns the edited line); "Still there" (nothing closes); an edited California among the closures closed on the user's own "moved to" and returned as the user left it. Regression against the same gateway, every suite green: b3 20, k4 36, k4legacy 18, k20 22, k19 2, k25 3, h4 2, k10 1, dates 2, today 2, removal 3 (111) |
+| LIVE-MODEL | PASS: 3 of the 5 with the live model (the stub in record mode, 16 Oct; 9 calls): res-006, the edited-Alameda question, "Still there". The live model proposed replacing California on "Susan lives in Alameda" every time (the table kept both, REFINES) and one target on "moved to Colorado" / "lives in Colorado"; the table closed Alameda and California both, and asked once beside the edited line |
+| NATIVE-SIMULATOR | NOT RUN: no build this session (the app-side change is the card's and record's lines; the closures and Undo are the server's, proved through the real stack above) |
+| FOUNDER-DEVICE | NOT RUN |
 
 ### Rollout
 
