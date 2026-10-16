@@ -185,6 +185,8 @@ export interface ResolvedItem {
   /** Its residence reading (Phase 4B B3): only when the answer left who and what it is about as read. */
   facets?: PlannedItem["facets"];
   cue?: PlannedItem["cue"];
+  /** What else "Susan moved" closes (Phase 4B B4): the database re-checks each. */
+  closes?: string[];
 }
 
 export interface Resolution {
@@ -536,6 +538,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       // line whose person was asked was never related to anyone's residence), and never when "Still there"
       // keeps only its words (a line the user edited stays the one current residence, §8 rule 1).
       ...(residenceFacets(item, a, unchanged && !needsPerson && !flags.has("subject_check"), action.type)),
+      ...(residenceCloses(item, a, action)),
     };
 
     // ── The mirror of a kept line (founder I10, H13) ──
@@ -631,6 +634,22 @@ function residenceFacets(item: HeldItem, a: HeldAnswer, asRead: boolean, action:
   if (!asRead || !Array.isArray(item.facets) || !item.facets.length || action === "merge") return {};
   if (a.moved !== true && item.still_in?.stay === "words") return {};
   return { facets: item.facets, ...(item.cue ? { cue: item.cue } : {}) };
+}
+
+/**
+ * What else "Susan moved" closes (Phase 4B B4): the other lines the question's
+ * reading found incompatible, stored with the question when it was asked, the
+ * most specific first. Only with that answer, and only when it replaces the
+ * line it asked about; "Still there" closes nothing. The database re-checks
+ * each one as it does the target (an edited line among them needs the user's
+ * own cue; the stored answer vouches only for the line the question named).
+ */
+function residenceCloses(item: HeldItem, a: HeldAnswer, action: ResolvedItem["action"]): Pick<ResolvedItem, "closes"> {
+  const asked = item.still_in?.target_id;
+  if (a.moved !== true || !asked || action.type !== "supersede" || action.target_id !== asked) return {};
+  const rest = Array.isArray(item.still_in?.closes) ? item.still_in.closes : [];
+  const closes = rest.filter((id, i) => typeof id === "string" && id !== asked && rest.indexOf(id) === i).slice(0, 8);
+  return closes.length ? { closes } : {};
 }
 
 /**

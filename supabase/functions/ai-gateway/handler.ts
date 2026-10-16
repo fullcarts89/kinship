@@ -110,6 +110,8 @@ export interface WriteItem {
   facets?: PlannedItem["facets"];
   /** The cue in the user's words that lets it close a line the user edited (§21). */
   cue?: PlannedItem["cue"];
+  /** The other lines it closes besides its target (Phase 4B B4): write_extraction re-checks each. */
+  closes?: string[];
 }
 
 export interface CallLog {
@@ -334,9 +336,11 @@ function toWriteItem(i: PlannedItem): WriteItem {
     ...(i.mention ? { mention: i.mention } : {}),
     ...(i.archived_ids?.length ? { archived_ids: i.archived_ids } : {}),
     ...(i.person_mentions?.some(storableMention) ? { person_mentions: i.person_mentions.filter(storableMention) } : {}),
-    // Its residence reading and the cue in the user's words (Phase 4B B3): the database re-checks both.
+    // Its residence reading and the cue in the user's words (Phase 4B B3), and the other lines it closes
+    // (B4): the database re-checks each of them.
     ...(i.facets?.length ? { facets: i.facets } : {}),
     ...(i.cue ? { cue: i.cue } : {}),
+    ...(i.closes?.length ? { closes: i.closes } : {}),
   };
 }
 
