@@ -909,7 +909,7 @@ Added by the founder's trust check: an edited line among the closures (via the c
 
 ## 24. B5 as built (16 Oct 2026)
 
-**Status:** built on `claude/phase4b-b5-compose`, from `main` `ca4e208` (PR #36, CC-25, merged); in review. **No migration:** B2's schema carries everything the composer reads (`memory_item_facets`, mirrored since B2); the schema fingerprint of a fresh build is unchanged (md5 `abeadd9ad9b1d2041f9884299872c03e`, 983 lines, as after B3 and B4). **No gateway change:** the composer runs on the phone; the gateway code it shares (`relate.ts`) gained one exported helper, no behaviour. The app needs a build (the composed line and its sheet). **B6 is not started.** Readiness: **NOT READY**.
+**Status:** built on `claude/phase4b-b5-compose`, from `main` `ca4e208` (PR #36, CC-25, merged; PR #37's B4 docs merged in); in review ([PR #38](https://github.com/fullcarts89/kinship/pull/38)). **No migration:** B2's schema carries everything the composer reads (`memory_item_facets`, mirrored since B2); the schema fingerprint of a fresh build is unchanged (md5 `abeadd9ad9b1d2041f9884299872c03e`, 983 lines, as after B3 and B4). **No gateway change:** the composer runs on the phone; the gateway code it shares (`relate.ts`) gained one exported helper, no behaviour. The app needs a build (the composed line and its sheet). **B6 is not started.** Readiness: **NOT READY**.
 
 **Commits:**
 - `8943818`: step 8, `compose.ts`, the shared composer; What Kinship knows reads it at read time.
