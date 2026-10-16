@@ -14,7 +14,8 @@
 > - **For the founder:** N16 (brief §23 choice 1): the stored "Susan moved" answer closes only the line the question named, so a second edited line stays current (fail open). "moved from <line> to …" is approved (no longer open).
 > - **Rollout:** merge (merge commit), nothing to apply, ai-gateway deploy on the founder's go, then a build. Either order is safe.
 > - **Local stack:** the shared `functions serve` (handoff worktree, replay) and the stub on :8790 were never stopped; this session's own stub (:8791) and gateway (:8000) are stopped afterwards (by PID, never by port). The shared local DB is unchanged (no new migration).
-> - **Readiness: NOT READY.**
+> - **Founder device pass (16 Oct, late): PASS, no issues** (`b4-device-checklist.md`, a build with the gateway deployed from the branch). Waiting on the founder's merge.
+> - **Readiness: NOT READY** (for the wife's dogfood; B4 itself is founder-verified).
 
 > **Addendum, 16 Oct 2026, night: PR #34 (B3) finished against the brief; B4 HAS NOT STARTED.** This supersedes the addenda below where they differ.
 > - **Three deltas on `claude/phase4b-b3-9be47a`** (brief §22): **N13**, §5's approved re-derivation (`_shared/semantic/rederive.ts`; ai-gateway `rederive`, model-free, owner only; the app reports an edit after it syncs; the next Tell is the safety net; `write_facets` re-checks; only lines B3 has read). **N14**, the founder's rule: a bare city outside a broader residence is AMBIGUOUS (two lines, or one question with a change); "Hollywood, FL" and ordinary DISJOINT (Alameda → Colorado) unchanged. **N15**, the removal suite's weekday (harness only). No migration changed.
