@@ -1,0 +1,52 @@
+{
+ "note": "I need to call Matt tomorrow",
+ "variants": [
+  {
+   "label": "hand: promise, Matt not in People",
+   "output": {
+    "needs_clarification": {
+     "about": "person",
+     "mention": "Matt"
+    },
+    "items": [
+     {
+      "kind": "promise",
+      "person": "@Matt",
+      "person_mention": "Matt",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You need to call Matt tomorrow",
+      "evidence": [
+       "I need to call Matt tomorrow"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": "tomorrow",
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

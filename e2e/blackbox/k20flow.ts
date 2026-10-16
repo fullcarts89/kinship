@@ -31,13 +31,13 @@ export async function appState(state: "background" | "active") {
   await act(async () => { for (const fn of [...(harness.appListeners ?? [])]) fn(state); });
 }
 
-/** K11/K19 on the whole screen: never the quiet headline beside John, never only a date and a greeting. */
+/** K11/K19/K24 on the whole screen: never the quiet headline beside John, never "Understanding…" twice. */
 function coherent(r: TestRenderer.ReactTestRenderer, step: string, shape: string) {
   const s = texts(r).filter((t) => !/^(Today|People|Done)$/u.test(t));
   const john = s.some((t) => /John/u.test(t));
   expect([shape, step, john && s.includes(QUIET)]).toEqual([shape, step, false]);
-  const header = s.findIndex((t) => /^(Good (morning|afternoon|evening))/u.test(t));
-  expect([shape, step, header >= 0 && s.length === header + 1]).toEqual([shape, step, false]);
+  // K24: the dock alone says "Understanding…"; never a second one as Today's headline.
+  expect([shape, step, s.filter((t) => /^Understanding/u.test(t)).length <= 1]).toEqual([shape, step, true]);
   // One way to write a date (K19): "Thursday, Oct 15".
   expect([shape, step, s.filter((t) => /^\w+day, \d+ \w+$/u.test(t))]).toEqual([shape, step, []]);
 }

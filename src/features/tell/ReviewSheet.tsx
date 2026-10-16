@@ -6,7 +6,7 @@
 // sheet.
 
 import React, { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { X } from "lucide-react-native";
 import { press, radius, size, space, TOUCH } from "@/design/tokens";
@@ -50,6 +50,11 @@ export interface ReviewSheetProps {
   /** "Bring back Kaiya": someone removed from People, back before the answer goes (founder I3). */
   onRestore?: (personId: string) => void;
   onAnswer: (answers: HeldAnswer[]) => void;
+  /**
+   * "Choose from Contacts" (founder K25): the system picker, then the person that contact is (found or added
+   * once). Null when the user cancels: the question stays, with Add by name still there.
+   */
+  onChooseContact?: () => Promise<string | null>;
   onOpenNote: () => void;
   /** Any touch: the sheet isn't idle. */
   onActivity: () => void;
@@ -181,6 +186,13 @@ export function ReviewSheet(props: ReviewSheetProps) {
             }}
             onPick={(what) => {
               props.onActivity();
+              if (what === "contact") {
+                // The note stays on screen behind the system picker; a cancel leaves the question as it was.
+                void props.onChooseContact?.().then((personId) => {
+                  if (personId) choose(question, { person_id: personId });
+                }, () => undefined);
+                return;
+              }
               setPane({ kind: what, question });
             }}
             onSkip={() => choose(question, "skip")}
@@ -286,13 +298,13 @@ function QuestionBlock({
   boxed: boolean;
   label: string | null;
   onChoose: (answer: Omit<HeldAnswer, "index">, restore?: string) => void;
-  onPick: (what: "person" | "date") => void;
+  onPick: (what: "person" | "date" | "contact") => void;
   onSkip: () => void;
 }) {
   const p = usePalette();
   const choices = (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
-      {q.choices.map((c, i) => (
+      {q.choices.filter((c) => !("pick" in c && c.pick === "contact" && Platform.OS === "web")).map((c, i) => (
         <Pill
           key={c.key}
           size="small"

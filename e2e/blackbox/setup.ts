@@ -42,6 +42,8 @@ jest.mock("@/platform/deviceContacts", () => ({
   shareMoreContacts: async () => false,
   openAppSettings: () => undefined,
   readContacts: async () => [],
+  // The system contact picker (K25): what the user chooses, set by the test; null is a cancel.
+  chooseOneContact: async () => require("./state").harness.contactPick ?? null,
 }));
 // A native module Jest leaves empty: real UUIDs, as the phone gives.
 jest.mock("expo-crypto", () => ({ ...jest.requireActual("expo-crypto"), randomUUID: () => require("crypto").randomUUID() }));

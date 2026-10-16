@@ -254,7 +254,7 @@ describe("J4: a memory is never dropped as 'nothing' because who or what it name
     expect(t.review.mode).toBe("sheet");
     const [q] = t.review.questions;
     expect([q.prompt, q.about, q.choices.map((c) => c.label), q.skip.label])
-      .toEqual(["Who is Wifey?", ["Wifey got a raise"], ["Add Wifey", "Someone already here"], "Don't keep this"]);
+      .toEqual(["Who is Wifey?", ["Wifey got a raise"], ["Choose from Contacts", "Add Wifey", "Someone already here"], "Don't keep this"]);
     await answer(w, t.id, [{ index: 0, person_id: loo.id }]);
     expect((await page(w, loo)).shown).toEqual(["Wifey got a raise"]);
     // Source keeps the note as told.

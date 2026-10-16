@@ -32,6 +32,8 @@ import type { FeedbackOff } from "@/store/repositories";
 import { useActivation } from "@/hooks/useActivation";
 import { charsBucket, track } from "@/platform/analytics";
 import { onSheetsChange, openSheets } from "@/ui/sheetStack";
+import { chooseOneContact } from "@/platform/deviceContacts";
+import { birthdayIso } from "@/features/setup/setupModel";
 
 /** The Kept card: what happened to the note just told (Gate D). */
 export interface KeptCardState {
@@ -352,6 +354,13 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
           onAddPerson={(itemId: string, name: string) => fail(u.addParticipant(itemId, name).then(() => undefined))}
           onRestore={(personId) => fail(u.restorePerson(personId))}
           onAnswer={(answers) => fail(u.answer(showing, answers))}
+          onChooseContact={async () => {
+            // "Who is Matt?" → the user's own contact (founder K25): the system picker, no Contacts permission.
+            const c = await chooseOneContact();
+            if (!c) return null;
+            const b = birthdayIso(c.birthday);
+            return u.personFromContact({ contactId: c.id, name: c.name, birthday: b?.iso ?? null, birthdayYearKnown: b?.yearKnown ?? false });
+          }}
           onOpenNote={() => {
             // Looking at the note never decides anything: the sheet steps
             // aside and comes back, question and all, on the way back.

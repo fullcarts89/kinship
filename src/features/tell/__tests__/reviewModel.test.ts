@@ -115,7 +115,7 @@ it("someone new, with no real date for a health event: two questions, one answer
     flags: ["new_person", "date_unresolved_sensitive", "sensitive"], spans: [{ start: 0, end: 16, quote: "Maya has surgery" }] });
   const v = view("Maya has surgery sometime soon.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }));
   expect(v.questions.map((q) => [q.type, q.prompt])).toEqual([["new_person", "Who is Maya?"], ["date", "When is it?"]]);
-  expect(v.questions[0].choices.map((c) => c.label)).toEqual(["Add Maya", "Someone already here"]);
+  expect(v.questions[0].choices.map((c) => c.label)).toEqual(["Choose from Contacts", "Add Maya", "Someone already here"]);
   expect(v.questions[1].choices.map((c) => c.label)).toEqual(["Pick a date", "No date"]);
   expect(answersFor(v.questions, { q0: { new_person: true } })).toBeNull();
   expect(answersFor(v.questions, { q0: { new_person: true }, q1: { date: null } })).toEqual([{ index: 0, new_person: true, date: null }]);
@@ -328,7 +328,7 @@ describe("J4: never 'nothing' for a memory Kinship couldn't place", () => {
     expect(v.mode).toBe("sheet");
     const [q] = v.questions;
     expect([q.prompt, q.reason, q.about]).toEqual(["Who is Wifey?", "Wifey isn't in your people yet.", ["Wifey got a raise"]]);
-    expect(q.choices.map((c) => c.label)).toEqual(["Add Wifey", "Someone already here"]);
+    expect(q.choices.map((c) => c.label)).toEqual(["Choose from Contacts", "Add Wifey", "Someone already here"]);
     expect(q.skip.label).toBe("Don't keep this");
   });
 
@@ -339,7 +339,7 @@ describe("J4: never 'nothing' for a memory Kinship couldn't place", () => {
       items: [], people: [loo, BEN], related: [], offline: false, today: TODAY,
     });
     const [q] = v.questions;
-    expect(q.choices.map((c) => c.label)).toEqual(["Loo Loo", "Add Wifey", "Someone else"]);
+    expect(q.choices.map((c) => c.label)).toEqual(["Loo Loo", "Choose from Contacts", "Add Wifey", "Someone else"]);
     expect(q.choices[0]).toMatchObject({ answer: { person_id: "loo" } });
   });
 

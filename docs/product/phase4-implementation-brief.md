@@ -717,3 +717,46 @@ Run in this worktree:
    - B2 changes no gateway or app behaviour, so it needs no redeploy and no new build.
 
 **Next step:** you review and merge this PR and run `db push`; then B3 starts: `residence.ts`, `relate.ts`, the CONFLICT copy and the `semantic` corpus runner.
+
+## 21. B3 design: a later explicit change may close a line the user edited (founder, 16 Oct, CC-24)
+
+**Status: designed and approved by the founder as written (16 Oct, CC-24), not built.** B3 has not started; this is written now so B2's schema doesn't block it. It ships inside B3, which starts in a fresh session from these docs.
+
+**The decision.** A user edit is high-authority current truth at that point in time, not immutable. A later grounded user statement can close it. A model inference alone never can. Supersession and history eligibility stay separate decisions (CC-20).
+
+**What changes in §8 for a protected E** (edited or written by the user):
+
+| N's own words (cue, §8) | Unprotected E (as approved) | Protected E: before | Protected E: B3 |
+|---|---|---|---|
+| change ("moved to", "now lives in") | SUPERSEDES `changed`: history-eligible | CONFLICT question | **SUPERSEDES `changed`**, closed directly: history-eligible. Example: Alameda (edited) → "Susan moved to Colorado" |
+| correction ("actually … not Alameda") | `corrected` closes E: never history | CONFLICT question | **`corrected` closes E**: never history |
+| none, DISJOINT ("Susan lives in Colorado") | SUPERSEDES, current truth only: never history | CONFLICT question | **Unchanged: CONFLICT question** "Is Susan still in Alameda?". "She moved" closes E as `changed` (the user's answer is the evidence, history-eligible); "Still there" keeps E. No silent replacement of the user's own words without a cue |
+| only the model's target (UNKNOWN), no cue in N's words | the model's target, validated | dropped | **Still dropped**: a model inference never closes an edited line |
+
+"Now lives in" is already a change cue in §8, so it is history-eligible.
+
+**Why the plain case still asks.** CC-24 says a plain replacement *may* replace current truth through the comparator, and is never automatically history. Asking keeps "do not weaken user edits generally" for the one case with no cue. A "She moved" answer is then the grounded evidence. This keeps §8 guard 3 for the no-cue case only. **Approved by the founder (16 Oct).**
+
+**The migration** (`v2_closure_of_edited_lines`, forward-only; replaces two function bodies; no table or column change; no backfill):
+1. **`write_extraction`**: a `supersede` target or a `closes` id whose `user_state` is `edited` or `user_authored` is accepted only when one of these holds; otherwise it is dropped (fail open), as today.
+   - (a) The item's `detail.transition` is `changed` or `corrected`, and the item sends `cue: {start, end}` (code points) that lies inside one of the item's own spans in the capture's text and matches a cue phrase of §8. The database re-reads the characters, so a gateway can't assert a cue the user didn't write.
+   - (b) The call comes from `resolve_capture_review` for an item whose stored answer is the CONFLICT question's "She moved". The flag comes from the stored answer row (`capture_reviews`), never from the item JSON.
+2. **`resolve_capture_review`**: passes (b) through for the items its stored answers say "She moved".
+3. **Unchanged:** every other re-check (same person, subject, related person, live, active or resolved, not across shared lines, at most 8); the apply and restore triggers; facets.
+
+**Provenance.** The closed line keeps `user_state = edited` and its history rows, so What Kinship knows shows it as "Edited by you", then closed by the later note. The closer's `detail.transition` (`changed` / `corrected`) says whether it may appear as history (§11).
+
+**Exact Undo.** Edits are in place, with a history snapshot taken before each change. Closing changes only status and `valid_to`, and restore puts those back. So Undo (or "Not this" on the closer) returns the **edited** Alameda, never a pre-edit version. A line still closed by another live closer stays closed (B2).
+
+**pgTAP (with B3):**
+- an edited E closed by a change cue in the user's words;
+- the same cue claimed outside the item's span: dropped;
+- a model target with no cue: dropped;
+- "She moved" answer: closed `changed`;
+- "Still there": kept;
+- `corrected`: never history;
+- Undo restores the edited statement and version;
+- `user_authored` behaves as `edited`;
+- shared and cross-person lines are never closed.
+
+**Not in this migration:** any semantic behaviour or backfill beyond the approved B3 sequence (B6's report-only run and the founder's stop still come before any existing data changes).

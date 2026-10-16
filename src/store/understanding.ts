@@ -477,6 +477,16 @@ export class Understanding {
   }
 
   /** "Bring back Kaiya" from a question (founder I3): the same person, back in People, before the answer is sent. */
+  /**
+   * "Who is Matt?" → Choose from Contacts (founder K25): the person the chosen contact is, found or added
+   * once, then synced with the answer that names them (the answer goes after the next sync).
+   */
+  async personFromContact(c: { contactId: string; name: string; birthday: string | null; birthdayYearKnown: boolean }): Promise<string> {
+    const person = await repositoriesFor(this.store).people.fromContact(c);
+    this.kick();
+    return person.id;
+  }
+
   async restorePerson(personId: string): Promise<void> {
     await repositoriesFor(this.store).people.restore(personId);
     this.kick();

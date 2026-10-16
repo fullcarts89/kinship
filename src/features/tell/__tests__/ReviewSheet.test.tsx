@@ -210,3 +210,56 @@ it("'Which Chris?' about the line itself, after Bring back: each person offered 
   expect(viewWith("archived").questions[0].choices.map((c) => c.label)).toEqual(["Chris", "Bring back Chris Old", "Someone else"]);
   expect(viewWith("active").questions[0].choices.map((c) => c.label)).toEqual(["Chris", "Chris Old", "Someone else"]);
 });
+
+describe("K25: Who is Matt? can be answered with the user's own contact (founder, 16 Oct)", () => {
+  const note = "I need to call Matt tomorrow";
+  const matt: HeldItem = {
+    kind: "promise", person_id: null, new_person_name: "Matt", subject_type: "user", related: null,
+    statement: "You need to call Matt", detail: { due_date: "2026-10-09" }, certainty: "stated", sensitivity: "none", tier: "hold",
+    flags: ["new_person"], spans: [{ start: 0, end: note.length, quote: note }],
+  };
+  const sheet = (onChooseContact: ReviewSheetProps["onChooseContact"]) => {
+    const view = buildReview({
+      row: row({ tier: "clarify", held: [matt] }), capture: { id: "c1", raw_text: note, context_person_id: null, status: "needs_review" },
+      items: [], people, related: [], offline: false, today: TODAY,
+    });
+    const props: ReviewSheetProps = {
+      view, visible: true, people, today: TODAY, onChooseContact,
+      onDismiss: jest.fn(), onDone: jest.fn(), onUndo: jest.fn(), onReject: jest.fn(), onCorrect: jest.fn(),
+      onAnswer: jest.fn(), onOpenNote: jest.fn(), onActivity: jest.fn(),
+    };
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(<ReviewSheet {...props} />);
+    });
+    return { tree, props };
+  };
+
+  it("offers their contact before adding a new Matt by name, and Someone already here after", () => {
+    const { props } = sheet(jest.fn());
+    expect(props.view.questions.map((q) => [q.prompt, q.choices.map((c) => c.label), q.skip.label]))
+      .toEqual([["Who is Matt?", ["Choose from Contacts", "Add Matt", "Someone already here"], "Don't keep this"]]);
+  });
+
+  it("the contact chosen answers the question with that one person; the note stays", async () => {
+    const choose = jest.fn(async () => "matt-jones");
+    const { tree, props } = sheet(choose);
+    await act(async () => {
+      press(tree, "Choose from Contacts");
+    });
+    expect(choose).toHaveBeenCalledTimes(1);
+    expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, person_id: "matt-jones" }]);
+    // The note stays open (its own Undo and See the note), never dismissed by the picker.
+    expect(props.onDismiss).not.toHaveBeenCalled();
+    expect(texts(tree)).toEqual(expect.arrayContaining(["See the note", "Undo"]));
+  });
+
+  it("cancelled, or no access: nothing is answered, and Add Matt and Don't keep this are still there", async () => {
+    const { tree, props } = sheet(jest.fn(async () => null));
+    await act(async () => {
+      press(tree, "Choose from Contacts");
+    });
+    expect(props.onAnswer).not.toHaveBeenCalled();
+    expect(texts(tree)).toEqual(expect.arrayContaining(["Add Matt", "Don't keep this"]));
+  });
+});

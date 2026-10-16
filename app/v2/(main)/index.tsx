@@ -95,7 +95,6 @@ export default function TodayScreen() {
         view={view}
         afterReturn={afterReturn}
         attention={flow.attention}
-        telling={flow.card?.mode === "understanding" ? "understanding" : flow.asking || flow.card?.mode === "sheet" ? "asking" : flow.attention ? "done" : null}
         onPrimary={() => {
           if (!moment) return;
           handoff.start({

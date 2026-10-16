@@ -372,7 +372,7 @@ describe("K7: \"Chris' dog Fluffy has a vet appointment on Friday\"", () => {
     const t = await tell(w, note, () => ({ needs_clarification: null, items: [
       item({ kind: "event", person: "new", person_mention: "Jess'", statement: note, evidence: [note], date_text: "Friday", detail: { event_type: "medical" } }),
     ] }));
-    expect(t.review.questions.map((q) => [q.prompt, q.choices.map((c) => c.label)])).toEqual([["Who is Jess?", ["Add Jess", "Someone already here"]]]);
+    expect(t.review.questions.map((q) => [q.prompt, q.choices.map((c) => c.label)])).toEqual([["Who is Jess?", ["Choose from Contacts", "Add Jess", "Someone already here"]]]);
   });
 });
 
