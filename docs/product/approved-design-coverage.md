@@ -275,6 +275,15 @@ The blocker bundle passed the founder's device check (build from `main` `e098dfc
 
 | Surface | Finding | Proposed change | Founder approval |
 |---|---|---|---|
-| 10 Today › headline during a Tell (K19) | K24: inconsistent and doubled. On a quiet day the headline became "Understanding…" while the dock said the same; with a line on Today it didn't change | One rule, for the founder to choose: (a) the dock alone says "Understanding…", and Today keeps its own headline (a quiet Today shows its paper with nothing under the greeting only while the dock is reading); or (b) Today always says it, and the dock doesn't | **Needed: which rule** |
-| Tell › clarification "Who is Matt?" (J4) | K25: no way to choose Matt from Contacts; Add Matt makes a person by name only | Add **Choose from Contacts** to the question: the system picker (no Contacts permission needed), saving only the one person picked (name, contact id, birthday, as setup does), then the line files on them. Add Matt (by name) and Someone already here stay | Direction yes ("I should be able to import Matt as a contact"); **copy and placement: proposal** |
+| 10 Today › headline during a Tell (K19) | K24: inconsistent and doubled. On a quiet day the headline became "Understanding…" while the dock said the same; with a line on Today it didn't change | One rule, for the founder to choose: (a) the dock alone says "Understanding…", and Today keeps its own headline (a quiet Today shows its paper with nothing under the greeting only while the dock is reading); or (b) Today always says it, and the dock doesn't | **Decided (CC-24): (a), the dock alone.** BUILT, see below |
+| Tell › clarification "Who is Matt?" (J4) | K25: no way to choose Matt from Contacts; Add Matt makes a person by name only | Add **Choose from Contacts** to the question: the system picker (no Contacts permission needed), saving only the one person picked (name, contact id, birthday, as setup does), then the line files on them. Add Matt (by name) and Someone already here stay | **Approved (CC-24).** BUILT, see below |
+
+## K24 and K25 built (founder, 16 Oct, CC-24)
+
+| Surface | Built | Founder approval |
+|---|---|---|
+| 10 Today › while a Tell is processed (K24) | The Tell dock alone says "Understanding…". Today's headline never does (K19's transitional headline and its "Nothing else needs you today." are removed). While a note is understood, asked about or kept, a quiet day's "Nothing needs you today." waits; real Today content stays; afterwards Today recomputes. K19's one date format stays | Yes: CC-24 |
+| Tell › clarification "Who is Matt?" (K25) | Choices in order: the page's person (when told on a page), **Choose from Contacts**, **Add Matt**, **Someone already here**; Don't keep this. Choose from Contacts opens the system picker: no Contacts permission at all, and Kinship sees only the contact chosen. That person is found by contact (reused, or brought back if removed) or added once (name, contact id, birthday "From Contacts"), the answer files the line on them, and the note stays open. Cancelled: the question stays, Add Matt still there. Not offered on web | Yes: CC-24 |
+
+**Deviation, in the direction of privacy:** CC-24 allows asking for Contacts permission after the user chooses Choose from Contacts. The system picker needs none, so none is asked.
 
