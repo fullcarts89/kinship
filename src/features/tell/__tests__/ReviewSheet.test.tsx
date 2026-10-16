@@ -263,3 +263,45 @@ describe("K25: Who is Matt? can be answered with the user's own contact (founder
     expect(texts(tree)).toEqual(expect.arrayContaining(["Add Matt", "Don't keep this"]));
   });
 });
+
+describe("Phase 4B B3: 'Is Susan still in Alameda?' (case E)", () => {
+  const note = "Susan moved to California.";
+  const susan = [{ id: "susan", display_name: "Susan", state: "active" }] as unknown as Person[];
+  const moved: HeldItem = {
+    kind: "fact", person_id: "susan", new_person_name: null, subject_type: "person", related: null,
+    statement: "Susan moved to California", detail: { category: "home" }, certainty: "stated", sensitivity: "none", tier: "hold",
+    flags: ["residence_conflict"], spans: [{ start: 0, end: 25, quote: "Susan moved to California" }],
+    still_in: { target_id: "alameda", words: "Alameda", stay: "facet" },
+  };
+  const sheet = () => {
+    const view = buildReview({
+      row: row({ tier: "clarify", held: [moved] }), capture: { id: "c1", raw_text: note, context_person_id: null, status: "needs_review" },
+      items: [], people: susan, related: [], offline: false, today: TODAY,
+    });
+    const props: ReviewSheetProps = {
+      view, visible: true, people: susan, today: TODAY,
+      onDismiss: jest.fn(), onDone: jest.fn(), onUndo: jest.fn(), onReject: jest.fn(), onCorrect: jest.fn(),
+      onAnswer: jest.fn(), onOpenNote: jest.fn(), onActivity: jest.fn(),
+    };
+    let tree!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      tree = TestRenderer.create(<ReviewSheet {...props} />);
+    });
+    return { tree, props };
+  };
+
+  it("one question, the note's words, Still there · Susan moved · Don't keep this", () => {
+    const { tree } = sheet();
+    expect(texts(tree)).toEqual(expect.arrayContaining(["One thing to check", "Is Susan still in Alameda?", "“Susan moved to California”", "Still there", "Susan moved", "Don't keep this"]));
+    expect(texts(tree).join(" ")).not.toMatch(/residence|conflict|facet|Which Alameda|She moved/iu);
+  });
+
+  it("'Susan moved' answers that the line changed; 'Still there' that it didn't", () => {
+    let s = sheet();
+    press(s.tree, "Susan moved");
+    expect(s.props.onAnswer).toHaveBeenCalledWith([{ index: 0, moved: true }]);
+    s = sheet();
+    press(s.tree, "Still there");
+    expect(s.props.onAnswer).toHaveBeenCalledWith([{ index: 0, moved: false }]);
+  });
+});

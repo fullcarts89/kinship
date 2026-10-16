@@ -1,7 +1,9 @@
 // ai-gateway guard rails (Checkpoint C), with fake auth, data, model and
 // writes. Run: deno test supabase/functions
 import type { StructuredRequest, StructuredResult } from "../_shared/ai/model.ts";
-import type { ItemRow } from "../_shared/extraction/context.ts";
+import type { FacetRow, ItemRow } from "../_shared/extraction/context.ts";
+import type { PlaceIndex } from "../_shared/semantic/placeIndex.ts";
+import { placeIndex } from "../_shared/semantic/places/dataset.ts";
 import type { ResolvedItem } from "../_shared/extraction/resolve.ts";
 import {
   type CallLog,
@@ -67,6 +69,9 @@ function world(opts: {
   /** Memory already kept, per person (loadItems answers for the ids asked). */
   items?: ItemRow[];
   removed?: { person_id: string; statement: string }[];
+  /** Residence readings of those lines (Phase 4B B3); null: they couldn't be read. */
+  facets?: FacetRow[] | null;
+  places?: PlaceIndex;
 } = {}): World {
   const w: World = { modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, deps: undefined as unknown as GatewayDeps };
   const caller: GatewayCaller = {
@@ -87,6 +92,7 @@ function world(opts: {
     }),
     loadItems: (ids, o) => Promise.resolve((opts.items ?? []).filter((m) => ids.includes(m.person_id) || (!!o?.shared && (m.with_person_ids ?? []).some((x) => ids.includes(x))))),
     loadRemoved: () => Promise.resolve(opts.removed ?? []),
+    loadFacets: (ids) => Promise.resolve(opts.facets === null ? null : (opts.facets ?? []).filter((f) => ids.includes(f.memory_item_id))),
     loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
     closeReview: (id) => {
       w.closes.push(id);
@@ -131,6 +137,7 @@ function world(opts: {
     dailyLimit: 50,
     consentVersion: 1,
     allowedOrigins: [],
+    ...(opts.places ? { places: opts.places } : {}),
   };
   return w;
 }
@@ -505,4 +512,70 @@ Deno.test("reviewer A (13 Oct): a held 'Which Sam?' whose kept line the user has
   const gone = world({ note, people, review, removed: [{ person_id: "person-chris", statement: note }] });
   eq((await call(gone, post(answer))).status, 200);
   eq(gone.resolves[0]?.items ?? [], []);
+});
+
+// ─── Residence (Phase 4B B3) ─────────────────────────────────────────────────
+
+const SUSAN = [{ id: "person-susan", display_name: "Susan", full_name: null, nicknames: [], relationship_label: null, state: "active" }];
+const ALAMEDA_LINE: ItemRow = {
+  id: "item-alameda", person_id: "person-susan", kind: "fact", subject_type: "person", subject_related_id: null,
+  statement: "Susan lives in Alameda", certainty: "stated", status: "active", user_state: "unreviewed", detail: { category: "home" },
+};
+const ALAMEDA_FACET: FacetRow = {
+  memory_item_id: "item-alameda", slot: "residence", value_text: "Alameda", value_norm: "alameda", place_ref: null,
+  candidates: [{ ref: "city:5322737", level: "city", ancestors: ["region:US.CA", "country:US"] }], usual_ref: "city:5322737",
+};
+const homeProposal = (statement: string) => ({
+  items: [{
+    kind: "fact", person: "p1", person_mention: "Susan", subject: "person", related_relation: null, related_name: null,
+    statement, evidence: [statement], certainty: "stated", sensitivity: "none", confidence: 0.95, date_text: null, date_direction: "past",
+    detail: {
+      event_type: null, event_goal: null, category: "home", attribute: null, value: null, firmness: null, topic: null,
+      place: null, milestone_type: null, recurrence: null, anchor: null, aspect: null, time_of_day: null,
+    },
+    existing: { action: "new", target: null },
+  }],
+  needs_clarification: null,
+});
+const home = (note: string, over: Parameters<typeof world>[0] = {}) =>
+  world({
+    note, people: SUSAN, items: [ALAMEDA_LINE], facets: [ALAMEDA_FACET], places: placeIndex(),
+    model: { output: homeProposal(note.replace(/[.!]$/u, "")) }, ...over,
+  });
+
+Deno.test("B3: a residence is written with its reading and the cue in the user's words", async () => {
+  const w = home("Susan moved to Colorado.");
+  eq((await call(w, post(extract))).status, 200);
+  const [it] = w.writes[0].items;
+  eq([it.action, it.detail.transition, it.cue, it.facets?.[0].value_text, it.facets?.[0].usual_ref],
+    [{ type: "supersede", target_id: "item-alameda" }, "changed", { start: 6, end: 14 }, "Colorado", "region:US.CO"]);
+});
+
+Deno.test("B3: case E is held for one question, stored with the line it asks about", async () => {
+  const w = home("Susan moved to California.");
+  const { body } = await call(w, post(extract));
+  eq([body.tier, body.held.length, body.clarification], ["clarify", 1, null]);
+  eq([body.held[0].flags.includes("residence_conflict"), body.held[0].still_in], [true, { target_id: "item-alameda", words: "Alameda", stay: "facet" }]);
+  eq(w.writes[0].review?.items[0].still_in?.target_id, "item-alameda", "the review row keeps the question's line");
+  eq(w.writes[0].items, [], "nothing is memory before the answer");
+});
+
+Deno.test("B3: 'Susan moved' is written as a change of that line, with the reading", async () => {
+  const w = home("Susan moved to California.");
+  await call(w, post(extract));
+  const stored = { ...w.writes[0].review!, created_at: STORED_AT } as StoredReview;
+  const answered = home("Susan moved to California.", { review: stored });
+  const { status } = await call(answered, post(resolveBody([{ index: 0, moved: true }])));
+  eq(status, 200);
+  const [it] = answered.resolves[0].items;
+  eq([it.action, it.detail.transition, it.facets?.[0].value_text], [{ type: "supersede", target_id: "item-alameda" }, "changed", "California"]);
+});
+
+Deno.test("B3: readings that can't be read, or no place data: the note is understood without residence", async () => {
+  const unread = home("Susan moved to Colorado.", { facets: null });
+  await call(unread, post(extract));
+  eq([unread.writes[0].items[0].facets, unread.writes[0].items[0].action.type], [undefined, "new"], "never as though no line had a reading");
+  const none = home("Susan moved to Colorado.", { places: undefined });
+  await call(none, post(extract));
+  eq(none.writes[0].items[0].facets, undefined);
 });

@@ -14,7 +14,8 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.2";
 import { verifiedUserId } from "../_shared/auth.ts";
 import { anthropicCaller } from "../_shared/ai/model.ts";
-import { type CaptureRow, type ItemRow, type PersonRow, type RelatedRow, withLineNames } from "../_shared/extraction/context.ts";
+import { type CaptureRow, type FacetRow, type ItemRow, type PersonRow, type RelatedRow, withLineNames } from "../_shared/extraction/context.ts";
+import { placeIndex } from "../_shared/semantic/places/dataset.ts";
 import { createGateway, type GatewayCaller, ServiceError, type ServiceOps, type StoredReview } from "./handler.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -37,6 +38,7 @@ Deno.serve(
     dailyLimit: positiveInt(Deno.env.get("AI_DAILY_LIMIT"), 50),
     consentVersion: positiveInt(Deno.env.get("AI_CONSENT_VERSION"), 1),
     allowedOrigins: (Deno.env.get("AI_ALLOWED_ORIGINS") ?? "").split(",").map((o) => o.trim()).filter(Boolean),
+    places: placeIndex(),
   }),
 );
 
@@ -95,6 +97,16 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
         .order("updated_at", { ascending: false }).limit(opts?.shared ? 80 : 40);
       if (error) throw new Error("dossier read failed");
       return data as ItemRow[];
+    },
+    async loadFacets(itemIds) {
+      const ids = itemIds.filter((id) => /^[0-9a-f-]{36}$/iu.test(id));
+      if (ids.length === 0) return [];
+      const { data, error } = await db.from("memory_item_facets")
+        .select("memory_item_id, slot, value_text, value_norm, place_ref, candidates, usual_ref")
+        .in("memory_item_id", ids).is("deleted_at", null).limit(200);
+      // Unread, the note is understood without residence at all (never as if no line had one).
+      if (error) return null;
+      return data as FacetRow[];
     },
     async loadRemoved(captureId) {
       const sources = await db.from("memory_item_sources").select("memory_item_id").eq("capture_id", captureId).limit(200);

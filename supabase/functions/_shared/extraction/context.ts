@@ -100,6 +100,17 @@ export interface ItemRow {
   updated_at?: string;
   with_person_ids?: string[] | null;
 }
+/** A residence facet as the gateway reads it (memory_item_facets, Phase 4B B3): live ones only. */
+export interface FacetRow {
+  memory_item_id: string;
+  slot: string;
+  value_text: string;
+  value_norm: string;
+  place_ref: string | null;
+  candidates: unknown;
+  usual_ref: string | null;
+  deleted_at?: string | null;
+}
 export interface CaptureRow {
   id: string;
   raw_text: string;
@@ -162,7 +173,13 @@ export function dossierPeople(capture: CaptureRow, people: PersonRow[], related:
     .map((p) => p.id);
 }
 
-export function buildInput(capture: CaptureRow, people: PersonRow[], related: RelatedRow[], items: ItemRow[]): ExtractionInput {
+export function buildInput(
+  capture: CaptureRow,
+  people: PersonRow[],
+  related: RelatedRow[],
+  items: ItemRow[],
+  facets: FacetRow[] = [],
+): ExtractionInput {
   const text = capture.raw_text.normalize("NFC");
   const ordered = orderRoster(capture, people, related);
 
@@ -190,6 +207,13 @@ export function buildInput(capture: CaptureRow, people: PersonRow[], related: Re
   const relatedKey = new Map(rosterRelated.map((r) => [r.id, r.key]));
 
   const candidateIds = new Set(dossierPeople(capture, people, related));
+  // Each line's live residence reading, when the server derived one (code only; never in the prompt).
+  const facetOf = new Map(facets
+    .filter((f) => f.slot === "residence" && !f.deleted_at && Array.isArray(f.candidates))
+    .map((f) => [f.memory_item_id, {
+      value_text: f.value_text, value_norm: f.value_norm, place_ref: f.place_ref ?? null,
+      candidates: f.candidates as NonNullable<DossierItem["facet"]>["candidates"], usual_ref: f.usual_ref ?? null,
+    }]));
   const dossier: DossierItem[] = items
     .filter((m) => candidateIds.has(m.person_id) && (m.status === "active" || m.status === "resolved"))
     .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))
@@ -209,6 +233,8 @@ export function buildInput(capture: CaptureRow, people: PersonRow[], related: Re
       ...(Array.isArray(m.with_person_ids) && m.with_person_ids.some((id) => keyOf.has(id))
         ? { with_person_keys: m.with_person_ids.filter((id) => keyOf.has(id)).map((id) => keyOf.get(id)!) }
         : {}),
+      ...(Array.isArray(m.with_person_ids) && m.with_person_ids.length ? { shared: true } : {}),
+      ...(facetOf.has(m.id) ? { facet: facetOf.get(m.id)! } : {}),
     }));
 
   return {

@@ -28,7 +28,8 @@
 import { bearerToken } from "../_shared/auth.ts";
 import type { ModelCaller, StructuredResult } from "../_shared/ai/model.ts";
 import { type Capability, CAPABILITIES } from "../_shared/ai/registry.ts";
-import { buildInput, type CaptureRow, dossierPeople, type ItemRow, type PersonRow, type RelatedRow } from "../_shared/extraction/context.ts";
+import { buildInput, type CaptureRow, dossierPeople, type FacetRow, type ItemRow, type PersonRow, type RelatedRow } from "../_shared/extraction/context.ts";
+import type { PlaceIndex } from "../_shared/semantic/placeIndex.ts";
 import { needsAcceptance } from "../_shared/extraction/acceptance.ts";
 import { type HeldAnswer, type HeldItem, resolveHeld, type ResolvedItem } from "../_shared/extraction/resolve.ts";
 import { type PersonMention, storableMention } from "../_shared/extraction/names.ts";
@@ -45,6 +46,8 @@ export interface GatewayCaller {
   loadPeople(): Promise<{ people: PersonRow[]; related: RelatedRow[] }>;
   /** Under the caller's RLS: their active memories filed on these people; with `shared`, also those about them. */
   loadItems(personIds: string[], opts?: { shared?: boolean }): Promise<ItemRow[]>;
+  /** Under the caller's RLS: the live residence readings of these lines (Phase 4B B3); null when they couldn't be read. */
+  loadFacets(itemIds: string[]): Promise<FacetRow[] | null>;
   /** Under the caller's RLS: lines this capture wrote that the user has since removed (reviewer A, 13 Oct). */
   loadRemoved(captureId: string): Promise<{ person_id: string; statement: string }[]>;
   /** Under the caller's RLS: the held items and question still waiting on this capture (C-2). */
@@ -89,6 +92,10 @@ export interface WriteItem {
   self_relations?: Record<string, string>;
   /** Which words name which of its people (founder I12/I13). */
   person_mentions?: PersonMention[];
+  /** Its residence reading (Phase 4B B3). */
+  facets?: PlannedItem["facets"];
+  /** The cue in the user's words that lets it close a line the user edited (§21). */
+  cue?: PlannedItem["cue"];
 }
 
 export interface CallLog {
@@ -142,6 +149,8 @@ export interface GatewayDeps {
   consentVersion: number;
   allowedOrigins: string[];
   capabilities?: Record<string, Capability>;
+  /** The place data residence is read with (Phase 4B B3). Without it, no line is read as a residence. */
+  places?: PlaceIndex;
 }
 
 const BODY_LIMIT = 4 * 1024;
@@ -217,7 +226,11 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
 
       const { people, related } = await caller.loadPeople();
       const items = await caller.loadItems(dossierPeople(capture, people, related));
-      const input = buildInput(capture, people, related, items);
+      // Residence readings of those lines, when there is place data to read a new one with. Unread, the
+      // note is understood without residence (never as though none of those lines had a reading).
+      const facets = deps.places && items.length ? await caller.loadFacets(items.map((i) => i.id)) : [];
+      const places = facets ? deps.places : undefined;
+      const input = { ...buildInput(capture, people, related, items, facets ?? []), ...(places ? { places } : {}) };
       const run = await runExtraction(input, cap, deps.model);
       const version = `${cap.promptVersion}+${cap.model}`;
 
@@ -289,6 +302,9 @@ function toWriteItem(i: PlannedItem): WriteItem {
     ...(i.mention ? { mention: i.mention } : {}),
     ...(i.archived_ids?.length ? { archived_ids: i.archived_ids } : {}),
     ...(i.person_mentions?.some(storableMention) ? { person_mentions: i.person_mentions.filter(storableMention) } : {}),
+    // Its residence reading and the cue in the user's words (Phase 4B B3): the database re-checks both.
+    ...(i.facets?.length ? { facets: i.facets } : {}),
+    ...(i.cue ? { cue: i.cue } : {}),
   };
 }
 
@@ -327,6 +343,10 @@ function present(i: PlannedItem) {
     ...(i.open_names?.length ? { open_names: i.open_names } : {}),
     // One line for a sentence the model told person by person: its words about one of them alone (founder I13/K4).
     ...(i.alone ? { alone: i.alone } : {}),
+    // Its residence reading, and the residence question it waits on (Phase 4B B3): an answer writes them as read.
+    ...(i.facets?.length ? { facets: i.facets } : {}),
+    ...(i.cue ? { cue: i.cue } : {}),
+    ...(i.still_in ? { still_in: i.still_in } : {}),
   };
 }
 

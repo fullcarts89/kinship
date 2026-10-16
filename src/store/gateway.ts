@@ -65,6 +65,8 @@ export type HeldItem = GatewayItem & {
   person_mentions?: unknown;
   /** Others it is about whose name two or more people share, each asked on its own (founder K4). */
   open_names?: { text: string; candidate_ids: string[]; archived_ids?: string[] }[];
+  /** "Is Susan still in Alameda?" (Phase 4B B3): the line it asks about, in that line's own words for the place. */
+  still_in?: { target_id: string; words: string; stay?: string };
 };
 
 export interface Clarification {
@@ -94,6 +96,8 @@ export interface HeldAnswer {
   accept?: true;
   /** "Which Sam?" for someone else the line is about (founder K4): that name, and who it is. */
   participants?: { text: string; person_id: string }[];
+  /** "Is Susan still in Alameda?" (Phase 4B B3): true for "Susan moved", false for "Still there". */
+  moved?: boolean;
 }
 
 export type Understood =

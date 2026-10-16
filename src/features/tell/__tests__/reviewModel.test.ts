@@ -406,3 +406,46 @@ it("K4: a memory kept for several people names them in the order the line does, 
   const v = view(note, row("review", { tier: "auto", saved: [{ id: "m1", tier: "auto" }] }), [line], [anthony, samEden, chris]);
   expect(v.heading).toBe("Kept for Anthony Test, Sam Eden and Chris");
 });
+
+describe("Phase 4B B3: the residence question (case E; founder CC-19, CC-24)", () => {
+  const SUSAN = person("susan", "Susan Oxnard", { full_name: "Susan Oxnard" } as Partial<Person>);
+  const moved = held({
+    kind: "fact", person_id: "susan", statement: "Susan moved to California", detail: { category: "home" },
+    flags: ["residence_conflict"], spans: [{ start: 0, end: 25, quote: "Susan moved to California" }],
+    still_in: { target_id: "alameda", words: "Alameda", stay: "facet" },
+  });
+  const sheet = () => view("Susan moved to California.", row("review", { tier: "clarify", held: [moved], settled: false, review_created_at: "t" }),
+    [], [SUSAN, BEN]);
+
+  it("asks once, in the user's own words for both places, by name", () => {
+    const v = sheet();
+    expect(v.mode).toBe("sheet");
+    expect(v.questions).toHaveLength(1);
+    const [q] = v.questions;
+    expect(q.type).toBe("residence");
+    expect(q.prompt).toBe("Is Susan still in Alameda?");
+    expect(q.reason).toBeNull();
+    expect(q.about).toEqual(["Susan moved to California"]);
+    expect(q.choices.map((c) => c.label)).toEqual(["Still there", "Susan moved"]);
+    expect(q.skip.label).toBe("Don't keep this");
+    // Never "Which Alameda?", never a pronoun, never a yes-question of its own.
+    expect(JSON.stringify(v)).not.toMatch(/Which Alameda|She moved|He moved|They moved|Remember this/u);
+  });
+
+  it("each choice is the answer the gateway expects", () => {
+    const [q] = sheet().questions;
+    const pick = (key: string) => {
+      const c = q.choices.find((x) => x.key === key)!;
+      return answersFor([q], { [q.key]: "answer" in c ? c.answer : "skip" });
+    };
+    expect(pick("still")).toEqual([{ index: 0, moved: false }]);
+    expect(pick("moved")).toEqual([{ index: 0, moved: true }]);
+    expect(answersFor([q], { [q.key]: "skip" })).toEqual([{ index: 0, skip: true }]);
+  });
+
+  it("a line held for something else too is asked about that as well", () => {
+    const both = held({ ...moved, flags: ["residence_conflict", "date_unresolved_sensitive"], kind: "event" });
+    const v = view("Susan moved to California.", row("review", { tier: "clarify", held: [both], settled: false, review_created_at: "t" }), [], [SUSAN]);
+    expect(v.questions.map((q) => q.type)).toEqual(["residence", "date"]);
+  });
+});
