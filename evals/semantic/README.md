@@ -11,9 +11,9 @@ Two corpora:
   ```
   - Each sequence runs the gateway's own code: the fixture's item as a correct model's proposal → `planExtraction` (with `residence.ts`, `relate.ts` and the committed `places-2026.10`) → the held question and `resolveHeld` when it asks → the database's write rules (`write_extraction`, `resolve_capture_review` and Undo's restore, as the migrations make them; pgTAP proves the database itself).
   - A page is read the way B5's composition will (§9): current lines that contain each other are one line in their own words, anything else its own line; a closed line is history only when its closer records a change. That reading is the corpus's expectation of `compose.ts`, which B5 builds; it is test code.
-  - What a later step delivers is listed in the runner's `DEFERRED` and reported, never silently skipped (B4's second closure, re-derivation after an edit). Portraits (B7) aren't checked yet.
+  - What a later step delivers is listed in the runner's `DEFERRED` and reported, never silently skipped (empty since B4). Portraits (B7) aren't checked yet.
   - A fixture change needs `manifest.ts --write` (a reviewed change).
-- **Fixtures are written by hand from patterns, never taken from real users' data.** 29 were seeded before B3; B3 added 19 (the Pilsen finding, the §21 rows, stays, "doesn't live in", two people, lower case, "moved from … to") and changed four (res-012/013: "Susan moved"; res-025: §21; res-027: the Pilsen rule). See brief §22.
+- **Fixtures are written by hand from patterns, never taken from real users' data.** 29 were seeded before B3; B3 added 19 (the Pilsen finding, the §21 rows, stays, "doesn't live in", two people, lower case, "moved from … to") and changed four (res-012/013: "Susan moved"; res-025: §21; res-027: the Pilsen rule). See brief §22. B4 added seven (res-074 to res-080: the §10 Undo matrix rows the corpus can express, the multi-item closures with an edited line, and the no-cue multi-item closure that is never history) and removed the runner's two DEFERRED entries for res-006; the runner's write rules now apply `closes` and restore every closed line on Undo, as the database does.
 
 ## Format: `fixtures/residence.jsonl`, one sequence per line
 
