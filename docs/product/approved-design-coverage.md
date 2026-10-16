@@ -300,7 +300,7 @@ Built as approved (CC-19 case E, CC-20, CC-24, brief §8 and §21). No approved 
 
 ## B4 multi-item closure (Phase 4B, 16 Oct): what changed on approved surfaces
 
-Built as approved (CC-20: closure never without its exact Undo; brief §8 rule 2, §10). No approved surface removed; nothing composed or displayed differently on the Portrait or in What Kinship knows' sections (B5, B7, B8). **Native:** not run (no build this session).
+Built as approved (CC-20: closure never without its exact Undo; brief §8 rule 2, §10). No approved surface removed; nothing composed or displayed differently on the Portrait or in What Kinship knows' sections (B5, B7, B8). **Native:** VERIFIED on the founder's device (16 Oct, late: `b4-device-checklist.md`, a build with the gateway deployed from the branch; "no issues").
 
 | Surface | Built | Founder approval |
 |---|---|---|
