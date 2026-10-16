@@ -72,6 +72,40 @@ export function openAppSettings(): void {
   void Linking.openSettings().catch(() => undefined);
 }
 
+/** One contact's name and birthday, as Kinship keeps them (no numbers). */
+function asDeviceContact(c: { id?: string; name?: string; firstName?: string; lastName?: string; nickname?: string; birthday?: { day?: number; month?: number; year?: number } }): DeviceContact | null {
+  if (!c.id) return null;
+  const name = (c.name || [c.firstName, c.lastName].filter(Boolean).join(" ")).trim();
+  if (!name) return null;
+  const b = c.birthday;
+  return {
+    id: c.id,
+    name,
+    nickname: c.nickname ?? null,
+    // expo-contacts months start at 0, like JavaScript's Date.
+    birthday: b && typeof b.day === "number" && typeof b.month === "number"
+      ? { day: b.day, month: b.month + 1, year: typeof b.year === "number" ? b.year : null }
+      : null,
+  };
+}
+
+/**
+ * The user chooses one contact in the system's own picker (founder K25: "Who is Matt?" → Choose from
+ * Contacts). iOS shows the address book in its own process: Kinship needs no Contacts permission and sees
+ * only the one contact chosen. Null when they cancel, or where there is no picker (web).
+ */
+export async function chooseOneContact(): Promise<DeviceContact | null> {
+  if (Platform.OS === "web") return null;
+  const C = await load();
+  if (!C) return null;
+  try {
+    const c = await C.presentContactPickerAsync();
+    return c ? asDeviceContact(c as never) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Every contact this phone lets Kinship read: name, nickname, birthday. */
 export async function readContacts(): Promise<DeviceContact[]> {
   const C = await load();
@@ -82,19 +116,8 @@ export async function readContacts(): Promise<DeviceContact[]> {
   });
   const out: DeviceContact[] = [];
   for (const c of data) {
-    if (!c.id) continue;
-    const name = (c.name || [c.firstName, c.lastName].filter(Boolean).join(" ")).trim();
-    if (!name) continue;
-    const b = c.birthday;
-    out.push({
-      id: c.id,
-      name,
-      nickname: c.nickname ?? null,
-      // expo-contacts months start at 0, like JavaScript's Date.
-      birthday: b && typeof b.day === "number" && typeof b.month === "number"
-        ? { day: b.day, month: b.month + 1, year: typeof b.year === "number" ? b.year : null }
-        : null,
-    });
+    const d = asDeviceContact(c as never);
+    if (d) out.push(d);
   }
   return out;
 }

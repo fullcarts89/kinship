@@ -111,7 +111,9 @@ export type Choice =
   /** Opens the person list; the answer is { person_id }. */
   | { key: string; label: string; pick: "person" }
   /** Opens a date picker; the answer is { date }. */
-  | { key: string; label: string; pick: "date" };
+  | { key: string; label: string; pick: "date" }
+  /** The system contact picker (founder K25): the person that contact is, found or added once; the answer is { person_id }. */
+  | { key: string; label: string; pick: "contact" };
 
 export interface Question {
   key: string;
@@ -179,6 +181,8 @@ export const COPY = {
   chooseAgain: "That choice isn't available any more. Choose again.",
   skip: "Don't keep this",
   someoneElse: "Someone else",
+  /** "Who is Matt?" → the user's own contact (founder K25, 16 Oct). */
+  fromContacts: "Choose from Contacts",
   pickDate: "Pick a date",
   noDate: "No date",
   remember: "Here's what I'll remember",
@@ -576,8 +580,10 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
         group: `new:${fold(name)}`,
         prompt: `Who is ${name}?`,
         reason: `${name} isn't in your people yet.`,
+        // Founder K25 (16 Oct): someone already here first, then their own contact, then by name only.
         choices: [
           ...(context ? [{ key: `p:${context.id}`, label: personLabel(context, input.people), answer: { person_id: context.id } }] : []),
+          { key: "contact", label: COPY.fromContacts, pick: "contact" as const },
           { key: "add", label: `Add ${name}`, answer: { new_person: true } },
           { key: "pick", label: context ? COPY.someoneElse : "Someone already here", pick: "person" as const },
         ],

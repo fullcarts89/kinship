@@ -120,7 +120,8 @@ export class PeopleRepo {
    * birthday, which says it came from Contacts (CA-5).
    */
   addPicked(fields: {
-    id: string;
+    /** The id setup chose; the store gives one when absent. */
+    id?: string;
     name: string;
     contactId: string | null;
     birthday: string | null;
@@ -139,6 +140,20 @@ export class PeopleRepo {
         ? { birthday: fields.birthday, birthday_year_known: fields.birthdayYearKnown, birthday_source: "contacts" }
         : {}),
     }) as Promise<Person>;
+  }
+
+  /**
+   * The person a chosen contact is (founder K25): the one already here with that contact, brought back if
+   * they were removed from People (I3: never a second one), else added once from the contact (name,
+   * contact id, birthday), as setup adds a picked contact.
+   */
+  async fromContact(c: { contactId: string; name: string; birthday: string | null; birthdayYearKnown: boolean }): Promise<Person> {
+    const known = (await this.list()).find((p) => !p.deleted_at && p.contact_ref === c.contactId);
+    if (known) {
+      if (known.state === "archived") await this.restore(known.id);
+      return (await this.get(known.id)) as Person;
+    }
+    return this.addPicked({ name: c.name, contactId: c.contactId, birthday: c.birthday, birthdayYearKnown: c.birthdayYearKnown });
   }
 
   update(id: string, patch: Partial<Pick<Person, "display_name" | "full_name" | "relationship_label">>): Promise<Data> {

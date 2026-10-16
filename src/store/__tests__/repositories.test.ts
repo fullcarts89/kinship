@@ -129,3 +129,40 @@ it("settings are created once, then updated with versions", async () => {
   expect(server.table("user_settings").get(A)).toMatchObject({ time_zone: "America/Chicago", push_enabled: true, version: 2 });
   expect(server.calls).toContain(`update user_settings ${A} v2`);
 });
+
+describe("K25: the person a chosen contact is, found or added once (founder, 16 Oct)", () => {
+  const MATT = { contactId: "contact-matt-jones", name: "Matt Jones", birthday: "2000-03-14", birthdayYearKnown: false };
+
+  it("added once from the contact: its name, contact id and birthday, which says it came from Contacts", async () => {
+    const { repos } = await setup();
+    const p = await repos.people.fromContact(MATT);
+    expect([p.display_name, p.full_name, p.contact_ref, p.birthday, p.birthday_source]).toEqual(["Matt Jones", "Matt Jones", "contact-matt-jones", "2000-03-14", "contacts"]);
+    // Chosen again (a second note about Matt): the same person, never a second Matt.
+    const again = await repos.people.fromContact(MATT);
+    expect(again.id).toBe(p.id);
+    expect((await repos.people.list()).filter((x) => x.contact_ref === MATT.contactId)).toHaveLength(1);
+  });
+
+  it("someone already here with that contact is reused, whatever name they go by here", async () => {
+    const { repos } = await setup();
+    const matthew = await repos.people.addPicked({ name: "Matthew", contactId: MATT.contactId, birthday: null, birthdayYearKnown: false });
+    expect((await repos.people.fromContact(MATT)).id).toBe(matthew.id);
+    expect((await repos.people.get(matthew.id))?.display_name).toBe("Matthew");
+  });
+
+  it("someone removed from People with that contact comes back, never a second one (I3)", async () => {
+    const { repos } = await setup();
+    const p = await repos.people.fromContact(MATT);
+    await repos.people.archive(p.id);
+    const back = await repos.people.fromContact(MATT);
+    expect([back.id, back.state]).toEqual([p.id, "active"]);
+  });
+
+  it("two contacts named Matt are two people: the one the user chose", async () => {
+    const { repos } = await setup();
+    const a = await repos.people.fromContact(MATT);
+    const b = await repos.people.fromContact({ ...MATT, contactId: "contact-matt-lee", name: "Matt Lee", birthday: null });
+    expect(a.id).not.toBe(b.id);
+    expect(b.display_name).toBe("Matt Lee");
+  });
+});

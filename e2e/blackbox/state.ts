@@ -13,4 +13,6 @@ export const harness: {
   /** The other app opening (Messages, Phone): the OS boundary, never the app's code. */
   opens: { channel: string; at: number }[];
   appListeners?: Set<(s: string) => void>;
+  /** The contact the user chooses in the system picker (K25); null or absent: they cancel. */
+  contactPick?: { id: string; name: string; nickname: string | null; birthday: { day: number; month: number; year: number | null } | null } | null;
 } = { session: null, user: null, client: null, pushes: [], params: {}, opens: [] };
