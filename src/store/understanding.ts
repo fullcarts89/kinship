@@ -143,6 +143,12 @@ export class Understanding {
    * and the background count at Send. Not persisted: a relaunch says "unknown".
    */
   private readonly sends = new Map<string, { tapped: number; away: number; visible?: number }>();
+  /**
+   * Lines the user changed that had a residence reading (Phase 4B B3; brief §5): reported to the gateway
+   * once the change has synced, so it reads them again. Not persisted: if the app goes away first, the
+   * next Tell about that person reads them (the gateway's safety net).
+   */
+  private readonly changed = new Set<string>();
   /** The last pass couldn't reach the server. */
   offline = false;
 
@@ -474,6 +480,12 @@ export class Understanding {
       correction = "date";
     }
     if (item.origin === "extracted") track("extraction_corrected", { correction, item_kind: kindName(item.kind) });
+    // Its words, person, owner or kind changed: a residence reading the line had is gone (the server
+    // drops it at once), so the gateway is asked to read the line again once the change has synced (§5).
+    if (correction !== "date" && (await this.store.list("memory_item_facets", { includeDeleted: true })).some((f) => f.memory_item_id === itemId)) {
+      this.changed.add(itemId);
+      this.kick();
+    }
   }
 
   /** "Bring back Kaiya" from a question (founder I3): the same person, back in People, before the answer is sent. */
@@ -603,7 +615,7 @@ export class Understanding {
       return;
     }
     await this.finishLeftOpen();
-    let wrote = false;
+    let wrote = await this.reportChanged();
     for (const row of await this.due()) {
       try {
         if (row.state === "waiting") wrote = (await this.understandNote(row)) || wrote;
@@ -621,6 +633,30 @@ export class Understanding {
       if (!second.offline) await this.afterPull();
     }
     this.store.notify();
+  }
+
+  /**
+   * The lines the user changed whose change has reached the server: the gateway reads their residence
+   * again (model-free). Best effort: unreachable, they wait for the next pass; refused, the next Tell
+   * about that person reads them. True when a reading was written (the next sync brings it).
+   */
+  private async reportChanged(): Promise<boolean> {
+    if (!this.changed.size) return false;
+    const pending = new Set((await this.store.pendingOps()).filter((op) => op.tbl === "memory_items").map((op) => op.row_id));
+    const ids = [...this.changed].filter((id) => !pending.has(id)).slice(0, 20);
+    if (!ids.length) return false;
+    try {
+      const out = await this.gateway.rederive(ids);
+      for (const id of ids) this.changed.delete(id);
+      return out.results.some((r) => r.result === "written");
+    } catch (err) {
+      if (err instanceof GatewayUnreachable) {
+        this.offline = true;
+        return false;
+      }
+      for (const id of ids) this.changed.delete(id);
+      return false;
+    }
   }
 
   /** Notes told with AI on (here, or pulled from another device) that nothing tracks yet. */

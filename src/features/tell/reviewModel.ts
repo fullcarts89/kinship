@@ -28,6 +28,7 @@ import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/und
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
 import { aliasesOf, mentionsOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
+import { residenceQuestion } from "../../../supabase/functions/_shared/semantic/questions";
 
 export interface ReviewInput {
   row: UnderstandingRow;
@@ -103,7 +104,7 @@ export interface ItemLine {
  * "keep": a sensitive or ambiguous reading that is not memory until the user says yes.
  * "owner": whose promise it is, when the words don't say (founder J11).
  */
-export type QuestionType = "which_person" | "about_whom" | "new_person" | "owner" | "replace" | "date" | "keep";
+export type QuestionType = "which_person" | "about_whom" | "new_person" | "owner" | "replace" | "residence" | "date" | "keep";
 
 export type Choice =
   /** restore: someone removed from People, brought back before the answer is sent (founder I3). */
@@ -440,7 +441,7 @@ function questionsFor(held: HeldItem[], input: ReviewInput): Question[] {
       }
     }
   });
-  const order: QuestionType[] = ["which_person", "about_whom", "new_person", "owner", "replace", "date", "keep"];
+  const order: QuestionType[] = ["which_person", "about_whom", "new_person", "owner", "replace", "residence", "date", "keep"];
   return [...groups.values()]
     .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type))
     .map((q, n) => ({ ...q, key: `q${n}` }));
@@ -724,6 +725,26 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
         { key: "both", label: "No, keep both", answer: { replaces: null } },
       ],
     });
+  }
+  if (item.flags.includes("residence_conflict") && item.still_in?.words && item.person_id) {
+    // Phase 4B B3 (case E; founder CC-19, CC-24): a new residence that may not
+    // fit the one Kinship holds, where a wrong pick would show something
+    // false. Asked once, in the user's own words for both places; never
+    // "Which Alameda?". The name, never a guessed pronoun (CC-20).
+    const person = input.people.find((p) => p.id === item.person_id);
+    if (person) {
+      const q = residenceQuestion(shortName(person), item.still_in.words);
+      needs.push({
+        type: "residence",
+        group: `residence:${item.still_in.target_id}`,
+        prompt: q.prompt,
+        reason: null,
+        choices: [
+          { key: "still", label: q.stay, answer: { moved: false } },
+          { key: "moved", label: q.moved, answer: { moved: true } },
+        ],
+      });
+    }
   }
   if (item.flags.includes("date_unresolved_sensitive")) {
     needs.push({

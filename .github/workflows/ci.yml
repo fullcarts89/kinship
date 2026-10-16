@@ -54,6 +54,10 @@ jobs:
         run: deno test
       - name: Place data build, on hand-made fixture dumps (free)
         run: deno test --allow-read --config scripts/deno.json scripts/semantic
+      - name: Semantic corpus (residence, B3) matches its frozen manifest and comes out as its fixtures say (free)
+        run: |
+          deno run -A --config evals/deno.json evals/semantic/manifest.ts
+          deno test --allow-read --config evals/deno.json evals/semantic
       - name: Extraction eval corpus matches its frozen manifest
         run: deno run -A --config evals/deno.json evals/extraction/manifest.ts
       - name: Extraction eval fixtures agree with the pipeline (oracle, no model, free)

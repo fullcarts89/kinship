@@ -6,7 +6,12 @@ import { mount, setUp, settle, show, signedIn, tap, tapLast, tell, texts, until,
 import { manyLines, requests, serverRows, useReply } from "./localStack";
 import { harness } from "./state";
 
-const K7 = "Chris' dog Fluffy has a vet appointment on Friday";
+// The founder's words named Friday. Told on a Friday, "on Friday" reads two ways (today, or next week) and
+// is rightly asked about (N15), so the note names a weekday that is never the run's own, in any time zone
+// (each is within a day of UTC): Friday, or Tuesday when it is Thursday to Saturday in UTC. Both have their
+// replies (e2e/replies/k7.json, k7-tuesday.json).
+const DAY = [4, 5, 6].includes(new Date().getUTCDay()) ? "Tuesday" : "Friday";
+const K7 = `Chris' dog Fluffy has a vet appointment on ${DAY}`;
 
 for (const shape of ["hand: event on Chris", "live 1 (13 Oct, 1 of the runs)"]) it(`K14 (${shape}): Not this on the Fluffy appointment leaves the screen promptly, and the server follows`, async () => {
   await useReply(K7, shape);

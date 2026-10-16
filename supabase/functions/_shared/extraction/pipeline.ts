@@ -49,6 +49,8 @@ import {
 } from "./lexicon.ts";
 import { codePointLength, locateEvidence, type Span } from "../spans.ts";
 import { needsAcceptance } from "./acceptance.ts";
+import { type CurrentResidence, namesLine, type Outcome, pairClass, relateResidence } from "../semantic/relate.ts";
+import { residenceEligible, residenceOf, type ResidenceFacet } from "../semantic/residence.ts";
 import type {
   Clarification,
   DossierItem,
@@ -574,7 +576,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     detail: detail.detail,
     statement: said,
   }, flags);
-  const action = relation.action;
+  let action = relation.action;
   if (relation.transition && action.type !== "new") detail.detail.transition = relation.transition;
   if (relation.replaces) {
     // Two earlier memories fit equally: the user says which one this replaces.
@@ -635,6 +637,27 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     }
   }
 
+  // ── Residence (Phase 4B B3): the user's words, the place data, the relation table ──
+  // Only once who and what it is about are settled; a line whose person is
+  // still asked keeps its words, with no residence reading (fail open).
+  const home = !unsure && !flags.has("subject_check") && who.person_key
+    ? residenceStep(ctx, raw, spans, {
+      kind: raw.kind, person_key: who.person_key, subject, related_id: related?.id ?? null, certainty, sensitivity,
+      with_person_ids: withPeople.map((p) => p.id),
+    }, action)
+    : null;
+  if (home) {
+    if (home.decides) {
+      action = home.action;
+      delete detail.detail.transition;
+      if (home.transition) detail.detail.transition = home.transition;
+      // A residence decided by the table settles which line it replaces.
+      flags.delete("update_check");
+      flags.delete("protected_target");
+      delete detail.detail._replaces;
+    }
+    if (home.ask) flags.add("residence_conflict");
+  }
   const tier = tierFor(flags);
   // Relative time words that would go stale ("in two weeks", "next summer")
   // leave the statement once the day or season is kept (Gate F temporal);
@@ -670,6 +693,10 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
       ...(who.candidate_ids && tier === "hold" ? { candidate_ids: who.candidate_ids } : {}),
       ...(others.open.length ? { open_names: others.open } : {}),
       ...(ALONE.has(proposed) && tier === "hold" ? { alone: ALONE.get(proposed)! } : {}),
+      ...(home ? { facets: [home.facet] } : {}),
+      ...(home?.cue ? { cue: home.cue } : {}),
+      ...(home?.ask ? { still_in: home.ask } : {}),
+      ...(home ? { residence: home.outcome } : {}),
     },
   };
 }
@@ -1011,7 +1038,7 @@ function askConfirmed(ctx: Context, mention: string, raw?: ProposedItem): boolea
 
 // A pronoun that could point at two named people ("Ben and Josh went
 // climbing. He fell.") waits for the user, like any other ambiguity.
-const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict", "person_archived", "promise_owner", "participant_ambiguous"];
+const HOLD_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "subject_check", "date_unresolved_sensitive", "update_check", "relation_conflict", "person_archived", "promise_owner", "participant_ambiguous", "residence_conflict"];
 
 function tierFor(flags: Set<Flag>): Tier {
   if (HOLD_FLAGS.some((f) => flags.has(f))) return "hold";
@@ -1808,6 +1835,103 @@ function relateByModel(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<
   return none;
 }
 
+// ─── Residence (Phase 4B B3; brief §5, §8, §21) ─────────────────────────────
+
+interface ResidenceStep {
+  /** The line's reading, written with it (the database keeps it only on a line written as new, never on a merge). */
+  facet: ResidenceFacet;
+  outcome: Outcome;
+  /** The table decided the action (else today's stands: a plan, a thread, nothing). */
+  decides: boolean;
+  action: PlannedItem["action"];
+  transition: "changed" | "corrected" | null;
+  /** The cue that lets it close a line the user edited (the database re-reads it). */
+  cue: { start: number; end: number } | null;
+  /** Held: "Is Susan still in Alameda?" */
+  ask: NonNullable<PlannedItem["still_in"]> | null;
+}
+
+/**
+ * A line whose own words say where someone lives now, related to the
+ * residence lines Kinship holds for the same person and subject (relate.ts).
+ * Every other line, and every relation to a line that isn't a residence,
+ * keeps today's path. Null when the line isn't a residence, or there is no
+ * place data.
+ */
+function residenceStep(
+  ctx: Context,
+  raw: ProposedItem,
+  spans: PlannedSpan[],
+  n: {
+    kind: Kind;
+    person_key: string;
+    subject: string;
+    related_id: string | null;
+    certainty: string;
+    sensitivity: string;
+    with_person_ids: string[];
+  },
+  todays: PlannedItem["action"],
+): ResidenceStep | null {
+  const places = ctx.input.places;
+  if (!places || !residenceEligible({ ...n, subject_type: n.subject })) return null;
+  const found = residenceOf(ctx.text, spans, places);
+  if (!found) return null;
+
+  const sameSubject = (d: DossierItem) =>
+    d.person_key === n.person_key && d.subject_type === n.subject &&
+    (n.subject !== "related" || (d.related_key ? ctx.input.related.find((r) => r.key === d.related_key)?.id === n.related_id : false));
+  const current: CurrentResidence[] = ctx.input.dossier
+    .map((d, order) => ({ d, order }))
+    .filter(({ d }) => d.facet && d.kind === "fact" && d.status === "active" && !d.shared && sameSubject(d))
+    .map(({ d, order }) => ({
+      id: d.id, facet: d.facet!, order, protected: d.user_state === "edited" || d.user_state === "user_authored",
+    }));
+  // The model's single supersede proposal, for lines whose place the data doesn't know.
+  const proposed = raw.existing?.action === "supersede" && raw.existing.target ? ctx.dossier.get(raw.existing.target) : undefined;
+  const modelTarget = proposed && current.some((c) => c.id === proposed.id) ? proposed.id : null;
+  const decision = relateResidence(found, current, modelTarget);
+  const none = { type: "new" as const, target_id: null };
+  const base = { facet: found.facet, outcome: decision.outcome, cue: null, ask: null, transition: null };
+
+  switch (decision.outcome) {
+    case "SAME":
+      return { ...base, decides: true, action: { type: "merge", target_id: decision.target } };
+    case "SUPERSEDES":
+      return {
+        ...base, decides: true, action: { type: "supersede", target_id: decision.closes[0] }, transition: decision.transition,
+        cue: decision.cue ? { start: decision.cue.start, end: decision.cue.end } : null,
+      };
+    case "CONFLICT":
+      return {
+        ...base, decides: true, action: none,
+        ask: { target_id: decision.asks.id, words: decision.asks.facet.value_text, stay: decision.stay },
+      };
+  }
+
+  // NEW or REFINES: nothing of the residence Kinship holds closes. Today's
+  // action stands only where it isn't a residence relation of its own.
+  const target = todays.type !== "new" && todays.target_id ? ctx.input.dossier.find((d) => d.id === todays.target_id) : undefined;
+  if (!target) return { ...base, decides: false, action: todays };
+  // Never a line the table read, and never a shared one: one person's move
+  // never closes a line about two people.
+  if (current.some((c) => c.id === target.id) || target.shared) return { ...base, decides: true, action: none };
+  // A residence told before B3 (no reading of its own): the model may still
+  // replace it as today, but never with a place that fits it ("California"
+  // after "Alameda"), and never on a guess between two readings.
+  const earlier = target.kind === "fact" ? residenceOf(target.statement, [{ start: 0, end: Array.from(target.statement).length }], places) : null;
+  if (!earlier) return { ...base, decides: false, action: todays };
+  const cls = pairClass(found.facet, earlier.facet);
+  if (todays.type === "merge") return { ...base, decides: true, action: cls === "SAME" ? todays : none };
+  if (todays.type !== "supersede" || (cls !== "DISJOINT" && cls !== "UNKNOWN")) return { ...base, decides: true, action: none };
+  const named = found.cues.find((c) => namesLine(c, earlier.facet));
+  const cue = named ?? found.cues.find((c) => c.kind === "correction") ?? found.cues.find((c) => c.kind === "change") ?? null;
+  return {
+    ...base, outcome: "SUPERSEDES", decides: true, action: todays,
+    transition: !cue ? null : cue.kind === "change" ? "changed" : "corrected",
+  };
+}
+
 function withinDays(a: string, b: string, days: number): boolean {
   return Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) <= days * 86_400_000;
 }
@@ -1864,6 +1988,11 @@ function chooseClarification(ctx: Context, items: PlannedItem[]): Clarification 
       question: `Is ${fresh.new_person_name} someone new?`,
       options: [`Add ${fresh.new_person_name}`, "Someone already here"],
     };
+  }
+  // A residence question is the app's own ("Is Susan still in Alameda?", from the
+  // line it asks about): there is no stored question for it.
+  if (held.every((i) => i.flags.includes("residence_conflict") && !i.flags.some((f) => f !== "residence_conflict" && HOLD_FLAGS.includes(f)))) {
+    return null;
   }
   return { about: "date", question: "When is it?", options: ["Pick a date", "No date"] };
 }

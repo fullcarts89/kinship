@@ -196,3 +196,49 @@ Deno.test("H20: a reading held as 'My daughter Kaiya' adds 'Kaiya', your daughte
   if ("fail" in r) throw new Error(r.fail);
   eq(r.newPeople.map((p) => [p.display_name, p.relationship_label]), [["Kaiya", "daughter"]]);
 });
+
+// ─── "Is Susan still in Alameda?" (Phase 4B B3, case E; §21) ──────────────────
+
+const HOME_NOTE = "Susan lives in Colorado.";
+const homeHeld = (stay: "facet" | "words"): HeldItem => ({
+  kind: "fact", person_id: "susan", new_person_name: null, subject_type: "person", related: null,
+  statement: "Susan lives in Colorado", detail: { category: "home" }, certainty: "stated", sensitivity: "none", confidence: 0.95,
+  action: { type: "new", target_id: null }, tier: "hold", flags: ["residence_conflict"],
+  spans: [{ start: 0, end: 23, quote: "Susan lives in Colorado" }],
+  facets: [{
+    slot: "residence", value_text: "Colorado", value_norm: "colorado", place_ref: null,
+    candidates: [{ ref: "region:US.CO", level: "region", ancestors: ["country:US"] }], usual_ref: "region:US.CO",
+    decided_by: "rule", rule_version: "residence/v1", dataset_version: "places-2026.10",
+  }],
+  still_in: { target_id: "alameda-line", words: "Alameda", stay },
+});
+const homeCtx = (): ResolveContext => ({ note: HOME_NOTE, people: [{ id: "susan", display_name: "Susan", state: "active" }], related: [], existing: [] });
+
+Deno.test("residence question: 'Susan moved' closes the line asked about, as a change, with its reading", () => {
+  const r = resolveHeld([homeHeld("words")], [{ index: 0, moved: true }], homeCtx());
+  if ("fail" in r) throw new Error(r.fail);
+  eq([r.items[0].action, r.items[0].detail.transition, r.items[0].facets?.[0].value_text],
+    [{ type: "supersede", target_id: "alameda-line" }, "changed", "Colorado"]);
+});
+
+Deno.test("residence question: 'Still there' closes nothing; the reading stays only where it may", () => {
+  const facet = resolveHeld([homeHeld("facet")], [{ index: 0, moved: false }], homeCtx());
+  if ("fail" in facet) throw new Error(facet.fail);
+  eq([facet.items[0].action, facet.items[0].detail.transition, facet.items[0].facets?.length], [{ type: "new", target_id: null }, undefined, 1],
+    "case E: the two compose");
+  const words = resolveHeld([homeHeld("words")], [{ index: 0, moved: false }], homeCtx());
+  if ("fail" in words) throw new Error(words.fail);
+  eq([words.items[0].action.type, words.items[0].facets], ["new", undefined], "beside a line the user edited: the words only (§8 rule 1)");
+});
+
+Deno.test("residence question: only that answer, only for that question", () => {
+  eq(resolveHeld([homeHeld("facet")], [{ index: 0 }], homeCtx()), { fail: "bad_answer" }, "an answer is needed");
+  // A build from before the question asks only "Remember this?": its yes keeps both, and closes nothing.
+  const older = resolveHeld([homeHeld("words")], [{ index: 0, accept: true }], homeCtx());
+  if ("fail" in older) throw new Error(older.fail);
+  eq([older.items[0].action.type, older.items[0].detail.transition, older.items[0].facets], ["new", undefined, undefined]);
+  eq(resolveHeld([homeHeld("facet")], [{ index: 0, skip: true, moved: true }], homeCtx()), { fail: "bad_answer" });
+  const skipped = resolveHeld([homeHeld("facet")], [{ index: 0, skip: true }], homeCtx());
+  eq("fail" in skipped ? skipped : [skipped.items.length, skipped.skipped], [0, 1], "Don't keep this: not memory");
+  eq(resolveHeld([samHeld], [{ index: 0, person_id: "sam-lee", moved: true }], ctx()), { fail: "bad_answer" }, "never on another question");
+});

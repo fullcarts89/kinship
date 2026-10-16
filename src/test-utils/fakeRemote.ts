@@ -46,6 +46,22 @@ export class FakeServer {
     return row;
   }
 
+  /**
+   * memory_items_facet_tombstone (20261015090000): a line whose words, person, subject, kind, certainty,
+   * sensitivity or shared people changed, or that was removed, loses its reading at once.
+   */
+  facetTombstone(before: Row, after: Row): void {
+    const watched = ["statement", "person_id", "subject_type", "subject_related_id", "kind", "certainty", "sensitivity", "with_person_ids"];
+    const changed = (!before.deleted_at && after.deleted_at) || (before.status !== "retracted" && after.status === "retracted") ||
+      watched.some((k) => JSON.stringify(before[k] ?? null) !== JSON.stringify(after[k] ?? null));
+    if (!changed) return;
+    for (const f of this.table("memory_item_facets").values()) {
+      if (f.memory_item_id === after.id && f.user_id === after.user_id && !f.deleted_at) {
+        this.serverWrite("memory_item_facets", String(f.id), f.user_id, { deleted_at: (after.deleted_at as string | null) ?? this.tick(0) });
+      }
+    }
+  }
+
   /** Hard purge (what purge_tombstones does after 30 days). */
   purge(name: MirroredTable, key: string): void {
     this.table(name).delete(key);
@@ -94,7 +110,10 @@ export class FakeRemote implements Remote {
     if (nextVersion !== row.version + 1) {
       throw new RemoteError("conflict", `current is ${row.version}, got ${nextVersion}`, "40001");
     }
-    return structuredClone(this.server.serverWrite(name, key, this.userId, fields));
+    const before = structuredClone(row);
+    const written = structuredClone(this.server.serverWrite(name, key, this.userId, fields));
+    if (name === "memory_items") this.server.facetTombstone(before, written);
+    return written;
   }
 
   async changedSince(

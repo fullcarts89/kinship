@@ -30,7 +30,7 @@ import {
   withSubjectReassigned,
 } from "./names.ts";
 import { threadTarget } from "./threads.ts";
-import type { Flag } from "./types.ts";
+import type { Flag, PlannedItem } from "./types.ts";
 
 /** A held item as stored in capture_reviews (the gateway's presentation of a PlannedItem). */
 export interface HeldItem {
@@ -62,6 +62,12 @@ export interface HeldItem {
   open_names?: { text: string; candidate_ids: string[]; archived_ids?: string[] }[];
   /** Its words about who it is filed on alone, when the model told the sentence person by person (founder I13/K4). */
   alone?: string;
+  /** Its residence reading (Phase 4B B3), written with it once answered. */
+  facets?: PlannedItem["facets"];
+  /** The cue in the user's words that lets it close a line the user edited (§21). */
+  cue?: PlannedItem["cue"];
+  /** The residence question it waits on: "Is Susan still in Alameda?" (Phase 4B B3, case E). */
+  still_in?: PlannedItem["still_in"];
 }
 
 /** The user's answer for one held item. */
@@ -95,6 +101,12 @@ export interface HeldAnswer {
    * build before this question) is left out of the memory, never guessed.
    */
   participants?: { text: string; person_id: string }[];
+  /**
+   * "Is Susan still in Alameda?" (Phase 4B B3): true for "Susan moved",
+   * which closes that line as a change (the user's answer is the evidence);
+   * false for "Still there", which closes nothing.
+   */
+  moved?: boolean;
 }
 
 export interface ResolvePerson {
@@ -170,6 +182,9 @@ export interface ResolvedItem {
   self_relations?: Record<string, string>;
   /** Which words name whom (founder I12/I13); "new:<n>" for someone the answer adds. */
   person_mentions?: PersonMention[];
+  /** Its residence reading (Phase 4B B3): only when the answer left who and what it is about as read. */
+  facets?: PlannedItem["facets"];
+  cue?: PlannedItem["cue"];
 }
 
 export interface Resolution {
@@ -211,7 +226,8 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     if (!a) return { fail: "unanswered" };
     if (a.skip === true) {
       if (a.person_id !== undefined || a.new_person !== undefined || a.subject !== undefined || a.date !== undefined || a.accept !== undefined ||
-          a.also_person_ids !== undefined || a.replaces !== undefined || a.owner !== undefined || a.participants !== undefined) return { fail: "bad_answer" };
+          a.also_person_ids !== undefined || a.replaces !== undefined || a.owner !== undefined || a.participants !== undefined ||
+          a.moved !== undefined) return { fail: "bad_answer" };
       skipped++;
       continue;
     }
@@ -224,7 +240,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     // Which Sam is never a yes to the memory itself: a line waiting for the
     // user's yes (sensitive, say) still needs it, whatever else is asked (reviewer A).
     const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive") || flags.has("update_check") ||
-      flags.has("promise_owner");
+      flags.has("promise_owner") || flags.has("residence_conflict");
     if (a.accept !== undefined && a.accept !== true) return { fail: "bad_answer" };
     if (!asksSomething && a.accept !== true) return { fail: "bad_answer" };
 
@@ -474,7 +490,23 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
         detail = { ...detail, transition: match.transition };
       }
     }
-    if (action.type === "new" && !personId.startsWith("new:")) {
+    // ── "Is Susan still in Alameda?" (Phase 4B B3, case E) ──
+    // Asked only of a line whose person and subject were settled when it was
+    // read; the answer decides alone. "Susan moved" closes that line as a
+    // change (resolve_capture_review finds the stored question that offered it).
+    const residenceAsked = flags.has("residence_conflict") && !!item.still_in?.target_id;
+    if (residenceAsked) {
+      // A build from before this question asks only "Remember this?": its yes is
+      // "Still there", which closes nothing (deployment order is safe either way).
+      const moved = typeof a.moved === "boolean" ? a.moved : a.accept === true ? false : null;
+      if (moved === null || !unchanged) return { fail: "bad_answer" };
+      action = moved ? { type: "supersede", target_id: item.still_in!.target_id } : { type: "new", target_id: null };
+      delete detail.transition;
+      if (moved) detail = { ...detail, transition: "changed" };
+    } else if (a.moved !== undefined) {
+      return { fail: "bad_answer" };
+    }
+    if (action.type === "new" && !personId.startsWith("new:") && !residenceAsked) {
       // The same thing, already remembered for this person, is one memory: never one told for another day
       // ("…yesterday" kept for Mon 12, then "…last Friday": the Friday was merged away and Mon 12 shown; K10).
       const twin = ctx.existing.find((m) =>
@@ -500,6 +532,10 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       ...(withPeople.length ? { with_person_ids: withPeople } : {}),
       ...(item.self_relations && !personId.startsWith("new:") ? { self_relations: item.self_relations } : {}),
       ...(mentions.length ? { person_mentions: mentions } : {}),
+      // Its residence reading, as read: only when the answer left who and what it is about as they were (a
+      // line whose person was asked was never related to anyone's residence), and never when "Still there"
+      // keeps only its words (a line the user edited stays the one current residence, §8 rule 1).
+      ...(residenceFacets(item, a, unchanged && !needsPerson && !flags.has("subject_check"), action.type)),
     };
 
     // ── The mirror of a kept line (founder I10, H13) ──
@@ -589,6 +625,12 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     line.with_person_ids = [...new Set([...(line.with_person_ids ?? []), ...j.people])].filter((id) => id !== line.person_id);
   }
   return { items: oneEach(items), newPeople, skipped };
+}
+
+function residenceFacets(item: HeldItem, a: HeldAnswer, asRead: boolean, action: string): Pick<ResolvedItem, "facets" | "cue"> {
+  if (!asRead || !Array.isArray(item.facets) || !item.facets.length || action === "merge") return {};
+  if (a.moved !== true && item.still_in?.stay === "words") return {};
+  return { facets: item.facets, ...(item.cue ? { cue: item.cue } : {}) };
 }
 
 /**

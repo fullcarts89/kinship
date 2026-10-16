@@ -14,7 +14,9 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.2";
 import { verifiedUserId } from "../_shared/auth.ts";
 import { anthropicCaller } from "../_shared/ai/model.ts";
-import { type CaptureRow, type ItemRow, type PersonRow, type RelatedRow, withLineNames } from "../_shared/extraction/context.ts";
+import { type CaptureRow, type FacetRow, type ItemRow, type PersonRow, type RelatedRow, withLineNames } from "../_shared/extraction/context.ts";
+import { placeIndex } from "../_shared/semantic/places/dataset.ts";
+import { type LineToRead, MAX_REREAD } from "../_shared/semantic/rederive.ts";
 import { createGateway, type GatewayCaller, ServiceError, type ServiceOps, type StoredReview } from "./handler.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -37,6 +39,7 @@ Deno.serve(
     dailyLimit: positiveInt(Deno.env.get("AI_DAILY_LIMIT"), 50),
     consentVersion: positiveInt(Deno.env.get("AI_CONSENT_VERSION"), 1),
     allowedOrigins: (Deno.env.get("AI_ALLOWED_ORIGINS") ?? "").split(",").map((o) => o.trim()).filter(Boolean),
+    places: placeIndex(),
   }),
 );
 
@@ -96,6 +99,40 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
       if (error) throw new Error("dossier read failed");
       return data as ItemRow[];
     },
+    async loadFacets(itemIds) {
+      const ids = itemIds.filter((id) => /^[0-9a-f-]{36}$/iu.test(id));
+      if (ids.length === 0) return [];
+      const { data, error } = await db.from("memory_item_facets")
+        .select("memory_item_id, slot, value_text, value_norm, place_ref, candidates, usual_ref")
+        .in("memory_item_id", ids).is("deleted_at", null).limit(200);
+      // Unread, the note is understood without residence at all (never as if no line had one).
+      if (error) return null;
+      return data as FacetRow[];
+    },
+    async loadUnread(itemIds) {
+      const ids = itemIds.filter((id) => /^[0-9a-f-]{36}$/iu.test(id));
+      if (ids.length === 0) return [];
+      // Lines B3 has read: a residence reading, tombstoned, and none live now.
+      const facets = await db.from("memory_item_facets").select("memory_item_id, deleted_at")
+        .in("memory_item_id", ids).eq("slot", "residence").limit(1000);
+      if (facets.error) throw new Error("facets read failed");
+      const rows = (facets.data ?? []) as { memory_item_id: string; deleted_at: string | null }[];
+      const live = new Set(rows.filter((r) => !r.deleted_at).map((r) => r.memory_item_id));
+      const unread = [...new Set(rows.filter((r) => r.deleted_at && !live.has(r.memory_item_id)).map((r) => r.memory_item_id))].slice(0, MAX_REREAD);
+      if (unread.length === 0) return [];
+      const [items, sources] = await Promise.all([
+        db.from("memory_items")
+          .select("id, version, kind, subject_type, certainty, sensitivity, with_person_ids, statement, user_state")
+          .in("id", unread).is("deleted_at", null).neq("status", "retracted"),
+        db.from("memory_item_sources").select("memory_item_id, quote").in("memory_item_id", unread).is("deleted_at", null).limit(500),
+      ]);
+      if (items.error || sources.error) throw new Error("lines read failed");
+      const quotes = (sources.data ?? []) as { memory_item_id: string; quote: string | null }[];
+      return ((items.data ?? []) as LineToRead[]).map((line) => ({
+        line,
+        quotes: quotes.filter((q) => q.memory_item_id === line.id && q.quote).map((q) => q.quote!),
+      }));
+    },
     async loadRemoved(captureId) {
       const sources = await db.from("memory_item_sources").select("memory_item_id").eq("capture_id", captureId).limit(200);
       if (sources.error) throw new Error("sources read failed");
@@ -143,6 +180,11 @@ function serviceOps(db: SupabaseClient): ServiceOps {
       });
       if (error) throw new Error(`write failed (${error.code ?? "?"})`);
       return data;
+    },
+    async writeFacets(userId, items) {
+      const { data, error } = await db.rpc("write_facets", { p_user_id: userId, p_items: items });
+      if (error) throw new Error(`facets write failed (${error.code ?? "?"})`);
+      return (data ?? []) as { id: string; result: string }[];
     },
     async log(row) {
       const { error } = await db.from("ai_calls").insert(row);

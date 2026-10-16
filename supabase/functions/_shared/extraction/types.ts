@@ -4,6 +4,9 @@
 import type { DatePrecision, Direction } from "./dates.ts";
 
 import type { PersonMention } from "./names.ts";
+import type { PlaceIndex } from "../semantic/placeIndex.ts";
+import type { FacetLike, Outcome } from "../semantic/relate.ts";
+import type { ResidenceFacet } from "../semantic/residence.ts";
 
 export const KINDS = ["fact", "event", "promise", "plan", "thread", "moment", "milestone", "tradition", "context"] as const;
 export type Kind = (typeof KINDS)[number];
@@ -70,6 +73,10 @@ export interface DossierItem {
   detail: Record<string, unknown>;
   /** Roster keys of the others this memory is also about (shared memories). Code only; never in the prompt. */
   with_person_keys?: string[];
+  /** Also about anyone else at all, in People or not (a shared line is never closed by one person's change). Code only. */
+  shared?: boolean;
+  /** Its live residence reading (Phase 4B B3), when the server derived one. Code only; never in the prompt. */
+  facet?: FacetLike | null;
 }
 
 export interface CaptureContext {
@@ -92,6 +99,12 @@ export interface ExtractionInput {
    * back, never re-created as someone new or guessed.
    */
   archived?: ArchivedPerson[];
+  /**
+   * The place data residence is read with (Phase 4B B3; the gateway's own,
+   * never the app's). Without it nothing is read as a residence, and every
+   * line relates as before.
+   */
+  places?: PlaceIndex;
 }
 
 export interface ArchivedPerson {
@@ -223,7 +236,11 @@ export type Flag =
   | "participant_ambiguous"
   // Founder K5: the user's own news, kept with the person it names (or asked
   // about), in the line's own words. Shown for a glance, never dropped.
-  | "user_news";
+  | "user_news"
+  // Phase 4B B3 (case E, §21): a new residence that may be incompatible with
+  // one Kinship holds, where a wrong pick would show something false. Held:
+  // "Is Susan still in Alameda?" Still there · Susan moved.
+  | "residence_conflict";
 
 export interface PlannedSpan {
   start: number;
@@ -293,6 +310,14 @@ export interface PlannedItem {
    * in it is answered with that same person (founder I13). Code only.
    */
   alone?: string;
+  /** Its residence reading, in the note's own words (Phase 4B B3): written with the line, re-checked by the database. */
+  facets?: ResidenceFacet[];
+  /** The change or correction in the user's words that lets it close a line the user edited (code points; §21). */
+  cue?: { start: number; end: number };
+  /** The residence question it is held for: which line, in that line's own words, and what "Still there" keeps. */
+  still_in?: { target_id: string; words: string; stay: "facet" | "words" };
+  /** How it relates to the residence Kinship holds (evals and tests). Code only; never written or sent. */
+  residence?: Outcome;
 }
 
 /** A name in a line that two or more people go by: asked which one (founder K4). */

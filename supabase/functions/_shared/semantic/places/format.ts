@@ -15,7 +15,9 @@
 //   region:<country>.<admin-1 code>  region:US.CA
 //   city:<GeoNames id>               city:5322737
 
-export const ATTRIBUTION = "Place data from GeoNames (geonames.org), CC BY 4.0";
+import { PLACE_ATTRIBUTION } from "../attribution.ts";
+
+export const ATTRIBUTION = PLACE_ATTRIBUTION;
 export const LICENCE_URL = "https://creativecommons.org/licenses/by/4.0/";
 
 export type Level = "city" | "region" | "country";

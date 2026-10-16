@@ -83,7 +83,8 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "/supabase/",
-      "/scripts/semantic/"
+      "/scripts/semantic/",
+      "/evals/semantic/"
     ]
   },
   "overrides": {

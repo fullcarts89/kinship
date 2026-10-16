@@ -45,3 +45,12 @@ it("never asked: asks", () => {
   s.press(CONTACTS_COPY.allow);
   expect(s.handlers.onAllowContacts).toHaveBeenCalled();
 });
+
+it("About: the place data's attribution, word for word (GeoNames, CC BY 4.0; founder CC-20)", () => {
+  const s = shown({ state: "granted", limited: false });
+  expect(s.strings).toEqual(expect.arrayContaining(["About", "Place data from GeoNames (geonames.org), CC BY 4.0"]));
+  // The same words as the dataset and THIRD_PARTY_NOTICES.md.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const notices = require("fs").readFileSync(require("path").join(__dirname, "../../../../THIRD_PARTY_NOTICES.md"), "utf8") as string;
+  expect(notices).toContain("Place data from GeoNames (geonames.org), CC BY 4.0");
+});

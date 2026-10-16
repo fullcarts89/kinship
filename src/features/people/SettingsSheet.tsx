@@ -9,6 +9,7 @@ import { Alert, AppState, Switch, View } from "react-native";
 import { space } from "@/design/tokens";
 import { CONSENT_COPY } from "@/features/tell/ConsentSheet";
 import { Body, Label, Pill, Sheet, Small, Title, usePalette } from "@/ui";
+import { PLACE_ATTRIBUTION } from "../../../supabase/functions/_shared/semantic/attribution";
 
 export const CONTACTS_COPY = {
   title: "Contacts",
@@ -87,6 +88,9 @@ export function SettingsSheetView(props: {
       <View style={{ alignItems: "flex-start", marginTop: space.s }}>
         <Pill size="small" label="Sign out" onPress={props.onSignOut} />
       </View>
+      {/* Where residence is read from (founder CC-20, decision 1): the licence's attribution, nothing else. */}
+      <Label style={{ marginTop: space.xl }}>About</Label>
+      <Small style={{ marginTop: space.xs }}>{PLACE_ATTRIBUTION}</Small>
     </Sheet>
   );
 }

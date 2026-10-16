@@ -9,6 +9,9 @@
 //                                         was held, checked again by the gateway and
 //                                         written without a model call. Idempotent.
 //   close(captureId)                      close_review: nothing more to look at.
+//   rederive(itemIds)                     the user changed these lines: any that had a residence
+//                                         reading is read again from their own words (model-free,
+//                                         Phase 4B B3; brief §5). Content-free reply.
 //
 // Replies are typed. A refusal is a GatewayRefused (with the gateway's error
 // code); a request that never got an answer is a GatewayUnreachable, which
@@ -65,6 +68,8 @@ export type HeldItem = GatewayItem & {
   person_mentions?: unknown;
   /** Others it is about whose name two or more people share, each asked on its own (founder K4). */
   open_names?: { text: string; candidate_ids: string[]; archived_ids?: string[] }[];
+  /** "Is Susan still in Alameda?" (Phase 4B B3): the line it asks about, in that line's own words for the place. */
+  still_in?: { target_id: string; words: string; stay?: string };
 };
 
 export interface Clarification {
@@ -94,6 +99,8 @@ export interface HeldAnswer {
   accept?: true;
   /** "Which Sam?" for someone else the line is about (founder K4): that name, and who it is. */
   participants?: { text: string; person_id: string }[];
+  /** "Is Susan still in Alameda?" (Phase 4B B3): true for "Susan moved", false for "Still there". */
+  moved?: boolean;
 }
 
 export type Understood =
@@ -123,6 +130,9 @@ export type Answered =
   | { status: "already_resolved" };
 
 export type Closed = { status: "closed" | "nothing_waiting" };
+
+/** Each line asked about: its reading written, unchanged, or dropped (none to read, or refused). */
+export type Rederived = { status: "rederived"; results: { id: string; result: string }[] };
 
 export type GatewayRefusal =
   | "unauthorized"
@@ -227,6 +237,12 @@ export class Gateway {
   async close(captureId: string): Promise<Closed> {
     const body = await this.send({ action: "close_review", input_ref: { capture_id: captureId } });
     if (body.status === "closed" || body.status === "nothing_waiting") return { status: body.status };
+    throw new GatewayRefused("internal_error", 200);
+  }
+
+  async rederive(itemIds: string[]): Promise<Rederived> {
+    const body = await this.send({ action: "rederive", input_ref: { memory_item_ids: itemIds } });
+    if (body.status === "rederived") return { status: "rederived", results: arrayOf<{ id: string; result: string }>(body.results) };
     throw new GatewayRefused("internal_error", 200);
   }
 

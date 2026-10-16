@@ -1,0 +1,9 @@
+{
+  "version": "semantic-v1",
+  "counts": {
+    "residence": 73
+  },
+  "files": {
+    "fixtures/residence.jsonl": "bfc42f97403e9d9ccb277975f6712c960cf6bcbac10fabd77473661c6cd48ba9"
+  }
+}

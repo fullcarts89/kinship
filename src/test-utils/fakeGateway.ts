@@ -14,11 +14,14 @@
 import { GatewayUnreachable, type Clarification, type GatewayTransport, type HeldAnswer, type TransportReply } from "@/store/gateway";
 import type { FakeServer } from "./fakeRemote";
 import { needsAcceptance } from "../../supabase/functions/_shared/extraction/acceptance";
-import { buildInput, type CaptureRow, type ItemRow, type PersonRow, type RelatedRow, withLineNames } from "../../supabase/functions/_shared/extraction/context";
+import { buildInput, type CaptureRow, type FacetRow, type ItemRow, type PersonRow, type RelatedRow, withLineNames } from "../../supabase/functions/_shared/extraction/context";
 import { mentionsOf, type PersonMention } from "../../supabase/functions/_shared/extraction/names";
 import { planExtraction } from "../../supabase/functions/_shared/extraction/pipeline";
 import { resolveHeld, type HeldItem as ResolveHeldItem } from "../../supabase/functions/_shared/extraction/resolve";
 import type { ExtractionInput, ModelProposal } from "../../supabase/functions/_shared/extraction/types";
+import type { PlaceIndex } from "../../supabase/functions/_shared/semantic/placeIndex";
+import { residenceEligible } from "../../supabase/functions/_shared/semantic/residence";
+import { type LineToRead, rederive } from "../../supabase/functions/_shared/semantic/rederive";
 
 export interface ScriptedItem {
   kind: string;
@@ -74,6 +77,8 @@ export class FakeGateway implements GatewayTransport {
   onCall: (() => void) | null = null;
   /** Holds every request until it resolves: a slow network. */
   pause: Promise<void> | null = null;
+  /** Place data for residence readings (Phase 4B B3): the gateway's own; tests hand it a small fixture. */
+  places: PlaceIndex | null = null;
 
   constructor(
     private readonly server: FakeServer,
@@ -89,7 +94,7 @@ export class FakeGateway implements GatewayTransport {
     this.proposals.set(note, reply);
   }
 
-  private rows<T>(table: "people" | "related_people" | "memory_items"): T[] {
+  private rows<T>(table: "people" | "related_people" | "memory_items" | "memory_item_facets"): T[] {
     return [...this.server.table(table).values()].filter((r) => r.user_id === this.userId && !r.deleted_at) as unknown as T[];
   }
 
@@ -101,13 +106,19 @@ export class FakeGateway implements GatewayTransport {
     };
     // As the gateway loads them: each person with the words their own lines use for them (founder I12).
     const people = withLineNames(this.rows<PersonRow>("people"), this.rows<{ person_mentions?: unknown }>("memory_items"));
-    const input = buildInput(capture, people, this.rows<RelatedRow>("related_people"), this.rows<ItemRow>("memory_items"));
+    // The safety net (§5): a line that lost its reading to an edit nobody reported is read again first.
+    if (this.places) this.reread(this.rows<{ id: string }>("memory_items").map((m) => m.id));
+    const facets = this.places ? this.rows<FacetRow>("memory_item_facets") : [];
+    const input = {
+      ...buildInput(capture, people, this.rows<RelatedRow>("related_people"), this.rows<ItemRow>("memory_items"), facets),
+      ...(this.places ? { places: this.places } : {}),
+    };
     const outcome = planExtraction(input, reply(input));
     return { items: [], clarification: outcome.clarification, planned: outcome.items as unknown as Record<string, unknown>[], known: outcome.known };
   }
 
   async post(body: Record<string, unknown>): Promise<TransportReply> {
-    const kind = body.action === "close_review" ? "close" : body.action === "resolve_review" ? "answer" : "understand";
+    const kind = body.action === "close_review" ? "close" : body.action === "resolve_review" ? "answer" : body.action === "rederive" ? "rederive" : "understand";
     this.calls.push(kind);
     this.onCall?.();
     if (this.pause) await this.pause;
@@ -131,7 +142,12 @@ export class FakeGateway implements GatewayTransport {
 
   // ─── The gateway's behaviour ──────────────────────────────────────────
 
-  private handle(kind: "close" | "answer" | "understand", body: Record<string, unknown>): TransportReply {
+  private handle(kind: "close" | "answer" | "understand" | "rederive", body: Record<string, unknown>): TransportReply {
+    if (kind === "rederive") {
+      const ids = (body.input_ref as Record<string, unknown> | undefined)?.memory_item_ids;
+      if (!Array.isArray(ids) || ids.length === 0 || ids.length > 20) return refuse(400, "invalid_request");
+      return ok({ status: "rederived", results: this.reread(ids as string[]) });
+    }
     const captureId = String((body.input_ref as Record<string, unknown> | undefined)?.capture_id ?? "");
     if (kind === "close") {
       const capture = this.capture(captureId);
@@ -282,13 +298,21 @@ export class FakeGateway implements GatewayTransport {
     for (const np of r.newPeople) {
       created[np.ref] = this.writeNew("people", { display_name: np.display_name, state: "active", relationship_label: np.relationship_label ?? null });
     }
+    // "Susan moved" may close the line the stored question asked about (resolve_capture_review, §21 b).
+    const sig = (spans: unknown) => (Array.isArray(spans) ? spans as { start: number; end: number }[] : [])
+      .map((x) => `${x.start}-${x.end}`).sort().join(",");
+    const answered = r.items.filter((it) => it.action.type === "supersede" && it.detail?.transition === "changed" &&
+      review.items.some((h) => Array.isArray(h.flags) && (h.flags as string[]).includes("residence_conflict") &&
+        (h.still_in as { target_id?: string } | undefined)?.target_id === it.action.target_id && h.person_id === it.person_id &&
+        sig(h.spans) === sig(it.spans)))
+      .map((it) => it.action.target_id!);
     const out: Record<string, unknown>[] = [];
     for (const it of r.items) {
       const personId = it.person_id.startsWith("new:") ? created[it.person_id] : it.person_id;
       // Words for someone added in this answer name them by their new id (resolve_capture_review).
       const words = (it.person_mentions ?? []).map((m) => (m.person_id?.startsWith("new:") ? { ...m, person_id: created[m.person_id] ?? m.person_id } : m));
       const resolved = { ...it, person_id: personId, ...(words.length ? { person_mentions: words } : {}) };
-      out.push({ ...resolved, id: this.writeItem(captureId, resolved as unknown as Record<string, unknown>), action: it.action.type });
+      out.push({ ...resolved, id: this.writeItem(captureId, resolved as unknown as Record<string, unknown>, answered), action: it.action.type });
     }
     this.reviews.delete(captureId);
     this.settle(captureId);
@@ -321,7 +345,67 @@ export class FakeGateway implements GatewayTransport {
     };
   }
 
-  private writeItem(captureId: string, p: Record<string, unknown>): string {
+  /**
+   * Re-derivation (rederive.ts, as the gateway runs it) and write_facets' re-checks: of these lines, each that
+   * had a residence reading and has none now is read again from the user's own words. Per line, the result.
+   */
+  readonly rereads: string[] = [];
+  private reread(ids: string[]): { id: string; result: string }[] {
+    if (!this.places) return [];
+    const facets = [...this.server.table("memory_item_facets").values()].filter((f) => f.user_id === this.userId);
+    const out: { id: string; result: string }[] = [];
+    for (const itemId of ids) {
+      const mine = facets.filter((f) => f.memory_item_id === itemId && f.slot === "residence");
+      if (!mine.length || mine.some((f) => !f.deleted_at)) continue;
+      const m = this.server.table("memory_items").get(itemId);
+      if (!m || m.user_id !== this.userId || m.deleted_at || m.status === "retracted") continue;
+      const quotes = [...this.server.table("memory_item_sources").values()]
+        .filter((q) => q.memory_item_id === itemId && !q.deleted_at && typeof q.quote === "string").map((q) => String(q.quote));
+      const w = rederive(m as unknown as LineToRead, quotes, this.places);
+      const f = w?.facets[0];
+      if (!w || !f) continue;
+      const own = ["edited", "user_authored"].includes(String(m.user_state)) ? String(m.statement).includes(f.value_text) : quotes.some((q) => q.includes(f.value_text));
+      if (!own) {
+        out.push({ id: itemId, result: "dropped" });
+        continue;
+      }
+      this.rereads.push(itemId);
+      this.server.serverWrite("memory_item_facets", id("b"), this.userId, { memory_item_id: itemId, ...f, deleted_at: null });
+      out.push({ id: itemId, result: "written" });
+    }
+    return out;
+  }
+
+  /**
+   * May this item close `target`, a line the user edited or wrote (§21)? A
+   * residence line closed on a change or correction cue in the note's own
+   * characters inside the item's span, or the stored question's "Susan
+   * moved" (edited_line_closure_ok, 20261016090000).
+   */
+  private editedLineClosure(captureId: string, p: Record<string, unknown>, target: Record<string, unknown>, answered: string[]): boolean {
+    const transition = (p.detail as Record<string, unknown> | undefined)?.transition;
+    if (transition !== "changed" && transition !== "corrected") return false;
+    const facets = Array.isArray(p.facets) ? p.facets as { slot?: string }[] : [];
+    if (!residenceEligible(p as never) || !facets.some((f) => f.slot === "residence")) return false;
+    const facet = [...this.server.table("memory_item_facets").values()]
+      .find((f) => f.memory_item_id === target.id && f.user_id === this.userId && !f.deleted_at);
+    if (!facet || target.kind !== "fact" || (Array.isArray(target.with_person_ids) && target.with_person_ids.length)) return false;
+    if (transition === "changed" && answered.includes(String(target.id))) return true;
+    const cue = p.cue as { start?: number; end?: number } | undefined;
+    const spans = (p.spans as { start: number; end: number }[]) ?? [];
+    if (!cue || typeof cue.start !== "number" || typeof cue.end !== "number" || cue.end <= cue.start) return false;
+    if (!spans.some((sp) => cue.start! >= sp.start && cue.end! <= sp.end)) return false;
+    const words = Array.from(String(this.capture(captureId)?.raw_text ?? "")).slice(cue.start, cue.end).join("").replace(/\s+/gu, " ").trim().toLowerCase();
+    if (transition === "changed") {
+      return /^((has|have|had|just|recently|finally|since) )*(moved|relocated)( back)?( from [^.,;:!?]{1,60})? to$/u.test(words) ||
+        /^now (lives|living|resides|residing|is based|based|is living) in$/u.test(words) ||
+        /^(lives|live|living|resides|reside|residing|is based|are based|based|is living|are living) in .{1,100} now$/u.test(words);
+    }
+    return /^(actually|i was wrong|i meant|correction)$/u.test(words) ||
+      (/^not /u.test(words) && words.includes(String(facet.value_text).toLowerCase()));
+  }
+
+  private writeItem(captureId: string, p: Record<string, unknown>, answered: string[] = []): string {
     // The gateway's write rules (write_extraction): merge adds a source to the
     // existing item; supersede writes a new item that replaces the old one
     // (kept, marked superseded, a fact's valid_to set); resolves closes an
@@ -331,7 +415,9 @@ export class FakeGateway implements GatewayTransport {
     const target = action.target_id ? this.server.table("memory_items").get(action.target_id) : undefined;
     let type = action.type ?? "new";
     if (type !== "new" && (!target || target.deleted_at || target.user_id !== this.userId
-      || ["edited", "user_authored"].includes(String(target.user_state)) || target.person_id !== p.person_id
+      || (["edited", "user_authored"].includes(String(target.user_state)) &&
+        !(type === "supersede" && this.editedLineClosure(captureId, p, target, answered)))
+      || target.person_id !== p.person_id
       || target.subject_type !== p.subject_type
       || (type === "merge" && (target.kind !== p.kind || target.status !== "active"))
       || (type === "supersede" && !["active", "resolved"].includes(String(target.status)))
@@ -388,6 +474,16 @@ export class FakeGateway implements GatewayTransport {
       this.writeNew("memory_item_sources", {
         memory_item_id: itemId, capture_id: captureId, source_kind: "capture",
         span_start: s.start, span_end: s.end, quote: s.quote, meta: null, deleted_at: null,
+      });
+    }
+    // Its residence reading: only on a line written as new that may carry one, in its own words (write_extraction).
+    const facet = Array.isArray(p.facets) ? (p.facets as Record<string, unknown>[]).find((f) => f.slot === "residence") : undefined;
+    if (facet && type !== "merge" && residenceEligible(p as never) &&
+        (p.spans as { quote: string }[]).some((sp) => sp.quote.includes(String(facet.value_text)))) {
+      this.server.serverWrite("memory_item_facets", id("b"), this.userId, {
+        memory_item_id: itemId, slot: "residence", value_text: facet.value_text, value_norm: facet.value_norm,
+        place_ref: facet.place_ref ?? null, candidates: facet.candidates ?? [], usual_ref: facet.usual_ref ?? null,
+        decided_by: facet.decided_by, rule_version: facet.rule_version, dataset_version: facet.dataset_version ?? null, deleted_at: null,
       });
     }
     return itemId;

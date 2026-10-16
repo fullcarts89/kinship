@@ -4,10 +4,16 @@ Two corpora:
 - **Categorization** (B1, built): `fixtures/categories.json`, run free in CI. See the last section.
 - **Residence** for semantic v1 (`KINSHIP_2_DECISIONS.md` CC-19, CC-20; `docs/product/phase4-implementation-brief.md` §8–§15), below.
 
-- **Seeded before the runner exists**, so it fixes the expected behaviour first. The runner arrives with the residence code (brief B3):
-  - it pushes each sequence through `residence.ts` → `relate.ts` → the write rules → `compose.ts`, with fixture place data;
-  - it is free and runs in CI.
-- **Fixtures are written by hand from patterns, never taken from real users' data.**
+- **The runner** (B3, built): `residence.test.ts`, free, in CI:
+  ```sh
+  deno run -A --config evals/deno.json evals/semantic/manifest.ts          # the fixtures match MANIFEST.json
+  deno test --allow-read --config evals/deno.json evals/semantic
+  ```
+  - Each sequence runs the gateway's own code: the fixture's item as a correct model's proposal → `planExtraction` (with `residence.ts`, `relate.ts` and the committed `places-2026.10`) → the held question and `resolveHeld` when it asks → the database's write rules (`write_extraction`, `resolve_capture_review` and Undo's restore, as the migrations make them; pgTAP proves the database itself).
+  - A page is read the way B5's composition will (§9): current lines that contain each other are one line in their own words, anything else its own line; a closed line is history only when its closer records a change. That reading is the corpus's expectation of `compose.ts`, which B5 builds; it is test code.
+  - What a later step delivers is listed in the runner's `DEFERRED` and reported, never silently skipped (B4's second closure, re-derivation after an edit). Portraits (B7) aren't checked yet.
+  - A fixture change needs `manifest.ts --write` (a reviewed change).
+- **Fixtures are written by hand from patterns, never taken from real users' data.** 29 were seeded before B3; B3 added 19 (the Pilsen finding, the §21 rows, stays, "doesn't live in", two people, lower case, "moved from … to") and changed four (res-012/013: "Susan moved"; res-025: §21; res-027: the Pilsen rule). See brief §22.
 
 ## Format: `fixtures/residence.jsonl`, one sequence per line
 
@@ -24,7 +30,7 @@ Two corpora:
   - `note`: the user's words;
   - `item`: what the model proposes, as perfect proposals in oracle mode;
     - `statement` and `evidence`; `evidence` is a substring of the note;
-    - defaults: kind `fact`, category `home`, subject `person`, certainty `stated`;
+    - defaults: kind `fact`, category `home`, subject `person`, certainty `stated`, about the first of `people` (`person` names another);
     - optional: `kind`, `certainty`, `subject` + `related`, `with` (other people in People: a shared line);
   - `model`: optional, the model's own merge / supersede proposal (`{action, target: step}`). It only matters for places outside the place data;
   - `protect: true`: the user then edits the line, so it is protected;
@@ -37,7 +43,7 @@ Two corpora:
 - `outcome`: `NEW`, `SAME`, `REFINES`, `SUPERSEDES` or `CONFLICT`;
 - `closes`: the steps whose lines it closes, the most specific first;
 - `transition`: `changed`, `corrected` or `null` (replaced as current truth only);
-- `question` and `choices`, for a CONFLICT;
+- `question` and `choices`, for a CONFLICT (the words are `_shared/semantic/questions.ts`'s); `after_answer.facet`, whether the line keeps its reading once answered;
 - `value_text`, `resolved`, `candidates`, for the place reading.
 
 **A page's expectations:**
