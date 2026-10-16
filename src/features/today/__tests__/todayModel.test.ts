@@ -2,7 +2,7 @@
 // a valid answer; quiet lines are at most two, from different people; the
 // return check is there as soon as the user is back, with its reason; copy is
 // templates plus the user's own words.
-import { buildToday, evidenceOf, relativeDay, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
+import { buildToday, evidenceOf, pageReasonFor, relativeDay, returnViewFor, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
 import type { MemoryItem, Person } from "@/store/repositories";
 
 const NOW = new Date(2026, 9, 12, 9, 0); // Monday Oct 12, 9am local
@@ -342,8 +342,6 @@ describe("K20: what the user means to do today is on Today, however it was kept 
 });
 
 describe("K23: Message or Call from a person's page gets the same return question (founder, 14 Oct)", () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { pageReasonFor, returnViewFor } = require("../todayModel") as typeof import("../todayModel");
   const john = { id: "john", display_name: "John", state: "active" } as unknown as Person;
   const own = (id: string, kind: string, detail: Record<string, unknown>, over: Partial<MemoryItem> = {}) =>
     item(id, { kind: kind as MemoryItem["kind"], person_id: "john", subject_type: "user", statement: `You said ${id}`, detail, ...over });
@@ -379,5 +377,37 @@ describe("K23: Message or Call from a person's page gets the same return questio
     expect(returnViewFor({ ...h, answered: "yes" }, john, NOW)).toBeNull();
     expect(returnViewFor(h, { ...john, state: "paused" } as Person, NOW)).toBeNull();
     expect(returnViewFor(h, john, new Date(NOW.getTime() + 73 * 3_600_000))).toBeNull();
+  });
+});
+
+describe("H4: once the first Tell is memory, Today shows how Kinship brings things back (founder CC-17, CC-20)", () => {
+  const maya = { id: "maya", display_name: "Maya Okafor", state: "active" } as unknown as Person;
+  const ACTIVATED = new Date(2026, 9, 12, 8, 55).toISOString();
+  const told = new Date(2026, 9, 12, 8, 54).toISOString();
+  const job = item("job", { person_id: "maya", statement: "Maya starts her new job on Monday", created_at: told,
+    detail: { date: "2026-10-19", date_precision: "day", event_type: "job_start", followup_policy: "after" } });
+  const fact = item("fact", { kind: "fact", person_id: "maya", statement: "Maya loves pottery", created_at: told, detail: { category: "interest" } });
+  const view = (items: MemoryItem[], bringBack: TodayInput["bringBack"]) =>
+    buildToday(input({ items, people: [...people, maya], reasons: [], bringBack })).bringBack;
+
+  it("with the user's own first Tell when it has a day still to come: their words, when it comes back, the question after", () => {
+    expect(view([job], { activatedAt: ACTIVATED, seen: false })).toEqual({
+      kind: "own", personId: "maya", personName: "Maya", statement: "Maya starts her new job on Monday", day: "2026-10-19", when: "Around Mon, Oct 19",
+    });
+    const soon = { ...job, detail: { ...job.detail, date: "2026-10-14" } };
+    expect(view([soon], { activatedAt: ACTIVATED, seen: false })).toMatchObject({ kind: "own", when: "Around Wednesday" });
+  });
+
+  it("else the one grounded example: a first Tell with no day, a past day, or lines told long before", () => {
+    expect(view([fact], { activatedAt: ACTIVATED, seen: false })).toEqual({ kind: "example" });
+    expect(view([{ ...job, detail: { ...job.detail, date: "2026-10-01" } }], { activatedAt: ACTIVATED, seen: false })).toEqual({ kind: "example" });
+    expect(view([{ ...job, created_at: "2026-09-01T10:00:00Z" }], { activatedAt: ACTIVATED, seen: false })).toEqual({ kind: "example" });
+  });
+
+  it("once: never after Got it, before the first Tell is memory, or for an account long in use", () => {
+    expect(view([job], { activatedAt: ACTIVATED, seen: true })).toBeNull();
+    expect(view([job], { activatedAt: null, seen: false })).toBeNull();
+    expect(view([job], { activatedAt: "2026-10-01T10:00:00Z", seen: false })).toBeNull();
+    expect(view([job], undefined)).toBeNull();
   });
 });

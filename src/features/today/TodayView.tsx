@@ -37,6 +37,8 @@ export interface TodayViewProps {
   onTellFirst?: () => void;
   /** First use with no one here: bring people in. */
   onAddPeople?: () => void;
+  /** "Got it" on how Kinship brings things back (founder H4): never shown again. */
+  onBringBackSeen?: () => void;
   /**
    * Today's reasons are still being refreshed (at most 1.5 s after opening):
    * hold the empty states, so "Nothing needs you today" never flashes before
@@ -53,6 +55,25 @@ export const FIRST_USE_COPY = {
   tell: "Tell Kinship one thing",
   add: "Add your people",
   addMore: "Add more people",
+} as const;
+
+/**
+ * How Kinship brings things back, once, after the first Tell (founder H4; CC-17, CC-20): the approved line,
+ * then the loop as it really runs, with the user's own words when their first Tell has a day to come.
+ */
+export const BRING_BACK_COPY = {
+  title: "This is where Kinship brings things back, when they matter.",
+  told: "You told Kinship",
+  back: "Kinship brings it back here, with Message and Call.",
+  after: "When you're back",
+  ask: (name: string) => `Did you reach ${name}?`,
+  example: "An example",
+  exampleTold: "You tell Kinship",
+  exampleNote: "Ben runs Chicago Sunday and hopes to break four hours.",
+  exampleWhen: "The day after",
+  exampleBack: "It comes back here: “How did it go for Ben?”",
+  exampleAsk: "Did you ask Ben how it went?",
+  done: "Got it",
 } as const;
 
 /** Today's headline while a note just told is on screen (founder K19): never a bare header. */
@@ -138,6 +159,8 @@ export function TodayView(props: TodayViewProps) {
             )}
           </View>
         </View>
+      ) : view.bringBack && !props.afterReturn ? (
+        <BringBack view={view.bringBack} onDone={props.onBringBackSeen} />
       ) : view.waiting && !props.afterReturn ? (
         <View style={{ marginTop: space.x4 }}>
           <Display>{view.waiting === "one" ? "One thing to check." : "A few things to check."}</Display>
@@ -166,5 +189,37 @@ export function TodayView(props: TodayViewProps) {
         </View>
       ) : null}
     </Screen>
+  );
+}
+
+/** H4: the loop, once, in three quiet rows (no carousel, no motion), then "Got it". */
+function BringBack({ view, onDone }: { view: NonNullable<TodayData["bringBack"]>; onDone?: () => void }) {
+  const rows = view.kind === "own"
+    ? [
+      { label: BRING_BACK_COPY.told, text: view.statement },
+      { label: view.when, text: BRING_BACK_COPY.back },
+      { label: BRING_BACK_COPY.after, text: BRING_BACK_COPY.ask(view.personName) },
+    ]
+    : [
+      { label: BRING_BACK_COPY.exampleTold, text: BRING_BACK_COPY.exampleNote },
+      { label: BRING_BACK_COPY.exampleWhen, text: BRING_BACK_COPY.exampleBack },
+      { label: BRING_BACK_COPY.after, text: BRING_BACK_COPY.exampleAsk },
+    ];
+  return (
+    <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
+      <Display>{BRING_BACK_COPY.title}</Display>
+      {view.kind === "example" ? <Small style={{ marginTop: space.m }}>{BRING_BACK_COPY.example}</Small> : null}
+      <View style={{ marginTop: view.kind === "example" ? space.s : space.l, gap: space.m }}>
+        {rows.map((r) => (
+          <View key={r.label} accessible accessibilityLabel={`${r.label}: ${r.text}`}>
+            <Label>{r.label}</Label>
+            <Body tone="ink" style={{ marginTop: space.xs }}>{r.text}</Body>
+          </View>
+        ))}
+      </View>
+      <View style={{ alignItems: "flex-start", marginTop: space.l }}>
+        <Pill variant="quiet" label={BRING_BACK_COPY.done} onPress={() => onDone?.()} />
+      </View>
+    </View>
   );
 }

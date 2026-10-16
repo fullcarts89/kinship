@@ -142,3 +142,43 @@ it("the account's own record is honoured on a new phone, before any sync", async
   await account(undefined, undefined, { kinship_activation: JSON.parse(record(["name"])) });
   expect(await open()).toBe("setup");
 });
+
+// H4 (founder CC-17, CC-20): right after the first Tell becomes memory, Today shows once how Kinship brings
+// things back, with the user's own first Tell when it has a day to come, else the one example. Never a void,
+// never a carousel; "Got it" and it's gone.
+it("after the first Tell, a new user sees how Kinship brings things back, once", async () => {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { buildToday } = require("@/features/today/todayModel") as typeof import("@/features/today/todayModel");
+  const { TodayView, BRING_BACK_COPY } = require("@/features/today/TodayView") as typeof import("@/features/today/TodayView");
+  const { Text } = require("react-native") as typeof import("react-native");
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  const now = new Date(2026, 9, 12, 9, 0);
+  const activatedAt = new Date(2026, 9, 12, 8, 55).toISOString();
+  const maya = { id: "maya", display_name: "Maya Okafor", state: "active" };
+  const job = {
+    id: "job", kind: "event", person_id: "maya", statement: "Maya starts her new job on Monday", status: "active", sensitivity: "none",
+    certainty: "stated", user_state: "unreviewed", subject_type: "person", created_at: new Date(2026, 9, 12, 8, 54).toISOString(),
+    detail: { date: "2026-10-19", date_precision: "day", event_type: "job_start", followup_policy: "after" },
+  };
+  const shown = (items: unknown[], seen: boolean) => {
+    const view = buildToday({
+      now, today: "2026-10-12", reasons: [], items: items as never, people: [maya] as never, local: {}, primaries: [], handoff: null,
+      told: 1, activated: true, questions: 0, toLookAt: 0, provenance: () => null, bringBack: { activatedAt, seen },
+    });
+    const done: string[] = [];
+    let r!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      r = TestRenderer.create(<TodayView view={view} afterReturn={null} onPrimary={() => undefined} onNotNow={() => undefined}
+        onProvenance={() => undefined} onReturn={() => undefined} onRemember={() => undefined} onNothing={() => undefined}
+        onQuiet={() => undefined} onBringBackSeen={() => done.push("seen")} />);
+    });
+    return { texts: r.root.findAllByType(Text).map((t) => [t.props.children].flat().join("")), r, done };
+  };
+  const own = shown([job], false);
+  expect(own.texts).toEqual(expect.arrayContaining([BRING_BACK_COPY.title, "Maya starts her new job on Monday", BRING_BACK_COPY.ask("Maya"), BRING_BACK_COPY.done]));
+  const gotIt = own.r.root.findAll((n) => n.props.accessibilityLabel === BRING_BACK_COPY.done && typeof n.props.onPress === "function")[0];
+  act(() => gotIt.props.onPress());
+  expect(own.done).toEqual(["seen"]);
+  expect(shown([], false).texts).toEqual(expect.arrayContaining([BRING_BACK_COPY.title, BRING_BACK_COPY.example]));
+  expect(shown([job], true).texts).not.toContain(BRING_BACK_COPY.title);
+});

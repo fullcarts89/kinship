@@ -80,8 +80,11 @@ export async function signedIn(device: { statementMs?: number; networkMs?: numbe
   return { client, userId, store, engine, repos: repositoriesFor(store) };
 }
 
-/** Setup as a new user does it: their name, Allow understanding, each person added by name, then Today. */
-export async function setUp(r: TestRenderer.ReactTestRenderer, people: string[]) {
+/**
+ * Setup as a new user does it: their name, Allow understanding, each person added by name, then the first
+ * Tell (skipped unless `firstTell` is given: then typed and kept, as a new user does), then Today.
+ */
+export async function setUp(r: TestRenderer.ReactTestRenderer, people: string[], firstTell?: string) {
   await until(r, () => canTap(r, SETUP_COPY.continue) || canTap(r, SETUP_COPY.notNow), "setup's first step");
   await type(r, new RegExp(`^${SETUP_COPY.nameHint}$`, "u"), "Thor");
   await tap(r, SETUP_COPY.continue);
@@ -95,7 +98,10 @@ export async function setUp(r: TestRenderer.ReactTestRenderer, people: string[])
   }
   await tap(r, SETUP_COPY.continueN(people.length));
   await until(r, () => canTap(r, SETUP_COPY.skip), "the last setup step");
-  await tap(r, SETUP_COPY.skip);
+  if (firstTell) {
+    await type(r, /^Tell Kinship one thing about someone\.$/u, firstTell);
+    await tap(r, SETUP_COPY.keep);
+  } else await tap(r, SETUP_COPY.skip);
   await until(r, () => harness.pushes.includes("/v2"), "setup to finish");
   start = { screen: "today" };
   await show(r, { screen: "today" });

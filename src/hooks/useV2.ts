@@ -422,8 +422,10 @@ export function useToday(
       now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
       handoff: local.handoff, told, questions, toLookAt, provenance, quotes, contacts,
       activated: activation.activated, firstName: activation.firstName, pending, dataKnown,
+      bringBack: { activatedAt: activation.activation?.activated_at ?? null, seen: !!activation.activation?.bring_back_at },
     });
-  }, [questions, toLookAt, minute, activation.activated, activation.firstName, activation.activation === null, JSON.stringify(pending ?? null)]);
+  }, [questions, toLookAt, minute, activation.activated, activation.firstName, activation.activation === null,
+    activation.activation?.activated_at, activation.activation?.bring_back_at, JSON.stringify(pending ?? null)]);
   return q.data ?? null;
 }
 

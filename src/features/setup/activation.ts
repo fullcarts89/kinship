@@ -26,6 +26,8 @@ export interface Activation {
   steps: Partial<Record<ActivationStep, string>>;
   /** When the first Tell became memory; null until then. */
   activated_at: string | null;
+  /** When the user had seen how Kinship brings things back, once, after their first Tell (founder H4). */
+  bring_back_at?: string | null;
 }
 
 export const NO_ACTIVATION: Activation = { v: 1, steps: {}, activated_at: null };
@@ -43,7 +45,7 @@ export function parseActivation(raw: unknown): Activation | null {
     }
   }
   if (!v || typeof v !== "object") return null;
-  const o = v as { steps?: unknown; activated_at?: unknown };
+  const o = v as { steps?: unknown; activated_at?: unknown; bring_back_at?: unknown };
   const steps: Activation["steps"] = {};
   if (o.steps && typeof o.steps === "object") {
     for (const s of STEPS) {
@@ -51,7 +53,9 @@ export function parseActivation(raw: unknown): Activation | null {
       if (typeof at === "string" && at) steps[s] = at;
     }
   }
-  return { v: 1, steps, activated_at: typeof o.activated_at === "string" && o.activated_at ? o.activated_at : null };
+  const out: Activation = { v: 1, steps, activated_at: typeof o.activated_at === "string" && o.activated_at ? o.activated_at : null };
+  if (typeof o.bring_back_at === "string" && o.bring_back_at) out.bring_back_at = o.bring_back_at;
+  return out;
 }
 
 function earliest(a: string | null | undefined, b: string | null | undefined): string | null {
@@ -69,7 +73,10 @@ export function mergeActivation(a: Activation | null, b: Activation | null): Act
     const at = earliest(a.steps[s], b.steps[s]);
     if (at) steps[s] = at;
   }
-  return { v: 1, steps, activated_at: earliest(a.activated_at, b.activated_at) };
+  const out: Activation = { v: 1, steps, activated_at: earliest(a.activated_at, b.activated_at) };
+  const seen = earliest(a.bring_back_at, b.bring_back_at);
+  if (seen) out.bring_back_at = seen;
+  return out;
 }
 
 /** Records a finished step; recording it again changes nothing. */
@@ -82,6 +89,12 @@ export function withStep(a: Activation | null, step: ActivationStep, at: string)
 export function withActivated(a: Activation | null, at: string): Activation {
   const base = a ?? NO_ACTIVATION;
   return base.activated_at ? base : { ...base, activated_at: at };
+}
+
+/** "Got it" on how Kinship brings things back (H4): shown once, on every phone. */
+export function withBringBack(a: Activation | null, at: string): Activation {
+  const base = a ?? NO_ACTIVATION;
+  return base.bring_back_at ? base : { ...base, bring_back_at: at };
 }
 
 export function sameActivation(a: Activation | null, b: Activation | null): boolean {
