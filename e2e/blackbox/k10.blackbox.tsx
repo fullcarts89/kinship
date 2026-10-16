@@ -39,5 +39,8 @@ it("K10: '…yesterday' then '…last Friday': what is remembered, and on which 
   // What the review promised for "last Friday" is what's kept: Fri 9 Oct, its own line, never merged into Mon 12.
   expect(second).toContain("Ben · By Fri, Oct 9");
   const live = rows.filter((x) => x[1] === "active" && !x[2]);
-  expect(live.map((x) => [x[3], x[4]]).sort()).toEqual([["2026-10-09", "last Friday"], ["2026-10-12", "yesterday"]]);
+  // "Yesterday" is the day before the run (the test was written on 13 Oct, when it was Mon 12 Oct).
+  const y = new Date(Date.now() - 86_400_000);
+  const yesterday = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, "0")}-${String(y.getDate()).padStart(2, "0")}`;
+  expect(live.map((x) => [x[3], x[4]]).sort()).toEqual([["2026-10-09", "last Friday"], [yesterday, "yesterday"]].sort());
 });
