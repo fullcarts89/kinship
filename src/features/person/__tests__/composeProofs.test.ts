@@ -310,3 +310,135 @@ describe("B5 step 8: the composer on What Kinship knows (brief §9)", () => {
     expect(seen.sort()).toEqual(["Susan lives in Alameda", "Susan lives in California"]);
   });
 });
+
+describe("B5 step 9: a member edited, removed, replaced or restored reads the line again (brief §12)", () => {
+  /** Two notes, "Lives in Alameda, California", and the lines' server ids. */
+  async function twoNotes(w: World) {
+    await kept(w, "Susan lives in California.", "Susan lives in California");
+    w.server.clock += 36 * 3600 * 1000;
+    await kept(w, "Susan lives in Alameda.", "Susan lives in Alameda");
+    const lines = await knows(w);
+    expect(shown(lines)).toEqual(["Lives in Alameda, California"]);
+    return { alameda: String((await serverLine(w, "Susan lives in Alameda")).id), california: String((await serverLine(w, "Susan lives in California")).id), before: composedOf(lines) };
+  }
+
+  it("(10) edit a member's words: Alameda → Oakland reads 'Lives in Oakland, California' once the edit is read again; unknown words fail open", async () => {
+    const w = await world();
+    const { alameda } = await twoNotes(w);
+    await w.understanding.correct(alameda, { statement: "Susan lives in Oakland" });
+    await w.understanding.run();
+    await w.engine.sync();
+    const lines = await knows(w);
+    expect(shown(lines)).toEqual(["Lives in Oakland, California"]);
+    const c = composedOf(lines);
+    expect(c.composed!.members.map((m) => [m.row.line.statement, m.row.line.edited])).toEqual([["Susan lives in Oakland", true], ["Susan lives in California", false]]);
+    expect(c.composed!.members[0].row.line.editedFrom).toBe("Susan lives in Alameda");
+    expect(c.provenance).toMatch(/^Edited by you · Oct \d+ · from your note, Oct \d+$/u);
+    // Words the data doesn't know: the edited line stands alone, the other too (fail open), nothing invented.
+    await w.understanding.correct(alameda, { statement: "Susan lives in the East Bay" });
+    await w.understanding.run();
+    await w.engine.sync();
+    expect(shown(await knows(w)).sort()).toEqual(["Susan lives in California", "Susan lives in the East Bay"]);
+  });
+
+  it("(10b) between the edit and its re-reading, two lines (fail open); the next Tell reads it and the line composes again", async () => {
+    const w = await world();
+    const { alameda } = await twoNotes(w);
+    w.gateway.failNext = { status: 503, error: "try_later" };
+    await w.understanding.correct(alameda, { statement: "Susan lives in Oakland" });
+    await w.understanding.run();
+    await w.engine.sync();
+    expect(shown(await knows(w)).sort()).toEqual(["Susan lives in California", "Susan lives in Oakland"]);
+    await kept(w, "Susan loves pottery.", "Susan loves pottery");
+    expect(shown(await knows(w))).toEqual(["Susan loves pottery", "Lives in Oakland, California"]);
+  });
+
+  it("(11) Not this on California: 'Susan lives in Alameda' stands alone, its own provenance; on Alameda: California's", async () => {
+    const w = await world();
+    const { alameda, california } = await twoNotes(w);
+    await w.understanding.reject(california);
+    await w.engine.sync();
+    let lines = await knows(w);
+    expect(lines.map((l) => [l.line.statement, !!l.composed])).toEqual([["Susan lives in Alameda", false]]);
+    expect(lines[0].provenance).toMatch(/^You told Kinship · Oct \d+$/u);
+    await w.understanding.reject(alameda);
+    await w.engine.sync();
+    lines = await knows(w);
+    expect(lines).toEqual([]);
+    const other = await world();
+    const ids = await twoNotes(other);
+    await other.understanding.reject(ids.alameda);
+    await other.engine.sync();
+    expect((await knows(other)).map((l) => [l.line.statement, !!l.composed])).toEqual([["Susan lives in California", false]]);
+  });
+
+  it("(12) California → Alameda → 'moved to Colorado' → exact Undo: the composed line is back, the same members, their lineage intact", async () => {
+    const w = await world();
+    const { alameda, california, before } = await twoNotes(w);
+    const colorado = await kept(w, "Susan moved to Colorado.", "Susan moved to Colorado");
+    const closed = await knows(w);
+    expect(shown(closed)).toEqual(["Susan moved to Colorado"]);
+    expect(closed[0].line.replaces).toEqual(["Susan lives in Alameda", "Susan lives in California"]);
+    expect(JSON.stringify(closed)).not.toMatch(/Lives in/u);
+    await w.understanding.undo(colorado);
+    await w.understanding.run();
+    await w.engine.sync();
+    const back = await knows(w);
+    expect(shown(back)).toEqual(["Lives in Alameda, California"]);
+    const c = composedOf(back);
+    // The very same lines (never re-created), their readings never touched, their provenance as before.
+    expect(c.composed!.memberIds).toEqual([alameda, california]);
+    expect(c.composed!.memberIds).toEqual(before.composed!.memberIds);
+    expect(c.provenance).toBe(before.provenance);
+    expect(c.composed!.members.map((m) => m.row.provenance)).toEqual(before.composed!.members.map((m) => m.row.provenance));
+    expect([...w.server.table("memory_items").values()].filter((m) => !m.deleted_at).map((m) => [m.statement, m.status]).sort())
+      .toEqual([["Susan lives in Alameda", "active"], ["Susan lives in California", "active"]]);
+  });
+
+  it("(12b) 'Not this' on the closer in What Kinship knows brings the composed line back the same way", async () => {
+    const w = await world();
+    const { alameda, california } = await twoNotes(w);
+    await kept(w, "Susan moved to Colorado.", "Susan moved to Colorado");
+    const closer = String((await serverLine(w, "Susan moved to Colorado")).id);
+    await w.understanding.reject(closer);
+    await w.engine.sync();
+    const back = await knows(w);
+    expect(shown(back)).toEqual(["Lives in Alameda, California"]);
+    expect(composedOf(back).composed!.memberIds).toEqual([alameda, california]);
+  });
+
+  it("(12c) 'moved to Oakland' closes Alameda alone: 'Lives in Oakland, California'; Undo gives Alameda back", async () => {
+    const w = await world();
+    const { alameda, california } = await twoNotes(w);
+    const oakland = await kept(w, "Susan moved to Oakland.", "Susan moved to Oakland");
+    const lines = await knows(w);
+    expect(shown(lines)).toEqual(["Lives in Oakland, California"]);
+    expect(composedOf(lines).composed!.members.map((m) => m.row.line.replaces)).toEqual([["Susan lives in Alameda"], []]);
+    expect(composedOf(lines).composed!.memberIds[1]).toBe(california);
+    await w.understanding.undo(oakland);
+    await w.understanding.run();
+    await w.engine.sync();
+    const back = await knows(w);
+    expect(shown(back)).toEqual(["Lives in Alameda, California"]);
+    expect(composedOf(back).composed!.memberIds).toEqual([alameda, california]);
+  });
+
+  it("(13) another phone, and this one after a restart, read the same line from what synced down", async () => {
+    const w = await world();
+    const { alameda, california, before } = await twoNotes(w);
+    // Another phone on the same account: it has only what the server sent it.
+    const db2 = await openSqlJsDb();
+    await prepareSchema(db2, A);
+    const store2 = new UserStore(db2, A, { now: () => new Date(w.server.clock).toISOString(), newId: () => `00000099-0000-4000-8000-${String(Date.now()).slice(-12)}` });
+    await new SyncEngine(store2, new FakeRemote(w.server, A)).sync();
+    const other = (await recordFor(repositoriesFor(store2), w.susan.id, new Date(w.server.clock))).lines;
+    expect(shown(other)).toEqual(["Lives in Alameda, California"]);
+    expect(composedOf(other).composed!.memberIds).toEqual([alameda, california]);
+    expect(composedOf(other).provenance).toBe(before.provenance);
+    // This phone, opened again over the same database: nothing cached, the same reading.
+    const reopened = new UserStore(w.store["db"] as never, A, { now: () => new Date(w.server.clock).toISOString() });
+    const again = (await recordFor(repositoriesFor(reopened), w.susan.id, new Date(w.server.clock))).lines;
+    expect(shown(again)).toEqual(["Lives in Alameda, California"]);
+    expect(composedOf(again).composed!.memberIds).toEqual([alameda, california]);
+  });
+});
