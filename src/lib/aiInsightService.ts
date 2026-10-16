@@ -11,8 +11,8 @@
  *      never sees it. It serves signed-in users only, within a daily
  *      per-user quota and payload limits; a refused call (401/429/400)
  *      returns null like any other failure.
- *   2. EXPO_PUBLIC_ANTHROPIC_API_KEY (DEV ONLY) — calls the Claude API
- *      directly from the device. Anything in an
+ *   2. EXPO_PUBLIC_ANTHROPIC_API_KEY with EXPO_PUBLIC_AI_MODEL (DEV ONLY) —
+ *      calls the Messages API directly from the device. Anything in an
  *      EXPO_PUBLIC_ env var is embedded in the app bundle, so this path
  *      must never be used in a release build. It exists so the feature
  *      can be exercised in Expo Go before the backend is connected.
@@ -33,10 +33,12 @@ import type { Person, Memory, Interaction, PersonPromise } from "@/types/databas
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 // Development builds only. In a release build `__DEV__` is false, so the
-// minifier drops this branch and the key never lands in the bundle, and
-// every AI call goes through the authenticated, quota-limited edge function.
+// minifier drops this branch and neither the key nor the model lands in the
+// bundle, and every AI call goes through the authenticated, quota-limited
+// edge function, where the server alone chooses the model (its AI_MODEL
+// secret). The dev path needs both set in .env; no model is named in code.
 const DEV_API_KEY = __DEV__ ? (process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? "") : "";
-const MODEL = process.env.EXPO_PUBLIC_AI_MODEL ?? "claude-opus-4-8";
+const DEV_MODEL = __DEV__ ? (process.env.EXPO_PUBLIC_AI_MODEL ?? "") : "";
 /** Same output cap as the edge function, so the dev path matches it. */
 const MAX_TOKENS = 2048;
 
@@ -58,7 +60,7 @@ const MAX_SAMPLE_MEMORIES = 5;
  */
 export function isAIConfigured(): boolean {
   if (!isAIEnabled()) return false;
-  return isSupabaseConfigured || DEV_API_KEY.length > 0;
+  return isSupabaseConfigured || (DEV_API_KEY.length > 0 && DEV_MODEL.length > 0);
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -173,7 +175,7 @@ export async function extractPromiseFromText(
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: DEV_MODEL,
         max_tokens: MAX_TOKENS,
         output_config: {
           effort: "low",
@@ -254,7 +256,7 @@ export async function generateSeasonReflection(
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: DEV_MODEL,
         max_tokens: MAX_TOKENS,
         output_config: {
           effort: "low",
@@ -411,7 +413,7 @@ async function callDirect(
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: DEV_MODEL,
       max_tokens: MAX_TOKENS,
       output_config: {
         effort: "low", // short, simple generation — keep mobile latency tight
