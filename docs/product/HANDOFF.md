@@ -1,7 +1,7 @@
 # Kinship: session handoff (7 Oct 2026)
 
 > **Addendum, 16 Oct 2026, late: Phase 4B B4 (multi-item closure and its exact Undo) is built; B5 NOT STARTED.** This supersedes the addenda below where they differ.
-> - **Branch `claude/phase4b-b4-77358f`** (from `main` `e8eb975`, PR #34 merged), one PR against `main`. Not merged; nothing deployed. What was built, the choices, the §10 matrix case by case, the evidence and the rollout: `phase4-implementation-brief.md` §23.
+> - **Branch `claude/phase4b-b4-77358f`** (from `main` `e8eb975`, PR #34 merged), [PR #35](https://github.com/fullcarts89/kinship/pull/35) against `main`. Not merged; nothing deployed. What was built, the choices, the §10 matrix case by case, the evidence and the rollout: `phase4-implementation-brief.md` §23.
 > - **No migration.** B2's schema and B3's rule already cover `closes_ids`, the apply and restore triggers and "still closed by another live closer"; the fingerprint is unchanged (md5 `abeadd9a…`). The gateway now sends every closure `relate.ts` finds (and the answer path what "Susan moved" also closes); the Kept card and What Kinship knows say everything a note replaced (the card showed no "Replaces" before B4; only the review sheet did).
 > - **For the founder:** N16 (brief §23 choice 1): the stored "Susan moved" answer closes only the line the question named, so a second edited line stays current (fail open). "moved from <line> to …" is approved (no longer open).
 > - **Rollout:** merge (merge commit), nothing to apply, ai-gateway deploy on the founder's go, then a build. Either order is safe.
