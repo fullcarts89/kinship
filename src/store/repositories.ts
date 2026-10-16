@@ -81,6 +81,25 @@ export interface MemorySource extends Data {
   span_end: number | null;
 }
 
+/**
+ * The server's reading of a line (Phase 4B B2): the note's own words for a
+ * place and the readings found for them. Pulled, never written here; the
+ * phone composes from it at read time and never shows its refs or versions.
+ */
+export interface ResidenceFacetRow extends Data {
+  id: string;
+  memory_item_id: string;
+  slot: "residence";
+  value_text: string;
+  value_norm: string;
+  place_ref: string | null;
+  candidates: { ref: string; level: "city" | "region" | "country"; ancestors: string[] }[];
+  usual_ref: string | null;
+  decided_by: "rule" | "user";
+  rule_version: string;
+  dataset_version: string | null;
+}
+
 /** Where a remembered item came from. */
 export type Evidence =
   | { captureId: string; quote: string; near?: number }
@@ -315,6 +334,21 @@ export class MemoryRepo {
       const list = by.get(s.memory_item_id);
       if (list) list.push(s);
       else by.set(s.memory_item_id, [s]);
+    }
+    return by;
+  }
+
+  /**
+   * Every live residence reading, by the line it reads (Phase 4B B5): what
+   * the composer runs on. A line has at most one; an older duplicate, should
+   * the mirror ever hold one, gives way to the newest.
+   */
+  async residenceFacets(): Promise<Map<string, ResidenceFacetRow>> {
+    const by = new Map<string, ResidenceFacetRow>();
+    for (const f of (await this.store.list("memory_item_facets")) as ResidenceFacetRow[]) {
+      if (f.slot !== "residence" || !Array.isArray(f.candidates)) continue;
+      const have = by.get(f.memory_item_id);
+      if (!have || String(f.created_at ?? "") > String(have.created_at ?? "")) by.set(f.memory_item_id, f);
     }
     return by;
   }

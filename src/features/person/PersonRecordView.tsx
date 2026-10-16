@@ -9,6 +9,8 @@ import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { ConflictChoice } from "@/store/conflictCopy";
+import type { SourceFacts } from "@/features/memory/format";
+import type { ComposeMember } from "../../../supabase/functions/_shared/semantic/compose";
 import { Body, Emphasis, Label, Line, Pill, Provenance, Screen, Small, Title, Token, TokenRow, useLineFocus, usePalette } from "@/ui";
 
 /** "Forget this?" (founder native pass F5: "Keep it" also named the Tell button, with another meaning). */
@@ -20,6 +22,29 @@ export interface RecordLine {
   /** The newest note it came from, for the Source view. */
   noteId: string | null;
   conflict: { id: number; title: string; choices: ConflictChoice[]; canUseMine: boolean } | null;
+  /**
+   * Several residence lines said as one (Phase 4B B5): "Lives in Alameda,
+   * California". `line` is its most specific member's; the row shows the
+   * composed words, its provenance is the union, and tapping it opens the
+   * members, each with its own Edit and Not this. Never a memory of its own.
+   */
+  composed?: ComposedRecord;
+}
+
+/** One line behind a composed line, with what reading it again needs. */
+export interface ComposedMember {
+  input: ComposeMember;
+  row: RecordLine;
+  sources: SourceFacts[];
+  /** Where the line came from (an extracted line's provenance can still be syncing). */
+  origin: string | null;
+}
+
+export interface ComposedRecord {
+  text: string;
+  /** The most specific first. */
+  memberIds: string[];
+  members: ComposedMember[];
 }
 
 export interface PersonRecordViewProps {

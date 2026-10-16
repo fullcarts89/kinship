@@ -9,13 +9,14 @@
 // the restore trigger, as 20261015090000 and 20261016090000 make them; the
 // pgTAP suites prove the database itself) → the end state on each page.
 //
-// A page's lines are read the way the brief's composition (§9, B5) would
-// read them: current residence lines that form a containing chain are one
+// A page's lines are read by the product's own composer (compose.ts, B5;
+// brief §9): current residence lines that form a containing chain are one
 // line in their own words ("Lives in Alameda, California"), anything else
-// stays its own line; a closed line is history only when its closer records
-// a change (§11). That reading is the corpus's expectation of B5, used only
-// to check that B3 leaves exactly the lines it needs; it is not the product's
-// composer, which B5 builds.
+// stays its own line; a closed line is history only when every live closer
+// records a change (§11, historyEligible). Until B5 the runner carried its
+// own reading of the same rules as test code; now the fixtures' pages check
+// the composer itself, and the zero-tolerance metrics below check its words
+// against the members' own, independently of it.
 //
 // Zero tolerance, each counted and failing the run (CC-19, CC-20): incorrect
 // supersession, wrong SAME, incorrect refinement, an unsupported composed
@@ -32,7 +33,8 @@ import { buildInput, type FacetRow, type ItemRow, type PersonRow, type RelatedRo
 import { type HeldItem, resolveHeld, type ResolvedItem } from "../../supabase/functions/_shared/extraction/resolve.ts";
 import type { Certainty, Kind, ModelProposal, PlannedItem, ProposedItem, SubjectType } from "../../supabase/functions/_shared/extraction/types.ts";
 import { shortName } from "../../supabase/functions/_shared/extraction/names.ts";
-import { type FacetLike, pairClass, usualReading } from "../../supabase/functions/_shared/semantic/relate.ts";
+import { type FacetLike, pairClass } from "../../supabase/functions/_shared/semantic/relate.ts";
+import { composeResidence, historyEligible } from "../../supabase/functions/_shared/semantic/compose.ts";
 import { residenceEligible } from "../../supabase/functions/_shared/semantic/residence.ts";
 import { rederive } from "../../supabase/functions/_shared/semantic/rederive.ts";
 import { residenceQuestion } from "../../supabase/functions/_shared/semantic/questions.ts";
@@ -351,37 +353,21 @@ class World {
   }
 }
 
-// ─── The corpus's reading of a page (what B5 must be able to compose) ─────────
+// ─── A page, read by the product's composer (compose.ts, B5) ─────────────────
 
-const RANK: Record<string, number> = { city: 0, region: 1, country: 2 };
-function rank(f: FacetLike): number {
-  const u = usualReading(f);
-  return u ? RANK[u.level] : -1;
+function render(w: World, rows: Row[]): { lines: string[]; groups: Row[][]; degraded: boolean } {
+  const r = composeResidence(rows.map((row) => ({ id: row.id, facet: w.liveFacet(row.id)!, told: String(row.tick).padStart(8, "0") })));
+  return { lines: r.lines.map((l) => l.text), groups: r.lines.map((l) => l.memberIds.map((id) => w.row(id)!)), degraded: r.degraded };
 }
 
-function render(w: World, rows: Row[]): { lines: string[]; groups: Row[][] } {
-  const sorted = [...rows].sort((a, b) => rank(w.liveFacet(a.id)!) - rank(w.liveFacet(b.id)!) || b.tick - a.tick);
-  const chain = sorted.length > 1 && sorted.slice(0, -1).every((r, i) => {
-    const cls = pairClass(w.liveFacet(r.id)!, w.liveFacet(sorted[i + 1].id)!);
-    return cls === "E_CONTAINS_N" || cls === "SAME";
-  });
-  const groups = chain ? [sorted] : sorted.map((r) => [r]);
-  const lines = groups.map((g) => {
-    const words: string[] = [];
-    g.forEach((r, i) => {
-      if (i > 0 && pairClass(w.liveFacet(g[i - 1].id)!, w.liveFacet(r.id)!) === "SAME") return;
-      words.push(w.liveFacet(r.id)!.value_text);
-    });
-    return `Lives in ${words.join(", ")}`;
-  });
-  return { lines, groups };
-}
-
-/** A closed residence line is history only when its live closer records a change (§11, CC-20). */
+/**
+ * A closed residence line is history only when every live closer records a change (§11, CC-20). Each
+ * closed line is rendered on its own here (the history chain's grouping by closer is B8's).
+ */
 function history(w: World, personId: string): string[] {
   return w.rows.filter((r) => !r.deleted && r.status === "superseded" && r.person_id === personId && r.subject_type === "person" &&
-    w.liveFacet(r.id) && w.closedBy(r.id).some((c) => c.detail.transition === "changed"))
-    .map((r) => `Previously lived in ${w.liveFacet(r.id)!.value_text}`);
+    w.liveFacet(r.id) && historyEligible(w.closedBy(r.id).map((c) => ({ transition: c.detail.transition }))))
+    .flatMap((r) => composeResidence([{ id: r.id, facet: w.liveFacet(r.id)!, told: "" }], { previous: true }).lines.map((l) => l.text));
 }
 
 // ─── Running a fixture ────────────────────────────────────────────────────────
@@ -573,9 +559,11 @@ function run(f: Fixture): Result {
   const shown: string[] = [];
   for (const [name, page] of Object.entries(f.expect.pages)) {
     const pid = w.personId(name);
-    const { lines, groups } = render(w, w.current(pid));
+    const { lines, groups, degraded } = render(w, w.current(pid));
     const past = history(w, pid);
     shown.push(...lines, ...past);
+    // The composer found two current lines that can't both be true: the comparator's invariant is broken.
+    if (degraded) metric("temporal_contradiction", `${f.id} ${name}: the composer degraded to separate lines`);
     if (page.current && JSON.stringify([...lines].sort()) !== JSON.stringify([...page.current].sort())) {
       pageFail(`${f.id} ${name}: current ${JSON.stringify(lines)}, expected ${JSON.stringify(page.current)}`);
     }
