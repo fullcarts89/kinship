@@ -1,7 +1,7 @@
 -- P0-05: account deletion removes every row in every table plus the auth
 -- user, touches nobody else, can't be called by users, and is idempotent.
 BEGIN;
-SELECT plan(21);
+SELECT plan(22);
 
 \set A '''aaaaaaaa-5555-5555-5555-555555555555'''
 \set B '''bbbbbbbb-6666-6666-6666-666666666666'''
@@ -42,6 +42,13 @@ BEGIN
     VALUES (u, d, r, 'quiet', 'sent');
   INSERT INTO public.user_flag_overrides (user_id, flag_key, enabled) VALUES (u, 'shell_v2', true);
   INSERT INTO public.person_mentions_backfill_report (memory_item_id, user_id, reason) VALUES (i, u, 'used_once');
+  INSERT INTO public.memory_item_facets (user_id, memory_item_id, slot, value_text, value_norm, decided_by, rule_version)
+    VALUES (u, i, 'residence', 'Chicago', 'chicago', 'rule', 'residence/v1');
+  INSERT INTO public.semantic_runs (user_id, mode, rule_version, dataset_version)
+    VALUES (u, 'report', 'residence/v1', 'places-2026.10');
+  -- No user_id of its own: it goes with the item it names.
+  INSERT INTO public.residence_backfill_report (memory_item_id, bucket, rule_version, dataset_version)
+    VALUES (i, 'not_residence', 'residence/v1', 'places-2026.10');
 END $$;
 CREATE FUNCTION pg_temp.seed(u uuid) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE p uuid := gen_random_uuid(); s uuid := gen_random_uuid();
@@ -64,7 +71,7 @@ SELECT is(
   (SELECT count(*)::int FROM information_schema.columns c
    JOIN information_schema.tables t USING (table_schema, table_name)
    WHERE c.table_schema = 'public' AND c.column_name = 'user_id' AND t.table_type = 'BASE TABLE'),
-  25, 'all 25 user-owned tables are seeded by this test');
+  27, 'all 27 user-owned tables are seeded by this test');
 
 -- Users and anon can't call it.
 SELECT tests.as_user(:A);
@@ -84,7 +91,8 @@ SELECT is(
     "seasons": 1, "user_settings": 1, "captures": 1, "contact_events": 1, "consents": 1, "devices": 1,
     "memory_item_history": 1, "memory_item_sources": 1, "memory_items": 1, "notification_log": 1,
     "people": 1, "person_identities": 1, "reason_events": 1, "reason_evidence": 1, "reasons": 1,
-    "related_people": 1, "user_flag_overrides": 1, "capture_reviews": 1, "person_mentions_backfill_report": 1}'::jsonb,
+    "related_people": 1, "user_flag_overrides": 1, "capture_reviews": 1, "person_mentions_backfill_report": 1,
+    "memory_item_facets": 1, "semantic_runs": 1}'::jsonb,
   'returns what it removed from every table');
 SELECT tests.reset_role();
 
@@ -103,6 +111,8 @@ SET CONSTRAINTS ALL DEFERRED;
 SELECT is((SELECT count(*)::int FROM public.people WHERE user_id = :A)
         + (SELECT count(*)::int FROM public.memory_items WHERE user_id = :A)
         + (SELECT count(*)::int FROM public.captures WHERE user_id = :A), 0, '2.0 rows gone');
+SELECT is((SELECT count(*)::int FROM public.residence_backfill_report), 1,
+  'the residence report goes with the items it names (only the other user''s is left)');
 SELECT is((SELECT count(*)::int FROM auth.identities WHERE user_id = :A), 0, 'auth identities gone');
 SELECT is((SELECT count(*)::int FROM auth.sessions WHERE user_id = :A), 0, 'auth sessions gone');
 

@@ -598,7 +598,7 @@ These are your 16 steps, grouped into reviewable chunks on the branch. They were
 |---|---|---|
 | **B0** ✓ `6cc0436` | (N8) | **First, at the earliest schema opportunity** (CC-20). Built: migration `20261009090000_v2_exact_undo`, pgTAP `66_v2_exact_undo`. The `resolves_id` column, restoring a resolved thread on Undo, and `reasons_refresh` reopening a suppressed Moment. A small migration of its own, plus pgTAP. Working before the next vertical-slice native gate |
 | **B1** ✓ `d4db346`, `92e4e4e` | 1 | `categories.ts` (§3) and its categorization evals. No display change yet. Built: `supabase/functions/_shared/semantic/categories.ts`, computed and never stored; 44 eval cases (`evals/semantic/fixtures/categories.json`) run by `categories.test.ts` in CI. **B2 waits for the founder to see B1's result** |
-| B2 | 2, 3 | The migration (§1 B–G); `places` build script, licence notice and versioned JSON (§6); pgTAP |
+| **B2** built, in review (§20) | 2, 3 | The migration (§1 B–G); `places` build script, licence notice and versioned JSON (§6); pgTAP. Built: migration `20261015090000_v2_residence_facets`, pgTAP `68_v2_residence_facets`, the facets mirror, `places-2026.10`. **Stop: the founder reviews B2 before B3** (CC-23) |
 | B3 | 4, 5 | `residence.ts` (§5), `relate.ts` (§8) wired into `pipeline.ts` behind the residence check; CONFLICT question copy; the `semantic` corpus |
 | B4 | 6, 7 | `closes_ids` writes, apply and restore, shipped **together**: closure never exists without its exact Undo (CC-20). The Undo matrix (§10) |
 | B5 | 8, 9 | `compose.ts`; the composed-line sheet and provenance (§12) |
@@ -628,3 +628,92 @@ These are your 16 steps, grouped into reviewable chunks on the branch. They were
 - The I1 detail is a sheet.
 - The I6 keyboard dependency may be needed.
 - The facet derivation runs in the gateway: TypeScript only, one implementation, tested free in CI.
+
+---
+
+## 20. B2 as built (15–16 Oct 2026)
+
+**Status:** built on `claude/phase4b-b2-b5df72`, in review. Not merged; the migration is not in production. No display change. **B3 is not started.** Readiness: **NOT READY**.
+
+**Commits:**
+- `816f3eb`: the migration and pgTAP.
+- `91bb324`: the phone mirror.
+- `eca90c5`: the place data build script, fixture tests, licence notice, the app-bundle guard.
+- `0b5fbf5`: `places-2026.10`, built from the pinned dumps (downloaded with the founder's yes).
+- This section.
+
+### The migration: `20261015090000_v2_residence_facets`
+
+Additive and forward-only. It updates no stored row, and no column changes meaning (§2). Everything in §1 A–F, plus `purge_tombstones` now purging facet tombstones after 30 days, as for every mirrored table. Choices made in the build, within §1:
+
+- **A reading carries what the phone needs.** Each candidate is `{ref, level, ancestors[]}`, with refs as `country:US`, `region:US.CA`, `city:<GeoNames id>`. A pinned reading (`place_ref`) and the usual reading (`usual_ref`) must be among the candidates, and a `decided_by user` facet must pin one. Composition runs on the phone without the place data (§9), so it reads levels and containment from the facets themselves.
+- **Nobody writes a facet directly, not even the service role.** Only `write_extraction` and `write_facets` write them, and both re-check every facet first. The owner reads; the app never writes.
+- **`closes` are re-checked exactly as a supersede target is today:** the user's own line, live, never edited or written by the user, same person, subject and related person, active or resolved, not the supersede target itself. At most 8, in the order sent. They are accepted only on a line written as new (`new` or `supersede`); a merge or a resolve drops them. A doubtful id is dropped, never an error. The result tells the gateway what was kept (`closes`, `facets`), and only when the item sent them.
+- **A facet in `write_extraction`** is kept only on an eligible line (§5: a stated fact about the person or a related person, not sensitive, not shared) written as new, with its `value_text` inside one of the item's own spans, in the note's exact characters. One per slot.
+- **`write_facets(p_user_id, p_items)`**, gateway only, takes up to 100 `{memory_item_id, version, facets}`.
+  - A line changed since that version is left alone; the safety net re-derives it.
+  - The words must be the user's own: a live source's quote, or the line itself when the user wrote or edited it (as in B1).
+  - A rule's re-derivation never replaces a reading the user chose.
+  - It replaces a live facet in place, and returns written, unchanged or dropped per item.
+- **`resolve_capture_review` needed no new body.** It hands its items to `write_extraction`, so the answer's closures and facets get the same re-checks (proved in pgTAP).
+- **Loops.** The loop check in both closing triggers follows `supersedes_id` and `closes_ids`. The trigger itself refuses closing across people, subjects or accounts.
+- **Undo is exact.** Restore walks each closed item down its chain exactly as for `supersedes_id`, and "still replaced" also looks in other items' `closes_ids`. Covered: the California → Alameda → Colorado → Undo row of §10, "Not this" on a closer, two closers with one undone, a line closed by one note and replaced by another, a closed line that is itself gone, and a resolved line coming back resolved.
+- **Server-only tables.** `residence_backfill_report` has no `user_id`: it goes with the item it names, and account deletion removes it with the items. `semantic_runs` is keyed by account, mode (`report` or `apply`), rule and dataset versions.
+
+**Schema fingerprint** (`supabase/tests/schema_fingerprint_hash.sql`, fresh builds):
+- before B2: 865 lines, `a29ce75b99435b3009b9f699e4d1c715`;
+- with B2: 959 lines, `68c5cd45393e0dfd05f535236db8e727`.
+
+Compare production after `db push`.
+
+### The phone
+
+- `memory_item_facets` is mirrored **pull only**, after its line; tombstones follow. `closes_ids` and `resolves_id` arrive with `memory_items` and are never sent.
+- **Deployment order is safe.** A build that knows the facets table can meet a server without it (migration not yet applied). That one table then reads as empty, and the sync, first sync included, goes on. Any other missing table is still an error. No facet means every line shows as itself.
+
+### Place data (§6)
+
+- **The build:** `scripts/semantic/build-places.ts`, from pinned dumps.
+  - Each dump's URL, download day (UTC), size and SHA-256 are in `scripts/semantic/places/sources.json` and in the dataset. A dump that differs stops the build; `--check` proves a rebuild is byte-identical.
+  - Sections of cities (PPLX) and historical places are left out.
+  - Rows are sorted, one per line, so a new version diffs place by place.
+- **`places-2026.10`:** dumps of 16 Oct 2026 UTC. 252 countries, 3,865 regions and 31,764 cities, about 2.8 MB. The brief estimated about 26,000 cities and 2 MB; GeoNames now lists more.
+  - It lives in `supabase/functions/_shared/semantic/places/`. Nothing imports it yet: B3 does.
+  - Metro refuses to bundle it, and a Jest test proves the app can't import it.
+- **Aliases** (`scripts/semantic/places/aliases.json`, **for your review**): 56 entries, each resolved by the build to exactly one place.
+  - US, USA, UK, NYC, SF, LA, DC, and the two-letter codes of the 50 states.
+  - LA is Los Angeles (§6), so Louisiana has no two-letter alias.
+  - IN, OR, ME, OK, HI and OH are also English words. Whether a bare code may stand alone, or only qualify a place ("Paris, TX"), is B3's matching rule, not the list's.
+- **Attribution:** "Place data from GeoNames (geonames.org), CC BY 4.0" is in `THIRD_PARTY_NOTICES.md`.
+  - **Settings › About: pending (a display change).** It ships with the first build that uses the place data.
+
+### Tests and evidence
+
+Run in this worktree:
+- **pgTAP:** `68_v2_residence_facets` has 112 assertions; all 24 suites pass (659 assertions). `40_delete_account` now covers the two new user-owned tables. They ran on a throwaway Postgres 16, the version CI uses, with the same steps as `run-db-tests.sh` (its paths moved into the session's scratch folder).
+  - Not run on Postgres 17 (production's version).
+  - Not applied to the shared local Supabase stack: it serves another session's acceptance harness, and a migration that worktree doesn't have would break its migration history.
+  - Five deliberate breakages of the migration were each caught.
+- **Jest:** 87 suites and 750 tests pass with `TZ=UTC`, as CI runs, including the first-run gate and the new bundle guard. `memoryProofs` fails on a machine in another time zone; that is older than B2 and outside it.
+- **`npx tsc --noEmit` and `npx eslint app src`:** clean.
+- **`deno test supabase/functions`:** 345 passed, including the dataset's own tests.
+- **The build's fixture tests:** `deno test --allow-read --config scripts/deno.json scripts/semantic`, 10 passed, now also in CI.
+
+**Evidence level:** database and unit tests only. No device, live backend or model path is involved, and nothing is displayed yet.
+
+### Before B3
+
+1. **Your review of B2** (CC-23: stop after B2), including the alias list.
+2. **Licence: already confirmed** (CC-20, decision 1); nothing new is needed.
+3. **A decision B3 needs: "She moved" on a line the user edited.**
+   - §8 guard 3 makes a protected line a CONFLICT question, and §8 rule 1 lets "She moved" close it.
+   - B2 re-checks closures as targets are re-checked today, so a closure of an edited line is dropped even after that answer. That path fails open today: both lines stay current, with no composition.
+   - If your answer should close the edited line, B3 needs a small forward migration that lets `resolve_capture_review` mark that closure as the user's own answer. No seeded fixture covers it yet; res-025 covers "Still there".
+4. **A finding for B3's rules, from the real data.**
+   - Some neighbourhood names are also foreign cities: "Pilsen" reads as Plzeň, Czechia. Next to "lives in Illinois", the comparator could call the pair DISJOINT and supersede.
+   - The seeded fixtures still come out as expected (res-016, res-017 and res-027 keep an unknown side, or a real change).
+   - B3 should add a fixture for this. The B6 report would list such cases as `false_supersession_suspect` or `contradiction`.
+5. **Rollout:** merge (a merge commit), then `npx supabase db push`, then compare the fingerprint.
+   - B2 changes no gateway or app behaviour, so it needs no redeploy and no new build.
+
+**Next step:** you review and merge this PR and run `db push`; then B3 starts: `residence.ts`, `relate.ts`, the CONFLICT copy and the `semantic` corpus runner.

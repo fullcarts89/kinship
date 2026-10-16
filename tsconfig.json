@@ -24,6 +24,7 @@
     "node_modules",
     "supabase/functions",
     "evals",
+    "scripts/semantic",
     "e2e/model-stub.ts"
   ]
 }

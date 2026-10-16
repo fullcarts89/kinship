@@ -1,0 +1,46 @@
+{
+  "version": "places-1999.01",
+  "attribution": "Place data from GeoNames (geonames.org), CC BY 4.0",
+  "licence": "https://creativecommons.org/licenses/by/4.0/",
+  "sources": [
+    {"file":"countryInfo.txt","url":"https://download.geonames.org/export/dump/countryInfo.txt","retrieved":"1999-01-01","bytes":731,"sha256":"07353c023946766aac8610cb37b0affee4051f2a29d05eba965923a769ac2d75"},
+    {"file":"admin1CodesASCII.txt","url":"https://download.geonames.org/export/dump/admin1CodesASCII.txt","retrieved":"1999-01-01","bytes":322,"sha256":"782383a9dbc6acc8b0dc64c52aa79a395f3dd04ddc5401d68aa32dc9f593fab5"},
+    {"file":"cities15000.txt","url":"https://download.geonames.org/export/dump/cities15000.zip","retrieved":"1999-01-01","bytes":1298,"sha256":"c12e5fd00ea4283c4cc643f6afa9658202e62bdea9d538bbda8faa8e71837c8b"}
+  ],
+  "countries": {"columns": ["ref","name","population"], "rows": [
+    ["country:CA","Canada",38000000],
+    ["country:FR","France",67000000],
+    ["country:GB","United Kingdom",66000000],
+    ["country:US","United States",330000000]
+  ]},
+  "regions": {"columns": ["ref","name","ascii","country"], "rows": [
+    ["region:FR.11","Île-de-France","Ile-de-France","country:FR"],
+    ["region:GB.ENG","England","England","country:GB"],
+    ["region:US.CA","California","California","country:US"],
+    ["region:US.CO","Colorado","Colorado","country:US"],
+    ["region:US.DC","District of Columbia","District of Columbia","country:US"],
+    ["region:US.NM","New Mexico","New Mexico","country:US"],
+    ["region:US.NY","New York","New York","country:US"],
+    ["region:US.TX","Texas","Texas","country:US"]
+  ]},
+  "cities": {"columns": ["ref","name","ascii","region","country","population"], "rows": [
+    ["city:9000001","Alameda","Alameda","region:US.CA","country:US",78000],
+    ["city:9000002","Alameda","Alameda","region:US.NM","country:US",16000],
+    ["city:9000003","Paris","Paris","region:FR.11","country:FR",2100000],
+    ["city:9000004","Paris","Paris","region:US.TX","country:US",25000],
+    ["city:9000005","Oakland","Oakland","region:US.CA","country:US",430000],
+    ["city:9000006","New York City","New York City","region:US.NY","country:US",8800000],
+    ["city:9000008","Montréal","Montreal",null,"country:CA",1700000],
+    ["city:9000009","Washington","Washington","region:US.DC","country:US",690000],
+    ["city:9000010","Denver","Denver","region:US.CO","country:US",715000],
+    ["city:9000012","Saint-Étienne-du-Test","Saint-Etienne-du-Test","region:FR.11","country:FR",16000]
+  ]},
+  "aliases": {"columns": ["alias","ref"], "rows": [
+    ["CA","region:US.CA"],
+    ["DC","region:US.DC"],
+    ["NYC","city:9000006"],
+    ["TX","region:US.TX"],
+    ["UK","country:GB"],
+    ["USA","country:US"]
+  ]}
+}

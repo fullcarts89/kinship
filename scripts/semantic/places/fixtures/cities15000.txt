@@ -1,0 +1,13 @@
+9000004	Paris	Paris		33.5	-95.5	P	PPL	US		TX	277			25000	180	180	America/Chicago	2026-01-01
+9000001	Alameda	Alameda	Alamida	37.5	-122.5	P	PPL	US		CA	001			78000	10	10	America/Los_Angeles	2026-01-01
+9000002	Alameda	Alameda		35.5	-106.5	P	PPL	US		NM	001			16000	1500	1500	America/Denver	2026-01-01
+9000003	Paris	Paris	Paree,Parigi	48.5	2.5	P	PPLC	FR		11	75			2100000	35	40	Europe/Paris	2026-01-01
+9000005	Oakland	Oakland		37.5	-122.5	P	PPL	US		CA	001			430000	10	10	America/Los_Angeles	2026-01-01
+9000006	New York City	New York City	NYC,Big Apple	40.5	-74.5	P	PPL	US		NY				8800000	10	10	America/New_York	2026-01-01
+9000007	Logan Square	Logan Square		41.5	-87.5	P	PPLX	US		IL	031			73000	180	180	America/Chicago	2026-01-01
+9000008	Montréal	Montreal		45.5	-73.5	P	PPLA2	CA		10				1700000	30	30	America/Toronto	2026-01-01
+9000009	Washington	Washington	Washington DC	38.5	-77.5	P	PPLC	US		DC	001			690000	10	10	America/New_York	2026-01-01
+9000010	Denver	Denver		39.5	-104.5	P	PPLA	US		CO	031			715000	1600	1600	America/Denver	2026-01-01
+9000011	Atlantis	Atlantis		0.5	0.5	P	PPL	XX		01				20000	0	0	UTC	2026-01-01
+9000012	Saint-Étienne-du-Test			48.5	2.5	P	PPL	FR		11				16000	40	40	Europe/Paris	2026-01-01
+9000013	Old Town	Old Town		40.5	-74.5	P	PPLH	US		NY				50000	10	10	America/New_York	2026-01-01

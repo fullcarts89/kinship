@@ -1,0 +1,26 @@
+{
+  "version": "places-1999.01",
+  "sources": [
+    {
+      "file": "countryInfo.txt",
+      "url": "https://download.geonames.org/export/dump/countryInfo.txt",
+      "retrieved": "1999-01-01",
+      "bytes": 731,
+      "sha256": "07353c023946766aac8610cb37b0affee4051f2a29d05eba965923a769ac2d75"
+    },
+    {
+      "file": "admin1CodesASCII.txt",
+      "url": "https://download.geonames.org/export/dump/admin1CodesASCII.txt",
+      "retrieved": "1999-01-01",
+      "bytes": 322,
+      "sha256": "782383a9dbc6acc8b0dc64c52aa79a395f3dd04ddc5401d68aa32dc9f593fab5"
+    },
+    {
+      "file": "cities15000.txt",
+      "url": "https://download.geonames.org/export/dump/cities15000.zip",
+      "retrieved": "1999-01-01",
+      "bytes": 1298,
+      "sha256": "c12e5fd00ea4283c4cc643f6afa9658202e62bdea9d538bbda8faa8e71837c8b"
+    }
+  ]
+}

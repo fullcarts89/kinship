@@ -1,0 +1,9 @@
+US.CA	California	California	9100001
+US.TX	Texas	Texas	9100002
+US.NM	New Mexico	New Mexico	9100003
+US.NY	New York	New York	9100004
+US.DC	District of Columbia	District of Columbia	9100005
+US.CO	Colorado	Colorado	9100006
+FR.11	Île-de-France	Ile-de-France	9100007
+GB.ENG	England	England	9100008
+ZZ.01	Nowhere	Nowhere	9100009
