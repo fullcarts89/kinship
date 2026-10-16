@@ -4,7 +4,7 @@
 // activated only once its first Tell became memory.
 import {
   activationLabel, firstNameFrom, legacyActivation, mergeActivation, nextStep, NO_ACTIVATION, parseActivation,
-  setupFinished, setupStepsFor, withActivated, withStep, type Activation,
+  setupFinished, setupStepsFor, withActivated, withBringBack, withStep, type Activation,
 } from "../activation";
 import { buildToday, greetingFor } from "@/features/today/todayModel";
 import type { Person } from "@/store/repositories";
@@ -101,5 +101,22 @@ describe("Today keeps its first-use guidance until the account is activated", ()
   it("greets by first name when Kinship knows it", () => {
     expect(greetingFor(new Date(2026, 9, 5, 10), "Thor")).toBe("Good morning, Thor.");
     expect(greetingFor(new Date(2026, 9, 5, 20), null)).toBe("Good evening.");
+  });
+});
+
+describe("H4: how Kinship brings things back is shown once, on every phone", () => {
+  it("is recorded once, kept by every copy, and read back", () => {
+    const seen = withBringBack(withActivated(NO_ACTIVATION, T1), T2);
+    expect(seen.bring_back_at).toBe(T2);
+    expect(withBringBack(seen, "2026-12-01T00:00:00Z")).toBe(seen);
+    expect(mergeActivation(withActivated(NO_ACTIVATION, T1), seen)?.bring_back_at).toBe(T2);
+    expect(parseActivation(JSON.stringify(seen))?.bring_back_at).toBe(T2);
+    expect(parseActivation(JSON.stringify(withActivated(NO_ACTIVATION, T1)))?.bring_back_at).toBeUndefined();
+  });
+
+  it("never changes what setup asks", () => {
+    const needs = { name: false, consent: false };
+    const a = withBringBack(withStep(NO_ACTIVATION, "people", T1), T2);
+    expect(nextStep(needs, a)).toBe("worth");
   });
 });
