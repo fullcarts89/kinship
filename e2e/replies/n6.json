@@ -132,6 +132,226 @@
     ],
     "needs_clarification": null
    }
+  },
+  {
+   "label": "hand: promise, no date words",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "promise",
+      "person": "@John",
+      "person_mention": "John",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You need to call John tonight",
+      "evidence": [
+       "I need to call John tonight"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "hand: plan, no date words",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "plan",
+      "person": "@John",
+      "person_mention": "John",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You need to call John tonight",
+      "evidence": [
+       "I need to call John tonight"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": "intended",
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "hand: event",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "event",
+      "person": "@John",
+      "person_mention": "John",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You need to call John tonight",
+      "evidence": [
+       "I need to call John tonight"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": "tonight",
+      "date_direction": "future",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": "other",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": "night"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "hand: told again, merged into yesterday's by the model",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "promise",
+      "person": "@John",
+      "person_mention": "John",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You need to call John tonight",
+      "evidence": [
+       "I need to call John tonight"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": "tonight",
+      "date_direction": "future",
+      "existing": {
+       "action": "merge",
+       "target": "@memory:You need to call John tonight"
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  },
+  {
+   "label": "live 2 (15 Oct, told again the next day: the model merges into yesterday's line; native simulator)",
+   "output": {
+    "items": [
+     {
+      "kind": "promise",
+      "person": "@John",
+      "person_mention": "John",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You need to call John tonight",
+      "evidence": [
+       "I need to call John tonight"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "tonight",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "",
+       "event_goal": "",
+       "category": "",
+       "attribute": "",
+       "value": "",
+       "firmness": "",
+       "topic": "",
+       "place": "",
+       "milestone_type": "",
+       "recurrence": "",
+       "anchor": "",
+       "aspect": "",
+       "time_of_day": ""
+      },
+      "existing": {
+       "action": "merge",
+       "target": "@memory:You need to call John tonight"
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
   }
  ]
 }

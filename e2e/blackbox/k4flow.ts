@@ -1,15 +1,16 @@
 // The founder's K4 checklist (13 Oct) as one run through the real screens and the local backend, with every
-// invariant checked: "Anthony and Sam love ice skating with Chris" with Anthony, Anthony Test, Sam Eden,
-// Sam Doughty and Chris.
-//   Run A: Anthony → Anthony Test, Sam → Someone else → Sam Eden. One shared memory: Anthony Test + Sam Eden + Chris.
-//   Run B: Anthony → Anthony Test, Sam → Not sure. One memory: Anthony Test + Chris, the word "Sam" kept.
+// invariant checked: "Anthony and Sam love ice skating with Chris" with the founder's own People (Anthony,
+// Anthony Lopez, Sam Eden, Sam Doughty, Chris, Ben, John; 14 Oct: never a simplified "Anthony Test").
+//   Run A: Anthony → Anthony Lopez, Sam → Someone else → Sam Eden. One shared memory: Anthony Lopez + Sam Eden + Chris.
+//   Run B: Anthony → Anthony Lopez, Sam → Not sure. One memory: Anthony Lopez + Chris, the word "Sam" kept.
+// The Kept card lists every memory the note kept (K15).
 // Never a loop, never a second memory, every page agrees, and reopening the app asks nothing again.
 import type TestRenderer from "react-test-renderer";
 import { mount, setUp, settle, show, signedIn, tap, tapLast, tell, texts, until, unmount, canTap } from "./app";
 import { serverRows } from "./localStack";
 
 export const K4 = "Anthony and Sam love ice skating with Chris";
-export const PEOPLE = ["Anthony", "Anthony Test", "Sam Eden", "Sam Doughty", "Chris"];
+export const PEOPLE = ["Anthony", "Anthony Lopez", "Sam Eden", "Sam Doughty", "Chris", "Ben", "John"];
 const QUESTION = /^(Which (Sam|Anthony) do you mean\?|Who is this about\?|Who is “.*”\?|Remember this.*|Is this about .*)$/u;
 const WAITING = /^One thing to check about|^\d+ things to check/u;
 
@@ -26,7 +27,7 @@ async function answer(r: TestRenderer.ReactTestRenderer, run: "A" | "B", reading
     const q = texts(r).find((t) => QUESTION.test(t));
     if (!q) break;
     asked.push(q);
-    if (q.startsWith("Which Anthony") || q === "Who is this about?" || q.startsWith("Who is “Anthony")) await tap(r, "Anthony Test");
+    if (q.startsWith("Which Anthony") || q === "Who is this about?" || q.startsWith("Who is “Anthony")) await tap(r, "Anthony Lopez");
     else if (q.startsWith("Which Sam") || q.startsWith("Who is “Sam")) {
       if (run === "A") { await tap(r, "Someone else"); await tap(r, "Sam Eden"); } else await tap(r, "Not sure");
     } else if (canTap(r, "Remember")) await tap(r, "Remember");
@@ -49,17 +50,20 @@ export async function k4Run(run: "A" | "B", shape: string, readingMs = 30000): P
   expect([shape, asked.filter((q, i) => asked.indexOf(q) !== i)]).toEqual([shape, []]);
   await settle(500);
   const card = texts(r).find((t) => /^Kept for/u.test(t)) ?? null;
+  const onCard = texts(r);
   await tapLast(r, "Done");
   await settle(300);
   expect([shape, texts(r).filter((t) => /^Kept for/u.test(t))]).toEqual([shape, []]);
   await acct.engine.sync();
 
-  const want = run === "A" ? ["Anthony Test", "Sam Eden", "Chris"] : ["Anthony Test", "Chris"];
+  const want = run === "A" ? ["Anthony Lopez", "Sam Eden", "Chris"] : ["Anthony Lopez", "Chris"];
   const rows = (await serverRows<Row>("memory_items", acct.userId)).filter((m) => m.status === "active" && !m.deleted_at && /skating/u.test(m.statement));
   const saved = rows.map((m) => ({ statement: m.statement, people: [m.person_id, ...(m.with_person_ids ?? [])].map(name).sort() }));
   // In the note's words, or a mirror's that names the same people ("Chris loves ice skating with Anthony and
   // Sam" when every line the model gave named all three): Chris and Sam are never lost or doubled.
   expect([shape, saved.map((x) => x.people)]).toEqual([shape, [[...want].sort()]]);
+  // K15: everything the note kept is on its card before the user is done with it.
+  expect([shape, saved.filter((x) => !onCard.includes(x.statement)).map((x) => x.statement)]).toEqual([shape, []]);
   const words = saved[0].statement.split(/[^\p{L}]+/u);
   expect([shape, ["Anthony", "Sam", "Chris"].map((n) => words.filter((w) => w === n).length), /ice skating/u.test(saved[0].statement)])
     .toEqual([shape, [1, 1, 1], true]);

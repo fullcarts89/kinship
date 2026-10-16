@@ -6,7 +6,7 @@ import { mount, setUp, settle, signedIn, tap, tell, texts, until, canTap } from 
 import { legacyLine, serverRows, useReply } from "./localStack";
 
 const K4 = "Anthony and Sam love ice skating with Chris";
-const PEOPLE = ["Anthony", "Anthony Test", "Sam Eden", "Sam Doughty", "Chris"];
+const PEOPLE = ["Anthony", "Anthony Lopez", "Sam Eden", "Sam Doughty", "Chris", "Ben", "John"];
 const QUESTION = /^(Which (Sam|Anthony) do you mean\?|Who is this about\?|Remember this.*)$/u;
 
 /** Walks the questions as the founder did; returns the prompts in order (a loop shows as repeats). */
@@ -20,7 +20,7 @@ async function answer(r: TestRenderer.ReactTestRenderer, run: "A" | "B" | "legac
     if (!q) break;
     seen.push(q);
     if (q.startsWith("Which Anthony") || q === "Who is this about?") {
-      if (run === "legacy") await tap(r, "Not sure"); else await tap(r, "Anthony Test");
+      if (run === "legacy") await tap(r, "Not sure"); else await tap(r, "Anthony Lopez");
     } else if (q.startsWith("Which Sam")) {
       if (run === "legacy") await tap(r, "Sam Eden");
       else if (run === "A") { await tap(r, "Someone else"); await tap(r, "Sam Eden"); }
@@ -63,8 +63,8 @@ for (const shape of SHAPES) for (const run of ["A", "B"] as const) {
     void screen;
     expect([shape, second.filter((q, i) => second.indexOf(q) !== i)]).toEqual([shape, []]);
     expect([shape, before.map(([who, others]) => [who, ...(others as string[])].sort())]).toEqual([shape, [["Chris", "Sam Eden"]]]);
-    // One memory, now about Anthony Test as well; Sam Eden stays (run B's "Not sure" never unlinks what was answered before).
+    // One memory, now about Anthony Lopez as well; Sam Eden stays (run B's "Not sure" never unlinks what was answered before).
     const skating = after.filter((m) => /skating/u.test(String(m[2])));
-    expect([shape, skating.map(([who, others]) => [who, ...(others as string[])].sort())]).toEqual([shape, [["Anthony Test", "Chris", "Sam Eden"]]]);
+    expect([shape, skating.map(([who, others]) => [who, ...(others as string[])].sort())]).toEqual([shape, [["Anthony Lopez", "Chris", "Sam Eden"]]]);
   });
 }
