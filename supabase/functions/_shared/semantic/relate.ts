@@ -12,8 +12,9 @@
 //   E ⊇ N         keep (refines)        keep (moved within E) keep
 //   N ⊇ E         keep (refines, B)     ask (case E)          close, corrected
 //   DISJOINT      close, no transition  close, changed (C)    close, corrected (D)
-//   AMBIGUOUS     keep (two lines)      ask                   close, corrected if N
-//                                                             says "not <E's words>"
+//   AMBIGUOUS     keep (two lines)      ask (close, changed,  close, corrected if N
+//                                       when N says "moved    says "not <E's words>"
+//                                       from <E's words> to")
 //   UNKNOWN       keep (fail open)      the model's target,   the model's target,
 //                                       as changed            as corrected
 //
@@ -35,14 +36,18 @@
 // therefore AMBIGUOUS, never DISJOINT: two lines without a cue, one question
 // with a change. Proposed in docs (brief §22); the founder decides.
 //
-// The same holds at home (founder, 16 Oct, N14): a bare city the user didn't
-// qualify, read outside a broader residence (a region or country), is
-// AMBIGUOUS too. "Hollywood" next to "lives in California" reads as
-// Hollywood, Florida, and may be the Hollywood in Los Angeles: without a cue
-// both lines stay; with a change the user is asked ("Is Susan still in
-// California?"); "Hollywood, FL" is the user's own reading and replaces
-// California as any DISJOINT pair does. A city replacing a city, or a region
-// replacing a city ("Alameda" → "lives in Colorado"), is unchanged.
+// The same holds at home (founder, 16 Oct, N14): a new city the user didn't
+// qualify, whose reading falls outside the region or country the existing
+// line establishes, is AMBIGUOUS too. That place is E's own when E is a
+// region or country, and E's region (else its country) when E is a city.
+// "Hollywood" next to "lives in California", or next to "lives in Los
+// Angeles", reads as Hollywood, Florida, and may be the one in Los Angeles;
+// "Portland" next to "lives in Alameda" reads as Oregon, which the user never
+// said. Without a cue both lines stay; with a change the user is asked ("Is
+// Susan still in Alameda?"). The user's own qualifier ("Hollywood, FL",
+// "Portland, OR") is their reading and replaces as any DISJOINT pair does.
+// Unchanged: two cities in the same region ("Alameda" → "lives in Oakland"),
+// and a region replacing a city ("Alameda" → "lives in Colorado").
 //
 // Pure: no I/O, no model.
 
@@ -112,14 +117,22 @@ function countryOf(c: Candidate): string {
   return c.level === "country" ? c.ref : c.ancestors.find((a) => a.startsWith("country:")) ?? c.ref;
 }
 
+/** The region or country a reading establishes: its own, or a city's region (else its country). */
+function areaOf(c: Candidate): string {
+  return c.level === "city" ? c.ancestors[0] ?? c.ref : c.ref;
+}
+
 /**
- * N is read as a city the user didn't qualify, and E as a region or country
- * that doesn't contain it (founder, N14). The place data has cities and no
- * neighbourhoods, so a bare locality can always be a part of somewhere else
- * that shares its name; only the user's own qualifier says which it is.
+ * N is read as a city the user didn't qualify, outside the region or country
+ * E establishes (founder, N14). The place data has cities and no
+ * neighbourhoods, and a bare name can belong to several places; a reading
+ * elsewhere is not enough to replace what Kinship holds. Only the user's own
+ * qualifier says which it is.
  */
-export function localityUnderBroader(n: FacetLike, un: Candidate, ue: Candidate): boolean {
-  return un.level === "city" && ue.level !== "city" && !n.place_ref && !contains(ue, un);
+export function localityOutside(n: FacetLike, un: Candidate, ue: Candidate): boolean {
+  if (un.level !== "city" || n.place_ref) return false;
+  const area = areaOf(ue);
+  return un.ref !== area && !un.ancestors.includes(area);
 }
 
 /** The pair's class, from the readings only (brief §8). */
@@ -138,10 +151,10 @@ export function pairClass(n: FacetLike, e: FacetLike): PairClass {
     if (other) return "AMBIGUOUS";
     // A city abroad may be a neighbourhood the data doesn't know (B2 finding: "Pilsen").
     if (countryOf(un) !== countryOf(ue) && (un.level === "city" || ue.level === "city")) return "AMBIGUOUS";
-    // A bare locality outside a broader residence (founder, N14: "Hollywood" next to "California"): the
-    // data has no neighbourhoods, so it can't say the words mean that city and not a part of E. Only the
-    // user's own qualifier ("Hollywood, FL", place_ref) establishes it.
-    if (localityUnderBroader(n, un, ue)) return "AMBIGUOUS";
+    // A bare city outside the region or country E establishes (founder, N14: "Hollywood" next to
+    // "California" or "Los Angeles"): the data can't say the words mean that city and not a place there
+    // that shares its name. Only the user's own qualifier ("Hollywood, FL", place_ref) establishes it.
+    if (localityOutside(n, un, ue)) return "AMBIGUOUS";
     return "DISJOINT";
   }
   // No usual reading on one side: containment only when every pairing agrees.
@@ -160,6 +173,11 @@ type PairCue = "none" | "change" | "correction";
  */
 export function namesLine(c: Cue, e: Pick<FacetLike, "value_text">): boolean {
   return c.kind === "not" && c.text.toLowerCase().includes(e.value_text.toLowerCase());
+}
+
+/** A change cue that names the line left: "moved from <its own words> to". */
+export function leftLine(c: Cue, e: Pick<FacetLike, "value_text">): boolean {
+  return c.kind === "change" && c.text.toLowerCase().includes(`from ${e.value_text.toLowerCase()} to`);
 }
 
 function cueFor(cues: readonly Cue[], e: FacetLike): { kind: PairCue; cue: Cue | null } {
@@ -195,7 +213,9 @@ export function decidePair(cls: PairClass, cues: readonly Cue[], e: CurrentResid
       if (kind === "none") return e.protected ? { act: "ask", stay: "words" } : { act: "close", transition: null, cue: null };
       return { act: "close", transition: kind === "change" ? "changed" : "corrected", cue };
     case "AMBIGUOUS":
-      if (kind === "change") return { act: "ask", stay: "facet" };
+      // "moved from Alameda to Denver": the user's own words say which line they left; only the
+      // destination is open, and its words are kept as said. Any other change asks.
+      if (kind === "change") return cue && leftLine(cue, e.facet) ? { act: "close", transition: "changed", cue } : { act: "ask", stay: "facet" };
       // Corrected only when N says "not <E's words>"; "actually" alone can't say which of two readings was wrong.
       if (kind === "correction" && cue?.kind === "not") return { act: "close", transition: "corrected", cue };
       return { act: "keep", refines: false };

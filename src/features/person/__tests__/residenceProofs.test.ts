@@ -264,4 +264,32 @@ describe("N14: a bare locality never silently replaces a broader residence", () 
     const t = await tell(w, "Susan moved to Hollywood.", home(w, "Susan moved to Hollywood"));
     expect(t.review.questions.map((q) => q.prompt)).toEqual(["Is Susan still in California?"]);
   });
+
+  it("at city level: 'lives in Los Angeles', then 'lives in Hollywood': both kept, whatever the model proposes", async () => {
+    const w = await world();
+    await done(w, (await tell(w, "Susan lives in Los Angeles.", home(w, "Susan lives in Los Angeles"))).id);
+    const la = [...w.server.table("memory_items").values()].find((m) => m.statement === "Susan lives in Los Angeles")!;
+    const t = await tell(w, "Susan lives in Hollywood.", (i) => home(w, "Susan lives in Hollywood", {
+      action: "supersede", target: i.dossier.find((d) => d.id === la.id)?.key ?? null,
+    })(i));
+    expect(t.review.lines.map((l) => l.replaces)).toEqual([null]);
+    await done(w, t.id);
+    expect(await lines(w)).toMatchObject({ current: ["Susan lives in Hollywood", "Susan lives in Los Angeles"], replaced: [] });
+  });
+
+  it("at city level: 'lives in Alameda', then a bare 'lives in Portland' (read as Oregon): both kept", async () => {
+    const w = await world();
+    await done(w, (await tell(w, "Susan lives in Alameda.", home(w, "Susan lives in Alameda"))).id);
+    await done(w, (await tell(w, "Susan lives in Portland.", home(w, "Susan lives in Portland"))).id);
+    expect(await lines(w)).toMatchObject({ current: ["Susan lives in Alameda", "Susan lives in Portland"], replaced: [] });
+  });
+
+  it("'lives in Alameda', then 'lives in Portland, OR': the user's qualifier; replaced as current truth", async () => {
+    const w = await world();
+    await done(w, (await tell(w, "Susan lives in Alameda.", home(w, "Susan lives in Alameda"))).id);
+    const t = await tell(w, "Susan lives in Portland, OR.", home(w, "Susan lives in Portland, OR"));
+    expect(t.review.lines.map((l) => [l.statement, l.replaces])).toEqual([["Susan lives in Portland, OR", "Susan lives in Alameda"]]);
+    await done(w, t.id);
+    expect(await lines(w)).toMatchObject({ current: ["Susan lives in Portland, OR"], replaced: ["Susan lives in Alameda"] });
+  });
 });

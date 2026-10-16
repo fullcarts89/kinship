@@ -26,9 +26,17 @@ const N = {
   actuallyColorado: "Actually Susan lives in Colorado, not Alameda.",
   hollywood: "Susan lives in Hollywood.",
   movedHollywood: "Susan moved to Hollywood.",
+  losAngeles: "Susan lives in Los Angeles.",
+  livesOakland: "Susan lives in Oakland.",
+  portland: "Susan lives in Portland.",
+  portlandOR: "Susan lives in Portland, OR.",
 };
 /** The replies kept for the N13 / N14 notes (16 Oct). */
 const LIVE_N = "live 1 (16 Oct, N13/N14, founder People + Susan)";
+/** "Susan lives in Hollywood." told after Los Angeles (its own live reply). */
+const LIVE_LA = "live 2 (16 Oct, N14, after Los Angeles)";
+/** Replies written by hand in the live replies' shape (the live sample is LIVE_N / LIVE_LA). */
+const HAND = "hand (16 Oct, N14, in the live shape)";
 const READING = /^(Kept for|Kept as you wrote|Nothing to remember|One thing to check about|\d+ things to check)/u;
 const RESIDENCE_Q = /^Is Susan still in .+\?$/u;
 
@@ -328,3 +336,45 @@ it("N14: 'lives in California', then 'moved to Hollywood': asks 'Is Susan still 
   await a.acct.engine.sync();
   expect((await rows(a)).closed).toEqual([]);
 });
+
+it("N14 at city level: 'lives in Los Angeles', then 'lives in Hollywood': Los Angeles is never silently closed", async () => {
+  const a = await account();
+  await told(a, N.losAngeles, LIVE_N);
+  await keep(a);
+  await told(a, N.hollywood, LIVE_LA);
+  await keep(a);
+  const db = await rows(a);
+  expect([db.current, db.closed]).toEqual([["Susan lives in Hollywood", "Susan lives in Los Angeles"], []]);
+});
+
+it("N14 at city level: 'lives in Alameda', then a bare 'lives in Portland': both lines", async () => {
+  const a = await account();
+  await told(a, N.alameda);
+  await keep(a);
+  await told(a, N.portland, LIVE_N);
+  await keep(a);
+  const db = await rows(a);
+  expect([db.current, db.closed]).toEqual([["Susan lives in Alameda", "Susan lives in Portland"], []]);
+});
+
+it("N14: 'lives in Alameda', then 'lives in Portland, OR': the user's qualifier replaces Alameda (never history)", async () => {
+  const a = await account();
+  await told(a, N.alameda);
+  await keep(a);
+  await told(a, N.portlandOR, HAND);
+  await keep(a);
+  const db = await rows(a);
+  const p = db.line(/Portland/u)!;
+  expect([db.current, db.closed, p.detail.transition ?? null, db.reading(p)]).toEqual([["Susan lives in Portland, OR"], ["Susan lives in Alameda"], null, "Portland, OR"]);
+});
+
+it("N14 unchanged: 'lives in Alameda', then 'lives in Oakland' (both in California): Oakland replaces Alameda", async () => {
+  const a = await account();
+  await told(a, N.alameda);
+  await keep(a);
+  await told(a, N.livesOakland, HAND);
+  await keep(a);
+  const db = await rows(a);
+  expect([db.current, db.closed, db.line(/Oakland/u)!.detail.transition ?? null]).toEqual([["Susan lives in Oakland"], ["Susan lives in Alameda"], null]);
+});
+

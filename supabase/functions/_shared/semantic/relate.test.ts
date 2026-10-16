@@ -30,6 +30,7 @@ const P = {
   portlandOR: c("city:8", "city", "region:US.OR", US),
   portlandME: c("city:9", "city", "region:US.ME", US),
   denver: c("city:10", "city", "region:US.CO", US),
+  losAngeles: c("city:11", "city", "region:US.CA", US),
 };
 function f(words: string, cands: Candidate[], usual: Candidate | null = cands.length === 1 ? cands[0] : null, pinned: Candidate | null = null): FacetLike {
   return { value_text: words, value_norm: words.toLowerCase(), place_ref: pinned?.ref ?? null, candidates: cands, usual_ref: usual?.ref ?? null };
@@ -53,6 +54,8 @@ const F = {
   hollywoodFL: f("Hollywood, FL", [P.hollywoodFL], P.hollywoodFL, P.hollywoodFL),
   portland: f("Portland", [P.portlandOR, P.portlandME], P.portlandOR),
   denver: f("Denver", [P.denver]),
+  losAngeles: f("Los Angeles", [P.losAngeles]),
+  portlandOR: f("Portland, OR", [P.portlandOR], P.portlandOR, P.portlandOR),
 };
 const cue = (kind: Cue["kind"], text: string): Cue => ({ kind, start: 0, end: text.length, text });
 const MOVED = [cue("change", "moved to")];
@@ -104,6 +107,29 @@ Deno.test("N14: a bare locality outside a broader residence is AMBIGUOUS, never 
   eq(relateResidence({ facet: F.hollywood, cues: notCA }, [ca], null), { outcome: "SUPERSEDES", closes: ["ca"], transition: "corrected", cue: notCA[0] });
   eq(relateResidence({ facet: F.hollywoodFL, cues: [] }, [ca], null), { outcome: "SUPERSEDES", closes: ["ca"], transition: null, cue: null });
   eq(relateResidence({ facet: F.colorado, cues: [] }, [line("al", F.alameda)], null), { outcome: "SUPERSEDES", closes: ["al"], transition: null, cue: null });
+});
+
+Deno.test("N14 at city level: a bare city outside the region the existing city establishes is AMBIGUOUS", () => {
+  eq(pairClass(F.hollywood, F.losAngeles), "AMBIGUOUS", "Los Angeles → 'lives in Hollywood' (read as Florida)");
+  eq(pairClass(F.portland, F.alameda), "AMBIGUOUS", "Alameda → 'lives in Portland' (read as Oregon)");
+  eq(pairClass(F.denver, F.alameda), "AMBIGUOUS");
+  eq(pairClass(F.portlandOR, F.alameda), "DISJOINT", "'Portland, OR' is the user's reading");
+  eq(pairClass(F.oakland, F.alameda), "DISJOINT", "two cities in California: unchanged");
+  eq(pairClass(F.colorado, F.alameda), "DISJOINT", "a region for a city: unchanged");
+  eq(pairClass(F.pilsen, F.chicago), "AMBIGUOUS", "Pilsen unchanged");
+  const la = line("la", F.losAngeles);
+  eq(relateResidence({ facet: F.hollywood, cues: [] }, [la], null), { outcome: "NEW" });
+  const al = line("al", F.alameda);
+  eq(relateResidence({ facet: F.portland, cues: [] }, [al], null), { outcome: "NEW" });
+  const asked = relateResidence({ facet: F.portland, cues: MOVED }, [al], null);
+  eq(asked.outcome === "CONFLICT" ? [asked.asks.id, asked.stay] : asked, ["al", "facet"], "'moved to Portland' asks");
+  eq(relateResidence({ facet: F.portlandOR, cues: [] }, [al], null), { outcome: "SUPERSEDES", closes: ["al"], transition: null, cue: null });
+  eq(relateResidence({ facet: F.portlandOR, cues: MOVED }, [al], null), { outcome: "SUPERSEDES", closes: ["al"], transition: "changed", cue: MOVED[0] });
+  eq(relateResidence({ facet: F.oakland, cues: [] }, [al], null), { outcome: "SUPERSEDES", closes: ["al"], transition: null, cue: null });
+  // "moved from Alameda to Portland": the user names the line left, so it closes as a change; another line's words ask.
+  const from = [cue("change", "moved from Alameda to")];
+  eq(relateResidence({ facet: F.portland, cues: from }, [al], null), { outcome: "SUPERSEDES", closes: ["al"], transition: "changed", cue: from[0] });
+  eq(relateResidence({ facet: F.portland, cues: [cue("change", "moved from Oakland to")] }, [al], null).outcome, "CONFLICT");
 });
 
 Deno.test("the decision table, class by cue (§8)", () => {
