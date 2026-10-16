@@ -1,0 +1,345 @@
+{
+  "about": [
+    "Curated aliases for the residence place data (Phase 4B, brief §6). Each alias names exactly one place; the build",
+    "(scripts/semantic/build-places.ts) stops if it names none or more than one. Matching an alias to the user's words",
+    "(case, punctuation, whether a two-letter code may stand alone or only qualify a place, as in 'Alameda, CA') is the",
+    "residence rules' decision (B3), never this list's. Additions go through review, like any change to this file."
+  ],
+  "review": "Proposed in B2; awaiting the founder's review.",
+  "aliases": [
+    {
+      "alias": "US",
+      "country": "US",
+      "note": "United States"
+    },
+    {
+      "alias": "USA",
+      "country": "US",
+      "note": "United States"
+    },
+    {
+      "alias": "UK",
+      "country": "GB",
+      "note": "United Kingdom"
+    },
+    {
+      "alias": "NYC",
+      "country": "US",
+      "region": "NY",
+      "city": "New York City"
+    },
+    {
+      "alias": "SF",
+      "country": "US",
+      "region": "CA",
+      "city": "San Francisco"
+    },
+    {
+      "alias": "LA",
+      "country": "US",
+      "region": "CA",
+      "city": "Los Angeles",
+      "note": "Los Angeles (brief §6), so Louisiana has no two-letter alias"
+    },
+    {
+      "alias": "AL",
+      "country": "US",
+      "region": "AL",
+      "note": "Alabama"
+    },
+    {
+      "alias": "AK",
+      "country": "US",
+      "region": "AK",
+      "note": "Alaska"
+    },
+    {
+      "alias": "AZ",
+      "country": "US",
+      "region": "AZ",
+      "note": "Arizona"
+    },
+    {
+      "alias": "AR",
+      "country": "US",
+      "region": "AR",
+      "note": "Arkansas"
+    },
+    {
+      "alias": "CA",
+      "country": "US",
+      "region": "CA",
+      "note": "California, never Canada"
+    },
+    {
+      "alias": "CO",
+      "country": "US",
+      "region": "CO",
+      "note": "Colorado"
+    },
+    {
+      "alias": "CT",
+      "country": "US",
+      "region": "CT",
+      "note": "Connecticut"
+    },
+    {
+      "alias": "DE",
+      "country": "US",
+      "region": "DE",
+      "note": "Delaware"
+    },
+    {
+      "alias": "FL",
+      "country": "US",
+      "region": "FL",
+      "note": "Florida"
+    },
+    {
+      "alias": "GA",
+      "country": "US",
+      "region": "GA",
+      "note": "Georgia"
+    },
+    {
+      "alias": "HI",
+      "country": "US",
+      "region": "HI",
+      "note": "Hawaii"
+    },
+    {
+      "alias": "ID",
+      "country": "US",
+      "region": "ID",
+      "note": "Idaho"
+    },
+    {
+      "alias": "IL",
+      "country": "US",
+      "region": "IL",
+      "note": "Illinois"
+    },
+    {
+      "alias": "IN",
+      "country": "US",
+      "region": "IN",
+      "note": "Indiana"
+    },
+    {
+      "alias": "IA",
+      "country": "US",
+      "region": "IA",
+      "note": "Iowa"
+    },
+    {
+      "alias": "KS",
+      "country": "US",
+      "region": "KS",
+      "note": "Kansas"
+    },
+    {
+      "alias": "KY",
+      "country": "US",
+      "region": "KY",
+      "note": "Kentucky"
+    },
+    {
+      "alias": "ME",
+      "country": "US",
+      "region": "ME",
+      "note": "Maine"
+    },
+    {
+      "alias": "MD",
+      "country": "US",
+      "region": "MD",
+      "note": "Maryland"
+    },
+    {
+      "alias": "MA",
+      "country": "US",
+      "region": "MA",
+      "note": "Massachusetts"
+    },
+    {
+      "alias": "MI",
+      "country": "US",
+      "region": "MI",
+      "note": "Michigan"
+    },
+    {
+      "alias": "MN",
+      "country": "US",
+      "region": "MN",
+      "note": "Minnesota"
+    },
+    {
+      "alias": "MS",
+      "country": "US",
+      "region": "MS",
+      "note": "Mississippi"
+    },
+    {
+      "alias": "MO",
+      "country": "US",
+      "region": "MO",
+      "note": "Missouri"
+    },
+    {
+      "alias": "MT",
+      "country": "US",
+      "region": "MT",
+      "note": "Montana"
+    },
+    {
+      "alias": "NE",
+      "country": "US",
+      "region": "NE",
+      "note": "Nebraska"
+    },
+    {
+      "alias": "NV",
+      "country": "US",
+      "region": "NV",
+      "note": "Nevada"
+    },
+    {
+      "alias": "NH",
+      "country": "US",
+      "region": "NH",
+      "note": "New Hampshire"
+    },
+    {
+      "alias": "NJ",
+      "country": "US",
+      "region": "NJ",
+      "note": "New Jersey"
+    },
+    {
+      "alias": "NM",
+      "country": "US",
+      "region": "NM",
+      "note": "New Mexico"
+    },
+    {
+      "alias": "NY",
+      "country": "US",
+      "region": "NY",
+      "note": "New York"
+    },
+    {
+      "alias": "NC",
+      "country": "US",
+      "region": "NC",
+      "note": "North Carolina"
+    },
+    {
+      "alias": "ND",
+      "country": "US",
+      "region": "ND",
+      "note": "North Dakota"
+    },
+    {
+      "alias": "OH",
+      "country": "US",
+      "region": "OH",
+      "note": "Ohio"
+    },
+    {
+      "alias": "OK",
+      "country": "US",
+      "region": "OK",
+      "note": "Oklahoma"
+    },
+    {
+      "alias": "OR",
+      "country": "US",
+      "region": "OR",
+      "note": "Oregon"
+    },
+    {
+      "alias": "PA",
+      "country": "US",
+      "region": "PA",
+      "note": "Pennsylvania"
+    },
+    {
+      "alias": "RI",
+      "country": "US",
+      "region": "RI",
+      "note": "Rhode Island"
+    },
+    {
+      "alias": "SC",
+      "country": "US",
+      "region": "SC",
+      "note": "South Carolina"
+    },
+    {
+      "alias": "SD",
+      "country": "US",
+      "region": "SD",
+      "note": "South Dakota"
+    },
+    {
+      "alias": "TN",
+      "country": "US",
+      "region": "TN",
+      "note": "Tennessee"
+    },
+    {
+      "alias": "TX",
+      "country": "US",
+      "region": "TX",
+      "note": "Texas"
+    },
+    {
+      "alias": "UT",
+      "country": "US",
+      "region": "UT",
+      "note": "Utah"
+    },
+    {
+      "alias": "VT",
+      "country": "US",
+      "region": "VT",
+      "note": "Vermont"
+    },
+    {
+      "alias": "VA",
+      "country": "US",
+      "region": "VA",
+      "note": "Virginia"
+    },
+    {
+      "alias": "WA",
+      "country": "US",
+      "region": "WA",
+      "note": "Washington"
+    },
+    {
+      "alias": "WV",
+      "country": "US",
+      "region": "WV",
+      "note": "West Virginia"
+    },
+    {
+      "alias": "WI",
+      "country": "US",
+      "region": "WI",
+      "note": "Wisconsin"
+    },
+    {
+      "alias": "WY",
+      "country": "US",
+      "region": "WY",
+      "note": "Wyoming"
+    },
+    {
+      "alias": "DC",
+      "country": "US",
+      "region": "DC",
+      "note": "Washington, D.C. (the district)"
+    }
+  ]
+}

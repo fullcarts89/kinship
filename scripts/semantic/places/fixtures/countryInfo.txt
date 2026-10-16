@@ -1,0 +1,7 @@
+# Hand-made fixture in the GeoNames countryInfo.txt format, for scripts/semantic/build-places.test.ts.
+# Invented ids and round numbers: not GeoNames data.
+#ISO	ISO3	ISO-Numeric	fips	Country	Capital	Area(in sq km)	Population	Continent	tld	CurrencyCode	CurrencyName	Phone	Postal Code Format	Postal Code Regex	Languages	geonameid	neighbours	EquivalentFipsCode
+US	USA	840	US	United States	Washington	9600000	330000000	NA	.us	USD	Dollar	1	#####-####		en-US	9000840	CA	
+GB	GBR	826	UK	United Kingdom	London	240000	66000000	EU	.uk	GBP	Pound	44			en-GB	9000826		
+FR	FRA	250	FR	France	Paris	550000	67000000	EU	.fr	EUR	Euro	33	#####		fr-FR	9000250		
+CA	CAN	124	CA	Canada	Ottawa	9900000	38000000	NA	.ca	CAD	Dollar	1			en-CA,fr-CA	9000124	US	

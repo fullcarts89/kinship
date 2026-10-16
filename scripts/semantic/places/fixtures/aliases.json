@@ -1,0 +1,11 @@
+{
+  "about": "Aliases for the hand-made fixture dumps (build-places.test.ts).",
+  "aliases": [
+    {"alias": "CA", "country": "US", "region": "CA", "note": "California, never Canada"},
+    {"alias": "TX", "country": "US", "region": "TX"},
+    {"alias": "DC", "country": "US", "region": "DC"},
+    {"alias": "NYC", "country": "US", "region": "NY", "city": "New York City"},
+    {"alias": "UK", "country": "GB"},
+    {"alias": "USA", "country": "US"}
+  ]
+}
