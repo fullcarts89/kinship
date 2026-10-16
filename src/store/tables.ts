@@ -1,5 +1,5 @@
 // The 2.0 tables the device mirrors, and how each one syncs. Column rules
-// match the migrations (supabase/migrations/20261002*_v2_*.sql).
+// match the migrations (supabase/migrations/20261002*_v2_*.sql and later).
 
 export type MirroredTable =
   | "people"
@@ -8,6 +8,7 @@ export type MirroredTable =
   | "captures"
   | "memory_items"
   | "memory_item_sources"
+  | "memory_item_facets"
   | "reasons"
   | "contact_events"
   | "user_settings";
@@ -31,6 +32,13 @@ export interface TableSpec {
   writable: readonly string[];
   /** Writable on insert only (the server refuses them in an update). */
   insertOnly?: readonly string[];
+  /**
+   * Added after builds already talk to this server. Until its migration is
+   * applied the server has no such table, and a pull reads it as empty
+   * instead of failing the sync. Only for derived, pull-only tables whose
+   * absence fails open.
+   */
+  optional?: boolean;
 }
 
 const SERVER_OWNED = ["user_id", "created_at", "updated_at", "version"];
@@ -58,6 +66,8 @@ export const TABLES: readonly TableSpec[] = [
   },
   {
     name: "memory_items", key: "id", appInsert: true, appUpdate: true, tombstones: true, personColumn: "person_id",
+    // resolves_id and closes_ids (what a note closed) arrive with the row and
+    // are the server's alone (20261009090000, 20261015090000).
     writable: ["kind", "person_id", "subject_type", "subject_related_id", "statement", "detail", "certainty",
       "sensitivity", "status", "user_state", "valid_from", "valid_to", "supersedes_id", "origin", "deleted_at",
       "with_person_ids", "person_mentions"],
@@ -66,6 +76,12 @@ export const TABLES: readonly TableSpec[] = [
   {
     name: "memory_item_sources", key: "id", appInsert: true, appUpdate: true, tombstones: true,
     writable: ["memory_item_id", "capture_id", "source_kind", "span_start", "span_end", "meta", "deleted_at"],
+  },
+  {
+    // The server's derived reading of a line (residence, Phase 4B): pulled
+    // after its line, never written by the app (20261015090000).
+    name: "memory_item_facets", key: "id", appInsert: false, appUpdate: false, tombstones: true,
+    writable: [], optional: true,
   },
   {
     name: "reasons", key: "id", appInsert: false, appUpdate: false, tombstones: true, personColumn: "person_id",

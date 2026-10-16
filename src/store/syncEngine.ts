@@ -93,7 +93,10 @@ export class SyncEngine {
       const changes = await Promise.allSettled(PULL_ORDER.map((table) => this.fetchChanges(table)));
       for (const [i, table] of PULL_ORDER.entries()) {
         const got = changes[i];
-        if (got.status === "rejected") throw got.reason;
+        if (got.status === "rejected") {
+          if (notThereYet(table, got.reason)) continue;
+          throw got.reason;
+        }
         report.pulled += await this.applyChanges(table, got.value);
       }
       if (report.fullResync || (await this.reconcileDue())) {
@@ -337,11 +340,16 @@ export class SyncEngine {
     for (const table of PULL_ORDER) {
       const server = new Map<string, number>();
       let afterKey: string | null = null;
-      for (;;) {
-        const page = await this.remote.manifest(table, afterKey, this.opts.pageSize);
-        for (const e of page) server.set(e.key, e.version);
-        if (page.length < this.opts.pageSize) break;
-        afterKey = page[page.length - 1].key;
+      try {
+        for (;;) {
+          const page = await this.remote.manifest(table, afterKey, this.opts.pageSize);
+          for (const e of page) server.set(e.key, e.version);
+          if (page.length < this.opts.pageSize) break;
+          afterKey = page[page.length - 1].key;
+        }
+      } catch (err) {
+        if (notThereYet(table, err)) continue;
+        throw err;
       }
       const local = await this.store.db.all<{ id: string; version: number }>(
         "SELECT id, version FROM mirror WHERE tbl = ?", [table],
@@ -395,6 +403,16 @@ export class SyncEngine {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
+
+/**
+ * An optional table the server doesn't have yet (its migration isn't applied:
+ * PostgREST PGRST205, or Postgres 42P01). It reads as empty and the sync goes
+ * on, so a build that knows the table never stalls against an older server.
+ */
+function notThereYet(table: MirroredTable, err: unknown): boolean {
+  return spec(table).optional === true && err instanceof RemoteError && err.kind === "rejected"
+    && (err.code === "PGRST205" || err.code === "42P01");
+}
 
 function changedAnything(r: SyncReport): boolean {
   return r.pushed + r.rebased + r.conflicts + r.rejected + r.pulled > 0

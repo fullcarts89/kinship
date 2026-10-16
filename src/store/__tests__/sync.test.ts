@@ -2,8 +2,10 @@
 // idempotent writes, strict versions, three-way conflicts, incremental pulls
 // with overlap, reconciliation, tombstones, purge, and full resync.
 import { randomUUID } from "crypto";
+import { RemoteError, type Remote } from "@/store/remote";
 import { prepareSchema } from "@/store/schema";
 import { SyncEngine } from "@/store/syncEngine";
+import { PULL_ORDER, writableFields } from "@/store/tables";
 import { UserStore } from "@/store/userStore";
 import { FakeRemote, FakeServer } from "@/test-utils/fakeRemote";
 import { openSqlJsDb } from "@/test-utils/sqljsDb";
@@ -358,5 +360,102 @@ describe("one round trip per pull (founder K12)", () => {
     expect((await engine.sync()).pulled).toBe(1);
     expect((await d.store.get("people", ben.id as string))?.display_name).toBe("Benji");
     transaction.mockRestore();
+  });
+});
+
+describe("residence facets: pulled, never written (Phase 4B B2)", () => {
+  const facet = (itemId: string) => ({
+    memory_item_id: itemId, slot: "residence", value_text: "Alameda", value_norm: "alameda", place_ref: null,
+    candidates: [], usual_ref: null, decided_by: "rule", rule_version: "residence/v1", dataset_version: "places-2026.10",
+    deleted_at: null,
+  });
+
+  it("is server-written: the app can neither create nor change a facet", async () => {
+    const server = new FakeServer();
+    const d = await device(server);
+    await expect(d.store.create("memory_item_facets", facet("m1"))).rejects.toThrow(/server-written/);
+    await expect(d.store.update("memory_item_facets", "f1", { value_text: "Oakland" })).rejects.toThrow(/server-written/);
+  });
+
+  it("arrives after its line, and so does its tombstone", async () => {
+    expect(PULL_ORDER.indexOf("memory_item_facets")).toBeGreaterThan(PULL_ORDER.indexOf("memory_items"));
+    const server = new FakeServer();
+    const d = await device(server);
+    const ben = await d.store.create("people", { display_name: "Susan" });
+    await d.engine.sync();
+    server.serverWrite("memory_items", "m1", A, { person_id: ben.id, kind: "fact", statement: "Susan lives in Alameda",
+      detail: { category: "home" }, status: "active", deleted_at: null });
+    server.serverWrite("memory_item_facets", "f1", A, facet("m1"));
+    await d.engine.sync();
+    expect(await d.store.get("memory_item_facets", "f1")).toMatchObject({ memory_item_id: "m1", value_text: "Alameda" });
+    // The line was edited: the server tombstoned its facet.
+    server.serverWrite("memory_item_facets", "f1", A, { deleted_at: "2026-10-05T12:10:00.000Z" });
+    await d.engine.sync();
+    expect(await d.store.get("memory_item_facets", "f1")).toBeNull();
+    expect(await d.store.list("memory_item_facets")).toEqual([]);
+  });
+
+  it("what a note closed rides the memory_items mirror and never leaves the phone", async () => {
+    const server = new FakeServer();
+    const d = await device(server);
+    const ben = await d.store.create("people", { display_name: "Susan" });
+    await d.engine.sync();
+    server.serverWrite("memory_items", "m2", A, { person_id: ben.id, kind: "fact", statement: "Susan moved to Colorado",
+      detail: { category: "home", transition: "changed" }, status: "active", supersedes_id: "m1", closes_ids: ["m0"],
+      resolves_id: null, deleted_at: null });
+    await d.engine.sync();
+    expect(await d.store.get("memory_items", "m2")).toMatchObject({ supersedes_id: "m1", closes_ids: ["m0"] });
+    expect(Object.keys(writableFields("memory_items", { statement: "x", closes_ids: ["m9"], resolves_id: "m8" }, "update")))
+      .toEqual(["statement"]);
+    await d.store.update("memory_items", "m2", { statement: "Susan moved to Denver" });
+    await d.engine.sync();
+    expect(server.calls.filter((c) => c.startsWith("update memory_items"))).toHaveLength(1);
+    expect(server.table("memory_items").get("m2")).toMatchObject({ statement: "Susan moved to Denver", closes_ids: ["m0"] });
+  });
+
+  // A build that knows the facets table can meet a server whose migration
+  // isn't applied yet: the table reads as empty and the sync still succeeds
+  // (fail open: every line shows as itself), so a first run never stalls.
+  function withoutTable(server: FakeServer, missing: string): Remote {
+    const remote = new FakeRemote(server, A);
+    const gone = () => new RemoteError("rejected", `Could not find the table 'public.${missing}' in the schema cache`, "PGRST205");
+    return {
+      insert: remote.insert.bind(remote),
+      update: remote.update.bind(remote),
+      changedSince: async (table, ...rest) => {
+        if (table === missing) throw gone();
+        return remote.changedSince(table, ...rest);
+      },
+      manifest: async (table, ...rest) => {
+        if (table === missing) throw gone();
+        return remote.manifest(table, ...rest);
+      },
+      fetchByKeys: remote.fetchByKeys.bind(remote),
+      insertMemoryItem: remote.insertMemoryItem.bind(remote),
+    };
+  }
+
+  it("a server without the facets table yet still syncs everything else, first sync included", async () => {
+    const server = new FakeServer();
+    server.serverWrite("people", "p1", A, { display_name: "Susan", deleted_at: null });
+    server.serverWrite("reasons", "r1", A, { person_id: "p1", type: "birthday", state: "candidate", deleted_at: null });
+    const d = await device(server);
+    const engine = new SyncEngine(d.store, withoutTable(server, "memory_item_facets"));
+    const report = await engine.sync();
+    expect(report).toMatchObject({ firstSync: true, offline: false });
+    expect(report.reconciled).not.toBeNull();
+    expect(await d.store.get("people", "p1")).toMatchObject({ display_name: "Susan" });
+    expect(await d.store.get("reasons", "r1")).toMatchObject({ type: "birthday" });
+    // Once the migration is applied, the facets arrive as usual.
+    server.serverWrite("memory_item_facets", "f1", A, facet("m1"));
+    await d.engine.sync();
+    expect(await d.store.get("memory_item_facets", "f1")).toMatchObject({ value_text: "Alameda" });
+  });
+
+  it("a table the app relies on missing is still an error", async () => {
+    const server = new FakeServer();
+    const d = await device(server);
+    const engine = new SyncEngine(d.store, withoutTable(server, "reasons"));
+    await expect(engine.sync()).rejects.toThrow(/reasons/);
   });
 });
