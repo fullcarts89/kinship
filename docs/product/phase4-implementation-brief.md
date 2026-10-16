@@ -720,7 +720,7 @@ Run in this worktree:
 
 ## 21. B3 design: a later explicit change may close a line the user edited (founder, 16 Oct, CC-24)
 
-**Status: designed, not built.** B3 has not started; this is written now so B2's schema doesn't block it. It ships inside B3, after the founder's review of B2.
+**Status: designed and approved by the founder as written (16 Oct, CC-24), not built.** B3 has not started; this is written now so B2's schema doesn't block it. It ships inside B3, which starts in a fresh session from these docs.
 
 **The decision.** A user edit is high-authority current truth at that point in time, not immutable. A later grounded user statement can close it. A model inference alone never can. Supersession and history eligibility stay separate decisions (CC-20).
 
@@ -735,7 +735,7 @@ Run in this worktree:
 
 "Now lives in" is already a change cue in §8, so it is history-eligible.
 
-**Why the plain case still asks.** CC-24 says a plain replacement *may* replace current truth through the comparator, and is never automatically history. Asking keeps "do not weaken user edits generally" for the one case with no cue. A "She moved" answer is then the grounded evidence. This keeps §8 guard 3 for the no-cue case only. **For the founder's look.**
+**Why the plain case still asks.** CC-24 says a plain replacement *may* replace current truth through the comparator, and is never automatically history. Asking keeps "do not weaken user edits generally" for the one case with no cue. A "She moved" answer is then the grounded evidence. This keeps §8 guard 3 for the no-cue case only. **Approved by the founder (16 Oct).**
 
 **The migration** (`v2_closure_of_edited_lines`, forward-only; replaces two function bodies; no table or column change; no backfill):
 1. **`write_extraction`**: a `supersede` target or a `closes` id whose `user_state` is `edited` or `user_authored` is accepted only when one of these holds; otherwise it is dropped (fail open), as today.
