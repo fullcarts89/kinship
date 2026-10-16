@@ -600,7 +600,7 @@ These are your 16 steps, grouped into reviewable chunks on the branch. They were
 | **B1** ✓ `d4db346`, `92e4e4e` | 1 | `categories.ts` (§3) and its categorization evals. No display change yet. Built: `supabase/functions/_shared/semantic/categories.ts`, computed and never stored; 44 eval cases (`evals/semantic/fixtures/categories.json`) run by `categories.test.ts` in CI. **B2 waits for the founder to see B1's result** |
 | **B2** built, in review (§20) | 2, 3 | The migration (§1 B–G); `places` build script, licence notice and versioned JSON (§6); pgTAP. Built: migration `20261015090000_v2_residence_facets`, pgTAP `68_v2_residence_facets`, the facets mirror, `places-2026.10`. **Stop: the founder reviews B2 before B3** (CC-23) |
 | B3 | 4, 5 | `residence.ts` (§5), `relate.ts` (§8) wired into `pipeline.ts` behind the residence check; CONFLICT question copy; the `semantic` corpus |
-| B4 | 6, 7 | `closes_ids` writes, apply and restore, shipped **together**: closure never exists without its exact Undo (CC-20). The Undo matrix (§10) |
+| B4 built, in review (§23) | 6, 7 | `closes_ids` writes, apply and restore, shipped **together**: closure never exists without its exact Undo (CC-20). The Undo matrix (§10). Built: the gateway sends every closure `relate.ts` finds (`closes`), the answer path too; the Kept card and What Kinship knows say everything a note replaced; pgTAP `70_v2_multi_closure`; corpus res-074 to res-080; `b4.blackbox`. **No migration**: B2's schema already covers it |
 | B5 | 8, 9 | `compose.ts`; the composed-line sheet and provenance (§12) |
 | B6 | 10 | The report-only task and `residence_backfill_report` (§14). **Stop: you read the report** |
 | B7 | 11 | Portrait de-duplication (§13) |
@@ -850,3 +850,50 @@ Forward-only. Replaces `write_extraction` and `resolve_capture_review`, adds two
 5. **Rollout:** merge (a merge commit; the integration applies the migration; compare the fingerprint and `list_migrations`), then the ai-gateway deploy on the founder's go, then a build (the question's app side, the edit report and Settings › About). Either order is safe (point 15). For N13 too: an app with the report against a gateway without `rederive` gets a 400 and drops the report (best effort); a gateway with it against an older app reads edited lines at the next Tell (the safety net).
 
 **Next step:** the founder reviews this PR and the proposals above; after merge and deploy, B4 (`closes_ids` writes and the Undo matrix, §10, §18).
+
+## 23. B4 as built (16 Oct 2026)
+
+**Status:** built on `claude/phase4b-b4-77358f`, from `main` `e8eb975` (PR #34, B3, merged); in review. **No migration:** B2's schema (`closes_ids`, the apply and restore triggers, "still closed by another live closer", 20261015090000) and B3's edited-line rule (20261016090000) already cover everything B4 needs; the schema fingerprint of a fresh build is unchanged (md5 `abeadd9ad9b1d2041f9884299872c03e`, as after B3). ai-gateway needs a deploy (the closures are sent from there); the app a build (the Kept card). **B5 is not started.** Readiness: **NOT READY**.
+
+**Founder decisions folded in (16 Oct):** "moved from <the line's words> to …" closes that line as a change, the destination staying open (§22 point 4): approved, no longer a question; `relate.ts` is unchanged. The extra trust check asked for: a multi-item closure may include an edited or user-written residence line only where §21's grounded-cue rule allows it, and Undo returns the edited version (pgTAP 70, corpus res-075, `b4.blackbox` §21, `residenceProofs` B4).
+
+### What B4 is
+
+- **The gateway sends every closure.** `relate.ts` already found the full ordered list (`Decision.closes`, the most specific first). `pipeline.ts` now sends the first as the supersede target (as B3 did) and the rest as `closes` (`PlannedItem.closes`), which `write_extraction` (B2) re-checks one by one, exactly as it re-checks the target, and writes as `closes_ids`; the apply trigger closes each (status and `valid_to` only; facets untouched). Example: California → Alameda → "moved to Colorado" closes Alameda (`supersedes_id`) and California (`closes_ids`), both as a change; "moved to Oakland" still closes Alameda alone (California contains Oakland).
+- **The residence question carries what else "Susan moved" closes** (`still_in.closes`, stored with the held line in `capture_reviews`). `resolve.ts` sends them as `closes` only with that answer, and only when it replaces the line the question named; "Still there" closes nothing. Through `resolve_capture_review` they get the same re-checks.
+- **Exact Undo.** Undo (the note's own lines retracted and removed) and "Not this" on the closer run B2's restore trigger: what the closer replaced and every line it closed comes back from its last snapshot (and to `active` without one, after the 30-day purge), each unless another live closer still replaces or closes it. Facets were never touched, so the composition B5 will read is back exactly; `reasons_refresh` reopens a silenced Moment (N8).
+- **The phone says everything a note replaced.** The Kept card shows **Replaces: ~~…~~** (H23's line) under a kept line for every line it replaced, the most specific first. Before B4 the card showed none of it: only the review sheet behind "Correct this" did (the B3 coverage row read "as any replacement does", which was the sheet). The sheet, What Kinship knows ("Before: …") and the line sheet now list each line too (`ItemLine.replaces` is a list; `earlierOf` reads `closes_ids`). The Portrait's quiet "was: ~~…~~" keeps the most specific line (H23), unchanged.
+- **Every guard kept.** §21 for edited and user-written lines: a closes id the user edited closes only on the user's own cue in that note (the database re-reads it), or, for the line the question named, the stored "Susan moved" answer. Never across people or subjects, never a shared line, at most 8, a model inference alone never closes an edited line. N13 re-derivation, N14 (`localityOutside`), Pilsen, the question's copy and the backfill are untouched.
+
+### Choices made within the brief (for review)
+
+1. **The stored answer vouches only for the line the question named.** With two edited lines both incompatible with a plain "Susan lives in Colorado" (California and Alameda, both the user's own), the question is "Is Susan still in Alameda?"; "Susan moved" closes Alameda; California, which no question named and no cue in the note touched, is dropped from the closures (fail open) and stays current beside Colorado, two lines B5 will not compose. The alternative, letting the answer close every line the question carried, would close the user's own words on a question that never named them; it needs a small forward migration to `resolve_capture_review`. Logged as **N16** for the founder. With a cue in the note ("moved to Colorado") both edited lines close (§21 a), so this is the no-cue case only.
+2. **"Replaces" on the Kept card** is a surface addition: H23's approved element on I4's approved card, under the kept line, one per replaced line. Recorded in `approved-design-coverage.md`.
+3. **The Portrait's "was:"** stays the most specific line only; the full list lives in What Kinship knows.
+4. **Order of the closures** is `relate.ts`'s (the most specific first; ties to the newest), so `supersedes_id` is always the most specific line (brief §2).
+
+### The §10 Undo matrix, case by case
+
+| Sequence | After Undo of the last note | Proved by |
+|---|---|---|
+| California → Alameda (refines) | California only; nothing to restore | corpus res-079; `b3`/`residenceProofs` case A |
+| California → Alameda → moved to Colorado | Alameda and California both active; "Lives in Alameda, California"; their Moments back | corpus res-006 (its two DEFERRED entries removed) and res-075/077; pgTAP 68 (B2) and 70 (the reason reopened); `b4.blackbox` res-006 and "Not this"; `residenceProofs` B4 |
+| Alameda → actually Oakland | Alameda active; no history | corpus res-080; pgTAP 69 (corrected, Undo) |
+| A thread → resolved by a note | The thread active again (N8) | pgTAP 66 (B0) |
+| Two closers of one item; undo one | The item stays closed | pgTAP 68 D (B2) |
+| Not this on the closer after 30 days (history purged) | Back to `active` | pgTAP 70 |
+
+Added by the founder's trust check: an edited line among the closures (via the cue; via the answer for the asked line only) and Undo returning the edited version: pgTAP 70, corpus res-074/075, `b4.blackbox` ("edited Alameda", "§21"), `residenceProofs` B4.
+
+### Evidence
+
+(Filled in below once every run finished; see the PR.)
+
+### Rollout
+
+1. Merge (a merge commit). **No migration**, so the integration applies nothing; compare the fingerprint anyway (unchanged, md5 `abeadd9a…`).
+2. The ai-gateway deploy from `main`, on the founder's go (the closures are sent from the gateway).
+3. A build (the Kept card's Replaces lines; the record's Before lines).
+4. Either order is safe: an app from before B4 against the new gateway shows the card without the lines while the server closes and restores correctly (the `closes_ids` mirror has been in the app since B2); the new app against the old gateway sees one closure per note, as B3.
+
+**Next step:** the founder reviews this PR (choice 1 / N16 in particular); after merge and deploy, B5 (`compose.ts`, the composed line and its sheet, §9, §12).

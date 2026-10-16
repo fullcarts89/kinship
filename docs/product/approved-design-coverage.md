@@ -297,3 +297,14 @@ Built as approved (CC-19 case E, CC-20, CC-24, brief §8 and §21). No approved 
 | Tell › clarification (case E) | **One thing to check · Is Susan still in Alameda?**, the new line's own words under it, **Still there** · **Susan moved** · Don't keep this. Asked only when the new residence may not fit the one Kinship holds and the table can't decide (a move into a place that contains it, a move between two readings of a name, or a plain new place beside a line the user edited, §21); never "Which Alameda?". Both places are the user's own words. "Susan moved" replaces that line as a change; "Still there" keeps both; Don't keep this keeps the note only | The question: yes (CC-19, CC-24). **"Susan moved" for "She moved"** (Kinship never guesses a pronoun, CC-20's I4 rule): **proposal**. No reason line under the question: proposal |
 | Tell › review / Kept card | A residence the table replaces shows "Replaces: ~~Susan lives in Alameda~~" as any replacement does (H23) | Existing behaviour |
 | Settings › About | **Place data from GeoNames (geonames.org), CC BY 4.0**, under the Account section: the first build whose gateway reads the place data | Yes: CC-20, decision 1 (Settings › About and `THIRD_PARTY_NOTICES.md`). The v2 Settings sheet had no About section; it gains one line under its own label |
+
+## B4 multi-item closure (Phase 4B, 16 Oct): what changed on approved surfaces
+
+Built as approved (CC-20: closure never without its exact Undo; brief §8 rule 2, §10). No approved surface removed; nothing composed or displayed differently on the Portrait or in What Kinship knows' sections (B5, B7, B8). **Native:** not run (no build this session).
+
+| Surface | Built | Founder approval |
+|---|---|---|
+| Tell › Kept card | Under a kept line, **Replaces: ~~Susan lives in Alameda~~** and **Replaces: ~~Susan lives in California~~**: one H23 line per line the note replaced, the most specific first, right above **Correct this · Undo**. Before B4 the card showed none of it; only the review sheet behind "Correct this" did | H23's approved element on I4's approved card: **a surface addition, for the founder's look** |
+| Tell › review, 14 What Kinship knows, line sheet | "Replaces: …" / "Before: …" once per replaced line (was: the one line it superseded) | Existing behaviour (H23, G40), now complete |
+| 12 Relationship page (Portrait) | Unchanged: "was: ~~…~~" keeps the most specific line | — |
+| Tell › clarification (case E) | Unchanged words. "Susan moved" now also closes every other line the reading can't be true with; "Still there" still closes nothing | Behaviour: CC-19 / brief §8 rule 1. Open: N16 (a second edited line the question never named stays current) |
