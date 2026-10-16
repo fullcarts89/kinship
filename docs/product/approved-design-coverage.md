@@ -269,3 +269,12 @@ Approved as CC-17 / CC-20 (copy, constraints) and in the 15 Oct brief §14. No a
 
 **Gates:** `app/__tests__/firstRun.test.tsx` and `.maestro/fresh-install.yaml` gain the step (asserting the bring-back with the user's own first Tell, and that Got it ends it).
 
+## Device check passed (founder, 16 Oct); planned for the next phase
+
+The blocker bundle passed the founder's device check (build from `main` `e098dfc`). Two findings on approved surfaces are planned, not built:
+
+| Surface | Finding | Proposed change | Founder approval |
+|---|---|---|---|
+| 10 Today › headline during a Tell (K19) | K24: inconsistent and doubled. On a quiet day the headline became "Understanding…" while the dock said the same; with a line on Today it didn't change | One rule, for the founder to choose: (a) the dock alone says "Understanding…", and Today keeps its own headline (a quiet Today shows its paper with nothing under the greeting only while the dock is reading); or (b) Today always says it, and the dock doesn't | **Needed: which rule** |
+| Tell › clarification "Who is Matt?" (J4) | K25: no way to choose Matt from Contacts; Add Matt makes a person by name only | Add **Choose from Contacts** to the question: the system picker (no Contacts permission needed), saving only the one person picked (name, contact id, birthday, as setup does), then the line files on them. Add Matt (by name) and Someone already here stay | Direction yes ("I should be able to import Matt as a contact"); **copy and placement: proposal** |
+

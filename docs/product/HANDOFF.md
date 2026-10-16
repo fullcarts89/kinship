@@ -1,5 +1,12 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 16 Oct 2026: the blocker check passed; the next phase starts.** This supersedes the addenda below where they differ.
+> - **On `main` (`e098dfc`) and in production:** the blocker bundle ([#27](https://github.com/fullcarts89/kinship/pull/27)), H4 ([#30](https://github.com/fullcarts89/kinship/pull/30); [#28](https://github.com/fullcarts89/kinship/pull/28) merged into the blocker branch by mistake), B2 ([#29](https://github.com/fullcarts89/kinship/pull/29)). B2's migration was applied by the Supabase integration on merge (schema fingerprint 959 lines, `68c5cd45…`, checked); ai-gateway v11 deployed from `main`. Build from `e098dfc` installed on Thor iPhone.
+> - **Founder's device check: passed** ("closing this out as passed"). K4, K15–K17, K19, K20, K23 VERIFIED. Logged for the next phase: K24 (Today's headline during a Tell, a founder decision first) and K25 ("Who is Matt?" → Choose from Contacts; design recorded in `approved-design-coverage.md`).
+> - **Open:** [#31](https://github.com/fullcarts89/kinship/pull/31), no model identifier in the app bundle (with a guard test). Model names in server code, eval tooling and docs stay (founder, 16 Oct).
+> - **Next:** H4's native check rides on this build. Phase 4B continues with **B3** (residence semantics); before it, the founder's answer on whether "She moved" may close a line the user edited (B2 report, brief §20). Then K24/K25 alongside.
+> - **Readiness: NOT READY** for the wife's dogfood (the full journey, H4's native check and the founder's approval come first).
+
 > **Addendum, 15 Oct 2026, night: the blocker bundle is closed internally; next is the founder's 5-minute check, then H4 and Phase 4B.** This supersedes the addenda below where they differ.
 > - **Founder direction (15 Oct):** capture is now infrastructure; fix only N11, K20, K15–K17, K19, K23; defer K18 (semantic memory), K22 (H15/B8), K21 (optional resilience); then H4, with B2 in parallel.
 > - **Branch `claude/native-pass-14oct`:** N11 `6131f3d`, K20 + K15–K17 server `6dac908`, K20 + K19 + K23 app `dde7556`, acceptance harness `aa5d829`, docs. Not merged.
