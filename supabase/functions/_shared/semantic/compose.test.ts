@@ -3,7 +3,7 @@
 // hand here, as relate.test.ts makes them; the corpus (evals/semantic) runs
 // the same composer over lines the real pipeline wrote. Run: deno test supabase/functions
 import type { Candidate } from "./placeIndex.ts";
-import { COMPOSE_RULE_VERSION, type ComposeMember, composeResidence, currentResidence, historyEligible, residenceGroupKey } from "./compose.ts";
+import { COMPOSE_RULE_VERSION, type ComposeMember, composeResidence, currentResidence, historyEligible, namedByQualifier, qualifiersOf, residenceGroupKey } from "./compose.ts";
 
 function eq<T>(actual: T, expected: T, msg = ""): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${msg} expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
@@ -105,9 +105,43 @@ Deno.test("disjoint current lines fail open, apart, and are reported as degraded
 Deno.test("a three-level chain composes; a reading the data pinned by the user's qualifier keeps its words", () => {
   const r = composeResidence([m("United States", [P.us]), m("California", [P.california]), m("Alameda", [P.alameda])]);
   eq(texts(r), ["Lives in Alameda, California, United States"]);
-  // "Alameda, CA" beside "California": both the user's words, as said (brief §9: never "California" for "CA").
+  // "Alameda, CA" beside "California": "CA" can't be proven to be California without the place data, so
+  // both are said, as the user's words (brief §9: never "California" for "CA"; N17 fails open).
   const q = composeResidence([m("Alameda, CA", [P.alameda], { pinned: P.alameda }), m("California", [P.california])]);
   eq(texts(q), ["Lives in Alameda, CA, California"]);
+});
+
+Deno.test("N17: a broader line a more specific line's own qualifier names is said once; every line stays a member", () => {
+  const alamedaCA = m("Alameda, California", [P.alameda], { pinned: P.alameda, told: "2026-10-02T12:00:00Z" });
+  const california = m("California", [P.california], { told: "2026-09-03T12:00:00Z" });
+  const r = composeResidence([california, alamedaCA]);
+  eq(texts(r), ["Lives in Alameda, California"]);
+  eq(r.lines[0].memberIds, [alamedaCA.id, california.id], "California stays a member");
+  eq(r.lines[0].words, ["Alameda, California"]);
+  // Folded as value_norm folds: case and accents don't matter; "the" neither.
+  eq(namedByQualifier(m("Alameda, california", [P.alameda], { pinned: P.alameda }).facet, california.facet), true);
+  // Two qualifiers: each may name a broader line.
+  const parisTXUS = m("Paris, Texas, United States", [P.parisTX], { pinned: P.parisTX });
+  const r2 = composeResidence([m("United States", [P.us]), m("Texas", [P.texas]), parisTXUS]);
+  eq(texts(r2), ["Lives in Paris, Texas, United States"]);
+  eq(r2.lines[0].memberIds.length, 3);
+  eq(qualifiersOf("Paris, Texas, United States"), ["Texas", "United States"]);
+  eq(qualifiersOf("Alameda"), []);
+});
+
+Deno.test("N17 fails open: an alias, a qualifier naming another place, or readings that don't prove containment keep the broader words", () => {
+  const california = m("California", [P.california]);
+  // "CA" is not "california" by its words: unprovable on the phone.
+  eq(namedByQualifier(m("Alameda, CA", [P.alameda], { pinned: P.alameda }).facet, california.facet), false);
+  // The qualifier names a country, not the region beside it: "United States" is not "California".
+  eq(namedByQualifier(m("Alameda, United States", [P.alameda], { pinned: P.alameda }).facet, california.facet), false);
+  eq(texts(composeResidence([california, m("Alameda, United States", [P.alameda], { pinned: P.alameda })])), ["Lives in Alameda, United States, California"]);
+  // The same words, but the readings don't put the specific place inside it: never omitted on words alone.
+  eq(namedByQualifier(m("Paris, Texas", [P.parisFR], { pinned: P.parisFR }).facet, m("Texas", [P.texas]).facet), false);
+  // No reading on either side: nothing is proven.
+  eq(namedByQualifier(m("Somewhere, California", [], { usual: null }).facet, california.facet), false);
+  // The rule never reaches a line that isn't broader: "California" beside "Alameda, California" is the only direction.
+  eq(namedByQualifier(california.facet, m("Alameda, California", [P.alameda], { pinned: P.alameda }).facet), false);
 });
 
 Deno.test("no word is ever added: every rendered word is a member's own value_text", () => {

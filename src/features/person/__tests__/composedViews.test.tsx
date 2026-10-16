@@ -7,7 +7,7 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { Text } from "react-native";
 import { ComposedSheet, COMPOSED_SHEET_COPY } from "@/features/person/ComposedSheet";
-import { composedRows, withoutForgotten } from "@/features/person/composedRecord";
+import { COMPOSED_PROVENANCE, composedProvenance, composedRows, withoutForgotten } from "@/features/person/composedRecord";
 import { COMPOSED_COPY, type ComposedMember, PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { Candidate } from "../../../../supabase/functions/_shared/semantic/placeIndex";
@@ -150,6 +150,35 @@ describe("the sheet of a composed line's members", () => {
   it("shows nothing when there is no composed line to show", () => {
     expect(textsOf(render(<ComposedSheet row={plain} visible onChange={noop} onForget={noop} onSource={noop} onSettle={noop} onDismiss={noop} />))).toEqual([]);
     expect(textsOf(render(<ComposedSheet row={null} visible onChange={noop} onForget={noop} onSource={noop} onSettle={noop} onDismiss={noop} />))).toEqual([]);
+  });
+});
+
+describe("mixed provenance: a line with one edited member never says 'Edited by you' for the whole", () => {
+  const editedAlameda: ComposedMember = {
+    ...alameda,
+    row: { ...alameda.row, line: { ...alameda.row.line, edited: true, editedFrom: "Susan lives in Oakland" }, provenance: "Edited by you · Oct 9 · from your note, Oct 2" },
+    sources: [...alameda.sources, { source_kind: "user_edit", capture_id: null, created_at: "2026-10-09T12:00:00Z" }],
+  };
+
+  it("says a neutral line for the whole, dated by the newest source; the sheet keeps each member's own", () => {
+    const row = composedRows([california, editedAlameda], NOW).rows[0];
+    expect(row.provenance).toBe(`${COMPOSED_PROVENANCE.from} · Oct 9 · ${COMPOSED_PROVENANCE.oneEdited}`);
+    expect(row.provenance).not.toMatch(/^Edited by you/u);
+    const r = render(<ComposedSheet row={row} visible onChange={noop} onForget={noop} onSource={noop} onSettle={noop} onDismiss={noop} />);
+    const shown = textsOf(r);
+    expect(shown).toContain("Edited by you · Oct 9 · from your note, Oct 2");
+    expect(shown).toContain("You told Kinship · Sep 3");
+    // One provenance line says "Edited by you" (the edited member's); the row's own "was:" line is the member's too.
+    expect(shown.filter((t) => /^Edited by you · \w+ \d+/u.test(t))).toHaveLength(1);
+  });
+
+  it("every member edited: the existing words over the union; none edited: 'You told Kinship … and 1 other note'", () => {
+    const editedCalifornia: ComposedMember = { ...california, sources: [...california.sources, { source_kind: "user_edit", capture_id: null, created_at: "2026-10-10T12:00:00Z" }] };
+    expect(composedProvenance([editedCalifornia, editedAlameda], NOW, "extracted")).toBe("Edited by you · Oct 10 · from your note, Sep 3");
+    expect(composedProvenance([california, alameda], NOW, "extracted")).toBe("You told Kinship · Oct 2 · and 1 other note");
+    expect(composedProvenance([usa, california, editedAlameda], NOW, "extracted")).toBe(`${COMPOSED_PROVENANCE.from} · Oct 9 · ${COMPOSED_PROVENANCE.oneEdited}`);
+    const editedUsa: ComposedMember = { ...usa, sources: [...usa.sources, { source_kind: "user_edit", capture_id: null, created_at: "2026-10-11T12:00:00Z" }] };
+    expect(composedProvenance([editedUsa, california, editedAlameda], NOW, "extracted")).toBe(`${COMPOSED_PROVENANCE.from} · Oct 11 · ${COMPOSED_PROVENANCE.someEdited}`);
   });
 });
 

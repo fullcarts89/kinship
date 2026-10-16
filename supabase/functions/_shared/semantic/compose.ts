@@ -19,7 +19,15 @@
 //            joined with ", ". Lines with the same reading are said once, in
 //            the most specific line's words, and stay members (their notes are
 //            the line's provenance). Nothing is expanded, normalised or added:
-//            "Alameda, CA" stays "Alameda, CA", never "California"
+//            "Alameda, CA" stays "Alameda, CA", never "California". A broader
+//            line whose place a more specific line's own qualifier already
+//            names goes unsaid (N17, founder): "Alameda, California" beside
+//            "California" is "Lives in Alameda, California", not "…,
+//            California, California". Proven, never guessed: the qualifier's
+//            words are the broader line's words (folded), and the readings
+//            say the broader place contains the qualified one. "Alameda, CA"
+//            beside "California" can't be proven without the place data, so
+//            both are said (fail open). The unsaid line stays a member
 //   carries  its member item ids (the union of their sources is the caller's
 //            to read), the rule version and the dataset versions. It is a
 //            view: never a memory row, never a dossier line, never evidence
@@ -29,8 +37,8 @@
 //            replacement with no cue and a supersession from before 4B (no
 //            transition) are never history (CC-20)
 
-import { type FacetLike, pairClass, specificityOf } from "./relate.ts";
-import { residenceEligible } from "./residence.ts";
+import { type FacetLike, pairClass, specificityOf, usualReading } from "./relate.ts";
+import { normOf, residenceEligible } from "./residence.ts";
 
 export const COMPOSE_RULE_VERSION = "compose/v1";
 
@@ -92,11 +100,32 @@ function versionsOf(members: readonly ComposeMember[]): string[] {
   return [...new Set(members.map((m) => m.facet.dataset_version).filter((v): v is string => typeof v === "string" && !!v))].sort();
 }
 
+/** The qualifiers in a line's own words: "Alameda, CA" → ["CA"]; "Paris, Texas, USA" → ["Texas", "USA"]. */
+export function qualifiersOf(valueText: string): string[] {
+  return valueText.split(",").slice(1).map((q) => q.trim()).filter(Boolean);
+}
+
+/**
+ * Whether a more specific line's own qualifier names the broader line's
+ * place (N17): the same words, folded as value_norm folds them, and the
+ * readings prove the broader place contains the qualified one. Anything the
+ * phone can't prove from the words and the readings ("CA" for California)
+ * is not the same, so the broader line is said (fail open).
+ */
+export function namedByQualifier(specific: FacetLike, broader: FacetLike): boolean {
+  const inner = usualReading(specific);
+  const outer = usualReading(broader);
+  if (!inner || !outer || !inner.ancestors.includes(outer.ref)) return false;
+  return qualifiersOf(specific.value_text).some((q) => normOf(q) === broader.value_norm);
+}
+
 function render(members: readonly ComposeMember[], prefix: string): Composed {
   const words: string[] = [];
   members.forEach((m, i) => {
     // The same reading is said once, in the most specific line's words.
     if (i > 0 && pairClass(members[i - 1].facet, m.facet) === "SAME") return;
+    // A place a more specific line's own qualifier already names is said once too (N17).
+    if (members.slice(0, i).some((s) => namedByQualifier(s.facet, m.facet))) return;
     words.push(m.facet.value_text);
   });
   return {

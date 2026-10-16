@@ -5,7 +5,11 @@
 // readings; nothing is stored, and the member lines stay the memory.
 //
 //   provenance  the union of the members' sources, in the existing words
-//               ("You told Kinship · Oct 2 · and 1 other note")
+//               ("You told Kinship · Oct 2 · and 1 other note"); when some
+//               members were edited and others not, a neutral line for the
+//               whole ("From your notes · Oct 9 · one edited by you"), never
+//               "Edited by you" over words the user didn't edit (founder, B5
+//               review). Each member keeps its own line in the sheet
 //   members     every line behind it, the most specific first, each with its
 //               own words, provenance, Edit and Not this (the sheet)
 //   fail open   a group that doesn't chain shows every line as today; one
@@ -16,7 +20,7 @@
 // rest from the same inputs at once (withoutForgotten), never from a cached
 // string.
 import { type ComposeMember, composeResidence, currentResidence, residenceGroupKey } from "../../../supabase/functions/_shared/semantic/compose";
-import { provenanceLine, type SourceFacts } from "@/features/memory/format";
+import { momentLabel, provenanceLine, type SourceFacts } from "@/features/memory/format";
 import type { MemoryItem, MemorySource, ResidenceFacetRow } from "@/store/repositories";
 import type { ComposedMember, ComposedRecord, RecordLine } from "./PersonRecordView";
 
@@ -52,6 +56,29 @@ function newestNote(sources: readonly SourceFacts[]): string | null {
   return notes[0]?.capture_id ?? null;
 }
 
+/** The composed line's provenance when its members' sources are of different kinds (a proposal for the founder). */
+export const COMPOSED_PROVENANCE = {
+  from: "From your notes",
+  oneEdited: "one edited by you",
+  someEdited: "some edited by you",
+} as const;
+
+const edited = (m: ComposedMember) => m.sources.some((s) => s.source_kind === "user_edit");
+
+/**
+ * What the whole line can say about where it came from: the existing words
+ * over the union when every member came the same way; a neutral line when
+ * some members were edited and others not, dated by the newest source.
+ */
+export function composedProvenance(members: readonly ComposedMember[], now: Date, origin: string | null): string {
+  const sources = members.flatMap((m) => m.sources);
+  const some = members.filter(edited).length;
+  if (some === 0 || some === members.length) return provenanceLine(sources, now, origin);
+  const newest = [...sources].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const when = newest ? ` · ${momentLabel(newest.created_at, now, false)}` : "";
+  return `${COMPOSED_PROVENANCE.from}${when} · ${some === 1 ? COMPOSED_PROVENANCE.oneEdited : COMPOSED_PROVENANCE.someEdited}`;
+}
+
 /**
  * The rows for one group of members: one composed row when they chain (and
  * there are at least two), else each member's own row (fail open).
@@ -67,7 +94,7 @@ export function composedRows(members: readonly ComposedMember[], now: Date): { r
     const record: ComposedRecord = { text: line.text, memberIds: line.memberIds, members: ordered };
     return {
       line: head.row.line,
-      provenance: provenanceLine(sources, now, head.origin),
+      provenance: composedProvenance(ordered, now, head.origin),
       noteId: newestNote(sources),
       conflict: null,
       composed: record,

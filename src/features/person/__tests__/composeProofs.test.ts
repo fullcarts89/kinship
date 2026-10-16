@@ -166,6 +166,20 @@ describe("B5 step 8: the composer on What Kinship knows (brief §9)", () => {
     expect(JSON.stringify(lines)).not.toMatch(/California/u);
   });
 
+  it("(3b, N17) 'Alameda, California' then 'California': 'Lives in Alameda, California', California still a member; 'Alameda, CA' says both", async () => {
+    const w = await world();
+    await kept(w, "Susan lives in Alameda, California.", "Susan lives in Alameda, California");
+    await kept(w, "Susan lives in California.", "Susan lives in California");
+    const lines = await knows(w);
+    expect(shown(lines)).toEqual(["Lives in Alameda, California"]);
+    expect(composedOf(lines).composed!.members.map((m) => m.row.line.statement)).toEqual(["Susan lives in Alameda, California", "Susan lives in California"]);
+    expect(composedOf(lines).provenance).toMatch(/and 1 other note$/u);
+    const alias = await world();
+    await kept(alias, "Susan lives in Alameda, CA.", "Susan lives in Alameda, CA");
+    await kept(alias, "Susan lives in California.", "Susan lives in California");
+    expect(shown(await knows(alias))).toEqual(["Lives in Alameda, CA, California"]);
+  });
+
   it("(4) the same place from two notes: one phrase, both notes behind it, neither lost", async () => {
     const w = await world();
     const first = await kept(w, "Susan lives in Alameda.", "Susan lives in Alameda");
@@ -333,7 +347,11 @@ describe("B5 step 9: a member edited, removed, replaced or restored reads the li
     const c = composedOf(lines);
     expect(c.composed!.members.map((m) => [m.row.line.statement, m.row.line.edited])).toEqual([["Susan lives in Oakland", true], ["Susan lives in California", false]]);
     expect(c.composed!.members[0].row.line.editedFrom).toBe("Susan lives in Alameda");
-    expect(c.provenance).toMatch(/^Edited by you · Oct \d+ · from your note, Oct \d+$/u);
+    // One member edited, the other not: the whole line says so neutrally; each member keeps its own line.
+    expect(c.provenance).toMatch(/^From your notes · Oct \d+ · one edited by you$/u);
+    expect(c.composed!.members.map((m) => m.row.provenance)).toEqual([
+      expect.stringMatching(/^Edited by you · Oct \d+ · from your note, Oct \d+$/u), expect.stringMatching(/^You told Kinship · Oct \d+$/u),
+    ]);
     // Words the data doesn't know: the edited line stands alone, the other too (fail open), nothing invented.
     await w.understanding.correct(alameda, { statement: "Susan lives in the East Bay" });
     await w.understanding.run();
