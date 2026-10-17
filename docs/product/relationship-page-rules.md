@@ -45,6 +45,12 @@ Never "overdue", "late", "you still haven't" or a count of days. Never "Waiting 
 - **Add a conversation** (only for someone active, on a page that has something told) asks "How were you in touch with Tyler?": Message · Call · Video · In person. Nothing else is asked.
 - No count, frequency, streak, health or "last contacted". "You reached out · <date>" under the name is gone (CC-20).
 
+## Reaching out from the page (founder K23, K28, K26; CC-26)
+
+- **Message** and **Call** open the real channel. They never record a conversation by themselves (T12).
+- **What comes back:** with something to act on (Today's line about them, else the open "You said you'd" nearest its day), the same return question and resolution as Today's line (K23). With nothing to act on, the page's own **"Did you reach Susan?"**: strictly local, no reason, no Moment, nothing told to the server (K28). Yes records one conversation in the user's own word (channel and time, nothing attached); Not yet records nothing; then the optional **"Anything worth remembering from talking with Susan?"** with **Tell Kinship** · **Nothing today**, on the page as on Today. A channel that never opened asks nothing. Never for someone remembered, paused or removed. Once, across repeats, a restart and sync; retractable in What Kinship knows.
+- **"You could mention"** on the sheet is up to two of their current lines chosen by a small deterministic preference (`src/features/today/mentions.ts`): about the hand-off's subject first, then what is going on or coming up, then other current facts, then a memory shared with other People only when nothing better is left; in the user's own words, uncertainty kept, nothing sensitive or no longer current, never the first rows of the page. One fixed-template suggestion may sit under the first line for a milestone still ahead. Zero is an answer.
+
 ## Item states and where they go
 
 | State | On the page | In What Kinship knows | In the database |

@@ -327,6 +327,12 @@ Built as approved (CC-19 "a composed statement is a view"; brief §9, §12). No 
 
 Report only (brief §14, §25; CC-19 "existing wrong supersessions: report only"). **No approved surface changes, appears or is removed:** the app asks the gateway for the report once after its first sync, with no screen, copy, badge or setting; the report is read by the founder in the SQL editor (`b6-dry-run-report.md`). Nothing a user sees is different. **Native:** not run (no build this session).
 
+## K28 + K26 (founder, 17 Oct, CC-26): the page's return loop and "You could mention"
+
+- **The person page, after a Yes:** "Anything worth remembering from talking with Susan?" with **Tell Kinship** · **Nothing today**, in the return question's place (the same prompt Today shows after a Yes; board 2's return check, now complete on the page). No new surface; an existing approved element on an existing screen.
+- **The hand-off sheet's "You could mention":** the same list, chosen by a deterministic preference instead of the page's first rows; up to two lines, zero allowed. **Proposal:** one quiet fixed-template suggestion under the first line when it is a milestone still ahead, e.g. "You could ask how the wedding plans are going." (`MENTION_OPENERS` in `mentions.ts`: wedding, engagement, new job, promotion, new home, move, baby). Clearly a suggestion, never the user's words; not the deferred AI-generated opener. Needs the founder's yes on the copy; the lines themselves need none.
+- **Native:** not run (no build this session). The founder's checklist: `k28-device-checklist.md`.
+
 ## Roadmap update (founder, 16 Oct, CC-25): status of deferred and planned surfaces
 
 Strategy only; no surface is built, removed or redesigned by this entry. **No approved surface is dropped:** every board surface below keeps its status and deferral reason, and any change to its approved form still needs founder approval recorded here (contract §9, §11). The audit that prompted it is `audits/2026-10-16-roadmap-audit.md` (dated, non-canonical).
