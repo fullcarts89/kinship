@@ -323,6 +323,10 @@ Built as approved (CC-19 "a composed statement is a view"; brief §9, §12). No 
 
 **N17 (founder, B5 review): decided and built.** A broader line whose place a more specific member's own qualifier provably names goes unsaid ("Alameda, California" + "California" → "Lives in Alameda, California"); its note stays a member and in the provenance. Unprovable on the phone ("Alameda, CA"): both said, as before.
 
+## B6 residence dry run (Phase 4B, 17 Oct): no surface changes
+
+Report only (brief §14, §25; CC-19 "existing wrong supersessions: report only"). **No approved surface changes, appears or is removed:** the app asks the gateway for the report once after its first sync, with no screen, copy, badge or setting; the report is read by the founder in the SQL editor (`b6-dry-run-report.md`). Nothing a user sees is different. **Native:** not run (no build this session).
+
 ## Roadmap update (founder, 16 Oct, CC-25): status of deferred and planned surfaces
 
 Strategy only; no surface is built, removed or redesigned by this entry. **No approved surface is dropped:** every board surface below keeps its status and deferral reason, and any change to its approved form still needs founder approval recorded here (contract §9, §11). The audit that prompted it is `audits/2026-10-16-roadmap-audit.md` (dated, non-canonical).

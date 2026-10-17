@@ -4,6 +4,7 @@ import type { StructuredRequest, StructuredResult } from "../_shared/ai/model.ts
 import type { FacetRow, ItemRow } from "../_shared/extraction/context.ts";
 import type { PlaceIndex } from "../_shared/semantic/placeIndex.ts";
 import type { FacetWrite, LineToRead } from "../_shared/semantic/rederive.ts";
+import type { ReportItem, ReportRow } from "../_shared/semantic/report.ts";
 import { placeIndex } from "../_shared/semantic/places/dataset.ts";
 import type { ResolvedItem } from "../_shared/extraction/resolve.ts";
 import {
@@ -53,6 +54,15 @@ interface World {
   quota: number;
   /** write_facets calls (Phase 4B B3 re-derivation), and when they ran relative to the extraction's write. */
   facetWrites: { items: FacetWrite[]; beforeWrite: boolean }[];
+  /** Every service operation, in order (Phase 4B B6: the report may touch only its two tables). */
+  ops: string[];
+  /** The report writes (B6), and the runs recorded. */
+  reports: { userId: string; rule: string; dataset: string; itemIds: string[]; rows: ReportRow[] }[];
+  runs: Map<string, string>;
+  /** Pages read (B6). */
+  pages: { after: string | null; limit: number }[];
+  /** Lines whose quotes were read (B6). */
+  quoteIds: string[];
 }
 
 function world(opts: {
@@ -79,9 +89,15 @@ function world(opts: {
   unread?: { line: LineToRead; quotes: string[] }[];
   /** write_facets' answer per line; default written. */
   facetResult?: string;
+  /** Every live line of the account (loadLinesPage pages over them by id; B6). */
+  lines?: ReportItem[];
+  /** The quotes of lines' notes (B6); default each line's statement. */
+  quotes?: Record<string, string[]>;
+  /** The report write fails (an interrupted run, B6). */
+  reportThrows?: boolean;
 } = {}): World {
   const w: World = {
-    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [],
+    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [], ops: [], reports: [], runs: new Map(), pages: [], quoteIds: [],
     deps: undefined as unknown as GatewayDeps,
   };
   const caller: GatewayCaller = {
@@ -102,6 +118,15 @@ function world(opts: {
     }),
     loadItems: (ids, o) => Promise.resolve((opts.items ?? []).filter((m) => ids.includes(m.person_id) || (!!o?.shared && (m.with_person_ids ?? []).some((x) => ids.includes(x))))),
     loadRemoved: () => Promise.resolve(opts.removed ?? []),
+    loadLinesPage: (after, limit) => {
+      w.pages.push({ after, limit });
+      const sorted = [...(opts.lines ?? [])].sort((a, b) => a.id.localeCompare(b.id));
+      return Promise.resolve(sorted.filter((l) => !after || l.id > after).slice(0, limit));
+    },
+    loadQuotes: (ids) => {
+      w.quoteIds.push(...ids);
+      return Promise.resolve(Object.fromEntries(ids.map((id) => [id, opts.quotes?.[id] ?? [(opts.lines ?? []).find((l) => l.id === id)?.statement ?? ""]])));
+    },
     loadUnread: (ids) => Promise.resolve((opts.unread ?? []).filter((u) => ids.includes(u.line.id))),
     loadFacets: (ids) => Promise.resolve(opts.facets === null ? null : (opts.facets ?? []).filter((f) => ids.includes(f.memory_item_id))),
     loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
@@ -110,7 +135,7 @@ function world(opts: {
       return Promise.resolve(opts.closes ?? true);
     },
   };
-  const service: ServiceOps = {
+  const base: ServiceOps = {
     claim: () => Promise.resolve(opts.claim ?? "claimed"),
     release: (_u, _c, status) => {
       w.releases.push(status);
@@ -138,7 +163,19 @@ function world(opts: {
         people: Object.fromEntries(newPeople.map((p, i) => [p.ref, `new-person-${i}`])),
       });
     },
+    reportRan: (userId, rule, dataset) => Promise.resolve(w.runs.get(`${userId}|${rule}|${dataset}`) ?? null),
+    writeReport: (userId, rule, dataset, itemIds, rows) => {
+      if (opts.reportThrows) return Promise.reject(new Error("report write failed"));
+      w.reports.push({ userId, rule, dataset, itemIds, rows });
+      w.runs.set(`${userId}|${rule}|${dataset}`, "2026-10-17T00:00:00Z");
+      return Promise.resolve();
+    },
   };
+  // Every operation recorded by name (the adversarial check: the report touches only its two tables).
+  const service = Object.fromEntries(Object.entries(base).map(([name, fn]) => [name, (...args: unknown[]) => {
+    w.ops.push(name);
+    return (fn as (...a: unknown[]) => unknown)(...args);
+  }])) as unknown as ServiceOps;
   w.deps = {
     authenticate: (token) => Promise.resolve(token === "good" ? caller : null),
     model: (req) => {
@@ -685,4 +722,117 @@ Deno.test("N13: a reading the database refused is never used: the edited line st
   const w = home("Susan moved to Colorado.", { items: [EDITED_LINE], facets: [], unread: [EDITED_UNREAD], facetResult: "dropped" });
   await call(w, post(extract));
   eq(w.writes[0].items[0].action.type, "new");
+});
+
+// ─── B6: the residence dry run over the caller's own account ─────────────────
+
+const reportBody = (extra: Record<string, unknown> = {}) => ({ action: "semantic_report", ...extra });
+let lineN = 0;
+function reportLine(statement: string, over: Partial<ReportItem> = {}): ReportItem {
+  lineN++;
+  return {
+    id: `${String(lineN).padStart(8, "0")}-0000-4000-8000-000000000b60`, person_id: "person-susan", kind: "fact", subject_type: "person",
+    subject_related_id: null, statement, certainty: "stated", sensitivity: "none", status: "active", user_state: "unreviewed",
+    detail: { category: "home" }, with_person_ids: [], supersedes_id: null, closes_ids: [], created_at: `2026-10-${String((lineN % 28) + 1).padStart(2, "0")}T12:00:00Z`, ...over,
+  };
+}
+
+Deno.test("B6 (17): the report needs the signed-in owner, and is always theirs: a user id in the body is ignored", async () => {
+  const w = world({ consent: false, flag: false, places: placeIndex(), lines: [reportLine("Susan lives in Alameda")] });
+  eq((await call(w, post(reportBody(), null))).status, 401);
+  eq((await call(w, post(reportBody(), "bad"))).status, 401);
+  eq(w.reports, []);
+  const { status, body } = await call(w, post(reportBody({ user_id: "someone-else", input_ref: { user_id: "someone-else" } })));
+  eq(status, 200);
+  eq(body.status, "reported");
+  eq(w.reports.map((r) => r.userId), ["u1"], "the verified caller, never the body's id");
+});
+
+Deno.test("B6: model-free and owner-only: no consent, flag, quota or model; only the two report tables are written, with ids and buckets", async () => {
+  const ca = reportLine("Susan lives in California");
+  const al = reportLine("Susan lives in Alameda");
+  const stay = reportLine("Susan is staying in Denver this week");
+  const pottery = reportLine("Susan loves pottery", { detail: { category: "interest" } });
+  // Removed ("Not this") since an earlier run: its earlier rows are cleared; it is read no more.
+  const gone = reportLine("Susan lives in Oakland", { status: "retracted", deleted_at: "2026-10-16T00:00:00Z" });
+  const w = world({ consent: false, flag: false, places: placeIndex(), lines: [ca, al, stay, pottery, gone] });
+  const { status, body } = await call(w, post(reportBody()));
+  eq(status, 200);
+  eq([w.modelCalls.length, w.quota, w.logs.length, w.writes.length, w.facetWrites.length, w.resolves.length], [0, 0, 0, 0, 0, 0]);
+  eq(w.ops, ["reportRan", "writeReport"], "nothing else is touched");
+  const [r] = w.reports;
+  eq([r.rule, r.dataset], ["residence/v1", "places-2026.10"]);
+  eq(r.itemIds.length, 5, "every line, removed and retracted too, so earlier rows for any of them are cleared");
+  eq([...w.quoteIds].sort(), [ca.id, al.id, stay.id, pottery.id].sort(), "every live line's own words are read; a removed line's never");
+  eq(r.rows, [
+    { memory_item_id: ca.id, bucket: "eligible" }, { memory_item_id: ca.id, bucket: "candidates" }, { memory_item_id: ca.id, bucket: "would_compose" },
+    { memory_item_id: al.id, bucket: "eligible" }, { memory_item_id: al.id, bucket: "candidates" }, { memory_item_id: al.id, bucket: "would_compose" },
+    { memory_item_id: stay.id, bucket: "not_residence" },
+  ]);
+  const summary = body.summary as Record<string, unknown>;
+  eq([summary.total, summary.examined, summary.eligible], [4, 3, 2]);
+  eq((summary.groups as { would_compose: string[][] }).would_compose, [[al.id, ca.id]]);
+  // Content-free, in the write and in the reply.
+  for (const text of [JSON.stringify(w.reports), JSON.stringify(body)]) {
+    eq(/Susan|Alameda|California|Denver|pottery/u.test(text), false, "no words of the user's");
+  }
+});
+
+Deno.test("B6 (13): run again at the same versions: nothing is read or written a second time, unless asked again", async () => {
+  const w = world({ places: placeIndex(), lines: [reportLine("Susan lives in Alameda")] });
+  eq((await call(w, post(reportBody()))).body.status, "reported");
+  const again = await call(w, post(reportBody()));
+  eq([again.status, again.body.status, again.body.rule_version, again.body.dataset_version], [200, "already_reported", "residence/v1", "places-2026.10"]);
+  eq([w.reports.length, w.pages.length], [1, 1]);
+  eq((await call(w, post(reportBody({ again: true })))).body.status, "reported");
+  eq(w.reports.length, 2);
+  eq(w.reports[1].rows, w.reports[0].rows, "the same rows again");
+});
+
+Deno.test("B6 (14): an interrupted run is never marked complete; the retry reads everything again and writes the same rows", async () => {
+  const lines = [reportLine("Susan lives in California"), reportLine("Susan lives in Alameda")];
+  const w = world({ places: placeIndex(), lines, reportThrows: true });
+  eq((await call(w, post(reportBody()))).status, 500);
+  eq([w.reports.length, w.runs.size], [0, 0], "no run recorded");
+  const ok = world({ places: placeIndex(), lines });
+  eq((await call(ok, post(reportBody()))).body.status, "reported");
+  eq(ok.reports[0].rows.length, 6);
+  eq(ok.runs.size, 1);
+});
+
+Deno.test("B6 (16): an account with more lines than one query returns is read whole, page by page; too many to read whole is refused without a write", async () => {
+  const lines = Array.from({ length: 1203 }, (_, i) => i % 400 === 0 ? reportLine("Susan lives in Alameda") : reportLine(`Susan loves hobby ${i}`, { detail: { category: "interest" } }));
+  const w = world({ places: placeIndex(), lines });
+  const { body } = await call(w, post(reportBody()));
+  eq(body.status, "reported");
+  eq(w.pages.map((p) => p.limit), [500, 500, 500]);
+  eq(w.pages[1].after !== null && w.pages[2].after !== null && w.pages[2].after! > w.pages[1].after!, true, "each page after the last id of the one before");
+  eq((body.summary as { total: number }).total, 1203);
+  eq(w.reports[0].itemIds.length, 1203);
+  eq(w.quoteIds.length, 1203, "every line's words, across the pages");
+  // The four Alameda lines are the same place, all current: one chain, so each is eligible, candidates and would_compose.
+  eq(w.reports[0].rows.length, 4 * 3, "the four Alameda lines, read across the pages");
+  eq((body.summary as { groups: { would_compose: string[][] } }).groups.would_compose[0].length, 4);
+  // More than REPORT_MAX_PAGES full pages: refused, nothing written (never a silent truncation).
+  const huge = world({ places: placeIndex(), lines: Array.from({ length: 500 * 40 + 1 }, () => reportLine("Susan loves hobby", { detail: { category: "interest" } })) });
+  eq((await call(huge, post(reportBody()))).status, 507);
+  eq(huge.reports, []);
+});
+
+Deno.test("B6 (15): an account with nothing residential: a run with no rows, recorded; no place data: try later, nothing recorded", async () => {
+  const w = world({ places: placeIndex(), lines: [reportLine("Susan loves pottery", { detail: { category: "interest" } })] });
+  const { body } = await call(w, post(reportBody()));
+  eq([body.status, (body.summary as { examined: number }).examined, w.reports[0].rows], ["reported", 0, []]);
+  eq(w.runs.size, 1);
+  const none = world({ lines: [reportLine("Susan lives in Alameda")] });
+  eq((await call(none, post(reportBody()))).status, 503);
+  eq([none.reports.length, none.pages.length], [0, 0]);
+});
+
+Deno.test("B6: a line is examined by the user's own words: a note that says where she lives behind a statement that doesn't", async () => {
+  const place = reportLine("Susan has a new place", { detail: { category: "other" } });
+  const w = world({ places: placeIndex(), lines: [place], quotes: { [place.id]: ["Susan moved to Alameda last month"] } });
+  const { body } = await call(w, post(reportBody()));
+  eq([(body.summary as { examined: number }).examined, (body.summary as { eligible: number }).eligible], [1, 1]);
+  eq(w.reports[0].rows, [{ memory_item_id: place.id, bucket: "eligible" }, { memory_item_id: place.id, bucket: "candidates" }]);
 });

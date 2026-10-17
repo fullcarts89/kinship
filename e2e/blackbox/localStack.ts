@@ -83,6 +83,13 @@ export async function serverRows<T = Record<string, unknown>>(table: string, use
   return await admin(`/rest/v1/${table}?user_id=eq.${userId}&select=*`) as T[];
 }
 
+/** The rows of a table whose `column` is one of `values` (the report table has no user column; Phase 4B B6). */
+export async function serverRowsIn<T = Record<string, unknown>>(table: string, column: string, values: string[]): Promise<T[]> {
+  if (!values.length) return [];
+  for (const v of values) if (!/^[0-9a-f-]{36}$/u.test(v)) throw new Error("ids only");
+  return await admin(`/rest/v1/${table}?${column}=in.(${values.join(",")})&select=*&order=${column}`) as T[];
+}
+
 /**
  * A shared line as an earlier build left it in this local test account: the
  * note, the memory and its source, in one transaction (every memory needs its
@@ -145,4 +152,17 @@ insert into public.memory_item_sources (user_id, memory_item_id, capture_id, sou
 select '${userId}', m.id, c.id, 'capture', 0, ${line.statement.length}, ${q(line.statement)}, ${q(line.at)}, ${q(line.at)} from c, m;
 commit;`;
   execFileSync("docker", ["exec", "-i", "supabase_db_kinship", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], { input: sql, stdio: ["pipe", "ignore", "pipe"] });
+}
+
+/**
+ * How many rows every table of the local database holds (service role, the whole stack, not one account):
+ * before and after a run that may write only its own tables, the counts of every other table must agree.
+ * Local database container only.
+ */
+export function tableCounts(): Record<string, number> {
+  const sql = `select json_object_agg(relname, n) from (
+    select c.relname, (xpath('/row/n/text()', query_to_xml(format('select count(*) n from public.%I', c.relname), false, true, '')))[1]::text::int as n
+    from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r') t;`;
+  const out = execFileSync("docker", ["exec", "-i", "supabase_db_kinship", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-At"], { input: sql, stdio: ["pipe", "pipe", "pipe"] });
+  return JSON.parse(out.toString().trim()) as Record<string, number>;
 }
