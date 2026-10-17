@@ -70,6 +70,7 @@
   document.getElementById("g-return").innerHTML = fig({ ...H, hedge: "C", state: "return", base: "moment", hour: 18 }, "<b>The return question.</b> Yes · Not yet; the reason beneath; “Open Messages again” as a link.") + fig({ ...H, hedge: "C", state: "return", base: "moment", hour: 18, phase: "settling" }, "<b>Settle, mid-way.</b> The block quietens.") + fig({ ...H, hedge: "C", state: "return", base: "moment", hour: 18, phase: "resolved" }, "<b>Resolve, mid-way.</b> The question has become its answer.") + fig({ ...H, hedge: "C", state: "after", base: "moment", hour: 18 }, "<b>After.</b> The optional prompt.");
   document.getElementById("g-devices").innerHTML = fig({ ...H, hedge: "C", state: "moment", se: true }, "<b>iPhone SE.</b>") + fig({ ...H, hedge: "C", state: "milestone", se: true }, "<b>SE, the longest statement.</b>") + fig({ ...H, hedge: "C", state: "moment", large: true }, "<b>Larger text ×1.3.</b>") + fig({ ...H, screen: "person", person: "priya", large: true }, "<b>Priya, larger text.</b>");
   document.querySelectorAll('.scrim, .sheet').forEach((n) => n.classList.add('on'));
+  requestAnimationFrame(() => { document.documentElement.dataset.pageHeight = String(document.documentElement.scrollHeight); });
 })();
 </script>
 </body>

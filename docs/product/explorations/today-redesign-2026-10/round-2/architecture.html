@@ -88,6 +88,7 @@
   document.getElementById("j3").innerHTML = [fig({ ...H, state: "promise", hour: 9 }, "<b>1.</b> “You said you'd” as the kicker; a bow; your own words behind the provenance."), arrow, fig({ ...H, state: "promise", sheet: "handoff", hour: 9 }, "<b>2.</b> Message David."), arrow, fig({ ...H, state: "return", base: "promise", hour: 18 }, "<b>3.</b> Back: “Did you send David the number?”"), arrow, fig({ ...H, state: "after", base: "promise", hour: 18 }, "<b>4.</b> Yes: logistics, so no memory prompt (I2).")].join("");
   document.getElementById("j4").innerHTML = [fig({ ...H, state: "thread", hour: 9 }, "<b>1.</b> An open thread: “A while ago”, no illustration."), arrow, fig({ ...H, state: "return", base: "thread", hour: 18 }, "<b>2.</b> Back."), arrow, fig({ ...H, screen: "person", person: "nana" }, "<b>3.</b> Nana, remembered: kept, never surfaced."), arrow, fig({ ...H, screen: "people", people: "small" }, "<b>4.</b> In People, one italic word; nothing else differs.")].join("");
   document.querySelectorAll('.scrim, .sheet').forEach((n) => n.classList.add('on'));
+  requestAnimationFrame(() => { document.documentElement.dataset.pageHeight = String(document.documentElement.scrollHeight); });
 })();
 </script>
 </body>
