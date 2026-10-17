@@ -1,5 +1,13 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 17 Oct 2026: Phase 4B B6 (the residence dry run, report only) is built; production NOT RUN; B7 NOT STARTED.** This supersedes the addenda below where they differ.
+> - **Branch `claude/phase4b-b6-report`** (from `main` `6abf088`), PR against `main`. Not merged; nothing deployed; no build. What was built, the choices, the evidence and the rollout: `phase4-implementation-brief.md` §25. The founder's report, its SQL and its stop gate: `b6-dry-run-report.md`.
+> - **No migration.** B2's `residence_backfill_report` and `semantic_runs` hold it; the fingerprint is unchanged (md5 `abeadd9a…`). The gateway gains `semantic_report` (owner only, model-free, paged, writes only those two tables, the run recorded last); the app asks once per process after its first sync and records the answer. Nothing else is written anywhere, proved byte for byte on the local stack.
+> - **Production:** the gateway deploy, a build and the founder's own run each wait for the founder's go; then the founder reads the queries for their account and decides. Nothing applies facets; B9's gate is separate; B7 → B8 → B9 keeps its order.
+> - **Evidence:** UNIT (Deno 441, Jest 93 / 847), INTEGRATION (corpus 80/80; pgTAP 26 / 743 re-run, no SQL changed), BLACK-BOX (`b6.blackbox` 3/3; b5 4, b4 5, b3 20, removal 3, k4 36 against this branch's gateway), LIVE-MODEL not applicable, NATIVE-SIMULATOR and FOUNDER-DEVICE not run.
+> - **Local stack:** the shared `functions serve` and stub on :8790 untouched; this session's stub (:8791) and gateway (:8000) stopped by PID. The shared local DB is unchanged.
+> - **Readiness: NOT READY.**
+
 > **Addendum, 16 Oct 2026, night, later: B5 MERGED (PR #38, `main` `53fbb38`), ai-gateway v13 deployed from it, the build installed on Thor iPhone; B6 NOT STARTED.** This supersedes the addenda below where they differ.
 > - **Merged** by the founder after the review round (N17 and mixed provenance built, commit `c7e6232`). **ai-gateway v13** deployed from `main` `53fbb38` on the founder's "build the gateway and install the updated app" (16 Oct, 23:54 UTC); verified with `functions download --use-api`: all 25 deployed files match the checkout (the gateway doesn't bundle `compose.ts`; B5 changed no gateway behaviour). **No migration**; production's latest stays `20261016090000`.
 > - **The build:** a local EAS `dogfood-v2` build from the same commit (`npx eas-cli build --local`, Xcode 27), still 1.0.0 (2), installed by cable (`devicectl`). The bundle's `strings` show the B5 copy ("Lives in ", "From these notes", "From your notes") and no model identifier (the `noModelIdentifiers` guard passed in CI).

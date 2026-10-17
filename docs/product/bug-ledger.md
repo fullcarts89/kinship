@@ -22,6 +22,8 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
   - **Re-seen (pass N)**: the problem happened again on device.
   - **Not re-tested**: no native evidence since the fix.
 
+*Update, 17 Oct 2026 (Phase 4B B6, branch `claude/phase4b-b6-report`):* B6 (the residence dry run, report only) is built; not merged, not deployed, production not run; no migration. Not a bug pass: no K or N item changes status; N16 stays open. Nothing found that needs a row: the report changes no data by design (proved byte for byte on the local stack).
+
 *Update, 16 Oct 2026, night (Phase 4B B5, branch `claude/phase4b-b5-compose`):* B5 (the composed residence line and its provenance) is built; not merged, no build; no migration, no gateway change. Not a bug pass: no K or N item changes status; N16 stays open. Found while building it: N17, decided by the founder in the B5 review and FIXED on the branch (a provably redundant broader phrase goes unsaid; "Alameda, CA" fails open). The founder also asked for neutral provenance on a composed line with one edited member (built, brief §24 point 7).
 
 *Update, 16 Oct 2026, late (Phase 4B B4, branch `claude/phase4b-b4-77358f`, PR #35):* B4 (multi-item closure and its exact Undo) is built; no migration. **The founder ran `b4-device-checklist.md` on a build with the gateway deployed from the branch: passed, no issues (FOUNDER-DEVICE PASS).** Merged (PR #35, `a4ab5ac`). Not a bug pass: no K or N item changes status. Found while building it: the Kept card never showed "Replaces" (only the review sheet did), now it does for every line a note replaced; and N16, a choice for the founder (the stored "Susan moved" answer closes only the line the question named, so a second edited line stays current).

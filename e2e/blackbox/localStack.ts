@@ -83,6 +83,13 @@ export async function serverRows<T = Record<string, unknown>>(table: string, use
   return await admin(`/rest/v1/${table}?user_id=eq.${userId}&select=*`) as T[];
 }
 
+/** The rows of a table whose `column` is one of `values` (the report table has no user column; Phase 4B B6). */
+export async function serverRowsIn<T = Record<string, unknown>>(table: string, column: string, values: string[]): Promise<T[]> {
+  if (!values.length) return [];
+  for (const v of values) if (!/^[0-9a-f-]{36}$/u.test(v)) throw new Error("ids only");
+  return await admin(`/rest/v1/${table}?${column}=in.(${values.join(",")})&select=*&order=${column}`) as T[];
+}
+
 /**
  * A shared line as an earlier build left it in this local test account: the
  * note, the memory and its source, in one transaction (every memory needs its

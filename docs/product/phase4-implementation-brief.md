@@ -958,3 +958,53 @@ Added by the founder's trust check: an edited line among the closures (via the c
 **Founder review (16 Oct, night):** architecture and implementation approved in principle; the single entry into the sheet and its copy approved; conservative history eligibility kept; two refinements asked for and built (choices 3 and 7 above: N17, and mixed provenance). Re-run after them: Jest 92 / 843, Deno 422, corpus 80/80, `b5.blackbox` 4/4 replayed, tsc and eslint clean.
 
 **Next step:** the founder's final review and merge of this PR; after merge, B6 (the report-only task and `residence_backfill_report`, §14), which stops for the founder before any facet is written for an existing line.
+
+---
+
+## 25. B6 as built (17 Oct 2026)
+
+**Status:** built on `claude/phase4b-b6-report`, from `main` `6abf088` (PR #39); in review. **Report only.** **No migration:** B2's `residence_backfill_report` and `semantic_runs` (20261015090000, §1 F) hold everything; the schema fingerprint of a fresh build is unchanged (md5 `abeadd9ad9b1d2041f9884299872c03e`, 983 lines). The gateway gains one model-free action; the app asks for it once. **Production: not run** (no deploy, no build). **B7 is not started.** Readiness: **NOT READY**.
+
+**Commits:**
+- `ea6f345`: `report.ts`, the dry run over an account's existing lines.
+- `ae52b86`: the gateway's `semantic_report`; the app asks once at launch.
+- The `b6` black-box suite, the founder's report document and this section.
+
+### What B6 is
+
+- **`supabase/functions/_shared/semantic/report.ts`** (§14): pure, deterministic, model-free. Every live line whose words or `home` category look residential is examined; each is read as a new note would be (`residence.ts` over the user's own words: the quotes of its notes, or the line itself when the user wrote or edited it), or keeps the live reading B3 gave it. The buckets are the table's exact values: `eligible`; `resolved` / `candidates` / `unknown_place`; `would_compose` (the composer, `compose.ts`, over a person's current lines); `contradiction` (DISJOINT as the comparator reads the pair, the newer line as N); `false_supersession_suspect` (a live closer that reads SAME or as a refinement with no change cue, or that carries a correction cue recorded as a plain replacement; a review candidate, never proof); `history_unknown` (no live closer records a transition: never history, CC-20); `not_residence` (examined and excluded, with the reason counted in the summary only). A row is an item id and a bucket; the summary is counts, versions and groups of ids. No content anywhere.
+- **The gateway's `semantic_report`** (`handler.ts`, `index.ts`): the signed-in owner only (a user id in the body is ignored); no consent, flag, quota or model. It reads every live line of the account under the caller's RLS, 500 at a time by id up to 40 pages (more is refused with `too_many_lines`, never truncated), then the examined lines' quotes and live readings, runs the report, and writes through the service role for that verified user: the account's earlier rows for these lines at these versions deleted, the new rows upserted on the table's key, the run recorded last. Already run at these versions, it answers `already_reported` and reads nothing; `again: true` reruns.
+- **The app** (`gateway.ts` `report()`, `understanding.ts`): once per process, after the first sync that reaches the server, off the pass (a note never waits for it); answered, the versions are recorded in the store's meta (`semantic_report`) so no later launch asks again; refused or unreachable, the next launch asks once more. Nothing on the phone changes; no screen, no copy.
+- **The founder's report:** `b6-dry-run-report.md`: the buckets, the owner-scoped SQL for the editor (counts; every line with its buckets; composition groups; contradictions; suspects with their closers; history-unknown; excluded), what the report cannot tell, the local evidence, the production sequence and the stop gate.
+
+### Choices made within the brief (for review)
+
+1. **What is examined.** Only lines whose statement words or `home` category look residential (a small regex), so an account's hobbies and plans get no rows. A note saying "lives in" behind a statement that doesn't is not examined (expected rare; noted in the report document).
+2. **A line B3 already read keeps its live reading** (including one the user pinned) and counts as `already_read`; its cues are still read from its words for the closer check.
+3. **`contradiction` is read as the comparator reads a pair** (the newer line as N; N14 is one-way), the same orientation as the composer's `degraded`. The corpus's own metric reads both ways; this one answers "would the comparator have closed one of these?".
+4. **`false_supersession_suspect` has three kinds** (`same`, `refines`, `correction_unrecorded`), named in the summary's groups, not in the table (the table has buckets only). A closer filed on another person or subject is never read against the line (counted as `cross_person_closers`).
+5. **`history_unknown` counts only closed lines with a live closer** that records no transition; a closed line with no live closer at all is counted (`no_live_closer`) and gets no bucket.
+6. **No migration for atomic writes.** The rows are replaced with PostgREST calls (delete the account's rows for these lines at these versions, upsert the new ones, record the run last). The table's key makes a retry idempotent; the run row being last makes an interrupted run rerun. A single-transaction RPC would need a migration; not taken.
+7. **Versions:** the report's rows and run carry `residence/v1` (the reading rule, as §14 says) and the deployed dataset's version. The report logic's own version rides with the gateway deploy.
+8. **The launch trigger is one request per app process**, skipped entirely once the store's meta records an answer. A new dataset version does not make the app ask again (a later decision, with B9).
+9. **The test fake gateway** counts report requests apart from the notes' calls and routes them around its one-shot failure hooks, so the existing suites' call sequences mean what they meant.
+
+### Evidence
+
+| Tier | Result |
+|---|---|
+| UNIT | PASS: Deno 441 (`report.test.ts` 13: the §6 cases 1–12 and 15; `handler.test.ts` +6 for B6: owner scope and the ignored user id (17), idempotence (13), the interrupted run and its retry (14), pagination across 1,203 lines and the refusal past 40 pages (16), an empty account and no place data (15), and the adversarial check that only `reportRan` and `writeReport` run, with no model, consent, quota, log, write, facet write or resolve); Jest 93 suites / 847 tests (`semanticReport` 4: once per process, a restart, a refusal, offline, a second phone); `npx tsc --noEmit` and `npx eslint app src` clean (0 errors, the 132 legacy warnings) |
+| INTEGRATION | PASS: the corpus 80/80 unchanged; pgTAP 26 suites / 743 assertions re-run on Postgres 16.15 (no SQL changed; the one "error" in the tally is an assertion whose description says "never an error"); fingerprint md5 `abeadd9a…` unchanged |
+| BLACK-BOX | PASS: `b6.blackbox` 3/3 (the real app session and screens, the local stack, this branch's gateway on :8000, the stub on :8791): the first pass asks once and one run row appears; California + Alameda + a Denver stay reported exactly (and `already_read` 2), then "moved to Colorado" (2 history-eligible, nothing unknown or suspect), rows replaced in full on a rerun, `already_reported` without `again`; **every user table byte for byte unchanged around each run**; another account's token with this account's id gets its own empty report, and the app's client can't read the report tables. Regression against the same gateway: b5 4, b4 5, b3 20, removal 3, k4 36 |
+| LIVE-MODEL | NOT APPLICABLE to the dry run (model-free); the notes the suite tells are replayed from the live replies kept on 16 Oct |
+| NATIVE-SIMULATOR | NOT RUN (no build this session) |
+| FOUNDER-DEVICE | NOT RUN |
+
+### Rollout (each step on the founder's go)
+
+1. Merge (a merge commit). No migration; compare the fingerprint anyway.
+2. Deploy ai-gateway from `main` (the action is idle until a build asks).
+3. A build. The founder's phone asks once at its first sync; only the founder's account is reported.
+4. The founder reads `b6-dry-run-report.md`'s queries for their account id and writes the recommendation. **Stop.** No facet is applied; B9's gate is separate; B7 → B8 → B9 keeps its order.
+
+**Next step:** the founder reviews this PR; after merge, deploy and build on their go, the production report; then the founder's review of its contents.
