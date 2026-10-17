@@ -6,7 +6,7 @@
 import { execFileSync } from "child_process";
 import { randomUUID } from "crypto";
 import path from "path";
-import { buildToday, waitingReasonId, type ContactRow, type ReasonRow, type TodayInput } from "@/features/today/todayModel";
+import { buildToday, pageHandoffFor, waitingReasonId, type ContactRow, type ReasonRow, type TodayInput } from "@/features/today/todayModel";
 import { buildPortrait } from "@/features/person/portraitModel";
 import { reachedAbout, trailFor, type ContactEventRow } from "@/features/person/trail";
 import { ReasonLocal } from "@/store/reasonLocal";
@@ -550,5 +550,119 @@ describe("founder 13 Oct native pass: Today has one truth (K11), and the return 
     const v = await today(p, { now: NOW });
     expect(v.returnCheck).toMatchObject({ reasonId: WAITING });
     expect(v.quietDay).toBe(false);
+  });
+});
+
+describe("K28: Message from Susan's page with nothing to act on (founder, 17 Oct)", () => {
+  const susan = { id: "susan", display_name: "Susan", state: "active" } as unknown as Person;
+  const wedding = {
+    id: "w1", kind: "milestone", person_id: "susan", subject_type: "person", statement: "Susan is getting married to Pedro in the fall",
+    detail: { milestone_type: "wedding", date: "2026-09-01", date_end: "2026-11-30", date_precision: "season" }, certainty: "planned", status: "active",
+    sensitivity: "none", user_state: "unreviewed", origin: "extracted", created_at: "2026-09-20T18:00:00Z",
+  } as unknown as MemoryItem;
+  const items = [promise, interview, wedding];
+  const people = [tyler, josh, susan];
+  const fromPage = () => handoffFor("susan", "text", pageHandoffFor([wedding], susan, "2026-10-12")!);
+  async function withSusan(server: FakeServer) {
+    const p = await phone(server);
+    await p.store.create("people", { id: "susan", display_name: "Susan", state: "active" });
+    return p;
+  }
+  const row = (c: ContactRow) => {
+    const r = c as unknown as Record<string, unknown>;
+    return { person: r.person_id, source: r.source, channel: r.channel, reason: r.reason_id ?? null, moment: r.moment_type ?? null, item: r.memory_item_id ?? null, at: r.occurred_at };
+  };
+
+  it("hand-off → Yes: one conversation in the user's own word with nothing attached, nothing said to the server; a repeat, a relaunch and a second phone keep it one", async () => {
+    const server = new FakeServer();
+    let p = await withSusan(server);
+    const before = await today(p, { items, people });
+    expect(before.moment?.personId).not.toBe("susan"); // the wedding is no Moment, and no reason was made
+    expect(before.returnCheck).toBeNull();
+
+    const h = fromPage();
+    expect(h).toEqual({ reasonId: "page:susan", personId: "susan", channel: "text", type: "page", itemId: null, ask: "Did you reach Susan?", followUp: "Anything worth remembering from talking with Susan?" });
+    await handOff(p.deps, h);
+    expect(p.events).toEqual([]); // no server reason exists, so none is told anything
+    const away = await today(p, { items, people });
+    expect(away.returnCheck).toMatchObject({ ask: "Did you reach Susan?", about: null, followUp: "Anything worth remembering from talking with Susan?" });
+    expect(await contactsOn(p)).toEqual([]); // opening Messages is not a conversation (T12)
+
+    const answered = await answerReturn(p.deps, "yes");
+    expect(answered?.followUp).toBe("Anything worth remembering from talking with Susan?");
+    const recorded = (await contactsOn(p)).map(row);
+    expect(recorded).toEqual([{ person: "susan", source: "manual", channel: "text", reason: null, moment: null, item: null, at: answered!.at }]);
+    expect(p.events).toEqual([]);
+    expect((await today(p, { items, people })).returnCheck).toBeNull();
+    // Under Between you: "You messaged · Oct 12", about nothing in particular (the wedding was suggested, never claimed discussed).
+    const [stored] = await contactsOn(p) as unknown as { id: string }[];
+    expect(trailFor(await contactsOn(p) as unknown as ContactEventRow[], items, susan, NOW)).toEqual([{ id: stored.id, label: "You messaged · Oct 12", about: null }]);
+
+    // A second Yes (a repeated tap), a relaunch and two syncs: still one.
+    expect(await answerReturn(p.deps, "yes")).toBeNull();
+    await p.engine.sync();
+    await p.engine.sync();
+    p.db.persist();
+    p = await phone(server, p.file, false);
+    await p.engine.sync();
+    expect(await contactsOn(p)).toHaveLength(1);
+    expect([...server.table("contact_events").values()]).toHaveLength(1);
+    const other = await phone(server, undefined, false);
+    await other.engine.sync();
+    expect(await contactsOn(other)).toHaveLength(1);
+    expect((await today(other, { items, people })).returnCheck).toBeNull(); // the question was this phone's alone
+  });
+
+  it("Not yet: nothing recorded, no reason made, and the question is gone", async () => {
+    const p = await withSusan(new FakeServer());
+    await handOff(p.deps, fromPage());
+    expect(await answerReturn(p.deps, "not_yet")).toMatchObject({ reasonId: "page:susan" });
+    expect(await contactsOn(p)).toEqual([]);
+    expect(p.events).toEqual([]);
+    const v = await today(p, { items, people });
+    expect([v.returnCheck, v.moment?.personId === "susan"]).toEqual([null, false]);
+    expect(Object.keys((await p.local.read()).local).filter((k) => !k.startsWith("page:"))).toEqual([]); // no other reason was touched
+  });
+
+  it("Messages never opened: the hand-off is taken back and nothing is asked or recorded", async () => {
+    const p = await withSusan(new FakeServer());
+    await handOff(p.deps, fromPage());
+    await cancelHandOff(p.deps, "page:susan");
+    expect((await today(p, { items, people })).returnCheck).toBeNull();
+    expect(await answerReturn(p.deps, "yes")).toBeNull();
+    expect(await contactsOn(p)).toEqual([]);
+    expect(p.events).toEqual([]);
+  });
+
+  it("the question waits on reopen; a conversation recorded by mistake can be retracted ('Not this')", async () => {
+    const server = new FakeServer();
+    let p = await withSusan(server);
+    await handOff(p.deps, fromPage());
+    p.db.persist();
+    p = await phone(server, p.file, false);
+    expect((await today(p, { items, people })).returnCheck).toMatchObject({ ask: "Did you reach Susan?" });
+    await answerReturn(p.deps, "yes");
+    const [c] = await contactsOn(p) as unknown as { id: string }[];
+    await forgetConversation(p.deps, c.id);
+    expect((await contactsOn(p)).filter((x) => !x.deleted_at)).toEqual([]);
+    expect(trailFor(await contactsOn(p) as unknown as ContactEventRow[], items, susan, NOW)).toEqual([]);
+    expect(await answerReturn(p.deps, "yes")).toBeNull(); // answered once; a retraction never asks again
+  });
+
+  it("a Yes then a Yes again on another page hand-off later: two conversations, each its own", async () => {
+    const p = await withSusan(new FakeServer());
+    await handOff(p.deps, fromPage());
+    await answerReturn(p.deps, "yes");
+    const later = () => new Date(NOW.getTime() + 2 * 3600_000);
+    const d2: ReturnLoopDeps = { ...p.deps, now: later };
+    await handOff(d2, fromPage());
+    expect((await today(p, { items, people, now: later() })).returnCheck).toMatchObject({ ask: "Did you reach Susan?" });
+    await answerReturn(d2, "yes");
+    expect((await contactsOn(p)).map((c) => c.occurred_at).sort()).toEqual([NOW.toISOString(), later().toISOString()]);
+  });
+
+  it("someone paused or remembered: no page hand-off at all (D13)", () => {
+    expect(pageHandoffFor([wedding], { ...susan, state: "paused" } as Person, "2026-10-12")).toBeNull();
+    expect(pageHandoffFor([wedding], { ...susan, state: "remembered" } as Person, "2026-10-12")).toBeNull();
   });
 });

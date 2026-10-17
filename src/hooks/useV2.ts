@@ -9,7 +9,7 @@ import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
 import { composeRecordLines, type RecordInput } from "@/features/person/composedRecord";
-import { buildToday, isLocalReason, pageReasonFor, returnViewFor, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type ReturnView, type TodayInput, type TodayView } from "@/features/today/todayModel";
+import { buildToday, isLocalReason, pageHandoffFor, type PageHandoffReason, returnViewFor, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type ReturnView, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { answerReturn, cancelHandOff, forgetConversation, handOff } from "@/store/returnLoop";
 import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine, type TrailLine } from "@/features/person/portraitModel";
 import { reachedAbout, trailFor, type ContactEventRow } from "@/features/person/trail";
@@ -468,7 +468,7 @@ export function useTodayActions() {
       track("reason_dismissed", { reason_type: reasonTypeName(m.type), mode: "not_now" });
     },
     /** A hand-off made by `handoffFor`, remembered before the other app opens. */
-    handedOff: async (h: Omit<Handoff, "at" | "answered"> & { type: TodayReasonType }) => {
+    handedOff: async (h: Omit<Handoff, "at" | "answered"> & { type: TodayReasonType | "page" }) => {
       await handOff(loop, h);
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
     },
@@ -545,11 +545,12 @@ export function usePortrait(personId: string): Portrait & { loading: boolean } {
 }
 
 /**
- * A person's page (founder K23): the return question about them, wherever the hand-off started, and what a
- * Message or Call from the page is about (the same reason Today's line about it has). `now` is the screen's
- * clock, read again when the app comes back.
+ * A person's page (founder K23, K28): the return question about them, wherever the hand-off started, and
+ * what a Message or Call from the page carries: the same reason Today's line about it has when there is
+ * something to act on, else the page's own return check and nothing more (never for someone remembered,
+ * paused or removed). `now` is the screen's clock, read again when the app comes back.
  */
-export function usePersonReturn(personId: string, now: Date): { returnCheck: ReturnView | null; reason: ReturnType<typeof pageReasonFor> } {
+export function usePersonReturn(personId: string, now: Date): { returnCheck: ReturnView | null; reason: PageHandoffReason | null } {
   const { store, reasonLocal } = useV2Session();
   const minute = Math.floor(now.getTime() / 60_000);
   const q = useStoreQuery(store, async (repos) => {
@@ -561,7 +562,7 @@ export function usePersonReturn(personId: string, now: Date): { returnCheck: Ret
     const items = ((await store.list("memory_items")) as MemoryItem[]).filter((m) => m.person_id === personId).map((m) => voiced(m, people));
     return {
       returnCheck: handoff?.personId === personId ? returnViewFor(handoff, person, now) : null,
-      reason: person.state === "active" ? pageReasonFor(items, person, todayIso(now)) : null,
+      reason: pageHandoffFor(items, person, todayIso(now)),
     };
   }, [personId, minute]);
   return q.data ?? { returnCheck: null, reason: null };

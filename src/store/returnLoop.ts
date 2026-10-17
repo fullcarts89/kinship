@@ -25,8 +25,9 @@ import type { ContactRepo } from "./repositories";
 /** Which kind of Moment led to a conversation (contact_events.moment_type; content-free). */
 export type MomentType = "birthday" | "good_news" | "starts_today" | "milestone" | "upcoming_event" | "event_followup" | "coming_up" | "waiting";
 
-export function momentTypeOf(type: ReasonType | undefined): MomentType | null {
-  if (!type) return null;
+export function momentTypeOf(type: ReasonType | "page" | undefined): MomentType | null {
+  // A conversation opened from someone's page with nothing to act on (K28): no Moment led to it.
+  if (!type || type === "page") return null;
   if (type === "coming") return "coming_up";
   return type;
 }
@@ -39,10 +40,14 @@ export interface ReturnLoopDeps {
   now: () => Date;
 }
 
-/** What a Moment's reason gives its hand-off: the Moment detail's own words, "" for followUp kept ("ask nothing after"). */
+/**
+ * What a Moment's reason gives its hand-off: the Moment detail's own words, "" for followUp kept ("ask nothing
+ * after"). Type "page" (founder K28): a conversation opened from someone's page with nothing to act on; it
+ * carries the return check and nothing else (no memory, no Moment kind, nothing said to the server).
+ */
 export interface HandoffReason {
   id: string;
-  type: ReasonType;
+  type: ReasonType | "page";
   ask?: string;
   about?: string | null;
   followUp?: string;
@@ -130,8 +135,10 @@ async function recordConversation(d: ReturnLoopDeps, h: Handoff): Promise<void> 
       channel: h.channel,
       // When the conversation was: Kinship opened it then; the answer can come up to three days later.
       occurred_at: h.at,
-      // A Moment made on this phone has no server reason: its kind says what was answered.
-      // (A hand-off remembered by an older build carries neither: the user's own word.)
+      // A Moment made on this phone has no server reason: its kind says what was answered. A conversation
+      // opened from someone's page with nothing to act on (K28) names neither: it is recorded in the user's
+      // own word, as "Add a conversation" records one, with its channel and when Kinship opened it. (A
+      // hand-off remembered by an older build carries neither either.)
       source: server || moment ? "return_check" : "manual",
       ...(server ? { reason_id: h.reasonId } : {}),
       ...(moment ? { moment_type: moment } : {}),

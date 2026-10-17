@@ -242,10 +242,11 @@ export function minutesBucket(ms: number): MinutesBucket {
 
 /** The analytics name for a Today reason type. */
 export function reasonTypeName(
-  type: "upcoming_event" | "event_followup" | "birthday" | "good_news" | "starts_today" | "milestone" | "coming" | "waiting",
+  type: "upcoming_event" | "event_followup" | "birthday" | "good_news" | "starts_today" | "milestone" | "coming" | "waiting" | "page",
 ): ReasonType {
   if (type === "birthday") return "birthday";
-  if (type === "good_news") return "other";
+  // A conversation opened from someone's page with nothing to act on (K28): no reason at all.
+  if (type === "good_news" || type === "page") return "other";
   if (type === "starts_today" || type === "milestone" || type === "coming") return "upcoming";
   // Someone's promise to the user, reached from its "Waiting on …" line (founder I1).
   if (type === "waiting") return "promise";

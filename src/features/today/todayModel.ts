@@ -41,7 +41,22 @@ export function isBirthdayReason(id: string): boolean {
  * record on the server for it.
  */
 export function isLocalReason(id: string): boolean {
-  return /^(birthday|news|starts|milestone|coming|waiting):/.test(id);
+  return /^(birthday|news|starts|milestone|coming|waiting|page):/.test(id);
+}
+
+/**
+ * A conversation the user opened from someone's page with nothing to act on
+ * (founder K28, 17 Oct): not a reason, not a Moment. Only the return check
+ * is carried ("Did you reach Susan?" and, after a Yes, "Anything worth
+ * remembering…"); a Yes records the conversation in the user's own word, with
+ * no reason, Moment kind or memory attached, and nothing is said to the server.
+ */
+export function isPageHandoff(id: string): boolean {
+  return /^page:/.test(id);
+}
+
+export function pageHandoffId(personId: string): string {
+  return `page:${personId}`;
 }
 
 /** Good news, recent (stabilization Gate G): "Ben was promoted yesterday." */
@@ -96,8 +111,8 @@ export interface Handoff {
   about?: string | null;
   /** After a yes: "Anything worth remembering from congratulating Ben?"; "" when nothing is worth asking (a promise's logistics). */
   followUp?: string;
-  /** Which kind of Moment it came from, and the memory it was about: what a Yes records (founder I2). */
-  type?: ReasonType;
+  /** Which kind of Moment it came from, and the memory it was about: what a Yes records (founder I2). "page": none (K28). */
+  type?: ReasonType | "page";
   itemId?: string | null;
 }
 
@@ -725,15 +740,18 @@ export function returnViewFor(h: Handoff | null, p: Person | null, now: Date): R
   };
 }
 
+/** What a hand-off from someone's page carries into its return check (K23 with something to act on; K28 without). */
+export type PageHandoffReason =
+  | { id: string; type: ReasonType; ask: string; about: string; followUp: string; itemId: string }
+  | { id: string; type: "page"; ask: string; followUp: string };
+
 /**
  * What a Message or Call from a person's page is about (founder K23): what the user means to do with them
  * today (Today's line), else the open "You said you'd" nearest its day. It gets the same return question,
  * and the same Yes / Not yet, as Today's line about it. Null when there's nothing to act on: opening a
- * conversation is never taken as a reason.
+ * conversation is never taken as a reason (K28 then carries the return check alone: pageHandoffFor).
  */
-export function pageReasonFor(items: MemoryItem[], person: Person, today: string): {
-  id: string; type: ReasonType; ask: string; about: string; followUp: string; itemId: string;
-} | null {
+export function pageReasonFor(items: MemoryItem[], person: Person, today: string): Extract<PageHandoffReason, { type: ReasonType }> | null {
   const live = (m: MemoryItem) => m.person_id === person.id && m.status === "active" && !m.deleted_at && m.sensitivity === "none";
   const own = (m: MemoryItem) => (m.kind === "promise" && m.subject_type === "user") || m.kind === "plan" ||
     (m.kind === "event" && m.subject_type !== undefined && m.subject_type !== "person");
@@ -756,6 +774,19 @@ export function pageReasonFor(items: MemoryItem[], person: Person, today: string
     // A promise's logistics: nothing more to ask after a Yes (founder I2), as Today's own line about it.
     followUp: m.kind === "promise" ? "" : `Anything worth remembering from talking with ${name}?`, itemId: m.id,
   };
+}
+
+/**
+ * A hand-off from someone's page (founder K28, 17 Oct): the actionable reason when there is one (K23), else
+ * the page's own return check, with nothing attached. Only for someone active: Kinship never asks about
+ * someone remembered or paused (D13), and never about someone removed.
+ */
+export function pageHandoffFor(items: MemoryItem[], person: Person, today: string): PageHandoffReason | null {
+  if (person.state !== "active" || person.deleted_at) return null;
+  const actionable = pageReasonFor(items, person, today);
+  if (actionable) return actionable;
+  const name = firstName(person);
+  return { id: pageHandoffId(person.id), type: "page", ask: `Did you reach ${name}?`, followUp: `Anything worth remembering from talking with ${name}?` };
 }
 
 /** Where a person's birthday came from, said the way every provenance line is. */
