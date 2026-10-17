@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship · round 2 comparisons (exploratory, unapproved)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../base.css">
+<link rel="stylesheet" href="r2.css">
+<script src="../shared.js"></script>
+<script src="sprigs2.js"></script>
+<script src="r2.js"></script>
+</head>
+<body class="gallery">
+<div class="banner"><b>EXPLORATORY · UNAPPROVED.</b> Round 2 of the Today exploration (17 Oct 2026). Fictional people and notes. Every departure from an approved board is a numbered decision in <code>03-founder-decisions.md</code>.</div>
+<h1>Round 2: the comparisons</h1>
+<p>Still frames rendered by the same engine as <a href="prototype.html">prototype.html</a>. Each section answers one question the founder's review asked.</p>
+
+<h2>Two profile treatments <small>sparse · rich · shared history</small></h2>
+<p><b>P1 · The portrait</b> (recommended): a strong opening (name, relationship, place, the sprig standing on its ground), then <i>one</i> current line with presence, then the approved sections, with <b>Between you</b> set apart as the shared ground: a leaf ornament, the user's own words in quotation marks only where they are verbatim, and the confirmed conversations. <b>P2 · The journal</b>: the same facts in one dated column, shared things marked in the margin. Every section is absent when empty; nothing is counted; order is by time only.</p>
+<div class="phones" id="g-p1"></div>
+<div class="phones" id="g-p2"></div>
+
+<h2>Sensitive and remembered <small>restraint</small></h2>
+<p>Mom's surgery (a sensitive line: plain, no illustration, no band, Call first) on Today and on her page; Nana, remembered: the sprig in ink-quiet with a finer stroke, one line, no actions, never on Today. Sam, nothing told yet.</p>
+<div class="phones" id="g-sens"></div>
+
+<h2>People <small>15 · 110 · search · night</small></h2>
+<p>Search first, alphabetical, one live line, sprigs standing on each row's hairline, names in the serif. Letter marks in italic between groups; with more than thirty people an A–Z index at the edge. No count, no ranking, no metrics. Rows stay 58 pt.</p>
+<div class="phones" id="g-people"></div>
+
+<h2>The ground on Today <small>A hedgerow · B horizon · C contextual</small></h2>
+<p>The same three states (a moment, a quiet day, first use) under each alternative. A shows every person's sprig (at 110 people, the first fourteen alphabetically: the ordering problem made visible). B keeps a grass horizon with no people. C shows a sprig only where there is a grounded reason (the moment's person in the meadow), and gives the quiet day a taller meadow instead.</p>
+<div class="phones" id="g-hedgeA"></div>
+<div class="phones" id="g-hedgeB"></div>
+<div class="phones" id="g-hedgeC"></div>
+<div class="phones" id="g-hedgeN"></div>
+
+<h2>The return, before and after Yes <small>composition</small></h2>
+<p>The return question foregrounded; the reason as its context; the hand-off as a quiet link; then the three motions' end state (identical: the optional prompt).</p>
+<div class="phones" id="g-return"></div>
+
+<h2>Devices and text <small>iPhone SE · larger text · night</small></h2>
+<div class="phones" id="g-devices"></div>
+
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const fig = (cfg, cap) => `<figure>${K2.renderPhone(cfg)}${cap ? `<figcaption>${cap}</figcaption>` : ""}</figure>`;
+  if (q.get("capture")) {
+    document.body.className = "capture";
+    const cfg = {};
+    for (const k of ["state", "screen", "person", "treatment", "hedge", "motion", "appearance", "people", "query", "sheet", "phase", "base"]) if (q.get(k) !== null) cfg[k] = q.get(k);
+    if (q.get("hour")) cfg.hour = +q.get("hour");
+    for (const k of ["large", "reduce", "se"]) if (q.get(k)) cfg[k] = true;
+    document.body.innerHTML = K2.renderPhone(cfg);
+    if (cfg.sheet) document.body.querySelectorAll(".scrim, .sheet").forEach((n) => n.classList.add("on"));
+    return;
+  }
+  const H = { hour: 10 };
+  document.getElementById("g-p1").innerHTML = fig({ ...H, screen: "person", person: "lena", treatment: "p1" }, "<b>P1 · sparse.</b> Lena: three things told once. One current line, two short sections.") + fig({ ...H, screen: "person", person: "priya", treatment: "p1" }, "<b>P1 · rich.</b> Priya: the pottery show has presence; the rest is the approved sections.") + fig({ ...H, screen: "person", person: "chris", treatment: "p1" }, "<b>P1 · shared history.</b> Chris: Between you carries a verbatim quote (in your words) and the conversations you confirmed.");
+  document.getElementById("g-p2").innerHTML = fig({ ...H, screen: "person", person: "lena", treatment: "p2" }, "<b>P2 · sparse.</b>") + fig({ ...H, screen: "person", person: "priya", treatment: "p2" }, "<b>P2 · rich.</b> Everything in one dated column; it reads as a timeline.") + fig({ ...H, screen: "person", person: "chris", treatment: "p2" }, "<b>P2 · shared history.</b> Shared things marked ❧ in the margin.");
+  document.getElementById("g-sens").innerHTML = fig({ ...H, screen: "today", state: "sensitive", hedge: "C" }, "<b>A hard time on Today</b> (Alpha scope). Plain paper, no kicker, no illustration, Call first.") + fig({ ...H, screen: "person", person: "mom" }, "<b>Mom's page.</b> The sensitive line is plain; the page is the same portrait.") + fig({ ...H, screen: "person", person: "nana" }, "<b>Nana, remembered.</b>") + fig({ ...H, screen: "person", person: "sam-diaz" }, "<b>Sam, nothing told yet.</b>");
+  document.getElementById("g-people").innerHTML = fig({ ...H, screen: "people", people: "small" }, "<b>15 people.</b>") + fig({ ...H, screen: "people", people: "large" }, "<b>110 people.</b> Letter marks and the A–Z index.") + fig({ ...H, screen: "people", people: "large", query: "sa" }, "<b>Search “sa”.</b> The match underlined in ochre (something understood).") + fig({ ...H, screen: "people", people: "large", hour: 21 }, "<b>Night.</b>");
+  document.getElementById("g-hedgeA").innerHTML = fig({ ...H, hedge: "A", state: "moment" }, "<b>A · a moment.</b> Ben's root in ochre.") + fig({ ...H, hedge: "A", state: "quiet" }, "<b>A · quiet day.</b>") + fig({ ...H, hedge: "A", state: "first" }, "<b>A · first use.</b> Only the picked people.") + fig({ ...H, hedge: "A", state: "moment", people: "large" }, "<b>A · 110 people.</b> Fourteen chosen by alphabet: Aaron to Ben.");
+  document.getElementById("g-hedgeB").innerHTML = fig({ ...H, hedge: "B", state: "moment" }, "<b>B · a moment.</b>") + fig({ ...H, hedge: "B", state: "quiet" }, "<b>B · quiet day.</b> Two meadows: one too many?") + fig({ ...H, hedge: "B", state: "first" }, "<b>B · first use.</b>") + fig({ ...H, hedge: "B", state: "moment", people: "large" }, "<b>B · 110 people.</b> Unchanged, which is the point.");
+  document.getElementById("g-hedgeC").innerHTML = fig({ ...H, hedge: "C", state: "moment" }, "<b>C · a moment.</b> The only sprig is Ben's, in his meadow.") + fig({ ...H, hedge: "C", state: "quiet" }, "<b>C · quiet day.</b> The meadow is the page.") + fig({ ...H, hedge: "C", state: "first" }, "<b>C · first use.</b> Calm.") + fig({ ...H, hedge: "C", state: "moment", people: "large" }, "<b>C · 110 people.</b> Unchanged.");
+  document.getElementById("g-hedgeN").innerHTML = fig({ ...H, hedge: "A", state: "moment", hour: 21 }, "<b>A · night.</b>") + fig({ ...H, hedge: "B", state: "moment", hour: 21 }, "<b>B · night.</b>") + fig({ ...H, hedge: "C", state: "moment", hour: 21 }, "<b>C · night.</b>") + fig({ ...H, hedge: "C", state: "quiet", hour: 21 }, "<b>C · quiet night.</b>");
+  document.getElementById("g-return").innerHTML = fig({ ...H, hedge: "C", state: "return", base: "moment", hour: 18 }, "<b>The return question.</b> Yes · Not yet; the reason beneath; “Open Messages again” as a link.") + fig({ ...H, hedge: "C", state: "return", base: "moment", hour: 18, phase: "settling" }, "<b>Settle, mid-way.</b> The block quietens.") + fig({ ...H, hedge: "C", state: "return", base: "moment", hour: 18, phase: "resolved" }, "<b>Resolve, mid-way.</b> The question has become its answer.") + fig({ ...H, hedge: "C", state: "after", base: "moment", hour: 18 }, "<b>After.</b> The optional prompt.");
+  document.getElementById("g-devices").innerHTML = fig({ ...H, hedge: "C", state: "moment", se: true }, "<b>iPhone SE.</b>") + fig({ ...H, hedge: "C", state: "milestone", se: true }, "<b>SE, the longest statement.</b>") + fig({ ...H, hedge: "C", state: "moment", large: true }, "<b>Larger text ×1.3.</b>") + fig({ ...H, screen: "person", person: "priya", large: true }, "<b>Priya, larger text.</b>");
+  document.querySelectorAll('.scrim, .sheet').forEach((n) => n.classList.add('on'));
+})();
+</script>
+</body>
+</html>

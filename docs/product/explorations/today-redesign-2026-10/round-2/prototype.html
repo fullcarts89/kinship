@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship · Garden Letter, round 2 (exploratory, unapproved)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../base.css">
+<link rel="stylesheet" href="../prototype.css">
+<link rel="stylesheet" href="r2.css">
+<script src="../shared.js"></script>
+<script src="sprigs2.js"></script>
+<script src="r2.js"></script>
+<style>
+  .proto .panel .states button { margin: 0; }
+  .proto .panel .row2 { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+</style>
+</head>
+<body class="proto">
+<div class="wrap">
+  <div class="panel">
+    <h1>The Garden Letter, round 2</h1>
+    <div class="hint">Today, People and a person's page in one language, refined after the founder's review. Click inside the phone: the words, the pills, the week, the bar, a person.</div>
+    <div class="banner"><b>EXPLORATORY · UNAPPROVED.</b> Fictional people and notes. Not connected to anything. Decisions are in <code>03-founder-decisions.md</code>.</div>
+
+    <h2>Today</h2>
+    <div class="states">
+      <button data-state="moment" data-note="The day after Ben's race. The italic line is a paraphrase Kinship built (no quotation marks); the note's own words are behind the provenance, in quotes.">Moment</button>
+      <button data-state="birthday" data-note="Maya's birthday, on the day it is (Sat, Oct 17): a candle, a warm band, the fact from Contacts and nothing invented.">Birthday</button>
+      <button data-state="milestone" data-note="A wedding on Thursday (H16): the longest statement in the set, to test wrapping.">Milestone</button>
+      <button data-state="busy" data-note="A busy week in production's order: a Waiting line first, then up to three Coming up lines (the user's own promise in ochre), then “and 2 more”.">Busy week</button>
+      <button data-state="sensitive" data-note="A hard-time reason (Alpha scope, exploratory): no kicker, no illustration, no band, Call first. Everything restrained.">Hard time</button>
+      <button data-state="quiet" data-note="A quiet day: the season and the hour, nothing else; the meadow has the page.">Quiet day</button>
+      <button data-state="first" data-note="First use, round 2: a worked example as a small letter, one action. No new onboarding steps.">First use</button>
+      <button data-state="bringback" data-note="Once, after the first Tell (H4): the user's own words, what was kept, and how it comes back.">Bring back</button>
+      <button data-state="return" data-note="Back from Messages: the question is the moment; the reason is its context; the hand-off is a quiet link, not a second pill. In production the acted reason is no longer the moment, so nothing competes.">Return check</button>
+      <button data-state="after" data-note="After Yes: the optional question. Nothing today changes nothing.">After</button>
+    </div>
+    <h2>Screen</h2>
+    <div class="states"><button data-screen="today">Today</button><button data-screen="people">People</button><button data-screen="person">Person</button></div>
+    <h2>Person</h2>
+    <div class="states"><button data-person="priya">Priya · rich</button><button data-person="lena">Lena · sparse</button><button data-person="chris">Chris · shared</button><button data-person="mom">Mom · sensitive</button><button data-person="nana">Nana · remembered</button><button data-person="sam-diaz">Sam · nothing yet</button></div>
+    <div class="states" style="margin-top:8px"><button data-treatment="p1">P1 · Portrait</button><button data-treatment="p2">P2 · Journal</button></div>
+    <h2>People</h2>
+    <div class="states"><button data-people="small">15 people</button><button data-people="large">110 people</button><button data-query="sa">Search “sa”</button><button data-query="">Clear search</button></div>
+    <h2>The ground on Today</h2>
+    <div class="states"><button data-hedge="A">A · Hedgerow</button><button data-hedge="B">B · Horizon</button><button data-hedge="C">C · Contextual</button></div>
+    <h2>After Yes</h2>
+    <div class="states"><button data-motion="original">Original</button><button data-motion="settle">Settle</button><button data-motion="resolve">Resolve</button></div>
+    <h2>Light</h2>
+    <div class="states"><button data-appearance="auto">Auto</button><button data-appearance="light">Light</button><button data-appearance="night">Night</button></div>
+    <label><input id="hour" type="range" min="0" max="23" value="8"> <span id="hourLabel">08:00</span></label>
+    <h2>Accessibility and devices</h2>
+    <label><input id="reduce" type="checkbox"> Reduce Motion (every movement becomes a 150 ms fade)</label>
+    <label><input id="large" type="checkbox"> Larger text (×1.3)</label>
+    <label><input id="se" type="checkbox"> Small device (iPhone SE, 375 × 667)</label>
+    <h2>Try the loop</h2>
+    <ol class="steps"><li>Moment → tap the words (detail: the note's own words in quotes) → <b>Message</b> → <b>Open Messages</b>.</li><li>The return question arrives → <b>Yes</b> (try each “After Yes” motion).</li><li><b>Tell Kinship</b> or <b>Nothing today</b>. Then try <b>Not now</b> from a moment.</li></ol>
+    <h2>What just happened</h2>
+    <div id="note" class="hint" aria-live="polite">Nothing yet.</div>
+  </div>
+  <div class="stage" id="stage"></div>
+</div>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const cfg = {};
+  for (const k of ["state", "screen", "person", "treatment", "hedge", "motion", "appearance", "people", "query", "sheet", "phase", "base"]) if (q.get(k) !== null) cfg[k] = q.get(k);
+  if (q.get("hour")) cfg.hour = +q.get("hour");
+  if (q.get("night")) cfg.appearance = "night";
+  for (const k of ["large", "reduce", "se"]) if (q.get(k)) cfg[k] = true;
+  if (q.get("capture")) document.body.classList.add("capture");
+  const noteEl = document.getElementById("note");
+  const app = K2.mount(document.getElementById("stage"), cfg, {
+    onNote: (t) => { noteEl.textContent = t; },
+    onRender: (S) => {
+      const on = (sel, key, val) => document.querySelectorAll(sel).forEach((b) => b.classList.toggle("on", b.dataset[key] === val));
+      on("[data-state]", "state", S.screen === "today" ? S.state : ""); on("[data-screen]", "screen", S.screen); on("[data-person]", "person", S.screen === "person" ? S.person : "");
+      on("[data-treatment]", "treatment", S.treatment); on("[data-people]", "people", S.people); on("[data-hedge]", "hedge", S.hedge); on("[data-motion]", "motion", S.motion); on("[data-appearance]", "appearance", S.appearance);
+      document.getElementById("hour").value = S.hour; document.getElementById("hourLabel").textContent = `${String(S.hour).padStart(2, "0")}:00`;
+      document.getElementById("reduce").checked = S.reduce; document.getElementById("large").checked = S.large; document.getElementById("se").checked = S.se;
+    },
+  });
+  const bind = (sel, fn) => document.querySelectorAll(sel).forEach((b) => b.addEventListener("click", () => fn(b)));
+  bind("[data-state]", (b) => { app.set({ screen: "today", state: b.dataset.state, base: b.dataset.state, kept: null }); noteEl.textContent = b.dataset.note || ""; });
+  bind("[data-screen]", (b) => app.set({ screen: b.dataset.screen }));
+  bind("[data-person]", (b) => app.set({ screen: "person", person: b.dataset.person }));
+  bind("[data-treatment]", (b) => app.set({ screen: "person", treatment: b.dataset.treatment }));
+  bind("[data-people]", (b) => app.set({ screen: "people", people: b.dataset.people, query: "" }));
+  bind("[data-query]", (b) => app.set({ screen: "people", query: b.dataset.query }));
+  bind("[data-hedge]", (b) => app.set({ screen: "today", hedge: b.dataset.hedge }));
+  bind("[data-motion]", (b) => { app.set({ motion: b.dataset.motion }); noteEl.textContent = `After Yes: ${b.dataset.motion}. Go to Return check and press Yes.`; });
+  bind("[data-appearance]", (b) => app.set({ appearance: b.dataset.appearance }));
+  document.getElementById("hour").addEventListener("input", (e) => app.set({ hour: +e.target.value }));
+  document.getElementById("reduce").addEventListener("change", (e) => app.set({ reduce: e.target.checked }));
+  document.getElementById("large").addEventListener("change", (e) => app.set({ large: e.target.checked }));
+  document.getElementById("se").addEventListener("change", (e) => app.set({ se: e.target.checked }));
+})();
+</script>
+</body>
+</html>

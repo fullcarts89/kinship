@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship · experience architecture checkpoint (exploratory, unapproved)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../base.css">
+<link rel="stylesheet" href="r2.css">
+<script src="../shared.js"></script>
+<script src="sprigs2.js"></script>
+<script src="r2.js"></script>
+<style>
+  body.gallery .map { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; max-width: 1240px; margin: 18px 0 6px; }
+  body.gallery .map .col { background: #F7F6F2; border: 1px solid #CFCEC5; border-radius: 12px; padding: 14px 16px; font-size: 13px; line-height: 19px; }
+  body.gallery .map .col h4 { font-family: var(--sans); font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; margin: 0 0 8px; color: #5E645D; }
+  body.gallery .map .col ul { margin: 0; padding-left: 16px; }
+  body.gallery .map .col li { margin: 3px 0; }
+  body.gallery .map .col .b { color: #8A6417; font-weight: 500; }
+  body.gallery .journey { display: flex; gap: 10px; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
+  body.gallery .journey figure { zoom: .5; flex: none; }
+  body.gallery .journey .arrow { flex: none; width: 24px; padding-top: 200px; font-size: 20px; color: #5E645D; }
+  body.gallery .verdict { max-width: 980px; background: #F7F6F2; border-left: 3px solid #A87A22; padding: 10px 16px; font-size: 14px; line-height: 21px; }
+</style>
+</head>
+<body class="gallery">
+<div class="banner"><b>EXPLORATORY · UNAPPROVED.</b> An experience-architecture checkpoint for the Garden Letter (17 Oct 2026). It maps CC-25's capabilities onto a coherent product and compares three navigation alternatives. Roadmap statuses are preserved: nothing here commits, re-sequences or expands any bucket. Fictional content.</div>
+<h1>Where everything lives</h1>
+<p>The question this page answers: as Kinship grows from Tell · Memory · Today into Tell · Memory · Today · Ask (· Intentions), does the experience stay one product? The capability map below sorts every committed, next, Alpha and later item into four kinds of place. The three alternatives differ only on the one open question, <b>where Ask lives</b>; everything else is the same in all three.</p>
+
+<h2>The capability map <small>CC-25 buckets preserved</small></h2>
+<div class="map">
+  <div class="col"><h4>Distinct destinations</h4><ul><li><b>Today</b> (committed)</li><li><b>People</b> (committed)</li><li><span class="b">Ask</span>: the open question (Alpha). A destination in alternative 2 only</li><li>Settings, from People's header (committed): privacy, What Kinship knows, export, delete, push pause, About You later</li></ul><p style="margin:10px 0 0">Everything else is reached from these.</p></div>
+  <div class="col"><h4>Contextual actions</h4><ul><li><b>Message / Call / Tell</b> on a person (committed)</li><li><b>Ask about Priya</b> on a person's page (Alpha)</li><li><b>Remembered / Paused</b> in the person's Edit sheet (Commit next)</li><li><b>Merge duplicate</b> in the Edit sheet (Commit next)</li><li><b>Not helpful</b> on a Moment (Alpha): mutes that kind for that person for a while</li><li><b>Add a conversation</b> (committed)</li><li><b>Siri / Action Button</b> → Tell (Alpha)</li></ul></div>
+  <div class="col"><h4>Enhancements to existing surfaces</h4><ul><li><b>Today:</b> promise reasons, open-thread reasons (Commit next); hard-time reasons (Alpha); reconnect as a candidate, the year-ago line (later): all the same letter, new kickers</li><li><b>Push</b> (Commit next): one private notification of the Moment Today chose; deep-links to that Moment's detail</li><li><b>Moment detail:</b> a calendar as an evidence source (later)</li><li><b>People:</b> search that understands statements (Ask v1 shares it); chapter filters (later)</li><li><b>Tell:</b> a dock mic, a share extension (later); an Intention is a Tell about yourself (later)</li><li><b>Settings:</b> About You, the Intention sentences (later)</li></ul></div>
+  <div class="col"><h4>Unresolved, by design</h4><ul><li>Landscape / Garden (the GDN-00 checkpoint)</li><li>Monthly reflection vs. year-ago vs. yearly</li><li>The weekly brief: a Sunday push that opens Today, not a surface</li><li>The Listening screen (re-confirm before voice)</li><li>Subscriptions, growth</li></ul><p style="margin:10px 0 0">None of these needs a slot in the navigation now, and the recommended alternative leaves room for one destination if evidence ever asks for it.</p></div>
+</div>
+
+<h2>Tell and Ask <small>the distinction that decides the rest</small></h2>
+<p><b>Tell</b> writes memory: a statement becomes items with sources, after understanding and (when needed) a question. <b>Ask</b> reads memory: a question is answered only from what was told, every line with its source, "nothing kept about that" when unsupported, and <i>nothing is written</i>. The contract forbids a chat as a primary surface and forbids guessing an ambiguous meaning; so a single field that silently decides whether you told or asked is the one design to avoid (alternative 3 shows it so it can be rejected on sight).</p>
+
+<h2>Alternative 1 · Two places and a door <small>recommended</small></h2>
+<p>The bar stays <b>Today · People</b>. Ask lives inside People's field, which becomes <i>Search or ask your people</i>: a name filters the list as now; a question opens an answer sheet over the list, each line with its source, each line a door to the person. On a person's page, <i>Ask about Priya →</i> opens the same sheet scoped to her. The Tell dock stays Tell-only. The distinction is carried by place: you ask where you look for people; you tell where you capture.</p>
+<div class="phones" id="alt1"></div>
+
+<h2>Alternative 2 · Three destinations</h2>
+<p>The bar becomes <b>Today · People · Ask</b>. Ask is a page: a field and example questions, the answer as the same sheet. Clear and discoverable, but it changes the approved two-item bar, ships an empty destination before Alpha, and a question box as a destination invites general-chatbot expectations the contract rules out.</p>
+<div class="phones" id="alt2"></div>
+
+<h2>Alternative 3 · One field, two verbs</h2>
+<p>The Tell dock gains a <b>Tell | Ask</b> switch, so the same field does both everywhere. Fewest surfaces, but the dock's one job (capture) is muddied, the switch is one more thing in the most-used control, and a forgotten switch means a question written as a memory or a memory answered as a question: a trust failure the contract's "never guess ambiguous meaning" rule exists to prevent.</p>
+<div class="phones" id="alt3"></div>
+
+<div class="verdict"><b>Recommendation: alternative 1</b>, with Ask as a sheet reached from People's field and from a person's page, the bar unchanged, the dock Tell-only. It needs no new destination, no new navigation contract and no empty page before Alpha; it puts Ask next to the thing it searches; and it keeps a third destination in reserve if Ask proves heavily used (a reversible decision). Founder decisions: `00-experience-architecture.md` §6.</div>
+
+<h2>Journey 1 · A push, a Moment, a return <small>Commit next: minimal push</small></h2>
+<div class="journey" id="j1"></div>
+<h2>Journey 2 · Ask across people <small>Alpha: grounded retrieval</small></h2>
+<div class="journey" id="j2"></div>
+<h2>Journey 3 · A promise reason, start to finish <small>Commit next: RSN-06</small></h2>
+<div class="journey" id="j3"></div>
+<h2>Journey 4 · An open thread, and Remembered <small>RSN-07 · the trust floor</small></h2>
+<div class="journey" id="j4"></div>
+
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const R = K2.renderPhone;
+  const fig = (cfg, cap) => `<figure>${R(cfg)}${cap ? `<figcaption>${cap}</figcaption>` : ""}</figure>`;
+  if (q.get("capture")) {
+    document.body.className = "capture";
+    const cfg = {};
+    for (const k of ["state", "screen", "person", "treatment", "hedge", "motion", "appearance", "people", "query", "sheet", "phase", "base", "nav", "ask"]) if (q.get(k) !== null) cfg[k] = q.get(k);
+    if (q.get("hour")) cfg.hour = +q.get("hour");
+    for (const k of ["large", "reduce", "se"]) if (q.get(k)) cfg[k] = true;
+    document.body.innerHTML = R(cfg);
+    if (cfg.sheet) document.body.querySelectorAll(".scrim, .sheet").forEach((n) => n.classList.add("on"));
+    return;
+  }
+  const H = { hour: 10, hedge: "C" };
+  document.getElementById("alt1").innerHTML = fig({ ...H, screen: "people", people: "large", nav: "two" }, "<b>People.</b> One field: a name filters, a question answers.") + fig({ ...H, screen: "people", people: "large", nav: "two", sheet: "answer", ask: "Who do I know in Alameda?" }, "<b>The answer sheet.</b> Every line with its source; each a door to the person.") + fig({ ...H, screen: "person", person: "priya", nav: "two", sheet: "answer", ask: "What's Priya into?" }, "<b>Ask about Priya.</b> The same sheet, scoped.") + fig({ ...H, screen: "person", person: "priya", nav: "two", sheet: "answer", ask: "What gift did Priya mention?" }, "<b>Nothing kept.</b> Kinship says so and offers Tell.");
+  document.getElementById("alt2").innerHTML = fig({ ...H, state: "moment", nav: "three" }, "<b>Today</b> with a three-item bar.") + fig({ ...H, screen: "ask", nav: "three" }, "<b>Ask</b> as a destination: a field and examples.") + fig({ ...H, screen: "ask", nav: "three", sheet: "answer", ask: "Who do I know in Alameda?" }, "<b>The answer</b>, the same sheet.");
+  document.getElementById("alt3").innerHTML = fig({ ...H, state: "moment", nav: "dockask" }, "<b>Today</b> with a Tell | Ask switch in the dock.") + fig({ ...H, screen: "people", people: "small", nav: "dockask" }, "<b>People</b>, the same dock.") + fig({ ...H, state: "quiet", nav: "dockask" }, "<b>A quiet day.</b> The switch is the only new thing on screen, and it is on every screen.");
+  const arrow = `<div class="arrow">→</div>`;
+  document.getElementById("j1").innerHTML = [fig({ ...H, screen: "lock", state: "moment", hour: 8 }, "<b>1.</b> One private push: the Moment Today chose."), arrow, fig({ ...H, state: "moment", sheet: "detail", hour: 8 }, "<b>2.</b> It opens Today at the Moment, with its detail."), arrow, fig({ ...H, state: "moment", sheet: "handoff", hour: 8 }, "<b>3.</b> The hand-off; Messages opens."), arrow, fig({ ...H, state: "return", base: "moment", hour: 18 }, "<b>4.</b> Back: the question."), arrow, fig({ ...H, state: "after", base: "moment", hour: 18 }, "<b>5.</b> Yes → the optional prompt.")].join("");
+  document.getElementById("j2").innerHTML = [fig({ ...H, screen: "people", people: "large", nav: "two" }, "<b>1.</b> People, the field."), arrow, fig({ ...H, screen: "people", people: "large", nav: "two", sheet: "answer", ask: "Who do I know in Alameda?" }, "<b>2.</b> The answer, with sources."), arrow, fig({ ...H, screen: "person", person: "priya", nav: "two" }, "<b>3.</b> A line lands on the person's page."), arrow, fig({ ...H, screen: "person", person: "priya", nav: "two", sheet: "answer", ask: "What's Priya into?" }, "<b>4.</b> Ask about her, from her page.")].join("");
+  document.getElementById("j3").innerHTML = [fig({ ...H, state: "promise", hour: 9 }, "<b>1.</b> “You said you'd” as the kicker; a bow; your own words behind the provenance."), arrow, fig({ ...H, state: "promise", sheet: "handoff", hour: 9 }, "<b>2.</b> Message David."), arrow, fig({ ...H, state: "return", base: "promise", hour: 18 }, "<b>3.</b> Back: “Did you send David the number?”"), arrow, fig({ ...H, state: "after", base: "promise", hour: 18 }, "<b>4.</b> Yes: logistics, so no memory prompt (I2).")].join("");
+  document.getElementById("j4").innerHTML = [fig({ ...H, state: "thread", hour: 9 }, "<b>1.</b> An open thread: “A while ago”, no illustration."), arrow, fig({ ...H, state: "return", base: "thread", hour: 18 }, "<b>2.</b> Back."), arrow, fig({ ...H, screen: "person", person: "nana" }, "<b>3.</b> Nana, remembered: kept, never surfaced."), arrow, fig({ ...H, screen: "people", people: "small" }, "<b>4.</b> In People, one italic word; nothing else differs.")].join("");
+  document.querySelectorAll('.scrim, .sheet').forEach((n) => n.classList.add('on'));
+})();
+</script>
+</body>
+</html>
