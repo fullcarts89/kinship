@@ -55,6 +55,7 @@ import {
   lineNamesOf, type MentionSubject, mentionsAfterEdit, mentionsOf, type NamedPerson, recordMentions, withSubjectReassigned,
 } from "../../supabase/functions/_shared/extraction/names";
 import { peopleOf, repositoriesFor, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
+import { getMeta, setMeta } from "./schema";
 import type { SyncReport } from "./syncEngine";
 import { StoreWriteError, type Data, type UserStore } from "./userStore";
 import type { SqlValue } from "./sql";
@@ -123,6 +124,9 @@ export interface UnderstandingOptions {
   away?: () => number;
 }
 
+/** The store's meta key for the residence dry run the server answered: "<rule>|<dataset>" (Phase 4B B6). */
+export const REPORT_META = "semantic_report";
+
 const BACKOFF = [15_000, 60_000, 180_000, 600_000, 1_800_000, 3_600_000];
 /** A review seen and then left open (the app went away) is finished as left after this long. */
 const LEFT_OPEN_MS = 10 * 60_000;
@@ -149,6 +153,12 @@ export class Understanding {
    * next Tell about that person reads them (the gateway's safety net).
    */
   private readonly changed = new Set<string>();
+  /**
+   * The residence dry run (Phase 4B B6; brief §14): asked of the gateway once per app process, after the
+   * first sync that reaches the server, and never again once the server has answered (recorded by its
+   * versions in the store's meta). Best effort, off the pass: a note is never kept waiting for it.
+   */
+  private reporting: Promise<void> | null = null;
   /** The last pass couldn't reach the server. */
   offline = false;
 
@@ -615,6 +625,7 @@ export class Understanding {
       return;
     }
     await this.finishLeftOpen();
+    this.reporting ??= this.reportResidence().catch(() => undefined);
     let wrote = await this.reportChanged();
     for (const row of await this.due()) {
       try {
@@ -633,6 +644,22 @@ export class Understanding {
       if (!second.offline) await this.afterPull();
     }
     this.store.notify();
+  }
+
+  /** The dry run's request, when one was started this process (tests await it). */
+  reportSettled(): Promise<void> {
+    return this.reporting ?? Promise.resolve();
+  }
+
+  /**
+   * One request: the gateway runs the report over this account's own lines and writes only its report
+   * tables (nothing of the phone's changes, and nothing comes back to it). Answered, the versions are
+   * recorded here so no later launch asks again; refused or unreachable, the next launch asks once more.
+   */
+  private async reportResidence(): Promise<void> {
+    if (await getMeta(this.store.db, REPORT_META)) return;
+    const out = await this.gateway.report();
+    await setMeta(this.store.db, REPORT_META, `${out.rule_version}|${out.dataset_version}`);
   }
 
   /**

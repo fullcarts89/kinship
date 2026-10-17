@@ -118,7 +118,14 @@ export class FakeGateway implements GatewayTransport {
   }
 
   async post(body: Record<string, unknown>): Promise<TransportReply> {
-    const kind = body.action === "close_review" ? "close" : body.action === "resolve_review" ? "answer" : body.action === "rederive" ? "rederive" : "understand";
+    const kind = body.action === "close_review" ? "close" : body.action === "resolve_review" ? "answer" : body.action === "rederive" ? "rederive" : body.action === "semantic_report" ? "report" : "understand";
+    // The dry run (B6) is counted on its own, and the one-shot failures below are the notes' alone: the
+    // suites' call sequences and "fail the next call" mean the note they tell.
+    if (kind === "report") {
+      this.reportAsks++;
+      if (this.offline) throw new GatewayUnreachable("offline");
+      return this.handle(kind, body);
+    }
     this.calls.push(kind);
     this.onCall?.();
     if (this.pause) await this.pause;
@@ -142,7 +149,18 @@ export class FakeGateway implements GatewayTransport {
 
   // ─── The gateway's behaviour ──────────────────────────────────────────
 
-  private handle(kind: "close" | "answer" | "understand" | "rederive", body: Record<string, unknown>): TransportReply {
+  /** Dry-run reports asked for and answered (Phase 4B B6): the fake writes nothing anywhere, as the real gateway writes only its report tables. */
+  reportAsks = 0;
+  reports = 0;
+  reportFails = false;
+
+  private handle(kind: "close" | "answer" | "understand" | "rederive" | "report", body: Record<string, unknown>): TransportReply {
+    if (kind === "report") {
+      if (this.reportFails) return refuse(503, "try_later");
+      this.reports++;
+      const versions = { rule_version: "residence/v1", dataset_version: "places-2026.10" };
+      return this.reports > 1 ? ok({ status: "already_reported", ran_at: "2026-10-17T00:00:00Z", ...versions }) : ok({ status: "reported", summary: { ...versions, total: 0 } });
+    }
     if (kind === "rederive") {
       const ids = (body.input_ref as Record<string, unknown> | undefined)?.memory_item_ids;
       if (!Array.isArray(ids) || ids.length === 0 || ids.length > 20) return refuse(400, "invalid_request");

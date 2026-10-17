@@ -17,6 +17,7 @@ import { anthropicCaller } from "../_shared/ai/model.ts";
 import { type CaptureRow, type FacetRow, type ItemRow, type PersonRow, type RelatedRow, withLineNames } from "../_shared/extraction/context.ts";
 import { placeIndex } from "../_shared/semantic/places/dataset.ts";
 import { type LineToRead, MAX_REREAD } from "../_shared/semantic/rederive.ts";
+import type { ReportItem } from "../_shared/semantic/report.ts";
 import { createGateway, type GatewayCaller, ServiceError, type ServiceOps, type StoredReview } from "./handler.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -133,6 +134,28 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
         quotes: quotes.filter((q) => q.memory_item_id === line.id && q.quote).map((q) => q.quote!),
       }));
     },
+    async loadLinesPage(afterId, limit) {
+      // Every live line of theirs, by id (uuid order), a page at a time (Phase 4B B6).
+      let q = db.from("memory_items")
+        .select("id, person_id, kind, subject_type, subject_related_id, statement, certainty, sensitivity, status, user_state, detail, with_person_ids, supersedes_id, closes_ids, created_at")
+        .is("deleted_at", null).neq("status", "retracted").order("id", { ascending: true }).limit(limit);
+      if (afterId) q = q.gt("id", afterId);
+      const { data, error } = await q;
+      if (error) throw new Error("lines read failed");
+      return (data ?? []) as ReportItem[];
+    },
+    async loadQuotes(itemIds) {
+      const ids = itemIds.filter((id) => /^[0-9a-f-]{36}$/iu.test(id));
+      const out: Record<string, string[]> = {};
+      if (ids.length === 0) return out;
+      const { data, error } = await db.from("memory_item_sources").select("memory_item_id, quote")
+        .in("memory_item_id", ids).is("deleted_at", null).limit(ids.length * 10);
+      if (error) throw new Error("sources read failed");
+      for (const r of (data ?? []) as { memory_item_id: string; quote: string | null }[]) {
+        if (r.quote) (out[r.memory_item_id] ??= []).push(r.quote);
+      }
+      return out;
+    },
     async loadRemoved(captureId) {
       const sources = await db.from("memory_item_sources").select("memory_item_id").eq("capture_id", captureId).limit(200);
       if (sources.error) throw new Error("sources read failed");
@@ -189,6 +212,35 @@ function serviceOps(db: SupabaseClient): ServiceOps {
     async log(row) {
       const { error } = await db.from("ai_calls").insert(row);
       if (error) throw new Error("log failed");
+    },
+    async reportRan(userId, ruleVersion, datasetVersion) {
+      const { data, error } = await db.from("semantic_runs").select("ran_at")
+        .match({ user_id: userId, mode: "report", rule_version: ruleVersion, dataset_version: datasetVersion }).maybeSingle();
+      if (error) throw new Error("runs read failed");
+      return (data as { ran_at: string } | null)?.ran_at ?? null;
+    },
+    async writeReport(userId, ruleVersion, datasetVersion, itemIds, rows) {
+      // The two report tables only (brief §14; B6): ids, buckets and versions. Earlier rows for these lines
+      // at these versions go first; the new rows are upserted on the table's key (a retry writes the same
+      // set again); the run is recorded last, so an interrupted run is never marked complete.
+      const chunk = 100;
+      for (let i = 0; i < itemIds.length; i += chunk) {
+        const { error } = await db.from("residence_backfill_report").delete()
+          .in("memory_item_id", itemIds.slice(i, i + chunk)).match({ rule_version: ruleVersion, dataset_version: datasetVersion });
+        if (error) throw new Error("report clear failed");
+      }
+      for (let i = 0; i < rows.length; i += chunk) {
+        const { error } = await db.from("residence_backfill_report").upsert(
+          rows.slice(i, i + chunk).map((r) => ({ memory_item_id: r.memory_item_id, bucket: r.bucket, rule_version: ruleVersion, dataset_version: datasetVersion })),
+          { onConflict: "memory_item_id,bucket,rule_version,dataset_version" },
+        );
+        if (error) throw new Error("report write failed");
+      }
+      const { error } = await db.from("semantic_runs").upsert(
+        { user_id: userId, mode: "report", rule_version: ruleVersion, dataset_version: datasetVersion, ran_at: new Date().toISOString() },
+        { onConflict: "user_id,mode,rule_version,dataset_version" },
+      );
+      if (error) throw new Error("run record failed");
     },
     async resolve(userId, captureId, reviewCreatedAt, items, newPeople) {
       const { data, error } = await db.rpc("resolve_capture_review", {

@@ -12,6 +12,10 @@
 //   rederive(itemIds)                     the user changed these lines: any that had a residence
 //                                         reading is read again from their own words (model-free,
 //                                         Phase 4B B3; brief §5). Content-free reply.
+//   report()                              the residence dry run over this account (Phase 4B B6;
+//                                         brief §14): the gateway reads the account's own lines and
+//                                         writes ids and buckets to its report tables. Model-free,
+//                                         once per account and version pair. Content-free reply.
 //
 // Replies are typed. A refusal is a GatewayRefused (with the gateway's error
 // code); a request that never got an answer is a GatewayUnreachable, which
@@ -133,6 +137,8 @@ export type Closed = { status: "closed" | "nothing_waiting" };
 
 /** Each line asked about: its reading written, unchanged, or dropped (none to read, or refused). */
 export type Rederived = { status: "rederived"; results: { id: string; result: string }[] };
+/** The dry run ran now, or had already run, at these versions (Phase 4B B6). */
+export type Reported = { status: "reported" | "already_reported"; rule_version: string; dataset_version: string };
 
 export type GatewayRefusal =
   | "unauthorized"
@@ -243,6 +249,18 @@ export class Gateway {
   async rederive(itemIds: string[]): Promise<Rederived> {
     const body = await this.send({ action: "rederive", input_ref: { memory_item_ids: itemIds } });
     if (body.status === "rederived") return { status: "rederived", results: arrayOf<{ id: string; result: string }>(body.results) };
+    throw new GatewayRefused("internal_error", 200);
+  }
+
+  async report(): Promise<Reported> {
+    const body = await this.send({ action: "semantic_report" });
+    if (body.status === "reported" && body.summary && typeof body.summary === "object") {
+      const s = body.summary as Record<string, unknown>;
+      return { status: "reported", rule_version: String(s.rule_version ?? ""), dataset_version: String(s.dataset_version ?? "") };
+    }
+    if (body.status === "already_reported") {
+      return { status: "already_reported", rule_version: String(body.rule_version ?? ""), dataset_version: String(body.dataset_version ?? "") };
+    }
     throw new GatewayRefused("internal_error", 200);
   }
 

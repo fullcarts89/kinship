@@ -32,6 +32,14 @@
 //                   processor is involved, so it needs no AI consent, flag or
 //                   quota; only the signed-in owner. The next Tell about that
 //                   person does the same for any such line (the safety net)
+//   semantic_report the residence dry run over the caller's own account (Phase
+//                   4B B6; brief §14): report.ts over every live line of
+//                   theirs, read page by page under their RLS, written only to
+//                   residence_backfill_report and semantic_runs (ids, buckets,
+//                   versions: never content). Model-free; the signed-in owner
+//                   only, never a user id from the body. Once per account and
+//                   version pair; a retry after an interrupted run does it
+//                   again, and the run is recorded last
 
 import { bearerToken } from "../_shared/auth.ts";
 import type { ModelCaller, StructuredResult } from "../_shared/ai/model.ts";
@@ -39,6 +47,8 @@ import { type Capability, CAPABILITIES } from "../_shared/ai/registry.ts";
 import { buildInput, type CaptureRow, dossierPeople, type FacetRow, type ItemRow, type PersonRow, type RelatedRow } from "../_shared/extraction/context.ts";
 import type { PlaceIndex } from "../_shared/semantic/placeIndex.ts";
 import { type FacetWrite, type LineToRead, MAX_REREAD, rederive } from "../_shared/semantic/rederive.ts";
+import { looksResidential, type ReportItem, type ReportRow, residenceReport } from "../_shared/semantic/report.ts";
+import type { Candidate } from "../_shared/semantic/placeIndex.ts";
 import { needsAcceptance } from "../_shared/extraction/acceptance.ts";
 import { type HeldAnswer, type HeldItem, resolveHeld, type ResolvedItem } from "../_shared/extraction/resolve.ts";
 import { type PersonMention, storableMention } from "../_shared/extraction/names.ts";
@@ -62,6 +72,13 @@ export interface GatewayCaller {
    * B3, re-derivation), live and not retracted, each with the quotes of its live sources. At most MAX_REREAD.
    */
   loadUnread(itemIds: string[]): Promise<{ line: LineToRead; quotes: string[] }[]>;
+  /**
+   * Under the caller's RLS: a page of every live line of theirs (not removed, not retracted), by id, after
+   * `afterId` (Phase 4B B6). Fewer than `limit` rows means the last page.
+   */
+  loadLinesPage(afterId: string | null, limit: number): Promise<ReportItem[]>;
+  /** Under the caller's RLS: the live quotes of these lines' notes, by line (Phase 4B B6). */
+  loadQuotes(itemIds: string[]): Promise<Record<string, string[]>>;
   /** Under the caller's RLS: lines this capture wrote that the user has since removed (reviewer A, 13 Oct). */
   loadRemoved(captureId: string): Promise<{ person_id: string; statement: string }[]>;
   /** Under the caller's RLS: the held items and question still waiting on this capture (C-2). */
@@ -149,6 +166,14 @@ export interface ServiceOps {
   log(row: CallLog): Promise<void>;
   /** write_facets: readings re-checked against the database, per line written / unchanged / dropped. */
   writeFacets(userId: string, items: FacetWrite[]): Promise<{ id: string; result: string }[]>;
+  /** semantic_runs: when the report last ran over this account at these versions; null when never (Phase 4B B6). */
+  reportRan(userId: string, ruleVersion: string, datasetVersion: string): Promise<string | null>;
+  /**
+   * The report for this account at these versions, replaced in full (its earlier rows for these lines
+   * removed, the new ones written), then the run recorded, last. Only residence_backfill_report and
+   * semantic_runs; ids, buckets and versions, never content (Phase 4B B6).
+   */
+  writeReport(userId: string, ruleVersion: string, datasetVersion: string, itemIds: string[], rows: ReportRow[]): Promise<void>;
   /** The answered review, written and closed in one transaction (resolve_capture_review). */
   resolve(
     userId: string,
@@ -174,6 +199,10 @@ export interface GatewayDeps {
 const BODY_LIMIT = 4 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ANSWERS = 8;
+/** The report reads an account this many lines at a time, up to this many pages (Phase 4B B6). */
+export const REPORT_PAGE = 500;
+export const REPORT_MAX_PAGES = 40;
+const REPORT_CHUNK = 100;
 
 export function createGateway(deps: GatewayDeps): (req: Request) => Promise<Response> {
   const handle = handler(deps);
@@ -216,6 +245,8 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
         const results = deps.places ? await reread(deps.places, deps.service, caller, [...new Set(ids as string[])]) : [];
         return json({ status: "rederived", results: results.map(({ id, result }) => ({ id, result })) }, 200, cors);
       }
+      // The residence dry run over the caller's own account (model-free; the owner only; report tables only).
+      if (body?.action === "semantic_report") return await semanticReport(deps, caller, body, cors);
       if (!(await caller.hasConsent(deps.consentVersion))) return json({ error: "consent_required" }, 403, cors);
       if (!body) return json({ error: "invalid_request" }, 400, cors);
       const cap = caps[String(body.capability ?? "relationship_extract")];
@@ -415,6 +446,50 @@ async function reread(
         : [],
     };
   });
+}
+
+/**
+ * The residence dry run (Phase 4B B6; brief §14): every live line of the caller's, read page by page under
+ * their RLS; the examined lines' quotes and live readings; report.ts; then the rows and the run, written
+ * by the service role for this verified user alone. Already run at these versions: nothing is read again
+ * (unless `again` is asked for). Too many lines to read whole: nothing is written, and the caller is told.
+ */
+async function semanticReport(deps: GatewayDeps, caller: GatewayCaller, body: Record<string, unknown>, cors: Record<string, string>): Promise<Response> {
+  if (!deps.places) return json({ error: "try_later" }, 503, cors);
+  const rule = "residence/v1";
+  const dataset = deps.places.version;
+  const ranAt = await deps.service.reportRan(caller.userId, rule, dataset);
+  if (ranAt && body.again !== true) return json({ status: "already_reported", ran_at: ranAt, rule_version: rule, dataset_version: dataset }, 200, cors);
+
+  const items: ReportItem[] = [];
+  let after: string | null = null;
+  for (let page = 0; ; page++) {
+    if (page >= REPORT_MAX_PAGES) return json({ error: "too_many_lines" }, 507, cors);
+    const rows = await caller.loadLinesPage(after, REPORT_PAGE);
+    items.push(...rows);
+    if (rows.length < REPORT_PAGE) break;
+    after = rows[rows.length - 1].id;
+  }
+  const examined = items.filter(looksResidential).map((i) => i.id);
+  const quotes: Record<string, string[]> = {};
+  const facets: NonNullable<Awaited<ReturnType<GatewayCaller["loadFacets"]>>> = [];
+  for (let i = 0; i < examined.length; i += REPORT_CHUNK) {
+    const chunk = examined.slice(i, i + REPORT_CHUNK);
+    Object.assign(quotes, await caller.loadQuotes(chunk));
+    const read = await caller.loadFacets(chunk);
+    // Readings that couldn't be read: the lines are read from their words instead (never as if unread).
+    if (read) facets.push(...read.filter((f) => f.slot === "residence"));
+  }
+  const { rows, summary } = residenceReport({
+    items, quotes, places: deps.places,
+    facets: facets.map((f) => ({
+      memory_item_id: f.memory_item_id, value_text: f.value_text, value_norm: f.value_norm, place_ref: f.place_ref,
+      candidates: Array.isArray(f.candidates) ? f.candidates as Candidate[] : [],
+      usual_ref: f.usual_ref,
+    })),
+  });
+  await deps.service.writeReport(caller.userId, rule, dataset, items.map((i) => i.id), rows);
+  return json({ status: "reported", summary }, 200, cors);
 }
 
 /** The user's answer to what was held: checked, written and closed, no model call. */
