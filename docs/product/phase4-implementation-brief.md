@@ -953,6 +953,8 @@ Added by the founder's trust check: an edited line among the closures (via the c
 2. No ai-gateway change is needed for B5 (the deploy from `main` after B4, PR #37, stays the founder's step, as before).
 3. A build (the composed line and its sheet). An app from before B5 shows the lines as it did; the new app against any gateway composes from whatever readings it has mirrored (none: as before).
 
+**Merged and rolled out (16 Oct, night, later):** PR #38 merged (`main` `53fbb38`); ai-gateway v13 deployed from it (25 files verified against the checkout); a local dogfood build from the same commit installed on Thor iPhone. The founder's device pass on B5 is next.
+
 **Founder review (16 Oct, night):** architecture and implementation approved in principle; the single entry into the sheet and its copy approved; conservative history eligibility kept; two refinements asked for and built (choices 3 and 7 above: N17, and mixed provenance). Re-run after them: Jest 92 / 843, Deno 422, corpus 80/80, `b5.blackbox` 4/4 replayed, tsc and eslint clean.
 
 **Next step:** the founder's final review and merge of this PR; after merge, B6 (the report-only task and `residence_backfill_report`, §14), which stops for the founder before any facet is written for an existing line.
