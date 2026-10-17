@@ -101,19 +101,22 @@ order by p.display_name, m.created_at;
 - **Why a line was excluded** is counted in the gateway's reply, not stored (the table holds a bucket only). The words in the query above say it.
 - **A composition group is reconstructed from the rows** (the `would_compose` lines of one person, subject and related person): the report does not store group membership. One person with two separate chains would show as one row of the query; the composer itself keeps them apart.
 - **A suspect is not a wrong supersession.** The closer may have been right for a reason its stored row doesn't carry (an older line never recorded cues or transitions). Any repair is item by item under `data-cleanup-plan.md`, with the founder's yes; the report changes nothing.
-- **Lines whose words only say the residence in a note but not in the statement** are examined by the model's statement and the `home` category; a note that says "lives in" behind a statement that doesn't is not examined. Expected to be rare; a line B3 read is examined by its live reading regardless.
+- **Which lines are examined** is decided by the user's own words (the quotes of the line's notes, or the line itself when the user wrote or edited it), the model's statement and the `home` category, any of them; the reading itself is always from the user's words. A line B3 read keeps its live reading regardless.
+- **A line removed since a run** ("Not this") loses its rows on the next run; between runs its rows stay, and the query above shows it with `status = 'retracted'`.
 - **Readings use the dataset deployed with the gateway** (`places-2026.10`); a later dataset would need a new run at its version.
 
 ## Evidence so far (local only; production not run)
 
-The real screens, the local Supabase stack (the B2 and B3 migrations; B6 adds none) and the gateway served from the branch (`e2e/blackbox/b6.blackbox.tsx`, 3/3):
+The real screens, the local Supabase stack (the B2 and B3 migrations; B6 adds none) and the gateway served from the branch (`e2e/blackbox/b6.blackbox.tsx`, 4/4 after the review pass of 17 Oct, brief §25):
 
 - An account's first pass asks once; `semantic_runs` gets one row for that account; later notes and syncs never ask again.
 - "Susan lives in California", "Susan lives in Alameda", "Susan is staying in Denver this week": the report rows are exactly California and Alameda as `eligible`, `candidates`, `would_compose` (one group, Alameda then California) and Denver as `not_residence`; the gateway's reply says 3 examined, 2 eligible, 2 already read (B3's live readings), and contains none of the words. **Every row of memory_items, memory_item_sources, memory_item_facets, captures, people, related_people, reasons, contact_events and capture_reviews is byte for byte what it was before the run.**
 - Then "Susan moved to Colorado": both earlier lines closed as a change: 2 history-eligible, 0 unknown, 0 suspects, 0 contradictions, no composition; the rows replaced in full; a second run writes the same rows and leaves one run row; asked without `again`, the server answers `already_reported` and reads nothing.
 - Another account's token asking with this account's id in the body gets its own (empty) report; this account's rows are untouched; the app's own client cannot read the report tables (`42501`).
+- A line removed after a run ("Not this") has no rows after the next run; the account's tables are byte for byte as they were.
+- **Around every run, the row count of every table of the local database is taken before and after: only `residence_backfill_report` and `semantic_runs` may differ.** A write anywhere else, by the gateway or by a trigger, fails the suite. Every table that holds the account's rows (20 of them, `memory_item_history` and `ai_usage` included) is also compared byte for byte.
 
-The deterministic cases (brief §14's buckets, each of the §6 test cases in the B6 task) run in `report.test.ts` (13) and `handler.test.ts` (6 for B6) on every CI run.
+The deterministic cases (brief §14's buckets, each of the §6 test cases in the B6 task) run in `report.test.ts` (15) and `handler.test.ts` (7 for B6) on every CI run.
 
 ## The production run: NOT RUN
 

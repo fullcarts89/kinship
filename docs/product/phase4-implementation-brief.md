@@ -963,7 +963,7 @@ Added by the founder's trust check: an edited line among the closures (via the c
 
 ## 25. B6 as built (17 Oct 2026)
 
-**Status:** built on `claude/phase4b-b6-report`, from `main` `6abf088` (PR #39); in review. **Report only.** **No migration:** B2's `residence_backfill_report` and `semantic_runs` (20261015090000, §1 F) hold everything; the schema fingerprint of a fresh build is unchanged (md5 `abeadd9ad9b1d2041f9884299872c03e`, 983 lines). The gateway gains one model-free action; the app asks for it once. **Production: not run** (no deploy, no build). **B7 is not started.** Readiness: **NOT READY**.
+**Status:** built on `claude/phase4b-b6-report` (PR #42, from `main` `6abf088`), then reviewed against the B6 task and hardened on `claude/kinship-phase-4b-b6-1b22f0` (from `main` `94850bd`, carrying PR #42's commits unchanged; the review pass below); in review. **Report only.** **No migration:** B2's `residence_backfill_report` and `semantic_runs` (20261015090000, §1 F) hold everything; the schema fingerprint of a fresh build is unchanged (md5 `abeadd9ad9b1d2041f9884299872c03e`, 983 lines). The gateway gains one model-free action; the app asks for it once. **Production: not run** (no deploy, no build). **B7 is not started.** Readiness: **NOT READY**.
 
 **Commits:**
 - `ea6f345`: `report.ts`, the dry run over an account's existing lines.
@@ -989,7 +989,30 @@ Added by the founder's trust check: an edited line among the closures (via the c
 8. **The launch trigger is one request per app process**, skipped entirely once the store's meta records an answer. A new dataset version does not make the app ask again (a later decision, with B9).
 9. **The test fake gateway** counts report requests apart from the notes' calls and routes them around its one-shot failure hooks, so the existing suites' call sequences mean what they meant.
 
-### Evidence
+### Review pass (17 Oct 2026, a second session, against the B6 task's §3–§6)
+
+Read in full and re-run; three gaps found and closed, each with its test. Nothing in the approved semantics, the buckets, the tables or the app's trigger changed.
+
+1. **A line is examined by the user's own words, not only the model's statement.** `looksResidential` was applied to `memory_items.statement` (plus the `home` category), so a note that said "moved to Alameda" behind a statement that didn't would never have been examined (the report document listed it as a limitation). The gateway now reads every live line's quotes first (its live sources, chunked) and examines a line when its statement, its category or any of its own words look residential; the reading itself was always from the words. Choice 1 above is superseded. `report.test.ts` "(words)"; `handler.test.ts` "examined by the user's own words".
+2. **A line removed since an earlier run loses its rows.** The pages carried live lines only, so the rows of a line retracted since ("Not this") stayed at those versions until the 30-day purge, and the founder's query would have listed it. The pages now carry every line of the account, removed and retracted too; the report reads only the live ones (as before) and clears its earlier rows for all of them. `handler.test.ts` (the model-free test's retracted line); `b6.blackbox` case 4.
+3. **History as the composer decides it.** The closed-line tally counted a line history-eligible when *some* live closer recorded a change; `compose.ts`'s `historyEligible` (CC-20) needs *every* live closer to. Now: every closer a change → history-eligible; any closer a correction or progress → never history; otherwise (a closer with no transition) → `history_unknown`. Choice 5 stands. `report.test.ts` "(8b)".
+
+**Stronger adversarial evidence.** `b6.blackbox` now snapshots every table that holds an account's rows (20 user tables, `memory_item_history` and `ai_usage` among them) byte for byte around each run, and the row count of **every public table** of the local database before and after each run: the only tables whose counts may change are `residence_backfill_report` and `semantic_runs`, so any write elsewhere, by the gateway or by a trigger, fails the suite. The handler suite's check that the service layer sees only `reportRan` and `writeReport` is unchanged.
+
+**Reviewed and kept as built:** owner scoping (reads under the caller's RLS; writes by the service role for the verified user id only; a user id in the body ignored); `again: true` reruns one's own account only; the run row written last; `too_many_lines` (507) past 40 pages of 500 rather than a silent cut; one request per app process, off the pass; content-free rows, reply and log lines; no migration.
+
+### Evidence (after the review pass)
+
+| Tier | Result |
+|---|---|
+| UNIT | PASS: Deno 444 (`report.test.ts` 15: the §6 cases 1–12 and 15, the words case, the two-closer history case; `handler.test.ts` +7 for B6: owner scope and the ignored user id (17), idempotence (13), the interrupted run and its retry (14), pagination across 1,203 lines with every line's words read and the refusal past 40 pages (16), an empty account and no place data (15), the words case, and the adversarial check that only `reportRan` and `writeReport` run, with no model, consent, quota, log, write, facet write or resolve); Jest 93 suites / 847 tests (`TZ=UTC`) (`semanticReport` 4: once per process, a restart, a refusal, offline, a second phone); `npx tsc --noEmit` and `npx eslint app src` clean (0 errors, the 132 legacy warnings) |
+| INTEGRATION | PASS: the corpus 80/80 unchanged; pgTAP 26 suites / 743 assertions, 0 failing, on Postgres 16.15 (Homebrew, the run-db-tests steps with psql in place of pg_prove); fingerprint of a fresh build 983 lines, md5 `abeadd9ad9b1d2041f9884299872c03e`, unchanged (no SQL changed); fingerprint md5 `abeadd9a…` unchanged |
+| BLACK-BOX | PASS: `b6.blackbox` 4/4 (the real app session and screens, the local stack, this branch's gateway on :8000, the stub on :8791): the first pass asks once and one run row appears; California + Alameda + a Denver stay reported exactly (and `already_read` 2), then "moved to Colorado" (2 history-eligible, nothing unknown or suspect), rows replaced in full on a rerun, `already_reported` without `again`; a line removed since a run loses its rows on the next; **every user table byte for byte unchanged and every public table's row count unchanged around each run, save the two report tables**; another account's token with this account's id gets its own empty report, and the app's client can't read the report tables. Regression against the same gateway: b5 4, b4 5, b3 20, removal 3, k4 36 (one k4 case, run B, timed out at 32 s in the first full run under load and passed alone and in a full re-run of the suite) |
+| LIVE-MODEL | NOT APPLICABLE to the dry run (model-free: no model call exists on its path); the notes the suite tells are replayed from the live replies kept on 16 Oct; the paid live suites were not re-run (no model path changed; each paid stage is the founder's to authorise) |
+| NATIVE-SIMULATOR | NOT RUN (no build this session) |
+| FOUNDER-DEVICE | NOT RUN |
+
+### Evidence (PR #42, before the review pass)
 
 | Tier | Result |
 |---|---|
@@ -1007,4 +1030,4 @@ Added by the founder's trust check: an edited line among the closures (via the c
 3. A build. The founder's phone asks once at its first sync; only the founder's account is reported.
 4. The founder reads `b6-dry-run-report.md`'s queries for their account id and writes the recommendation. **Stop.** No facet is applied; B9's gate is separate; B7 → B8 → B9 keeps its order.
 
-**Next step:** the founder reviews this PR; after merge, deploy and build on their go, the production report; then the founder's review of its contents.
+**Next step:** the founder reviews the PR from `claude/kinship-phase-4b-b6-1b22f0` (it supersedes PR #42, whose commits it carries); after merge, deploy and build on their go, the production report; then the founder's review of its contents.

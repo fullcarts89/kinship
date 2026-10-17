@@ -22,7 +22,7 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
   - **Re-seen (pass N)**: the problem happened again on device.
   - **Not re-tested**: no native evidence since the fix.
 
-*Update, 17 Oct 2026 (Phase 4B B6, branch `claude/phase4b-b6-report`):* B6 (the residence dry run, report only) is built; not merged, not deployed, production not run; no migration. Not a bug pass: no K or N item changes status; N16 stays open. Nothing found that needs a row: the report changes no data by design (proved byte for byte on the local stack).
+*Update, 17 Oct 2026 (Phase 4B B6, branch `claude/phase4b-b6-report`, then `claude/kinship-phase-4b-b6-1b22f0` after the review pass):* B6 (the residence dry run, report only) is built; not merged, not deployed, production not run; no migration. Not a bug pass: no K or N item changes status; N16 stays open. Nothing found that needs a row: the report changes no data by design (proved byte for byte and by whole-database row counts on the local stack). The review pass closed three gaps in the report itself (brief §25), none of them a product bug.
 
 *Update, 16 Oct 2026, night (Phase 4B B5, branch `claude/phase4b-b5-compose`):* B5 (the composed residence line and its provenance) is built; not merged, no build; no migration, no gateway change. Not a bug pass: no K or N item changes status; N16 stays open. Found while building it: N17, decided by the founder in the B5 review and FIXED on the branch (a provably redundant broader phrase goes unsaid; "Alameda, CA" fails open). The founder also asked for neutral provenance on a composed line with one edited member (built, brief §24 point 7).
 
