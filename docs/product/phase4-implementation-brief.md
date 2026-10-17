@@ -945,7 +945,7 @@ Added by the founder's trust check: an edited line among the closures (via the c
 | BLACK-BOX | PASS: `b5.blackbox` 4/4 replayed (the real screens, the local stack with B2 + B3 applied, this branch's gateway on :8000 and its stub on :8791, `GATEWAY_URL` / `STUB_URL`): "Lives in Alameda, California" from two notes with "and 1 other note" and nothing composed stored; the sheet listing both notes with their own Edit and Not this; Not this on California from the sheet leaving "Susan lives in Alameda" (California retracted on the server, its reading gone); California → Alameda → "moved to Colorado" (the page says Colorado and both "Before:" lines) → Undo from the Kept card, the composed line back with the same server ids and readings. Regression against the same gateway: b3 20, b4 5, removal 3 |
 | LIVE-MODEL | PASS: `b5.blackbox` 4/4 with the live model (the stub in record mode, 16 Oct; 9 calls). The composed line, the sheet, Not this and the Undo scenario all held on the live replies |
 | NATIVE-SIMULATOR | NOT RUN: no build this session |
-| FOUNDER-DEVICE | NOT RUN |
+| FOUNDER-DEVICE | **PASS** (founder, 17 Oct 2026: "B5 already passed on device", on the build from `main` `53fbb38` with ai-gateway v13) |
 
 ### Rollout
 
@@ -1030,4 +1030,6 @@ Read in full and re-run; three gaps found and closed, each with its test. Nothin
 3. A build. The founder's phone asks once at its first sync; only the founder's account is reported.
 4. The founder reads `b6-dry-run-report.md`'s queries for their account id and writes the recommendation. **Stop.** No facet is applied; B9's gate is separate; B7 → B8 → B9 keeps its order.
 
-**Next step:** the founder reviews the PR from `claude/kinship-phase-4b-b6-1b22f0` (it supersedes PR #42, whose commits it carries); after merge, deploy and build on their go, the production report; then the founder's review of its contents.
+**Merged and rolled out (17 Oct 2026):** PR #44 merged (`main` `9d18d0e`, CI 4/4; PR #42's commits landed through it), the HANDOFF record as PR #45 (`main` `f6140c9`). On the founder's "prepare for B6 rollout on device": **ai-gateway v14** deployed from `main` `f6140c9` (verified with `functions download --use-api`: all 27 deployed files match the checkout, `report.ts` among them; JWT verification on); a local EAS `dogfood-v2` build from the same commit (`npx eas-cli build --local`, Xcode 27), still 1.0.0 (2), installed on Thor iPhone by cable (`devicectl`, 17 Oct, 09:30 PDT). The bundle's `strings` hold the B6 action and the B5 copy, the production Supabase URL, and no model identifier (the `noModelIdentifiers` guard passed in CI). NATIVE-SIMULATOR: not run for B6 (nothing on screen changes).
+
+**Next step:** the founder's phone asks for the report once at the new build's first sync; the founder reads `b6-dry-run-report.md`'s queries for their account id and decides. **Stop there.** No facet is applied; B9's gate is separate; B7 → B8 → B9 keeps its order.

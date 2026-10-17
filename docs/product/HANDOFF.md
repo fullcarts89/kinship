@@ -1,6 +1,13 @@
 # Kinship: session handoff (7 Oct 2026)
 
-> **Addendum, 17 Oct 2026, later: B6 MERGED (PR #44, `main` `9d18d0e`, CI 4/4); nothing deployed, no build, production NOT RUN; B7 NOT STARTED.** This supersedes the addenda below where they differ.
+> **Addendum, 17 Oct 2026, later still: B5 FOUNDER-DEVICE PASS; B6 rolled out to Thor iPhone (ai-gateway v14 from `main` `f6140c9`); the production report waits for the phone's first sync and the founder's reading; B7 NOT STARTED.** This supersedes the addenda below where they differ.
+> - **B5 is VERIFIED on device** (founder, 17 Oct: "B5 already passed on device", on the `53fbb38` build with gateway v13). Brief §24's evidence row updated.
+> - **ai-gateway v14** deployed from `main` `f6140c9` on the founder's "prepare for B6 rollout on device" (17 Oct); verified with `functions download --use-api`: all 27 deployed files match the checkout (`report.ts` is among them; 25 before B6). **No migration**; production's latest stays `20261016090000`.
+> - **The build:** a local EAS `dogfood-v2` build from `main` `f6140c9` (`npx eas-cli build --local`, Xcode 27), still 1.0.0 (2), installed on Thor iPhone by cable (`devicectl`, 17 Oct, 09:30 PDT). The bundle's `strings` hold the B6 report action and the B5 copy, the production Supabase URL, and no model identifier.
+> - **What happens next, by itself:** the phone asks the gateway for the report once at its first sync of this build and records the answer; only the founder's account is reported (each account reports itself when it launches the build). **Then the founder reads** `b6-dry-run-report.md`'s queries for their account id in the SQL editor and decides. **Stop there:** no facet is applied; B9's gate is separate; B7 → B8 → B9 keeps its order. A rerun, if wanted, is `{"action":"semantic_report","again":true}` from the app's session, or deleting the account's `semantic_runs` row and relaunching.
+> - **Readiness: NOT READY** (for the wife's dogfood; unchanged).
+
+> **Addendum, 17 Oct 2026, later: B6 MERGED (PR #44, `main` `9d18d0e`, CI 4/4); nothing deployed, no build, production NOT RUN; B7 NOT STARTED.**
 > - **Merged** on the founder's yes (a merge commit). PR #42's three commits landed through #44, so GitHub shows #42 as merged too; nothing else from it is pending. **No migration**; production's latest stays `20261016090000`.
 > - **Next, each on the founder's go:** deploy ai-gateway from `main` (the `semantic_report` action is idle until a build asks); a build; the founder's own phone asks once at its first sync; then the founder reads `b6-dry-run-report.md`'s queries for their account id and decides. **Stop there:** no facet is applied; B9's gate is separate; B7 → B8 → B9 keeps its order. B5's device pass (PR #40's checklist) is still pending and rides on the same build.
 > - **Readiness: NOT READY** (unchanged).
