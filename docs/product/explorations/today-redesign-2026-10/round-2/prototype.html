@@ -30,11 +30,11 @@
       <button data-state="birthday" data-note="Maya's birthday, on the day it is (Sat, Oct 17): a candle, a warm band, the fact from Contacts and nothing invented.">Birthday</button>
       <button data-state="milestone" data-note="A wedding on Thursday (H16): the longest statement in the set, to test wrapping.">Milestone</button>
       <button data-state="busy" data-note="A busy week in production's order: a Waiting line first, then up to three Coming up lines (the user's own promise in ochre), then “and 2 more”.">Busy week</button>
-      <button data-state="sensitive" data-note="A hard-time reason (Alpha scope, exploratory): no kicker, no illustration, no band, Call first. Everything restrained.">Hard time</button>
+      <button data-state="sensitive" data-note="A hard-time reason (Alpha scope; illustrative, not final): no kicker, no illustration, no band. The channel, tone and privacy rules come from the RSN-09 brief, not from this design.">Hard time</button>
       <button data-state="quiet" data-note="A quiet day: the season and the hour, nothing else; the meadow has the page.">Quiet day</button>
       <button data-state="first" data-note="First use, round 2: a worked example as a small letter, one action. No new onboarding steps.">First use</button>
       <button data-state="bringback" data-note="Once, after the first Tell (H4): the user's own words, what was kept, and how it comes back.">Bring back</button>
-      <button data-state="return" data-note="Back from Messages: the question is the moment; the reason is its context; the hand-off is a quiet link, not a second pill. In production the acted reason is no longer the moment, so nothing competes.">Return check</button>
+      <button data-state="return" data-note="Back from Messages: the question is the moment, with one observed fact beneath it (You opened Messages earlier); the reason is its context; the hand-off is a quiet link, not a second pill. Kinship never claims to know whether anything was sent.">Return check</button>
       <button data-state="after" data-note="After Yes: the optional question. Nothing today changes nothing.">After</button>
     </div>
     <h2>Screen</h2>
@@ -42,8 +42,12 @@
     <h2>Person</h2>
     <div class="states"><button data-person="priya">Priya · rich</button><button data-person="lena">Lena · sparse</button><button data-person="chris">Chris · shared</button><button data-person="mom">Mom · sensitive</button><button data-person="nana">Nana · remembered</button><button data-person="sam-diaz">Sam · nothing yet</button></div>
     <div class="states" style="margin-top:8px"><button data-treatment="p1">P1 · Portrait</button><button data-treatment="p2">P2 · Journal</button></div>
-    <h2>People</h2>
-    <div class="states"><button data-people="small">15 people</button><button data-people="large">110 people</button><button data-query="sa">Search “sa”</button><button data-query="">Clear search</button></div>
+    <h2>People, Search and Ask</h2>
+    <div class="states"><button data-people="small">15 people</button><button data-people="large">110 people</button><button data-query="sa">Type “sa”</button><button data-query="Susan">Type “Susan”</button><button data-query="Alameda">Type “Alameda”</button><button data-query="Susan moved">Type “Susan moved”</button><button data-query="Who do I know in Alameda?">Type a question</button><button data-query="">Clear</button></div>
+    <div class="states" style="margin-top:8px"><button data-entry="row">S1 · Ask row</button><button data-entry="seg">S2 · People | Ask mode</button></div>
+    <div class="states" style="margin-top:8px"><button data-ask="Alameda">Answer: “Alameda”</button><button data-ask="Who do I know in Alameda?">Answer: who do I know</button><button data-ask="What's Sam into?">Which Sam?</button><button data-ask="What gift did Priya mention?">Nothing kept</button><button data-ask="Who's running a race this year?">Six results</button><button data-sheet="members">Both notes (B5)</button></div>
+    <h2>The push</h2>
+    <div class="states"><button data-lock="1">Lock screen</button></div>
     <h2>The ground on Today</h2>
     <div class="states"><button data-hedge="A">A · Hedgerow</button><button data-hedge="B">B · Horizon</button><button data-hedge="C">C · Contextual</button></div>
     <h2>After Yes</h2>
@@ -66,7 +70,7 @@
 (function () {
   const q = new URLSearchParams(location.search);
   const cfg = {};
-  for (const k of ["state", "screen", "person", "treatment", "hedge", "motion", "appearance", "people", "query", "sheet", "phase", "base"]) if (q.get(k) !== null) cfg[k] = q.get(k);
+  for (const k of ["state", "screen", "person", "treatment", "hedge", "motion", "appearance", "people", "query", "sheet", "phase", "base", "entry", "mode", "ask", "nav"]) if (q.get(k) !== null) cfg[k] = q.get(k);
   if (q.get("hour")) cfg.hour = +q.get("hour");
   if (q.get("night")) cfg.appearance = "night";
   for (const k of ["large", "reduce", "se"]) if (q.get(k)) cfg[k] = true;
@@ -88,7 +92,11 @@
   bind("[data-person]", (b) => app.set({ screen: "person", person: b.dataset.person }));
   bind("[data-treatment]", (b) => app.set({ screen: "person", treatment: b.dataset.treatment }));
   bind("[data-people]", (b) => app.set({ screen: "people", people: b.dataset.people, query: "" }));
-  bind("[data-query]", (b) => app.set({ screen: "people", query: b.dataset.query }));
+  bind("[data-query]", (b) => app.set({ screen: "people", people: "large", query: b.dataset.query, mode: "search" }));
+  bind("[data-entry]", (b) => app.set({ screen: "people", people: "large", entry: b.dataset.entry, query: "", mode: "search" }));
+  bind("[data-ask]", (b) => { app.set({ screen: "people", people: "large", query: b.dataset.ask }); app.S.ask = b.dataset.ask; app.S.sheet = "answer"; app.render(); });
+  bind("[data-sheet]", (b) => { app.set({ screen: "people", people: "large", query: "Alameda" }); app.S.sheet = b.dataset.sheet; app.render(); });
+  bind("[data-lock]", () => { app.set({ screen: "lock", state: "moment", hour: 8 }); noteEl.textContent = "A private push: “Something for today.” Tap it."; });
   bind("[data-hedge]", (b) => app.set({ screen: "today", hedge: b.dataset.hedge }));
   bind("[data-motion]", (b) => { app.set({ motion: b.dataset.motion }); noteEl.textContent = `After Yes: ${b.dataset.motion}. Go to Return check and press Yes.`; });
   bind("[data-appearance]", (b) => app.set({ appearance: b.dataset.appearance }));

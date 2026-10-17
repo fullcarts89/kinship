@@ -46,7 +46,7 @@
     milestone: { person: "anthony", name: "Anthony", date: "Monday, Oct 12", kicker: "Thursday", statement: "Anthony and Natalia's wedding is Thursday.", ctx: "Thursday · Thu, Oct 15", para: null, quote: "Anthony and Natalia are getting married Thursday at the Presidio!", prov: "You told Kinship · Oct 3", primary: "Message Anthony", art: "rings", why: "It's on Thursday.", when: "Thu, Oct 15", mention: ["They're getting married at the Presidio"], handoff: "Message Anthony before the wedding", ask: "Did you reach Anthony about the wedding?", reached: "You reached Anthony about the wedding.", after: "Anything worth remembering from talking with Anthony?", celebrate: true },
     promise: { person: "david", name: "David", date: "Tuesday, Oct 13", kicker: "You said you'd", statement: "Send David the contractor's number.", ctx: "You said you would, on Oct 9", para: null, quote: "Told David I'd send him Marco's number for the deck.", prov: "You told Kinship · Oct 9", primary: "Message David", art: "bow", why: "You said you'd do it.", when: "Oct 9", mention: ["Marco's number for the deck"], handoff: "Message David", ask: "Did you send David the number?", reached: "You sent David the number.", after: null, future: "RSN-06" },
     thread: { person: "josh", name: "Josh", date: "Tuesday, Oct 13", kicker: "A while ago", statement: "Did Josh decide about the startup?", ctx: "Josh may leave Google · told Aug 20", para: null, quote: "Josh is thinking about leaving Google for a startup. Deciding by the fall.", prov: "You told Kinship · Aug 20", primary: "Ask Josh", art: null, why: "You told Kinship in August, and nothing since.", when: "Aug 20", mention: ["He was deciding by the fall"], handoff: "Ask Josh about the startup", ask: "Did you ask Josh about the startup?", reached: "You asked Josh about the startup.", after: "Anything worth remembering from talking with Josh?", future: "RSN-07" },
-    sensitive: { person: "mom", name: "Mom", date: "Wednesday, Oct 14", kicker: null, statement: "Mom's surgery is tomorrow.", ctx: "Thursday · Thu, Oct 15", para: null, quote: "Mom's surgery is Thursday.", prov: "You told Kinship · Oct 9", primary: "Call Mom", art: null, why: "It's tomorrow.", when: "Thu, Oct 15", mention: [], handoff: "Call Mom", ask: "Did you reach Mom?", reached: "You reached Mom.", after: "Anything worth remembering from talking with Mom?", plain: true },
+    sensitive: { person: "mom", name: "Mom", date: "Wednesday, Oct 14", kicker: null, statement: "Mom's surgery is tomorrow.", ctx: "Thursday · Thu, Oct 15", para: null, quote: "Mom's surgery is Thursday.", prov: "You told Kinship · Oct 9", primary: "Message Mom", art: null, why: "It's tomorrow.", when: "Thu, Oct 15", mention: [], handoff: "Message Mom", ask: "Did you reach Mom?", reached: "You reached Mom.", after: "Anything worth remembering from talking with Mom?", plain: true },
   };
   const WEEK = { // Coming up: ≤ 3 lines then "and N more"; a Waiting line comes before them (todayModel order)
     moment: [{ dn: "WED", d: 14, text: "Josh has his interview", person: "josh" }, { dn: "SAT", d: 17, text: "Maya's birthday", person: "maya" }],
@@ -81,6 +81,9 @@
     nana: { name: "Nana", label: null, place: null, kind: "remembered",
       now: null, lately: [], coming: [], said: [], between: [{ text: "Nana taught you to make pierogi every Christmas Eve", prov: "You told Kinship · Jan 3" }], trail: [] },
     "sam-diaz": { name: "Sam Diaz", label: null, place: null, kind: "empty", now: null, lately: [], coming: [], said: [], between: [], trail: [] },
+    susan: { name: "Susan", label: "from the old block", place: "Alameda", kind: "sparse",
+      now: { text: "Susan lives in Alameda, California", prov: "From 2 notes · Oct 9 · one edited by you", when: null, kicker: "Told Oct 9", from: "lately" },
+      lately: [["Susan lives in Alameda, California", "From 2 notes · Oct 9 · one edited by you"], ["Susan started a garden plot", "You told Kinship · Sep 28"]], coming: [], said: [], between: [], trail: [] },
   };
 
   // ======================= frame =======================
@@ -91,7 +94,7 @@
   const dock = (current, extra = "") => `<div class="dock">${extra}${NAV === "dockask" ? `<div class="tell"><span class="seg"><b>Tell</b><span>Ask</span></span>Tell Kinship something…</div>` : `<div class="tell">Tell Kinship something…</div>`}<div class="bar"><span class="${current === "today" ? "on" : ""}" data-act="go" data-to="today">Today</span><span class="${current === "people" ? "on" : ""}" data-act="go" data-to="people">People</span>${NAV === "three" ? `<span class="${current === "ask" ? "on" : ""}" data-act="go" data-to="ask">Ask</span>` : ""}</div></div>`;
 
   // ======================= config helpers =======================
-  const defaults = { nav: "two", ask: null, screen: "today", state: "moment", person: "priya", treatment: "p1", hedge: "C", motion: "resolve", appearance: "auto", hour: 8, reduce: false, large: false, se: false, people: "small", query: "", sheet: null, toast: null, phase: null };
+  const defaults = { nav: "two", ask: null, entry: "row", mode: "search", screen: "today", state: "moment", person: "priya", treatment: "p1", hedge: "C", motion: "resolve", appearance: "auto", hour: 8, reduce: false, large: false, se: false, people: "small", query: "", sheet: null, toast: null, phase: null };
   const night = (c) => c.appearance === "night" || (c.appearance === "auto" && (c.hour < 6 || c.hour >= 19));
   const tint = (c) => { const h = c.hour; if (night(c)) return h >= 19 && h < 22 ? "var(--dusk)" : "var(--dawn)"; if (h < 9) return "var(--dawn)"; if (h >= 17) return "var(--dusk)"; return "var(--day)"; };
   const greeting = (c) => (c.hour < 12 ? "Good morning, Nico." : c.hour < 18 ? "Good afternoon, Nico." : "Good evening, Nico.");
@@ -115,7 +118,7 @@
       </div>
       ${c.hedge === "C" || c.hedge === "A" || c.hedge === "B" ? `<div class="meadow">${grass(393, 56, 4, C.ink, { opacity: .38 })}<div class="stand">${sprig(m.person, 30, C.ink, { wash: .09 })}</div></div>` : ""}
     </div>
-    <div class="actions ${arrive(1)}"><span class="pill" data-act="handoff" role="button" tabindex="0">${icon[m.plain ? "phone" : "message"]("var(--onInk)")}${m.primary}</span><span class="notnow" data-act="notnow" role="button" tabindex="0">Not now</span></div>`;
+    <div class="actions ${arrive(1)}"><span class="pill" data-act="handoff" role="button" tabindex="0">${icon.message("var(--onInk)")}${m.primary}</span><span class="notnow" data-act="notnow" role="button" tabindex="0">Not now</span></div>`;
   }
   function week(items, opts = {}) {
     const rows = items.map((w) => `<div class="day ${arrive(2)}" data-act="week" data-text="${esc(w.text)}"><span class="dn ${w.ochre ? "ochre" : ""}"><b>${w.dn}</b>${w.d}</span><span class="line">${w.waiting ? `<span class="small sub">${w.waiting}</span>` : ""}${w.text}</span></div>`).join("");
@@ -129,7 +132,7 @@
     return `<div class="ret${quiet} ${arrive()}" data-ret aria-live="polite">
       <div class="kicker ${resolved ? "fading" : ""}">When you're back</div>
       <div class="statement" data-st>${resolved ? m.reached : m.ask}</div>
-      <div class="body ${resolved ? "fading" : ""}" style="margin-top:10px" data-body>Kinship opened Messages for you this morning. Nothing was sent.</div>
+      <div class="small ${resolved ? "fading" : ""}" style="margin-top:8px" data-body>You opened Messages earlier.</div>
       <div class="about ${resolved ? "fading" : ""}" data-act="detail" data-about><div class="line">${m.statement}</div><div class="small" style="margin-top:2px">${m.ctx || ""}</div><div class="provrow" style="margin-top:4px"><span class="prov">${m.prov}</span></div></div>
       <div class="actions ${resolved ? "fading" : ""}" style="margin-top:16px" data-pills><span class="pill small" data-act="yes" role="button" tabindex="0">Yes</span><span class="pill small quiet" data-act="notyet" role="button" tabindex="0">Not yet</span></div>
       <div class="again ${resolved ? "fading" : ""}" data-act="handoff" data-again>Open Messages again</div>
@@ -198,14 +201,25 @@
       const rem = state === "remembered";
       rows += `<div class="row" data-act="person" data-person="${id}"><span class="rs">${sprig(id, 24, rem ? C.quiet : C.ink, { fine: rem })}</span><div><div class="nm">${mark(name)}</div>${rem ? `<div class="lv rem">Remembered</div>` : line ? `<div class="lv">${line}</div>` : ""}</div></div>`;
     }
-    if (!shown.length) rows = `<div class="empty"><div class="moment">No one called “${esc(c.query)}”.</div><div style="margin-top:14px"><span class="pill quiet">Add ${esc(c.query)}</span></div></div>`;
+    if (!shown.length && c.entry !== "row") rows = `<div class="empty"><div class="moment">No one called “${esc(c.query)}”.</div><div style="margin-top:14px"><span class="pill quiet">Add ${esc(c.query)}</span></div></div>`;
+    if (q && c.entry === "row") {
+      // S1: the one explicit way to ask. Always the last row while there is a query; never chosen for the user.
+      const isQ = /\?$|^(who|what|when|where|which|did|does|is|has|how)\b/i.test(c.query.trim());
+      rows += `<div class="askrow ${shown.length ? "" : "alone"}" data-act="asked" data-q="${esc(c.query)}" role="button" tabindex="0"><span class="askic">${icon.search(C.ink, 14)}</span><div><div class="line" style="font-size:calc(17px * var(--ts))">Ask Kinship${isQ ? "" : " about"} <b>${isQ ? esc(c.query) : `“${esc(c.query)}”`}</b></div><div class="small" style="margin-top:1px">From what you've told it, with sources. Nothing is written.</div></div></div>`;
+      if (!shown.length && !isQ) rows += `<div class="small" style="margin-top:14px;padding-left:2px">No one in People is called “${esc(c.query)}”. <span class="ochre">Add someone</span></div>`;
+    }
     const letters = [...new Set(all.map((p) => p[1][0].toUpperCase()))];
     const index = !q && all.length > 30 ? `<div class="index" aria-label="Jump to a letter">${letters.map((L) => `<span class="${L === "A" ? "on" : ""}">${L}</span>`).join("")}</div>` : "";
-    const unified = c.nav === "two";
-    const field = q ? `<span class="q">${esc(c.query)}</span><span class="caret"></span>` : unified ? "Search or ask" : "Search your people";
+    const askMode = c.entry === "seg" && c.mode === "ask";
+    const field = q ? `<span class="q">${esc(c.query)}</span><span class="caret"></span>` : askMode ? "Ask Kinship…" : "Search your people";
+    const seg = c.entry === "seg" ? `<div class="seg2" role="tablist"><span class="${askMode ? "" : "on"}" data-act="mode" data-mode="search">People</span><span class="${askMode ? "on" : ""}" data-act="mode" data-mode="ask">Ask</span></div>` : "";
+    const body = askMode
+      ? (q ? `<div class="rows"><div class="askrow alone" data-act="asked" data-q="${esc(c.query)}"><span class="askic">${icon.search(C.ink, 14)}</span><div><div class="line" style="font-size:calc(17px * var(--ts))">Ask Kinship <b>${esc(c.query)}</b></div><div class="small" style="margin-top:1px">Return to ask</div></div></div></div>`
+        : `<div class="body" style="margin-top:22px">Ask about the people in your life, from what you've told Kinship. Every answer shows its source; nothing is written.</div><div class="label" style="margin-top:22px">For example</div><div class="line" style="margin-top:8px" data-act="asked" data-q="Who do I know in Alameda?">Who do I know in Alameda?</div><div class="line" style="margin-top:8px" data-act="asked" data-q="What's Priya into?">What's Priya into?</div>`)
+      : `<div class="rows">${rows}</div>`;
     return `<div class="g pp"><div class="sky" style="--skyTint:${tint(c)};height:200px"></div>
-      <div class="content"><div class="hdr"><div class="tell">${icon.search(C.quiet)}${field}</div><span class="iconbtn">${icon.plus(C.ink)}</span><span class="iconbtn">${icon.gear(C.quiet)}</span></div>
-      <div class="rows">${rows}</div></div>${index}</div>${dock("people")}`;
+      <div class="content"><div class="hdr"><div class="tell">${icon.search(C.quiet)}${field}</div><span class="iconbtn">${icon.plus(C.ink)}</span><span class="iconbtn">${icon.gear(C.quiet)}</span></div>${seg}
+      ${body}</div>${askMode ? "" : index}</div>${dock("people")}`;
   }
 
   // ======================= a person's page =======================
@@ -249,22 +263,76 @@
   }
 
   // ======================= Ask (Alpha scope; the shape only) =======================
+  // Result types: established (a person in People, lands on the exact line), related (someone mentioned in an
+  // established person's memory: lands on the owning memory, never a made-up profile), memory (a match that
+  // cannot support the question's claim: shown as a note only, or left out of a stronger claim).
   const ANSWERS = {
-    "Who do I know in Alameda?": { lines: [["Susan lives in Alameda, California", "From your notes · Oct 9 · one edited by you", "susan"], ["Ben's mom lives in Alameda", "You told Kinship · Sep 2", "ben"]] },
-    "What's Priya into?": { lines: [["Priya is reading Piranesi", "You told Kinship · Sep 29", "priya"], ["Priya hates cilantro", "You told Kinship · Mar 3", "priya"], ["Priya started pottery", "You told Kinship · Feb 11", "priya"]], scope: "priya" },
-    "What gift did Priya mention?": { lines: [], scope: "priya" },
+    "Alameda": { kicker: "In your notes", results: [
+      { type: "established", text: "Susan lives in Alameda, California", prov: "From 2 notes · Oct 9 · one edited by you", person: "susan", composed: true },
+      { type: "related", text: "Ben's mom lives in Alameda", prov: "You told Kinship · Sep 2", person: "ben", owner: "Ben" },
+      { type: "memory", text: "The Alameda farmers market is good on Sundays", prov: "You told Kinship · Jun 14" } ] },
+    "Who do I know in Alameda?": { kicker: "From what you've told Kinship", results: [
+      { type: "established", text: "Susan lives in Alameda, California", prov: "From 2 notes · Oct 9 · one edited by you", person: "susan", composed: true },
+      { type: "related", text: "Ben's mom lives in Alameda", prov: "You told Kinship · Sep 2", person: "ben", owner: "Ben" },
+      { type: "memory", text: "The Alameda farmers market is good on Sundays", prov: "You told Kinship · Jun 14", weak: true } ] },
+    "Susan moved": { kicker: "In your notes", results: [
+      { type: "established", text: "Susan lives in Alameda, California", prov: "From 2 notes · Oct 9 · one edited by you", person: "susan", composed: true } ] },
+    "What's Priya into?": { scope: "priya", results: [
+      { type: "established", text: "Priya is reading Piranesi", prov: "You told Kinship · Sep 29", person: "priya" },
+      { type: "established", text: "Priya hates cilantro", prov: "You told Kinship · Mar 3", person: "priya" },
+      { type: "established", text: "Priya started pottery", prov: "You told Kinship · Feb 11", person: "priya" } ] },
+    "What gift did Priya mention?": { scope: "priya", results: [] },
+    "What's Sam into?": { clarify: ["sam-diaz", "sam-lee"] },
+    "What's Sam Lee into?": { scope: "sam-lee", results: [
+      { type: "established", text: "Sam is thinking about grad school", prov: "You told Kinship · Aug 19", person: "sam-lee" },
+      { type: "established", text: "Sam climbs at the gym on Tuesdays", prov: "You told Kinship · May 6", person: "sam-lee" } ] },
+    "Who's running a race this year?": { kicker: "From what you've told Kinship", results: [
+      { type: "established", text: "Ben runs Chicago Sunday", prov: "You told Kinship · Oct 8", person: "ben" },
+      { type: "established", text: "Aisha is running a half in May", prov: "You told Kinship · Sep 3", person: "aisha" },
+      { type: "established", text: "Sam is training for a triathlon", prov: "You told Kinship · Oct 4", person: "sam-diaz" },
+      { type: "established", text: "Marcus signed up for the Berlin marathon", prov: "You told Kinship · Jul 22", person: "marcus" },
+      { type: "related", text: "Ana's brother is doing an Ironman in Kona", prov: "You told Kinship · Aug 30", person: "ana", owner: "Ana" },
+      { type: "memory", text: "Bay to Breakers is the third Sunday in May", prov: "You told Kinship · Apr 2", weak: true } ] },
   };
+  const nameOf = (id) => SP[id]?.name || id;
   function answerSheet(c) {
     const q = c.ask || "Who do I know in Alameda?";
-    const a = ANSWERS[q] || { lines: [] };
-    const scope = a.scope ? PROFILES[a.scope]?.name : null;
-    const lines = a.lines.length ? a.lines.map(([t, p, id]) => `<div class="ans" data-act="person" data-person="${id}"><span class="rs">${sprig(id, 18, C.ink)}</span><div><div class="line">${t}</div><div class="provrow"><span class="prov">${p}</span></div></div></div>`).join("")
-      : `<div class="body" style="margin-top:14px">Nothing kept about that${scope ? ` for ${scope}` : ""}. Kinship answers only from what you've told it.</div><div style="margin-top:12px"><span class="pill quiet">${icon.pen(C.ink)}Tell Kinship${scope ? ` about ${scope}` : ""}</span></div>`;
-    return `<div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-label="${esc(q)}"><div class="grab"></div>
-      <div class="label">${scope ? `Asked about ${scope}` : "You asked"}</div><div class="heading" style="margin-top:6px">${q}</div>
-      <div style="margin-top:8px">${lines}</div>
-      ${a.lines.length ? `<div class="small" style="margin-top:14px">From what you've told Kinship, with each line's source. Nothing is kept from a question.</div>` : ""}</div>`;
+    const a = ANSWERS[q] || { results: [] };
+    const scope = a.scope ? nameOf(a.scope) : null;
+    if (a.clarify) {
+      return `<div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-label="Which Sam?"><div class="grab"></div>
+        <div class="label">You asked</div><div class="heading" style="margin-top:6px">${q}</div>
+        <div class="body" style="margin-top:12px">Which Sam?</div>
+        ${a.clarify.map((id) => `<div class="ans" data-act="asked" data-q="What's ${nameOf(id)} into?"><span class="rs">${sprig(id, 18, C.ink)}</span><div><div class="line">${nameOf(id)}</div><div class="small">${(LARGE.find((p) => p[0] === id) || [])[2] || ""}</div></div></div>`).join("")}
+        <div class="small" style="margin-top:14px">Kinship asks rather than guesses.</div></div>`;
+    }
+    const strong = a.results.filter((r) => !r.weak);
+    const weak = a.results.filter((r) => r.weak);
+    const tall = a.results.length > 3;
+    const row = (r) => {
+      const act = r.type === "memory" ? "source" : r.composed ? "members" : r.type === "related" ? "owner" : "person";
+      const note = r.type === "related" ? `<div class="small" style="margin-top:2px">Mentioned in a note about ${r.owner} · not in People</div>` : r.type === "memory" ? `<div class="small" style="margin-top:2px">From a note · doesn't say who</div>` : "";
+      const prov = r.composed ? `<div class="provrow"><span class="prov" data-act="members" data-person="${r.person}">${r.prov} · <u>both notes</u></span></div>` : `<div class="provrow"><span class="prov">${r.prov}</span></div>`;
+      return `<div class="ans" data-act="${act}" data-person="${r.person || ""}" data-text="${esc(r.text)}"><span class="rs">${r.person ? sprig(r.person, 18, C.ink) : `<span class="dotnote"></span>`}</span><div><div class="line">${r.text}</div>${note}${prov}</div></div>`;
+    };
+    let body;
+    if (!a.results.length) body = `<div class="body" style="margin-top:14px">Nothing kept about that${scope ? ` for ${scope}` : ""}. Kinship answers only from what you've told it, and never guesses.</div><div style="margin-top:12px"><span class="pill quiet">${icon.pen(C.ink)}Tell Kinship${scope ? ` about ${scope}` : ""}</span></div>`;
+    else body = `<div class="anslist">${strong.map(row).join("")}${weak.length ? `<div class="label" style="margin-top:18px">Also in your notes</div><div class="small" style="margin-top:2px">These mention it, but don't say who.</div>${weak.map(row).join("")}` : ""}</div>`;
+    return `<div class="scrim" data-act="close"></div><div class="sheet ${tall ? "tall" : ""}" role="dialog" aria-label="${esc(q)}"><div class="grab"></div>
+      <div class="label">${scope ? `Asked about ${scope}` : a.kicker || "You asked"}</div><div class="heading" style="margin-top:6px">${q}</div>
+      <div style="margin-top:4px">${body}</div>
+      ${a.results.length ? `<div class="small" style="margin-top:14px">From what you've told Kinship, with each line's source. Nothing is kept from a question.</div>` : ""}</div>`;
   }
+  // B5's member-level provenance: a composed line opens its notes, each with its own source, Edit and Not this
+  function membersSheet(c) {
+    return `<div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-label="Susan lives in Alameda, California"><div class="grab"></div>
+      <div class="label">Susan</div><div class="moment" style="margin-top:8px">Susan lives in Alameda, California</div>
+      <div class="small" style="margin-top:4px">Composed from two notes. Each keeps its own source.</div>
+      <div class="src" style="margin-top:16px"><div class="line" style="font-size:calc(17px * var(--ts))">Susan lives in Alameda</div><div class="provrow" style="margin-top:4px"><span class="prov">You told Kinship · Oct 9</span></div><div class="small" style="margin-top:8px">Edit &nbsp;·&nbsp; Not this</div></div>
+      <div class="src" style="margin-top:8px"><div class="line" style="font-size:calc(17px * var(--ts))">Susan lives in California</div><div class="provrow" style="margin-top:4px"><span class="prov">You edited this · Sep 30 (from your note, Sep 28)</span></div><div class="small" style="margin-top:8px">Edit &nbsp;·&nbsp; Not this</div></div>
+      <div style="margin-top:16px"><span class="pill quiet" data-act="person" data-person="susan">View Susan</span></div></div>`;
+  }
+
   // Alternative 2's dedicated Ask destination (a field and the last answer; never a chat)
   function askHTML(c) {
     return `<div class="g pp"><div class="sky" style="--skyTint:${tint(c)};height:200px"></div>
@@ -279,9 +347,8 @@
     const m = MOMENTS[c.state] || MOMENTS.moment;
     return `<div class="g lock"><div class="sky" style="--skyTint:${tint(c)};height:100%"></div>
       <div class="content" style="bottom:0"><div class="lock-time">9:41</div><div class="lock-date">${m.date || "Monday, Oct 12"}</div>
-      <div class="notif" data-act="opennotif"><div class="notif-h"><span class="notif-ic">${sprig(m.person, 12, "var(--onInk)")}</span><span class="small" style="color:var(--inkQuiet)">KINSHIP · now</span></div>
-        <div class="body ink" style="font-family:var(--serif);font-size:calc(19px * var(--ts));line-height:calc(25px * var(--ts))">${m.statement}</div>
-        <div class="small" style="margin-top:4px">${m.ctx || m.prov}</div></div></div></div>`;
+      <div class="notif" data-act="opennotif"><div class="notif-h"><span class="notif-ic"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 13V2M6 5l-3-2M6 8l3-2M6 11l-3-2" fill="none" stroke="var(--onInk)" stroke-width="1.2" stroke-linecap="round"/></svg></span><span class="small" style="color:var(--inkQuiet)">KINSHIP · now</span></div>
+        <div class="body ink" style="font-family:var(--serif);font-size:calc(19px * var(--ts));line-height:calc(25px * var(--ts))">Something for today.</div></div></div></div>`;
   }
 
   // ======================= sheets =======================
@@ -297,11 +364,12 @@
         <div style="margin-top:12px"><span class="pill quiet" data-act="viewperson">View ${m.name}</span></div></div>`;
     }
     if (c.sheet === "answer") return answerSheet(c);
+    if (c.sheet === "members") return membersSheet(c);
     if (c.sheet === "handoff") {
       return `<div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-label="${esc(m.handoff)}"><div class="grab"></div>
         <div class="heading">${m.handoff}</div>
         ${m.mention.length ? `<div style="margin-top:18px"><div class="label">You could mention</div>${m.mention.map((x) => `<div class="body" style="margin-top:6px">•&nbsp; ${x}</div>`).join("")}</div>` : ""}
-        <div class="rowb"><span class="pill" data-act="open">${m.plain ? "Call" : "Open Messages"}</span><span class="pill quiet">${m.plain ? "Open Messages" : "Call"}</span></div>
+        <div class="rowb"><span class="pill" data-act="open">Open Messages</span><span class="pill quiet">Call</span></div>
         <div style="display:flex;gap:8px;margin-top:8px"><span class="pill small quiet">FaceTime</span><span class="pill small quiet">WhatsApp</span></div>
         <div class="small" style="text-align:center;margin-top:16px">When you come back: “${m.ask}”</div></div>`;
     }
@@ -360,18 +428,22 @@
       if (a === "detail") { S.sheet = "detail"; render(); }
       else if (a === "handoff") { if (S.sheet) closeSheet(() => { S.sheet = "handoff"; render(); }); else { S.sheet = "handoff"; render(); } }
       else if (a === "close") closeSheet();
-      else if (a === "open") closeSheet(() => { S.base = S.state; toast("Messages opens. Kinship sends nothing. (In the app the question waits until you come back, from 10 minutes on; the moment itself is no longer shown while the hand-off is open.)", 2800); setTimeout(() => go("return"), 2400); });
+      else if (a === "open") closeSheet(() => { S.base = S.state; toast("Messages opens. Kinship sends nothing and cannot see what you do there. (In the app the question waits until you come back, from 10 minutes on; an acted reason is no longer the moment.)", 2800); setTimeout(() => go("return"), 2400); });
       else if (a === "notnow") { el.querySelector("[data-plate]")?.classList.add("leaving"); el.querySelector(".actions")?.classList.add("leaving"); note("Not now: the letter slides aside (320 ms); the quiet day arrives. No haptic proposed any more."); setTimeout(() => go("quiet"), dur(320)); }
       else if (a === "yes") yes();
       else if (a === "notyet") { go(S.base || "moment"); note("Not yet: nothing is recorded; the reason speaks again as the moment while its window lasts (production rule)."); }
       else if (a === "tell") { S.kept = "Ben ran 3:52. Wants to do Berlin next."; go("quiet"); note("Tell Kinship opens the dock about Ben; shown as if a note was told and kept (the Kept line, with Undo)."); setTimeout(() => { S.kept = null; render(); }, 5000); }
       else if (a === "nothing") { go("quiet"); note("Nothing today: nothing changes; the conversation still counted."); }
       else if (a === "gotit") go("quiet");
-      else if (a === "person") { S.screen = "person"; S.person = t.dataset.person in PROFILES ? t.dataset.person : "sam-diaz"; render(); }
+      else if (a === "person") { const from = S.sheet; S.sheet = null; S.screen = "person"; S.person = t.dataset.person in PROFILES ? t.dataset.person : "sam-diaz"; render(); if (from) toast(`Lands on ${nameOf(t.dataset.person)}'s page at “${t.dataset.text || "the line"}”, with quiet emphasis (I1).`); }
       else if (a === "go") { S.screen = t.dataset.to; S.sheet = null; render(); }
       else if (a === "viewperson") closeSheet(() => { S.screen = "person"; S.person = (MOMENTS[S.state] || MOMENTS.moment).person; render(); });
-      else if (a === "asked") { S.ask = t.dataset.q; S.sheet = "answer"; render(); note("Ask: a grounded answer from kept memory, every line with its source; tap a line to land on it. Nothing is written by a question."); }
-      else if (a === "opennotif") { S.screen = "today"; S.sheet = "detail"; render(); note("The push opens Today at the Moment it already chose, with its detail: why now, the source, Message / Call."); }
+      else if (a === "asked") { S.ask = t.dataset.q; S.sheet = "answer"; render(); note("Ask, explicitly: a grounded answer from kept memory, every line with its source. Established people land on their line; a related person lands on the owning memory; a note that doesn't say who is shown as a note. Nothing is written."); }
+      else if (a === "mode") { S.mode = t.dataset.mode; S.query = ""; S.sheet = null; render(); }
+      else if (a === "members") { S.sheet = "members"; render(); note("A composed line (B5): both notes, each with its own source, Edit and Not this. Ask never flattens provenance."); }
+      else if (a === "owner") { closeSheet(() => { S.screen = "person"; S.person = t.dataset.person in PROFILES ? t.dataset.person : "sam-diaz"; render(); toast(`Lands on ${nameOf(t.dataset.person)}'s page at “${t.dataset.text}”. The person mentioned has no page of their own.`); }); }
+      else if (a === "source") { toast(`Opens the note: “${t.dataset.text}”. No person is attached, so no page is.`); }
+      else if (a === "opennotif") { S.screen = "today"; S.sheet = null; render(); note("The push says only “Something for today.” Tapping it opens Today at the Moment, after the app's own access. The detail (why now, the source) is one tap further."); }
       else if (a === "week") toast(`“${t.dataset.text}” opens its detail (the same sheet as the moment).`);
       else if (a === "more") toast("“and 2 more” opens in place; nothing in the next week is hidden for good.");
     });

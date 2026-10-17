@@ -18,11 +18,17 @@
 | 12 | The return check's timing and recording | From 10 minutes after the hand-off, up to three days; Yes records once; Not yet records nothing; a hand-off alone never counts | A 2-second simulated wait | Prototype shortcut | The toast says so; the rules are unchanged |
 | 13 | The Kept line | The dock alone says "Understanding…"; the Kept line above the field with Undo (5 s) | Shown after "Tell Kinship" | Consistent | Unchanged |
 | 14 | Night prompt | "Anything worth remembering?" only after a signal (T6) | Only after Yes | Consistent | Unchanged |
+| 15 | The return question's words | Kinship records the hand-off (channel, time); it cannot know what happened in Messages; Yes alone records contact | Round 2's first draft: "Kinship opened Messages for you this morning. Nothing was sent." | **Trust error** (overstated) | "You opened Messages earlier." only |
+| 16 | The push's content | CC-25: minimal, private; sensitive content never on the lock screen | Round 2's first draft showed Ben's name and his race | **Privacy error** in the example | "Something for today." for every kind; the Moment after the app's own access |
+| 17 | Ask identity | Memory about a relative is about the established person; a mentioned person has no identity of their own; a composed line keeps member provenance (B5) | "Ben's mom lives in Alameda" shown like a person; composed provenance flattened | **Grounding error** in the example | Three result kinds; related people land on the owning memory; "both notes" opens the members; "Which Sam?"; `not_found` |
+| 18 | Search vs Ask | People search is search-first and alphabetical (T4) | *Search or ask* in one field, the intent classified silently | **Contract gap** | The field filters only; the Ask row is the explicit act (S1) |
+| 19 | Remembered / Paused and Ask | D13: no proactive reasons; nothing says what explicit retrieval does | Implied by omission | **Unresolved by design** | Documented, no policy; deferred to the trust brief |
+| 20 | A hard time's action | The hand-off sheet offers the usual channel first; no rule prefers Call | "Call Mom" as the primary | **Over-reach** in the example | Message, as every Moment; RSN-09 decides |
 
 ## Genuine proposals that would change what a user sees (all FOUNDER APPROVAL REQUIRED; numbered in `03-founder-decisions.md`)
 
-The kicker (2), the 36 pt statement (2), the hope line as italic (2, 3), Not now as a link (2), the occasion illustrations (4), the tints and the band (5), the sundial (6), the contextual ground (7), Resolve after Yes (8), the return composition and its two new sentences (9), press-lift and the slide (10), People's type and marks (11), the portrait's now line and shared ground (12), People's placeholder and the Ask sheet when Ask ships (AR-2, AR-3, AR-4).
+The kicker (2), the 36 pt statement (2), the hope line as italic (2, 3), Not now as a link (2), the occasion illustrations (4), the tints and the band (5), the sundial (6), the contextual ground (7), Resolve after Yes (8), the return composition and its one observed sentence (9), press-lift and the slide (10), People's type and marks (11), the portrait's featured line and shared ground (12, the rule provisional), the hard-time restraint (13), the Ask row and the answer surface when Ask ships (14, AR-1…AR-5), the private push (15).
 
 ## Fixture inconsistencies, fixed without any product change
 
-Rows 1, 3, 8, 10, 12; the duplicate pill (2) once the production exclusion is respected.
+Rows 1, 3, 8, 10, 12; the duplicate pill (2) once the production exclusion is respected; rows 15–17 and 20 were errors in round 2's own first draft, corrected in this pass.

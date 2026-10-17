@@ -14,7 +14,7 @@
 | Occasion illustrations (laurel, candle, door, rings, key, bow); none for sensitive | `src/ui/illustration/` (new), `Moment.tsx` two-column row | `react-native-svg`, the sprig's leaf maths | M | snapshot per kind; a test that `sensitivity !== "none"` never gets one |
 | The meadow under the moment, taller on a quiet day, under a page's name | `src/ui/Meadow.tsx` (new) | `Sprig`, `prng` | S | identity-only property test (ids are the only person input) |
 | Day numerals in the week; ochre for the user's own promise | `QuietLine.tsx` (`day` prop) | `relativeDay` | S | snapshot |
-| The return composition: question first, the reason as context, "Open Messages again" as a link, the "Nothing was sent" line | `TodayView.tsx` | `ReturnView` (`ask`, `about`) unchanged; the hand-off re-open uses the existing hand-off | S | the existing return-check tests, plus "no primary pill while a return check is open" |
+| The return composition: question first; "You opened Messages earlier." from the hand-off's channel and time; the reason as context; "Open Messages again" as a link | `TodayView.tsx` | `ReturnView` (`ask`, `about`, `channel`) unchanged; the re-open uses the existing hand-off | S | the existing return-check tests, plus "no primary pill while a return check is open" and "the observed line names only the channel that was opened" |
 | Resolve after Yes (240 ms cross-fade, then arrive) | `TodayView.tsx` | the approved haptic, `motion` tokens | S | Reduce Motion twin |
 | First use: the worked example as a small letter | `TodayView.tsx` (FIRST_USE / BRING_BACK copy unchanged in intent) | `Moment` at a small size | S | `firstRun.test.tsx` unchanged; the example is asserted present |
 | People: serif names, italic letter marks, A–Z index past 30, search match underlined | `PeopleView.tsx`, `Row.tsx` | `Row`, `SectionList` | M | 500-row scroll on device; VoiceOver reads a list |
@@ -28,10 +28,10 @@ Total for current functionality: **M–L** (about three weeks of view work; no b
 |---|---|---|
 | Promise reasons, RSN-06 (B) | kicker "You said you'd", the bow, return copy, no memory prompt after Yes (I2) | the reason type and its brief; one kicker string; one illustration already drawn |
 | Open-thread reasons, RSN-07 (B) | kicker "A while ago", no illustration | the reason type and its brief; one kicker string |
-| Minimal push (B) | the lock-screen treatment; deep link to the Moment's detail; private content for sensitive kinds | notifications, permission moment, budget, pause (its own brief) |
-| Remembered / Paused, D13 (B) | the remembered sprig and page; the italic word in People; Paused identical to active | the Edit-sheet controls, the server states |
-| Hard-time reasons, RSN-09 (C) | the plain letter: no kicker, no illustration, no band, Call first | the type, its tone rules, lock-screen privacy |
-| Grounded Ask (C) | *Search or ask* in People's field, the answer sheet, *Ask about Priya →*, "nothing kept" | `retrieval_answer`, its evals; the sheet's view |
+| Minimal push (B) | the private lock-screen treatment ("Something for today.", every kind); deep link to Today at the Moment; the detail one tap further | notifications, permission moment, budget, pause (its own brief); any richer preview is a founder decision |
+| Remembered / Paused, D13 (B) | the remembered sprig and page; the italic word in People; Paused identical to active | the Edit-sheet controls, the server states; **explicit Ask behaviour for these people is deferred to the trust brief** |
+| Hard-time reasons, RSN-09 (C) | the plain letter: no kicker, no illustration, no band (illustrative) | the type, its channel preference, tone rules, lock-screen privacy |
+| Grounded Ask (C) | the Ask row under People's results (S1), the answer surface with typed results (established · related · memory-only), member-level provenance for composed lines, "Which Sam?", "nothing kept", *Ask about Priya →* | `retrieval_answer` and its evals (grounding, refusal, privacy; identity resolution that never promotes a related person); the answer view; a full-height variant past three results. All PROVISIONAL until that evidence exists |
 | Reason feedback (C) | a quiet third action in the Moment detail (not drawn) | the mute rule |
 | Chapters, Intentions, reflection, calendar (D) | reservations only: a filter row on People; a Tell about yourself; a push that opens Today; an evidence line in the detail | undesigned by decision |
 

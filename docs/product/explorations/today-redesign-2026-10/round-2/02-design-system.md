@@ -12,7 +12,7 @@ The approved scale (Newsreader for people, Instrument Sans for the machine) with
 | Statement | Newsreader Display 36/40 (approved 34/38) | Today's moment only (D3) |
 | Paraphrase | Newsreader italic 20/27, ink | Grounded copy Kinship built, e.g. the hope line |
 | Quotation | Newsreader 19/26 with typographic quotation marks | Verbatim source text only (§3) |
-| Now line (profile) | Newsreader 24/30 | The one current line on a person's page (P1) |
+| Now line (profile) | Newsreader 24/30 | The one current line on a person's page (P1); which line is featured is provisional (§13) |
 | People name | Newsreader 19/24 | The row's name (was sans 17) |
 
 Hierarchy on Today, top to bottom: date (label) · greeting · kicker · statement · context (sans) · paraphrase (italic) · provenance · the meadow · primary pill + Not now (text) · the week. Nothing else on the page is larger than the statement. On a person's page: name (40) · relationship and place (italic) · the ground · the now line (24) · section labels · lines (19). Under Dynamic Type every size scales by the approved `maxScale`; the illustration does not scale.
@@ -107,9 +107,24 @@ Haptics: the one approved success haptic on Yes. No others (round 1's Not now ti
 
 The same six elements (sky, ground, sprig, serif, kicker, ochre) at three intensities make the three screens one place without copying Today's layout.
 
-## 10. Where Ask lives (the provisional architecture, `00-experience-architecture.md`)
+## 10. Where Ask lives (PROVISIONAL — FINAL FORM SUBJECT TO ASK IMPLEMENTATION EVIDENCE; `00-experience-architecture.md` §4a–4c)
 
-- People's field reads *Search or ask* once Ask ships (*Search your people* until then). A name filters the list; a question opens the **answer sheet**: the question as a heading, each answer line in the serif with its sprig and its provenance, each line a door to the person's page at that line; "Nothing kept about that" with *Tell Kinship* when unsupported; a closing line, "From what you've told Kinship, with each line's source. Nothing is kept from a question."
-- On a person's page, *Ask about Priya →* sits beside *What Kinship knows about Priya →* and opens the same sheet scoped to her.
+- People's field reads *Search your people* and only filters People. While there is a query, the last row is the **Ask row**: *Ask Kinship about "…"* (or *Ask Kinship …* for text that reads as a question), with "From what you've told it, with sources. Nothing is written." beneath. The user's text is underlined in ochre (something understood). The row is the one explicit way to ask; nothing is classified for the user.
+- The **answer**: the question as a heading; results in the serif, each with its sprig (or a neutral dot for a note with no person), its kind made visible where it matters ("Mentioned in a note about Ben · not in People"; "From a note · doesn't say who" under "Also in your notes"), and its provenance; a composed line's provenance ends in *both notes*, which opens the members with their own sources, Edit and Not this. "Which Sam?" for an ambiguous name. "Nothing kept about that" with *Tell Kinship* when unsupported. A closing line: "From what you've told Kinship, with each line's source. Nothing is kept from a question."
+- A short answer is a sheet; more than three results, long passages or several people make it a full-height sheet that scrolls. It is a list, never a thread. Whether it is always a sheet is not decided.
+- On a person's page, *Ask about Priya →* sits beside *What Kinship knows about Priya →* and opens the same answer scoped to her.
 - The Tell dock never asks. The bar stays two items. A third destination is reserved, not designed.
-- The sheet is the only Ask surface: never a page of history, never a thread.
+
+## 11. The return question's words
+
+The question (from `ReturnView.ask`), then one observed fact in small type: "You opened Messages earlier." Nothing about whether a message was sent, because Kinship cannot know; the question exists to find out. The reason beneath as context; Yes · Not yet; *Open Messages again* as a quiet link. After Yes, Resolve.
+
+## 12. The push
+
+One private notification, the same for every kind of Moment: "Something for today." No name, no detail, no illustration. The app opens on Today at the Moment, after its own access; the detail is one tap further. This is the default and the only treatment drawn; any less-private preview is a separate founder decision.
+
+## 13. Provisional notes carried in the design
+
+- **The portrait's featured line.** The prototype features the soonest Coming up line, else the newest Lately line. That is a stand-in, not a rule: "soonest" and "newest" are not "most personally meaningful", and no importance ranking is proposed. The selection rule stays provisional until B8 lands and real profile data exists.
+- **A hard time.** Plain paper, no kicker, no illustration, no band is the treatment. The primary action is drawn as Message like every other Moment; the RSN-09 brief decides channel preference, tone, sensitivity and lock-screen privacy. The screen is illustrative, not final.
+- **Native validation.** The sundial, exact tint levels, the 36 pt statement and the press-lift are judged on a device, never from browser screenshots.

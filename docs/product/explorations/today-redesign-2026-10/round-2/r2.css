@@ -216,3 +216,16 @@ body.capture .panel, body.capture h1, body.capture p { display: none; }
 .lock .notif-ic { display: inline-flex; width: 22px; height: 22px; border-radius: 6px; background: var(--ink); align-items: center; justify-content: center; }
 .lock .status { display: none; }
 .plate.long .art { shape-outside: circle(48% at 55% 50%); margin: -22px -18px 0 4px; }
+
+/* Search vs Ask: the explicit row (S1) and the mode (S2) */
+.pp .askrow { display: flex; gap: 12px; align-items: flex-start; padding: 14px 0 12px; margin-top: 6px; border-top: 1px solid var(--hairline); cursor: pointer; }
+.pp .askrow.alone { border-top: none; margin-top: 10px; }
+.pp .askrow .askic { flex: none; width: 24px; height: 24px; border-radius: 12px; border: 1px solid var(--rule); display: inline-flex; align-items: center; justify-content: center; margin-top: 3px; }
+.pp .askrow .line b { font-weight: 400; color: var(--ink); text-decoration: underline; text-decoration-color: var(--ochre); text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+.pp .seg2 { display: inline-flex; margin-top: 14px; border: 1px solid var(--rule); border-radius: 16px; overflow: hidden; font-family: var(--sans); font-size: 13px; font-weight: 500; }
+.pp .seg2 span { padding: 6px 14px; color: var(--inkQuiet); cursor: pointer; }
+.pp .seg2 span.on { background: var(--ink); color: var(--onInk); }
+.sheet.tall { top: 72px; display: flex; flex-direction: column; }
+.sheet.tall .anslist { overflow: hidden; }
+.sheet .ans .dotnote { display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: var(--hairline); margin: 10px 0 0 6px; }
+.sheet .prov u { text-decoration-color: var(--ochre); text-underline-offset: 2px; }
