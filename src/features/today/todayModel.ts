@@ -13,6 +13,7 @@
 // and a date label computed from the event's day. There is no model and no
 // event-type vocabulary in it.
 
+import { mentionsFor, type Mentions } from "./mentions";
 import { aboutAnimalHealth } from "../../../supabase/functions/_shared/extraction/lexicon";
 import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 import { dayLabel, whenLabel } from "@/features/memory/format";
@@ -215,8 +216,10 @@ export interface MomentView {
   primary: { label: string; hint: string };
   /** The hand-off sheet's heading. */
   heading: string;
-  /** Other things the user told Kinship about them, for "You could mention". */
+  /** Other things the user told Kinship about them, for "You could mention" (K26: mentions.ts). */
   mention: string[];
+  /** One suggested question under the first of them, or none (K26). */
+  opener: string | null;
   /** The return question, with its reason (H10, H18). */
   ask: string;
   /** After a yes, the same reason: "Anything worth remembering from congratulating Ben?" */
@@ -498,6 +501,7 @@ export function buildToday(input: TodayInput): TodayView {
         : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: local.type === "good_news" ? `Congratulate ${name}` : `Message ${name}`,
       mention: [],
+      opener: null,
       ...(local.type === "milestone" && local.milestone ? milestoneReturn(local.milestone, name) : returnCopy(local.type, name, local.item.statement)),
     };
   } else if (birthday && (!best || birthday.score > best.score)) {
@@ -519,11 +523,7 @@ export function buildToday(input: TodayInput): TodayView {
       primary: { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: `Wish ${name} a happy birthday`,
       ...returnCopy("birthday", name, null),
-      mention: input.items
-        .filter((m) => m.person_id === birthday!.p.id && live(m) && ["fact", "thread", "event", "plan", "moment"].includes(m.kind))
-        .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
-        .slice(0, 2)
-        .map((m) => m.statement),
+      ...mentionView(mentionsFor({ items: input.items, person: birthday.p, today })),
     };
   } else if (best) {
     const p = activePerson(best.r.person_id) as Person;
@@ -531,11 +531,8 @@ export function buildToday(input: TodayInput): TodayView {
     const day = eventDay(best.item) as string;
     const type = best.r.type as ReasonType;
     const when = whenLabel(best.item.kind, (best.item.detail ?? {}) as Record<string, unknown>, today) ?? dayLabel(day, today);
-    const mention = input.items
-      .filter((m) => m.id !== best!.item.id && m.person_id === p.id && live(m) && ["fact", "thread", "event", "plan", "moment"].includes(m.kind))
-      .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
-      .slice(0, 2)
-      .map((m) => m.statement);
+    // What to mention (K26): about the Moment's own subject first, then what is going on with them.
+    const mention = mentionView(mentionsFor({ items: input.items, person: p, today, about: best.item }));
     view.moment = {
       reasonId: best.r.id,
       type,
@@ -554,7 +551,7 @@ export function buildToday(input: TodayInput): TodayView {
         ? { label: "Ask how it went", hint: `Opens a conversation with ${name}` }
         : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: type === "event_followup" ? `Ask ${name} how it went` : `Message ${name}`,
-      mention,
+      ...mention,
       ...returnCopy(type, name, best.item.statement),
     };
   }
@@ -787,6 +784,11 @@ export function pageHandoffFor(items: MemoryItem[], person: Person, today: strin
   if (actionable) return actionable;
   const name = firstName(person);
   return { id: pageHandoffId(person.id), type: "page", ask: `Did you reach ${name}?`, followUp: `Anything worth remembering from talking with ${name}?` };
+}
+
+/** The mention list as a Moment carries it. */
+function mentionView(m: Mentions): { mention: string[]; opener: string | null } {
+  return { mention: m.lines, opener: m.opener };
 }
 
 /** Where a person's birthday came from, said the way every provenance line is. */

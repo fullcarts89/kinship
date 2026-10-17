@@ -9,6 +9,7 @@ import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
 import { composeRecordLines, type RecordInput } from "@/features/person/composedRecord";
+import { mentionsFor, type Mentions } from "@/features/today/mentions";
 import { buildToday, isLocalReason, pageHandoffFor, type PageHandoffReason, returnViewFor, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type ReturnView, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { answerReturn, cancelHandOff, forgetConversation, handOff } from "@/store/returnLoop";
 import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine, type TrailLine } from "@/features/person/portraitModel";
@@ -26,7 +27,7 @@ import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, smallCount, tr
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { isOn } from "@/store/flags";
-import { closedBy, repositoriesFor, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
+import { closedBy, peopleOf, repositoriesFor, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
 import type { HeldItem } from "@/store/gateway";
 import { questionWaiting } from "@/store/understanding";
 import type { UserStore } from "@/store/userStore";
@@ -550,22 +551,27 @@ export function usePortrait(personId: string): Portrait & { loading: boolean } {
  * something to act on, else the page's own return check and nothing more (never for someone remembered,
  * paused or removed). `now` is the screen's clock, read again when the app comes back.
  */
-export function usePersonReturn(personId: string, now: Date): { returnCheck: ReturnView | null; reason: PageHandoffReason | null } {
+export function usePersonReturn(personId: string, now: Date): { returnCheck: ReturnView | null; reason: PageHandoffReason | null; mention: Mentions } {
   const { store, reasonLocal } = useV2Session();
   const minute = Math.floor(now.getTime() / 60_000);
   const q = useStoreQuery(store, async (repos) => {
     const people = await repos.people.list();
     const person = people.find((p) => p.id === personId && !p.deleted_at) ?? null;
-    if (!person) return { returnCheck: null, reason: null };
+    if (!person) return { returnCheck: null, reason: null, mention: { lines: [], opener: null } };
     const { handoff } = await reasonLocal.read();
     // Said the way Today says it ("Call John", never "You need to call John").
-    const items = ((await store.list("memory_items")) as MemoryItem[]).filter((m) => m.person_id === personId).map((m) => voiced(m, people));
+    const all = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people));
+    const items = all.filter((m) => m.person_id === personId);
+    const reason = pageHandoffFor(items, person, todayIso(now));
+    const about = reason && reason.type !== "page" ? items.find((m) => m.id === reason.itemId) ?? null : null;
     return {
       returnCheck: handoff?.personId === personId ? returnViewFor(handoff, person, now) : null,
-      reason: pageHandoffFor(items, person, todayIso(now)),
+      reason,
+      // What to mention (K26): theirs and what is shared with them, about the hand-off's subject first.
+      mention: mentionsFor({ items: all.filter((m) => peopleOf(m).includes(personId)), person, today: todayIso(now), about }),
     };
   }, [personId, minute]);
-  return q.data ?? { returnCheck: null, reason: null };
+  return q.data ?? { returnCheck: null, reason: null, mention: { lines: [], opener: null } };
 }
 
 // ─── Someone added after they were mentioned (G20) ──────────────────────

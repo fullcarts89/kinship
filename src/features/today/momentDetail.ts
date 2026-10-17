@@ -40,6 +40,7 @@ export interface MomentDetail {
   /** The hand-off sheet's heading and "You could mention", when the sheet is needed. */
   heading: string;
   mention: string[];
+  opener?: string | null;
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -100,7 +101,7 @@ function fromMoment(m: MomentView, today: string): MomentDetail {
     when: day && !m.toldDay ? dayLabel(day, today) : null,
     provenance: m.provenance, noteId: m.noteId,
     reason: { id: m.reasonId, type: m.type, ask: m.ask, about: m.memory, followUp: m.followUp, itemId: m.itemId },
-    heading: m.heading, mention: m.mention,
+    heading: m.heading, mention: m.mention, opener: m.opener,
   };
 }
 

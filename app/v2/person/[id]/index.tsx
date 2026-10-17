@@ -53,9 +53,9 @@ export default function PersonScreen() {
   const [afterReturn, setAfterReturn] = useState<{ followUp: string } | null>(null);
   // Reaching out about something they said they'd do gets the same return question as Today's line
   // about it (founder K23); with nothing to act on, the page's own return check, and nothing more
-  // (founder K28).
+  // (founder K28). What to mention is chosen by mentions.ts (K26), never the first rows of the page.
   const reachOut = () => handoff.start({
-    personId, personName: first, heading: `Reach ${first}`, mention: [...portrait.lately, ...portrait.comingUp].slice(0, 2).map((l) => l.statement),
+    personId, personName: first, heading: `Reach ${first}`, mention: back.mention.lines, opener: back.mention.opener,
     ...(back.reason ? { reason: back.reason } : {}),
   });
 

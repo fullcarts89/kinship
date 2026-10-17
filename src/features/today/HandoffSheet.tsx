@@ -13,6 +13,8 @@ export interface HandoffSheetProps {
   heading: string;
   personName: string;
   mention: string[];
+  /** One suggested question under the mentions, clearly a suggestion (K26); never the user's words. */
+  opener?: string | null;
   /** Channels this phone can open for them; empty until their contact is linked. */
   channels: HandoffChannel[];
   /** True once we know whether they have a contact (avoids a flash of "choose"). */
@@ -37,6 +39,7 @@ export function HandoffSheet(props: HandoffSheetProps) {
               <Body key={m}>{`•  ${m}`}</Body>
             ))}
           </View>
+          {props.opener ? <Small style={{ marginTop: space.s }}>{props.opener}</Small> : null}
         </View>
       ) : null}
 

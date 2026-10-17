@@ -77,7 +77,7 @@ it("Messages never opened: the hand-off is taken back", async () => {
 });
 
 const page: HandoffRequest = {
-  personId: "tyler", personName: "Tyler", heading: "Reach Tyler", mention: ["Tyler is redoing his kitchen"],
+  personId: "tyler", personName: "Tyler", heading: "Reach Tyler", mention: ["Tyler is redoing his kitchen"], opener: null,
   reason: { id: "page:tyler", type: "page", ask: "Did you reach Tyler?", followUp: "Anything worth remembering from talking with Tyler?" },
 };
 
