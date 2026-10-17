@@ -25,8 +25,10 @@
 //              words recorded as a plain replacement. A review candidate,
 //              never proof: older lines lack the transitions and readings newer
 //              ones carry
-//   history_unknown   a closed eligible line none of whose live closers records
-//              a transition: never history (CC-20), whatever happened
+//   history_unknown   a closed eligible line with a live closer that records no
+//              transition (and none that records a correction): never history
+//              (CC-20), whatever happened. History needs every live closer to
+//              record a change, as the composer decides it
 //   not_residence   examined, and excluded by the rules: the reason is counted
 //              in the summary, never stored
 //
@@ -123,9 +125,11 @@ export interface ReportSummary {
 /** Words that make a line worth examining; the rules then decide (never the model's category alone). */
 const RESIDENTIAL = /\b(?:lives?|living|lived|moved?|moving|relocat\w*|based\s+in|resides?|residing|stay(?:s|ed|ing)?|grew\s+up|is\s+from|born\s+in|address|hometown|home\s+town)\b/iu;
 
-export function looksResidential(item: Pick<ReportItem, "statement" | "detail">): boolean {
+export function looksResidential(item: Pick<ReportItem, "statement" | "detail">, words: readonly string[] = []): boolean {
   const category = item.detail && typeof item.detail.category === "string" ? item.detail.category : null;
-  return category === "home" || RESIDENTIAL.test(item.statement);
+  // The user's own words count as much as the model's statement: a note that says where someone lives
+  // behind a statement that doesn't is examined too (the reading itself is always from the words).
+  return category === "home" || RESIDENTIAL.test(item.statement) || words.some((w) => RESIDENTIAL.test(w));
 }
 
 const live = (it: ReportItem) => !it.deleted_at && it.status !== "retracted";
@@ -189,7 +193,7 @@ export function residenceReport(input: ReportInput): { rows: ReportRow[]; summar
   // ── Each examined line: a reading, or why not ──
   const reads = new Map<string, Read>();
   for (const it of items) {
-    if (!looksResidential(it)) continue;
+    if (!looksResidential(it, input.quotes[it.id] ?? [])) continue;
     summary.examined++;
     const why = exclusionOf(it);
     const read = why ? null : readLine(it, input.quotes[it.id] ?? [], facets, input.places);
@@ -252,7 +256,10 @@ export function residenceReport(input: ReportInput): { rows: ReportRow[]; summar
       continue;
     }
     const transitions = closers.map((c) => c.detail?.transition ?? null);
-    if (transitions.some(historyTransition)) summary.closed.history_eligible++;
+    // As the composer decides it (compose.ts historyEligible, CC-20): every live closer must record a
+    // change. A correction or progress on any closer settles it as never history; otherwise a closer with
+    // no transition leaves it unknown.
+    if (transitions.every(historyTransition)) summary.closed.history_eligible++;
     else if (transitions.some((t) => t === "corrected" || t === "progress")) summary.closed.never_history++;
     else {
       summary.closed.history_unknown++;

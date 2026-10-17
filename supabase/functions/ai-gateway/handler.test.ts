@@ -61,6 +61,8 @@ interface World {
   runs: Map<string, string>;
   /** Pages read (B6). */
   pages: { after: string | null; limit: number }[];
+  /** Lines whose quotes were read (B6). */
+  quoteIds: string[];
 }
 
 function world(opts: {
@@ -95,7 +97,7 @@ function world(opts: {
   reportThrows?: boolean;
 } = {}): World {
   const w: World = {
-    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [], ops: [], reports: [], runs: new Map(), pages: [],
+    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [], ops: [], reports: [], runs: new Map(), pages: [], quoteIds: [],
     deps: undefined as unknown as GatewayDeps,
   };
   const caller: GatewayCaller = {
@@ -121,7 +123,10 @@ function world(opts: {
       const sorted = [...(opts.lines ?? [])].sort((a, b) => a.id.localeCompare(b.id));
       return Promise.resolve(sorted.filter((l) => !after || l.id > after).slice(0, limit));
     },
-    loadQuotes: (ids) => Promise.resolve(Object.fromEntries(ids.map((id) => [id, opts.quotes?.[id] ?? [(opts.lines ?? []).find((l) => l.id === id)?.statement ?? ""]]))),
+    loadQuotes: (ids) => {
+      w.quoteIds.push(...ids);
+      return Promise.resolve(Object.fromEntries(ids.map((id) => [id, opts.quotes?.[id] ?? [(opts.lines ?? []).find((l) => l.id === id)?.statement ?? ""]])));
+    },
     loadUnread: (ids) => Promise.resolve((opts.unread ?? []).filter((u) => ids.includes(u.line.id))),
     loadFacets: (ids) => Promise.resolve(opts.facets === null ? null : (opts.facets ?? []).filter((f) => ids.includes(f.memory_item_id))),
     loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
@@ -747,14 +752,18 @@ Deno.test("B6: model-free and owner-only: no consent, flag, quota or model; only
   const ca = reportLine("Susan lives in California");
   const al = reportLine("Susan lives in Alameda");
   const stay = reportLine("Susan is staying in Denver this week");
-  const w = world({ consent: false, flag: false, places: placeIndex(), lines: [ca, al, stay, reportLine("Susan loves pottery", { detail: { category: "interest" } })] });
+  const pottery = reportLine("Susan loves pottery", { detail: { category: "interest" } });
+  // Removed ("Not this") since an earlier run: its earlier rows are cleared; it is read no more.
+  const gone = reportLine("Susan lives in Oakland", { status: "retracted", deleted_at: "2026-10-16T00:00:00Z" });
+  const w = world({ consent: false, flag: false, places: placeIndex(), lines: [ca, al, stay, pottery, gone] });
   const { status, body } = await call(w, post(reportBody()));
   eq(status, 200);
   eq([w.modelCalls.length, w.quota, w.logs.length, w.writes.length, w.facetWrites.length, w.resolves.length], [0, 0, 0, 0, 0, 0]);
   eq(w.ops, ["reportRan", "writeReport"], "nothing else is touched");
   const [r] = w.reports;
   eq([r.rule, r.dataset], ["residence/v1", "places-2026.10"]);
-  eq(r.itemIds.length, 4, "every live line, so earlier rows for any of them are cleared");
+  eq(r.itemIds.length, 5, "every line, removed and retracted too, so earlier rows for any of them are cleared");
+  eq([...w.quoteIds].sort(), [ca.id, al.id, stay.id, pottery.id].sort(), "every live line's own words are read; a removed line's never");
   eq(r.rows, [
     { memory_item_id: ca.id, bucket: "eligible" }, { memory_item_id: ca.id, bucket: "candidates" }, { memory_item_id: ca.id, bucket: "would_compose" },
     { memory_item_id: al.id, bucket: "eligible" }, { memory_item_id: al.id, bucket: "candidates" }, { memory_item_id: al.id, bucket: "would_compose" },
@@ -800,6 +809,7 @@ Deno.test("B6 (16): an account with more lines than one query returns is read wh
   eq(w.pages[1].after !== null && w.pages[2].after !== null && w.pages[2].after! > w.pages[1].after!, true, "each page after the last id of the one before");
   eq((body.summary as { total: number }).total, 1203);
   eq(w.reports[0].itemIds.length, 1203);
+  eq(w.quoteIds.length, 1203, "every line's words, across the pages");
   // The four Alameda lines are the same place, all current: one chain, so each is eligible, candidates and would_compose.
   eq(w.reports[0].rows.length, 4 * 3, "the four Alameda lines, read across the pages");
   eq((body.summary as { groups: { would_compose: string[][] } }).groups.would_compose[0].length, 4);
@@ -817,4 +827,12 @@ Deno.test("B6 (15): an account with nothing residential: a run with no rows, rec
   const none = world({ lines: [reportLine("Susan lives in Alameda")] });
   eq((await call(none, post(reportBody()))).status, 503);
   eq([none.reports.length, none.pages.length], [0, 0]);
+});
+
+Deno.test("B6: a line is examined by the user's own words: a note that says where she lives behind a statement that doesn't", async () => {
+  const place = reportLine("Susan has a new place", { detail: { category: "other" } });
+  const w = world({ places: placeIndex(), lines: [place], quotes: { [place.id]: ["Susan moved to Alameda last month"] } });
+  const { body } = await call(w, post(reportBody()));
+  eq([(body.summary as { examined: number }).examined, (body.summary as { eligible: number }).eligible], [1, 1]);
+  eq(w.reports[0].rows, [{ memory_item_id: place.id, bucket: "eligible" }, { memory_item_id: place.id, bucket: "candidates" }]);
 });

@@ -153,3 +153,16 @@ select '${userId}', m.id, c.id, 'capture', 0, ${line.statement.length}, ${q(line
 commit;`;
   execFileSync("docker", ["exec", "-i", "supabase_db_kinship", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], { input: sql, stdio: ["pipe", "ignore", "pipe"] });
 }
+
+/**
+ * How many rows every table of the local database holds (service role, the whole stack, not one account):
+ * before and after a run that may write only its own tables, the counts of every other table must agree.
+ * Local database container only.
+ */
+export function tableCounts(): Record<string, number> {
+  const sql = `select json_object_agg(relname, n) from (
+    select c.relname, (xpath('/row/n/text()', query_to_xml(format('select count(*) n from public.%I', c.relname), false, true, '')))[1]::text::int as n
+    from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r') t;`;
+  const out = execFileSync("docker", ["exec", "-i", "supabase_db_kinship", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-At"], { input: sql, stdio: ["pipe", "pipe", "pipe"] });
+  return JSON.parse(out.toString().trim()) as Record<string, number>;
+}

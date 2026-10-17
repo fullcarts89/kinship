@@ -200,3 +200,41 @@ Deno.test("(13) the same lines give the same rows, in the same order, every time
   eq(JSON.stringify(a).includes("Susan"), false, "no content anywhere in the result");
   eq(JSON.stringify(a).includes("Alameda"), false);
 });
+
+Deno.test("(words) a line is examined by the user's own words, never only the model's statement; and read from them", () => {
+  // The note says where she lives; the model's statement doesn't: examined, and read from the note.
+  const place = line("Susan has a new place", { detail: { category: "other" } });
+  const r = report([place], { quotes: { [place.id]: ["Susan moved to Alameda last month"] } });
+  eq(bucketsOf(r, place.id), ["eligible", "candidates"]);
+  eq([r.summary.examined, r.summary.eligible], [1, 1]);
+  // The statement says it and the note doesn't: examined, but the words give no reading (the statement is never read).
+  const said = line("Susan lives in Alameda");
+  const r2 = report([said], { quotes: { [said.id]: ["Susan's place is lovely"] } });
+  eq(bucketsOf(r2, said.id), ["not_residence"]);
+  eq(r2.summary.excluded.wording, 1);
+  eq(looksResidential({ statement: "Susan has a new place", detail: null }, ["Susan moved to Alameda"]), true);
+  eq(looksResidential({ statement: "Susan has a new place", detail: null }, ["Susan's place is lovely"]), false);
+});
+
+Deno.test("(8b) history needs every live closer to record a change, as the composer decides it", () => {
+  // Closed twice: once as a change, once with no transition: unknown (the composer would not show it).
+  const al = line("Susan lives in Alameda", { status: "superseded" });
+  const moved = line("Susan moved to Colorado", { supersedes_id: al.id, detail: { category: "home", transition: "changed" } });
+  const plain = line("Susan lives in Denver", { closes_ids: [al.id], detail: { category: "home" } });
+  const r = report([al, moved, plain]);
+  eq(r.summary.closed, { history_eligible: 0, never_history: 0, history_unknown: 1, no_live_closer: 0 });
+  eq(bucketsOf(r, al.id).includes("history_unknown"), true);
+  eq(r.summary.groups.history_unknown, [{ item: al.id, closers: [moved.id, plain.id] }]);
+  // A change and a correction: settled as never history, no bucket.
+  const b = line("Susan lives in Alameda", { status: "superseded" });
+  const c1 = line("Susan moved to Colorado", { supersedes_id: b.id, detail: { category: "home", transition: "changed" } });
+  const c2 = line("Actually Susan lives in Denver, not Alameda", { closes_ids: [b.id], detail: { category: "home", transition: "corrected" } });
+  const r2 = report([b, c1, c2]);
+  eq(r2.summary.closed, { history_eligible: 0, never_history: 1, history_unknown: 0, no_live_closer: 0 });
+  eq(bucketsOf(r2, b.id).includes("history_unknown"), false);
+  // Two changes: history-eligible.
+  const d = line("Susan lives in Alameda", { status: "superseded" });
+  const d1 = line("Susan moved to Colorado", { supersedes_id: d.id, detail: { category: "home", transition: "changed" } });
+  const d2 = line("Susan relocated to Denver", { closes_ids: [d.id], detail: { category: "home", transition: "changed" } });
+  eq(report([d, d1, d2]).summary.closed.history_eligible, 1);
+});

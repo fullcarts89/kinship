@@ -7,7 +7,7 @@
 // row is byte for byte what it was.
 import { supabaseGatewayTransport } from "@/store/gateway";
 import { canTap, mount, setUp, settle, signedIn, tap, tell, texts, until } from "./app";
-import { serverRows, serverRowsIn, useReply as chooseReply } from "./localStack";
+import { serverRows, serverRowsIn, tableCounts, useReply as chooseReply } from "./localStack";
 
 const LIVE = process.env.LIVE === "1";
 const PEOPLE = ["Anthony", "Anthony Lopez", "Sam Eden", "Sam Doughty", "Chris", "Ben", "John", "Susan"];
@@ -24,7 +24,14 @@ const LABEL: Record<string, string> = {
   [N.colorado]: "live 1 (16 Oct, B3, founder People + Susan)",
 };
 const READING = /^(Kept for|Kept as you wrote|Nothing to remember|One thing to check about|\d+ things to check)/u;
-const TABLES = ["memory_items", "memory_item_sources", "memory_item_facets", "captures", "people", "related_people", "reasons", "contact_events", "capture_reviews"];
+/** Every table that holds an account's rows (every public table with a user_id column, save the run record itself). */
+const TABLES = [
+  "memory_items", "memory_item_sources", "memory_item_facets", "memory_item_history", "captures", "capture_reviews", "people", "related_people",
+  "person_identities", "reasons", "reason_evidence", "reason_events", "contact_events", "consents", "devices", "notification_log",
+  "user_flag_overrides", "user_settings", "ai_usage", "person_mentions_backfill_report",
+];
+/** The only tables a run may write (brief §14; the B6 task §3). */
+const REPORT_TABLES = new Set(["residence_backfill_report", "semantic_runs"]);
 
 type Item = { id: string; statement: string; status: string; deleted_at: string | null };
 type Row = { memory_item_id: string; bucket: string; rule_version: string; dataset_version: string };
@@ -67,10 +74,18 @@ async function reportFor(a: Account): Promise<Row[]> {
   return serverRowsIn<Row>("residence_backfill_report", "memory_item_id", items);
 }
 
-/** The report, asked for again (the launch asked once, over an empty account): the gateway's own action, as the owner. */
+/**
+ * The report, asked for again (the launch asked once, over an empty account): the gateway's own action, as
+ * the owner. Around it, the whole database's row counts: a run may change the two report tables and no
+ * other table at all (the adversarial check: any write elsewhere, by the gateway or a trigger, shows here).
+ */
 async function reportAgain(a: Account): Promise<Record<string, unknown>> {
+  const counts = tableCounts();
   const reply = await supabaseGatewayTransport(a.acct.client).post({ action: "semantic_report", again: true });
   if (reply.status !== 200) throw new Error(`report: ${reply.status} ${JSON.stringify(reply.body)}`);
+  const after = tableCounts();
+  const touched = Object.keys({ ...counts, ...after }).filter((t) => counts[t] !== after[t] && !REPORT_TABLES.has(t));
+  expect(touched).toEqual([]);
   return reply.body as Record<string, unknown>;
 }
 
@@ -156,4 +171,21 @@ it("another account's token can't ask for, or see, this account's report", async
   // The app's own client (anon key, the owner's session) can't read the report tables at all.
   const { error } = await b.acct.client.from("residence_backfill_report").select("*").limit(1);
   expect(error?.code).toBe("42501");
+});
+
+it("a line removed since the last run ('Not this') loses its rows on the next; the account's tables stay as they were", async () => {
+  const a = await account();
+  await told(a, N.alameda);
+  await untilRun(a, 1);
+  await reportAgain(a);
+  const alameda = (await serverRows<Item>("memory_items", a.acct.userId)).find((m) => /Alameda/u.test(m.statement))!;
+  expect((await reportFor(a)).filter((r) => r.memory_item_id === alameda.id).map((r) => r.bucket).sort()).toEqual(["candidates", "eligible"]);
+  await a.acct.repos.memory.retract(alameda.id);
+  await a.acct.engine.sync();
+  const before = await everything(a);
+  const body = await reportAgain(a);
+  expect((body.summary as { total: number; examined: number }).examined).toBe(0);
+  expect((await reportFor(a)).filter((r) => r.memory_item_id === alameda.id)).toEqual([]);
+  expect(await everything(a)).toBe(before);
+  expect((await runs(a)).length).toBe(1);
 });

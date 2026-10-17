@@ -73,8 +73,9 @@ export interface GatewayCaller {
    */
   loadUnread(itemIds: string[]): Promise<{ line: LineToRead; quotes: string[] }[]>;
   /**
-   * Under the caller's RLS: a page of every live line of theirs (not removed, not retracted), by id, after
-   * `afterId` (Phase 4B B6). Fewer than `limit` rows means the last page.
+   * Under the caller's RLS: a page of every line of theirs, removed and retracted ones too (so their earlier
+   * report rows are cleared), by id, after `afterId` (Phase 4B B6). Fewer than `limit` rows means the last
+   * page.
    */
   loadLinesPage(afterId: string | null, limit: number): Promise<ReportItem[]>;
   /** Under the caller's RLS: the live quotes of these lines' notes, by line (Phase 4B B6). */
@@ -449,9 +450,9 @@ async function reread(
 }
 
 /**
- * The residence dry run (Phase 4B B6; brief §14): every live line of the caller's, read page by page under
- * their RLS; the examined lines' quotes and live readings; report.ts; then the rows and the run, written
- * by the service role for this verified user alone. Already run at these versions: nothing is read again
+ * The residence dry run (Phase 4B B6; brief §14): every line of the caller's, read page by page under their
+ * RLS; the live lines' quotes and the examined lines' live readings; report.ts; then the rows and the run,
+ * written by the service role for this verified user alone. Already run at these versions: nothing is read again
  * (unless `again` is asked for). Too many lines to read whole: nothing is written, and the caller is told.
  */
 async function semanticReport(deps: GatewayDeps, caller: GatewayCaller, body: Record<string, unknown>, cors: Record<string, string>): Promise<Response> {
@@ -470,13 +471,18 @@ async function semanticReport(deps: GatewayDeps, caller: GatewayCaller, body: Re
     if (rows.length < REPORT_PAGE) break;
     after = rows[rows.length - 1].id;
   }
-  const examined = items.filter(looksResidential).map((i) => i.id);
+  // The pages carry removed and retracted lines too, so their earlier rows are cleared below; the report
+  // reads only the live ones. Every live line's own words (the quotes of its live sources) are read first,
+  // so a line is examined by what the user said, never only by the model's statement.
+  const live = items.filter((i) => !i.deleted_at && i.status !== "retracted");
   const quotes: Record<string, string[]> = {};
+  for (let i = 0; i < live.length; i += REPORT_CHUNK) {
+    Object.assign(quotes, await caller.loadQuotes(live.slice(i, i + REPORT_CHUNK).map((l) => l.id)));
+  }
+  const examined = live.filter((it) => looksResidential(it, quotes[it.id] ?? [])).map((i) => i.id);
   const facets: NonNullable<Awaited<ReturnType<GatewayCaller["loadFacets"]>>> = [];
   for (let i = 0; i < examined.length; i += REPORT_CHUNK) {
-    const chunk = examined.slice(i, i + REPORT_CHUNK);
-    Object.assign(quotes, await caller.loadQuotes(chunk));
-    const read = await caller.loadFacets(chunk);
+    const read = await caller.loadFacets(examined.slice(i, i + REPORT_CHUNK));
     // Readings that couldn't be read: the lines are read from their words instead (never as if unread).
     if (read) facets.push(...read.filter((f) => f.slot === "residence"));
   }

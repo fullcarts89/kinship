@@ -135,10 +135,11 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
       }));
     },
     async loadLinesPage(afterId, limit) {
-      // Every live line of theirs, by id (uuid order), a page at a time (Phase 4B B6).
+      // Every line of theirs, removed and retracted ones too, by id (uuid order), a page at a time (Phase 4B
+      // B6): the report reads the live ones and clears its earlier rows for all of them.
       let q = db.from("memory_items")
-        .select("id, person_id, kind, subject_type, subject_related_id, statement, certainty, sensitivity, status, user_state, detail, with_person_ids, supersedes_id, closes_ids, created_at")
-        .is("deleted_at", null).neq("status", "retracted").order("id", { ascending: true }).limit(limit);
+        .select("id, person_id, kind, subject_type, subject_related_id, statement, certainty, sensitivity, status, user_state, detail, with_person_ids, supersedes_id, closes_ids, created_at, deleted_at")
+        .order("id", { ascending: true }).limit(limit);
       if (afterId) q = q.gt("id", afterId);
       const { data, error } = await q;
       if (error) throw new Error("lines read failed");
