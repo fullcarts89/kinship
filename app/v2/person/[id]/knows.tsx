@@ -1,13 +1,19 @@
 // What Kinship knows about a person: every line, its tokens and its source.
-// Change anything; "Not this" forgets it.
-import React, { useState } from "react";
+// Change anything; "Not this" forgets it. A residence said in several notes
+// is one line here (Phase 4B B5); tapping it opens the notes behind it, each
+// changeable or removable on its own, and the line is read again from what
+// is left.
+import React, { useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { FORGET_COPY, PersonRecordView } from "@/features/person/PersonRecordView";
+import { ComposedSheet } from "@/features/person/ComposedSheet";
+import { withoutForgotten } from "@/features/person/composedRecord";
+import { FORGET_COPY, PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
 import { DatePane, KindPane, NamePane, namedChoices, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import { todayIso, usePeople, usePersonRecord, useTrail, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { Sheet } from "@/ui";
+import { afterSheets } from "@/ui/sheetStack";
 import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
 type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine } | { kind: "name" };
@@ -29,6 +35,22 @@ export default function KnowsScreen() {
   // "Not this" takes the line off the screen at once, never brought back by a read that started before it;
   // it comes back, with the alert, only if it couldn't be removed (founder K14: within 300 ms, not seconds).
   const [forgotten, setForgotten] = useState<ReadonlySet<string>>(() => new Set());
+  // A composed line is read again at once from the members left (never from its old words).
+  const shown = useMemo(() => withoutForgotten(lines, forgotten, new Date()), [lines, forgotten]);
+  // The composed line whose notes are open, by its line; it follows every change, and closes when the
+  // line is no longer composed (one member left shows as itself).
+  const [openComposed, setOpenComposed] = useState<string | null>(null);
+  const composedRow = useMemo(() => shown.find((r) => !!r.composed && r.line.id === openComposed) ?? null, [shown, openComposed]);
+  // From the sheet to a change: the sheet goes first (never a sheet on a sheet), then the picker opens.
+  const changeFromSheet = (line: ItemLine, kind: "person" | "date" | "kind" | "words") => {
+    setOpenComposed(null);
+    afterSheets(() => setPane({ kind, line }));
+  };
+  const forgetAsked = (r: RecordLine) =>
+    Alert.alert(FORGET_COPY.title, r.line.statement, [
+      { text: FORGET_COPY.cancel, style: "cancel" },
+      { text: FORGET_COPY.forget, style: "destructive", onPress: () => forget(r.line.id) },
+    ]);
   const forget = (lineId: string) => {
     setForgotten((s) => new Set(s).add(lineId));
     void fail(u.reject(lineId).catch((err: unknown) => {
@@ -48,14 +70,11 @@ export default function KnowsScreen() {
       short={person ? shortName(person) : null}
       label={typeof person?.relationship_label === "string" && person.relationship_label ? person.relationship_label : null}
       onRename={() => setPane({ kind: "name" })}
-      lines={forgotten.size ? lines.filter((l) => !forgotten.has(l.line.id)) : lines}
+      lines={shown}
       onBack={() => router.back()}
       onChange={(line, kind) => setPane({ kind, line })}
-      onForget={(r) =>
-        Alert.alert(FORGET_COPY.title, r.line.statement, [
-          { text: FORGET_COPY.cancel, style: "cancel" },
-          { text: FORGET_COPY.forget, style: "destructive", onPress: () => forget(r.line.id) },
-        ])}
+      onForget={forgetAsked}
+      onComposed={(r) => setOpenComposed(r.line.id)}
       onSource={(noteId) => router.push(`/v2/source/${noteId}`)}
       onSettle={(conflictId, choice) => fail(settleConflict(conflictId, choice))}
       focusItemId={typeof focusItem === "string" ? focusItem : null}
@@ -66,6 +85,18 @@ export default function KnowsScreen() {
         { text: FORGET_COPY.forget, style: "destructive", onPress: () => fail(forgetConversation(cid)) },
       ])}
     >
+      <ComposedSheet
+        row={composedRow}
+        visible={!!composedRow}
+        onChange={changeFromSheet}
+        onForget={forgetAsked}
+        onSource={(noteId) => {
+          setOpenComposed(null);
+          router.push(`/v2/source/${noteId}`);
+        }}
+        onSettle={(conflictId, choice) => fail(settleConflict(conflictId, choice))}
+        onDismiss={() => setOpenComposed(null)}
+      />
       <Sheet visible={!!pane} onDismiss={close} label="Change">
         {pane?.kind === "name" && person ? (
           <NamePane initial={person.display_name} onCancel={close} onSave={(n) => {
