@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship · after Yes: three motions (exploratory, unapproved)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../base.css">
+<link rel="stylesheet" href="r2.css">
+<script src="../shared.js"></script>
+<script src="sprigs2.js"></script>
+<script src="r2.js"></script>
+<style>
+  body.gallery .trio { display: flex; gap: 36px; flex-wrap: wrap; align-items: flex-start; }
+  body.gallery .trio .col { zoom: .78; }
+  body.gallery .trio .col .ctl { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; font-family: var(--sans); }
+  body.gallery .trio button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 18px; border: 1px solid #CFCEC5; background: #F7F6F2; cursor: pointer; }
+  body.gallery .trio .ttl { font-family: var(--display); font-size: 26px; margin: 0 0 6px; }
+  body.gallery .trio .desc { font-size: 14px; line-height: 21px; color: #3C423D; max-width: 393px; margin: 12px 0 0; }
+  body.gallery label { font-size: 14px; }
+</style>
+</head>
+<body class="gallery">
+<div class="banner"><b>EXPLORATORY · UNAPPROVED.</b> The moment after the user says Yes to “Did you ask Ben how it went?”, three ways. Press <b>Play</b> on each; <b>Reset</b> returns to the question.</div>
+<h1>After Yes</h1>
+<p>The one place Today acknowledges that the user showed up. The brief's test: subtle, responsive, warm; never a task completed or a reward collected; nothing suggests the relationship is consumed or removed; Reduce Motion gets an equally coherent minimum. One approved haptic (success) in all three; no new haptics.</p>
+<label><input id="rm" type="checkbox"> Reduce Motion (150 ms fades everywhere)</label>
+<div class="trio" style="margin-top:20px">
+  <div class="col"><div class="ttl">Original (round 1)</div><div class="ctl"><button data-play="original">Play</button><button data-reset="original">Reset</button></div><div id="m-original"></div><div class="desc">The block presses into the paper (scaleY → 0.9, 600 ms), light passes over the garden (900 ms), the person's root mark goes out. Then the prompt. <b>Verdict:</b> three things happen at once and the letter is crushed: it reads as consumed. Too long by half.</div></div>
+  <div class="col"><div class="ttl">Settle</div><div class="ctl"><button data-play="settle">Play</button><button data-reset="settle">Reset</button></div><div id="m-settle"></div><div class="desc">The question settles 4 pt and quietens to 55% (320 ms) while its pills fade; the prompt arrives below. Nothing is removed until the prompt is answered. <b>Verdict:</b> calm and honest, but the quietened block hangs there as a greyed-out task.</div></div>
+  <div class="col"><div class="ttl">Resolve (recommended)</div><div class="ctl"><button data-play="resolve">Play</button><button data-reset="resolve">Reset</button></div><div id="m-resolve"></div><div class="desc">The question becomes its answer in place: “Did you ask Ben how it went?” cross-fades (240 ms) to “You asked Ben how it went.”; the context and pills fade; the prompt arrives below with the approved arrive. Only words move. <b>Verdict:</b> the acknowledgment is typographic, in Kinship's own voice; nothing is crushed, lit or scored. Under Reduce Motion it is the same thing at 150 ms.</div></div>
+</div>
+<script>
+(function () {
+  const apps = {};
+  for (const m of ["original", "settle", "resolve"]) {
+    apps[m] = K2.mount(document.getElementById(`m-${m}`), { screen: "today", state: "return", base: "moment", hedge: m === "original" ? "A" : "C", motion: m, hour: 18 }, {});
+  }
+  document.querySelectorAll("[data-play]").forEach((b) => b.addEventListener("click", () => { const a = apps[b.dataset.play]; if (a.S.state !== "return") a.set({ state: "return" }); setTimeout(() => a.yes(), 60); }));
+  document.querySelectorAll("[data-reset]").forEach((b) => b.addEventListener("click", () => apps[b.dataset.reset].set({ state: "return" })));
+  document.getElementById("rm").addEventListener("change", (e) => { for (const m in apps) apps[m].set({ reduce: e.target.checked, state: "return" }); });
+})();
+</script>
+</body>
+</html>
