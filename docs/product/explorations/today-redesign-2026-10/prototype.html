@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship Today · the Garden Letter prototype (exploratory, unapproved)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="directions.css">
+<link rel="stylesheet" href="prototype.css">
+<script src="sprigs.js"></script>
+<script src="shared.js"></script>
+<script src="directions.js"></script>
+</head>
+<body class="proto">
+<div class="wrap">
+  <div class="panel">
+    <h1>The Garden Letter</h1>
+    <div class="hint">The preferred direction for Today, with People and a person's page in the same language. Click inside the phone: the moment's words, the pills, the week, the bar, a person.</div>
+    <div class="banner"><b>EXPLORATORY · UNAPPROVED.</b> Fictional people and notes. Not connected to anything. Every departure from an approved board is listed in <code>04-founder-decisions.md</code>.</div>
+
+    <h2>Today's state</h2>
+    <div class="states">
+      <button data-state="moment" data-note="A meaningful moment: the day after Ben's race. Tap the words for its detail; the pill for the hand-off.">Moment</button>
+      <button data-state="birthday" data-note="A birthday from Contacts: a candle, a warm band, the fact and nothing invented.">Birthday</button>
+      <button data-state="milestone" data-note="A milestone (H16): the wedding on Thursday, in the user's words.">Milestone</button>
+      <button data-state="busy" data-note="Several legitimate opportunities: still one moment; the week carries the rest, including a promise of the user's own (ochre) and a Waiting line. 'and 2 more' opens in place.">Busy week</button>
+      <button data-state="quiet" data-note="A quiet day: the garden has the page. The italic line is only the season and the hour.">Quiet day</button>
+      <button data-state="first" data-note="First use: people picked, nothing told. The hedgerow shows the people they chose; the bed is empty.">First use</button>
+      <button data-state="bringback" data-note="Once, after the first Tell (H4): how Kinship brings things back, as a small letter.">Bring back</button>
+      <button data-state="return" data-note="Back from Messages: the return check sits above the moment, on a folded slip.">Return check</button>
+      <button data-state="after" data-note="After Yes: the optional question. Nothing today changes nothing.">After</button>
+    </div>
+    <h2>Screen</h2>
+    <div class="states"><button data-screen="today">Today</button><button data-screen="people">People</button><button data-screen="person">Priya</button></div>
+    <h2>Light</h2>
+    <div class="states"><button data-appearance="auto">Auto</button><button data-appearance="light">Light</button><button data-appearance="night">Night</button></div>
+    <label><input id="hour" type="range" min="0" max="23" value="8"> <span id="hourLabel">08:00</span> <span class="hint">the hour moves the sun and the wash</span></label>
+    <h2>Accessibility</h2>
+    <label><input id="reduce" type="checkbox"> Reduce Motion (every movement becomes a 150 ms fade)</label>
+    <label><input id="large" type="checkbox"> Larger text (×1.3, the Dynamic Type reflow)</label>
+    <h2>Try the loop</h2>
+    <ol class="steps"><li>Moment → tap <b>Ask how it went</b> → <b>Open Messages</b>.</li><li>The return check arrives → <b>Yes</b>.</li><li>Watch the plate press, the light pass, Ben's root mark go out.</li><li><b>Tell Kinship</b> or <b>Nothing today</b>.</li></ol>
+    <h2>What just happened</h2>
+    <div id="note" class="hint" aria-live="polite">Nothing yet.</div>
+  </div>
+  <div class="stage" id="stage"></div>
+</div>
+<script src="prototype.js"></script>
+</body>
+</html>

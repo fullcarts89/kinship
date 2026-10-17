@@ -1,0 +1,88 @@
+/* Direction-specific styles. Exploratory, unapproved. */
+
+/* ===== A · The Living Garden ===== */
+.a .a-sky { position: absolute; left: 0; right: 0; top: 0; height: 300px; background: linear-gradient(180deg, var(--day) 0%, var(--paper) 100%); }
+.a .a-sky.dawn { background: linear-gradient(180deg, var(--dawn) 0%, var(--paper) 100%); }
+.a .skyarc { position: absolute; left: 0; top: 14px; z-index: 0; }
+.a .a-sky { z-index: 0; }
+.a > div:not(.a-sky):not(.a-bed):not(.a-actions):not(.a-sundial) { position: relative; z-index: 1; }
+.a .a-sundial { position: absolute; right: 26px; top: 76px; z-index: 1; }
+.a .a-plot { position: relative; padding-left: 74px; padding-bottom: 34px; min-height: 150px; }
+.a .a-ground { position: absolute; left: -26px; right: -26px; bottom: -6px; height: 56px; pointer-events: none; z-index: 0; }
+.a .a-stand { position: absolute; left: 0; bottom: -4px; z-index: 1; }
+.a .a-words { position: relative; z-index: 1; }
+.a .a-week { margin-top: 30px; }
+.a .a-day { display: flex; gap: 14px; align-items: baseline; margin-top: 12px; }
+.a .a-dn { display: inline-flex; flex-direction: column; align-items: center; width: 36px; flex: none; font-family: var(--sans); font-size: 15px; line-height: 16px; color: var(--ink); }
+.a .a-dn b { font-weight: 500; font-size: 9px; letter-spacing: 1.2px; color: var(--inkQuiet); }
+.a .a-bed { position: absolute; left: 0; right: 0; bottom: 124px; height: 80px; z-index: 2; }
+.a .a-soil { position: absolute; left: 26px; right: 26px; bottom: 0; border-top: 1px solid var(--hairline); }
+.hedge { position: absolute; left: 22px; right: 22px; bottom: 0; display: flex; justify-content: space-between; align-items: flex-end; }
+.hedge .h { display: block; position: relative; transform: translateY(2px) translateX(calc((var(--i) * 7 % 3 - 1) * 2px)); }
+.hedge .h.lit::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--ochre); }
+.a .a-rows { margin-top: 10px; }
+.a .a-row { display: flex; gap: 14px; align-items: center; min-height: 58px; padding: 8px 0 6px; border-bottom: 1px solid var(--hairline); }
+.a .a-rs { align-self: flex-end; margin-bottom: -7px; }
+.a .a-head { position: relative; display: flex; justify-content: space-between; align-items: flex-end; margin-top: 12px; }
+.a .a-headsprig { margin-bottom: -44px; margin-right: 6px; position: relative; z-index: 2; }
+.a .a-sec { margin-top: 20px; }
+.a .a-sections { margin-top: 14px; padding-bottom: 140px; }
+.a-actions { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 26px 40px; display: flex; gap: 8px; background: linear-gradient(180deg, transparent, var(--paper) 40%); z-index: 3; }
+
+/* ===== B · The Letter ===== */
+.b .b-dateline { padding-top: 0; display: flex; gap: 10px; align-items: center; font-family: var(--serif); font-style: italic; font-size: 17px; color: var(--inkQuiet); }
+.b .b-orn { font-style: normal; color: var(--ochre); font-size: 16px; }
+.b .b-top { padding-top: 72px; }
+.b .b-greet { font-family: var(--serif); font-size: 18px; color: var(--inkQuiet); margin-top: 6px; }
+.b .b-plate { position: relative; margin-top: 26px; padding-top: 6px; }
+.b .b-art { position: absolute; right: -14px; top: -14px; color: var(--ink); opacity: .92; }
+.b .b-stamp { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--hairline); background: var(--surface); border-radius: 2px; box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px var(--hairline); }
+.b .b-stamp { position: relative; }
+.b .b-stamp::before { content: ""; position: absolute; inset: -4px; border: 2px dotted var(--paper); border-radius: 2px; pointer-events: none; }
+.b .b-kicker { font-family: var(--serif); font-style: italic; font-size: 17px; color: var(--inkQuiet); margin-top: 18px; }
+.b .b-display { font-family: var(--display); font-size: 40px; line-height: 42px; color: var(--ink); margin-top: 6px; max-width: 250px; }
+.b .b-pull { font-family: var(--serif); font-style: italic; font-size: 21px; line-height: 28px; color: var(--ink); margin-top: 12px; max-width: 280px; }
+.b .b-actions { display: flex; gap: 14px; align-items: center; margin-top: 24px; }
+.b .b-notnow { font-family: var(--sans); font-size: 15px; font-weight: 500; color: var(--inkQuiet); }
+.b .b-rule { display: flex; align-items: center; gap: 12px; margin-top: 34px; font-family: var(--serif); font-style: italic; font-size: 15px; color: var(--inkQuiet); }
+.b .b-rule::before, .b .b-rule::after { content: ""; flex: 1; border-top: 1px solid var(--hairline); }
+.b .b-ix { display: flex; align-items: baseline; gap: 10px; margin-top: 14px; }
+.b .b-ixd { font-family: var(--sans); font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--inkQuiet); font-weight: 500; flex: none; width: 84px; }
+.b .b-ixl { display: none; }
+.b .b-letter { font-family: var(--display); font-size: 40px; line-height: 40px; color: var(--ink); margin-top: 22px; padding-bottom: 4px; border-bottom: 1px solid var(--hairline); }
+.b .b-entry { display: flex; gap: 16px; align-items: center; padding: 10px 0 8px; }
+.b .b-entries { margin-top: -6px; }
+.b .b-chapter { margin-top: 24px; }
+.b .b-sec { margin-top: 14px; }
+.b .b-sech { display: none; }
+.b .b-drop { display: flex; align-items: flex-start; gap: 4px; }
+.b .b-dc { font-family: var(--display); font-size: 52px; line-height: 44px; color: var(--ink); margin-top: 2px; }
+.b .b-quote { font-family: var(--serif); font-style: italic; font-size: 22px; line-height: 30px; color: var(--ink); margin-top: 12px; }
+
+/* ===== C · The Desk ===== */
+.c .c-grain { position: absolute; inset: 0; opacity: .5; background-image: radial-gradient(rgba(29,34,30,.06) .6px, transparent .7px); background-size: 7px 7px; pointer-events: none; }
+.night.c .c-grain { background-image: radial-gradient(rgba(230,228,220,.05) .6px, transparent .7px); }
+.c .c-desk { position: relative; margin-top: 34px; }
+.c .c-slip { position: relative; background: var(--surface); border-radius: 6px; padding: 22px 22px 24px; transform: rotate(var(--rot, 0deg)); box-shadow: 0 1px 1px rgba(29,34,30,.06), 0 6px 14px rgba(29,34,30,.12), 0 18px 34px rgba(29,34,30,.10); }
+.night.c .c-slip { box-shadow: 0 1px 1px rgba(0,0,0,.4), 0 8px 18px rgba(0,0,0,.5); }
+.c .c-under { position: absolute; left: 10px; right: -6px; top: 14px; bottom: -14px; z-index: -1; opacity: .9; padding: 0; }
+.c .c-pin { position: absolute; top: -8px; left: 50%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--ochre); box-shadow: 0 2px 4px rgba(29,34,30,.3), inset 0 -3px 4px rgba(0,0,0,.18); }
+.c .c-pin.small { width: 11px; height: 11px; margin-left: -5px; top: -5px; left: 24px; }
+.c .c-sliphead { display: flex; justify-content: space-between; align-items: flex-end; }
+.c .c-btnrow { display: flex; align-items: center; justify-content: space-between; margin-top: 30px; }
+.c .c-button { display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 26px; border-radius: 28px; background: var(--ink); color: var(--onInk); font-family: var(--sans); font-weight: 500; font-size: 16px; box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 6px 0 -2px rgba(0,0,0,.35), 0 10px 18px rgba(29,34,30,.25); }
+.c .c-hint { font-family: var(--serif); font-style: italic; font-size: 14px; color: var(--inkQuiet); }
+.c .c-tray { margin-top: 10px; }
+.c .c-tag { display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px 9px 22px; margin: 12px 0 0 -6px; background: var(--surface); border-radius: 4px 10px 10px 4px; transform: rotate(-0.6deg); box-shadow: 0 1px 2px rgba(29,34,30,.1), 0 4px 10px rgba(29,34,30,.1); position: relative; }
+.c .c-tagh { position: absolute; left: 7px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; border: 1px solid var(--inkQuiet); background: var(--paper); }
+.c .c-tagh.big { left: 12px; top: 12px; width: 8px; height: 8px; margin: 0; }
+.c .c-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; margin-top: 22px; }
+.c .c-ptag { position: relative; background: var(--surface); border-radius: 8px; padding: 14px 14px 12px 28px; min-height: 80px; transform: rotate(var(--rot)); box-shadow: 0 1px 2px rgba(29,34,30,.1), 0 6px 12px rgba(29,34,30,.1); }
+.c .c-nametag { position: relative; margin-top: 10px; background: var(--surface); border-radius: 8px; padding: 18px 20px 18px 32px; transform: rotate(var(--rot)); box-shadow: 0 1px 2px rgba(29,34,30,.1), 0 8px 18px rgba(29,34,30,.14); }
+.c .c-stack { margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+.c .c-sec { padding: 18px 20px 16px; }
+.c-actions { align-items: center; }
+
+.dock::before { content: ""; position: absolute; left: 0; right: 0; top: -40px; height: 40px; background: linear-gradient(180deg, transparent, var(--paper)); }
+.dock { background: var(--paper); }
+.a .a-sundial .skyarc { position: static; }
