@@ -23,6 +23,8 @@ import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
 import {
   aboutAnimalHealth,
+  isPetWord,
+  petsNamedIn,
   capCertainty,
   floorSensitivity,
   statedSelfRelations,
@@ -154,10 +156,27 @@ class Context {
   readonly knownRelations: string[];
   readonly injection: boolean;
   readonly anchor: string;
+  /**
+   * The companions each roster person is known to have (founder K27): their related someones (the
+   * related rows, by name), and the pets their existing lines name in their own words ("Chris has a dog
+   * named Fluffy", "Chris' dog Fluffy has a vet appointment"), so what Kinship already knows connects to a
+   * later note without any row having been made for it.
+   */
+  readonly companions: Companion[] = [];
 
   constructor(readonly input: ExtractionInput, readonly text: string, readonly ask: ModelProposal["needs_clarification"] = null) {
     for (const p of input.roster) this.byKey.set(p.key, p);
     for (const d of input.dossier) this.dossier.set(d.key, d);
+    const addCompanion = (c: Companion) => {
+      if (!this.companions.some((o) => o.person_key === c.person_key && nameKey(o.name) === nameKey(c.name))) this.companions.push(c);
+    };
+    for (const r of input.related) if (r.name?.trim()) addCompanion({ person_key: r.person_key, relation: r.relation, name: r.name.trim(), related_id: r.id });
+    for (const d of input.dossier) {
+      if (d.subject_type !== "person" || d.shared) continue;
+      const owner = this.byKey.get(d.person_key);
+      if (!owner) continue;
+      for (const pet of petsNamedIn(d.statement, namesFor(owner))) addCompanion({ person_key: d.person_key, relation: pet.relation, name: pet.name, related_id: null });
+    }
     this.folded = fold(text);
     this.knownNames = new Set(
       input.roster.flatMap((p) => namesFor(p))
@@ -176,6 +195,20 @@ class Context {
 
   inNote(words: string): boolean {
     return this.folded.includes(fold(words).trim());
+  }
+
+  /** The known companions this name could mean (founder K27), whoever they belong to. */
+  companionsNamed(name: string): Companion[] {
+    const k = nameKey(withoutPossessive(name));
+    return k ? this.companions.filter((c) => nameKey(c.name) === k) : [];
+  }
+
+  /** A known pet of this person named in these words, and the name no one in People goes by (founder K27). */
+  petNamedIn(text: string, personKey: string): boolean {
+    const words = new Set(wordsOf(text).map(nameKey));
+    return this.companions.some((c) =>
+      c.person_key === personKey && isPetWord(c.relation) && words.has(nameKey(c.name)) && this.candidatesFor(c.name).length === 0
+    );
   }
 
   private words?: { key: string; at: number; cap: boolean }[];
@@ -478,9 +511,32 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
 
   // ── Related person ("Sarah's sister") ──
   let related: PlannedItem["related"] = null;
+  const companion = "companion" in who ? who.companion : undefined;
+  // A pet named outright (founder K27): "Chris has a dog named Fluffy" is kept as Chris's dog Fluffy, a
+  // related someone of his with the row the words justify (the animal word and the name, both the note's
+  // own), so a later note can find her. Only the naming statement itself: "Priya's dog Miso is twelve"
+  // stays Priya's own line, as the corpus has it (the possessive still makes Miso known, in companions).
+  // Never a person ("a friend named Sam"); never twice.
+  const petNamed = subject === "person" && raw.kind === "fact" && who.person_key && !companion
+    ? petsNamedIn(allEvidence)[0] ?? null
+    : null;
   if (knownRelated) {
     if (knownRelated.flag) flags.add(knownRelated.flag);
     related = knownRelated.related;
+  } else if (petNamed) {
+    const row = ctx.input.related.find((r) =>
+      r.person_key === who.person_key && r.name && nameKey(r.name) === nameKey(petNamed.name) && relationKey(r.relation) === relationKey(petNamed.relation)
+    );
+    related = row ? { id: row.id, relation: row.relation, name: row.name ?? petNamed.name } : { id: null, relation: petNamed.relation, name: petNamed.name };
+    subject = "related";
+    raw = { ...raw, subject };
+  } else if (companion && subject === "person" && !isPetWord(companion.relation) && companion.related_id) {
+    // A related someone of theirs ("Ana", Priya's sister) named outright: the line is about her (as
+    // relatedByName files it), with her row. A pet's line stays the person's own line (a vet visit takes
+    // part in Today as the founder decided, J9), with the pet's name in the words.
+    related = { id: companion.related_id, relation: companion.relation, name: companion.name };
+    subject = "related";
+    raw = { ...raw, subject };
   } else if (subject === "related") {
     const relation = noteRelation(ctx, (raw.related_relation ?? "").trim());
     if (!relation) return { drop: "invented_relation" };
@@ -523,7 +579,10 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   let sensitivity = floor.sensitivity;
   // A pet's vet visit isn't a person's protected health (founder G43): it
   // doesn't wait for a yes. A death, or the person's own health, still does.
-  if (sensitivity === "health" && aboutAnimalHealth(`${allEvidence} ${said}`)) sensitivity = "none";
+  // A known pet's recovery, surgery or illness isn't either (founder K27): "Fluffy will make a full
+  // recovery" names Chris's dog. Only a pet of the line's own person, and only a name no one in People goes by.
+  const petOfTheirs = !!who.person_key && ctx.petNamedIn(`${allEvidence} ${said}`, who.person_key);
+  if (sensitivity === "health" && (aboutAnimalHealth(`${allEvidence} ${said}`) || petOfTheirs)) sensitivity = "none";
   else if (floor.raised) flags.add("sensitivity_raised");
   if (sensitivity !== "none") flags.add("sensitive");
 
@@ -703,7 +762,9 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
 }
 
 /** The note's own words for who a line is about, as a name ("my daughter Kaiya" → Kaiya; "Ben's" → Ben). */
-function subjectWords(raw: ProposedItem, who: { new_person_name: string | null; mention?: string }): string | null {
+function subjectWords(raw: ProposedItem, who: { new_person_name: string | null; mention?: string; companion?: Companion }): string | null {
+  // A companion's name ("Fluffy") is never recorded as a word for the person (founder K27).
+  if (who.companion) return null;
   const mention = (raw.person_mention ?? "").split(/\s*[,(]/u)[0];
   // "Chris' dog Fluffy" names Chris (founder K7), as "Sarah's sister" names Sarah.
   const possessor = mention.match(/^(.+?)['’]s\s+\S/u)?.[1] ?? mention.match(/^(.+?s)['’]\s+\S/iu)?.[1];
@@ -1402,10 +1463,21 @@ function relatedByName(ctx: Context, raw: ProposedItem): { who: Who; related: Pl
 
 const SELF_WORDS = new Set(["i", "me", "my", "myself", "we", "us", "our", "ourselves", "you", "your", "yourself", "you and i", "me and you"]);
 
+/** Someone (or some pet) a roster person is known to have (founder K27). */
+interface Companion {
+  person_key: string;
+  relation: string;
+  name: string;
+  /** The related row, when one exists; null when known only from a line's words. */
+  related_id: string | null;
+}
+
 type Who = {
   person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string;
   /** For a pronoun held to ask: exactly who it can mean (founder J1). */
   candidate_ids?: string[];
+  /** The known companion the mention named (founder K27): the line is theirs, and the name is never a name of theirs. */
+  companion?: Companion;
 } | { drop: DropReason };
 
 const SINGULAR_PRONOUNS = new Set(["he", "him", "his", "himself", "she", "her", "hers", "herself"]);
@@ -1570,6 +1642,19 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   if (candidates.length === 0) {
     // Someone not on the roster. Must look like a name and be in the note.
     if (!/^\p{Lu}/u.test(mention)) return unresolved("person_ambiguous");
+    // A known companion of the person the line is about (founder K27): Chris's dog Fluffy, known from a
+    // related row or from a line of Chris's own words. Filed on Chris, never asked "Who is Fluffy?". Only
+    // when exactly one companion has the name, and its owner is the person the model filed the line on,
+    // the person the note was told about, or someone the note names; otherwise asked, as today.
+    const companions = ctx.companionsNamed(mention);
+    if (companions.length === 1) {
+      const owner = ctx.byKey.get(companions[0].person_key);
+      const fits = !!owner && (modelKey === owner.key || context === owner.key || ctx.namedInNote().some((p) => p.key === owner.key));
+      if (owner && fits) {
+        flags.add("companion_matched");
+        return { ...pick(owner), companion: companions[0] };
+      }
+    }
     return unresolved("new_person", withoutPossessive(mention).slice(0, 100));
   }
   if (candidates.length === 1) {

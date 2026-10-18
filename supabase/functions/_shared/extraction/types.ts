@@ -194,6 +194,10 @@ export type Flag =
   | "pronoun_multiple"
   | "subject_check"
   | "new_related"
+  // Founder K27: a name not in People that is a known companion (a pet, a
+  // related someone) of the person the line is about: filed on them, never
+  // asked "Who is Fluffy?". Shown for a glance, saved on show.
+  | "companion_matched"
   | "sensitive"
   | "sensitivity_raised"
   | "reported"
