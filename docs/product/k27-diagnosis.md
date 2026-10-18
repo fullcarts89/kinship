@@ -1,6 +1,6 @@
-# K27: "Who is Fluffy?" — diagnosis (no fix built)
+# K27: "Who is Fluffy?" — diagnosis, and the fix as built
 
-*17 Oct 2026. Founder's report (bug ledger K27): after the follow-up for Fluffy's vet appointment, the return check's "Fluffy will make a full recovery" asked "Who is Fluffy?" (Chris · Choose from Contacts · Add Fluffy · Someone else), though Kinship already held "Chris has a dog named Fluffy", and there was no way to answer with a note. Diagnosis only, as the K28 + K26 brief asked; the smallest safe fix is proposed at the end and waits for the founder.*
+*17 Oct 2026, diagnosis; 18 Oct, the fix (CC-27). Founder's report (bug ledger K27): after the follow-up for Fluffy's vet appointment, the return check's "Fluffy will make a full recovery" asked "Who is Fluffy?" (Chris · Choose from Contacts · Add Fluffy · Someone else), though Kinship already held "Chris has a dog named Fluffy", and there was no way to answer with a note. The diagnosis stands as written; the fix the founder authorised is recorded at the end.*
 
 ## How it was investigated
 
@@ -52,3 +52,13 @@ A blanket rule "a name matching any related row is that related subject" would: 
 4. **Optional, the question's own answer:** when "Who is X?" is still asked and the Tell is about someone, offer "Someone in Chris's life" beside Add X / Someone else, filing the line as Chris's related subject with X's name (a new related row). Copy is a proposal. Not needed if 1 and 2 land.
 
 Each is a gateway change (a deploy) with the app untouched except 4; none is started here. The order that removes the founder's case with the least rule: 2 alone fixes the question when a related row exists; 1 makes the row exist; 3 fixes the held-for-health half.
+
+## As built (18 Oct 2026, CC-27; branch `claude/k27-fluffy`)
+
+All three corrections, in the gateway's pipeline (`_shared/extraction/pipeline.ts`, `lexicon.ts`, `types.ts`, `acceptance.ts`); no migration, no app change, the clarification UI untouched.
+
+1. **The naming statement makes the row.** "Chris has a dog named Fluffy" (also "the dog is called Fluffy") plans as Chris's related someone: relation `dog`, name `Fluffy`, from the note's own words; `write_extraction` makes the row. Kept as before (auto tier). The possessive forms ("Priya's dog Miso is twelve") stay the person's own line, as the corpus expects (`core-045`, `sens-003`); `core-106` ("Dan's dog is named Biscuit") now expects the related dog, a reviewed fixture change.
+2. **Companions, known from rows and from words.** The pipeline's context lists each roster person's companions: related rows by name, and the pets their existing lines name in their own words (both the "named X" and the "<owner>'s dog X" forms), so an older account with no row still knows Fluffy. A mention not in People that names exactly one companion of the line's own person (the model's person, the Tell's context person, or someone the note names) files the line on that person with the `companion_matched` flag (shown for a glance, saved); otherwise "Who is X?" as before. A companion that is a person is the line's related subject with their row; a pet's line stays the person's own (J9). The name is never recorded as a word for the person.
+3. **A known pet's recovery is not health.** The sensitivity floor's pet rule now also covers a known pet of the line's own person named in the words, when no one in People goes by that name.
+
+**Live, 18 Oct (4 calls, test words, the founder's People):** the model answered "Chris has a dog named Fluffy" as a fact about Chris, and "Fluffy will make a full recovery" (told about Chris) as a line on Chris with `person_mention: "Fluffy"` raised to health, exactly the shape of the phone's failure; the pipeline now keeps both for Chris, with no question and no hold. The replies are kept as `e2e/replies/k27-*.json`.
