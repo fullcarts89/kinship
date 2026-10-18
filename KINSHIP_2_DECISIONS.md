@@ -1218,3 +1218,25 @@ Ask, Intentions, chapters, calendar, Siri, voice, share, Landscape, reflection, 
 - **The Listening screen:** re-confirm or change its approved form before voice work begins.
 - **The wife dogfood in two rounds** (without, then with push) is the founder's suggested validation; its exact timing is set when Phase 4 ends.
 - Unchanged from B4: **N16**, whether the stored "Susan moved" answer closes only the line the question named (brief §23 choice 1). The "moved from <line> to …" rule was approved with B4.
+
+## CC-26. Reaching out from a person's page: every intentional hand-off gets its return check; "You could mention" is contextual (17 Oct 2026)
+From the founder's K28 + K26 brief, after testing the B6 build (ledger K26–K28). Where this differs from CC-22 / CC-23 (K23) it is newer; T12 is unchanged.
+
+### The distinction (an explicit product direction)
+- **Proactive reasons** (Today) keep their strict eligibility, timing, evidence and frequency rules. Nothing here loosens them: a wedding "this fall" with no day is still no Moment.
+- **User-initiated contextual assistance:** once the user has decided to reach out (Message or Call from a person's page, or from a Moment), Kinship may draw on a wider range of grounded memories to help, even ones not eligible for Today.
+
+### K28: a hand-off from a person's page always has a return check
+- With something to act on (Today's line about them, or an open "You said you'd"), as K23: the reason, its memory and its resolution are unchanged.
+- With nothing to act on, a **page-origin hand-off**: strictly local, not a reason, not a Moment, never reported to the server. Back from the channel: "Did you reach Susan?"; **Yes** records exactly one conversation in the user's own word (channel and time; no reason, Moment kind or memory attached); **Not yet** records nothing; then, after a Yes, the optional "Anything worth remembering from talking with Susan?" with Tell Kinship · Nothing today, on the page as on Today.
+- Still true: a hand-off alone never counts (T12); a channel that never opened records nothing and asks nothing; only someone active (never remembered, paused or removed); exactly once across repeats, restarts and sync; retractable in What Kinship knows.
+- This replaces the earlier choice that opening a conversation from a page with nothing to act on asked nothing afterwards (K23's "opening a conversation is never taken as a reason" stands for *reasons*; the return check is not one).
+
+### K26: "You could mention" is a deterministic preference, never the first rows of the page
+- Up to two grounded lines, in the user's own words, chosen in order: what the hand-off is about (the same relative, or a word the lines share), then what is going on or coming up (a milestone, an event, a plan, an open thread), then other current facts and shared context, then a memory shared with other People only when it is about the hand-off's subject or nothing better is left. Nearest day first within a tier, then the newest told.
+- An exact date is not required; the original wording and uncertainty are kept ("in the fall" stays "in the fall"); a seasonal line is current while its span (and a month after) lasts; nothing retracted, superseded, expired, sensitive, a relative confused with the person, or the user's own promise. Zero is an answer.
+- One fixed-template opener may sit under the first line when it is a milestone still ahead ("You could ask how the wedding plans are going."), clearly a suggestion and never the user's words. **Copy is a proposal** (coverage doc).
+- No model, no relationship score, no "relevance engine".
+
+### Not changed
+One primary Moment, milestone day precision, proactive notifications, T12, the K23 reason-linked loop, B6's gate and B7 → B8 → B9. K27 is diagnosed only (`docs/product/k27-diagnosis.md`); its fix waits for the founder.

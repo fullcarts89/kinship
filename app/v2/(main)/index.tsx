@@ -98,7 +98,7 @@ export default function TodayScreen() {
         onPrimary={() => {
           if (!moment) return;
           handoff.start({
-            personId: moment.personId, personName: moment.personName, heading: moment.heading, mention: moment.mention,
+            personId: moment.personId, personName: moment.personName, heading: moment.heading, mention: moment.mention, opener: moment.opener,
             reason: { id: moment.reasonId, type: moment.type, ask: moment.ask, about: moment.statement, followUp: moment.followUp, itemId: moment.itemId },
           });
         }}
@@ -133,10 +133,10 @@ export default function TodayScreen() {
         detail={detail}
         onDismiss={() => setDetailKey(null)}
         onMessage={() => detail && fromDetail(() => handoff.start({
-          personId: detail.personId, personName: detail.personName, heading: detail.heading, mention: detail.mention, reason: detail.reason,
+          personId: detail.personId, personName: detail.personName, heading: detail.heading, mention: detail.mention, opener: detail.opener, reason: detail.reason,
         }, "text"))}
         onCall={() => detail && fromDetail(() => handoff.start({
-          personId: detail.personId, personName: detail.personName, heading: detail.heading, mention: detail.mention, reason: detail.reason,
+          personId: detail.personId, personName: detail.personName, heading: detail.heading, mention: detail.mention, opener: detail.opener, reason: detail.reason,
         }, "call"))}
         onPerson={() => {
           if (!detail) return;

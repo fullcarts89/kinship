@@ -111,3 +111,23 @@ describe("K23: back from a conversation opened on the person's page (founder, 14
     expect(textsOf(portrait({ returnCheck: null })).some((t) => /^Did you reach/u.test(t))).toBe(false);
   });
 });
+
+describe("K28: after a Yes on the person's page (founder, 17 Oct)", () => {
+  it("asks 'Anything worth remembering…?' once, optional, in the question's place: Tell Kinship or Nothing today", () => {
+    const calls: string[] = [];
+    const r = portrait({
+      returnCheck: { ask: "Did you reach Tyler?", about: null },
+      afterReturn: { followUp: "Anything worth remembering from talking with Tyler?" },
+      onRemember: () => calls.push("tell"), onNothing: () => calls.push("nothing"),
+    });
+    const shown = textsOf(r);
+    expect(shown).toContain("Anything worth remembering from talking with Tyler?");
+    expect(shown.some((t) => /^Did you reach/u.test(t))).toBe(false);
+    expect(shown.indexOf("Anything worth remembering from talking with Tyler?")).toBeLessThan(shown.indexOf("Lately"));
+    for (const label of ["Tell Kinship", "Nothing today"]) {
+      const pill = r.root.findAll((n) => n.props.accessibilityLabel === label && typeof n.props.onPress === "function")[0];
+      act(() => pill.props.onPress());
+    }
+    expect(calls).toEqual(["tell", "nothing"]);
+  });
+});

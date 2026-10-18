@@ -14,6 +14,7 @@ export interface HandoffRequest {
   personName: string;
   heading: string;
   mention: string[];
+  opener?: string | null;
   /** Present when the hand-off acts on a reason (it gets a return check, with the reason). */
   reason?: HandoffReason;
 }
@@ -93,6 +94,7 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
       heading={req.heading}
       personName={req.personName}
       mention={req.mention}
+      opener={req.opener ?? null}
       channels={routes ? channelsFor(routes) : []}
       ready={routes !== null}
       onOpen={(c) => void open(c)}

@@ -49,10 +49,13 @@ export default function PersonScreen() {
   }, []));
   const back = usePersonReturn(personId, now);
   const today = useTodayActions();
+  // After a Yes: "Anything worth remembering…?", optional, as Today asks it (founder I2, K28).
+  const [afterReturn, setAfterReturn] = useState<{ followUp: string } | null>(null);
   // Reaching out about something they said they'd do gets the same return question as Today's line
-  // about it (founder K23); with nothing to act on, opening a conversation asks nothing afterwards.
+  // about it (founder K23); with nothing to act on, the page's own return check, and nothing more
+  // (founder K28). What to mention is chosen by mentions.ts (K26), never the first rows of the page.
   const reachOut = () => handoff.start({
-    personId, personName: first, heading: `Reach ${first}`, mention: [...portrait.lately, ...portrait.comingUp].slice(0, 2).map((l) => l.statement),
+    personId, personName: first, heading: `Reach ${first}`, mention: back.mention.lines, opener: back.mention.opener,
     ...(back.reason ? { reason: back.reason } : {}),
   });
 
@@ -83,9 +86,19 @@ export default function PersonScreen() {
       focusItemId={typeof focusItem === "string" ? focusItem : null}
       returnCheck={back.returnCheck}
       onReturn={(answer) => {
+        const rc = back.returnCheck;
         if (answer === "yes") void reachedSomeone();
-        void today.returned(answer).catch(() => Alert.alert("That couldn't be saved", "Nothing was lost. Try again in a moment."));
+        void today.returned(answer).then((h) => {
+          // Optional, never blocking, never after a promise's logistics (followUp ""); "nothing" undoes nothing.
+          if (answer === "yes" && h && rc?.followUp) setAfterReturn({ followUp: rc.followUp });
+        }, () => Alert.alert("That couldn't be saved", "Nothing was lost. Try again in a moment."));
       }}
+      afterReturn={afterReturn}
+      onRemember={() => {
+        setAfterReturn(null);
+        setTelling(true);
+      }}
+      onNothing={() => setAfterReturn(null)}
       // The note just told about them, and only about them (never another person's card).
       kept={flow.card && flow.card.personIds.includes(personId)
         ? <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} onRate={flow.rateCard} onAddNewcomer={flow.addNewcomer} />

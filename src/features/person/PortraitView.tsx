@@ -101,6 +101,13 @@ export interface PortraitViewProps {
    */
   returnCheck?: { ask: string; about: string | null } | null;
   onReturn?: (answer: "yes" | "not_yet") => void;
+  /**
+   * After a Yes (founder I2, K28): "Anything worth remembering from talking with Susan?", optional and never
+   * blocking, as Today asks it. Tell Kinship opens Tell about them; Nothing today changes nothing.
+   */
+  afterReturn?: { followUp: string } | null;
+  onRemember?: () => void;
+  onNothing?: () => void;
   children?: React.ReactNode;
 }
 
@@ -271,7 +278,15 @@ export function PortraitView(props: PortraitViewProps) {
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>
 
-      {props.returnCheck ? (
+      {props.afterReturn ? (
+        <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
+          <MomentText>{props.afterReturn.followUp}</MomentText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
+            <Pill size="small" variant="primary" label="Tell Kinship" onPress={() => props.onRemember?.()} />
+            <Pill size="small" variant="quiet" label="Nothing today" onPress={() => props.onNothing?.()} />
+          </View>
+        </View>
+      ) : props.returnCheck ? (
         <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
           <MomentText>{props.returnCheck.ask}</MomentText>
           {props.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{props.returnCheck.about}</Small> : null}

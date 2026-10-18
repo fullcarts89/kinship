@@ -75,3 +75,25 @@ it("Messages never opened: the hand-off is taken back", async () => {
   expect(mockFailed).toHaveBeenCalledWith("waiting:p1:2026-10-09");
   alert.mockRestore();
 });
+
+const page: HandoffRequest = {
+  personId: "tyler", personName: "Tyler", heading: "Reach Tyler", mention: ["Tyler is redoing his kitchen"], opener: null,
+  reason: { id: "page:tyler", type: "page", ask: "Did you reach Tyler?", followUp: "Anything worth remembering from talking with Tyler?" },
+};
+
+it("K28: a page hand-off with nothing to act on is remembered as its own return check, with nothing attached", async () => {
+  await run(page);
+  expect(mockHandedOff).toHaveBeenCalledWith({
+    reasonId: "page:tyler", personId: "tyler", channel: "text", type: "page", itemId: null,
+    ask: "Did you reach Tyler?", followUp: "Anything worth remembering from talking with Tyler?",
+  });
+  expect(mockCalls).toEqual(["remembered", "opened"]);
+});
+
+it("K28: Messages never opened from the page: taken back, nothing asked", async () => {
+  mockOpens = false;
+  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
+  await run(page);
+  expect(mockFailed).toHaveBeenCalledWith("page:tyler");
+  alert.mockRestore();
+});

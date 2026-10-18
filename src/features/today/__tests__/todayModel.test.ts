@@ -2,7 +2,7 @@
 // a valid answer; quiet lines are at most two, from different people; the
 // return check is there as soon as the user is back, with its reason; copy is
 // templates plus the user's own words.
-import { buildToday, evidenceOf, pageReasonFor, relativeDay, returnViewFor, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
+import { buildToday, evidenceOf, isLocalReason, pageHandoffFor, pageReasonFor, relativeDay, returnViewFor, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
 import type { MemoryItem, Person } from "@/store/repositories";
 
 const NOW = new Date(2026, 9, 12, 9, 0); // Monday Oct 12, 9am local
@@ -409,5 +409,42 @@ describe("H4: once the first Tell is memory, Today shows how Kinship brings thin
     expect(view([job], { activatedAt: null, seen: false })).toBeNull();
     expect(view([job], { activatedAt: "2026-10-01T10:00:00Z", seen: false })).toBeNull();
     expect(view([job], undefined)).toBeNull();
+  });
+});
+
+describe("K28: Message or Call from a person's page with nothing to act on (founder, 17 Oct)", () => {
+  const susan = { id: "susan", display_name: "Susan", state: "active" } as unknown as Person;
+  const wedding = item("wedding", {
+    kind: "milestone", person_id: "susan", statement: "Susan is getting married to Pedro in the fall",
+    detail: { milestone_type: "wedding", date: "2026-09-01", date_end: "2026-11-30", date_precision: "season" },
+  });
+
+  it("carries the page's own return check and nothing else: no reason, no memory, no Moment kind", () => {
+    expect(pageHandoffFor([wedding], susan, "2026-10-12")).toEqual({
+      id: "page:susan", type: "page", ask: "Did you reach Susan?", followUp: "Anything worth remembering from talking with Susan?",
+    });
+    expect(isLocalReason("page:susan")).toBe(true); // nothing is said to the server about it
+  });
+
+  it("with something to act on, K23's reason as before: never turned into a generic hand-off", () => {
+    const tonight = item("tonight", { kind: "plan", person_id: "susan", subject_type: "user", statement: "You said tonight", detail: { date: "2026-10-12", firmness: "intended" } });
+    expect(pageHandoffFor([wedding, tonight], susan, "2026-10-12")).toMatchObject({ id: "coming:tonight:2026-10-12", type: "coming", itemId: "tonight" });
+  });
+
+  it("never for someone paused, remembered, removed or deleted", () => {
+    for (const over of [{ state: "paused" }, { state: "remembered" }, { state: "archived" }, { deleted_at: "2026-10-01T00:00:00Z" }]) {
+      expect(pageHandoffFor([wedding], { ...susan, ...over } as Person, "2026-10-12")).toBeNull();
+    }
+  });
+
+  it("Today shows the page hand-off's return check, with nothing it was about, and the wedding is no Moment", () => {
+    const h = {
+      reasonId: "page:susan", personId: "susan", channel: "text" as const, at: NOW.toISOString(), type: "page" as const,
+      ask: "Did you reach Susan?", followUp: "Anything worth remembering from talking with Susan?",
+    };
+    const v = buildToday(input({ handoff: h, items: [wedding], people: [...people, susan] }));
+    expect(v.returnCheck).toMatchObject({ ask: "Did you reach Susan?", about: null, followUp: "Anything worth remembering from talking with Susan?", personName: "Susan" });
+    expect(v.moment?.personId).not.toBe("susan"); // a season is never a Moment (H16: a day is needed)
+    expect(returnViewFor({ ...h, answered: "yes" }, susan, NOW)).toBeNull();
   });
 });
