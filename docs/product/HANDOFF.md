@@ -1,5 +1,10 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 19 Oct 2026: K27 MERGED (PR #50, `main` `9ae900a`) and ai-gateway v15 deployed from it; the phone's build is unchanged (app untouched).** This supersedes the addenda below where they differ.
+> - **Merged** by the founder; **ai-gateway v15** deployed from `main` `9ae900a` (19 Oct), verified with `functions download --use-api`: all 27 deployed files match the checkout, the K27 pipeline among them; JWT verification on. **No migration**; production's latest stays `20261016090000`. **No build**: the fc06b10 build on Thor iPhone is current.
+> - **Next:** the founder's rows 11–14 of `k28-device-checklist.md` on the phone, with row 13 their real Fluffy (told before the fix, no row: the words alone connect them). Rows 1–10 (K28 + K26) still pending. The B6 report's reading and stop gate are unchanged.
+> - **Readiness: NOT READY** (unchanged).
+
 > **Addendum, 19 Oct 2026: PR #50 (K27, CC-27) merged to `main`; this branch reconciled by the rule in the CC-28 addendum below.** Both addenda are kept as their branches wrote them, K27's first; in `KINSHIP_2_DECISIONS.md` CC-27 precedes CC-28; nothing renumbered; the complete plan regenerated. K27's own rollout (gateway v15 on the founder's go) is unchanged.
 
 > **Addendum, 18 Oct 2026, later: K27 FIXED on `claude/k27-fluffy` (CC-27); not merged, not deployed; a gateway deploy follows the founder's review.** This supersedes the addenda below where they differ.
