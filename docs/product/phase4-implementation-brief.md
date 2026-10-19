@@ -601,10 +601,10 @@ These are your 16 steps, grouped into reviewable chunks on the branch. They were
 | **B2** built, in review (§20) | 2, 3 | The migration (§1 B–G); `places` build script, licence notice and versioned JSON (§6); pgTAP. Built: migration `20261015090000_v2_residence_facets`, pgTAP `68_v2_residence_facets`, the facets mirror, `places-2026.10`. **Stop: the founder reviews B2 before B3** (CC-23) |
 | B3 | 4, 5 | `residence.ts` (§5), `relate.ts` (§8) wired into `pipeline.ts` behind the residence check; CONFLICT question copy; the `semantic` corpus |
 | B4 built, in review (§23) | 6, 7 | `closes_ids` writes, apply and restore, shipped **together**: closure never exists without its exact Undo (CC-20). The Undo matrix (§10). Built: the gateway sends every closure `relate.ts` finds (`closes`), the answer path too; the Kept card and What Kinship knows say everything a note replaced; pgTAP `70_v2_multi_closure`; corpus res-074 to res-080; `b4.blackbox`. **No migration**: B2's schema already covers it |
-| B5 | 8, 9 | `compose.ts`; the composed-line sheet and provenance (§12) |
-| B6 | 10 | The report-only task and `residence_backfill_report` (§14). **Stop: you read the report** |
-| B7 | 11 | Portrait de-duplication (§13) |
-| B8 | 12, 13, 14 | H15 sections (§4), I7 Before history (§11), category display |
+| B5 ✓ (§24) | 8, 9 | `compose.ts`; the composed-line sheet and provenance (§12) |
+| B6 ✓ (§25) | 10 | The report-only task and `residence_backfill_report` (§14). **Stop: you read the report** |
+| B7 built, in review (§26) | 11 | Portrait de-duplication (§13) |
+| B8 built, in review (§27) | 12, 13, 14 | H15 sections (§4), I7 Before history (§11), category display |
 | B9 | 15 | A native dogfood pass (§16), eval review, apply the facets after your yes |
 | — | 16 | Evaluate employer: a separate proposal, with the employer evals from §15 |
 
@@ -1033,3 +1033,79 @@ Read in full and re-run; three gaps found and closed, each with its test. Nothin
 **Merged and rolled out (17 Oct 2026):** PR #44 merged (`main` `9d18d0e`, CI 4/4; PR #42's commits landed through it), the HANDOFF record as PR #45 (`main` `f6140c9`). On the founder's "prepare for B6 rollout on device": **ai-gateway v14** deployed from `main` `f6140c9` (verified with `functions download --use-api`: all 27 deployed files match the checkout, `report.ts` among them; JWT verification on); a local EAS `dogfood-v2` build from the same commit (`npx eas-cli build --local`, Xcode 27), still 1.0.0 (2), installed on Thor iPhone by cable (`devicectl`, 17 Oct, 09:30 PDT). The bundle's `strings` hold the B6 action and the B5 copy, the production Supabase URL, and no model identifier (the `noModelIdentifiers` guard passed in CI). NATIVE-SIMULATOR: not run for B6 (nothing on screen changes).
 
 **Next step:** the founder's phone asks for the report once at the new build's first sync; the founder reads `b6-dry-run-report.md`'s queries for their account id and decides. **Stop there.** No facet is applied; B9's gate is separate; B7 → B8 → B9 keeps its order.
+
+---
+
+## 26. B7 as built (19 Oct 2026)
+
+**Status:** built on `claude/phase4b-b7-b8` (from `main` `2c2e596`), with B8 in one PR; in review. **No migration, no gateway change:** the Portrait reads the readings the phone already mirrors (B2) and composes them with B5's `compose.ts`; the schema fingerprint is unchanged. The app needs a build. Readiness: **NOT READY** (unchanged; the founder's device pass is `b7-b8-device-checklist.md`).
+
+### What B7 is (§13)
+
+- **`compose.ts` `residenceChain`** (shared): for a group of current residence lines, the chain when they compose with two or more members: the head (the most specific line), every member, and the newest member's told time. Null without a valid chain.
+- **`portraitModel.ts` `residenceChains`**: over the portrait's items and their mirrored readings (`PortraitItem.facet`, passed by `portraitFor`), the same selection as What Kinship knows (`currentResidence`: active, a stated unshared non-sensitive fact with a live reading; grouped by person, subject and related person). In **Lately** one chain is **one line**: the head's own statement, voiced with the current name as every line is, with its own provenance, note and "was:" (H23); **dated and ordered by the chain's newest member**, so a recent "California" keeps the chain recent and an Alameda told long ago still speaks for it. The other members leave the Portrait only: `total` still counts them and `more` is true, so the page says "What Kinship knows about Susan →". Nothing else on the Portrait changes (Coming up, You said you'd, Between you, the trail, the birthday).
+- **Fail open:** without a valid chain (one line; no reading on this phone; a place the data doesn't know; two readings of a name; two places that can't both be true; a hedge; a shared or related line) every line shows as before. Nothing merged, hidden or lost.
+- **The rule is recorded** in `relationship-page-rules.md` ("One residence, one line").
+
+### Choices made within the brief (for review)
+
+1. **"View Susan" to a member that left the Portrait** lands in What Kinship knows on the composed line (as B5 does for a member), since the Portrait has no row for it; the head's own line is the only residence row on the page.
+2. **The semantic corpus now checks the Portrait** (`portrait` on a page: the head's own words for a chain, else each current line as itself) with the same shared `residenceChain`, so the runner and the product can't drift. Ten fixtures carried `portrait` expectations since B3; all pass unchanged.
+3. **The B5 proof harness moved** to `src/test-utils/residenceWorld.ts` so B7 and B8's proofs run the same real pipeline; `composeProofs` is unchanged in substance.
+
+### Evidence
+
+| Tier | Result |
+|---|---|
+| UNIT | PASS: `portraitDedupe.test.ts` (13: the head once, dated by the newest member, one slot among three, three levels, "was:" kept; fail open for one line, no reading, disjoint, ambiguous, unknown, a broken chain of three; never across people, subjects, shared lines, a hedge, a superseded line, a tombstoned reading; the other sections untouched); Deno `compose.test.ts` 14; `npx tsc --noEmit` and `npx eslint app src` clean (0 errors; the 132 legacy warnings) |
+| INTEGRATION | PASS: `b7Proofs.test.ts` (14, the real pipeline, write rules, sync and `portraitFor`): California → Alameda (and the reverse); an old Alameda made recent by a new California; "moved to Colorado" with "was:" and exact Undo; a plain "lives in Colorado"; a correction; ambiguous, unknown and disjoint pairs; Not this on either member; an edit of the head read again (Oakland) and words the data doesn't know; no reading on this phone; never across people; every member still a memory on the server. The B3 proof that said "the page is unchanged until B7" now expects the head once. The semantic corpus 80/80 with the Portrait check live (zero-tolerance metrics 0). Full Jest: 99 suites / 932 tests (`TZ=UTC`); Deno 452 |
+| BLACK-BOX | See §27 (`b7b8.blackbox`, one suite for both stages) |
+| LIVE-MODEL | NOT RUN: no model path changed (B7 is a read-time view); the notes are replayed from the live replies kept on 16 Oct |
+| NATIVE-SIMULATOR | NOT RUN (no build this session) |
+| FOUNDER-DEVICE | NOT RUN: `b7-b8-device-checklist.md` rows 1–2 |
+
+---
+
+## 27. B8 as built (19 Oct 2026)
+
+**Status:** built on `claude/phase4b-b7-b8` with B7; in review. **No migration, no gateway change, no new table or column, nothing persisted:** the sections are computed every time the page is read from the line's existing fields and the user's own words (B1's `categories.ts`), history from the existing `status`, `supersedes_id`, `closes_ids` and `detail.transition`. The app needs a build. Readiness: **NOT READY** (unchanged).
+
+### What B8 is (§3, §4, §11, §12)
+
+- **`src/features/person/recordSections.ts`** (pure): where a line sits (`sectionFor` → `categoryOf`, B1, with the line's notes' quotes as the user's own words); the sections in the approved order (`sectionsFor`): **Background · Into · Hoping to · Plans · Their people · Between you**, empty ones left out; Background ordered residence → work → education → the rest, each newest first, then **Before**; Their people grouped under each related person ("Michelle · sister", `relatedHeading`), then the rest; Between you shows for the conversations alone. The leading-name rule (`withoutLeadingName`), the history rule (`historyKind`) and its dates (`historyWhen`, `historyProvenance`).
+- **`recordFor`** (`useV2.ts`) gives each line its `section`, `category`, `display` (the words without the leading name, when the rule fires) and `under` (the related person's heading), and returns **`history`**: the closed lines that may be shown as Before, grouped by the note that told the change, newest change first. A residence group composes with `compose.ts` in the "Previously lived in …" form (`composedRecord.ts` `composedRows` with `history`); one line on its own reads "Previously lived in Alameda"; anything else is the old line in its own words. Each history row is dated "You told Kinship · <the closer's day>" with the closer's note as its source, and "Moved · Jan 4" / "Ended · Jan 4" (or "· January") only when that note's own date has day or month precision.
+- **The screen** (`knows.tsx`, `PersonRecordView`): headings per section, a quiet heading over a related person's lines and over Before; the same rows as before (`RecordRow`, `ComposedRow`), each with its provenance, Edit and Not this; a `HistoryRow` for a single closed line (words, the date line, provenance → the closer's note, Edit and Not this on the closed line; no tokens: it is past, not something to re-file); a composed history line opens B5's sheet of its notes. "Not this" takes a line off the screen at once and its section's heading with it when empty (`withoutForgotten` recomposes history rows the same way). The flat list without sections remains for the lab.
+- **Rendering rule (§4):** "Susan works at Meta" reads **Works at Meta** only when the line's own mention record puts this person first and a lowercase word that isn't "and" or "or" follows (the recorded words, or the name they go by now, founder I12); "Susan and Mike live in Alameda", "Susan's sister …", "Susan Oxnard …" and older lines with no mention record show unchanged. Into keeps its verb ("Loves pottery", "Doesn't like skiing"). Display only: Edit offers the line's own words; the Source view, Not this and the sheet's members are unchanged.
+- **History (§11, CC-20), conservatively:** a closed line (`superseded`, not removed) is Before only when **every kept closer** (not removed, not retracted; a superseded one counts, as the B6 report reads them) records `changed`, `completed` or `cancelled`; it is `sensitivity = none`; and it is a residence, work, or a thread whose closers all record `completed` or `cancelled`. Never a correction, a plain replacement with no cue, progress, a refinement, a health chain, a plan or event, or a supersession from before 4B. Undo or Not this on the closer restores the lines through the database's trigger; the page then composes them again and Before is empty.
+- **Unchanged:** the composed current line and its sheet (B5), tokens, "Before: …" under a current line (H23/B4), "Edited by you · was:", conflicts, the trail (I2), the Portrait's sections, Today, navigation, sensitivity (a sensitive line sits in its topical section once kept, as it did in the flat list; never a heading).
+
+### Choices made within the brief (for review)
+
+1. **A closer that was itself later replaced still counts** as evidence for the line it closed (Alameda → "moved to Oakland" → "moved to Colorado": Before says both "Previously lived in Oakland" and "Previously lived in Alameda", each dated by its own note). `compose.ts`'s `historyEligible` is read over the closers that are kept (not removed or retracted), the same reading as `report.ts`. Undo retracts a closer, which restores its lines, so a restored line is never history.
+2. **Residence history is grouped by the note that told the change** and composed in the "Previously lived in" form (§9 step 6, §16 row 9): California and Alameda closed together by one move read "Previously lived in Alameda, California". The corpus fixture **res-076** (B4) expected two separate lines; it now expects the composed one and `MANIFEST.json` was refrozen (a reviewed fixture change). Everything else in the corpus is unchanged.
+3. **A Before line's provenance** is "You told Kinship · <day>" for the day the change was told, and tapping it opens **that** note's Source view (the evidence for the history). The old line's own note is reachable from the sheet of a composed Before line (each member's provenance), and from the Source view of the closer's note, which lists what it replaced ("Since updated", H25).
+4. **Edit and Not this on a Before line** act on the closed line (its words; its removal), as "every line keeps its provenance, Edit and Not this" (§4). A composed Before line has one way in (B5's sheet), as the composed current line does.
+5. **A thread the model resolved without a recorded ending** (`resolved`, no `completed`/`cancelled` on the closer) is listed as it was before B8, in its topical section, as written. Only an ending the words established (`threads.ts`: "got the job", "called off") makes it Before. Moving every resolved thread to Before would be history without evidence (CC-20).
+6. **The relation alone as a heading** when the note gave the related person no name ("Sister", "Mom"), a proposal; "Michelle · sister" and "Fluffy · dog" as the brief says.
+7. **"Plans"** as the label (CC-17 left it to the build; §19 standing).
+8. **The B8 tests' model replies** name the existing line they relate to by its statement (`say`'s `existing.statement`), so the pipeline's own target checks run as in the app.
+
+### Evidence
+
+| Tier | Result |
+|---|---|
+| UNIT | PASS: `recordSections.test.ts` (16: the leading-name rule's positive cases and every exclusion, the name as shown now; the founder's category boundaries; headings; Before's eligibility matrix and dates; section order, Background's inside, Their people's grouping, nothing added, dropped or reordered); `recordSectionsViews.test.tsx` (5: the headings in order with Before and "Michelle · sister", empty sections absent, display words with Edit on the line's own words, no machinery, counts or prompts; a Before row's words, date, provenance → the closer's note, Edit and Not this, no tokens; a composed Before line opening its notes; the conversations under Between you; the flat list still works); B1's `categories.test.ts` unchanged (44 cases); `npx tsc --noEmit` and `npx eslint app src` clean (0 errors) |
+| INTEGRATION | PASS: `b8Proofs.test.ts` (14, the real pipeline, write rules, sync, `recordFor` and `sectionsFor`): the approved order with the composed residence first and the leading name dropped; nothing told → no sections; Their people under "Michelle · sister" with a shared memory on both pages; a sensitive line kept then replaced as completed, never Before; California → Alameda → "moved to Colorado" → "Previously lived in Alameda, California" dated by and opening the move's note → Undo and "Not this" on the closer clear Before and recompose; a plain "lives in Colorado" and an "Actually … Oakland, not Alameda" correction leave no history; "moved to Oakland" → "Previously lived in Alameda" beside "Lives in Oakland, California"; two moves → two Before lines, newest change first; Not this on a Before member and an edit of a member; a legacy supersession with no transition; a thread that ended → Before in its own words, a thread in progress not; never across people. `memoryProofs`' lab fixture regenerated (new fields only: section, category, display). The semantic corpus 80/80 with history grouped by closer (res-076 updated; zero-tolerance metrics 0). Full Jest 99 suites / 932 tests (`TZ=UTC`); Deno 452 |
+| BLACK-BOX | PASS: `b7b8.blackbox` 4/4 replayed (the real screens, session, store, sync and network client against the local stack with the B2 and B3 migrations, this branch's gateway on :8000 and its stub on :8791, `GATEWAY_URL` / `STUB_URL`; the founder's People plus Susan): California → Alameda, the Portrait's Lately "Susan lives in Alameda" once with no California row and no composed wording, What Kinship knows "Lives in Alameda, California" under Background and no other heading; "moved to Colorado": Background "Moved to Colorado" with its two "Before:" lines, the Before heading, "Previously lived in Alameda, California" dated "You told Kinship · Oct 19" with one Edit into its notes, the server's closer recorded `changed`, the Portrait's move with its "was:", then Undo from the Kept card restoring both lines (the same ids) and clearing Before on both screens; Alameda → "lives in Colorado" (no transition) with no Before and Lately "Susan lives in Colorado · was: Susan lives in Alameda"; "Actually … Oakland, not Alameda" recorded `corrected` with no Before; a stay in Denver in its own section beside the residence, no empty section. Regression against the same gateway: `b5.blackbox` 4/4, `b4.blackbox` 5/5 |
+| LIVE-MODEL | NOT RUN: no model path changed (sections and history are read-time views over existing rows); the notes are replayed from the live replies kept on 16 Oct |
+| NATIVE-SIMULATOR | NOT RUN (no build this session) |
+| FOUNDER-DEVICE | NOT RUN: `b7-b8-device-checklist.md` rows 3–6 |
+
+### Rollout
+
+1. Merge (a merge commit). **No migration**: the integration applies nothing; the fingerprint is unchanged.
+2. **No ai-gateway deploy** is needed (v15 stays).
+3. A build (the Portrait's one slot, the sections, Before). An app from before B7/B8 against the same server shows what it did; the new app shows the sections over whatever it has synced (a line with no reading, or told before B3, shows as itself; a supersession with no transition is never Before).
+
+**Next step:** the founder reviews this PR and the choices above; after merge and a build, `b7-b8-device-checklist.md`; then B9 (its own gate: the native dogfood pass of §16, the eval review, and applying the facets only after the founder's yes).
+
