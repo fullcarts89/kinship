@@ -333,6 +333,10 @@ Report only (brief §14, §25; CC-19 "existing wrong supersessions: report only"
 - **The hand-off sheet's "You could mention":** the same list, chosen by a deterministic preference instead of the page's first rows; up to two lines, zero allowed. **Proposal:** one quiet fixed-template suggestion under the first line when it is a milestone still ahead, e.g. "You could ask how the wedding plans are going." (`MENTION_OPENERS` in `mentions.ts`: wedding, engagement, new job, promotion, new home, move, baby). Clearly a suggestion, never the user's words; not the deferred AI-generated opener. Needs the founder's yes on the copy; the lines themselves need none.
 - **Native:** not run (no build this session). The founder's checklist: `k28-device-checklist.md`.
 
+## K27 (founder, 18 Oct, CC-27): no surface changes
+
+A gateway-only memory-trust fix (a later note connects to a pet Kinship already knows). **No approved surface changes, appears or is removed:** the clarification question ("Who is Fluffy?") keeps its K25 shape for anyone Kinship does not know; it is simply not asked when Kinship knows the pet. **Native:** not run (needs the gateway deploy; `k28-device-checklist.md` rows 11–14).
+
 ## Roadmap update (founder, 16 Oct, CC-25): status of deferred and planned surfaces
 
 Strategy only; no surface is built, removed or redesigned by this entry. **No approved surface is dropped:** every board surface below keeps its status and deferral reason, and any change to its approved form still needs founder approval recorded here (contract §9, §11). The audit that prompted it is `audits/2026-10-16-roadmap-audit.md` (dated, non-canonical).
