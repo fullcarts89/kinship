@@ -34,7 +34,7 @@ import { type HeldItem, resolveHeld, type ResolvedItem } from "../../supabase/fu
 import type { Certainty, Kind, ModelProposal, PlannedItem, ProposedItem, SubjectType } from "../../supabase/functions/_shared/extraction/types.ts";
 import { shortName } from "../../supabase/functions/_shared/extraction/names.ts";
 import { type FacetLike, pairClass } from "../../supabase/functions/_shared/semantic/relate.ts";
-import { composeResidence, historyEligible } from "../../supabase/functions/_shared/semantic/compose.ts";
+import { composeResidence, historyEligible, residenceChain } from "../../supabase/functions/_shared/semantic/compose.ts";
 import { residenceEligible } from "../../supabase/functions/_shared/semantic/residence.ts";
 import { rederive } from "../../supabase/functions/_shared/semantic/rederive.ts";
 import { residenceQuestion } from "../../supabase/functions/_shared/semantic/questions.ts";
@@ -370,6 +370,17 @@ function history(w: World, personId: string): string[] {
     .flatMap((r) => composeResidence([{ id: r.id, facet: w.liveFacet(r.id)!, told: "" }], { previous: true }).lines.map((l) => l.text));
 }
 
+/**
+ * The Portrait's residence lines (B7, §13): one valid chain is the head's own statement (dated by its
+ * newest member on the real Portrait); without a chain, every current line as itself.
+ */
+function portrait(w: World, rows: Row[]): string[] {
+  const members = rows.map((row) => ({ id: row.id, facet: w.liveFacet(row.id)!, told: String(row.tick).padStart(8, "0") }));
+  const chain = residenceChain(members);
+  if (chain) return [w.row(chain.headId)!.statement];
+  return rows.map((r) => r.statement);
+}
+
 // ─── Running a fixture ────────────────────────────────────────────────────────
 
 const ZERO = [
@@ -569,6 +580,14 @@ function run(f: Fixture): Result {
     }
     if (page.history && JSON.stringify([...past].sort()) !== JSON.stringify([...page.history].sort())) {
       pageFail(`${f.id} ${name}: history ${JSON.stringify(past)}, expected ${JSON.stringify(page.history)}`);
+    }
+    // The Portrait (B7): the head's own words for a chain, never the composed line; every other line as itself.
+    if (page.portrait) {
+      const onPortrait = portrait(w, w.current(pid));
+      if (JSON.stringify([...onPortrait].sort()) !== JSON.stringify([...page.portrait].sort())) {
+        pageFail(`${f.id} ${name}: portrait ${JSON.stringify(onPortrait)}, expected ${JSON.stringify(page.portrait)}`);
+      }
+      if (onPortrait.some((l) => l.startsWith("Lives in ") || l.startsWith("Previously lived in "))) metric("unsupported_composed_fact", `${f.id} ${name}: composed words on the Portrait`);
     }
     if (page.sources !== undefined) {
       const steps = new Set(w.sources.filter((s) => (groups[0] ?? []).some((r) => r.id === s.item)).map((s) => s.step));

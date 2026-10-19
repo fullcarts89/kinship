@@ -626,6 +626,8 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
   const byItem = await repos.memory.sourcesByItem();
   const people = await repos.people.list();
   const all = (await repos.memory.aboutPerson(person.id));
+  // The lines' readings (B7): a chain of residence lines takes one slot in Lately.
+  const facets = await repos.memory.residenceFacets();
   const earlier = new Map<string, string>();
   for (const m of all) {
     if (typeof m.supersedes_id !== "string" || earlier.has(m.supersedes_id)) continue;
@@ -648,6 +650,7 @@ export async function portraitFor(repos: Repositories, person: Person | null, no
       noteId: notes[0]?.capture_id ?? null,
       // A change reads as a change (H23): what it replaced, quietly.
       was: typeof item.supersedes_id === "string" ? (earlier.get(item.supersedes_id) ?? null) : null,
+      facet: facets.get(item.id) ?? null,
     });
   }
   // Their birthday, from their record, when it's within a month.
