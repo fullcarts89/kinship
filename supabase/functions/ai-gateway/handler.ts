@@ -84,6 +84,11 @@ export interface GatewayCaller {
   loadRemoved(captureId: string): Promise<{ person_id: string; statement: string }[]>;
   /** Under the caller's RLS: the held items and question still waiting on this capture (C-2). */
   loadReview(captureId: string): Promise<StoredReview | null>;
+  /**
+   * Under the caller's RLS: the ids of the live lines this capture's understanding saved (Option A): a
+   * phone that lost the reply to a timeout learns what was kept, never "nothing".
+   */
+  loadSavedIds(captureId: string): Promise<string[]>;
   /** As the user: dismiss what's held ("not now"); false when nothing was waiting. */
   closeReview(captureId: string): Promise<boolean>;
 }
@@ -92,6 +97,13 @@ export interface GatewayCaller {
 export interface PendingReview {
   items: ReturnType<typeof present>[];
   clarification: ExtractionOutcome["clarification"];
+}
+
+/** The capture's coverage as stored (Option A): the note's own spans and a count, never words. */
+export interface StoredCoverage {
+  v: 1;
+  unprocessed: { start: number; end: number }[];
+  unlocated: number;
 }
 
 /** A pending review as stored; created_at identifies the version the user answers. */
@@ -155,6 +167,11 @@ export interface CallLog {
 export interface ServiceOps {
   claim(userId: string, captureId: string): Promise<"claimed" | "done" | "busy" | "missing">;
   release(userId: string, captureId: string, status: "failed" | "pending"): Promise<void>;
+  /**
+   * What this understanding did not get to, on the capture (Option A): spans and a count, never words;
+   * null clears an earlier record. Written before the lines, so a note is never shown whole by mistake.
+   */
+  setCoverage(userId: string, captureId: string, coverage: StoredCoverage | null): Promise<void>;
   /** Saved items, plus the held items and question when something waits on the user, in one transaction. */
   write(
     userId: string,
@@ -265,13 +282,16 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
       const claim = await deps.service.claim(caller.userId, captureId);
       if (claim === "missing") return json({ error: "not_found" }, 404, cors);
       if (claim === "done") {
-        // Reopened after a restart: the stored question, never a second model run.
-        const review = await caller.loadReview(captureId);
+        // Reopened after a restart (or a reply lost to a timeout): the stored question and what was
+        // kept, never a second model run; and what the understanding did not get to, never "whole".
+        const [review, savedIds] = await Promise.all([caller.loadReview(captureId), caller.loadSavedIds(captureId)]);
         return json({
           status: "done",
           held: review?.items ?? [],
           clarification: review?.clarification ?? null,
           review_created_at: review?.created_at ?? null,
+          saved_ids: savedIds,
+          coverage: coverageReply(storedCoverage(capture.coverage)),
         }, 200, cors);
       }
       if (claim === "busy") return json({ error: "in_progress" }, 409, cors);
@@ -317,6 +337,11 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
       );
       const held = outcome.items.filter((i) => !toSave.includes(i));
       const review: PendingReview | null = held.length ? { items: held.map(present), clarification: outcome.clarification } : null;
+      // What this understanding could not take (the note held more than it carries) is recorded on the
+      // note before its lines are written (Option A): the note is never shown whole by mistake, on any
+      // phone, and never silently less than it was. Cleared when a later run takes the note whole.
+      const coverage: StoredCoverage | null = outcome.coverage ? { v: 1, ...outcome.coverage } : null;
+      if (coverage || storedCoverage(capture.coverage)) await deps.service.setCoverage(caller.userId, captureId, coverage);
       const written = await deps.service.write(
         caller.userId,
         captureId,
@@ -338,6 +363,7 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
         held: held.map(present),
         clarification: outcome.clarification,
         review_created_at: stored?.created_at ?? null,
+        coverage: coverageReply(coverage),
         ...(outcome.known?.length ? { known: outcome.known } : {}),
       }, 200, cors);
     } catch (err) {
@@ -382,6 +408,26 @@ function toWriteItem(i: PlannedItem): WriteItem {
  * proposed action travel with them so an answer is written exactly like any
  * extraction (the database checks the action's target again).
  */
+/** The stored coverage, when the row holds one of the shape the database allows; anything else is none. */
+function storedCoverage(raw: unknown): StoredCoverage | null {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as { v?: unknown; unprocessed?: unknown; unlocated?: unknown };
+  if (c.v !== 1 || !Array.isArray(c.unprocessed) || typeof c.unlocated !== "number") return null;
+  const unprocessed = c.unprocessed.filter((s): s is { start: number; end: number } =>
+    !!s && typeof s === "object" && typeof (s as { start?: unknown }).start === "number" && typeof (s as { end?: unknown }).end === "number"
+  ).map((s) => ({ start: s.start, end: s.end }));
+  return unprocessed.length || c.unlocated > 0 ? { v: 1, unprocessed, unlocated: c.unlocated } : null;
+}
+
+/**
+ * What the phone is told about the note's coverage (Option A): "partial" with the spans it can mark and
+ * the count it cannot, or "complete". Never a claim that the note was understood whole: "complete" says
+ * only that nothing was left out for want of room.
+ */
+function coverageReply(c: StoredCoverage | null): { state: "complete" | "partial"; unprocessed: { start: number; end: number }[]; unlocated: number } {
+  return c ? { state: "partial", unprocessed: c.unprocessed, unlocated: c.unlocated } : { state: "complete", unprocessed: [], unlocated: 0 };
+}
+
 function present(i: PlannedItem) {
   return {
     kind: i.kind,

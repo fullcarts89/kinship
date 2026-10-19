@@ -33,7 +33,13 @@ import { residenceQuestion } from "../../../supabase/functions/_shared/semantic/
 export interface ReviewInput {
   row: UnderstandingRow;
   /** The note as told (raw_text is null once a "delete after" note settles). */
-  capture: { id: string; raw_text: string | null; context_person_id: string | null; status: string; feedback?: unknown } | null;
+  capture: {
+    id: string; raw_text: string | null; context_person_id: string | null; status: string; feedback?: unknown;
+    /** What the understanding did not get to (Option A), from the synced row; null when taken whole. */
+    coverage?: { unprocessed: { start: number; end: number }[]; unlocated: number } | null;
+    /** A later note told the rest of this one ("Tell the rest"): the partial state is answered. */
+    continued?: boolean;
+  } | null;
   /** The live items this note saved (Understanding.itemsFor). */
   items: MemoryItem[];
   /** Items the reading saved that haven't reached this phone yet (sync in flight). */
@@ -164,6 +170,13 @@ export interface ReviewView {
   personIds: string[];
   /** The user's "Got it right / Not quite" on this note, once given (H6). */
   feedback?: { verdict: "right" | "not_quite"; off?: string } | null;
+  /**
+   * The note held more than the understanding could take (Option A, founder 19 Oct): what it kept is
+   * kept, the rest is marked in the Source view, and the card offers "Tell the rest". `continued`: the
+   * user has told it, so the card no longer says the note is unfinished. Never "Try again": the same
+   * note would meet the same limit.
+   */
+  partial?: { unprocessed: { start: number; end: number }[]; unlocated: number; continued: boolean } | null;
 }
 
 export const COPY = {
@@ -178,6 +191,10 @@ export const COPY = {
   /** The user's own "Don't keep this": nothing kept, never "nothing to remember". */
   notKept: "Nothing kept from that one.",
   failed: "Couldn't understand this one. Your note is saved.",
+  /** Option A: the note held more than one understanding takes; the kept lines are kept, the rest is in the note. */
+  partial: "Kinship couldn't get to all of it.",
+  tellRest: "Tell the rest",
+  tryAgain: "Try again",
   check: "One thing to check",
   notSure: "Not sure",
   answering: "Saving your answer…",
@@ -195,6 +212,17 @@ export const COPY = {
 } as const;
 
 const PERSON_FLAGS = ["person_ambiguous", "person_disagreement", "pronoun_multiple", "new_person", "person_archived"];
+
+/** The partial state, when the note was not taken whole: spans the Source view marks, a count it cannot, and whether the rest was told. */
+export function partialOf(
+  coverage: { unprocessed: { start: number; end: number }[]; unlocated: number } | null,
+  continued: boolean,
+): ReviewView["partial"] {
+  if (!coverage) return null;
+  const unprocessed = coverage.unprocessed.filter((s) => Number.isInteger(s.start) && Number.isInteger(s.end) && s.end > s.start && s.start >= 0);
+  const unlocated = Number.isInteger(coverage.unlocated) ? Math.max(0, coverage.unlocated) : 0;
+  return unprocessed.length || unlocated ? { unprocessed, unlocated, continued } : null;
+}
 
 export function buildReview(input: ReviewInput): ReviewView {
   const { row, capture, offline } = input;
@@ -241,6 +269,8 @@ export function buildReview(input: ReviewInput): ReviewView {
   const fb = input.capture?.feedback as { verdict?: unknown; off?: unknown } | null | undefined;
   const feedback = fb && (fb.verdict === "right" || fb.verdict === "not_quite")
     ? { verdict: fb.verdict as "right" | "not_quite", ...(typeof fb.off === "string" ? { off: fb.off } : {}) } : null;
+  // What the understanding did not get to (Option A): the synced row's word first, the reply's until it syncs.
+  const partial = partialOf(capture.coverage ?? reading.coverage ?? null, capture.continued === true);
   const base: ReviewView = {
     ...empty,
     feedback,
@@ -248,9 +278,10 @@ export function buildReview(input: ReviewInput): ReviewView {
     lines,
     questions,
     answering,
-    status: answering ? (offline ? COPY.answeringOffline : COPY.answering) : known,
+    status: answering ? (offline ? COPY.answeringOffline : COPY.answering) : partial && !partial.continued ? COPY.partial : known,
     canUndo: true,
     personIds,
+    partial,
   };
   if (answering || questions.length || row.notice || questionWaiting(reading)) return { ...base, mode: "sheet" };
   // What the reading saved is still on its way here: understanding, not empty.

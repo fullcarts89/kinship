@@ -650,3 +650,41 @@ Deno.test("people picked from Contacts (full names) are named by their first nam
   ]);
   eq(lower.items.length === 0 || lower.items[0].person_id === null, true, "'will' is not Will Park");
 });
+
+// ─── Option A (founder, 19 Oct 2026): no silent capacity-based loss ──────────
+
+const TEN_THINGS = [
+  "Ben loves jazz", "Ben took up pottery", "Ben started cycling", "Ben is learning Italian", "Ben joined a choir",
+  "Ben bought a kayak", "Ben reads Russian novels", "Ben collects stamps", "Ben plays chess on Tuesdays", "Ben grows tomatoes",
+];
+const tenNote = TEN_THINGS.map((t) => `${t}.`).join(" ");
+const tenItems = () => TEN_THINGS.map((t) => item({ statement: t, evidence: [t], detail: { ...item({}).detail, topic: t } }));
+
+Deno.test("past the limit, the words of what was left out are kept as unprocessed, never silently dropped", () => {
+  const out = run(input(tenNote), tenItems());
+  eq(out.items.length, 8, "the limit still holds");
+  eq(out.dropped.filter((d) => d.reason === "too_many_items").length, 2);
+  const unprocessed = out.coverage?.unprocessed ?? [];
+  eq(unprocessed.map((s) => sliceCodePoints(tenNote, s)), [TEN_THINGS[8], TEN_THINGS[9]], "the ninth and tenth, in the note's own words");
+  eq(out.coverage?.unlocated, 0);
+});
+
+Deno.test("a proposal past the limit whose words a kept line already rests on is not marked as lost", () => {
+  const repeat = [...tenItems().slice(0, 8), item({ statement: TEN_THINGS[0], evidence: [TEN_THINGS[0]] })];
+  const out = run(input(tenNote), repeat);
+  eq(out.items.length, 8);
+  eq(out.dropped.filter((d) => d.reason === "too_many_items").length, 1);
+  eq(out.coverage, undefined, "nothing was lost: the ninth repeated the first");
+});
+
+Deno.test("a proposal past the limit whose words can't be placed is counted, with no span invented", () => {
+  const invented = [...tenItems().slice(0, 8), item({ statement: "Ben runs marathons", evidence: ["Ben runs marathons"] })];
+  const out = run(input(tenNote), invented);
+  eq(out.coverage, { unprocessed: [], unlocated: 1 });
+});
+
+Deno.test("a note the understanding takes whole has no coverage at all", () => {
+  const out = run(input(tenNote), tenItems().slice(0, 8));
+  eq(out.items.length, 8);
+  eq(out.coverage, undefined);
+});

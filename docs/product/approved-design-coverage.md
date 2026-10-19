@@ -333,6 +333,22 @@ Report only (brief §14, §25; CC-19 "existing wrong supersessions: report only"
 - **The hand-off sheet's "You could mention":** the same list, chosen by a deterministic preference instead of the page's first rows; up to two lines, zero allowed. **Proposal:** one quiet fixed-template suggestion under the first line when it is a milestone still ahead, e.g. "You could ask how the wedding plans are going." (`MENTION_OPENERS` in `mentions.ts`: wedding, engagement, new job, promotion, new home, move, baby). Clearly a suggestion, never the user's words; not the deferred AI-generated opener. Needs the founder's yes on the copy; the lines themselves need none.
 - **Native:** not run (no build this session). The founder's checklist: `k28-device-checklist.md`.
 
+## Option A, containment (founder, 19 Oct 2026; PR #52 decision D9b): what changed on approved surfaces
+
+The founder's direction: no silent capacity-based loss and no false completion reporting; Option A is the minimal fix, before the household dogfood, with Option B (continuation, windows, the fuller review) gated behind B9. **No approved surface appears or is removed.** For a note of eight proposals or fewer nothing changes. What a note the understanding could not take whole now shows:
+
+| Surface | What it did | What it does now | Reference / status |
+|---|---|---|---|
+| 14 Kept card (`TellDock.tsx`) | "Kept for Priya" and the first eight lines; the rest of the note silently dropped | The same card, plus the status line **"Kinship couldn't get to all of it."** and a **Tell the rest** pill; never "Try again" for this (the same note would meet the same limit). After the rest is told, the line and the pill go | Founder decision D9b; copy a **proposal** |
+| 14 Kept card, a failure | "Couldn't understand this one. Your note is saved." with Undo only | The same, plus **Try again** (the same note, asked for once more; for a failure repeating may mend) | D9b, D9f; copy a proposal |
+| 15 Source / provenance (`NoteView.tsx`) | Ochre underline on the words kept | Plus a plain **dotted** mark on words the understanding did not get to, "Dotted: words Kinship couldn't get to" and **Tell the rest**; when nothing could be placed, "Kinship couldn't get to all of this note."; afterwards "You told the rest in a later note." Ochre and dotted never overlap | Trust: nothing is invented (a span is marked only where the locator is sure) |
+| 9 Tell (the field) | — | **Tell the rest** puts the left-out words in the field about the note's person; the next Keep is linked to the first note (every phone then sees the first note answered) | D9b |
+| Timing (`gateway.ts`, the gateway) | The phone gave up at 30 s on a reply the server kept working on to 45 s (and 90 s with the SDK's retry); "busy" counted as a failed attempt | The phone waits 60 s (the hosted runtime holds a request 150 s); the gateway makes no SDK retry; "busy" is a wait of ten seconds, not an attempt | D9f |
+
+**Not changed:** tiers, thresholds, sensitivity, dates, identity resolution, merge / supersede, provenance, exact Undo, Today's eligibility, the first-run gates, the night prompt, H4's bring-back (a partial first Tell activates the account as any kept first Tell does; the bring-back shows its kept lines). **The limit itself (eight) is unchanged and remains an internal batch size**; what changed is that nothing past it is silent. Model omissions (a thing the model did not propose) are **not** detected by this change and the copy never claims otherwise.
+
+**Native:** not run (no build this session). The founder's checklist: `option-a-device-checklist.md`.
+
 ## K27 (founder, 18 Oct, CC-27): no surface changes
 
 A gateway-only memory-trust fix (a later note connects to a pet Kinship already knows). **No approved surface changes, appears or is removed:** the clarification question ("Who is Fluffy?") keeps its K25 shape for anyone Kinship does not know; it is simply not asked when Kinship knows the pet. **Native:** not run (needs the gateway deploy; `k28-device-checklist.md` rows 11–14).

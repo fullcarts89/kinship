@@ -17,7 +17,7 @@ import { reachedAbout, trailFor, type ContactEventRow } from "@/features/person/
 import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
 import { legacyActivation, NO_ACTIVATION, nextStep, setupFinished, setupStepsFor, type SetupNeeds } from "@/features/setup/activation";
 import { useActivation, type ActivationState } from "./useActivation";
-import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
+import { buildReview, itemLine, partialOf, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
 import { parseDrafts, withDraft, type Drafts } from "@/features/tell/drafts";
 import { misfiledOn, voiced } from "@/features/memory/statements";
 import { linkSuggestions, type LinkSuggestion } from "@/features/person/links";
@@ -57,9 +57,11 @@ export function useTell() {
   // The server checks consent on every call; this only decides whether to ask.
   const consent = s ? (s.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION ? "on" : "off") : "unknown";
   const ai = isOn(flags, "ai_extraction") && consent !== "off";
-  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text"): Promise<string> => {
+  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text", continues: string | null = null): Promise<string> => {
     const capture = await repositoriesFor(store).captures.tell(text, {
       aiEnabled: ai, timeZone: timeZone(), contextPersonId: contextPersonId ?? undefined, source,
+      // "Tell the rest" (Option A): the partial note this one answers, so every phone sees it answered.
+      continuesCaptureId: continues,
     });
     track("capture_completed", { source, chars_bucket: charsBucket([...text].length), offline: understanding.offline });
     if (ai) {
@@ -112,7 +114,11 @@ export function useReview(captureId: string | null): ReviewView | null {
     return buildReview({
       row,
       capture: capture
-        ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status, feedback: capture.feedback }
+        ? {
+          id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status, feedback: capture.feedback,
+          coverage: capture.coverage ?? null,
+          continued: await continuedBy(repos, captureId),
+        }
         : null,
       items,
       earlier: await earlierOf(repos, items, row.reading?.held ?? []),
@@ -126,6 +132,11 @@ export function useReview(captureId: string | null): ReviewView | null {
   // Only ever the note asked for: while a new id loads, the previous note's
   // view must not stand in for it.
   return q.data && q.data.captureId === captureId ? q.data : null;
+}
+
+/** A later note tells the rest of this partial one (Option A): its unfinished state is answered, on every phone. */
+export async function continuedBy(repos: Repositories, captureId: string): Promise<boolean> {
+  return (await repos.captures.list()).some((c) => c.continues_capture_id === captureId && !c.deleted_at);
 }
 
 export interface OpenNotes {
@@ -315,32 +326,61 @@ export async function noteFor(store: UserStore, captureId: string, now: Date): P
     if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
   }
   const text = capture.raw_text;
+  // What the understanding did not get to (Option A): marked in the note, until the user tells the rest.
+  const partial = partialOf(capture.coverage ?? null, await continuedBy(repos, captureId));
   return {
-    runs: text ? runsOf(text, spans) : null,
+    runs: text ? runsOf(text, spans, partial && !partial.continued ? partial.unprocessed : []) : null,
     quotes: text ? [] : quotes,
     arrived: `${arrivedLabel(capture.source)} · ${momentLabel(String(capture.created_at ?? capture.occurred_at), now)}`,
     items,
+    partial: partial ? { continued: partial.continued, unlocated: partial.unlocated } : null,
   };
 }
 
-/** Splits text at the (code-point) spans, merged, into marked and plain runs. */
-export function runsOf(text: string, spans: { start: number; end: number }[]): { text: string; marked: boolean }[] {
-  const ranges = spans
-    .map((s) => [codePointToUtf16(text, s.start), codePointToUtf16(text, s.end)] as const)
-    .filter(([a, b]) => b > a)
-    .sort((x, y) => x[0] - y[0]);
-  const merged: [number, number][] = [];
-  for (const [a, b] of ranges) {
-    const last = merged[merged.length - 1];
-    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
-    else merged.push([a, b]);
+/**
+ * Splits text at the (code-point) spans, merged, into marked and plain runs. `unprocessed` spans (Option
+ * A: words the understanding did not get to) become their own runs; where one overlaps a kept span the
+ * kept mark wins, so a word never says both.
+ */
+export function runsOf(
+  text: string,
+  spans: { start: number; end: number }[],
+  unprocessed: { start: number; end: number }[] = [],
+): { text: string; marked: boolean; unprocessed?: boolean }[] {
+  const toRanges = (list: { start: number; end: number }[]) => {
+    const ranges = list
+      .map((s) => [codePointToUtf16(text, s.start), codePointToUtf16(text, s.end)] as const)
+      .filter(([a, b]) => b > a)
+      .sort((x, y) => x[0] - y[0]);
+    const merged: [number, number][] = [];
+    for (const [a, b] of ranges) {
+      const last = merged[merged.length - 1];
+      if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+      else merged.push([a, b]);
+    }
+    return merged;
+  };
+  const kept = toRanges(spans);
+  // An unprocessed range minus every kept range, in pieces.
+  const left: [number, number][] = [];
+  for (const [a, b] of toRanges(unprocessed)) {
+    let at = a;
+    for (const [ka, kb] of kept) {
+      if (kb <= at || ka >= b) continue;
+      if (ka > at) left.push([at, ka]);
+      at = Math.max(at, kb);
+    }
+    if (at < b) left.push([at, b]);
   }
-  const runs: { text: string; marked: boolean }[] = [];
+  const cuts = [...kept.map(([a, b]) => ({ a, b, kind: "marked" as const })), ...left.map(([a, b]) => ({ a, b, kind: "unprocessed" as const }))]
+    .sort((x, y) => x.a - y.a);
+  const runs: { text: string; marked: boolean; unprocessed?: boolean }[] = [];
   let at = 0;
-  for (const [a, b] of merged) {
-    if (a > at) runs.push({ text: text.slice(at, a), marked: false });
-    runs.push({ text: text.slice(a, b), marked: true });
-    at = b;
+  for (const c of cuts) {
+    if (c.a > at) runs.push({ text: text.slice(at, c.a), marked: false });
+    if (c.kind === "marked") runs.push({ text: text.slice(c.a, c.b), marked: true });
+    else runs.push({ text: text.slice(c.a, c.b), marked: false, unprocessed: true });
+    at = c.b;
   }
   if (at < text.length) runs.push({ text: text.slice(at), marked: false });
   return runs;

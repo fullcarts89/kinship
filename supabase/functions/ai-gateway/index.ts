@@ -34,8 +34,9 @@ function positiveInt(raw: string | undefined, fallback: number): number {
 Deno.serve(
   createGateway({
     authenticate,
-    // One retry on a 5xx or timeout (plan §9); the capture is never lost.
-    model: anthropicCaller(Deno.env.get("ANTHROPIC_API_KEY"), { maxRetries: 1 }),
+    // No SDK retry (Option A, founder 19 Oct): a retried 45 s call made a timed-out note a 90 s failure
+    // the phone had long given up on. The phone's own schedule retries; the capture is never lost.
+    model: anthropicCaller(Deno.env.get("ANTHROPIC_API_KEY"), { maxRetries: 0 }),
     service: serviceOps(service),
     dailyLimit: positiveInt(Deno.env.get("AI_DAILY_LIMIT"), 50),
     consentVersion: positiveInt(Deno.env.get("AI_CONSENT_VERSION"), 1),
@@ -71,10 +72,17 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
     },
     async loadCapture(id) {
       const { data, error } = await db.from("captures")
-        .select("id, raw_text, occurred_at, time_zone, context_person_id")
+        .select("id, raw_text, occurred_at, time_zone, context_person_id, coverage")
         .eq("id", id).is("deleted_at", null).not("raw_text", "is", null).maybeSingle();
       if (error) throw new Error("capture read failed");
       return (data as CaptureRow | null) ?? null;
+    },
+    async loadSavedIds(captureId) {
+      const { data, error } = await db.from("memory_item_sources")
+        .select("memory_item_id, memory_items!inner(id, status, deleted_at)")
+        .eq("capture_id", captureId).is("memory_items.deleted_at", null).in("memory_items.status", ["active", "resolved"]);
+      if (error) throw new Error("saved read failed");
+      return [...new Set(((data ?? []) as { memory_item_id: string }[]).map((r) => r.memory_item_id))];
     },
     async loadPeople() {
       const [people, related, mentions] = await Promise.all([
@@ -192,6 +200,10 @@ function serviceOps(db: SupabaseClient): ServiceOps {
     async release(userId, captureId, status) {
       const { error } = await db.rpc("release_capture_extraction", { p_user_id: userId, p_capture_id: captureId, p_status: status });
       if (error) throw new Error("release failed");
+    },
+    async setCoverage(userId, captureId, coverage) {
+      const { error } = await db.rpc("set_capture_coverage", { p_user_id: userId, p_capture_id: captureId, p_coverage: coverage });
+      if (error) throw new Error(`coverage write failed (${error.code ?? "?"})`);
     },
     async write(userId, captureId, version, needsReview, items, review) {
       const { data, error } = await db.rpc("write_extraction_with_review", {

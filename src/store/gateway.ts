@@ -107,6 +107,17 @@ export interface HeldAnswer {
   moved?: boolean;
 }
 
+/**
+ * What the understanding did not get to (Option A, founder 19 Oct): "partial" with the note's own spans
+ * it can mark and a count it cannot; "complete" when nothing was left out for want of room. Never a
+ * claim that the note was understood whole.
+ */
+export interface Coverage {
+  state: "complete" | "partial";
+  unprocessed: { start: number; end: number }[];
+  unlocated: number;
+}
+
 export type Understood =
   | {
       status: "extracted";
@@ -117,9 +128,33 @@ export type Understood =
       review_created_at: string | null;
       /** Relationships said again that Kinship already holds ("John is your brother"). */
       known?: string[];
+      coverage: Coverage;
     }
-  | { status: "done"; held: HeldItem[]; clarification: Clarification | null; review_created_at: string | null }
+  | {
+      status: "done";
+      held: HeldItem[];
+      clarification: Clarification | null;
+      review_created_at: string | null;
+      /** The live lines the understanding saved, for a phone that lost the reply (Option A). */
+      saved_ids: string[];
+      coverage: Coverage;
+    }
   | { status: "kept" };
+
+const COMPLETE: Coverage = { state: "complete", unprocessed: [], unlocated: 0 };
+
+/** The reply's coverage, when it has the shape; an older gateway's reply (none) reads as complete. */
+function coverageOf(v: unknown): Coverage {
+  if (!v || typeof v !== "object") return COMPLETE;
+  const c = v as { state?: unknown; unprocessed?: unknown; unlocated?: unknown };
+  const unprocessed = Array.isArray(c.unprocessed)
+    ? c.unprocessed.filter((s): s is { start: number; end: number } =>
+      !!s && typeof s === "object" && Number.isInteger((s as { start?: unknown }).start) && Number.isInteger((s as { end?: unknown }).end))
+      .map((s) => ({ start: s.start, end: s.end }))
+    : [];
+  const unlocated = Number.isInteger(c.unlocated) ? Math.max(0, c.unlocated as number) : 0;
+  return c.state === "partial" && (unprocessed.length || unlocated) ? { state: "partial", unprocessed, unlocated } : COMPLETE;
+}
 
 export interface ResolvedItem {
   id: string | null;
@@ -206,6 +241,7 @@ export class Gateway {
         clarification: (body.clarification as Clarification | null) ?? null,
         review_created_at: typeof body.review_created_at === "string" ? body.review_created_at : null,
         ...(Array.isArray(body.known) ? { known: (body.known as unknown[]).filter((k): k is string => typeof k === "string").slice(0, 5) } : {}),
+        coverage: coverageOf(body.coverage),
       };
     }
     if (status === "done") {
@@ -214,6 +250,8 @@ export class Gateway {
         held: arrayOf<HeldItem>(body.held),
         clarification: (body.clarification as Clarification | null) ?? null,
         review_created_at: typeof body.review_created_at === "string" ? body.review_created_at : null,
+        saved_ids: arrayOf<unknown>(body.saved_ids).filter((id): id is string => typeof id === "string"),
+        coverage: coverageOf(body.coverage),
       };
     }
     if (status === "kept") return { status };
@@ -284,8 +322,16 @@ export class Gateway {
   }
 }
 
+/**
+ * The phone waits this long for one gateway reply. Above the gateway's own model deadline (45 s) with
+ * room for its trips (Option A, founder 19 Oct): a phone that gave up at 30 s on a 39 s reply met a
+ * "busy" claim on its retry and counted a slow success as a failure. The hosted runtime answers 504 at
+ * 150 s, so 60 s is well inside what the server will hold a request for.
+ */
+export const GATEWAY_TIMEOUT_MS = 60_000;
+
 /** ai-gateway over supabase-js: the user's session rides on every request. */
-export function supabaseGatewayTransport(client: SupabaseClient, timeoutMs = 30_000): GatewayTransport {
+export function supabaseGatewayTransport(client: SupabaseClient, timeoutMs = GATEWAY_TIMEOUT_MS): GatewayTransport {
   return {
     async post(body) {
       const { data, error, response } = await client.functions.invoke("ai-gateway", { body, timeout: timeoutMs });

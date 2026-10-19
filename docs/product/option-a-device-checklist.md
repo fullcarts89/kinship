@@ -1,0 +1,25 @@
+# Option A (containment): the founder's device checklist
+
+*19 Oct 2026. For a build from the Option A PR on Thor iPhone, **with ai-gateway deployed from the same branch** (the fix is half on the gateway: without the deploy the phone shows the old behaviour) **and the migration applied** (it reaches production only by merging to `main`). About ten minutes. Readiness labels stay as they are; this pass verifies Option A only. Nothing here is VERIFIED until you have run it.*
+
+What Option A does, in one line: when a note holds more than one understanding can take (eight things), Kinship keeps eight, says "Kinship couldn't get to all of it.", marks the rest in the note, and offers **Tell the rest**; a note whose understanding keeps failing offers **Try again**; a slow reply is waited for instead of counted as a failure. Notes of eight things or fewer behave exactly as before.
+
+Before: a person with a page (Priya, or anyone); a quiet Today.
+
+| # | Do | Pass when |
+|---|---|---|
+| 1 | From Priya's page, Tell a note with **ten** plain, separate things in ten sentences (for example: *"Priya loves jazz. Priya took up pottery. Priya started trail running. Priya is learning Italian. Priya joined a choir. Priya bought a kayak. Priya reads Russian novels. Priya collects stamps. Priya plays chess on Tuesdays. Priya grows tomatoes."*) | After "Understanding…", **Kept for Priya** with lines, then under them **Kinship couldn't get to all of it.** and a **Tell the rest** pill. Not "Try again". Nothing says the whole note was understood |
+| 2 | Tap **Correct this** (or a line) to open the review, then **See the note** | The Source view underlines the eight kept passages in ochre and marks the two not got to with a **dotted** line; under the note: "Dotted: words Kinship couldn't get to" and **Tell the rest** |
+| 3 | Back; tap **Tell the rest** on the card | The Tell field opens about Priya with the two left-out sentences as its text (editable). Change nothing; tap Send | 
+| 4 | | A second **Kept for Priya** for the rest (two lines). The first note's card no longer says "couldn't get to all of it"; its Source view shows no dotted words and says "You told the rest in a later note." Priya's page / What Kinship knows: ten lines, none twice |
+| 5 | Kill and reopen the app | Same: no partial state left behind on the first note |
+| 6 | Tell an ordinary note (two things) about anyone | Exactly as before: Kept card, no new line, no pill, Source view unchanged |
+| 7 | Tell a note with ten things, then put the phone in Airplane mode **before** the card appears, wait 20 s, turn it off | The card arrives with the eight lines and the partial line; no "Couldn't understand this one" (a slow or lost reply is waited for, then recovered) |
+| 8 | **A new account (fresh install or a second test account):** make a ten-thing note the **first Tell** in setup | Today shows "This is where Kinship brings things back…" with the first Tell's own lines as usual (a partial first Tell still activates the account); the partial card is on Today with Tell the rest; Tell the rest works from Today |
+| 9 | Undo the first note (its card's Undo, or delete it from the Source view) | Its eight lines go; the rest's two lines (if told) stay as a note of their own |
+| 10 | Airplane mode on, Tell a short note, keep it on for a minute, then off | "I'll understand this when you're online." then the Kept card: no change from before |
+| 11 | **Try again (only if it occurs):** if any note ever ends on "Couldn't understand this one. Your note is saved." | The card now also offers **Try again**; tapping it shows "Understanding…" and, if the server is fine, the Kept card |
+
+What should **not** happen anywhere: a highlight on words that were kept (ochre and dotted never overlap); a count of what is missing; "Try again" on a partial note; a second "Kept" for the same sentence after Tell the rest; a Moment on Today about the two left-out things before they were told.
+
+Report per row: pass / fail, with a screenshot where the copy looks wrong. Copy on the partial card, the pill and the Source view is a proposal: change it as you like.

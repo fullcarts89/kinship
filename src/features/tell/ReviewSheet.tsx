@@ -56,6 +56,8 @@ export interface ReviewSheetProps {
    */
   onChooseContact?: () => Promise<string | null>;
   onOpenNote: () => void;
+  /** "Tell the rest" of a note the understanding could not take whole (Option A): the sheet closes, the field opens. */
+  onTellRest?: () => void;
   /** Any touch: the sheet isn't idle. */
   onActivity: () => void;
 }
@@ -157,6 +159,12 @@ export function ReviewSheet(props: ReviewSheetProps) {
         ) : null}
         {view.status && !(view.mode === "nothing" && view.status === COPY.notKept) ? (
           <Small style={{ marginTop: space.s }} accessibilityLiveRegion="polite">{view.status}</Small>
+        ) : null}
+        {/* Option A: the note held more than the understanding could take; the rest can be told again from here. */}
+        {view.partial && !view.partial.continued && props.onTellRest && !waiting ? (
+          <View style={{ alignItems: "flex-start", marginTop: space.s }}>
+            <Pill size="small" label={COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to back in the Tell field, to tell again" onPress={act(props.onTellRest)} />
+          </View>
         ) : null}
         {view.notice ? <Body tone="ochreText" style={{ marginTop: space.s }}>{view.notice}</Body> : null}
         {view.lines.length ? (

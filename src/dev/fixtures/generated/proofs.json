@@ -108,7 +108,8 @@
    "personIds": [
     "00000001-0000-4000-8000-000000000001"
    ],
-   "feedback": null
+   "feedback": null,
+   "partial": null
   },
   "portrait": {
    "person": {
@@ -332,7 +333,8 @@
      "person": "Matt",
      "personId": "00000001-0000-4000-8000-000000000001"
     }
-   ]
+   ],
+   "partial": null
   },
   "personId": "00000001-0000-4000-8000-000000000001"
  },

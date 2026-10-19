@@ -55,6 +55,7 @@ import { type CurrentResidence, namesLine, type Outcome, pairClass, relateReside
 import { residenceEligible, residenceOf, type ResidenceFacet } from "../semantic/residence.ts";
 import type {
   Clarification,
+  Coverage,
   DossierItem,
   DropReason,
   EventType,
@@ -105,9 +106,13 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
   const proposed = oneSentenceOneMemory(input, text, Array.isArray(proposal?.items) ? proposal.items : [], proposal?.needs_clarification ?? null);
   // Every line's own words, so a hedge in one never hedges another (founder I12b).
   ctx.evidence = proposed.slice(0, MAX_ITEMS).map((raw) => evidenceSpans(text, raw));
+  // Proposals past the limit are never taken silently (founder, 19 Oct): the note keeps the words they
+  // rest on as "not got to", so the user can tell that part again. Placed only when the locator is sure.
+  const overflow: { span: PlannedSpan | null }[] = [];
   for (const [i, raw] of proposed.entries()) {
     if (i >= MAX_ITEMS) {
       dropped.push({ reason: "too_many_items", kind: null });
+      overflow.push({ span: evidenceSpans(text, raw)[0] ?? null });
       continue;
     }
     const result = planItem(ctx, raw, i);
@@ -141,7 +146,30 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     : items.some((i) => i.tier === "confirm")
     ? "confirm"
     : "auto";
-  return { items, dropped, clarification, tier, injection_suspected: ctx.injection, ...(known.length ? { known } : {}) };
+  const coverage = coverageOf(items, overflow);
+  return {
+    items, dropped, clarification, tier, injection_suspected: ctx.injection,
+    ...(known.length ? { known } : {}),
+    ...(coverage ? { coverage } : {}),
+  };
+}
+
+/**
+ * The words of the proposals the limit left out, as spans: only those the locator placed, and never
+ * words a kept line already rests on (a proposal past the limit that repeats a kept line is not lost).
+ * Unplaced ones are counted, not drawn. Null when nothing was left out.
+ */
+function coverageOf(items: PlannedItem[], overflow: { span: PlannedSpan | null }[]): Coverage | null {
+  if (overflow.length === 0) return null;
+  const kept = items.flatMap((i) => i.spans);
+  const covered = (s: PlannedSpan) => kept.some((k) => k.start < s.end && s.start < k.end);
+  const unprocessed: Coverage["unprocessed"] = [];
+  let unlocated = 0;
+  for (const { span } of overflow) {
+    if (!span) unlocated++;
+    else if (!covered(span) && !unprocessed.some((u) => u.start === span.start && u.end === span.end)) unprocessed.push({ start: span.start, end: span.end });
+  }
+  return unprocessed.length || unlocated ? { unprocessed, unlocated } : null;
 }
 
 // ─── Context ────────────────────────────────────────────────────────────────

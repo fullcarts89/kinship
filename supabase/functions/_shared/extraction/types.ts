@@ -350,6 +350,19 @@ export interface Clarification {
   options: string[];
 }
 
+/**
+ * What one note's understanding did not get to (founder, 19 Oct 2026: no silent capacity-based loss).
+ * `unprocessed`: the note's own words, as code-point spans, of proposals the pipeline could not take
+ * because the note held more than one understanding carries (MAX_ITEMS); only spans the evidence locator
+ * placed reliably, and never words a kept line already rests on. `unlocated`: proposals past the limit
+ * whose words could not be placed; the note is still partial, with no highlight invented for them.
+ * Content-free: offsets and a count, never words.
+ */
+export interface Coverage {
+  unprocessed: { start: number; end: number }[];
+  unlocated: number;
+}
+
 export interface ExtractionOutcome {
   items: PlannedItem[];
   dropped: { reason: DropReason; kind: Kind | null }[];
@@ -359,6 +372,8 @@ export interface ExtractionOutcome {
   injection_suspected: boolean;
   /** Relationships said again that Kinship already holds, in the user's terms ("John is your brother"). */
   known?: string[];
+  /** What this understanding could not take (capacity), when anything; absent when the note was taken whole. */
+  coverage?: Coverage;
 }
 
 export type { DatePrecision, Direction };

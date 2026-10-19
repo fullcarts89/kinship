@@ -8,25 +8,46 @@ import { maxScale, size, space, type } from "@/design/tokens";
 import { Body, Label, MomentText, Pill, Row, Screen, Small, Sprig, usePalette } from "@/ui";
 
 export interface NoteData {
-  /** The note's words in plain and marked runs; null once the note's own text is gone. */
-  runs: { text: string; marked: boolean }[] | null;
+  /**
+   * The note's words in plain and marked runs; null once the note's own text is gone. `unprocessed`
+   * (Option A): words the understanding did not get to, until the user tells the rest.
+   */
+  runs: { text: string; marked: boolean; unprocessed?: boolean }[] | null;
   /** The kept excerpts when the note's text is gone. */
   quotes: string[];
   arrived: string;
   /** What came of it; a line since replaced by a later note stays, marked (H25). */
   items: { id: string; statement: string; person: string; personId: string; updated?: boolean }[];
+  /**
+   * The note held more than the understanding could take (Option A, founder 19 Oct). `unlocated`: how
+   * many of the things left out could not be placed in the note (nothing is marked for them; the note is
+   * still partial). `continued`: the user has told the rest in a later note.
+   */
+  partial?: { continued: boolean; unlocated: number } | null;
 }
+
+export const NOTE_COPY = {
+  underlined: "Underlined: the words Kinship kept",
+  dotted: "Dotted: words Kinship couldn't get to",
+  /** No span could be placed for what was left out: said plainly, nothing invented. */
+  someLeft: "Kinship couldn't get to all of this note.",
+  continued: "You told the rest in a later note.",
+  tellRest: "Tell the rest",
+} as const;
 
 export function NoteView({
   note,
   onBack,
   onPerson,
   onDelete,
+  onTellRest,
 }: {
   note: NoteData | null;
   onBack: () => void;
   onPerson: (personId: string) => void;
   onDelete: () => void;
+  /** "Tell the rest" of a note the understanding could not take whole (Option A). */
+  onTellRest?: () => void;
 }) {
   const p = usePalette();
   if (!note) {
@@ -50,7 +71,12 @@ export function NoteView({
             {note.runs.map((r, i) => (
               <Text
                 key={i}
-                style={r.marked ? { textDecorationLine: "underline", textDecorationColor: p.ochre, textDecorationStyle: "solid" } : undefined}
+                style={r.marked
+                  ? { textDecorationLine: "underline", textDecorationColor: p.ochre, textDecorationStyle: "solid" }
+                  : r.unprocessed
+                    // Not ochre: nothing here was understood. A plain, dotted mark on the note's own words.
+                    ? { textDecorationLine: "underline", textDecorationColor: p.inkQuiet, textDecorationStyle: "dotted" }
+                    : undefined}
               >
                 {r.text}
               </Text>
@@ -67,8 +93,17 @@ export function NoteView({
       </View>
       {note.runs && note.items.length ? (
         <Small style={{ marginTop: space.m }}>
-          {"Underlined: the words Kinship kept"}
+          {NOTE_COPY.underlined}
         </Small>
+      ) : null}
+      {/* Option A: what the understanding did not get to, said plainly; the rest can be told again. */}
+      {note.partial && !note.partial.continued ? (
+        <View style={{ marginTop: space.s, gap: space.s, alignItems: "flex-start" }}>
+          <Small>{note.runs?.some((r) => r.unprocessed) ? NOTE_COPY.dotted : NOTE_COPY.someLeft}</Small>
+          {onTellRest ? <Pill size="small" label={NOTE_COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to in the Tell field, to tell again" onPress={onTellRest} /> : null}
+        </View>
+      ) : note.partial?.continued ? (
+        <Small style={{ marginTop: space.s }}>{NOTE_COPY.continued}</Small>
       ) : null}
       {note.items.length ? <Label style={{ marginTop: space.x3, marginBottom: space.s }}>From this note</Label> : null}
       {note.items.map((i, n) => (

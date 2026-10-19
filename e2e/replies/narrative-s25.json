@@ -1,0 +1,2732 @@
+{
+  "note": "Susan moved to Alameda in the spring, then in June she moved again, to Oakland. She and Pedro have set a date for the wedding, sometime next spring. Pedro got a job at a bakery in Berkeley. Susan's dad had a fall last month and is still recovering. Chris is training for the Oakland marathon; his race is around his birthday. Chris and I are planning a climbing trip to Bishop in the spring and I told him I'd book the campsite. He said he'd send me the gear list by Friday. Ben started a new job at Stripe on October 13 and he's nervous about the on-call rotation. Ben and Lena are expecting in March, and Lena is going part-time after the baby. Maya got into the UCSF nursing programme! She starts in January and she's worried about the commute. Maya and Ben are both into bouldering. Maya, Chris and I did the Mission Peak hike last Saturday, and Maya wants to do Half Dome next year. John's birthday party is on November 2; he wants it to be a surprise for his wife and he asked me to bring the cake. John has been learning Portuguese. I want to make more time for John this winter.",
+  "variants": [
+    {
+      "label": "live 1 (19 Oct calibration, synthetic roster; 25 proposals, 5877 output tokens, 38690 ms)",
+      "output": {
+        "items": [
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan moved to Oakland in June",
+            "evidence": [
+              "then in June she moved again, to Oakland"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "in June",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "home",
+              "attribute": "lives in",
+              "value": "Oakland",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan and Pedro's wedding is set for next spring",
+            "evidence": [
+              "She and Pedro have set a date for the wedding, sometime next spring."
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "next spring",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "wedding",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "Pedro",
+            "subject": "related",
+            "related_relation": "partner",
+            "related_name": "Pedro",
+            "statement": "Susan's partner Pedro got a job at a bakery in Berkeley",
+            "evidence": [
+              "Pedro got a job at a bakery in Berkeley."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": null,
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "job",
+              "value": "a bakery in Berkeley",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Susan",
+            "person_mention": "Susan's dad",
+            "subject": "related",
+            "related_relation": "father",
+            "related_name": null,
+            "statement": "Susan's dad had a fall last month and is still recovering",
+            "evidence": [
+              "Susan's dad had a fall last month and is still recovering."
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.9,
+            "date_text": "last month",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "recovering from a fall",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Chris",
+            "person_mention": "Chris",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Chris is training for the Oakland marathon, around his birthday",
+            "evidence": [
+              "Chris is training for the Oakland marathon; his race is around his birthday."
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "around his birthday",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "race",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Chris",
+            "person_mention": "Chris",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You and Chris are planning a climbing trip to Bishop in the spring",
+            "evidence": [
+              "Chris and I are planning a climbing trip to Bishop in the spring"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in the spring",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "intended",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@Chris",
+            "person_mention": "him",
+            "subject": "user",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You told Chris you'd book the campsite",
+            "evidence": [
+              "I told him I'd book the campsite"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@Chris",
+            "person_mention": "He",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Chris said he'd send you the gear list by Friday",
+            "evidence": [
+              "He said he'd send me the gear list by Friday."
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "by Friday",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben started a new job at Stripe on October 13",
+            "evidence": [
+              "Ben started a new job at Stripe on October 13"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "on October 13",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "employer",
+              "value": "Stripe",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Ben",
+            "person_mention": "he",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben is nervous about the on-call rotation",
+            "evidence": [
+              "he's nervous about the on-call rotation"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "on-call rotation",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben and Lena are expecting a baby in March",
+            "evidence": [
+              "Ben and Lena are expecting in March"
+            ],
+            "certainty": "planned",
+            "sensitivity": "health",
+            "confidence": 0.85,
+            "date_text": "in March",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "birth",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Lena",
+            "person_mention": "Lena",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Lena and Ben are expecting a baby in March",
+            "evidence": [
+              "Ben and Lena are expecting in March"
+            ],
+            "certainty": "planned",
+            "sensitivity": "health",
+            "confidence": 0.85,
+            "date_text": "in March",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "birth",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Lena",
+            "person_mention": "Lena",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Lena is going part-time after the baby",
+            "evidence": [
+              "Lena is going part-time after the baby"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "after the baby",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "other",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "milestone",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya got into the UCSF nursing programme",
+            "evidence": [
+              "Maya got into the UCSF nursing programme!"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "admission",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Maya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya starts the nursing programme in January",
+            "evidence": [
+              "She starts in January"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in January",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "school_start",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Maya",
+            "person_mention": "she",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya is worried about the commute",
+            "evidence": [
+              "she's worried about the commute"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "the commute",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya is into bouldering",
+            "evidence": [
+              "Maya and Ben are both into bouldering."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "bouldering",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben is into bouldering",
+            "evidence": [
+              "Maya and Ben are both into bouldering."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "bouldering",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "moment",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Maya and Chris did the Mission Peak hike",
+            "evidence": [
+              "Maya, Chris and I did the Mission Peak hike last Saturday"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "last Saturday",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "Mission Peak",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "moment",
+            "person": "@Chris",
+            "person_mention": "Chris",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Chris and Maya did the Mission Peak hike",
+            "evidence": [
+              "Maya, Chris and I did the Mission Peak hike last Saturday"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "last Saturday",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "Mission Peak",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya wants to do Half Dome next year",
+            "evidence": [
+              "Maya wants to do Half Dome next year"
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "next year",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "Half Dome",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@John",
+            "person_mention": "John",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "John's birthday party is on November 2, a surprise for his wife",
+            "evidence": [
+              "John's birthday party is on November 2",
+              "he wants it to be a surprise for his wife"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.6,
+            "date_text": "on November 2",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@John",
+            "person_mention": "he",
+            "subject": "user",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "John asked you to bring the cake to his party",
+            "evidence": [
+              "he asked me to bring the cake"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "on November 2",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@John",
+            "person_mention": "John",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "John has been learning Portuguese",
+            "evidence": [
+              "John has been learning Portuguese."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "learning",
+              "value": "Portuguese",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@John",
+            "person_mention": "John",
+            "subject": "user",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You want to make more time for John this winter",
+            "evidence": [
+              "I want to make more time for John this winter."
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.7,
+            "date_text": "this winter",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          }
+        ],
+        "needs_clarification": null
+      }
+    },
+    {
+      "label": "live 2 (19 Oct calibration, synthetic roster; 25 proposals, 5910 output tokens, 38827 ms)",
+      "output": {
+        "items": [
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan moved to Oakland in June, after moving to Alameda in the spring",
+            "evidence": [
+              "then in June she moved again, to Oakland"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "in June",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "home",
+              "attribute": "lives in",
+              "value": "Oakland",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan and Pedro are getting married next spring",
+            "evidence": [
+              "She and Pedro have set a date for the wedding, sometime next spring"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "next spring",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "wedding",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "Pedro",
+            "subject": "related",
+            "related_relation": "fiancé",
+            "related_name": "Pedro",
+            "statement": "Susan's fiancé Pedro got a job at a bakery in Berkeley",
+            "evidence": [
+              "Pedro got a job at a bakery in Berkeley"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": null,
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "job",
+              "value": "a bakery in Berkeley",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Susan",
+            "person_mention": "Susan's dad",
+            "subject": "related",
+            "related_relation": "father",
+            "related_name": null,
+            "statement": "Susan's dad had a fall last month and is still recovering",
+            "evidence": [
+              "Susan's dad had a fall last month and is still recovering"
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.9,
+            "date_text": "last month",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "recovering from a fall",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Chris",
+            "person_mention": "Chris",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Chris is training for the Oakland marathon, around his birthday",
+            "evidence": [
+              "Chris is training for the Oakland marathon; his race is around his birthday"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "around his birthday",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "race",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Chris",
+            "person_mention": "Chris",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You and Chris are planning a climbing trip to Bishop in the spring",
+            "evidence": [
+              "Chris and I are planning a climbing trip to Bishop in the spring"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in the spring",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "intended",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@Chris",
+            "person_mention": "him",
+            "subject": "user",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You told Chris you'd book the campsite",
+            "evidence": [
+              "I told him I'd book the campsite"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@Chris",
+            "person_mention": "He",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Chris said he'd send you the gear list by Friday",
+            "evidence": [
+              "He said he'd send me the gear list by Friday"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "by Friday",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben started a new job at Stripe on October 13",
+            "evidence": [
+              "Ben started a new job at Stripe on October 13"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.95,
+            "date_text": "on October 13",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "employer",
+              "value": "Stripe",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Ben",
+            "person_mention": "he",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben is nervous about the on-call rotation",
+            "evidence": [
+              "he's nervous about the on-call rotation"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "on-call rotation",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben and Lena are expecting a baby in March",
+            "evidence": [
+              "Ben and Lena are expecting in March"
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.9,
+            "date_text": "in March",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "birth",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Lena",
+            "person_mention": "Lena",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Lena and Ben are expecting a baby in March",
+            "evidence": [
+              "Ben and Lena are expecting in March"
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.9,
+            "date_text": "in March",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "birth",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Lena",
+            "person_mention": "Lena",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Lena is going part-time after the baby",
+            "evidence": [
+              "Lena is going part-time after the baby"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "after the baby",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "other",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "milestone",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya got into the UCSF nursing programme",
+            "evidence": [
+              "Maya got into the UCSF nursing programme!"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.95,
+            "date_text": null,
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "admission",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Maya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya starts the UCSF nursing programme in January",
+            "evidence": [
+              "She starts in January"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "in January",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "school_start",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Maya",
+            "person_mention": "she",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya is worried about the commute",
+            "evidence": [
+              "she's worried about the commute"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "the commute",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya is into bouldering",
+            "evidence": [
+              "Maya and Ben are both into bouldering"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "bouldering",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben is into bouldering",
+            "evidence": [
+              "Maya and Ben are both into bouldering"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "bouldering",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "moment",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Maya and Chris did the Mission Peak hike last Saturday",
+            "evidence": [
+              "Maya, Chris and I did the Mission Peak hike last Saturday"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "last Saturday",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "Mission Peak",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "moment",
+            "person": "@Chris",
+            "person_mention": "Chris",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Chris and Maya did the Mission Peak hike last Saturday",
+            "evidence": [
+              "Maya, Chris and I did the Mission Peak hike last Saturday"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "last Saturday",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "Mission Peak",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya wants to do Half Dome next year",
+            "evidence": [
+              "Maya wants to do Half Dome next year"
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "next year",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "Half Dome",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@John",
+            "person_mention": "John",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "John's birthday party is on November 2, a surprise for his wife",
+            "evidence": [
+              "John's birthday party is on November 2",
+              "he wants it to be a surprise for his wife"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": "on November 2",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@John",
+            "person_mention": "he",
+            "subject": "user",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You're bringing the cake to John's birthday party",
+            "evidence": [
+              "he asked me to bring the cake"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": "on November 2",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@John",
+            "person_mention": "John",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "John has been learning Portuguese",
+            "evidence": [
+              "John has been learning Portuguese"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "learning",
+              "value": "Portuguese",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@John",
+            "person_mention": "John",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You want to make more time for John this winter",
+            "evidence": [
+              "I want to make more time for John this winter"
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.7,
+            "date_text": "this winter",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "idea",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          }
+        ],
+        "needs_clarification": null
+      }
+    },
+    {
+      "label": "live 3 (19 Oct calibration, synthetic roster; 25 proposals, 5906 output tokens, 40374 ms)",
+      "output": {
+        "items": [
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan moved to Oakland in June, after moving to Alameda in the spring",
+            "evidence": [
+              "then in June she moved again, to Oakland"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "in June",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "home",
+              "attribute": "lives in",
+              "value": "Oakland",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan and Pedro's wedding is set for next spring",
+            "evidence": [
+              "She and Pedro have set a date for the wedding, sometime next spring."
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "next spring",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "wedding",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "Pedro",
+            "subject": "related",
+            "related_relation": "partner",
+            "related_name": "Pedro",
+            "statement": "Susan's partner Pedro got a job at a bakery in Berkeley",
+            "evidence": [
+              "Pedro got a job at a bakery in Berkeley."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": null,
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "job",
+              "value": "a bakery in Berkeley",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Susan",
+            "person_mention": "Susan's dad",
+            "subject": "related",
+            "related_relation": "father",
+            "related_name": null,
+            "statement": "Susan's dad had a fall last month and is still recovering",
+            "evidence": [
+              "Susan's dad had a fall last month and is still recovering."
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.9,
+            "date_text": "last month",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "recovering from a fall",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Chris",
+            "person_mention": "Chris",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Chris is training for the Oakland marathon, around his birthday",
+            "evidence": [
+              "Chris is training for the Oakland marathon; his race is around his birthday."
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "race",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Chris",
+            "person_mention": "Chris",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You and Chris are planning a climbing trip to Bishop in the spring",
+            "evidence": [
+              "Chris and I are planning a climbing trip to Bishop in the spring"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in the spring",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "intended",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@Chris",
+            "person_mention": "him",
+            "subject": "user",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You told Chris you'd book the campsite",
+            "evidence": [
+              "I told him I'd book the campsite"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@Chris",
+            "person_mention": "He",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Chris said he'd send you the gear list by Friday",
+            "evidence": [
+              "He said he'd send me the gear list by Friday."
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "by Friday",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben started a new job at Stripe on October 13",
+            "evidence": [
+              "Ben started a new job at Stripe on October 13"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "on October 13",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "employer",
+              "value": "Stripe",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Ben",
+            "person_mention": "he",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben is nervous about the on-call rotation at Stripe",
+            "evidence": [
+              "he's nervous about the on-call rotation"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "on-call rotation",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben and Lena are expecting a baby in March",
+            "evidence": [
+              "Ben and Lena are expecting in March"
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.9,
+            "date_text": "in March",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "birth",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Lena",
+            "person_mention": "Lena",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Lena and Ben are expecting a baby in March",
+            "evidence": [
+              "Ben and Lena are expecting in March"
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.9,
+            "date_text": "in March",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "birth",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Lena",
+            "person_mention": "Lena",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Lena is going part-time after the baby",
+            "evidence": [
+              "Lena is going part-time after the baby"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "other",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "milestone",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya got into the UCSF nursing programme",
+            "evidence": [
+              "Maya got into the UCSF nursing programme!"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "admission",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Maya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya starts the UCSF nursing programme in January",
+            "evidence": [
+              "She starts in January"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in January",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "school_start",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Maya",
+            "person_mention": "she",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya is worried about the commute to UCSF",
+            "evidence": [
+              "she's worried about the commute"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "the commute",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya is into bouldering",
+            "evidence": [
+              "Maya and Ben are both into bouldering."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "bouldering",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben is into bouldering",
+            "evidence": [
+              "Maya and Ben are both into bouldering."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "bouldering",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "moment",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Maya and Chris did the Mission Peak hike",
+            "evidence": [
+              "Maya, Chris and I did the Mission Peak hike last Saturday"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "last Saturday",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "Mission Peak",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "moment",
+            "person": "@Chris",
+            "person_mention": "Chris",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Chris and Maya did the Mission Peak hike",
+            "evidence": [
+              "Maya, Chris and I did the Mission Peak hike last Saturday"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "last Saturday",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "Mission Peak",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Maya",
+            "person_mention": "Maya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Maya wants to do Half Dome next year",
+            "evidence": [
+              "Maya wants to do Half Dome next year"
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "next year",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "Half Dome",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@John",
+            "person_mention": "John",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "John's birthday party is on November 2, meant as a surprise for his wife",
+            "evidence": [
+              "John's birthday party is on November 2",
+              "he wants it to be a surprise for his wife"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": "on November 2",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@John",
+            "person_mention": "he",
+            "subject": "user",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "John asked you to bring the cake to his birthday party",
+            "evidence": [
+              "he asked me to bring the cake"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": "on November 2",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@John",
+            "person_mention": "John",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "John has been learning Portuguese",
+            "evidence": [
+              "John has been learning Portuguese."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "learning",
+              "value": "Portuguese",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@John",
+            "person_mention": "John",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You want to make more time for John this winter",
+            "evidence": [
+              "I want to make more time for John this winter."
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.7,
+            "date_text": "this winter",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "idea",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          }
+        ],
+        "needs_clarification": null
+      }
+    }
+  ]
+}
