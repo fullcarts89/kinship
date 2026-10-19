@@ -4,7 +4,11 @@
 //   quiet     text only, for secondary actions in a line
 //   danger    brick text in a faint outline, for destructive actions
 // At least 44 pt to touch; the label is never cut off (it shrinks a little as
-// a last resort, the canvas's button-wrap fix).
+// a last resort, the canvas's button-wrap fix). A quiet pill never shrinks
+// its type: its labels are a word or two ("Edit", "Not this") beside text
+// that wraps on its own, and iOS's fit-to-width can misfire on a re-layout
+// and leave the label a third of its size (seen on the B7/B8 simulator run
+// under a line with two "Before:" lines). It keeps its width instead.
 //
 // Busy: the button keeps its look and size and shows a small spinner in
 // place of its label, so waiting reads as "working", never as "disabled".
@@ -58,7 +62,7 @@ export function Pill({
       disabled={disabled || busy}
       onPress={onPress}
       hitSlop={variant === "quiet" ? space.s : space.xs}
-      style={({ pressed }) => [{ opacity: disabled ? press.disabled : pressed ? press.surface : 1 }, style]}
+      style={({ pressed }) => [{ opacity: disabled ? press.disabled : pressed ? press.surface : 1 }, variant === "quiet" ? { flexShrink: 0 } : null, style]}
     >
       <View
         style={{
@@ -82,7 +86,7 @@ export function Pill({
         {icon && !busy ? icon({ color: fg, size: SIZE.icon, strokeWidth: 1.8 }) : null}
         <Text
           numberOfLines={1}
-          adjustsFontSizeToFit
+          adjustsFontSizeToFit={variant !== "quiet"}
           minimumFontScale={0.8}
           maxFontSizeMultiplier={maxScale.label}
           style={[type.button, { color: fg, opacity: busy ? 0 : 1 }]}

@@ -31,6 +31,9 @@
 //   carries  its member item ids (the union of their sources is the caller's
 //            to read), the rule version and the dataset versions. It is a
 //            view: never a memory row, never a dossier line, never evidence
+//   portrait the Portrait's Lately shows one valid chain as one line: the
+//            head's own statement, dated by the newest member (B7, §13;
+//            residenceChain). Without a valid chain every line shows as today
 //   history  the same renderer, "Previously lived in ", over a chain the
 //            closer records as a change (§11): changed, completed or
 //            cancelled. A correction, a refinement, a progress chain, a
@@ -160,6 +163,23 @@ export function composeResidence(members: readonly ComposeMember[], opts: { prev
   }
   if (chain) return { lines: [render(sorted, prefix)], degraded: false };
   return { lines: sorted.map((m) => render([m], prefix)), degraded };
+}
+
+/**
+ * The chain a group of current residence lines forms, for the Portrait
+ * (Phase 4B B7; brief §13): when two or more lines compose, the head (the
+ * most specific line, whose own statement the Portrait shows), every
+ * member (the others leave the Portrait, never What Kinship knows), and the
+ * newest member's `told` (the chain is dated and ordered by it, so a recent
+ * "California" keeps the chain recent). Null when there is no valid chain:
+ * one line, or a group that fails open to separate lines.
+ */
+export function residenceChain(members: readonly ComposeMember[]): { headId: string; memberIds: string[]; newest: string } | null {
+  if (members.length < 2) return null;
+  const r = composeResidence(members);
+  if (r.lines.length !== 1 || r.lines[0].memberIds.length < 2) return null;
+  const newest = members.reduce((best, m) => (m.told > best ? m.told : best), members[0].told);
+  return { headId: r.lines[0].memberIds[0], memberIds: r.lines[0].memberIds, newest };
 }
 
 /** The transitions that are evidence of a change (§11, CC-20). */
