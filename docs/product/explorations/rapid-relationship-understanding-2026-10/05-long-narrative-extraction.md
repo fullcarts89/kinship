@@ -85,13 +85,17 @@ A long note is the one most likely to be long in output and in time, so it is th
 
 ### 2.7 The worst silent-loss paths, in order
 
-1. `MAX_ITEMS = 8`, first-eight-by-order, unreported anywhere a user can see.
-2. `evidence_ambiguous` and `no_evidence` on the first quote: no position hint, no normalisation; probability rises with note length and with short quotes.
-3. `low_confidence` below 0.6: silent, counts only; minor details in a long note may score lower (inferred).
-4. The output-budget and timeout retry loop: partial output discarded, six attempts, six quota units, then a generic failure with no re-submit; the `done` recovery path loses the saved summary and the telemetry event.
-5. Dedupe and merge rules that can fold distinct details (`sameItem` on event type + day, `oneSentenceOneMemory`, mirror collapse, participant caps).
-6. Context caps (roster 30, dossier 3 people / 40 items): not text loss, but a fourth person or an older memory cannot be merged, so a long story about many people produces duplicates and misleading "Who is X?" questions.
-7. The model's single `needs_clarification` field.
+*Re-ordered after the 19 Oct calibration (`07`): on measured stories, the model proposed every detail, the cap dropped the tail (5–6 of 13–14; 16 of 25), and the 50-detail story timed out twice and lost everything; model time grew ≈ 1.5 s per proposal, so the timeouts bite at ~19 (phone) and ~29 (server) proposals, before the output budget (~34).*
+
+1. `MAX_ITEMS = 8`, first-eight-by-order, unreported anywhere a user can see (**measured**: the last sentences of a story are the ones lost).
+2. **The timeout path** for anything past ~19 proposals: the phone gives up at 30 s while the server works to 45 s and retries to 90 s; six attempts, six quota units, a generic failure with no re-submit; the `done` recovery path loses the saved summary and the telemetry event (**measured**: 3/3 at 50 details; by the fit, a 25-detail story fails on the phone today).
+3. **Model omission** of a sentence with clear meaning (**measured**: 1 of 9, 3/3 runs); invisible because nothing marks a sentence with no proposal.
+4. `evidence_ambiguous` and `no_evidence` on the first quote: no position hint, no normalisation; probability rises with note length and with short quotes (not observed on the S-series; a code-path risk).
+5. `low_confidence` below 0.6: silent, counts only; minor details in a long note may score lower (inferred; not observed).
+6. The output-budget (`max_tokens`) discard: partial output thrown away whole (not reached on the S-series; the timeout comes first).
+7. Dedupe and merge rules that can fold distinct details (`sameItem` on event type + day, `oneSentenceOneMemory`, mirror collapse, participant caps).
+8. Context caps (roster 30, dossier 3 people / 40 items): not text loss, but a fourth person or an older memory cannot be merged, so a long story about many people produces duplicates and misleading "Who is X?" questions.
+9. The model's single `needs_clarification` field.
 
 Not loss paths, checked: the 4 KB gateway body (the note never travels in it); the single stored question (the client asks per held item); the sheet and the Source view (no caps on what they show).
 
