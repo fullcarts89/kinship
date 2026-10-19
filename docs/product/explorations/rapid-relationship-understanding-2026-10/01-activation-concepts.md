@@ -283,7 +283,9 @@ Effort columns are estimates from the built paths (counted taps; typing time at 
 | Pipeline or model change | — | none | none | none |
 | Risk | the evening of work | ranking feel (test it); a story with nothing in it | noise | mis-heard names |
 
-**Recommendation for the first usability experiment (Stage 2 in `04`):** A vs B+D1 vs B+C+D1, three arms, five to eight participants each, synthetic people, their own real stories about real friends (never recorded as data, see the stage's consent rules), with a no-event friend scenario and one multi-person story in each arm. The question is not "which is prettier" but: **time to the first correct Kept card, lines per minute of effort, review taps, and whether anyone feels asked to rank their friends.**
+**Recommendation for the first usability experiment (Stage 2 in `04`, a recommendation that needs the founder's yes):** A vs B+D1 vs B+C+D1, three arms, five to eight participants each, synthetic people, their own real stories about real friends, with a no-event friend scenario and one multi-person story in each arm. Participants consent in writing to where their words go: on the live path a story is sent from the lab gateway to the AI provider under the production D2 sentence; a replay path that sends nothing is offered to anyone who declines (`04` §6). The question is not "which is prettier" but: **time to the first correct Kept card, lines per minute of effort, review taps, and whether anyone feels asked to rank their friends.**
+
+**One constraint on arms B and C (founder, 19 Oct):** the story invitation ("A few sentences are better than one") is honest only up to the length the extraction path handles without silent loss. Today that is bounded at eight items and by the other limits in `05` §2. Until the `05` gate passes, the example story and the body copy should invite two to four sentences, not a 90-second account, and the study should record any note whose Kept card showed fewer things than the participant said.
 
 ---
 
@@ -295,3 +297,4 @@ Effort columns are estimates from the built paths (counted taps; typing time at 
 - Prompts that change based on what is "missing".
 - A dedicated Listening screen before the dock mic question (CC-25) is answered and before dictation has been observed in the study.
 - Any change to extraction tiers to make first notes look cleaner: the pronoun policy is a trust decision for the founder (`activation-pass.md` §7 q7), examined on evidence in `02` §8, not a UI shortcut.
+- Inviting a long story before the path can carry one without silent loss (`05`); or raising a numeric cap as the way to carry one.
