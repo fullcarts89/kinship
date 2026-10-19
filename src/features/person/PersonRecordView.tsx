@@ -254,8 +254,9 @@ function HistoryRow({ r, onChange, onForget, onSource }: {
         <Line>{text}</Line>
       </Pressable>
       {r.history?.when ? <Small style={{ marginTop: space.xs }}>{r.history.when}</Small> : null}
+      {/* The provenance gives way and wraps; the pills keep their size (a quiet pill never shrinks its type). */}
       <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Provenance line={r.provenance} onPress={r.noteId ? () => onSource(r.noteId as string) : undefined} />
         </View>
         <Pill variant="quiet" label="Edit" accessibilityLabel={`Edit: ${r.line.statement}`} accessibilityHint="Change the words" onPress={() => onChange(r.line, "words")} />
@@ -307,8 +308,9 @@ export function RecordRow({ r, onChange, onForget, onSource, onSettle }: {
           <Text style={{ textDecorationLine: "line-through" }}>{r.line.editedFrom}</Text>
         </Small>
       ) : null}
+      {/* The provenance gives way and wraps; the pills keep their size (a quiet pill never shrinks its type). */}
       <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Provenance line={r.provenance} onPress={r.noteId ? () => onSource(r.noteId as string) : undefined} />
         </View>
         <Pill variant="quiet" label="Edit" accessibilityLabel={`Edit: ${r.line.statement}`} accessibilityHint="Change the words" onPress={() => onChange(r.line, "words")} />
@@ -353,8 +355,9 @@ function ComposedRow({ r, onComposed, onSource }: { r: RecordLine; onComposed: (
         <Line>{text}</Line>
       </Pressable>
       {r.history?.when ? <Small style={{ marginTop: space.xs }}>{r.history.when}</Small> : null}
+      {/* The provenance gives way and wraps; the pills keep their size (a quiet pill never shrinks its type). */}
       <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Provenance line={r.provenance} onPress={provenance} />
         </View>
         <Pill variant="quiet" label={COMPOSED_COPY.edit} accessibilityLabel={`${COMPOSED_COPY.edit}: ${text}`} accessibilityHint={COMPOSED_COPY.editHint} onPress={() => onComposed(r)} />
