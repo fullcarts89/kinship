@@ -28,7 +28,7 @@ Rows 8–13 below are brief §16's 4B rows, as B7 and B8 make them; the labels a
    - **Expect:** the Kept card says **Susan moved to Colorado** with **Replaces: ~~Susan lives in Alameda~~** and **Replaces: ~~Susan lives in California~~** (B4).
 2. Open **What Kinship knows about Susan**.
    - **Expect:** **Background**: **Moved to Colorado** (with **Before: Susan lives in Alameda** and **Before: Susan lives in California** under it, H23); then a quiet **Before** label and **Previously lived in Alameda, California** with **You told Kinship · <today>** under it. **Into** still shows Loves pottery.
-   - **Expect:** nothing says "Updated", a date Kinship never heard, a place id or "Alameda is in California".
+   - **Expect:** nothing says "Updated", "Ended", a date Kinship never heard, a place id or "Alameda is in California".
 3. Tap the provenance under **Previously lived in Alameda, California**.
    - **Expect:** the Source view of the **moved to Colorado** note (the note that told the change). Go back.
 4. Tap **Previously lived in Alameda, California** (or its **Edit**).

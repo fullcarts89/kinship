@@ -48,6 +48,26 @@ describe("B7: the Portrait shows one residence chain as one line (brief §13)", 
     expect(await latelyOf(w)).toEqual(["Susan lives in Alameda", "Susan loves pottery"]);
   });
 
+  it("(2c) the same day: Alameda, then pottery, then California an hour later: the chain is newest, as Alameda's words (review of PR #56)", async () => {
+    const w = await world();
+    await kept(w, "Susan lives in Alameda.", "Susan lives in Alameda");
+    w.server.clock += 3600 * 1000;
+    await kept(w, "Susan loves pottery.", "Susan loves pottery");
+    w.server.clock += 3600 * 1000;
+    await kept(w, "Susan lives in California.", "Susan lives in California");
+    const p = await portrait(w);
+    expect(p.lately.map((l) => l.statement)).toEqual(["Susan lives in Alameda", "Susan loves pottery"]);
+    expect(p.lately[0]).toMatchObject({ itemId: String((await serverLine(w, "Susan lives in Alameda")).id), provenance: expect.stringMatching(/^You told Kinship · Oct \d+$/u) });
+    // The control, pottery told last the same day: pottery first.
+    const c = await world();
+    await kept(c, "Susan lives in Alameda.", "Susan lives in Alameda");
+    c.server.clock += 3600 * 1000;
+    await kept(c, "Susan lives in California.", "Susan lives in California");
+    c.server.clock += 3600 * 1000;
+    await kept(c, "Susan loves pottery.", "Susan loves pottery");
+    expect(await latelyOf(c)).toEqual(["Susan loves pottery", "Susan lives in Alameda"]);
+  });
+
   it("(2b) an old Alameda and a recent California: the chain is recent, as Alameda's words", async () => {
     const w = await world();
     await kept(w, "Susan lives in Alameda.", "Susan lives in Alameda");

@@ -280,6 +280,29 @@ describe("B8: Before, under CC-20 (brief §11)", () => {
     expect(dp.history).toEqual([]);
   });
 
+  it("(12b) work history is dated only by the day the change was told: 'got the job at Google on Jan 4' claims no end for Meta (review of PR #56)", async () => {
+    const w = await world();
+    await told(w, "Susan works at Meta.", { statement: "Susan works at Meta", detail: { category: "work" } });
+    w.server.clock += 24 * 3600 * 1000;
+    await told(w, "Susan got the job at Google on January 4.", {
+      statement: "Susan got the job at Google on January 4", detail: { category: "work" }, date_text: "on January 4", date_direction: "past",
+      existing: { action: "supersede", statement: "Susan works at Meta" },
+    });
+    const google = await serverLine(w, "Susan got the job at Google on January 4");
+    expect([(google.detail as Record<string, unknown>).transition, (google.detail as Record<string, unknown>).date_precision]).toEqual(["completed", "day"]);
+    const p = await page(w);
+    expect(read(p.sections)).toEqual([["Background", ["Got the job at Google on January 4", "— Before", "Susan works at Meta"]]]);
+    expect(p.history[0].history).toEqual({ when: null });
+    expect(p.history[0].provenance).toMatch(/^You told Kinship · Oct \d+$/u);
+    expect(JSON.stringify(p.history)).not.toMatch(/Ended|Started|Jan 4/u);
+    // A move with its day keeps "Moved · <day>": the note that said the move dates it.
+    const m = await world();
+    await kept(m, "Susan lives in Alameda.", "Susan lives in Alameda");
+    await told(m, "Susan moved to Colorado on January 4.", { statement: "Susan moved to Colorado on January 4", detail: { category: "home" }, date_text: "on January 4", date_direction: "past" });
+    const mp = await page(m);
+    expect(mp.history.map((h) => [h.display, h.history?.when])).toEqual([["Previously lived in Alameda", "Moved · Jan 4"]]);
+  });
+
   it("(13) never across people: Dana's history never reaches Susan's page", async () => {
     const w = await world();
     await kept(w, "Dana lives in Alameda.", "Dana lives in Alameda", { person: w.dana.id });

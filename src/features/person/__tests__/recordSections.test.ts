@@ -126,16 +126,28 @@ describe("B8: Before, conservatively (brief §11; CC-20)", () => {
   it("is dated by the note that told the change, and 'Moved · Jan 4' only when it gives the day", () => {
     expect(historyProvenance("2026-10-09T15:00:00Z", NOW)).toBe("You told Kinship · Oct 9");
     expect(historyProvenance("2025-01-04T15:00:00Z", NOW)).toBe("You told Kinship · Jan 4, 2025");
-    expect(historyWhen("residence", { detail: { date: "2026-01-04", date_precision: "day" } }, NOW)).toBe("Moved · Jan 4");
-    expect(historyWhen("residence", { detail: { date: "2026-01-01", date_precision: "month" } }, NOW)).toBe("Moved · January");
-    expect(historyWhen("residence", { detail: { date: "2025-01-01", date_precision: "month" } }, NOW)).toBe("Moved · January 2025");
-    expect(historyWhen("thread", { detail: { date: "2026-10-06", date_precision: "day" } }, NOW)).toBe("Ended · Oct 6");
-    expect(historyWhen("work", { detail: { date: "2026-10-06" } }, NOW)).toBe("Ended · Oct 6");
+    const moved = (detail: Record<string, unknown>) => ({ statement: "Susan moved to Colorado on Jan 4", detail });
+    expect(historyWhen("residence", moved({ date: "2026-01-04", date_precision: "day" }), NOW)).toBe("Moved · Jan 4");
+    expect(historyWhen("residence", moved({ date: "2026-01-01", date_precision: "month" }), NOW)).toBe("Moved · January");
+    expect(historyWhen("residence", moved({ date: "2025-01-01", date_precision: "month" }), NOW)).toBe("Moved · January 2025");
+    expect(historyWhen("residence", { statement: "Susan now lives in Colorado", detail: { date: "2026-01-04", date_precision: "day" } }, NOW)).toBe("Moved · Jan 4");
     // A year, a season, a range or no date: nothing (never valid_to, never "Updated").
-    expect(historyWhen("residence", { detail: { date: "2026-01-01", date_precision: "year" } }, NOW)).toBeNull();
-    expect(historyWhen("residence", { detail: { date: "2026-06-01", date_precision: "season" } }, NOW)).toBeNull();
-    expect(historyWhen("residence", { detail: {} }, NOW)).toBeNull();
-    expect(historyWhen("residence", { detail: { valid_to: "2026-10-09" } }, NOW)).toBeNull();
+    expect(historyWhen("residence", moved({ date: "2026-01-01", date_precision: "year" }), NOW)).toBeNull();
+    expect(historyWhen("residence", moved({ date: "2026-06-01", date_precision: "season" }), NOW)).toBeNull();
+    expect(historyWhen("residence", moved({}), NOW)).toBeNull();
+    expect(historyWhen("residence", moved({ valid_to: "2026-10-09" }), NOW)).toBeNull();
+    // A residence closer whose words don't say a move ("lives in California since March", closed by the user's
+    // "Susan moved"): its date is not the move's.
+    expect(historyWhen("residence", { statement: "Susan lives in California since March", detail: { date: "2026-03-01", date_precision: "month" } }, NOW)).toBeNull();
+  });
+
+  it("never claims when a job or a thread ended: a closing note's date is the new state's (review of PR #56)", () => {
+    // "Susan got the job at Google on Jan 4" dates the new job, not Meta's end.
+    expect(historyWhen("work", { statement: "Susan got the job at Google on Jan 4", detail: { date: "2026-01-04", date_precision: "day" } }, NOW)).toBeNull();
+    expect(historyWhen("work", { statement: "Susan started at Google in January", detail: { date: "2026-01-01", date_precision: "month" } }, NOW)).toBeNull();
+    expect(historyWhen("thread", { statement: "Susan got the job at Stripe on Oct 6", detail: { date: "2026-10-06", date_precision: "day" } }, NOW)).toBeNull();
+    expect(historyWhen("thread", { statement: "The wedding was called off on Oct 6", detail: { date: "2026-10-06", date_precision: "day" } }, NOW)).toBeNull();
+    expect(historyWhen("work", { statement: "Susan left Meta on Jan 4", detail: { date: "2026-01-04", date_precision: "day" } }, NOW)).toBeNull();
   });
 });
 

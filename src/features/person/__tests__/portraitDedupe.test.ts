@@ -71,6 +71,21 @@ describe("B7: one residence chain, one slot in Lately (brief §13)", () => {
     expect(lately([line(oldAlameda, facet("ala", "Alameda", [P.alameda])), line(pottery)])).toEqual(["Susan loves pottery"]);
   });
 
+  it("within one day, orders the chain by its newest member's time, never the head's own (review of PR #56)", () => {
+    const at = (iso: string, id: string, statement: string, over: Partial<MemoryItem> = {}) => item(id, statement, 0, { created_at: iso, ...over });
+    // Alameda in the morning, pottery at eleven, then California (the broader confirmation) at noon, all today:
+    // the chain is as new as California, so it comes before pottery, still as Alameda's words and provenance.
+    const morning = at(`${TODAY}T09:00:00Z`, "ala", "Susan lives in Alameda");
+    const eleven = at(`${TODAY}T11:00:00Z`, "pot", "Susan loves pottery", { detail: { category: "interest" } });
+    const noon = at(`${TODAY}T12:00:00Z`, "cal", "Susan lives in California");
+    const p = build([line(morning, facet("ala", "Alameda", [P.alameda])), line(eleven), line(noon, facet("cal", "California", [P.california]))]);
+    expect(p.lately.map((l) => [l.statement, l.itemId, l.noteId])).toEqual([["Susan lives in Alameda", "ala", "n-ala"], ["Susan loves pottery", "pot", "n-pot"]]);
+    // The control: California at ten, pottery at eleven: pottery is newer than the whole chain.
+    const ten = at(`${TODAY}T10:00:00Z`, "cal", "Susan lives in California");
+    expect(lately([line(morning, facet("ala", "Alameda", [P.alameda])), line(eleven), line(ten, facet("cal", "California", [P.california]))]))
+      .toEqual(["Susan loves pottery", "Susan lives in Alameda"]);
+  });
+
   it("orders the chain among other lines by its newest member", () => {
     const pottery = item("pot", "Susan loves pottery", 20, { detail: { category: "interest" } });
     const skiing = item("ski", "Susan took up skiing", 2, { detail: { category: "interest" } });

@@ -36,8 +36,12 @@
 // before 4B with no transition recorded. Residence history is said in the
 // composer's words ("Previously lived in Alameda, California"); anything
 // else is the old line in its own words. It is dated by the day the change
-// was told ("You told Kinship · Jan 4"), with "Moved · Jan 4" or "Ended ·
-// Jan 4" only when that note gives the day; never valid_to, never "Updated".
+// was told ("You told Kinship · Jan 4"), with "Moved · Jan 4" only when the
+// note that said the move gives its day; never valid_to, never "Updated".
+// No "Ended" or "Started": a closing note's date describes the new state
+// ("got the job at Google on Jan 4" dates the new job, not Meta's end), and
+// the fields can't tell the two apart, so no end date is claimed (CC-19:
+// "Started" and "Ended" only when the source establishes the real date).
 import { type Categorizable, type Category, categoryOf, SECTION_LABEL, SECTION_OF, type Section, SECTIONS } from "../../../supabase/functions/_shared/semantic/categories";
 import { HISTORY_TRANSITIONS, historyEligible } from "../../../supabase/functions/_shared/semantic/compose";
 import { mentionsOf, shortName } from "../../../supabase/functions/_shared/extraction/names";
@@ -51,8 +55,11 @@ export type { Section };
 /** The quiet label over history lines in Background (founder CC-20, decision 4). */
 export const BEFORE_LABEL = "Before";
 
-/** How a history line is dated when the note that told the change gives the day (§11). */
-export const HISTORY_WHEN = { moved: "Moved", ended: "Ended" } as const;
+/** How a residence history line is dated when the note that told the move gives its day (§11). */
+export const HISTORY_WHEN = { moved: "Moved" } as const;
+
+/** The note's own words say a move (the cues of brief §8); only then is its date the move's. */
+const MOVE_WORDS = /\b(?:moved|has moved|relocated|now lives?|lives? in\b.*\bnow)\b/iu;
 
 /** Where a line sits, from its existing fields and the user's own words behind it (B1). */
 export function sectionFor(item: Categorizable, quotes: readonly string[]): { category: Category; section: Section } {
@@ -122,20 +129,23 @@ export function historyKind(
 export const CHANGE_TRANSITIONS = HISTORY_TRANSITIONS;
 
 /**
- * "Moved · Jan 4" / "Ended · Jan 4" when the note that told the change gives
- * the day; "Moved · January" for a month; nothing otherwise (§11: never
- * valid_to, never "Updated").
+ * "Moved · Jan 4" when the note that said the move ("moved to Colorado on
+ * Jan 4") gives the day; "Moved · January" for a month; nothing otherwise
+ * (§11: never valid_to, never "Updated"). Work and threads carry no date
+ * line: a closing note's date is the new state's, never proof of when the
+ * old one ended (review of PR #56).
  */
-export function historyWhen(kind: "residence" | "work" | "thread", closer: { detail?: unknown }, now: Date): string | null {
+export function historyWhen(kind: "residence" | "work" | "thread", closer: { statement?: unknown; detail?: unknown }, now: Date): string | null {
+  if (kind !== "residence") return null;
+  if (typeof closer.statement !== "string" || !MOVE_WORDS.test(closer.statement)) return null;
   const d = (closer.detail ?? {}) as Record<string, unknown>;
   const date = typeof d.date === "string" ? d.date : "";
   const precision = typeof d.date_precision === "string" ? d.date_precision : date ? "day" : "";
   if (!/^\d{4}-\d{2}-\d{2}/u.test(date)) return null;
-  const label = kind === "residence" ? HISTORY_WHEN.moved : HISTORY_WHEN.ended;
-  if (precision === "day") return `${label} · ${momentLabel(`${date.slice(0, 10)}T12:00:00`, now, false)}`;
+  if (precision === "day") return `${HISTORY_WHEN.moved} · ${momentLabel(`${date.slice(0, 10)}T12:00:00`, now, false)}`;
   if (precision === "month") {
     const year = Number(date.slice(0, 4));
-    return `${label} · ${monthName(Number(date.slice(5, 7)) - 1)}${year !== now.getFullYear() ? ` ${year}` : ""}`;
+    return `${HISTORY_WHEN.moved} · ${monthName(Number(date.slice(5, 7)) - 1)}${year !== now.getFullYear() ? ` ${year}` : ""}`;
   }
   return null;
 }
