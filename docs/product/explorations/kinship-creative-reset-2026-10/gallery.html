@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship · creative reset · checkpoint A (exploratory, unapproved)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&family=Instrument+Serif:ital@0;1&family=Archivo:ital,wdth,wght@0,62..125,400..900;1,62..125,400..900&family=Courier+Prime:wght@400;700&family=Alfa+Slab+One&family=Fredoka:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<link rel="stylesheet" href="overgrown.css">
+<link rel="stylesheet" href="fragments.css">
+<link rel="stylesheet" href="rings.css">
+<script src="fixtures.js"></script>
+<script src="overgrown.js"></script>
+<script src="fragments.js"></script>
+<script src="rings.js"></script>
+</head>
+<body>
+<div class="review">
+  <h1>Three Today experiences, side by side</h1>
+  <p><b>Checkpoint A · visual direction only.</b> The same grounded content (Ben's race tomorrow; Maya's birthday; a quiet Monday) in three independently art-directed experiences. Nothing is built, approved or scheduled; the people are fictional; nothing here changes how Today chooses what to show.</p>
+  <span class="banner">EXPLORATORY · UNAPPROVED · stop for founder feedback before checkpoint B</span>
+  <div class="controls">
+    <button data-dark="0" class="on">Light</button><button data-dark="1">Dark</button>
+    <label><input id="reduce" type="checkbox"> Reduce Motion</label>
+    <span style="width:12px"></span>
+    <button data-row="all" class="on">All three scenarios</button><button data-row="moment">Moment</button><button data-row="birthday">Celebration</button><button data-row="quiet">Quiet day</button>
+  </div>
+</div>
+<div class="grid" id="grid"></div>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  if (q.get("capture")) { document.body.classList.add("capture"); if (!q.get("concept")) document.body.classList.add("capture-grid"); }
+  const C = [["overgrown", "1 · Overgrown", "the electric garden, reimagined: a grainy botanical scene the headline grows through", window.OVERGROWN], ["fragments", "2 · Fragments", "the living scrapbook: torn paper, a holographic ground, the person's name as the picture", window.FRAGMENTS], ["rings", "3 · Rings", "the wild card: the week as a dial of thick arcs; the Moment at its centre", window.RINGS]];
+  const ROWS = [["moment", "A meaningful Moment · Saturday, Oct 10"], ["birthday", "A celebration · Maya's birthday, Oct 17"], ["quiet", "A quiet day · Monday, Oct 12"]];
+  let dark = q.get("dark") === "1", reduce = !!q.get("reduce"), row = q.get("state") || "all", only = q.get("concept");
+  const grid = document.getElementById("grid");
+  function build() {
+    grid.innerHTML = "";
+    const cs = C.filter((c) => !only || c[0] === only);
+    if (!only) for (const c of cs) grid.insertAdjacentHTML("beforeend", `<div class="colhead">${c[1]}<small>${c[2]}</small></div>`);
+    for (const [key, label] of ROWS) {
+      if (row !== "all" && row !== key) continue;
+      if (!only) grid.insertAdjacentHTML("beforeend", `<div class="rowlabel">${label}</div>`);
+      for (const c of cs) { const d = document.createElement("div"); d.innerHTML = c[3] ? c[3].render(key, { dark, reduce }) : `<div class="phone" style="background:#222"></div>`; grid.appendChild(d.firstElementChild); }
+    }
+    document.querySelectorAll("[data-dark]").forEach((b) => b.classList.toggle("on", (b.dataset.dark === "1") === dark));
+    document.querySelectorAll("[data-row]").forEach((b) => b.classList.toggle("on", b.dataset.row === row));
+    document.getElementById("reduce").checked = reduce;
+  }
+  document.querySelectorAll("[data-dark]").forEach((b) => b.addEventListener("click", () => { dark = b.dataset.dark === "1"; build(); }));
+  document.querySelectorAll("[data-row]").forEach((b) => b.addEventListener("click", () => { row = b.dataset.row; build(); }));
+  document.getElementById("reduce").addEventListener("change", (e) => { reduce = e.target.checked; build(); });
+  build();
+})();
+</script>
+</body>
+</html>

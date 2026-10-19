@@ -1,0 +1,28 @@
+/* Creative reset, checkpoint A. The phone frame and the review chrome; each concept brings its own stylesheet. */
+body { margin: 0; background: #111; color: #EDEDED; font-family: "DM Sans", system-ui, sans-serif; }
+.review { padding: 28px 32px 60px; }
+.review h1 { font: 500 28px/34px "DM Sans", sans-serif; margin: 0 0 6px; }
+.review p { font-size: 14px; line-height: 21px; color: #B9B9B9; max-width: 860px; margin: 4px 0; }
+.review .banner { display: inline-block; background: #2A2A2A; color: #FFD23F; padding: 6px 10px; border-radius: 8px; font-size: 12px; margin: 10px 0 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0 6px; }
+.controls button, .controls label { font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 16px; border: 1px solid #3A3A3A; background: #1C1C1C; color: #EDEDED; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.controls button.on { background: #EDEDED; color: #111; border-color: #EDEDED; }
+.grid { display: grid; grid-template-columns: repeat(3, 393px); gap: 28px 34px; align-items: start; padding: 10px 0 0; }
+.grid .colhead { font: 600 15px/20px "DM Sans", sans-serif; color: #fff; }
+.grid .colhead small { display: block; font-weight: 400; color: #9A9A9A; font-size: 13px; line-height: 18px; margin-top: 2px; }
+.grid .rowlabel { grid-column: 1 / -1; font: 500 11px/14px "DM Sans", sans-serif; letter-spacing: 1.6px; text-transform: uppercase; color: #8A8A8A; margin-top: 8px; }
+body.capture .review, body.capture .controls, body.capture .colhead, body.capture .rowlabel { display: none; }
+body.capture { background: transparent; }
+body.capture .grid { gap: 0; padding: 0; grid-template-columns: 393px; }
+body.capture.capture-grid .grid { gap: 40px 46px; padding: 24px; grid-template-columns: repeat(3, 393px); background: #111; }
+
+.phone { --W: 393px; --H: 852px; width: var(--W); height: var(--H); position: relative; overflow: hidden; border-radius: 50px; box-shadow: 0 14px 44px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08); -webkit-font-smoothing: antialiased; }
+.phone * { box-sizing: border-box; }
+.phone .status { position: absolute; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: center; height: 54px; padding: 10px 28px 0; font: 600 16px/20px -apple-system, "SF Pro Text", system-ui, sans-serif; z-index: 9; }
+.phone .status .island { width: 124px; height: 36px; background: #000; border-radius: 20px; }
+.phone .status .sig { display: inline-flex; gap: 6px; align-items: center; }
+.phone .home { position: absolute; left: 50%; bottom: 10px; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; z-index: 9; }
+.phone .bar { position: absolute; left: 0; right: 0; bottom: 28px; display: flex; justify-content: center; gap: 44px; z-index: 8; }
+.phone .tell { position: absolute; left: 20px; right: 20px; bottom: 78px; height: 54px; z-index: 8; display: flex; align-items: center; padding: 0 20px; gap: 10px; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
