@@ -122,7 +122,28 @@ Every drop reason was `too_many_items`. Every completed call ended with `stop_re
 
 ---
 
-## 6. Limits of this evidence
+## 6. Addendum (19 Oct, later): targeted probes for the founder's review
+
+Eight short synthetic notes, two runs each, same method (fresh accounts, the current gateway, the live model via the private recording stub; both processes stopped afterwards). Purpose: the coverage-granularity counterexample and the omission question in the founder's review. Cost ≈ $0.35 at list prices.
+
+| probe | note | details | saved + held | spans | result |
+|---|---|---|---|---|---|
+| P1 compound, two facts | "Ben started a new job at Stripe on October 13 and he's nervous about the on-call rotation." | 2 | 2 + 0 (2/2 runs) | clause-level: "Ben started…October 13" / "he's nervous about the on-call rotation" | fully split |
+| P2 compound, three facts | "Susan has been obsessed with ceramics lately; she signed up for a wheel class on Thursdays and she wants me to come to one." | 3 | 3 + 0 (2/2) | three clause spans | fully split |
+| P3 compound with a relative's sensitive fact | "Maya got into the UCSF nursing programme, she starts in January, and her sister is getting divorced." | 3 | 0 + 3 (2/2) | three clause spans; all three held (the divorce is a relative's and sensitive; the programme lines were held with it) | fully split; held |
+| P4 bike paraphrase at the end | S8 + "She also got her bike fixed at last." | 9 | 5 + 2 (2/2) | the bike sentence **uncovered** both runs | omitted |
+| P5 bike paraphrase, no pronoun, no name | S8 + "Oh, and the bike is finally working again." | 9 | 5 + 2 (2/2) | **uncovered** both runs | omitted |
+| P6 bike moved to the front | "Priya finally fixed her bike." + S8 | 9 | 5 + 2 / 6 + 2 | **uncovered** both runs | omitted: position does not matter |
+| P7 bike alone | "Saw Chris today. He finally fixed his bike." | 1 | 1 + 0 (2/2) | "He finally fixed his bike." | **kept** when alone |
+| P8 compound with a held clause | "Ben ran a half marathon on Sunday and he wants to break two hours next time, though his knee has been bothering him." | 3 | 2 + 1 (2/2) | three clause spans; the knee held (sensitive) | fully split |
+
+**Readings.**
+- On short notes the model splits compound sentences into clause-level spans every time, so span-level coverage can see a clause that is left out when one is.
+- The bike is omitted in every long-note variant (6/6 runs) and kept when alone (2/2): a relevance judgement the model makes in a dense note, which the system cannot tell from a miss. Nothing in the reply or on the phone shows it.
+- **The sentence-level counterexample is in the calibration itself (S25, 3/3 runs):** "Susan moved to Alameda in the spring, then in June she moved again, to Oakland." produced one line whose span is only "then in June she moved again, to Oakland"; at the sentence level the sentence counts as extracted, at the span level "Susan moved to Alameda in the spring" is uncovered (run 1's statement, "Susan moved to Oakland in June", carries no trace of it; runs 2–3 mention Alameda in the statement but still quote only the Oakland clause). A second, span-invisible case: "Chris is training for the Oakland marathon; his race is around his birthday" was quoted whole and became "Chris is training for the Oakland marathon, around his birthday", a conflation no coverage model can see.
+- **The meaning floor as proposed in the first draft of `06` misses the bike** ("And she finally fixed her bike." has no roster name, kin, promise, milestone, date or event word) in every run and **flags filler** ("The coffee at that new place is pretty good." via "coffee"); adding pronouns catches the bike but flags "We talked about all sorts of things." Offline test over every sentence that had no proposal in the calibration (`floor.mjs`, scratchpad).
+
+## 7. Limits of this evidence
 
 - n = 3 per story; one afternoon; the provider's speed varies by day. The slope is the robust part; the intercept and the exact ceilings will move.
 - The timeout paths were observed only in their natural form (S50). S-trunc, S-timeout and S-resume remain to be run once the brief's path exists on a branch.

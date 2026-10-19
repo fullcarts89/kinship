@@ -1,234 +1,293 @@
-# 06 · Technical brief (draft): extraction from longer narratives without silent loss
+# 06 · Technical brief (revised draft): extraction from longer narratives without silent loss
 
-*Draft for founder review, 19 Oct 2026. **PROPOSAL ONLY. NO BUILD AUTHORISED.** This brief turns `05-long-narrative-extraction.md` §4 into a concrete design that could be reviewed like a Commit-next brief. Every number in it is a candidate value, marked as such; **none is chosen here**, and the founder's direction stands: no arbitrary user-facing cap, and no internal limit may silently drop information. File and line references are to `main` `9ad5e6d`. Nothing in this folder changes code, a prompt, a schema, a flag or a screen.*
+*Second draft, 19 Oct 2026, revised on the founder's review of the calibration (`07`) and the first draft. **PROPOSAL ONLY. NO BUILD, MIGRATION, MERGE, DEPLOYMENT OR PRODUCTION WORK AUTHORISED.** Every number is a candidate from the 19 Oct measurements and is re-measured on the day it is set. File and line references are to `main` `9ad5e6d`. The founder's direction stands: no arbitrary user-facing cap on memories from one story; internal limits may exist but may never silently drop information; and no numeric cap is chosen here.*
 
-> **Calibration ran on 19 Oct (`07-calibration-evidence-2026-10-19.md`), on the founder's authorisation.** Its findings change this brief in three places, marked "(calibrated)" below: the model proposes every detail and the pipeline's cap is the loss; model time is ≈ 1.75 s + 1.5 s per proposed memory, so **a call's output must be bounded by time, not by tokens**, and the 45 s server timeout is reached (~29 proposals) well before the 8,000-token budget (~34); and a model omission was observed 3/3 on a 9-detail story. The candidates below are now from measurement; they stay candidates until the founder's review and a re-measurement on the day they are set.
-
-## 0. What the founder is asked to decide from this brief
-
-1. Whether the **chosen path** (§2) is the right shape: one call plus coverage accounting for every note; a bounded second pass over uncovered sentences; continuation when output is truncated; segmentation only above a threshold set by evidence.
-2. Whether the **coverage record** (§3) and the **reply shape** (§4) are acceptable as the way the four outcome categories become visible, including the content-free summary on the server.
-3. Whether **writes stay single-transaction per note** (§6, recommended) rather than per window.
-4. Whether the **copy proposals** for the card, the sheet and the Source view (§8) may be tested on the simulator tier.
-5. Whether to **run the calibration** (§10, Stage 1 of this brief: live-model runs of the S-series on the local stack, ~$5–15 of model calls) that sets the candidate values before any code is written.
-6. The **quota treatment** of a multi-call note (§9).
-
-Approving this brief would authorise the calibration runs and a reviewed implementation plan; it would not by itself authorise a gateway deploy, a migration or a build. Each of those stays a separate step with its own evidence (§11).
+*What the review asked for, and where it is answered: durable processing and atomic finalisation (§5); coverage granularity with a counterexample (§3); model omissions, the floor test and the detectable / undeterminable split (§4); timeouts, batching and recovery modelled for S25 and S50, including interruption, app close and gateway death (§6, §7); two independently reviewable options, containment and full capability, with complexity and regression surface (§9); the existing contract, B7–B9 and CC-28 preserved (§10); the evidence plan (§11); unresolved risks (§12); the founder decisions (§13, registered in `04` §9 as D9a–D9g).*
 
 ---
 
-## 1. The proposal in one paragraph
+## 1. Independent recommendation
 
-Keep one model call for every note. Replace the silent eight-item cut with **accounting**: a deterministic sentence map of the note, shared by the gateway and the phone, on which every sentence ends in exactly one of four categories (processed · extracted · excluded by a rule · unprocessed). Return the map's summary with the reply, and show the fourth category on the phone as a **partial** state with a retry that resumes from the map, never re-sending finished content. When the model's reply is cut by the output budget, keep the complete items and **continue** for the uncovered sentences instead of discarding and retrying whole. After any call, run one small **second pass** over sentences with clear meaning and no proposal, so a model omission is caught rather than assumed. Only when a note is larger than one call reliably completes, process it in sentence-aligned **windows** under one claim, carrying an entity ledger (names and referents, never facts) and the statements proposed so far, and commit everything in one transaction at the end. Fix the evidence locator so a quote that appears twice is placed by position rather than dropped. Change nothing about tiers, thresholds, sensitivity, dates, merge or provenance.
+**Do the containment fix first, as a small reviewable PR before the household dogfood, and gate the full capability behind B9 and the dogfood.** The calibration showed that today a note with more than eight proposed memories loses its tail in silence, a 25-detail note already fails on the phone by a timeout inversion, and a 50-detail note loses everything after ninety seconds and six retries, each time reporting a normal outcome or a terminal failure that reads as the user's fault. None of that needs continuation, windows or a new review to stop: it needs the pipeline to say what it dropped, the phone to show a partial state with the note preserved and a retry, the client timeout to exceed the server's, and the card to stop claiming "Kept for Susan" as if complete. That is **Option A** (§9): a gateway reply change, one small forward-only migration (a capture status), client states and copy, no prompt change, no new table of content, and a regression surface that lies inside the Tell lifecycle tests and the K-series black-box suites. It changes nothing for a note of eight or fewer proposals, which is every note the household is likely to tell in its first weeks.
+
+**Option B** (continuation, durable checkpoints with one atomic write, client-driven windows, a second pass, the structured review) is the long-term design. Its architecture is recommended as **durable per-window checkpoints followed by atomic finalisation**, driven by the phone one bounded call at a time (§5): it is the simplest shape that keeps exact Undo capture-scoped, writes every source once, survives an app close or a gateway death at any point, and makes a retry deterministic from what was checkpointed. Per-window commits are rejected for this product because the review row, the supersede ordering and the Kept card all assume one settled note. Option B's build waits for its own brief after B9; its direction can be approved now so Option A does not paint it in.
+
+**The three things the review changed in the design:** coverage is **span-level with an explicit "unknown"**, never sentence-level and never a claim that examined text was understood (§3); the meaning floor is **dropped** because the offline test shows it misses the measured omission and flags filler, so the second pass runs over all unknown text and its answer can only shrink the unknown region, never produce "excluded" (§4); and **calls are bounded by time**, with the client's deadline above the server's and the call budget derived from the note's windows rather than a fixed six (§6).
 
 ---
 
-## 2. The chosen path and what it changes
+## 2. The chosen path, by option
 
-| Layer | Today | Proposed | Trust gates touched |
+| Layer | Today | Option A · containment | Option B · full capability | Trust gates touched |
+|---|---|---|---|---|
+| Pipeline cap | `MAX_ITEMS = 8` keeps the first eight in order, drops the rest as `too_many_items`, silently (`pipeline.ts:73,105-110`) | The cap stays as the per-call batch size **but the dropped proposals' evidence spans are returned** as `unprocessed` and the note is `partial`. Nothing new is written; nothing is hidden | No cap in semantics; the batch bound is a per-call size with continuation and windows behind it | none |
+| Reply | `saved`, `held`, `clarification`, `known` (`handler.ts:333-342`); the `done` path lacks `saved` | plus `coverage` (§3.3); the `done` path returns `saved` | same, plus window progress | none |
+| Output truncation | discarded whole, 503, six retries | unchanged, **except** the client now sees `partial / truncated` after the first failure and offers Try again; no change to the model path | tolerant parse of complete items, continuation (§6.2) | a half-written item is never kept |
+| Timeouts | client 30 s < server 45 s + SDK retry | **client ≥ server + margin; 409 `busy` is a wait, not an attempt** | the server's model timeout sized to one time-bounded batch | none |
+| Model omission | undetected | undetected, **but never claimed otherwise**: the card says "Kept N things", never "understood"; unknown text is unknown | the second pass over unknown text (§4) | its proposals pass the same gates |
+| Large notes | one call | one call; past the batch bound the rest is `unprocessed`, visible, retryable by re-telling that part (Option A does not continue) | client-driven windows with checkpoints and one finalising write (§5) | comparator rules apply across windows |
+| Storage | items ≤ 8 per write; status pending / processing / needs_review / extracted / done / failed | `captures.status` gains `partial` (one forward-only migration, one value) | plus `capture_windows` checkpoints and `capture_processing` counts (§5.3); write bounds per note (§6.4) | migrations reach production only by merge |
+| Phone | waiting / review / answering / closing / done / kept / failed | state `partial`; Try again; the card's honest heading; Source marks for unprocessed text; Today ignores partial notes | plus "part n of m", grouped questions, sections on the card | none |
+| Evals | max expected items 3 | `narratives.jsonl` with the S-series and probes, span-level expectations, `capacity_loss = 0` and `unreported_unprocessed = 0` | plus the B metrics (§11) | existing thresholds unchanged, never lowered |
+
+---
+
+## 3. Coverage granularity: span-level, with an honest unknown
+
+### 3.1 The counterexample (measured, `07` S25, three runs out of three)
+
+The sentence *"Susan moved to Alameda in the spring, then in June she moved again, to Oakland."* produced one kept line, **"Susan moved to Oakland in June"** (run 1; runs 2–3 wrote "…after moving to Alameda in the spring" in the statement), and in every run its evidence span was only **"then in June she moved again, to Oakland"**. A sentence-level record would mark the whole sentence *extracted*. In truth the first clause, *Susan moved to Alameda in the spring*, never became a memory, and in run 1 not even a word of it survived. For the residence history that B3–B6 were built to keep, that clause is the earlier truth; its loss is exactly the kind sentence-level coverage would have hidden. A second, subtler case from the same runs: *"Chris is training for the Oakland marathon; his race is around his birthday"* was quoted whole and became *"Chris is training for the Oakland marathon, around his birthday"*, a conflation inside a fully covered span. **No coverage model can see that one; only the quality evals can.** Coverage accounts for what was quoted, not for what was understood.
+
+The probes (`07` §6) also show the opposite: on short notes the model split every compound sentence into clause-level spans (two, three and three items for the three compound probes; the knee clause held separately in the shared one), so span-level accounting is both necessary and sufficient to see a clause that was left out when one is.
+
+### 3.2 The minimum reliable model
+
+Positive evidence only, at the span level, with the rest unknown:
+
+| Region of the note | How it is known | Category | What the product may say about it |
 |---|---|---|---|
-| Sentence map | `sentenceAroundSpan` finds a sentence for a span (`pipeline.ts`) | A shared, deterministic `sentences(text)` → `[{index, start, end}]` in `_shared/extraction/sentences.ts`, imported by the gateway and the app (like `voice.ts` is today), so both sides agree on the map | none |
-| Item bound | `MAX_ITEMS = 8`, first eight in order, `too_many_items` dropped silently (`pipeline.ts:73,105-110`) | **No semantic cap in the pipeline.** `planExtraction` plans every proposal. A separate **batch bound** on how many planned items one call may write (§6) is an internal limit with a continuation behind it; proposals past it are category 4 for this call and are carried to the continuation, never dropped | none |
-| Evidence locator | first quote must be unique or the item is `evidence_ambiguous`; no `near` hint passed (`pipeline.ts:275-282`; `spans.ts:88-111`) | Pass `near` = the proposal's `sentence_index` start (a new optional output field, §5) or, failing that, the previous planned span's end; normalise quotes, whitespace and trailing punctuation with an offset map back to the original text | grounding stays 1.0: a span is still a verbatim substring of the note |
-| Output truncation | `max_tokens` → output discarded, 503, six retries (`model.ts:61`; `handler.ts:303-309`; `understanding.ts:130,171`) | Tolerant parse (§5.3) keeps complete items; their sentences are category 2/3; the rest are category 4 and go to a **continuation call** (§5.4), bounded | none; a half-written item is never kept |
-| Model omission | not detected; `item_recall ≥ 0.85` passes | **Second pass** (§5.5) over sentences with clear meaning and no proposal, once, bounded | same thresholds on its proposals |
-| Large notes | one call, whatever the size | **Windows** (§5.6) above a calibrated size, sequential, one claim, one write | the comparator's rules apply across windows exactly as against the dossier |
-| Reply | `saved`, `held`, `clarification`, `known` (`handler.ts:333-342`) | plus `coverage` (§4) | none |
-| Storage | items ≤ 8 per write (`M/20261016090000:200-201`); held set 1–8; capture status pending / processing / needs_review / done / failed | item bound raised to the batch bound; held set bound raised with the same number; capture status gains `partial`; a content-free `capture_processing` record (§6) | forward-only migration; reaches production only by merging to `main` |
-| Phone | states waiting / review / answering / closing / done / kept / failed (`understanding.ts`) | state `partial` with `coverage` on the row; a **Try again** affordance; the card, sheet and Source view show the categories (§8); Today ignores partial notes | none |
-| Telemetry | `extraction_completed.items_n`, no dropped count | `unprocessed_n`, `excluded_n`, `windows_n`, `continuations_n` as small-count buckets; `tell_lifecycle.outcome` gains `partial` | content-free as today |
-| Evals | max expected items 3; no truncation or length cases | `narratives.jsonl` with per-sentence expectations and the S-series; new zero-tolerance metrics (§10) | existing thresholds unchanged, never lowered |
+| Under the evidence span of a saved or held item | the item's spans (`memory_item_sources`, the held item's `spans`) | **extracted** | the line itself, with its source |
+| Under the first quote of a proposal the pipeline dropped by a rule | the drop, with its reason code | **excluded** | nothing by default; on tap in the Source view, a fixed plain phrase per reason class, never the model's words |
+| Under the first quote of a proposal dropped for capacity, or under a window or call that was truncated, timed out or never ran | the drop reason `too_many_items`; the call record | **unprocessed** | "Kinship couldn't get to all of it" · a mark on the text · Try again |
+| Everything else under a completed call | nothing positive | **unknown** | **nothing.** Not "understood", not "excluded", not a count. The card's strongest claim is "Kept N things" |
+
+Two consequences the first draft got wrong:
+- **"Processed" is not a category of text.** It is a fact about a call. A completed call over a span with no proposal leaves that span unknown.
+- **The second pass does not convert unknown into excluded** (§4). It can convert unknown into extracted (a new proposal) or leave it unknown.
+
+The Source view therefore shows three kinds of mark on a note: ochre for extracted (as today), a plain mark for unprocessed, and on tap only, the reason class for excluded. Unknown text looks like the note's own text, as it does today, and the product never says anything about it.
+
+### 3.3 The record and the reply
+
+Phone (`understanding.coverage`, a new text column via `schema.ts`'s `ADDED` list): `{ v, state: "complete" | "partial", extracted: [{start,end,item_id}], excluded: [{start,end,why}], unprocessed: [{start,end,why}], calls: [{n, kind, outcome}] }`, offsets in code points into `captures.raw_text`, no words. Server, content-free: counts per category and `state` on the capture (Option A: `status = partial` is enough; Option B adds `capture_processing`, §5.3). Reply: `coverage: { state, extracted_n, excluded_n, unprocessed_n, unprocessed: [{start,end,why}], windows_total?, windows_done? }`. Telemetry: `unprocessed_n`, `excluded_n` as small-count buckets; `tell_lifecycle.outcome` gains `partial`.
 
 ---
 
-## 3. The coverage record
+## 4. Model omissions: what can and cannot be known
 
-### 3.1 Shape (phone, on the understanding row; content-bearing only as offsets)
+### 4.1 The measured case and the floor test
 
-```
-coverage: {
-  v: 1,
-  sentences_n: 23,
-  state: "complete" | "partial",
-  // one entry per sentence, by index; offsets are code points into captures.raw_text
-  map: [
-    { i: 0,  start: 0,   end: 41,  cat: "extracted",  items: ["<item id>"] },
-    { i: 1,  start: 42,  end: 88,  cat: "excluded",   why: "duplicate" },
-    { i: 2,  start: 89,  end: 130, cat: "processed" },            // filler, no proposal, no clear meaning
-    { i: 3,  start: 131, end: 190, cat: "unprocessed", why: "truncated" },
-    ...
-  ],
-  calls: [ { n: 1, kind: "extract", outcome: "max_tokens" }, { n: 2, kind: "continue", outcome: "ok" }, { n: 3, kind: "check", outcome: "ok" } ]
-}
-```
+S9's omitted fact ("And she finally fixed her bike.") was left out in 3/3 calibration runs. The probes repeated it with a paraphrase at the end ("She also got her bike fixed at last.", 2/2 omitted), a paraphrase with no pronoun and no name ("Oh, and the bike is finally working again.", 2/2), and the fact moved to the **front** of the note ("Priya finally fixed her bike.", 2/2). Told alone after a sighting ("Saw Chris today. He finally fixed his bike."), it was kept 2/2. **The omission is a relevance judgement the model makes in a dense note** (the prompt tells it that leaving something out beats a wrong detail), not a position effect and not a wording effect. The system cannot distinguish that judgement from a miss, and the user cannot see either.
 
-- `cat` ∈ `processed` (category 1 only: examined, nothing proposed, no clear meaning) · `extracted` (2) · `excluded` (3) · `unprocessed` (4).
-- `why` for `excluded` is the pipeline's existing drop reason code (`types.ts:166-185`), plus `no_proposal_after_check` (§5.5). `why` for `unprocessed` ∈ `truncated` · `capacity` (past the batch bound in this call) · `timeout` · `not_run` · `omitted` (clear meaning, no proposal, second pass not run).
-- It holds no words. Statements and quotes stay on the items as today.
-- **Where it lives:** a new `coverage TEXT` column on the phone's `understanding` table (`schema.ts`, via the `ADDED` list), beside `reading`. It is the retry's input (§7).
+The first draft's meaning floor (a sentence names a roster person or a related someone, or holds a kin, promise, milestone, date or event word) was run offline over every sentence that had no proposal in the calibration: it **misses the bike in every run** and **flags filler** ("The coffee at that new place is pretty good." via "coffee"); adding pronouns to the floor catches the bike but also flags "We talked about all sorts of things." No lexicon separates a dropped fact from small talk. **The floor is dropped.**
 
-### 3.2 The server's copy (content-free)
+### 4.2 Policy
 
-A `capture_processing` row per capture (or columns on `captures`; the migration decides): `state` (`processing` · `partial` · `complete`), `sentences_n`, `extracted_n`, `excluded_n`, `unprocessed_n`, `windows_total`, `windows_done`, `continuations_n`, `updated_at`. Counts only; no offsets, no words. It lets the retry path skip finished windows, lets the stale-claim rule know a multi-window run is alive, and lets `ai_calls` stay as it is. The phone's map is the only place offsets live, as spans are today.
+- **Detectable:** unprocessed text (capacity, truncation, timeout, not run): the system knows it did not look. Always shown.
+- **Undeterminable from the outside:** a completed call that proposed nothing for a span. The span is **unknown**. The product never says it was excluded.
+- **Reducible, not resolvable:** the second pass (Option B) sends **all** unknown spans of the note, with the roster, dossier and the statements proposed so far, and asks once whether anything there is worth keeping. A new proposal goes through the same pipeline and thresholds and becomes extracted (or excluded by a rule, with a reason). Spans that return nothing stay **unknown**; the record notes `checked: true` for them so the pass is not repeated, and nothing is said to the user. On S9 the pass would most likely have kept the bike (P7 shows the fact is keepable in isolation), but that is an expectation, not a guarantee, and the metric for it (§11) is reported, not gated.
+- **Omissions inside an extracted span** (the marathon conflation) are outside coverage entirely. They belong to the extraction quality evals and the user's correction path, as today.
 
-### 3.3 How a sentence gets its category (deterministic)
-
-1. Every sentence starts `unprocessed / not_run`.
-2. A parsed model call over a span of sentences marks them `processed`.
-3. Each planned item marks its spans' sentences `extracted` (saved or held alike; a held item declined by the user later moves them to `excluded / declined`, as "Not this" does today).
-4. Each dropped proposal marks its first quote's sentence `excluded / <reason>` unless the sentence is already `extracted` (a sentence with one kept and one dropped proposal is `extracted`).
-5. Proposals past the batch bound mark their sentences `unprocessed / capacity` for this call.
-6. A truncated reply marks every sentence not covered by a complete item `unprocessed / truncated`.
-7. After the final call, a `processed` sentence that **passes the meaning floor** (§5.5) and has no proposal becomes `unprocessed / omitted` until the second pass runs; after it, `excluded / no_proposal_after_check`.
-8. `state = partial` iff any sentence is `unprocessed`.
-
-The rule set is pure and lives beside the sentence splitter so it can be unit-tested on both platforms.
+The honest user-facing consequence is small and already in the product's voice: Kinship says what it kept and never that it understood everything. The only new words are for unprocessed text.
 
 ---
 
-## 4. The reply shape
+## 5. Durable processing and atomic finalisation
 
-Added to the `extracted` reply (`handler.ts:333-342`) and mirrored into the client's `Understood` type (`gateway.ts:110-122`):
+### 5.1 What has to hold
 
-```
-coverage: {
-  state: "complete" | "partial",
-  sentences_n, extracted_n, excluded_n, unprocessed_n,
-  unprocessed: [ { start, end, why } ],      // offsets only; the phone renders the marks
-  windows_total, windows_done, continuations_n
-}
-```
+- **Exact Undo** is capture-scoped today: `undo` retracts the items the note alone created, then removes the note (`understanding.ts:364-375`). Any design must keep "undo the note" as one gesture that removes everything the note produced and restores what it superseded (`v2_restore_superseded`).
+- **Provenance:** every item's sources are spans into the one preserved `captures.raw_text`; `memory_item_sources` rows are written with the item, once.
+- **One review per capture:** `capture_reviews.capture_id` is the primary key (`M/20261004100000:137`); the held set, its `created_at` and the answer protocol assume one review row per note.
+- **The claim** is per capture (`claim_capture_extraction`, 2-minute stale reclaim).
+- **Crash recovery and deterministic retries:** an app close, a network drop or a gateway death at any point must leave a state from which the next pass continues without re-sending finished content, without duplicating writes, and without the user re-entering anything.
+- **No server-side worker exists** (the plan's "worker retries ×3" was never built, `02` §2.8), and passes run only in the foreground on the phone.
 
-- `saved` and `held` stay as they are. `dropped` is still not returned as a list; its effect is the `excluded` category per sentence.
-- The `done` recovery path (`handler.ts:267-276`) returns `coverage` too, and **`saved`**, so a reply lost to a client timeout no longer loses the card's summary (this fixes `05` §2.2's `done` gap on its own).
-- A `partial` reply is a 200, not a 503: the note is in a known state and the phone owns the retry.
+### 5.2 The two architectures compared
 
----
-
-## 5. The gateway pipeline, step by step
-
-### 5.1 Sentence map first
-
-`sentences(text)` runs before the model call; its map is in the request context and in the coverage record.
-
-### 5.2 The output schema: one optional hint
-
-Add `sentence_index: nullable(integer)` to each item in `SCHEMA` (`v1.ts:75-148`) and one line to the prompt: "sentence_index — the number of the sentence the first quote comes from; sentences are numbered in the note." The pipeline treats it as a **hint only**: `near` for the locator. A wrong hint cannot invent a span (the locator still requires an exact match; with two matches equally near, it stays ambiguous and the item is excluded with `evidence_ambiguous`, which is now rare). **This is a prompt change and so needs the eval gate** (`evals/README.md`): oracle, replay and a labelled live run against the frozen corpus with thresholds unchanged.
-
-### 5.3 Tolerant parse on truncation
-
-When `stop_reason === "max_tokens"` (`model.ts:61`): take the text block; find the longest prefix that is a valid JSON document once closed (append `]}` or `]}}` as needed and parse); keep only items that validate against the schema in full; discard any item whose object was cut; record `truncated`. If no complete item can be recovered, the call is `truncated` with zero items. The complete items go through `planExtraction` exactly as a normal reply. The SDK's structured-output guarantee does not apply to a cut document, so the schema check is explicit here.
-
-### 5.4 Continuation
-
-Input: the same system prompt (cached), the note, the roster and dossier as before, **the statements proposed so far** (statement, kind, person) under the heading "already noted; do not repeat", and **the sentences still uncovered** by index and text. Instruction: "Propose only from the uncovered sentences; mark `existing` against the already-noted list as you would against memory." The continuation's proposals are planned against the dossier **and** the planned items so far (the comparator's merge / supersede / resolves rules apply to both; never across subjects). Bound: `CONTINUATIONS_MAX` (**candidate 2–3, calibrated**: a 25-detail story is one call plus one continuation at a batch bound of 12–15; a 50-detail story moves to windows); at the bound, remaining sentences stay `unprocessed / truncated` and the note is `partial`.
-
-**(calibrated) Bound the call's output by time, not only by tokens.** On 19 Oct, every proposal cost ≈ 236 output tokens and ≈ 1.5 s of model time; the 45 s server timeout fell at ~29 proposals and the 8,000-token budget at ~34, so `max_tokens` would never have fired first, and the 50-detail story timed out twice and returned nothing. So the extract call and each continuation must also **ask the model for at most `BATCH_BOUND` proposals** (a prompt instruction with a schema `maxItems`, "the first N in the note's order; say that more remain"), and the model's "more remain" flag, or an uncovered sentence, triggers the continuation. A time-bounded call that completes is worth more than a token-bounded call that times out. The prompt change rides on the same eval gate as §5.2.
-
-### 5.5 The second pass (model omissions)
-
-Trigger: after the last extract or continuation call, any sentence `processed` with no proposal that passes the **meaning floor**: it names a roster person or a related someone, or contains a kin word, a promise verb, a milestone word, a date word or an event word from the pipeline's existing lexicon (`lexicon.ts`, `names.ts`, `dates.ts`). Pure filler does not pass. Input: those sentences by index and text, the roster and dossier, the statements so far. Instruction: "Is there anything in these sentences worth keeping that is not already noted? Return no items if not." Bound: once per note. Its proposals go through the same pipeline and thresholds; sentences it leaves become `excluded / no_proposal_after_check`. Cost: skipped when no sentence passes the floor (most notes).
-
-### 5.6 Windows (only above the threshold)
-
-Trigger: a note likely to carry more than about two batches of proposals (**candidate, calibrated: more than ~8–10 sentences or ~500–600 characters at the S-series density of ~1.5 details a sentence**; density varies by writer, so the estimate should be conservative and the first window's actual proposal count should correct it). Windows are sentence-aligned, **~6–8 sentences** each (so that one window's proposals fit one time-bounded call), with the previous window's last sentence as overlap. Sequential, one claim. Each window's call carries: the full roster; the dossier for people named in the window plus the ledger's people; **the ledger**: `{ names: [{text, person_id | "open"}], last_people: [person ids in order of last mention], user: "you" }`; **the statements so far** (as in 5.4). Each window's proposals are planned against the dossier and the items so far; the overlap sentence's proposals are attributed to the earlier window and deduped by span overlap before `sameItem` and mirror collapse. The ledger is updated from each window's resolved people and open names. After the last window, the second pass runs once over the whole note's uncovered sentences.
-
-**Claim lifetime:** the stale-claim reclaim (2 minutes, `M/20261004090000:103`) is refreshed per window (a `claimed_at` touch in `capture_processing`), so a 50-detail note running three windows is not reclaimed mid-run; a run that stops leaves `windows_done` for the retry.
-
-### 5.7 What is unchanged
-
-`planItem`, tiers, `AUTO_SAVE_CONFIDENCE`, `HOLD_FLOOR`, sensitivity, dates, `resolvePerson`, `chooseClarification`, `needsAcceptance`, the one-sentence-one-memory rule, mirror collapse, `sameItem`, the comparator, provenance, exact Undo. The second pass and continuations produce proposals that enter the same functions.
-
----
-
-## 6. Writes and storage
-
-**Recommendation: one transaction per note.** Planned items from every call and window accumulate in memory on the gateway; `write_extraction_with_review` is called once at the end with all items and the held set. Reasons: the supersede and closure triggers, `memory_item_history`, exact Undo and the held set's single `review_created_at` all assume one write per capture; per-window writes would need an idempotency key, a per-window review, and an Undo that spans writes. The cost of the choice: no "so far" lines on screen during a multi-window run; the UI shows progress instead (§8). If the founder prefers visible partial results, the alternative is specified in `05` §4.5 and would be its own revision of this brief.
-
-**Migration (forward-only, one file):**
-- `write_extraction` and `write_extraction_with_review`: the per-call item bound becomes `BATCH_BOUND` (**candidate 12–15, calibrated by time: ≈ 20–25 s of model output per call, under a client timeout raised above the server's**), and the arrays in `capture_reviews.items` and `resolve_capture_review` (`M/20261004100000:144-145,298-300`; `M/20261004130000:54-57`) are sized to the **note**, not the call (several calls accumulate into one write). **The batch bound is an internal batch size with a continuation behind it, not a cap: a note with more items than the bound is written in one transaction from several calls.** If the founder prefers no SQL bound at all, the arrays are unbounded and time alone bounds a call.
-- `captures.status` gains `partial`; `capture_processing` (§3.2) is created with RLS like `capture_reviews` (owner read, service role write).
-- `MAX_ANSWERS` (`handler.ts:202`) follows the held-set bound.
-- A `partial` capture is never `done`; Today's candidate generation (`v2_reasons_v0.sql`) ignores it until complete (the memory items it has written are real and appear on the page; only the note's own "settled" state waits).
-
----
-
-## 7. Retry without re-entry
-
-- The phone's `partial` state keeps the coverage record and shows **Try again**. The automatic retry schedule (`BACKOFF`) applies to `partial` with `why ∈ {timeout, not_run}` as it does to failures today; `truncated` and `capacity` do not auto-retry past `CONTINUATIONS_MAX` (they wait for the user's Try again, which resets the continuation count once).
-- A retry sends `{capability, input_ref, resume: true}`; the gateway reads `capture_processing`, skips windows already done, and runs only the unprocessed sentences (as a continuation over those sentences, with the statements so far taken from the items already written for this capture). **Finished content is never re-sent to the model.**
-- The capture row and its text persist throughout (they do today); nothing asks the user to retype.
-- The client timeout rises to **server timeout + margin** (`gateway.ts:288` vs `registry.ts:49`), or the server's falls below the client's; and a 409 `busy` becomes "wait and re-ask", not an attempt (`understanding.ts:807-808`). Both are small constants and belong to this brief because a multi-call note is the one most exposed to them. **(calibrated)** By the 19 Oct fit the phone's 30 s timeout is reached at ~19 proposals and the server's 45 s at ~29: a 25-detail story already fails on the phone today for this reason alone, before any cap.
-
----
-
-## 8. The phone: states and copy (proposals; the founder decides the words)
-
-| Where | Today | Proposed |
+| | **(i) Durable checkpoints, then one atomic write** | **(ii) Idempotent per-window commits** |
 |---|---|---|
-| Dock, during a multi-call note | "Understanding…" | "Understanding…" unchanged; after the first call completes on a windowed note: "Understanding · part 2 of 3" |
-| Kept card, complete | "Kept for Susan" + 3 lines + "and N more" | unchanged up to three lines; past three, **sections** (Lately · Coming up · You said you'd · Between you) and, with several people, a group per person in the note's order |
-| Kept card, partial | (does not exist: "Couldn't understand this one. Your note is saved.") | "**Kept 6 things so far.** Kinship couldn't get to all of it." · **Try again** · Undo. Never "Kept for Susan" alone |
-| Review sheet | all lines; one question at a time | questions grouped by type and counted ("3 to check"); a sensitive group last; otherwise unchanged |
-| Source view | ochre marks on understood passages | plus a plain mark on unprocessed passages: "Couldn't get to this" (tap: Try again); on tap of an unmarked passage with an `excluded` category: "Nothing kept from this" and a fixed phrase per reason class ("it wasn't clear who this was about" · "it repeated something above" · "it was too uncertain" · "it was already known"); never the model's words |
-| Today | — | a partial note never counts as settled; its written items are real and eligible as today |
-| Analytics | `extraction_completed` | `unprocessed_n`, `excluded_n`, `windows_n`, `continuations_n` (0–10 buckets); `tell_lifecycle.outcome` `partial` |
+| Shape | Each bounded call (window, continuation, second pass) writes its **planned items** (post-pipeline, pre-write) to a `capture_windows` checkpoint row keyed `(capture_id, window_index)`; when every window is checkpointed, **one** `write_extraction_with_review` writes all items, all sources and the one review row in one transaction | Each window calls `write_extraction_with_review` for its own items at once, with `(capture_id, window_index)` as an idempotency key; the capture stays `partial` until the last window |
+| Exact Undo | unchanged: one note, one write, one retraction set | still capture-scoped (all items source from the capture), **but** a note half-written at the time of Undo must retract the written half and discard checkpoints; and `v2_restore_superseded` must cope with supersessions made by window 1 that window 3 would have revised |
+| Provenance | written once with the items | written once per window; fine |
+| The review row | one, built from every window's held items, created at finalisation | the first window creates it; later windows must **append** to `items` and keep `created_at`; the phone's answer protocol (`answersFor`, `resolve_capture_review`) assumes the set it saw is the set that exists, so a window landing while the user answers is a race |
+| Supersede / resolve within the note | the comparator runs at finalisation over the whole note's items in text order, against the dossier; deterministic | window 2's items are compared against items window 1 already wrote (they are in the dossier now), which is simpler for the model's context but makes the result depend on timing (was window 1 committed when window 2 ran?) |
+| Partial visibility | none until finalisation: the user sees "Understanding · part 2 of 3", never a half note presented as kept | lines appear as windows land ("so far"), honest if the card says so; attractive, but the card then changes under the user several times |
+| Crash recovery | checkpoints survive; the next pass runs the first missing window; finalisation is re-runnable (nothing written until it succeeds, and it is one transaction) | written windows survive; the next pass runs the first missing window; the idempotency key prevents double writes |
+| Deterministic retry | yes, given the checkpoints: finalisation is a pure function of them; re-running a window replaces its checkpoint (model nondeterminism changes proposals, which is acceptable before finalisation and visible in the checkpoint's version) | re-running a window that already committed is a no-op by key; re-running one that did not is a fresh write; but the dossier window 2 sees now includes window 1's items, so the comparator's inputs differ between first run and retry |
+| Schema | one new table (`capture_windows`, owner-only RLS like `capture_reviews`, content-bearing: planned items as JSON, same retention and purge as reviews); `captures.status += partial`; counts on `capture_processing` or on the capture | no new table; `captures.status += partial`; `write_extraction_with_review` gains an idempotency key and review-append semantics (a bigger SQL change) |
+| Simplicity | one new table, no change to write semantics | no new table, three changed invariants (review append, Undo of a half note, comparator timing) |
 
-Copy stays in the Quiet Herbarium voice: one state, one word, one action. No counts of what is missing beyond the Source marks; no percentages.
+**Recommendation: (i).** It leaves every existing write invariant alone, keeps Undo and the review exactly as they are, and makes the retry a function of stored state. The price is no partial lines on screen during a long note, which the Quiet Herbarium can afford: "Understanding · part 2 of 3" is honest and calm. If the founder wants partial lines, (ii) is the design and its three changed invariants are the brief's extra work.
+
+### 5.3 The client-driven loop (recommended for Option B)
+
+The phone drives one bounded call at a time; the server keeps the checkpoints:
+
+1. `understand` with `input_ref` → the gateway plans the note's windows (sentence-aligned, §6), runs **window 0 only**, checkpoints its planned items, and replies `{ status: "processing", coverage, windows_total, windows_done: 1 }` or, for a note that fits one window, finalises and replies `extracted` as today.
+2. The phone shows "Understanding · part 1 of 3", persists `windows_done` on the understanding row, and issues the next call `{ action: "continue", capture_id }` at once (not on the 30 s tick).
+3. Each continue runs the next window, checkpoints, replies progress. After the last window, the second pass runs over the unknown spans, checkpoints, and finalisation writes everything in one transaction; the reply is `extracted` with the whole note's `saved`, `held`, `clarification`, `coverage`.
+4. Every call is bounded to one batch (≈ 20–25 s of model time at the 19 Oct speed) and so fits under a client deadline of, say, 40 s with a server model timeout of 35 s (§6).
+
+**App closed between calls:** nothing is lost; the next foreground pass sees `state: processing` with `windows_done` and calls `continue`. **App closed during a call:** the gateway finishes or times out on its own; its checkpoint lands or not; the next pass calls `continue`, which is idempotent: a window already checkpointed is skipped. **Gateway dies mid-window:** the phone gets a network error; the claim goes stale after 2 minutes (refreshed per window while alive); the next pass reclaims and re-runs that window only. **Network drops:** as today, "I'll understand this when you're online"; `continue` resumes. **Finalisation fails** (the one transaction errors): checkpoints stay; the next `continue` re-attempts finalisation only.
+
+The claim's 2-minute stale window must be **refreshed per window** (a `claimed_at` touch) so a long note is not reclaimed while alive, and a `continue` on a note another device finalised returns `done` (the stored review) as the reopened path does today.
 
 ---
 
-## 9. Quota and cost
+## 6. Timeouts, batching and recovery
 
-- Daily quota (`AI_DAILY_LIMIT`, 50 calls) is **charged per note**, not per call, for extraction: the first call consumes a unit; continuations, the second pass and later windows of the same note do not. Internally, a per-note **call bound** (`CALLS_MAX`, **candidate 6**: one extract + two continuations + two more windows + one check) protects cost; reaching it leaves the note `partial` with a visible state, never a silent stop.
-- Cost per ordinary note is unchanged (one call; the check skipped when nothing passes the floor). A 25-detail story: one call, possibly one continuation, one check. A 50-detail story at the threshold: two or three windows plus one check. All with the cached system prompt.
-- Time: sequential calls; the UI shows progress. The benchmark (§10) records end-to-end for S25 and S50.
+### 6.1 Per-call limits (calibrated candidates)
+
+| Limit | Candidate | Basis (`07`) |
+|---|---|---|
+| Output per proposal | ≈ 236 tokens | 18 calls, ± 5% |
+| Model time | ≈ 1.75 s + 1.5 s per proposal | the fit; re-measure on the day |
+| `BATCH_BOUND` proposals per call | **12** (≈ 20 s) | leaves margin under the server timeout below; the first draft's 12–15 narrowed to 12 |
+| Server model timeout | **35 s** for a 12-proposal batch (replacing 45 s); SDK retry **0** for extraction (a retry of a 35 s call is the 90 s failure shape) | a timed-out batch is retried by the phone's `continue`, not by the SDK |
+| Client deadline per call | **45 s** (replacing 30 s): server timeout + the gateway's own trips + margin | the inversion is the measured failure at 25 details |
+| `WINDOW_SIZE` | 6–8 sentences, one sentence overlap | ≈ 1.5 details a sentence on the S-series; the first window's actual count corrects the plan (a window that returns > `BATCH_BOUND` proposals is split for the next note of that density; for this note the excess rolls into a continuation of the same window) |
+| Second pass | one call, all unknown spans, ≈ 5–10 s | skipped when nothing is unknown |
+| Calls per note | **derived: windows + continuations + 1 (check) + 1 (finalise, no model)**; a hard safety ceiling `CALLS_MAX = 2 × windows + 2` | not a fixed six |
+| Quota | one unit per **note**, not per call | internal cost guarded by `CALLS_MAX` |
+
+### 6.2 Truncation inside a batch
+
+With the batch bound in the prompt (ask for at most N; "say that more remain") and the schema's `maxItems`, `max_tokens` is unreachable in normal operation (12 × 236 ≈ 2,800 tokens against 8,000). If it fires anyway, the tolerant parse keeps complete items, the rest of the window is unknown-to-be-continued, and the next `continue` covers it. No discard, no SDK retry.
+
+### 6.3 Reconciling windows with the write limits
+
+`write_extraction` bounds `p_items` to 8 (`M/20261016090000:200-201`); `capture_reviews.items` to 1–8; `resolve_capture_review`'s arrays to 8. In Option B the finalising write carries the **whole note**: S25 ≈ 25 items, S50 ≈ 50. The bounds become **per note**, sized to what the input limit can carry: at 5,000 code points and the densest measured story (two details a sentence, ~45 characters a sentence) the ceiling is about 220 proposals; a bound of **256** on each array is a safety net, not a cap, and a note that somehow exceeds it is `partial` with the excess unprocessed, never an error. Option A touches none of these (it writes at most 8 and reports the rest).
+
+### 6.4 The held set and questions at scale
+
+One review row still, with up to the per-note bound of held items; the phone groups questions by type and asks one at a time as today; `MAX_ANSWERS` follows the bound; a sensitive group is asked last. Unchanged protocol, larger arrays.
 
 ---
 
-## 10. Evidence plan and calibration
+## 7. Run models
 
-### Stage 1 of this brief · Calibration · **RUN on 19 Oct 2026** (`07-calibration-evidence-2026-10-19.md`)
+Times use the 19 Oct fit (`≈ 1.75 s + 1.5 s per proposal`), the local gateway overhead (≈ 60 ms per call; hosted will add network), and the client deadline of 45 s. "Elapsed" is the user's wall clock from Keep to the Kept card.
 
-The S-series (S5, S8, S9, S15, S25, S50, S-filler; S-trunc, S-timeout and S-resume excluded because they need a changed budget, timeout or an interrupted gateway) ran through the current gateway on the local stack with the live model, three runs each on fresh accounts, 18 completed calls and three natural timeouts, $0.95 at list prices for the completed calls. Findings: proposals ≈ candidate details; `too_many_items` dropped 5–6 of 13–14 and 16 of 25; `evidence_ambiguous` did not occur on these stories (short, distinct quotes; the locator fix remains justified by the code path, not by this sample); the model omitted one of nine details in 3/3 runs; model time ≈ 1.75 s + 1.5 s per proposal, so time bounds a call before tokens do. **The candidate values in §2, §5.4, §5.6, §6 and §7 are from this run; they are re-measured on the day they are set.**
+### 7.1 S25 (16 sentences, 25 proposals), Option B, happy path
 
-### Fixtures
+| Step | What | Model | Elapsed |
+|---|---|---|---|
+| Keep | local save; "Understanding…" | — | 0.3 s |
+| `understand` → window 0 (sentences 1–8, ~13 proposals → the 13th rolls to a continuation of window 0) | plan 2 windows; run w0; checkpoint 12 items; reply processing 1/2 | ≈ 20 s | ≈ 21 s |
+| `continue` → w0 remainder + window 1 (sentences 8–16, ~13) | the gateway batches the roll-over with w1's first sentences; 12 proposals; checkpoint | ≈ 20 s | ≈ 42 s |
+| `continue` → the last 1–2 proposals + second pass over unknown spans | ≈ 3 proposals + check | ≈ 8 s | ≈ 51 s |
+| `continue` → finalise | one transaction; reply `extracted` (25 items, held ≈ 4–6, one review) | — | ≈ 52 s |
+| Sync #2 and the card | as today | — | ≈ 54 s |
 
-`evals/extraction/fixtures/narratives.jsonl`: the S-series as fixtures with `exhaustive: true` and a new `expect.coverage: [{sentence, cat, why?}]` (the grader's `fixture.ts:110` and `grade.ts:284` gain the field). Rosters from `rosters.json`; people fictional. Frozen into the manifest as `extraction-v2.10` (and the `EXTRACTION_EVAL_VERSION` constant in `registry.ts:38` brought back in step with the manifest).
+Four requests, each under 25 s of model time; the dock reads "Understanding · part 1 of 2", "part 2 of 2", "checking". Cost ≈ 25 × $0.0047 + 4 cache reads ≈ **$0.13**. Compare today: one 39 s call that the phone abandons at 30 s, 409 on retry, back-off, and 16 of 25 proposals dropped when it finally lands.
 
-### Metrics (added; existing ones unchanged and never lowered)
+**Interrupted after window 0 (app closed):** `windows_done = 1`, checkpoint for w0 stored. Next foreground: `continue` runs w1; no re-send of sentences 1–8; elapsed from reopen ≈ 30 s. **Gateway dies during w1:** the phone sees a network error; w1's checkpoint absent; after the claim's 2-minute window (or at once if the claim was released on error), `continue` re-runs w1; w0 untouched. **Finalisation fails:** checkpoints for w0, w1, check all present; `continue` re-runs finalisation only.
 
-`capacity_loss = 0` · `unreported_unprocessed = 0` · `coverage_consistency = 1.0` · `cross_window_duplicates = 0` · `within_note_supersession ≥ 0.95` (reported; the merge set's `cross_subject_merges = 0` applies) · `truncation_detected = 1.0` · `resume_without_rerun = 1.0` · `narrative_item_recall` reported separately (the corpus-wide 0.85 floor must not hide a story that lost a tenth).
+### 7.2 S50 (44 sentences, ~50 proposals), Option B
 
-### Tiers
+| Step | Model | Elapsed |
+|---|---|---|
+| plan: 6 windows of 7–8 sentences (≈ 8 proposals each at S50's density of ~1.1 a sentence) | | |
+| w0 … w5, one `continue` each | 6 × ≈ 14 s | ≈ 1 min 25 s |
+| second pass over unknown spans | ≈ 8 s | ≈ 1 min 33 s |
+| finalise (≈ 50 items, held ≈ 8–10, one review) | — | ≈ 1 min 35 s |
 
-| Tier | What |
+Eight requests; `CALLS_MAX = 14`; cost ≈ **$0.26**. The user sees "part 1 of 6" … "part 6 of 6" … "checking"; nothing is shown as kept until finalisation. Compare today: two 45 s model timeouts per attempt, six attempts over an hour, nothing kept, ≈ $1 spent.
+
+**If the user keeps a second note during S50:** the understanding loop processes notes one at a time (`passOnce`), so the second waits; with `02` §6 #7 (bounded parallelism for different people) it would not. **If the user taps Undo during S50:** the capture is removed; checkpoints cascade-delete with it; any in-flight call's write finds no capture and does nothing (the claim's owner check already does this).
+
+### 7.3 S25 under Option A (containment only)
+
+One call, 39 s of model time; **the client deadline of 45 s now holds**; the pipeline keeps 8, returns the other 17 proposals' spans as `unprocessed`; the note is `partial`; the card says "Kept 8 things so far. Kinship couldn't get to all of it." with Try again; the Source view marks sentences 7–16. Try again re-runs the same single call (the claim allows it) and may keep a different eight; Option A does not continue. The honest recovery is the user re-telling the marked part, which the Source view makes one tap ("Tell the rest"). Cost ≈ $0.12 per attempt; no silent loss; no false completion.
+
+---
+
+## 8. Pipeline, reply and phone (condensed; unchanged from the first draft where not noted)
+
+- **Sentence map** shared by gateway and phone (`_shared/extraction/sentences.ts`), used for windows and for the Source marks; **not** the unit of truth (§3).
+- **Locator:** `near` hint from an optional `sentence_index` output field (a prompt and schema change, eval-gated) or from the previous span; normalisation with an offset map. Option B.
+- **Batch bound in the prompt** (ask for at most N, in the note's order, say if more remain) with `maxItems` in the schema. Option B (Option A keeps the prompt).
+- **Dropped-capacity spans in the reply** (`unprocessed`): Option A and B. The pipeline already has the proposals it drops; it returns their first quote's span.
+- **Phone states:** `partial` (A and B) with Try again; `processing` with `windows_done` (B). Today ignores partial notes; their written items (B: none until finalisation; A: the eight kept) are real.
+- **Copy (proposals):** card partial: "Kept 8 things so far. Kinship couldn't get to all of it." · Try again · Undo. Dock during B: "Understanding · part 2 of 3". Source: unprocessed mark "Couldn't get to this" with "Tell the rest" (A) / "Try again" (B). Nothing about unknown text.
+
+---
+
+## 9. Two independently reviewable options
+
+### Option A · Containment: no silent loss, no false completion, the note kept and recoverable
+
+**Scope:** (1) the pipeline returns the spans of proposals dropped for capacity, and the gateway marks the capture `partial` when any exist (one forward-only migration adding the status value; no new table); (2) the reply carries `coverage` with `unprocessed` spans; the `done` path returns `saved`; (3) the phone gains the `partial` state, the honest card heading, Source marks, "Tell the rest" and Try again, and `tell_lifecycle.outcome = partial`; (4) the client deadline rises above the server's and `busy` is a wait; (5) a `truncated` or timed-out first attempt shows `partial` with the note preserved instead of six silent retries (the retry schedule stays for `offline`); (6) the narrative fixtures and the two zero-tolerance metrics. **No prompt change, no model change, no continuation, no windows, no new content table, no change to tiers, thresholds, sensitivity, dates, merge or Undo.**
+
+**Complexity:** small–medium. Gateway: ~40 lines (pipeline returns dropped spans; handler marks partial and shapes the reply). SQL: one migration, one status value, pgTAP for it. Client: the state, the card and Source copy, Try again, the timeout constant, the `busy` branch; the lifecycle and review tests. Evals: the fixture set and grader fields. One gateway deploy, one build.
+
+**Regression surface:** `lifecycle.test.tsx`, `understanding.test.ts`, `reviewModel` tests, `pipeline.test.ts` (the `too_many_items` case gains an assertion that spans are returned), `handler.test.ts`, `performanceTelemetry.test.ts` (new bucket, still content-free), pgTAP (status), the K-series black-box suites (unchanged behaviour for ≤ 8 proposals, which they all are), `firstRun` and `fresh-install` (unchanged), plus a new `narratives.blackbox` for S9, S15 and S25 showing the partial card and marks. Risk: the `partial` status must not confuse Today's first-use / activation logic (`activated_at` is set when the first Tell becomes memory; a partial first Tell with eight kept lines does activate; fine) or the night prompt.
+
+**Safe before the household dogfood?** Yes, in this assessment: for every note of eight or fewer proposals the behaviour is byte-for-byte the same; the change is additive honesty beyond that, plus the timeout fix, which only turns a failure into a wait. It needs its own PR with every tier reported and the founder's device pass on S9 and S15, and it does not touch B7–B9's files. It is **not** authorised by this brief.
+
+### Option B · Full long-narrative extraction
+
+**Scope:** everything in A, plus the batch bound in the prompt and schema, the tolerant parse and continuation, the client-driven window loop, `capture_windows` checkpoints and atomic finalisation, the per-note write bounds, the claim refresh, the second pass, the locator fix, the review structure (sections, grouped questions), the per-window progress copy, the B metrics and the S-trunc / S-timeout / S-resume suites.
+
+**Complexity:** large: a prompt change with its eval gate; a new table and two or three SQL function revisions; a state machine on both sides; the review UX on an approved surface (founder decision); two to three weeks plus evidence tiers, as the first draft estimated, now with the window loop understood.
+
+**Regression surface:** all of A's, plus the extraction evals in full (prompt change), the merge and semantic corpora (comparator across windows), the b3–b6 black-box suites (facets and residence through windows), Undo across checkpoints, the review sheet and answer protocol at larger held sets, Today's eligibility with `processing` notes, and the device pass on S25 and S50.
+
+**Gated:** after B9, the employer evaluation and the household dogfood's reading; its own brief; the `05` §6 gate before story-first onboarding.
+
+### What can be completed before the household dogfood, and what stays gated
+
+| Before the household dogfood (on the founder's yes) | Gated behind B9 and the dogfood |
 |---|---|
-| UNIT | `sentences()` and the category rules (both platforms); the tolerant parse (cut documents at every byte of a sample reply); the locator with `near` and normalisation (offset map round-trips); the ledger update; the pipeline with proposals past the batch bound (category 4, never dropped) |
-| INTEGRATION | Deno: continuation and second-pass prompts built correctly; `write_extraction_with_review` with items above eight and the held-set bound; pgTAP for the migration, RLS on `capture_processing`, the `partial` status, the claim refresh |
-| BLACK-BOX | `narratives.blackbox.tsx`: S9, S25, S50 through the real screens and gateway on the local stack with replayed replies; S-trunc with the stub returning a cut reply; S-timeout with the client timeout lowered; S-resume by stopping the gateway after window 2 and restarting; the card's sections; the Source marks; Today ignoring a partial note |
-| LIVE-MODEL | the S-series live, graded by the new metrics; the frozen corpus replayed with thresholds unchanged (the `sentence_index` prompt change needs the labelled full run) |
-| NATIVE-SIMULATOR | S25 and S50 told on the simulator with the live model and the founder's exact People; end-to-end time recorded |
-| FOUNDER-DEVICE | the founder tells a real 25-detail story; the card, sheet, page and Source show the categories honestly; the gate's condition 6 and 7 (`05` §6) |
-
-### Rollout (each step on the founder's go, in order)
-
-1. Calibration runs and the evidence file.
-2. Implementation on a branch from `main`: shared sentence map, pipeline, gateway, migration, client, evals, tests.
-3. PR with all tiers reported; merge with a merge commit; the migration reaches production by that merge.
-4. ai-gateway deploy from `main`.
-5. A build; the founder's device pass; then and only then the `05` §6 gate is considered against story-first onboarding (`04` D2/D9).
+| Option A in full | Option B in full |
+| the narrative fixture set and the two zero-tolerance metrics (A's) | the prompt change (batch bound, `sentence_index`) |
+| the timeout inversion fix | continuation, windows, checkpoints |
+| the span-level coverage record on the phone (A's subset: unprocessed) | the second pass |
+| `01`'s story invitation held to two to four sentences | the review structure; story-first onboarding |
 
 ---
 
-## 11. What stays forbidden, and open questions
+## 10. The existing contract, preserved
 
-**Forbidden by this brief:** a silent drop anywhere on the path; showing a line the pipeline has not validated; lowering any threshold; a visible count of what is missing; ranking memories; any prompt change without the eval gate; any production data in fixtures.
+Nothing in either option changes: `AUTO_SAVE_CONFIDENCE`, `HOLD_FLOOR_CONFIDENCE` or any drop threshold; the evidence rule (a span is a verbatim substring of the note); `resolvePerson`, the K4 name rule, the two-candidates-ask rule, K25's Contacts path; sensitivity classes always held; the date resolver and "precision never raised"; the comparator's SAME / REFINES / SUPERSEDES / CONFLICT / NEW order and "never across subjects, never upgrade certainty, never silently change a protected item"; the capture-scoped exact Undo and `v2_restore_superseded`; "no user content in logs or analytics"; the Quiet Herbarium's refusal to count what is missing. **B7 → B8 → B9 → employer evaluation → household dogfood** is untouched: Option A touches none of their files and is scheduled beside them only on the founder's decision; Option B waits behind them. **CC-28's boundaries** are untouched: this brief adds no action, surface, partner or suggestion; its only new copy is about unprocessed text.
 
-**Open for the founder (beyond §0):**
-- Whether the second pass should run on every note that passes the floor, or only on notes above a size (cost vs. the K5 rule's reach).
-- Whether `excluded` reasons should ever be shown on tap in the Source view, or whether category 3 stays entirely silent (the product's default voice) with only category 4 visible.
-- Whether `BATCH_BOUND` exists at all (an internal batch size with continuation) or the SQL arrays are unbounded.
-- Whether the household dogfood should see `partial` states at all, or whether the story invitation stays at the current length until the gate passes on the founder's phone first.
+---
 
-**Effort (an estimate, to be revised after calibration):** the shared sentence map, the coverage rules and the locator fix are small; the tolerant parse, continuation and second pass are medium; windows and the ledger are medium–large; the migration and the client states are medium; the fixtures, grader and black-box suites are medium. Together, roughly two to three weeks of focused work plus the evidence tiers, scheduled only after the founder places it against B7–B9 and the household dogfood (`04` §3: it is not in bucket A or B by this document).
+## 11. Evidence plan (revised)
+
+**Fixtures.** `evals/extraction/fixtures/narratives.jsonl`: S5, S8, S9, S15, S25, S50, S-filler and the eight probes P1–P8, with `exhaustive: true` and `expect.coverage: [{start, end, cat}]` at the **span** level (the grader gains the field; `fixture.ts:110`, `grade.ts:284`). Frozen as `extraction-v2.10`; the `EXTRACTION_EVAL_VERSION` constant brought back in step.
+
+**Metrics (added; existing ones unchanged and never lowered).** For A and B: `capacity_loss = 0` (no `too_many_items` without a `partial` state and returned spans) · `unreported_unprocessed = 0` · `false_completion = 0` (no `extracted`/complete reply when any proposal was dropped for capacity or any call failed). For B additionally: `coverage_consistency = 1.0` (no span in two categories) · `cross_window_duplicates = 0` · `truncation_recovered = 1.0` · `resume_without_rerun = 1.0` · `within_note_supersession` reported · `second_pass_recall` reported (how often a known omission, like the bike, is recovered; **reported, not gated**, because omissions are undeterminable in general) · `narrative_item_recall` reported separately.
+
+**Tiers.**
+
+| Tier | Option A | Option B (additional) |
+|---|---|---|
+| UNIT | pipeline returns dropped spans; handler marks partial; reply shape; client state machine; copy; timeout constants; the `busy` branch | sentence map on both platforms; tolerant parse at every cut point; locator with `near` and normalisation; checkpoint keying; the window planner; the second-pass input builder |
+| INTEGRATION | Deno handler tests; pgTAP for the status value | pgTAP for `capture_windows`, RLS, cascade on capture delete, the claim refresh, finalisation idempotency, per-note array bounds |
+| BLACK-BOX | `narratives.blackbox`: S9, S15, S25 through the real screens with replayed replies: the partial card, the marks, Try again, Tell the rest; K-series suites unchanged | S-trunc (stub returns a cut reply), S-timeout (client deadline lowered), **S-resume** (gateway stopped after window 1, restarted; app "closed" between calls by unmounting; finalisation failure injected), S50 end to end, Undo mid-note |
+| LIVE-MODEL | the narrative set live, graded by the A metrics; the frozen corpus replayed (no prompt change) | the narrative set live with the B metrics; the full corpus **live** (prompt change) with thresholds unchanged |
+| NATIVE-SIMULATOR | S9 and S15 on the simulator with the live model and the founder's exact People; timing recorded | S25 and S50; elapsed and per-call times |
+| FOUNDER-DEVICE | S9 and S15 told on the phone: the partial card, the marks, Tell the rest; Try again | S25: parts, the card's sections, the Source view; the `05` §6 gate |
+
+**Rollout, each step on the founder's go:** A: branch from `main`, PR with all tiers, merge (merge commit), the migration by merge, gateway deploy, build, device pass. B: its own brief after B9; the same steps.
+
+---
+
+## 12. Unresolved architectural risks
+
+1. **Model nondeterminism across a retry of one window** changes that window's proposals; finalisation is deterministic from checkpoints, but the note's final content can differ between a run that was interrupted and one that was not. Acceptable (the user sees one coherent result), but it means "deterministic retry" is about the write, not the model.
+2. **The comparator across windows** has no measured evidence yet: the calibration's residence sequence was pre-merged by the model into one line, so within-note supersession was never exercised. S-series fixtures must be rewritten to force it (two sentences, far apart, no connective).
+3. **The hosted edge runtime's own request limits** were not checked for a 35 s model call plus trips; the branch gateway ran locally. Verify the platform's current wall-clock limit before setting the server timeout.
+4. **Conflation inside a covered span** (the marathon line) is invisible to coverage and to the user unless they read the Source; only the quality evals catch it. Story-shaped fixtures should include it.
+5. **A window that proposes far more than the batch bound** (a very dense paragraph) rolls its excess into continuations; the plan's window count is then wrong and the dock's "part n of m" must be allowed to grow. Copy must not promise a fixed m.
+6. **Second-pass over-proposal:** asked "is there anything else worth keeping?", the model may propose weak items from filler. The same thresholds apply, but `excluded` counts would rise and the Source view's on-tap reasons would appear on filler. Measure before deciding whether the pass runs on every note or only when the note is long.
+7. **Option A's "Tell the rest"** creates a second note whose dossier now includes the first eight lines; the comparator handles merges, but the user may see "Does this replace one of these?" questions for things they are telling for the first time. Needs a black-box case.
+8. **Partial first Tell and activation:** a first Tell that ends `partial` with eight lines kept activates the account; the H4 bring-back then runs on a note the user knows is unfinished. Decide whether the bring-back waits for completion (recommended) or not.
+
+---
+
+## 13. Founder decisions asked for (registered as `04` §9 D9a–D9g)
+
+| | Decision | Recommendation |
+|---|---|---|
+| D9a | Adopt the gate: no silent capacity-based loss and no false completion before story-first onboarding; hold the invitation to two to four sentences until then | Adopt |
+| D9b | Option A: commission its implementation PR before the household dogfood (one gateway deploy, one one-value migration, a build, a device pass) or hold it | Commission |
+| D9c | Option B: approve the architecture direction (client-driven windows; checkpoints then one atomic write; second pass over all unknown text) and gate the build behind B9, the employer evaluation and the dogfood, with its own brief | Approve the direction; defer the build |
+| D9d | The coverage model: span-level positive accounting with an explicit unknown; the card's strongest claim is "Kept N things" | Accept |
+| D9e | Omissions: no lexicon floor; the second pass over all unknown text; its result never "excluded" | Accept |
+| D9f | Deadlines: client above server; server sized to one batch; `busy` is a wait; SDK retry off for extraction | Accept, in Option A |
+| D9g | Evidence plan: the narrative fixture set with span-level expectations; S-trunc, S-timeout and S-resume on Option A's branch where applicable, the rest with B | Accept |
+
+Nothing here is started by this document.

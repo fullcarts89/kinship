@@ -107,19 +107,19 @@ The founder's distinction, restated so that code can compute it:
 
 | # | Category | Meaning | Legitimate? | Must the user be able to see it? |
 |---|---|---|---|---|
-| 1 | **Source content successfully processed** | A sentence (or span) of the story was examined by a model call whose output parsed, and the pipeline ran over every proposal about it | yes | Only by its absence: anything not in this category is category 4 |
+| 1 | **Source content successfully processed** | A span of the story was examined by a model call whose output parsed, and the pipeline ran over every proposal about it. **Revised 19 Oct (founder review):** being examined proves only that the call completed; it does **not** prove the span was understood. A span with no proposal after a completed call is **unknown**, never "understood with nothing to keep", and the product never claims completeness from it (see §3.1) | yes, as a processing fact | Never as a claim of understanding. The honest statement is "Kept N things", not "understood everything" |
 | 2 | **Candidate memories correctly extracted** | A proposal about that content became a saved or held item with a verbatim span | yes | Yes: the Kept card, the sheet, the page, the Source marks (built) |
 | 3 | **Memories intentionally excluded by trust or relevance rules** | A proposal about processed content was dropped by a rule: no evidence, low confidence, invented relation, contact detail, instruction text, duplicate, already known, or sensitivity held and declined | yes | Mostly no, in the product's voice ("silence beats a wrong detail"); but the *category* must be recorded per sentence, and `already_known` is already told. A quiet "Nothing kept from this" on a Source span is the most that should ever show, with a fixed plain-words reason class and never the model's text |
 | 4 | **Information omitted or left unprocessed** | Content the system did not get to: dropped for **capacity** (`too_many_items`), discarded with a truncated reply, a segment never run, a timed-out call, a model omission (a sentence with clear meaning and no proposal), a failed evidence location that was the locator's fault | **no** | **Yes, always**: the note's status says it is not finished, the Source view marks the unprocessed text, the card never says "Kept for Susan" as if complete, and a retry is offered that does not require re-entering anything |
 
-**The accounting that makes this computable: sentence coverage.** The pipeline already splits a note into sentences (`sentenceAroundSpan`) and already records which spans became items. The missing piece is a per-note **coverage record**: for each sentence, the set of proposals that touched it and their fate (saved / held / dropped with reason / none), plus the processing state of the model call(s) that covered it (parsed / truncated / timed out / not run). From it:
+**The accounting that makes this computable, revised after the founder's review (19 Oct): span-level, with an honest "unknown".** The pipeline already records which spans became items. The coverage record keeps, per note, the **spans with positive evidence**: extracted spans (saved or held items), excluded spans (a proposal existed and a rule dropped it, with the reason), and unprocessed spans (a proposal was dropped for capacity, or the call that would have covered the text was truncated, timed out or never ran). Everything else in the note is **unknown**: text a completed call examined without proposing anything. From it:
 
-- category 1 = sentences under a parsed call;
-- category 2 = sentences with a saved or held item;
-- category 3 = sentences whose every proposal was dropped by a rule;
-- category 4 = sentences under a truncated, failed or unrun call, **or** sentences under a parsed call with no proposal and with clear meaning (the K5 rule: "never Nothing to remember for a note with clear meaning"), **or** proposals dropped for capacity.
+- category 2 = text under an extracted span;
+- category 3 = text under an excluded span (a positive drop, with its reason);
+- category 4 = text under an unprocessed span (capacity, truncation, timeout, not run);
+- category 1 is a fact about calls, not about text: "this text was under a call that completed". Text under a completed call with no span of any kind is **unknown**, not understood.
 
-Small talk and filler legitimately have no proposal; the K5 boundary (does the sentence have clear meaning?) is the one judgement in this table that is not purely mechanical. §4.3 proposes a bounded way to make it one.
+Sentences are the unit of *display* (the Source view marks runs of text) and of *windowing*; they are not the unit of truth, because one sentence can hold several facts and an extracted span covers only the words it quotes (`06` §3 shows the counterexample). The K5 boundary ("a note with clear meaning") remains a judgement; a second pass can ask the model again about unknown text, and its answer reduces the unknown region but never converts it into "excluded" (`06` §5.5).
 
 **What this record is not:** it holds offsets and reason codes, never the model's words; it is content-free in telemetry (counts per category) and content-bearing only on the phone and in the user's own rows, like spans today.
 
@@ -244,7 +244,7 @@ The narrative set is a new fixture file (`narratives.jsonl`) with per-sentence e
 Story-first capture (the `01` Concept B invitation beyond a few sentences, or any copy that says "tell me the whole story") becomes the default first-use experience only when all of these hold, each with evidence at the tiers the harness defines (UNIT · INTEGRATION · BLACK-BOX · LIVE-MODEL · NATIVE-SIMULATOR · FOUNDER-DEVICE):
 
 1. **No silent capacity-based loss.** No path in §2 can drop or truncate information without the note entering a visible partial state. `too_many_items` as a silent drop no longer exists. Truncated output is continued or marked partial, never discarded and retried whole.
-2. **The four categories are computed per sentence and returned**, and the phone shows category 4 (the state, the Source mark, Try again) and never shows a partial note as "Kept".
+2. **The categories are computed per span and returned**, and the phone shows category 4 (the state, the Source mark, Try again), never shows a partial note as "Kept", and never claims completeness for text that is merely unknown ("Kept N things" is the strongest statement the card makes).
 3. **Every §5 scenario passes on the live model** with the grading additions at zero where marked, and every existing threshold unchanged (no threshold lowered to pass, as the eval rules already say).
 4. **Retry resumes without re-entry and without re-running finished content**, proven by S-resume.
 5. **Cost and time are bounded and stated**: the brief records the per-note call bound, the quota treatment of multi-call notes, and the measured end-to-end time for S25 and S50 on the simulator tier with the live model.
