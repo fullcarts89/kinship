@@ -2723,6 +2723,19 @@ From the founder's K28 + K26 brief, after testing the B6 build (ledger K26–K28
 #### Not changed
 One primary Moment, milestone day precision, proactive notifications, T12, the K23 reason-linked loop, B6's gate and B7 → B8 → B9. K27 is diagnosed only (`docs/product/k27-diagnosis.md`); its fix waits for the founder.
 
+### CC-27. K27 is a memory-trust fix: Kinship connects a later note to a pet it already knows (18 Oct 2026)
+From the founder's feedback on `docs/product/k27-diagnosis.md`. Where this differs from CC-26 it is newer.
+
+- **Authorised as a meaningful memory-trust fix**, worth completing before further product capabilities: "remembering a fact isn't enough if Kinship can't correctly connect later information to it."
+- **The three server-side corrections, together:**
+  1. A pet named outright ("Chris has a dog named Fluffy", "the dog is called Fluffy") is kept as the person's related someone, with the row the words justify (the animal word and the name, both the note's own). Only the naming statement itself: "Priya's dog Miso is twelve" stays Priya's own line, as the corpus has it. Never a person ("a friend named Sam"); never twice.
+  2. A name not in People that is a known companion of the person the line is about is filed on that person, never asked "Who is Fluffy?". Known from a related row **or from an existing line's own words** ("Chris has a dog named Fluffy", "Chris' dog Fluffy has a vet appointment"), so it works for existing memories without a migration. Only when exactly one companion has the name and its owner is the person the model filed the line on, the person the note was told about, or someone the note names; a namesake in People, two owners with the name, or an owner out of sight still ask, as before. A pet's line stays the person's own line (a vet visit takes part in Today, J9); a related person's line ("Ana", Priya's sister) is hers, with her row. A companion's name is never recorded as a word for the person.
+  3. A known pet's recovery, surgery or illness is never the person's health (only a pet of the line's own person, and only a name no one in People goes by).
+- **The clarification UI is retained** as it is; nothing on the phone changes.
+- **Existing memories:** no migration and no backfill; rules 2 and 3 read what Kinship already holds, in its words.
+- **Tested end to end** as the founder's exact scenario, live and replayed (`e2e/blackbox/k27.blackbox.tsx`).
+- **A frozen fixture changed with review:** `core-106` ("Dan's dog is named Biscuit") now expects Dan's related dog Biscuit; the manifest was rewritten.
+
 ### CC-28. Showing up beyond communication: meaningful actions as the product outcome (18 Oct 2026)
 From the founder's investigation into how Kinship might help people be better friends. It began with questions about Partiful, gifts, flowers, shared experiences and commerce integrations; the founder clarified that those were examples, not the objective. **Strategy only:** it starts no build, changes nothing in Phase 4B's order or scope, adds nothing to CC-25's Commit-next bucket, and renames no API, schema or feature. Where it differs from CC-25 or CC-26 it is newer; it contradicts neither. (CC-27 is K27's memory-trust fix on `claude/k27-fluffy`, PR #50, open when this was written; this entry is numbered after it. When both merge, CC-27 precedes CC-28 in this file, neither entry's text is edited by the other's merge, and nothing is renumbered; if PR #50 closes unmerged, CC-27 stays reserved for K27.) The exploration behind it: `docs/product/explorations/showing-up-actions-2026-10/`.
 
