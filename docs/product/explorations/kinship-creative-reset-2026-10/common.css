@@ -13,8 +13,9 @@ body { margin: 0; background: #111; color: #EDEDED; font-family: "DM Sans", syst
 .grid .rowlabel { grid-column: 1 / -1; font: 500 11px/14px "DM Sans", sans-serif; letter-spacing: 1.6px; text-transform: uppercase; color: #8A8A8A; margin-top: 8px; }
 body.capture .review, body.capture .controls, body.capture .colhead, body.capture .rowlabel { display: none; }
 body.capture { background: transparent; }
-body.capture .grid { gap: 0; padding: 0; grid-template-columns: 393px; }
-body.capture.capture-grid .grid { gap: 40px 46px; padding: 24px; grid-template-columns: repeat(3, 393px); background: #111; }
+body.capture .grid { gap: 0; padding: 0; grid-template-columns: 393px !important; }
+body.capture.capture-grid .grid { grid-template-columns: repeat(2, 393px) !important; }
+body.capture.capture-grid .grid { gap: 40px 46px; padding: 24px; background: #111; }
 
 .phone { --W: 393px; --H: 852px; width: var(--W); height: var(--H); position: relative; overflow: hidden; border-radius: 50px; box-shadow: 0 14px 44px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08); -webkit-font-smoothing: antialiased; }
 .phone * { box-sizing: border-box; }

@@ -1,8 +1,14 @@
 // Creative reset, checkpoint A (19 Oct 2026). Exploratory, unapproved. Fictional people and notes.
 // The same grounded content in every concept, so that differences are design, not content.
 window.FX = {
-  moment: { kind: "race", person: "ben", name: "Ben", day: "Saturday", date: "Oct 10", kicker: "Tomorrow", statement: "Ben runs Chicago tomorrow.", short: "runs Chicago tomorrow", ctx: "Chicago Marathon · Sun, Oct 11", when: "SUN OCT 11", para: "Ben was hoping to break four hours.", prov: "You told Kinship · Oct 8", primary: "Wish Ben luck",
+  moment: { kind: "race", person: "ben", name: "Ben", day: "Saturday", date: "Oct 10", kicker: "Tomorrow", statement: "Ben runs Chicago tomorrow.", short: "runs Chicago tomorrow", ctx: "Chicago Marathon · Sun, Oct 11", when: "SUN OCT 11", para: "Ben was hoping to break four hours.", quote: "Ben runs Chicago Sunday. He's hoping to break four hours.", prov: "You told Kinship · Oct 8", qprov: "From your note · Oct 8", primary: "Wish Ben luck",
+    memory: { caption: "Ben after the half last spring.", cprov: "Your caption · May 3", attached: "A photo you attached to “Ben's half in May”" },
     week: [{ dn: "Wed", d: 14, dow: 3, text: "Josh's interview", person: "josh" }, { dn: "Sat", d: 17, dow: 6, text: "Maya's birthday", person: "maya" }], today: 6 },
+  // the same Moment on a busy week: production's order and counts (a Waiting line first, up to three Coming up lines, then "and N more")
+  dense: { kind: "race", dense: true, person: "ben", name: "Ben", day: "Saturday", date: "Oct 10", kicker: "Tomorrow", statement: "Ben runs Chicago tomorrow.", short: "runs Chicago tomorrow", ctx: "Chicago Marathon · Sun, Oct 11", when: "SUN OCT 11", para: "Ben was hoping to break four hours.", quote: "Ben runs Chicago Sunday. He's hoping to break four hours.", prov: "You told Kinship · Oct 8", qprov: "From your note · Oct 8", primary: "Wish Ben luck",
+    memory: { caption: "Ben after the half last spring.", cprov: "Your caption · May 3", attached: "A photo you attached to “Ben's half in May”" },
+    waiting: { dn: "Fri", d: 16, text: "Did Tyler send it?", sub: "Waiting on Tyler" },
+    week: [{ dn: "Today", d: 10, dow: 6, text: "Send Chris that restaurant", person: "chris", own: true }, { dn: "Wed", d: 14, dow: 3, text: "Josh's interview", person: "josh" }, { dn: "Sat", d: 17, dow: 6, text: "Maya's birthday", person: "maya" }], more: 2, today: 6 },
   birthday: { kind: "birthday", person: "maya", name: "Maya", day: "Saturday", date: "Oct 17", kicker: "A birthday", statement: "It's Maya's birthday.", short: "has a birthday today", ctx: null, when: "TODAY", para: null, prov: "From Contacts", primary: "Message Maya", celebrate: true,
     week: [{ dn: "Mon", d: 19, dow: 1, text: "Lena starts at Figma", person: "lena" }, { dn: "Sat", d: 24, dow: 6, text: "Priya's pottery show", person: "priya" }], today: 6 },
   quiet: { kind: "quiet", person: null, name: null, day: "Monday", date: "Oct 12", kicker: "Mid-October. A quiet afternoon.", statement: "Nothing needs you today.", prov: null, primary: null,
