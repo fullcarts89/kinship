@@ -1,0 +1,49 @@
+{
+  "note": "Chris has a dog named Fluffy",
+  "variants": [
+    {
+      "label": "live 1 (18 Oct, K27, founder People)",
+      "output": {
+        "items": [
+          {
+            "kind": "fact",
+            "person": "@Chris",
+            "person_mention": "Chris",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Chris has a dog named Fluffy",
+            "evidence": [
+              "Chris has a dog named Fluffy"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.95,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "pet",
+              "attribute": "dog",
+              "value": "Fluffy",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          }
+        ],
+        "needs_clarification": null
+      }
+    }
+  ]
+}

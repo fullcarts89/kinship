@@ -397,6 +397,39 @@ const VET = /\b(vet|vets|veterinarian|veterinary|animal hospital)\b/u;
  * (stabilization: pet health). A person's own health words, or a death, still
  * count.
  */
+/** The animals a companion can be (founder K27): a relation word for a pet, never a person. */
+export const PET_WORDS = ["dog", "puppy", "pup", "cat", "kitten", "horse", "pony", "bunny", "rabbit", "bird", "parrot", "hamster", "ferret",
+  "lizard", "turtle", "tortoise", "fish", "goat", "pig", "chicken", "guinea pig", "pet"] as const;
+const PET_ALT = PET_WORDS.map((w) => w.replace(" ", "\\s+")).join("|");
+const PET_NAMED = new RegExp(String.raw`\b(?:(?:a|an|the|his|her|their|my|our|another|new|old|little|big|rescue)\s+)*(${PET_ALT})\s+(?:(?:is|was)\s+)?(?:named|called)\s+([\p{Lu}][\p{L}\p{M}'’-]*)`, "gu");
+
+export function isPetWord(relation: string): boolean {
+  return (PET_WORDS as readonly string[]).includes(fold(relation).trim());
+}
+
+/**
+ * The pets a line's own words name (founder K27): "a dog named Fluffy" (also "the dog is called Fluffy"),
+ * and, for the owner's own names, "<owner>'s dog Fluffy". The relation is the animal word as written, the
+ * name as written (capitalised). Never a person: "a friend named Sam" names no pet.
+ */
+export function petsNamedIn(text: string, ownerNames: readonly string[] = []): { relation: string; name: string }[] {
+  const out: { relation: string; name: string }[] = [];
+  const add = (relation: string, name: string) => {
+    const rel = relation.replace(/\s+/gu, " ").toLowerCase();
+    if (!out.some((o) => o.name === name && o.relation === rel)) out.push({ relation: rel, name });
+  };
+  const t = text.normalize("NFC");
+  for (const m of t.matchAll(PET_NAMED)) add(m[1], m[2]);
+  for (const owner of ownerNames) {
+    const o = owner.trim();
+    if (!o) continue;
+    const esc = o.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(String.raw`\b${esc}(?:['’]s|(?<=s)['’])\s+(${PET_ALT})\s+([\p{Lu}][\p{L}\p{M}'’-]*)`, "giu");
+    for (const m of t.matchAll(re)) add(m[1], m[2]);
+  }
+  return out;
+}
+
 export function aboutAnimalHealth(text: string): boolean {
   const t = fold(text);
   if (VET.test(t)) return true;
