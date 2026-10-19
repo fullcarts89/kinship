@@ -16,6 +16,13 @@
 //               line shows as itself. Two current lines the comparator should
 //               have closed are reported content-free (compose_degraded)
 //
+// History (Phase 4B B8; brief §9 step 6, §11): the closed residence lines one
+// note replaced, when that change may be shown (recordSections.historyKind),
+// compose the same way as "Previously lived in Alameda, California", dated by
+// the day the change was told; a line on its own reads "Previously lived in
+// Alameda". Under the Before label of Background, never beside the current
+// line as if true.
+//
 // Pure: the hook supplies the lines; "Not this" on a member recomposes the
 // rest from the same inputs at once (withoutForgotten), never from a cached
 // string.
@@ -79,28 +86,55 @@ export function composedProvenance(members: readonly ComposedMember[], now: Date
   return `${COMPOSED_PROVENANCE.from}${when} · ${some === 1 ? COMPOSED_PROVENANCE.oneEdited : COMPOSED_PROVENANCE.someEdited}`;
 }
 
+/** How a closed chain is shown as history (B8): dated and sourced by the note that told the change. */
+export interface HistoryRow {
+  when: string | null;
+  provenance: string;
+  noteId: string | null;
+}
+
 /**
  * The rows for one group of members: one composed row when they chain (and
- * there are at least two), else each member's own row (fail open).
+ * there are at least two), else each member's own row (fail open). As
+ * history (`history`), the rows read "Previously lived in …", each member on
+ * its own when they don't chain, all dated by the change.
  */
-export function composedRows(members: readonly ComposedMember[], now: Date): { rows: RecordLine[]; degraded: boolean } {
+export function composedRows(members: readonly ComposedMember[], now: Date, opts: { history?: HistoryRow } = {}): { rows: RecordLine[]; degraded: boolean } {
   const byId = new Map(members.map((m) => [m.input.id, m]));
-  const r = composeResidence(members.map((m) => m.input));
+  const r = composeResidence(members.map((m) => m.input), { previous: !!opts.history });
   const rows = r.lines.map((line) => {
     const ordered = line.memberIds.map((id) => byId.get(id)!);
-    if (ordered.length < 2) return ordered[0].row;
-    const sources = ordered.flatMap((m) => m.sources);
     const head = ordered[0];
+    if (ordered.length < 2) {
+      if (!opts.history) return head.row;
+      // One closed line, in the composer's words, dated by the change.
+      return { ...head.row, display: line.text, provenance: opts.history.provenance, noteId: opts.history.noteId, history: { when: opts.history.when }, section: "background" as const, category: "residence" as const };
+    }
+    const sources = ordered.flatMap((m) => m.sources);
     const record: ComposedRecord = { text: line.text, memberIds: line.memberIds, members: ordered };
     return {
       line: head.row.line,
-      provenance: composedProvenance(ordered, now, head.origin),
-      noteId: newestNote(sources),
+      provenance: opts.history ? opts.history.provenance : composedProvenance(ordered, now, head.origin),
+      noteId: opts.history ? opts.history.noteId : newestNote(sources),
       conflict: null,
       composed: record,
+      section: "background" as const,
+      category: "residence" as const,
+      ...(opts.history ? { history: { when: opts.history.when } } : {}),
     };
   });
   return { rows, degraded: r.degraded };
+}
+
+/** A line's mirrored reading as the composer takes it. */
+export function memberOf(x: Pick<RecordInput, "item" | "row" | "sources"> & { facet: ResidenceFacetRow }): ComposedMember {
+  const f = x.facet;
+  const input: ComposeMember = {
+    id: x.item.id,
+    facet: { value_text: f.value_text, value_norm: f.value_norm, place_ref: f.place_ref, candidates: f.candidates, usual_ref: f.usual_ref, dataset_version: f.dataset_version },
+    told: String(x.item.created_at ?? ""),
+  };
+  return { input, row: x.row, sources: facts(x.sources), origin: typeof x.item.origin === "string" ? x.item.origin : null };
 }
 
 /**
@@ -120,16 +154,7 @@ export function composeRecordLines(inputs: readonly RecordInput[], now: Date): {
   let degraded = 0;
   for (const indexes of groups.values()) {
     if (indexes.length < 2) continue;
-    const members: ComposedMember[] = indexes.map((i) => {
-      const x = inputs[i];
-      const f = x.facet!;
-      const input: ComposeMember = {
-        id: x.item.id,
-        facet: { value_text: f.value_text, value_norm: f.value_norm, place_ref: f.place_ref, candidates: f.candidates, usual_ref: f.usual_ref, dataset_version: f.dataset_version },
-        told: String(x.item.created_at ?? ""),
-      };
-      return { input, row: x.row, sources: facts(x.sources), origin: typeof x.item.origin === "string" ? x.item.origin : null };
-    });
+    const members: ComposedMember[] = indexes.map((i) => memberOf({ ...inputs[i], facet: inputs[i].facet! }));
     const { rows, degraded: d } = composedRows(members, now);
     if (d) degraded++;
     // Where the group's newest line was: its first member in page order.
@@ -160,7 +185,7 @@ export function withoutForgotten(lines: readonly RecordLine[], forgotten: Readon
     }
     const kept = r.composed.members.filter((m) => !forgotten.has(m.input.id));
     if (kept.length === r.composed.members.length) out.push(r);
-    else if (kept.length) out.push(...composedRows(kept, now).rows);
+    else if (kept.length) out.push(...composedRows(kept, now, r.history ? { history: { when: r.history.when, provenance: r.provenance, noteId: r.noteId } } : {}).rows);
   }
   return out;
 }

@@ -2,12 +2,15 @@
 // Change anything; "Not this" forgets it. A residence said in several notes
 // is one line here (Phase 4B B5); tapping it opens the notes behind it, each
 // changeable or removable on its own, and the line is read again from what
-// is left.
+// is left. The lines come in sections (Phase 4B B8): Background · Into ·
+// Hoping to · Plans · Their people · Between you, with quiet "Before"
+// history under Background; computed every time, never stored.
 import React, { useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { ComposedSheet } from "@/features/person/ComposedSheet";
 import { withoutForgotten } from "@/features/person/composedRecord";
+import { sectionsFor } from "@/features/person/recordSections";
 import { FORGET_COPY, PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
 import { DatePane, KindPane, NamePane, namedChoices, PersonPane, WordsPane } from "@/features/tell/Pickers";
 import type { ItemLine } from "@/features/tell/reviewModel";
@@ -21,7 +24,7 @@ type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine } | { k
 export default function KnowsScreen() {
   // `item`: "View Ben" from a Moment whose line isn't on Ben's page lands on it here (founder I1).
   const { id, item: focusItem } = useLocalSearchParams<{ id: string; item?: string }>();
-  const { person, lines, loading } = usePersonRecord(String(id));
+  const { person, lines, history, loading } = usePersonRecord(String(id));
   const people = usePeople();
   const u = useUnderstanding();
   const { settleConflict, rename, forgetConversation } = useV2Actions();
@@ -37,10 +40,13 @@ export default function KnowsScreen() {
   const [forgotten, setForgotten] = useState<ReadonlySet<string>>(() => new Set());
   // A composed line is read again at once from the members left (never from its old words).
   const shown = useMemo(() => withoutForgotten(lines, forgotten, new Date()), [lines, forgotten]);
+  const past = useMemo(() => withoutForgotten(history, forgotten, new Date()), [history, forgotten]);
+  // The sections (B8), from the lines on screen: a line forgotten leaves its section at once, an empty section with it.
+  const sections = useMemo(() => sectionsFor({ lines: shown, history: past, trail: trail.length > 0 }), [shown, past, trail]);
   // The composed line whose notes are open, by its line; it follows every change, and closes when the
   // line is no longer composed (one member left shows as itself).
   const [openComposed, setOpenComposed] = useState<string | null>(null);
-  const composedRow = useMemo(() => shown.find((r) => !!r.composed && r.line.id === openComposed) ?? null, [shown, openComposed]);
+  const composedRow = useMemo(() => [...shown, ...past].find((r) => !!r.composed && r.line.id === openComposed) ?? null, [shown, past, openComposed]);
   // From the sheet to a change: the sheet goes first (never a sheet on a sheet), then the picker opens.
   const changeFromSheet = (line: ItemLine, kind: "person" | "date" | "kind" | "words") => {
     setOpenComposed(null);
@@ -71,6 +77,7 @@ export default function KnowsScreen() {
       label={typeof person?.relationship_label === "string" && person.relationship_label ? person.relationship_label : null}
       onRename={() => setPane({ kind: "name" })}
       lines={shown}
+      sections={sections}
       onBack={() => router.back()}
       onChange={(line, kind) => setPane({ kind, line })}
       onForget={forgetAsked}

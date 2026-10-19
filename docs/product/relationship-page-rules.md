@@ -8,7 +8,7 @@ The page is a portrait, not a record. It shows a few true, sourced lines about w
 
 | Section | What can appear | Order | At most |
 |---|---|---|---|
-| **Lately** | Active facts and open threads told in the last **120 days**; dated events that happened in the last **30 days**; undated events told in the last 120 days; **someone else's promise whose day has passed**, still open, for **30 days** after its day (founder K2, below) | Newest first; lines from the same note keep the note's order | 3 |
+| **Lately** | Active facts and open threads told in the last **120 days**; dated events that happened in the last **30 days**; undated events told in the last 120 days; **someone else's promise whose day has passed**, still open, for **30 days** after its day (founder K2, below). **A residence told more and less precisely takes one slot** (Phase 4B B7, below) | Newest first; lines from the same note keep the note's order | 3 |
 | **Coming up** | Their birthday within **30 days** (from its source: Contacts, a note, or their own edit); dated events and milestones in the next **120 days**; active plans (undated or seasonal); someone else's promise **until the end of its day**. **Never anything whose day has passed** (founder K2) | Soonest first; undated plans last | 3 |
 | **You said you'd** | Open promises (yours) | Newest first | 3 |
 | **Between you** | Shared context, traditions, shared moments (active or resolved); then **the conversations the user confirmed** (founder I2, below) | Newest first | 3 + 3 conversations |
@@ -19,6 +19,17 @@ The page is a portrait, not a record. It shows a few true, sourced lines about w
 - A page with nothing told yet says: "What you tell Kinship about Sarah will be here: what's going on with them, what's coming up, what you said you'd do." It also shows "Tell Kinship about Sarah". A Contacts birthday doesn't count as something told.
 
 These numbers are product rules, not technical limits. They are founder questions (see `activation-pass.md`).
+
+## One residence, one line (Phase 4B B7; brief §13; founder CC-19)
+
+"Susan lives in California" and, later, "Susan lives in Alameda" are two current lines that compose (`compose.ts`, B5). In Lately they take **one slot**:
+
+- the line shown is the **most specific line's own statement** ("Susan lives in Alameda"), voiced with the current name as every line is; never the composed wording ("Lives in Alameda, California" belongs to What Kinship knows);
+- it is **dated and ordered by the chain's newest member**, so a recent "California" keeps the chain recent, and an Alameda told long ago still speaks for it;
+- the other members leave the Portrait only. What Kinship knows lists every one (as the composed line, with each note behind it), and each keeps its source, Edit and Not this; the page's "What Kinship knows about Susan →" says more is there;
+- the head keeps its own provenance, note and "was:" line.
+
+**Fail open:** without a valid chain (one line; a place the data doesn't know; two readings of a name; two places that can't both be true; no reading on this phone yet), every line shows as before. Nothing is merged, hidden or lost. The rule is `residenceChains` in `portraitModel.ts`, over `residenceChain` in `compose.ts`; proofs: `portraitDedupe.test.ts`, `b7Proofs.test.ts`, the semantic corpus's `portrait` expectations.
 
 ## Someone else's promise (founder K2, CC-22)
 

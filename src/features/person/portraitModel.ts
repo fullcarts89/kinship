@@ -16,8 +16,20 @@
 // Nothing here ranks the person, counts anything for display, or decides
 // what matters by inference: order is by time only. Everything not shown on
 // the portrait stays in What Kinship knows, one tap away.
+//
+// Residence told more and less precisely (Phase 4B B7; brief §13; founder
+// CC-19): one valid chain of current residence lines ("Susan lives in
+// California", "Susan lives in Alameda") takes one slot in Lately, as the
+// most specific line's own statement ("Susan lives in Alameda"), dated and
+// ordered by the chain's newest line, so a recent "California" keeps the
+// chain recent. The other members leave the Portrait only; What Kinship
+// knows lists every one, and each keeps its source, Edit and Not this.
+// Without a valid chain (one line, a place the data doesn't know, an
+// ambiguous or disjoint pair, no reading on this phone) every line shows as
+// before: fail open, nothing lost.
 
-import type { MemoryItem, Person } from "@/store/repositories";
+import { type ComposeMember, currentResidence, residenceChain, residenceGroupKey } from "../../../supabase/functions/_shared/semantic/compose";
+import type { MemoryItem, Person, ResidenceFacetRow } from "@/store/repositories";
 import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 
 export interface PortraitLine {
@@ -83,6 +95,54 @@ export interface PortraitItem {
   when: string | null;
   /** The earlier line this one replaced, in the user's terms. */
   was?: string | null;
+  /** The line's residence reading, mirrored from the server (B7): without one, nothing chains. */
+  facet?: ResidenceFacetRow | null;
+}
+
+/** The composer's view of a line (the mirror keeps the fields as plain data). */
+function composable(item: MemoryItem) {
+  return {
+    status: item.status,
+    deleted_at: item.deleted_at,
+    kind: item.kind,
+    person_id: item.person_id,
+    subject_type: typeof item.subject_type === "string" ? item.subject_type : "person",
+    subject_related_id: typeof item.subject_related_id === "string" ? item.subject_related_id : null,
+    certainty: item.certainty,
+    sensitivity: typeof item.sensitivity === "string" ? item.sensitivity : "none",
+    with_person_ids: Array.isArray(item.with_person_ids) ? item.with_person_ids : [],
+  };
+}
+
+/**
+ * The residence chains among the portrait's items (B7): for each valid chain,
+ * its head and the day of its newest member, and the members that leave the
+ * Portrait. Pure; read every time the portrait is built and never stored.
+ */
+export function residenceChains(items: readonly PortraitItem[]): { heads: Map<string, string>; hidden: Set<string> } {
+  // heads: the head's id → the chain's newest member's told time (ISO), which dates and orders the chain.
+  const groups = new Map<string, ComposeMember[]>();
+  for (const x of items) {
+    const it = composable(x.item);
+    const f = x.facet;
+    if (!f || !currentResidence(it, f)) continue;
+    const key = residenceGroupKey(it);
+    const member: ComposeMember = {
+      id: x.item.id,
+      facet: { value_text: f.value_text, value_norm: f.value_norm, place_ref: f.place_ref, candidates: f.candidates, usual_ref: f.usual_ref, dataset_version: f.dataset_version },
+      told: String(x.item.created_at ?? ""),
+    };
+    groups.set(key, [...(groups.get(key) ?? []), member]);
+  }
+  const heads = new Map<string, string>();
+  const hidden = new Set<string>();
+  for (const members of groups.values()) {
+    const chain = residenceChain(members);
+    if (!chain) continue;
+    heads.set(chain.headId, chain.newest);
+    for (const id of chain.memberIds) if (id !== chain.headId) hidden.add(id);
+  }
+  return { heads, hidden };
 }
 
 function utc(day: string): number {
@@ -140,15 +200,21 @@ export function buildPortrait(input: {
     ...(x.was ? { was: x.was } : {}),
   });
 
-  const lately: { x: PortraitItem; at: string }[] = [];
-  const coming: { x: PortraitItem; at: string }[] = [];
-  const said: { x: PortraitItem; at: string }[] = [];
-  const between: { x: PortraitItem; at: string }[] = [];
+  type Entry = { x: PortraitItem; at: string; ts?: string };
+  const lately: Entry[] = [];
+  const coming: Entry[] = [];
+  const said: Entry[] = [];
+  const between: Entry[] = [];
+  // One residence chain, one slot (B7): the head speaks for it, dated and ordered by its newest member
+  // (the day, and within the day its time, never the head's own).
+  const chains = residenceChains(items);
   for (const x of items) {
     const it = x.item;
     const day = dayOf(it);
-    const told = toldDay(it);
+    const newest = chains.heads.get(it.id);
+    const told = newest ? newest.slice(0, 10) : toldDay(it);
     const active = it.status === "active";
+    if (chains.hidden.has(it.id)) continue;
     switch (it.kind) {
       case "promise":
         if (!active) break;
@@ -195,17 +261,18 @@ export function buildPortrait(input: {
         between.push({ x, at: told });
         break;
       default: // fact, thread
-        if (active && daysFrom(today, told) >= -R.latelyDays) lately.push({ x, at: told });
+        if (active && daysFrom(today, told) >= -R.latelyDays) lately.push({ x, at: told, ...(newest ? { ts: newest } : {}) });
     }
   }
   // Newest first; lines from the same note keep the note's own order.
-  const newest = (a: { at: string; x: PortraitItem }, b: { at: string; x: PortraitItem }) => {
-    const ca = String(a.x.item.created_at ?? "");
-    const cb = String(b.x.item.created_at ?? "");
+  const newest = (a: Entry, b: Entry) => {
+    // A chain's time is its newest member's (B7), else the line's own.
+    const ca = a.ts ?? String(a.x.item.created_at ?? "");
+    const cb = b.ts ?? String(b.x.item.created_at ?? "");
     if (a.x.noteId && a.x.noteId === b.x.noteId) return ca.localeCompare(cb);
     return b.at.localeCompare(a.at) || cb.localeCompare(ca);
   };
-  const soonest = (a: { at: string; x: PortraitItem }, b: { at: string; x: PortraitItem }) =>
+  const soonest = (a: Entry, b: Entry) =>
     a.at.localeCompare(b.at) || String(a.x.item.created_at ?? "").localeCompare(String(b.x.item.created_at ?? ""));
 
   out.lately = lately.sort(newest).slice(0, R.perSection).map((y) => line(y.x));

@@ -104,7 +104,7 @@ async function lines(w: World) {
 }
 
 describe("B3: residence semantics through the app", () => {
-  it("California, then Alameda: both kept, nothing replaced (case A); the page is unchanged until B7", async () => {
+  it("California, then Alameda: both kept, nothing replaced (case A); the Portrait says the head once (B7)", async () => {
     const w = await world();
     await done(w, (await tell(w, "Susan lives in California.", home(w, "Susan lives in California"))).id);
     const t = await tell(w, "Susan lives in Alameda.", home(w, "Susan lives in Alameda"));
@@ -114,7 +114,8 @@ describe("B3: residence semantics through the app", () => {
     expect(await lines(w)).toEqual({ current: ["Susan lives in Alameda", "Susan lives in California"], replaced: [], facets: ["Alameda", "California"] });
     const fresh = (await w.repos.people.list()).find((p) => p.id === w.susan.id) as Person;
     const portrait = await portraitFor(w.repos, fresh, new Date(w.server.clock));
-    expect(portrait.lately.map((l) => l.statement).sort()).toEqual(["Susan lives in Alameda", "Susan lives in California"]);
+    // The Portrait shows the chain once, as the head's own words (B7, brief §13); both lines stay in What Kinship knows.
+    expect(portrait.lately.map((l) => l.statement)).toEqual(["Susan lives in Alameda"]);
   });
 
   it("Alameda, then 'moved to Colorado': the Kept card says what it replaces (case C)", async () => {

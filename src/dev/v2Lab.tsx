@@ -8,6 +8,7 @@ import { View } from "react-native";
 import { ItemSheet } from "@/features/person/ItemSheet";
 import { NoteView, type NoteData } from "@/features/person/NoteView";
 import { PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
+import { sectionsFor } from "@/features/person/recordSections";
 import { PortraitView, type PortraitLineData } from "@/features/person/PortraitView";
 import { PeopleView } from "@/features/people/PeopleView";
 import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
@@ -368,7 +369,7 @@ export function V2Lab({ state }: { state: string }) {
     case "matt-person":
       return <ProofPage p={P.matt.portrait} />;
     case "matt-knows":
-      return <PersonRecordView name="Matt" label={null} lines={P.matt.knows} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+      return <PersonRecordView name="Matt" label={null} lines={P.matt.knows} sections={sectionsFor({ lines: P.matt.knows })} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
     case "matt-source":
       return <NoteView note={P.matt.source} onBack={noop} onPerson={noop} onDelete={noop} />;
     case "anna-before":
@@ -376,13 +377,13 @@ export function V2Lab({ state }: { state: string }) {
     case "anna-after":
       return <ProofPage p={P.anna.after} />;
     case "anna-knows":
-      return <PersonRecordView name="Anna" label={null} lines={P.anna.knowsAfter} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+      return <PersonRecordView name="Anna" label={null} lines={P.anna.knowsAfter} sections={sectionsFor({ lines: P.anna.knowsAfter })} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
     case "knee-before":
       return <ProofPage p={P.knee.before} />;
     case "knee-after":
       return <ProofPage p={P.knee.after} />;
     case "knee-knows":
-      return <PersonRecordView name="Ben" label={null} lines={P.knee.knowsAfter} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+      return <PersonRecordView name="Ben" label={null} lines={P.knee.knowsAfter} sections={sectionsFor({ lines: P.knee.knowsAfter })} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
     case "person-new":
       return <ProofPage p={P.density.fresh} />;
     case "person-light":
@@ -390,7 +391,7 @@ export function V2Lab({ state }: { state: string }) {
     case "person-rich":
       return <ProofPage p={P.density.rich} />;
     case "person-rich-knows":
-      return <PersonRecordView name="Priya" label={null} lines={P.density.richKnows} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+      return <PersonRecordView name="Priya" label={null} lines={P.density.richKnows} sections={sectionsFor({ lines: P.density.richKnows })} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
     case "setup-name":
       return <NameStepView label="Setting up · 1 of 4" name="" busy={false} onName={noop} onContinue={noop} onSkip={noop} autoFocus={false} />;
     case "tell-draft":
@@ -480,7 +481,7 @@ export function V2Lab({ state }: { state: string }) {
         </Portrait>
       );
     case "knows":
-      return <PersonRecordView name="Ben" label={null} lines={record} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
+      return <PersonRecordView name="Ben" label={null} lines={record} sections={sectionsFor({ lines: record })} onBack={noop} onChange={noop} onForget={noop} onSource={noop} onSettle={noop} />;
     case "source":
       return (
         <NoteView
