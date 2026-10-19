@@ -1,5 +1,10 @@
 # Kinship: session handoff (7 Oct 2026)
 
+> **Addendum, 19 Oct 2026, later: K26, K27 and K28 VERIFIED on the founder's device ("ok I'm good with the results"); nothing new pending.** This supersedes the addenda below where they differ.
+> - The founder tested the fc06b10 build against gateway v15 and is good with the results: K26 (contextual "You could mention"), K27 (a later note connects to a known pet) and K28 (the page's complete return loop) move to VERIFIED in the ledger. Not reported row by row.
+> - **Still open:** N18 (a season-only milestone leaves the page after its season's first month; logged, not fixed); the opener copy under "You could mention" stays a proposal unless the founder says otherwise; B6's report reading and stop gate; CC-28's strategy work (docs only).
+> - **Readiness: NOT READY** (for the wife's dogfood; unchanged).
+
 > **Addendum, 19 Oct 2026: K27 MERGED (PR #50, `main` `9ae900a`) and ai-gateway v15 deployed from it; the phone's build is unchanged (app untouched).** This supersedes the addenda below where they differ.
 > - **Merged** by the founder; **ai-gateway v15** deployed from `main` `9ae900a` (19 Oct), verified with `functions download --use-api`: all 27 deployed files match the checkout, the K27 pipeline among them; JWT verification on. **No migration**; production's latest stays `20261016090000`. **No build**: the fc06b10 build on Thor iPhone is current.
 > - **Next:** the founder's rows 11–14 of `k28-device-checklist.md` on the phone, with row 13 their real Fluffy (told before the fix, no row: the words alone connect them). Rows 1–10 (K28 + K26) still pending. The B6 report's reading and stop gate are unchanged.
