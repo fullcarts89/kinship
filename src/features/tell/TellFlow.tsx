@@ -59,10 +59,11 @@ export interface KeptCardState {
   /** The user's "Got it right / Not quite", once given (H6). */
   feedback?: ReviewView["feedback"];
   /**
-   * The note held more than the understanding could take (Option A): the card says so and offers
-   * "Tell the rest" until the user has told it. Never for a complete note.
+   * The note held more than the understanding could take (Option A): the card says so (its status line
+   * says what later notes did, from the evidence) and offers "Tell the rest" while that is the honest
+   * next step (`tellRest`). `resolved`: a later note demonstrably took all of it. Never for a complete note.
    */
-  partial?: { continued: boolean } | null;
+  partial?: { tellRest: boolean; resolved: boolean } | null;
   /** Understanding kept failing for a reason repeating may mend: the card offers "Try again". */
   canRetry?: boolean;
 }
@@ -156,7 +157,7 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     status: view.mode === "card" ? view.status : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
     personIds: view.personIds,
     feedback: view.feedback ?? null,
-    partial: view.mode === "card" && view.partial ? { continued: view.partial.continued } : null,
+    partial: view.mode === "card" && view.partial ? { tellRest: view.partial.tellRest, resolved: view.partial.resolved } : null,
     canRetry: view.mode === "failed",
     ...(() => {
       const byName = new Map<string, string[]>();

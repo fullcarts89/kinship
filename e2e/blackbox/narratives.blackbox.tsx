@@ -4,7 +4,9 @@
 //   S9   an ordinary completion: seven or eight lines, no partial state, and no claim that the whole
 //        note was understood (the model left the bike out; nothing can see that, and nothing pretends to).
 //   S15  more than the understanding takes: eight kept, "Kinship couldn't get to all of it.", the rest
-//        back in the Tell field through "Tell the rest", linked, and the first note answered.
+//        back in the Tell field through "Tell the rest", linked; and (founder review of PR #58) the first
+//        note is NOT called answered while the later note is still to be read or failed: it keeps its
+//        marks and says which; Undo on the later note offers Tell the rest again.
 //   S25  the same at twenty-five, and a second request for the same note writes nothing twice.
 //   S50-shaped failure: a note the model cannot answer keeps the note and says so honestly.
 // Run with this branch's gateway: GATEWAY_URL=http://127.0.0.1:8000 STUB_URL=http://127.0.0.1:8791.
@@ -113,10 +115,15 @@ for (const [name, note, label, answers] of [
     const before = (await serverRows<{ statement: string; status: string; deleted_at: string | null }>("memory_items", acct.userId)).filter((m) => m.status === "active" && !m.deleted_at);
     expect(before.length).toBe(8);
 
-    // The Source view marks the words not got to, apart from the words kept.
+    // The Source view marks the words not got to (on their own, or under a kept line's words when one
+    // sentence held two things), and offers Tell the rest.
     const source = (await noteFor(acct.store, first.id, new Date()))!;
-    expect(source.partial).toEqual({ continued: false, unlocated: coverage!.unlocated });
-    expect(source.runs!.filter((run) => run.unprocessed).length).toBe(coverage!.unprocessed.length);
+    expect(source.partial).toEqual({ followUp: "none", resolved: false, recovered: 0, unlocated: coverage!.unlocated, tellRest: true });
+    const text = first.raw_text!;
+    for (const sp of coverage!.unprocessed) {
+      const words = Array.from(text).slice(sp.start, sp.end).join("");
+      expect(source.runs!.filter((run) => run.unprocessed).map((run) => run.text).join("")).toContain(words.trim().slice(0, 12));
+    }
 
     // A second request for the same note (a retry after a lost reply) writes nothing twice.
     await harness.session!.understanding.run();
@@ -143,9 +150,19 @@ for (const [name, note, label, answers] of [
     const second = captures.find((c) => c.id !== first.id)!;
     expect(second.raw_text).toBe(rest);
     expect(second.continues_capture_id).toBe(first.id);
-    const answered = (await noteFor(acct.store, first.id, new Date()))!;
-    expect(answered.partial).toEqual({ continued: true, unlocated: coverage!.unlocated });
-    expect(answered.runs!.some((run) => run.unprocessed)).toBe(false);
+    // The later note has not been read (the stub had no reply): the first is NOT answered. It keeps its
+    // marks, says the later note is still to be read (or failed), and offers nothing twice.
+    const told = (await noteFor(acct.store, first.id, new Date()))!;
+    expect(["pending", "failed"]).toContain(told.partial!.followUp);
+    expect(told.partial).toEqual(expect.objectContaining({ resolved: false, recovered: 0, tellRest: false, unlocated: coverage!.unlocated }));
+    expect(told.runs!.some((run) => run.unprocessed)).toBe(true);
+    expect((await serverRows<{ status: string; deleted_at: string | null }>("memory_items", acct.userId)).filter((m) => m.status === "active" && !m.deleted_at).length).toBe(8);
+    // Undo on the later note: the first is as it was, with Tell the rest offered again.
+    await harness.session!.understanding.undo(second.id);
+    await acct.engine.sync();
+    const undone = (await noteFor(acct.store, first.id, new Date()))!;
+    expect(undone.partial).toEqual({ followUp: "none", resolved: false, recovered: 0, unlocated: coverage!.unlocated, tellRest: true });
+    expect((await serverRows<CaptureRow & { deleted_at: string | null }>("captures", acct.userId)).filter((c) => !c.deleted_at).map((c) => c.id)).toEqual([first.id]);
   });
 }
 

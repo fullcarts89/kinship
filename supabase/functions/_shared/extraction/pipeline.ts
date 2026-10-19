@@ -106,13 +106,15 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
   const proposed = oneSentenceOneMemory(input, text, Array.isArray(proposal?.items) ? proposal.items : [], proposal?.needs_clarification ?? null);
   // Every line's own words, so a hedge in one never hedges another (founder I12b).
   ctx.evidence = proposed.slice(0, MAX_ITEMS).map((raw) => evidenceSpans(text, raw));
-  // Proposals past the limit are never taken silently (founder, 19 Oct): the note keeps the words they
-  // rest on as "not got to", so the user can tell that part again. Placed only when the locator is sure.
-  const overflow: { span: PlannedSpan | null }[] = [];
+  // Proposals past the limit are never taken silently (founder, 19 Oct): each is judged by the same rules as
+  // the first eight, and only one those rules exclude, or one that is the same thing as a kept line, is not
+  // lost. Every other one stays in the note as "not got to" (its own words, or a count when they can't be
+  // placed), so the user can tell that part again. Judged once the eight are settled, so a duplicate is a
+  // duplicate of a kept line, never of another proposal past the limit.
+  const overflow: ProposedItem[] = [];
   for (const [i, raw] of proposed.entries()) {
     if (i >= MAX_ITEMS) {
-      dropped.push({ reason: "too_many_items", kind: null });
-      overflow.push({ span: evidenceSpans(text, raw)[0] ?? null });
+      overflow.push(raw);
       continue;
     }
     const result = planItem(ctx, raw, i);
@@ -134,6 +136,8 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     }
   }
 
+  const coverage = leftOut(ctx, overflow, items, dropped, known);
+
   collapseMirrors(ctx, items, dropped);
   settleOpenNames(items);
   markHeldMirrors(ctx, items);
@@ -146,7 +150,6 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     : items.some((i) => i.tier === "confirm")
     ? "confirm"
     : "auto";
-  const coverage = coverageOf(items, overflow);
   return {
     items, dropped, clarification, tier, injection_suspected: ctx.injection,
     ...(known.length ? { known } : {}),
@@ -155,20 +158,57 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
 }
 
 /**
- * The words of the proposals the limit left out, as spans: only those the locator placed, and never
- * words a kept line already rests on (a proposal past the limit that repeats a kept line is not lost).
- * Unplaced ones are counted, not drawn. Null when nothing was left out.
+ * What the limit left out, and whether anything was lost (founder, 19 Oct 2026, review of PR #58: an
+ * evidence span shared with a kept line does not make a proposal a duplicate; "Priya loves jazz and
+ * plays chess" holds two things on the same words). Each proposal past the limit goes through the rules
+ * the first eight went through:
+ *   - one the rules exclude on their own (an instruction, a contact detail, a relationship already held,
+ *     a hedge the note never says, confidence below the floor) is excluded for that reason, as it would
+ *     have been inside the limit: recorded under that reason, not lost;
+ *   - one that is the same thing as a kept line, by the same test that folds a repeat inside the limit
+ *     (`sameItem`, `sameSharedPlanned`: same kind, same person, same words or same day), joins that line's
+ *     spans and is a `duplicate`, not lost;
+ *   - everything else is lost to the limit (`too_many_items`): its words stay in the note as unprocessed,
+ *     even where a kept line rests on the same words, so it stays visible until it is told again;
+ *   - one whose words the locator cannot place is counted (`unlocated`), with no span invented.
+ * Returns null when nothing was lost: the limit cost nothing this time.
  */
-function coverageOf(items: PlannedItem[], overflow: { span: PlannedSpan | null }[]): Coverage | null {
+function leftOut(
+  ctx: Context,
+  overflow: ProposedItem[],
+  items: PlannedItem[],
+  dropped: ExtractionOutcome["dropped"],
+  known: string[],
+): Coverage | null {
   if (overflow.length === 0) return null;
-  const kept = items.flatMap((i) => i.spans);
-  const covered = (s: PlannedSpan) => kept.some((k) => k.start < s.end && s.start < k.end);
   const unprocessed: Coverage["unprocessed"] = [];
   let unlocated = 0;
-  for (const { span } of overflow) {
-    if (!span) unlocated++;
-    else if (!covered(span) && !unprocessed.some((u) => u.start === span.start && u.end === span.end)) unprocessed.push({ start: span.start, end: span.end });
+  for (const raw of overflow) {
+    const kind = KINDS.includes(raw?.kind) ? raw.kind : null;
+    const result = planItem(ctx, raw, -1);
+    if ("drop" in result) {
+      if (result.drop === "no_evidence" || result.drop === "evidence_ambiguous") {
+        // Its words are not in the note, or are there twice: nothing to mark, and nothing to assume.
+        dropped.push({ reason: "too_many_items", kind });
+        unlocated++;
+      } else {
+        dropped.push({ reason: result.drop, kind });
+        if (result.drop === "already_known" && result.known && !known.includes(result.known)) known.push(result.known);
+      }
+      continue;
+    }
+    const dup = items.find((p) => sameSharedPlanned(p, result.item)) ?? items.find((p) => sameItem(p, result.item));
+    if (dup) {
+      for (const s of result.item.spans) if (!dup.spans.some((d) => d.start === s.start)) dup.spans.push(s);
+      dropped.push({ reason: "duplicate", kind: result.item.kind });
+      continue;
+    }
+    dropped.push({ reason: "too_many_items", kind: result.item.kind });
+    for (const s of result.item.spans) {
+      if (!unprocessed.some((u) => u.start === s.start && u.end === s.end)) unprocessed.push({ start: s.start, end: s.end });
+    }
   }
+  unprocessed.sort((a, b) => a.start - b.start || a.end - b.end);
   return unprocessed.length || unlocated ? { unprocessed, unlocated } : null;
 }
 

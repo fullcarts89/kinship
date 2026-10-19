@@ -21,19 +21,38 @@ export interface NoteData {
   /**
    * The note held more than the understanding could take (Option A, founder 19 Oct). `unlocated`: how
    * many of the things left out could not be placed in the note (nothing is marked for them; the note is
-   * still partial). `continued`: the user has told the rest in a later note.
+   * still partial). `followUp`: what later notes ("Tell the rest") are, as the phone has them; `recovered`:
+   * how many passages a read later note's kept lines rest on; `resolved`: all of them, and nothing
+   * unplaced; `tellRest`: offer the pill.
    */
-  partial?: { continued: boolean; unlocated: number } | null;
+  partial?: { followUp: "none" | "pending" | "failed" | "read"; resolved: boolean; recovered: number; unlocated: number; tellRest: boolean } | null;
 }
 
 export const NOTE_COPY = {
   underlined: "Underlined: the words Kinship kept",
   dotted: "Dotted: words Kinship couldn't get to",
+  /** A kept line's words that also hold something not got to (two things in one sentence): shown on the kept mark, never hidden by it. */
+  shaded: "Shaded: kept words that also hold something Kinship couldn't get to",
   /** No span could be placed for what was left out: said plainly, nothing invented. */
   someLeft: "Kinship couldn't get to all of this note.",
-  continued: "You told the rest in a later note.",
+  /** Only once a later note that was read has a kept line on every passage, and nothing was unplaced. */
+  continued: "The rest was kept from a later note.",
+  pending: "You told the rest in a later note. Kinship hasn't read it yet.",
+  failed: "Kinship couldn't read the note that told the rest. Try again from that note.",
+  some: "Some of it was kept from a later note. The marked words weren't.",
+  missed: "Your later note didn't cover the marked words.",
+  unplaced: "Part of this note couldn't be placed in its words, so Kinship can't tell if a later note covered it.",
   tellRest: "Tell the rest",
 } as const;
+
+/** The one line under a partial note about what later notes did: from the evidence, never assumed. */
+export function partialNoteLine(partial: NonNullable<NoteData["partial"]>, marked: boolean): string {
+  if (partial.resolved) return NOTE_COPY.continued;
+  if (partial.followUp === "pending") return NOTE_COPY.pending;
+  if (partial.followUp === "failed") return NOTE_COPY.failed;
+  if (partial.followUp === "read") return !marked ? NOTE_COPY.unplaced : partial.recovered ? NOTE_COPY.some : NOTE_COPY.missed;
+  return marked ? "" : NOTE_COPY.someLeft;
+}
 
 export function NoteView({
   note,
@@ -72,7 +91,11 @@ export function NoteView({
               <Text
                 key={i}
                 style={r.marked
-                  ? { textDecorationLine: "underline", textDecorationColor: p.ochre, textDecorationStyle: "solid" }
+                  ? {
+                    textDecorationLine: "underline", textDecorationColor: p.ochre, textDecorationStyle: "solid",
+                    // Kept words that also hold something not got to: the kept mark stays, and the words are shaded.
+                    ...(r.unprocessed ? { backgroundColor: p.hairline } : {}),
+                  }
                   : r.unprocessed
                     // Not ochre: nothing here was understood. A plain, dotted mark on the note's own words.
                     ? { textDecorationLine: "underline", textDecorationColor: p.inkQuiet, textDecorationStyle: "dotted" }
@@ -96,14 +119,18 @@ export function NoteView({
           {NOTE_COPY.underlined}
         </Small>
       ) : null}
-      {/* Option A: what the understanding did not get to, said plainly; the rest can be told again. */}
-      {note.partial && !note.partial.continued ? (
+      {/* Option A: what the understanding did not get to, said plainly, and what later notes did, from the
+          evidence; the rest can be told again while that is the honest next step. */}
+      {note.partial ? (
         <View style={{ marginTop: space.s, gap: space.s, alignItems: "flex-start" }}>
-          <Small>{note.runs?.some((r) => r.unprocessed) ? NOTE_COPY.dotted : NOTE_COPY.someLeft}</Small>
-          {onTellRest ? <Pill size="small" label={NOTE_COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to in the Tell field, to tell again" onPress={onTellRest} /> : null}
+          {note.runs?.some((r) => r.unprocessed && !r.marked) ? <Small>{NOTE_COPY.dotted}</Small> : null}
+          {note.runs?.some((r) => r.unprocessed && r.marked) ? <Small>{NOTE_COPY.shaded}</Small> : null}
+          {(() => {
+            const line = partialNoteLine(note.partial, note.runs?.some((r) => r.unprocessed) ?? false);
+            return line ? <Small>{line}</Small> : null;
+          })()}
+          {note.partial.tellRest && onTellRest ? <Pill size="small" label={NOTE_COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to in the Tell field, to tell again" onPress={onTellRest} /> : null}
         </View>
-      ) : note.partial?.continued ? (
-        <Small style={{ marginTop: space.s }}>{NOTE_COPY.continued}</Small>
       ) : null}
       {note.items.length ? <Label style={{ marginTop: space.x3, marginBottom: space.s }}>From this note</Label> : null}
       {note.items.map((i, n) => (

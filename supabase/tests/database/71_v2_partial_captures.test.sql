@@ -4,7 +4,7 @@
 -- later note that tells the rest points back at it. Nothing here changes a
 -- status, a tier, provenance or Undo.
 BEGIN;
-SELECT plan(22);
+SELECT plan(23);
 
 \set A '''aaaaaaaa-7171-7171-7171-717171717171'''
 \set B '''bbbbbbbb-7171-7171-7171-717171717171'''

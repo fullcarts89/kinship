@@ -26,8 +26,9 @@ import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, smallCount, track } from "@/platform/analytics";
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
+import { followUpsOf, recoveryOf, type Recovery } from "@/store/followUp";
 import { isOn } from "@/store/flags";
-import { closedBy, peopleOf, repositoriesFor, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
+import { closedBy, peopleOf, repositoriesFor, type Capture, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
 import type { HeldItem } from "@/store/gateway";
 import { questionWaiting } from "@/store/understanding";
 import type { UserStore } from "@/store/userStore";
@@ -117,7 +118,7 @@ export function useReview(captureId: string | null): ReviewView | null {
         ? {
           id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status, feedback: capture.feedback,
           coverage: capture.coverage ?? null,
-          continued: await continuedBy(repos, captureId),
+          recovery: await recoveryFor(store, capture),
         }
         : null,
       items,
@@ -134,9 +135,16 @@ export function useReview(captureId: string | null): ReviewView | null {
   return q.data && q.data.captureId === captureId ? q.data : null;
 }
 
-/** A later note tells the rest of this partial one (Option A): its unfinished state is answered, on every phone. */
-export async function continuedBy(repos: Repositories, captureId: string): Promise<boolean> {
-  return (await repos.captures.list()).some((c) => c.continues_capture_id === captureId && !c.deleted_at);
+/**
+ * What later notes ("Tell the rest") did for a partial note (Option A), from the evidence: which of its
+ * passages a read note's kept lines rest on, and the later notes' own state. Null when it has none, or
+ * no later note is linked. Synced rows, so every phone reads the same.
+ */
+export async function recoveryFor(store: UserStore, capture: Capture): Promise<Recovery | null> {
+  if (!capture.coverage || !capture.raw_text) return null;
+  const followUps = await followUpsOf(store, capture.id);
+  if (!followUps.length) return null;
+  return recoveryOf(capture.raw_text, capture.coverage.unprocessed, followUps);
 }
 
 export interface OpenNotes {
@@ -326,21 +334,24 @@ export async function noteFor(store: UserStore, captureId: string, now: Date): P
     if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
   }
   const text = capture.raw_text;
-  // What the understanding did not get to (Option A): marked in the note, until the user tells the rest.
-  const partial = partialOf(capture.coverage ?? null, await continuedBy(repos, captureId));
+  // What the understanding did not get to (Option A): marked in the note until a later note demonstrably took it.
+  const partial = partialOf(capture.coverage ?? null, await recoveryFor(store, capture));
   return {
-    runs: text ? runsOf(text, spans, partial && !partial.continued ? partial.unprocessed : []) : null,
+    runs: text ? runsOf(text, spans, partial?.unprocessed ?? []) : null,
     quotes: text ? [] : quotes,
     arrived: `${arrivedLabel(capture.source)} · ${momentLabel(String(capture.created_at ?? capture.occurred_at), now)}`,
     items,
-    partial: partial ? { continued: partial.continued, unlocated: partial.unlocated } : null,
+    partial: partial
+      ? { followUp: partial.followUp, resolved: partial.resolved, recovered: partial.recovered, unlocated: partial.unlocated, tellRest: partial.tellRest }
+      : null,
   };
 }
 
 /**
  * Splits text at the (code-point) spans, merged, into marked and plain runs. `unprocessed` spans (Option
- * A: words the understanding did not get to) become their own runs; where one overlaps a kept span the
- * kept mark wins, so a word never says both.
+ * A: words the understanding did not get to) become their own runs. Where one lies under a kept span the
+ * run says both (one sentence can hold a kept thing and one not got to; founder review of PR #58): the
+ * kept mark stays, and the not-got-to is shown on it, never hidden by it.
  */
 export function runsOf(
   text: string,
@@ -361,28 +372,19 @@ export function runsOf(
     return merged;
   };
   const kept = toRanges(spans);
-  // An unprocessed range minus every kept range, in pieces.
-  const left: [number, number][] = [];
-  for (const [a, b] of toRanges(unprocessed)) {
-    let at = a;
-    for (const [ka, kb] of kept) {
-      if (kb <= at || ka >= b) continue;
-      if (ka > at) left.push([at, ka]);
-      at = Math.max(at, kb);
-    }
-    if (at < b) left.push([at, b]);
-  }
-  const cuts = [...kept.map(([a, b]) => ({ a, b, kind: "marked" as const })), ...left.map(([a, b]) => ({ a, b, kind: "unprocessed" as const }))]
-    .sort((x, y) => x.a - y.a);
+  const left = toRanges(unprocessed);
+  const edges = [...new Set([0, text.length, ...kept.flat(), ...left.flat()])].sort((x, y) => x - y);
+  const within = (ranges: [number, number][], a: number, b: number) => ranges.some(([ra, rb]) => ra <= a && b <= rb);
   const runs: { text: string; marked: boolean; unprocessed?: boolean }[] = [];
-  let at = 0;
-  for (const c of cuts) {
-    if (c.a > at) runs.push({ text: text.slice(at, c.a), marked: false });
-    if (c.kind === "marked") runs.push({ text: text.slice(c.a, c.b), marked: true });
-    else runs.push({ text: text.slice(c.a, c.b), marked: false, unprocessed: true });
-    at = c.b;
+  for (let i = 0; i + 1 < edges.length; i++) {
+    const [a, b] = [edges[i], edges[i + 1]];
+    if (b <= a) continue;
+    const marked = within(kept, a, b);
+    const open = within(left, a, b);
+    const last = runs[runs.length - 1];
+    if (last && last.marked === marked && (last.unprocessed ?? false) === open) last.text += text.slice(a, b);
+    else runs.push({ text: text.slice(a, b), marked, ...(open ? { unprocessed: true } : {}) });
   }
-  if (at < text.length) runs.push({ text: text.slice(at), marked: false });
   return runs;
 }
 

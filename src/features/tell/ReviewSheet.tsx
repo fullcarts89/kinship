@@ -161,7 +161,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
           <Small style={{ marginTop: space.s }} accessibilityLiveRegion="polite">{view.status}</Small>
         ) : null}
         {/* Option A: the note held more than the understanding could take; the rest can be told again from here. */}
-        {view.partial && !view.partial.continued && props.onTellRest && !waiting ? (
+        {view.partial?.tellRest && props.onTellRest && !waiting ? (
           <View style={{ alignItems: "flex-start", marginTop: space.s }}>
             <Pill size="small" label={COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to back in the Tell field, to tell again" onPress={act(props.onTellRest)} />
           </View>

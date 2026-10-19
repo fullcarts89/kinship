@@ -353,10 +353,12 @@ export interface Clarification {
 /**
  * What one note's understanding did not get to (founder, 19 Oct 2026: no silent capacity-based loss).
  * `unprocessed`: the note's own words, as code-point spans, of proposals the pipeline could not take
- * because the note held more than one understanding carries (MAX_ITEMS); only spans the evidence locator
- * placed reliably, and never words a kept line already rests on. `unlocated`: proposals past the limit
- * whose words could not be placed; the note is still partial, with no highlight invented for them.
- * Content-free: offsets and a count, never words.
+ * because the note held more than one understanding carries (MAX_ITEMS), and that neither the item rules
+ * excluded on their own nor a kept line already says (the same test that folds a repeat inside the
+ * limit). Only spans the evidence locator placed reliably. A span may lie under a kept line's words: one
+ * sentence can hold two things, and sharing words proves nothing (founder review of PR #58). `unlocated`:
+ * proposals past the limit whose words could not be placed; the note is still partial, with no highlight
+ * invented for them. Content-free: offsets and a count, never words.
  */
 export interface Coverage {
   unprocessed: { start: number; end: number }[];

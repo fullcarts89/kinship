@@ -55,6 +55,7 @@ import {
   lineNamesOf, type MentionSubject, mentionsAfterEdit, mentionsOf, type NamedPerson, recordMentions, withSubjectReassigned,
 } from "../../supabase/functions/_shared/extraction/names";
 import { peopleOf, repositoriesFor, type Capture, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
+import { followUpsOf, recoveryOf } from "./followUp";
 import { getMeta, setMeta } from "./schema";
 import type { SyncReport } from "./syncEngine";
 import { StoreWriteError, type Data, type UserStore } from "./userStore";
@@ -388,7 +389,8 @@ export class Understanding {
    * note's own order, for the user to tell again (and change as they like), with the person the note was
    * about. Null when the note is not partial, its text is gone, or nothing could be placed (then the
    * user tells the rest from an empty field). The capture row's coverage is the truth; the reply's copy
-   * stands in until the row has synced.
+   * stands in until the row has synced. A passage a later note demonstrably took (a read note with a
+   * kept line on those words; store/followUp.ts) is left out: told again, it would only be kept twice.
    */
   async restOf(captureId: string): Promise<{ text: string; personId: string | null } | null> {
     const capture = (await this.store.get("captures", captureId)) as Capture | null;
@@ -396,8 +398,11 @@ export class Understanding {
     const row = await this.get(captureId);
     const coverage = capture.coverage ?? row?.reading?.coverage ?? null;
     if (!coverage || (!coverage.unprocessed.length && !coverage.unlocated)) return null;
+    const followUps = await followUpsOf(this.store, captureId);
+    const still = followUps.length ? recoveryOf(capture.raw_text, coverage.unprocessed, followUps).remaining : coverage.unprocessed;
+    if (!still.length && !coverage.unlocated) return null;
     const chars = Array.from(capture.raw_text);
-    const passages = [...coverage.unprocessed]
+    const passages = [...still]
       .filter((s) => Number.isInteger(s.start) && Number.isInteger(s.end) && s.start >= 0 && s.end > s.start && s.end <= chars.length)
       .sort((a, b) => a.start - b.start)
       .map((s) => chars.slice(s.start, s.end).join("").trim())
