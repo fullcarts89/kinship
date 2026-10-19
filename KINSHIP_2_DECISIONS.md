@@ -1240,3 +1240,87 @@ From the founder's K28 + K26 brief, after testing the B6 build (ledger K26–K28
 
 ### Not changed
 One primary Moment, milestone day precision, proactive notifications, T12, the K23 reason-linked loop, B6's gate and B7 → B8 → B9. K27 is diagnosed only (`docs/product/k27-diagnosis.md`); its fix waits for the founder.
+
+## CC-28. Showing up beyond communication: meaningful actions as the product outcome (18 Oct 2026)
+From the founder's investigation into how Kinship might help people be better friends. It began with questions about Partiful, gifts, flowers, shared experiences and commerce integrations; the founder clarified that those were examples, not the objective. **Strategy only:** it starts no build, changes nothing in Phase 4B's order or scope, adds nothing to CC-25's Commit-next bucket, and renames no API, schema or feature. Where it differs from CC-25 or CC-26 it is newer; it contradicts neither. (CC-27 is K27's memory-trust fix, recorded on its own branch; this entry is numbered after it.) The exploration behind it: `docs/product/explorations/showing-up-actions-2026-10/`.
+
+### The strategic interpretation (approved)
+- **Showing up is an outcome, not a communication channel.** Messaging and calling are two ways of acting meaningfully toward another person, and the current loop ends in a real conversation. People also show up through presence, thoughtfulness, practical support, follow-through, shared experiences, celebrations, and connecting people with one another.
+- **Kinship helps users turn what they know about the people they care about into meaningful actions in those people's lives.** This supplements the north star ("Kinship remembers what matters in the lives of the people you care about and brings it back when it matters, so you can show up"), which is unchanged. The identity outcome ("I'm someone who shows up") is unchanged.
+- **Kinship should help people participate in their friends' lives, not merely remember what's happening in them.**
+- Commerce, event services, gifting, flowers and partnerships might eventually help support this; **Kinship does not become an affiliate marketplace or a shopping-oriented app.**
+
+### A. The vocabulary of showing up (categories for thinking, not surfaces)
+| Way of showing up | Examples |
+|---|---|
+| **Presence** | Dinner or coffee; attending a celebration; a visit; time together; being there for an important occasion |
+| **Thoughtfulness** | Remembering a preference; recognising an achievement; a note, card, gift or flowers; a surprise that fits their interests |
+| **Practical care** | A meal; help with a move; childcare or errands; support through a hard period |
+| **Follow-through** | Doing what the user promised; checking back on an open question; supporting an ongoing project; following up after a big life event |
+| **Shared experiences** | An outing; a concert or a game; an activity tied to their interests; a trip or a gathering |
+| **Connecting people** | Introducing friends who share something; bringing a group together; helping coordinate a celebration |
+| **Staying connected** | Texting; calling; a letter; a thoughtful check-in |
+
+These are conceptual categories, **not seven product surfaces, roadmap epics or interaction types**. Nothing is built from this table. The existing hand-off (Message · Call) and return check already cover "staying connected"; the return check's **In person** ("You saw Tyler") already records presence; promises ("You said you'd") already carry follow-through, and promise reasons (RSN-06) are committed next under CC-25.
+
+### B. Memories create opportunities, not obligations
+A memory is not automatically a reminder to do something. It may be context that helps the user decide how they want to participate in someone's life. Kinship creates no tasks, deadlines, guilt or sense of obligation because the user remembered something meaningful. The user is always free to do nothing, and "nothing" is never recorded as a failure.
+
+### C. The two assistance thresholds (CC-26, extended)
+- **Proactive assistance:** Kinship independently decides whether to surface a grounded Moment. Strict timing, evidence, eligibility, privacy and frequency rules (`today-eligibility.md`; §13, §14, §22). **Unchanged.** A wedding "this fall" with no day is still no Moment.
+- **User-initiated assistance:** when the user intentionally opens someone's page, reaches out, or asks for help, Kinship may draw on a broader range of current, grounded memories, even ones not eligible for Today. The wedding "this fall" is useful context for making a plan or choosing a gesture.
+- These are different thresholds, and the gap between them is where most future showing-up help belongs. **Nothing in this entry loosens the proactive threshold.**
+
+### D. Relationship value before commerce
+The ordering is fixed: **Memory → Meaningful opportunity → User-chosen action → Optional commercial fulfillment.** A real conversation is at least as valid an outcome as a completed purchase. Revenue is never a proxy for relationship value. Commercial agreements never determine whose memories surface, which relationships Kinship prioritises, or how urgency is expressed. Safeguards that bind any future commercial capability:
+1. Commercial incentives never affect relationship ranking or Moment eligibility.
+2. No purchase, gift, invitation, booking or message is ever sent autonomously (D9, T12 extended).
+3. Every purchase requires explicit user review and approval, on the provider's own surface or an equally explicit one.
+4. No sensitive relationship memory is passed to a commerce partner by default; what is passed is minimal and shown to the user (D2).
+5. A personalised suggestion is grounded in what the user told Kinship, never in a catalogue's wish to sell.
+6. Commercial relationships are clearly disclosed where they appear.
+7. Non-commercial actions remain first-class outcomes and are never visually subordinate to paid ones.
+8. The user never feels that caring for someone requires spending money.
+9. Grief, illness, pregnancy struggles, family conflict and other vulnerable contexts are never monetised through recommendations.
+10. The user remains free to do nothing.
+
+### E. The smallest coherent Kinship is preserved
+The foundational product (Tell · Understand · Memory · Today · Delivery · Trust) is valuable without shopping, event APIs, gifting or third-party commerce. Those are **potential multipliers of the showing-up loop, not prerequisites for proving it.** The committed Phase 4B sequence is not expanded. The standing test (contract §11 rule 8) gains a second question, below.
+
+### The loop: three layers, kept apart
+| Layer | Statement | Status |
+|---|---|---|
+| **1. The implemented interaction loop** | Tell → Understand → Memory → Moment → Reason → Real conversation → "Anything worth remembering?" | Built; its contracts (`today-eligibility.md`, `relationship-page-rules.md`, §13–§15, §24) are unchanged by this entry |
+| **2. The long-term product thesis** (this entry) | Tell → Understand → Memory → Meaningful opportunity → Thoughtful action → Real-world relationship → optional reflection or a new memory | Approved as the way to think about the product's future; it governs how later capabilities are judged, not how current code behaves |
+| **3. Capabilities that would operationalise the thesis** | A secondary contextual action on a Moment or hand-off; Ask answering "what would be thoughtful…" as a suggestion, apart from retrieval; Intentions as the user's own statement of what help they want; calendar or user-shared invitations as evidence; a hand-off to an external service | Hypotheses in Explore later (bucket D); each needs its own brief and founder decision before a build |
+
+No production API, table, event name or feature is renamed to match layer 2. The north-star sentence stays.
+
+### Reconciliation with existing roadmap items
+- **Today and Moments:** Today keeps surfacing grounded, timely opportunities. A future Moment may carry a meaningful action other than Message or Call, but not five equal-weight actions: one clear primary, at most one relevant secondary, progressive disclosure, never a requirement. Today never becomes a list of things to buy or tasks to complete.
+- **Person Portrait:** user-initiated actions can draw on contextual memory the way K26's "You could mention" and K28's complete return loop already do; the page is the natural start of user-initiated help.
+- **Moment detail:** the most natural future home for a contextual alternative (make a plan, offer help, send something), as progressive disclosure beneath the primary action. Not built.
+- **Ask Kinship (Alpha, CC-25):** Ask v1 stays grounded retrieval. If Ask later answers "What would be thoughtful to do for Susan?", "What does Priya enjoy?", "What could Chris and I do together?" or "What's a good way to support Ben right now?", **retrieved memory and derived suggestion are presented as different things**; a suggestion is never shown as a remembered fact. A separate brief, after Ask v1's evidence.
+- **Intentions (Later Alpha, CC-25):** an explicit intention may tell Kinship which kinds of opportunities the user wants help with ("I want to see the Austin crew in person this year"). No inferred obligations, no progress tracking.
+- **Opportunity Engine (§35):** the preferred architecture is a lightweight expansion of grounded Today candidates, user-initiated contextual assistance and user-authored Intentions, **not a standalone engine**. The external-event experiment stays a separate, later experiment with its own privacy posture.
+- **Calendar and events (D6, §16):** calendar events and invitations the user shares could become additional evidence sources. Calendar availability never implies another person's availability, attendance or willingness.
+- **Briefs and reconnect (§16, §17):** a future brief or reconnect sheet may include thoughtful ways to spend time, celebrate or support, not only talking points, under D9 (ideas on request, never sent).
+- **Showing-up measurement (§24):** the approved metric and its founder gate are **unchanged**. Its definition may later need to count shared plans, attendance, support and gestures as qualifying actions; the proposed evolution is recorded in §24 as a note and in the exploration, not implemented.
+
+### Roadmap placement (CC-25's buckets, unchanged except as marked)
+| Bucket | Change |
+|---|---|
+| **A. Committed / current** | None |
+| **B. Commit next** | None. No commercial or non-communication action is inserted ahead of measurement, promise and open-thread reasons, minimal push or the trust floor |
+| **C. Alpha direction** | None. Noted dependencies: Ask's suggestion mode (above) and a secondary action in Moment detail would build on Ask v1 and reason feedback; neither is committed |
+| **D. Explore later** | **Showing-Up Actions** joins the bucket as the frame that holds: a secondary contextual action on a Moment or hand-off; Ask's suggestion mode; Intentions as a statement of wanted help; calendar and user-shared invitations as evidence; external hand-offs for gifting, flowers, experiences and practical support; the Opportunity Engine's external-event experiment. One frame, no duplicate epics |
+| **E. Hold / drop / absorb** | Added: a standalone shopping marketplace; a separate Gifts or Events tab without demonstrated need; autonomous purchases; an event-hosting / RSVP platform; relationship-health scoring; commercially driven nudges; unbounded proactive opportunity generation; a general-purpose concierge with no relationship grounding |
+
+### The proposed first experiment (a proposal, not an authorised build)
+The exploration recommends the **conservative sequence**: validate ordinary showing-up in the wife dogfood as planned (round 1 without push, round 2 with the minimal push), then run one narrow, user-initiated, non-commercial probe in early Alpha: a single fixed-template "You could…" gesture line beneath the primary action on the hand-off sheet and the Moment detail, for a small set of grounded contexts (a milestone or event ahead, an open promise), built on K26's deterministic preference, with a content-free analytics event and an interview question. Its evidence gate and alternatives: `explorations/showing-up-actions-2026-10/01-roadmap-options.md`. **Nothing starts from this entry.**
+
+### The standing test, extended
+Every proposed expansion answers contract §11 rule 8 *and*: ***"Does this help someone be more present, thoughtful, supportive or dependable toward another real person?"*** If the honest primary answer is more engagement, more transactions, more data recorded, another integration, or a more ambitious-looking roadmap, it does not yet justify inclusion.
+
+### Still open (not decided here)
+Monetisation approach (affiliate, revenue share, embedded commerce, subscription-only, none); any partnership; the precise shape of the first probe; permissions for event sources; how the showing-up measurement evolves; launch timing. The founder's approval of the thesis is not approval of any proposed feature. See `explorations/showing-up-actions-2026-10/02-founder-decisions.md`.

@@ -278,7 +278,9 @@ Each ticket is sized for one engineer or one coding agent to implement and revie
 
 ## Phase 6 — Next (after the beta gate; order set by evidence)
 
-> **CC-25 (16 Oct 2026):** sequencing after Phase 4 follows the buckets in `KINSHIP_2_OPERATIONALIZATION.md` §28. From the tickets above, RSN-06 and RSN-07, a minimal PUSH-01…08 subset, PER-05, PER-06, SET-04 and SET-05 are committed next; RSN-09 and ASK-01 are Alpha direction; RCN-01 (rhythm) is held; LTR-01 is downgraded to later validation; NAT-01 comes before NAT-02 and the widget.
+> **CC-25 (16 Oct 2026):** sequencing after Phase 4 follows the buckets in `KINSHIP_2_OPERATIONALIZATION.md` §28. From the tickets above, RSN-06 and RSN-07, a minimal PUSH-01…08 subset, PER-05, PER-06, SET-04 and SET-05 are committed next; RSN-09 and ASK-01 are Alpha direction; RCN-01 (rhythm) is held; LTR-01 is downgraded to later validation; NAT-01 comes before NAT-02 and the widget.RSN-09 and ASK-01 are Alpha direction; RCN-01 (rhythm) is held; LTR-01 is downgraded to later validation; NAT-01 comes before NAT-02 and the widget.
+>
+> **CC-28 (18 Oct 2026):** no ticket is added or reordered. Showing-Up Actions (plan §28 bucket D) produces tickets only after a founder decision; the proposed first probe is described in `docs/product/explorations/showing-up-actions-2026-10/01-roadmap-options.md`.
 
 | ID | Ticket | Depends | Size |
 |---|---|---|---|
