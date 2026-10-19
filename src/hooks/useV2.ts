@@ -8,7 +8,8 @@ import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { NoteData } from "@/features/person/NoteView";
 import type { RecordLine } from "@/features/person/PersonRecordView";
-import { composeRecordLines, type RecordInput } from "@/features/person/composedRecord";
+import { composedRows, composeRecordLines, memberOf, type RecordInput } from "@/features/person/composedRecord";
+import { historyKind, historyProvenance, historyWhen, relatedHeading, sectionFor, withoutLeadingName } from "@/features/person/recordSections";
 import { mentionsFor, type Mentions } from "@/features/today/mentions";
 import { buildToday, isLocalReason, pageHandoffFor, type PageHandoffReason, returnViewFor, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type ReturnView, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { answerReturn, cancelHandOff, forgetConversation, handOff } from "@/store/returnLoop";
@@ -226,43 +227,48 @@ export function usePeople(): Person[] {
   return q.data ?? [];
 }
 
-export function usePersonRecord(personId: string): { person: Person | null; lines: RecordLine[]; loading: boolean } {
+export function usePersonRecord(personId: string): { person: Person | null; lines: RecordLine[]; history: RecordLine[]; loading: boolean } {
   const { store } = useV2Session();
   const q = useStoreQuery(store, (repos) => recordFor(repos, personId, new Date()), [personId]);
   // Still being read is never "isn't here any more" (a large account on a phone takes a moment).
-  return q.data ? { ...q.data, loading: false } : { person: null, lines: [], loading: true };
+  return q.data ? { ...q.data, loading: false } : { person: null, lines: [], history: [], loading: true };
 }
 
 /**
  * What Kinship knows about someone: every live item, newest first, with its
  * source (the hook and tests share it). Residence lines that chain are said
  * as one line (Phase 4B B5, composedRecord.ts), read here every time and
- * never stored.
+ * never stored. Each line carries where it sits (B8, recordSections.ts) and
+ * the words the page shows; `history` holds the closed lines that may be
+ * shown as Before (I7, brief §11), newest change first.
  */
-export async function recordFor(repos: Repositories, personId: string, now: Date): Promise<{ person: Person | null; lines: RecordLine[] }> {
+export async function recordFor(repos: Repositories, personId: string, now: Date): Promise<{ person: Person | null; lines: RecordLine[]; history: RecordLine[] }> {
   const people = await repos.people.list();
   const person = people.find((p) => p.id === personId) ?? null;
-  if (!person) return { person: null, lines: [] as RecordLine[] };
+  if (!person) return { person: null, lines: [] as RecordLine[], history: [] as RecordLine[] };
   const related = await repos.people.related();
-  const items = (await repos.memory.aboutPerson(personId))
-    .filter((m) => m.status === "active" || m.status === "resolved")
-    .map((m) => voiced(m, people))
-    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-  const inputs: RecordInput[] = [];
+  const all = (await repos.memory.aboutPerson(personId)).map((m) => voiced(m, people));
+  const live = all.filter((m) => (m.status === "active" || m.status === "resolved") && !m.deleted_at);
+  const items = [...live].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   const byItem = await repos.memory.sourcesByItem();
   const facets = await repos.memory.residenceFacets();
-  for (const item of items) {
+  const today = todayIso(now);
+  const quotesOf = (id: string) => (byItem.get(id) ?? []).filter((s) => s.source_kind === "capture" && typeof s.quote === "string").map((s) => String(s.quote));
+  const input = async (item: MemoryItem): Promise<RecordInput> => {
     const sources = byItem.get(item.id) ?? [];
     const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const [conflict] = await repos.conflicts.forRow("memory_items", item.id);
     const origin = typeof item.origin === "string" ? item.origin : null;
-    inputs.push({
+    const { category, section } = sectionFor(item, quotesOf(item.id));
+    const rel = typeof item.subject_related_id === "string" ? related.find((r) => r.id === item.subject_related_id) : null;
+    const display = withoutLeadingName(item.statement, item, person);
+    return {
       item,
       sources,
       facet: facets.get(item.id) ?? null,
       row: {
-        line: { ...itemLine(item, { people, related, today: todayIso(now), earlier: await earlierOf(repos, [item]) }), editedFrom: editedFrom(sources) },
+        line: { ...itemLine(item, { people, related, today, earlier: await earlierOf(repos, [item]) }), editedFrom: editedFrom(sources) },
         provenance: provenanceLine(sources.map((s) => ({
           source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
         })), now, origin),
@@ -270,13 +276,79 @@ export async function recordFor(repos: Repositories, personId: string, now: Date
         conflict: conflict
           ? { id: conflict.id, title: CONFLICT_TITLE, choices: describeConflict(conflict, item), canUseMine: conflict.reason === "concurrent_edit" }
           : null,
+        section,
+        category,
+        ...(display ? { display } : {}),
+        ...(rel && section === "their_people" ? { under: relatedHeading(rel) } : {}),
       },
-    });
-  }
+    };
+  };
+  const inputs: RecordInput[] = [];
+  for (const item of items) inputs.push(await input(item));
   const { lines, degraded } = composeRecordLines(inputs, now);
   // Two current lines that can't both be true, shown apart: the comparator's invariant, reported without content.
   if (degraded) track("compose_degraded", { slot: "residence", lines_n: smallCount(degraded) });
-  return { person, lines };
+  return { person, lines, history: await historyFor(repos, all, live, input, byItem, facets, now) };
+}
+
+/**
+ * Before (I7, brief §11; CC-20): the closed lines whose every live closer
+ * records a change, grouped by the note that told it. Residence lines that
+ * chain read "Previously lived in Alameda, California"; one on its own,
+ * "Previously lived in Alameda"; anything else, the old line in its own
+ * words. Dated by the day the change was told; "Moved · Jan 4" only when
+ * that note says so. Nothing with no transition, a correction, progress, a
+ * sensitive line, or anything but a residence, work or an ended thread.
+ */
+async function historyFor(
+  repos: Repositories,
+  all: MemoryItem[],
+  live: MemoryItem[],
+  input: (item: MemoryItem) => Promise<RecordInput>,
+  byItem: Map<string, { source_kind: string; capture_id: string | null; created_at?: unknown }[]>,
+  facets: Map<string, { deleted_at?: unknown } & RecordInput["facet"] & object>,
+  now: Date,
+): Promise<RecordLine[]> {
+  const closed = all.filter((m) => m.status === "superseded" && !m.deleted_at);
+  if (!closed.length) return [];
+  // A closer counts while it is kept (not removed, not retracted; as the B6 report reads them): a move that a
+  // later move replaced is still the evidence that the earlier residence ended. Undo retracts the closer,
+  // which restores the line, so a restored line is never history.
+  const kept = all.filter((c) => !c.deleted_at && c.status !== "retracted");
+  const newestNote = (id: string) => (byItem.get(id) ?? []).filter((s) => s.source_kind === "capture" && s.capture_id)
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0] ?? null;
+  // The lines that may be shown, each with its newest live closer.
+  const eligible: { x: RecordInput; kind: "residence" | "work" | "thread"; closer: MemoryItem }[] = [];
+  for (const m of closed) {
+    const closers = kept.filter((c) => closedBy(c).includes(m.id));
+    const quotes = (byItem.get(m.id) ?? []).filter((s) => s.source_kind === "capture" && typeof (s as { quote?: unknown }).quote === "string").map((s) => String((s as { quote?: unknown }).quote));
+    const { category } = sectionFor(m, quotes);
+    const kind = historyKind(m, category, closers.map((c) => ({ transition: ((c.detail ?? {}) as Record<string, unknown>).transition })));
+    if (!kind) continue;
+    const closer = [...closers].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+    eligible.push({ x: await input(m), kind, closer });
+  }
+  // Grouped by the note that told the change, newest change first; residence lines closed together compose.
+  const groups = new Map<string, typeof eligible>();
+  for (const e of eligible) groups.set(e.closer.id, [...(groups.get(e.closer.id) ?? []), e]);
+  const out: RecordLine[] = [];
+  for (const group of [...groups.values()].sort((a, b) => String(b[0].closer.created_at).localeCompare(String(a[0].closer.created_at)))) {
+    const closer = group[0].closer;
+    const note = newestNote(closer.id);
+    const told = note ? String(note.created_at) : typeof closer.created_at === "string" ? closer.created_at : null;
+    const row = (kind: "residence" | "work" | "thread") => ({ when: historyWhen(kind, closer, now), provenance: historyProvenance(told, now), noteId: note?.capture_id ?? null });
+    const residence = group.filter((e) => e.kind === "residence" && e.x.facet && !facets.get(e.x.item.id)?.deleted_at);
+    if (residence.length) {
+      out.push(...composedRows(residence.map((e) => memberOf({ ...e.x, facet: e.x.facet! })), now, { history: row("residence") }).rows);
+    }
+    for (const e of group) {
+      if (residence.includes(e)) continue;
+      const h = row(e.kind);
+      // The old line in its own words (CC-20, decision 4); no tokens, no leading-name change.
+      out.push({ ...e.x.row, display: undefined, under: undefined, provenance: h.provenance, noteId: h.noteId, history: { when: h.when }, section: "background", category: e.x.row.category });
+    }
+  }
+  return out;
 }
 
 // ─── The Source view ────────────────────────────────────────────────────

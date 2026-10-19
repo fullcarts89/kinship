@@ -9,6 +9,14 @@
 // It is a view over its members: tapping it, its provenance or Edit opens
 // them (ComposedSheet), each with its own words, source, Edit and Not this.
 // Never place ids, readings, datasets or rule names.
+//
+// The lines come in sections (Phase 4B B8; founder CC-17 to CC-20; brief §4):
+// Background · Into · Hoping to · Plans · Their people · Between you, in that
+// order, empty ones absent; a quiet "Before" under Background for history
+// (I7), and a related person's lines under who they are ("Michelle · sister").
+// No counts, completeness, progress or prompts. The same rows, the same
+// Edit, Not this and source on every line; where a line sits is computed
+// (recordSections.ts), never stored, and never changes the line.
 import React, { useRef } from "react";
 import { type ScrollView, Text, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
@@ -17,6 +25,7 @@ import type { ItemLine } from "@/features/tell/reviewModel";
 import type { ConflictChoice } from "@/store/conflictCopy";
 import type { SourceFacts } from "@/features/memory/format";
 import type { ComposeMember } from "../../../supabase/functions/_shared/semantic/compose";
+import type { Category, Section } from "../../../supabase/functions/_shared/semantic/categories";
 import { Body, Emphasis, Label, Line, Pill, Provenance, Screen, Small, Title, Token, TokenRow, useLineFocus, usePalette } from "@/ui";
 
 /** The composed line's words (B5): what tapping it does, said for screen readers; nothing about how it was made. */
@@ -42,6 +51,31 @@ export interface RecordLine {
    * members, each with its own Edit and Not this. Never a memory of its own.
    */
   composed?: ComposedRecord;
+  /** Where the line sits (B8); a flat list ignores it. */
+  section?: Section;
+  /** Its category, for Background's order (residence, work, education, the rest). */
+  category?: Category;
+  /**
+   * The words the page shows when they differ from the line's own (B8:
+   * "Works at Meta" for "Susan works at Meta"; "Previously lived in Alameda"
+   * for a closed residence line). Edit, Not this and the Source view keep the
+   * line's own words.
+   */
+  display?: string;
+  /** A quiet heading over this line and the neighbours that share it ("Michelle · sister"; "Before"). */
+  under?: string;
+  /**
+   * A closed line shown as history (I7, §11): dated by the day the change was
+   * told (its provenance) and, when that note gives the day, "Moved · Jan 4".
+   */
+  history?: { when: string | null };
+}
+
+/** One section of What Kinship knows (B8): its rows in order, newest first. */
+export interface RecordSection {
+  key: Section;
+  label: string;
+  rows: RecordLine[];
 }
 
 /** One line behind a composed line, with what reading it again needs. */
@@ -68,6 +102,8 @@ export interface PersonRecordViewProps {
   short?: string | null;
   label: string | null;
   lines: RecordLine[];
+  /** The lines in sections (B8). Without them the page is the flat list (the lab). */
+  sections?: RecordSection[];
   onBack: () => void;
   /** "Edit name": a correction to the same person (H1). */
   onRename?: () => void;
@@ -111,50 +147,121 @@ export function PersonRecordView(props: PersonRecordViewProps) {
           ? "Everything you've told Kinship about them, and where each came from. Change or remove any of it."
           : `What you tell Kinship about ${first} will be here.`}
       </Body>
-      <View
-        onLayout={(e) => focus.onGroup("lines", e.nativeEvent.layout.y)}
-        style={{ marginTop: space.xl, borderTopWidth: props.lines.length ? 1 : 0, borderTopColor: p.hairline }}
-      >
-        {props.lines.map((r) => {
-          const ids = r.composed ? r.composed.memberIds : [r.line.id];
-          const focused = !!props.focusItemId && ids.includes(props.focusItemId);
-          return (
-            <View
-              key={r.line.id}
-              onLayout={(e) => ids.forEach((id) => focus.onLine("lines", id, e.nativeEvent.layout.y))}
-              style={{ paddingVertical: space.l, borderBottomWidth: 1, borderBottomColor: p.hairline }}
-            >
-              <Emphasis on={focused}>
-                {r.composed ? (
-                  <ComposedRow r={r} onComposed={props.onComposed ?? (() => undefined)} />
-                ) : (
-                  <RecordRow r={r} onChange={props.onChange} onForget={props.onForget} onSource={props.onSource} onSettle={props.onSettle} />
-                )}
-              </Emphasis>
+      {props.sections ? (
+        props.sections.map((section) => (
+          <View key={section.key} onLayout={(e) => focus.onGroup(section.key, e.nativeEvent.layout.y)} style={{ marginTop: space.x3 }}>
+            <Label tone="inkBody" accessibilityRole="header">{section.label}</Label>
+            <View style={{ marginTop: space.s, borderTopWidth: section.rows.length || (section.key === "between_you" && props.trail?.length) ? 1 : 0, borderTopColor: p.hairline }}>
+              {section.rows.map((r, i) => (
+                <Row key={r.line.id} r={r} group={section.key} heading={r.under && r.under !== section.rows[i - 1]?.under ? r.under : null} props={props} focus={focus} />
+              ))}
+              {section.key === "between_you" ? <Trail trail={props.trail ?? []} onForget={props.onForgetConversation} /> : null}
             </View>
-          );
-        })}
-      </View>
-      {props.trail?.length ? (
-        <View style={{ marginTop: space.x3 }}>
-          <Label tone="inkBody" accessibilityRole="header">Between you</Label>
-          <View style={{ marginTop: space.s, borderTopWidth: 1, borderTopColor: p.hairline }}>
-            {props.trail.map((t) => (
-              <View key={t.id} style={{ paddingVertical: space.l, borderBottomWidth: 1, borderBottomColor: p.hairline }}>
-                <Line>{t.label}</Line>
-                {t.about ? <Small style={{ marginTop: space.xs }}>{t.about}</Small> : null}
-                {props.onForgetConversation ? (
-                  <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.s }}>
-                    <Pill variant="quiet" label="Not this" accessibilityLabel={`Not this: ${t.label}`} onPress={() => props.onForgetConversation?.(t.id)} />
-                  </View>
-                ) : null}
-              </View>
-            ))}
           </View>
-        </View>
-      ) : null}
+        ))
+      ) : (
+        <>
+          <View
+            onLayout={(e) => focus.onGroup("lines", e.nativeEvent.layout.y)}
+            style={{ marginTop: space.xl, borderTopWidth: props.lines.length ? 1 : 0, borderTopColor: p.hairline }}
+          >
+            {props.lines.map((r) => <Row key={r.line.id} r={r} group="lines" heading={null} props={props} focus={focus} />)}
+          </View>
+          {props.trail?.length ? (
+            <View style={{ marginTop: space.x3 }}>
+              <Label tone="inkBody" accessibilityRole="header">Between you</Label>
+              <View style={{ marginTop: space.s, borderTopWidth: 1, borderTopColor: p.hairline }}>
+                <Trail trail={props.trail} onForget={props.onForgetConversation} />
+              </View>
+            </View>
+          ) : null}
+        </>
+      )}
       {props.children}
     </Screen>
+  );
+}
+
+/** One row of the page, whichever kind of line it holds, with the quiet heading over a group when one starts here. */
+function Row({ r, group, heading, props, focus }: {
+  r: RecordLine;
+  group: string;
+  heading: string | null;
+  props: PersonRecordViewProps;
+  focus: ReturnType<typeof useLineFocus>;
+}) {
+  const p = usePalette();
+  const ids = r.composed ? r.composed.memberIds : [r.line.id];
+  const focused = !!props.focusItemId && ids.includes(props.focusItemId);
+  return (
+    <View onLayout={(e) => ids.forEach((id) => focus.onLine(group, id, e.nativeEvent.layout.y))} style={{ paddingVertical: space.l, borderBottomWidth: 1, borderBottomColor: p.hairline }}>
+      {heading ? <Small style={{ marginBottom: space.s }} accessibilityRole="header">{heading}</Small> : null}
+      <Emphasis on={focused}>
+        {r.composed ? (
+          <ComposedRow r={r} onComposed={props.onComposed ?? (() => undefined)} />
+        ) : r.history ? (
+          <HistoryRow r={r} onChange={props.onChange} onForget={props.onForget} onSource={props.onSource} />
+        ) : (
+          <RecordRow r={r} onChange={props.onChange} onForget={props.onForget} onSource={props.onSource} onSettle={props.onSettle} />
+        )}
+      </Emphasis>
+    </View>
+  );
+}
+
+/** The conversations the user confirmed (founder I2), each with Not this. */
+function Trail({ trail, onForget }: { trail: { id: string; label: string; about: string | null }[]; onForget?: (id: string) => void }) {
+  const p = usePalette();
+  return (
+    <>
+      {trail.map((t) => (
+        <View key={t.id} style={{ paddingVertical: space.l, borderBottomWidth: 1, borderBottomColor: p.hairline }}>
+          <Line>{t.label}</Line>
+          {t.about ? <Small style={{ marginTop: space.xs }}>{t.about}</Small> : null}
+          {onForget ? (
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.s }}>
+              <Pill variant="quiet" label="Not this" accessibilityLabel={`Not this: ${t.label}`} onPress={() => onForget(t.id)} />
+            </View>
+          ) : null}
+        </View>
+      ))}
+    </>
+  );
+}
+
+/**
+ * A closed line shown as history (B8, I7; brief §11): its words (the
+ * composer's for a residence, else its own), "Moved · Jan 4" when the note
+ * gives the day, dated by the day the change was told; Edit and Not this as
+ * on any line. No tokens: it is past, not something to re-file.
+ */
+function HistoryRow({ r, onChange, onForget, onSource }: {
+  r: RecordLine;
+  onChange: PersonRecordViewProps["onChange"];
+  onForget: PersonRecordViewProps["onForget"];
+  onSource: PersonRecordViewProps["onSource"];
+}) {
+  const text = r.display ?? r.line.statement;
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={text}
+        accessibilityHint="Double-tap to change the words"
+        onPress={() => onChange(r.line, "words")}
+        style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
+      >
+        <Line>{text}</Line>
+      </Pressable>
+      {r.history?.when ? <Small style={{ marginTop: space.xs }}>{r.history.when}</Small> : null}
+      <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
+        <View style={{ flex: 1 }}>
+          <Provenance line={r.provenance} onPress={r.noteId ? () => onSource(r.noteId as string) : undefined} />
+        </View>
+        <Pill variant="quiet" label="Edit" accessibilityLabel={`Edit: ${r.line.statement}`} accessibilityHint="Change the words" onPress={() => onChange(r.line, "words")} />
+        <Pill variant="quiet" label="Not this" accessibilityLabel={`Not this: ${r.line.statement}`} onPress={() => onForget(r)} />
+      </View>
+    </>
   );
 }
 
@@ -166,16 +273,17 @@ export function RecordRow({ r, onChange, onForget, onSource, onSettle }: {
   onSource: PersonRecordViewProps["onSource"];
   onSettle: PersonRecordViewProps["onSettle"];
 }) {
+  const text = r.display ?? r.line.statement;
   return (
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={r.line.statement}
+        accessibilityLabel={text}
         accessibilityHint="Double-tap to change the words"
         onPress={() => onChange(r.line, "words")}
         style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
       >
-        <Line>{r.line.statement}</Line>
+        <Line>{text}</Line>
       </Pressable>
       <View style={{ marginTop: space.s }}>
         <TokenRow>
@@ -241,6 +349,7 @@ function ComposedRow({ r, onComposed }: { r: RecordLine; onComposed: (line: Reco
       >
         <Line>{text}</Line>
       </Pressable>
+      {r.history?.when ? <Small style={{ marginTop: space.xs }}>{r.history.when}</Small> : null}
       <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
         <View style={{ flex: 1 }}>
           <Provenance line={r.provenance} onPress={() => onComposed(r)} />

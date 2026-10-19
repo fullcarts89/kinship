@@ -184,7 +184,9 @@
     },
     "provenance": "You told Kinship · Oct 5",
     "noteId": "00000001-0000-4000-8000-000000000003",
-    "conflict": null
+    "conflict": null,
+    "section": "between_you",
+    "category": "between_you"
    },
    {
     "line": {
@@ -215,7 +217,9 @@
     },
     "provenance": "You told Kinship · Oct 5",
     "noteId": "00000001-0000-4000-8000-000000000003",
-    "conflict": null
+    "conflict": null,
+    "section": "plans",
+    "category": "plan"
    },
    {
     "line": {
@@ -241,7 +245,10 @@
     },
     "provenance": "You told Kinship · Oct 5",
     "noteId": "00000001-0000-4000-8000-000000000003",
-    "conflict": null
+    "conflict": null,
+    "section": "background",
+    "category": "work",
+    "display": "Is excited but nervous about managing people"
    },
    {
     "line": {
@@ -267,7 +274,10 @@
     },
     "provenance": "You told Kinship · Oct 5",
     "noteId": "00000001-0000-4000-8000-000000000003",
-    "conflict": null
+    "conflict": null,
+    "section": "background",
+    "category": "work",
+    "display": "Was promoted"
    }
   ],
   "source": {
@@ -429,7 +439,10 @@
     },
     "provenance": "You told Kinship · Oct 26",
     "noteId": "00000002-0000-4000-8000-000000000006",
-    "conflict": null
+    "conflict": null,
+    "section": "background",
+    "category": "work",
+    "display": "Got the job at Stripe"
    }
   ],
   "personId": "00000002-0000-4000-8000-000000000001"
@@ -527,7 +540,9 @@
     },
     "provenance": "You told Kinship · Nov 4",
     "noteId": "00000003-0000-4000-8000-000000000005",
-    "conflict": null
+    "conflict": null,
+    "section": "background",
+    "category": "other"
    }
   ],
   "personId": "00000003-0000-4000-8000-000000000001"
@@ -704,7 +719,9 @@
     },
     "provenance": "You told Kinship · Aug 1",
     "noteId": "00000004-0000-4000-8000-000000000076",
-    "conflict": null
+    "conflict": null,
+    "section": "their_people",
+    "category": "their_people"
    },
    {
     "line": {
@@ -734,7 +751,9 @@
     },
     "provenance": "You told Kinship · Jul 31",
     "noteId": "00000004-0000-4000-8000-000000000073",
-    "conflict": null
+    "conflict": null,
+    "section": "between_you",
+    "category": "between_you"
    },
    {
     "line": {
@@ -760,7 +779,9 @@
     },
     "provenance": "You told Kinship · Jul 30",
     "noteId": "00000004-0000-4000-8000-000000000070",
-    "conflict": null
+    "conflict": null,
+    "section": "between_you",
+    "category": "between_you"
    },
    {
     "line": {
@@ -786,7 +807,10 @@
     },
     "provenance": "You told Kinship · Jul 29",
     "noteId": "00000004-0000-4000-8000-000000000067",
-    "conflict": null
+    "conflict": null,
+    "section": "into",
+    "category": "interest",
+    "display": "Is reading Piranesi"
    },
    {
     "line": {
@@ -816,7 +840,10 @@
     },
     "provenance": "You told Kinship · Jul 27",
     "noteId": "00000004-0000-4000-8000-000000000064",
-    "conflict": null
+    "conflict": null,
+    "section": "their_people",
+    "category": "their_people",
+    "under": "Mom"
    },
    {
     "line": {
@@ -846,7 +873,9 @@
     },
     "provenance": "You told Kinship · Jul 25",
     "noteId": "00000004-0000-4000-8000-000000000061",
-    "conflict": null
+    "conflict": null,
+    "section": "background",
+    "category": "other"
    },
    {
     "line": {
@@ -873,7 +902,9 @@
     },
     "provenance": "You told Kinship · Jul 22",
     "noteId": "00000004-0000-4000-8000-000000000058",
-    "conflict": null
+    "conflict": null,
+    "section": "between_you",
+    "category": "between_you"
    },
    {
     "line": {
@@ -903,7 +934,9 @@
     },
     "provenance": "You told Kinship · Jul 18",
     "noteId": "00000004-0000-4000-8000-000000000055",
-    "conflict": null
+    "conflict": null,
+    "section": "between_you",
+    "category": "between_you"
    },
    {
     "line": {
@@ -929,7 +962,9 @@
     },
     "provenance": "You told Kinship · Jul 12",
     "noteId": "00000004-0000-4000-8000-000000000052",
-    "conflict": null
+    "conflict": null,
+    "section": "background",
+    "category": "work"
    },
    {
     "line": {
@@ -955,7 +990,10 @@
     },
     "provenance": "You told Kinship · Jul 7",
     "noteId": "00000004-0000-4000-8000-000000000049",
-    "conflict": null
+    "conflict": null,
+    "section": "background",
+    "category": "other",
+    "display": "Is redoing her kitchen"
    },
    {
     "line": {
@@ -986,7 +1024,9 @@
     },
     "provenance": "You told Kinship · Jul 2",
     "noteId": "00000004-0000-4000-8000-000000000046",
-    "conflict": null
+    "conflict": null,
+    "section": "plans",
+    "category": "plan"
    },
    {
     "line": {
@@ -1016,7 +1056,9 @@
     },
     "provenance": "You told Kinship · Jun 22",
     "noteId": "00000004-0000-4000-8000-000000000043",
-    "conflict": null
+    "conflict": null,
+    "section": "between_you",
+    "category": "between_you"
    },
    {
     "line": {
@@ -1042,7 +1084,9 @@
     },
     "provenance": "You told Kinship · Jun 17",
     "noteId": "00000004-0000-4000-8000-000000000040",
-    "conflict": null
+    "conflict": null,
+    "section": "into",
+    "category": "interest"
    },
    {
     "line": {
@@ -1068,7 +1112,10 @@
     },
     "provenance": "You told Kinship · Jun 2",
     "noteId": "00000004-0000-4000-8000-000000000037",
-    "conflict": null
+    "conflict": null,
+    "section": "background",
+    "category": "work",
+    "display": "Started at Figma"
    },
    {
     "line": {
@@ -1098,7 +1145,9 @@
     },
     "provenance": "You told Kinship · May 18",
     "noteId": "00000004-0000-4000-8000-000000000034",
-    "conflict": null
+    "conflict": null,
+    "section": "between_you",
+    "category": "between_you"
    },
    {
     "line": {
@@ -1124,7 +1173,10 @@
     },
     "provenance": "You told Kinship · May 3",
     "noteId": "00000004-0000-4000-8000-000000000031",
-    "conflict": null
+    "conflict": null,
+    "section": "background",
+    "category": "other",
+    "display": "Is learning ceramics"
    },
    {
     "line": {
@@ -1150,7 +1202,10 @@
     },
     "provenance": "You told Kinship · Apr 13",
     "noteId": "00000004-0000-4000-8000-000000000028",
-    "conflict": null
+    "conflict": null,
+    "section": "their_people",
+    "category": "their_people",
+    "under": "Ana · sister"
    },
    {
     "line": {
@@ -1176,7 +1231,9 @@
     },
     "provenance": "You told Kinship · Mar 4",
     "noteId": "00000004-0000-4000-8000-000000000025",
-    "conflict": null
+    "conflict": null,
+    "section": "between_you",
+    "category": "between_you"
    },
    {
     "line": {
@@ -1202,7 +1259,10 @@
     },
     "provenance": "You told Kinship · Feb 12",
     "noteId": "00000004-0000-4000-8000-000000000022",
-    "conflict": null
+    "conflict": null,
+    "section": "background",
+    "category": "other",
+    "display": "Is training for the Big Sur half"
    },
    {
     "line": {
@@ -1228,7 +1288,9 @@
     },
     "provenance": "You told Kinship · Jan 13",
     "noteId": "00000004-0000-4000-8000-000000000019",
-    "conflict": null
+    "conflict": null,
+    "section": "their_people",
+    "category": "their_people"
    },
    {
     "line": {
@@ -1254,7 +1316,9 @@
     },
     "provenance": "You told Kinship · Dec 4, 2026",
     "noteId": "00000004-0000-4000-8000-000000000016",
-    "conflict": null
+    "conflict": null,
+    "section": "between_you",
+    "category": "between_you"
    },
    {
     "line": {
@@ -1280,7 +1344,10 @@
     },
     "provenance": "You told Kinship · Nov 14, 2026",
     "noteId": "00000004-0000-4000-8000-000000000013",
-    "conflict": null
+    "conflict": null,
+    "section": "into",
+    "category": "preference",
+    "display": "Hates cilantro"
    },
    {
     "line": {
@@ -1306,7 +1373,10 @@
     },
     "provenance": "You told Kinship · Oct 25, 2026",
     "noteId": "00000004-0000-4000-8000-000000000010",
-    "conflict": null
+    "conflict": null,
+    "section": "into",
+    "category": "interest",
+    "display": "Loves the Moth podcast"
    },
    {
     "line": {
@@ -1332,7 +1402,9 @@
     },
     "provenance": "You told Kinship · Oct 5, 2026",
     "noteId": "00000004-0000-4000-8000-000000000007",
-    "conflict": null
+    "conflict": null,
+    "section": "between_you",
+    "category": "between_you"
    }
   ],
   "ids": {

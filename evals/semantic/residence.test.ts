@@ -361,13 +361,21 @@ function render(w: World, rows: Row[]): { lines: string[]; groups: Row[][]; degr
 }
 
 /**
- * A closed residence line is history only when every live closer records a change (§11, CC-20). Each
- * closed line is rendered on its own here (the history chain's grouping by closer is B8's).
+ * A closed residence line is history only when every live closer records a change (§11, CC-20). As the
+ * product shows it (B8): the lines one note closed together compose ("Previously lived in Alameda,
+ * California"); a line on its own reads "Previously lived in Alameda".
  */
 function history(w: World, personId: string): string[] {
-  return w.rows.filter((r) => !r.deleted && r.status === "superseded" && r.person_id === personId && r.subject_type === "person" &&
-    w.liveFacet(r.id) && historyEligible(w.closedBy(r.id).map((c) => ({ transition: c.detail.transition }))))
-    .flatMap((r) => composeResidence([{ id: r.id, facet: w.liveFacet(r.id)!, told: "" }], { previous: true }).lines.map((l) => l.text));
+  const eligible = w.rows.filter((r) => !r.deleted && r.status === "superseded" && r.person_id === personId && r.subject_type === "person" &&
+    w.liveFacet(r.id) && historyEligible(w.closedBy(r.id).map((c) => ({ transition: c.detail.transition }))));
+  const byCloser = new Map<string, Row[]>();
+  for (const r of eligible) {
+    const closer = w.closedBy(r.id).sort((a, b) => b.tick - a.tick)[0];
+    byCloser.set(closer.id, [...(byCloser.get(closer.id) ?? []), r]);
+  }
+  return [...byCloser.values()].flatMap((rows) =>
+    composeResidence(rows.map((r) => ({ id: r.id, facet: w.liveFacet(r.id)!, told: String(r.tick).padStart(8, "0") })), { previous: true }).lines.map((l) => l.text)
+  );
 }
 
 /**
