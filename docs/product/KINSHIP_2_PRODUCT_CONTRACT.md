@@ -11,7 +11,7 @@ This contract exists for one reason. A previous build was implemented milestone 
 
 | Rank | Source | What it governs |
 |---|---|---|
-| 1 | **Explicit founder decisions made after 30 Sep 2026** (§6 below; `KINSHIP_2_DECISIONS.md` D1–D13; Phase 0 and Checkpoint A decisions; the recovery brief of 5 Oct 2026) | Overrides anything older that it directly contradicts, and nothing else |
+| 1 | **Explicit founder decisions made after 30 Sep 2026** (§6 below; `KINSHIP_2_DECISIONS.md` D1–D13 and the CC series through CC-28; Phase 0 and Checkpoint A decisions; the recovery brief of 5 Oct 2026) | Overrides anything older that it directly contradicts, and nothing else |
 | 2 | **Kinship 2.0 Design Direction** (Claude Doc, 30 Sep 2026) and the **approved recommended boards** of the Kinship 2.0 Design Exploration canvas: "Recommended · Setup, Today, Tell, Confirm", "Recommended · Brief, Follow-up, Reconnect, Person, History", "Recommended · Garden, Reflection, Ask, Privacy, Night", "Recommended · Design system" | **The product design.** Screens, composition, hierarchy, typography, spacing, copy voice, interaction model |
 | 3 | `KINSHIP_2_COMPLETE_PLAN.md` (generated from the five `KINSHIP_2_*.md` files) | **The technical and build plan.** Architecture, data model, AI, trust, sequencing. Its tension table (T1–T17) records where it already overrides the design, with reasons |
 | 4 | Phase and checkpoint docs (`docs/phase1/`, `docs/phase2/`) | Records of what was built. Never a source of product intent |
@@ -35,6 +35,10 @@ Tell ─▶ Understand ─▶ Memory ─▶ Moment ─▶ Reason ─▶ Real con
   ▲                                                       │
   └──────────── "Anything worth remembering?" ◀───────────┘
 ```
+
+This is the **implemented interaction loop**, and its contracts (`today-eligibility.md`, `relationship-page-rules.md`, the plan §13–§15, §24) stand as written.
+
+**The long-term thesis (founder, CC-28, 18 Oct 2026):** showing up is an outcome, not a communication channel. Kinship helps users turn what they know about the people they care about into meaningful actions in those people's lives: presence, thoughtfulness, practical care, follow-through, shared experiences, connecting people, and staying in touch. Read as a long-term model the loop is *Tell → Understand → Memory → Meaningful opportunity → Thoughtful action → Real-world relationship → optional reflection or a new memory*. The thesis changes how future capabilities are judged, not how current code behaves; no API, schema or feature is renamed to match it. Memories create opportunities, never obligations. Relationship value comes before commerce: Memory → meaningful opportunity → user-chosen action → optional commercial fulfillment, and a real conversation is at least as valid an outcome as a purchase. Kinship is never an affiliate marketplace or a shopping app.
 
 ### What Kinship does not optimise
 
@@ -61,7 +65,7 @@ The user experiences intelligence only as: less manual entry; natural-language T
 - **Never in normal use:** sparkle icons, AI badges, "AI insight" cards, model or provider branding, confidence scores, tier labels, database terms, a chat as a primary surface, an "AI magic moment" as a requirement.
 - Provider information appears only where privacy, consent or transparency need it (the consent step; Settings › What Kinship knows).
 
-Priority order: (1) help the user remember what matters; (2) surface it when useful; (3) help them show up in the real relationship; (4) minimise the work to make that happen. AI serves these; it is never the goal.
+Priority order: (1) help the user remember what matters; (2) surface it when useful; (3) help them show up in the real relationship, by whatever meaningful action they choose (CC-28); (4) minimise the work to make that happen. AI serves these; it is never the goal.
 
 ---
 
@@ -125,6 +129,7 @@ Not destinations: Garden, Landscape, Activity, Garden Walk, Seasons, Reach Out, 
 | **No "nothing is kept" claim without ZDR** (T9, D2) | Board 3 Privacy copy | "Sent to Anthropic to understand it; not used to train models." |
 | **Night prompt only after a signal** (T6) | "After 8 pm Today leads with 'Anything worth remembering?'" | Asked after a hand-off "Yes" (built), or a planned encounter (later) |
 | **A hand-off alone never counts** (T12) | — | Only "Yes" to the return check records contact |
+| **Relationship value before commerce** (CC-28) | — | Memory → meaningful opportunity → user-chosen action → optional commercial fulfillment. Commercial incentives never affect ranking or Moment eligibility; nothing is purchased, booked, invited or sent autonomously; non-commercial actions stay first-class; vulnerable contexts are never monetised; the user is free to do nothing |
 | **Onboarding must not be deferred** (recovery brief, 5 Oct 2026) | `docs/phase2/quiet-herbarium-build.md` §6 decision to defer promise/onboarding | The wife-critical portion of E16 is built now |
 
 ---
@@ -211,3 +216,4 @@ build → founder review → founder native pass → fix → founder approval �
 6. Judge every change as a first-time user, on an empty account, before calling it done. Screenshots of seeded accounts hide emptiness.
 7. When this contract is wrong, change it in a PR the founder reviews; never route around it.
 8. **Review every roadmap proposal against the smallest coherent Kinship** (founder, CC-25): Tell · Understand · Memory · Today · Delivery · Trust. Ask: *does this strengthen the smallest coherent Kinship, or is it trying to create another product inside Kinship?* Once Kinship can remember well, the priority shifts from making memory more sophisticated to proving that memory changes what happens between real people. The current roadmap buckets are in `KINSHIP_2_DECISIONS.md` CC-25 and the plan §28.
+9. **Every proposed expansion also answers the showing-up test** (founder, CC-28): *does this help someone be more present, thoughtful, supportive or dependable toward another real person?* If the honest primary answer is more engagement, more transactions, more data recorded, another integration, or a more ambitious-looking roadmap, it does not yet justify inclusion. The exploration behind it: `docs/product/explorations/showing-up-actions-2026-10/`.
