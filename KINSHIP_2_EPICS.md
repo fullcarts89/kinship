@@ -583,7 +583,6 @@ There are 22 detailed epics (E00–E21) for Phases 0–5 and the first Phase 6 f
 ## Phase 6 epics, outlined (detailed after the beta gate)
 
 > **CC-25 (16 Oct 2026):** this order is superseded by the roadmap buckets in `KINSHIP_2_OPERATIONALIZATION.md` §28. E25 Ask is the first major Alpha expansion (one capability with `retrieval_answer`). E22 Reconnect is likely a Today candidate, with rhythm held. E21's brief is likely Moment detail with the calendar as an evidence source. E26's monthly letter is downgraded to later validation. E23 starts with chapters as a People filter before any visual. E24 starts with Siri / Action Button; the widget is held. Approved board surfaces stay deferred, not removed.
-E24 starts with Siri / Action Button; the widget is held. Approved board surfaces stay deferred, not removed.
 >
 > **CC-28 (18 Oct 2026):** no epic is added. Showing-Up Actions is an Explore-later frame (plan §28 bucket D); any capability under it (a secondary action on a Moment, Ask's suggestion mode, external hand-offs) gets its own epic only after a founder decision and its own brief.
 

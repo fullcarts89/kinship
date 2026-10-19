@@ -248,7 +248,7 @@ D10 stands: Kinship becomes a paid subscription whose object is *Kinship activel
 | **Action assistance** | Did Kinship materially help choose or carry it out? | A content-free event: which kind of line was shown and tapped (an enum), and whether an outcome followed | Anything about the content; any score |
 | **Commercial transaction** | Did an optional purchase occur? | A provider's confirmation, if a relationship exists and the user consented to the report | Attribution of relationship value to the purchase |
 
-**The minimum evidence to learn whether expanded actions are useful:** (1) a `gesture_shown` / `gesture_tapped` analytics event with `kind` as a closed enum (plan · help · note · something), content-free under F0-D4; (2) the existing return check, unchanged, with its channel list already including In person; (3) **optionally**, after a Yes that followed a gesture tap, one more optional question in the same breath ("Did you make a plan?" Yes · Not yet), never more than one tap, never required; (4) interviews. No activity tracking, no verification burden, no history maintenance. A user who answers nothing is counted as nothing.
+**Two stages, kept apart.** The first probe (SUA-1) can only show whether a suggestion is welcome and used. Whether the suggested action happened is learned later, from the user's own confirmation and interviews, never inferred from a tap. **The minimum evidence to learn whether expanded actions are useful:** (1) a `gesture_shown` / `gesture_tapped` analytics event with `kind` as a closed enum (plan · help · note · something), content-free under F0-D4; (2) the existing return check, unchanged, with its channel list already including In person; (3) **optionally**, after a Yes that followed a gesture tap, one more optional question in the same breath ("Did you make a plan?" Yes · Not yet), never more than one tap, never required; (4) interviews. No activity tracking, no verification burden, no history maintenance. A user who answers nothing is counted as nothing.
 
 **What a future metric change would need:** its own founder decision; the same content-free rules; no user-facing count, frequency, score or "people neglected"; and a reason to believe the qualifying action is real (the user said so), not inferred.
 
@@ -283,7 +283,7 @@ D10 stands: Kinship becomes a paid subscription whose object is *Kinship activel
 | # | Experiment | Builds on | Cost | Learns | Needs a provider |
 |---|---|---|---|---|---|
 | MVE-1 | **Interview-only**: the three-examples interview and a static mock of the gesture line (§11, 2–3) | Nothing | Hours | Whether the need is real for these users; which gestures | No |
-| MVE-2 | **The gesture line** (the recommended first probe): one fixed-template "You could…" line beneath the primary action on the hand-off sheet and Moment detail, for a milestone or event ahead and an open promise; opens Messages; `gesture_*` events; interviews | K26's `mentions.ts` and `MENTION_OPENERS`; I1's detail; §23 analytics | S (copy and a template table; no model, no schema, no server) | Whether a user-initiated non-communication suggestion helps without intruding | No |
+| MVE-2 | **The gesture line** (the recommended first probe): one fixed-template "You could…" line beneath the primary action on the hand-off sheet and Moment detail, for a milestone or event ahead and an open promise; opens Messages; `gesture_*` events; interviews | K26's `mentions.ts` and `MENTION_OPENERS`; I1's detail; §23 analytics | S (copy and a template table; no model, no schema, no server) | Whether a grounded contextual action suggestion helps without intruding (**the suggestion layer only**; it does not show that the action happened) | No |
 | MVE-3 | **Ask's suggestion mode**: on Ask v1, "What could Chris and I do together?" returns retrieved lines and labelled suggestions | Ask v1 (Alpha) | M | Whether derived suggestions can stay honest and useful | No |
 | MVE-4 | **Ways to help** under a sensitive line | RSN-09's brief; Remembered / Paused | S–M | Whether support help lands without intrusion | No |
 | MVE-5 | **A plain external hand-off** ("Send something" → a provider page with nothing passed, no affiliate id) on a birthday or milestone Moment | MVE-2's evidence; the monetisation decision | S | Whether anyone wants it; the trust reaction | A link only |
@@ -297,7 +297,8 @@ MVE-1 can run during the wife dogfood without any build. MVE-2 is the proposed f
 | **G0** | Record the thesis | CC-28 | Founder (done) |
 | **G1** | Run MVE-1 interviews during dogfood? | None needed | Founder |
 | **G2** | Authorise MVE-2 (the gesture line) for early Alpha? | The approved metric shows the ordinary loop works in dogfood; MVE-1 says the need is real; a brief with copy, contexts, exclusions, events | Founder, after the wife dogfood |
-| **G3** | Continue past the probe? | Taps happen; interviews say "helping, not telling"; at least some gestures reported done; no stop condition hit | Founder, after Alpha round |
+| **G3** | Continue past the probe (the suggestion layer)? | Taps happen; interviews say "helping, not telling"; no stop condition hit | Founder, after Alpha round |
+| **G3b** | Do real-world actions follow (the outcome layer)? | User-confirmed actions of a content-free kind (an optional "Did you make a plan?" after a Yes; "Kept it"; a later Tell naming the action); self-reported outcomes in interviews; a consistent story across §9's three layers. Defined in `01-roadmap-options.md` §4 | Founder, with the §24 evolution decision (FD-5) |
 | **G4** | Ask's suggestion mode? | Ask v1's evidence; G3 passed | Founder |
 | **G5** | Any external hand-off, any commerce? | G3 passed; the monetisation decision (FD-1 in `02-founder-decisions.md`); the disclosure copy; a D2 review | Founder |
 | **G6** | Any external evidence source (calendar, shared invitations, listings)? | D6's trigger or Alpha interviews; the permission design | Founder |
@@ -307,7 +308,7 @@ MVE-1 can run during the wife dogfood without any build. MVE-2 is the proposed f
 **Recommended.**
 1. Adopt the thesis (done, CC-28) and change nothing in the committed sequence.
 2. Run MVE-1 (interviews) during the wife dogfood; it costs nothing and shapes the probe.
-3. Make the first build MVE-2, the non-commercial gesture line, in early Alpha after the ordinary loop is proven, with its own brief (`01-roadmap-options.md` §4).
+3. Make the first build MVE-2, the non-commercial gesture line, in early Alpha after the ordinary loop is proven, with its own brief (`01-roadmap-options.md` §4). It validates contextual action suggestions, not real-world outcomes; the outcome evidence is a later stage (G3b).
 4. Defer all commerce past Alpha; keep D10's subscription as the model; treat any later commerce as fulfillment the user walks to.
 5. Fold the Opportunity Engine into Today + user-initiated assistance + Intentions; keep external events as a separate, later experiment.
 6. Record the measurement evolution (§9) and change nothing in §24 until a later decision.

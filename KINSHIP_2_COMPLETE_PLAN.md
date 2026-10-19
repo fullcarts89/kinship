@@ -86,7 +86,7 @@ Kinship 2.0 is a private memory for your relationships. It remembers what matter
   └──────────── "Anything worth remembering?" ◀──────────────┘
 ```
 
-Kinship does not aim for engagement with Kinship. It aims for meaningful human interactions that Kinship caused or materially improved. Section 24 defines that as a countable event.Kinship does not aim for engagement with Kinship. It aims for meaningful human interactions that Kinship caused or materially improved. Section 24 defines that as a countable event.
+Kinship does not aim for engagement with Kinship. It aims for meaningful human interactions that Kinship caused or materially improved. Section 24 defines that as a countable event.
 
 > **CC-28 (18 Oct 2026):** the loop above is the implemented interaction loop and is unchanged. The approved long-term thesis is broader: showing up is an outcome, not a channel, and Kinship helps users turn what they know into meaningful actions in people's lives (presence, thoughtfulness, practical care, follow-through, shared experiences, connecting people, staying connected). Read long-term: *Tell → Understand → Memory → Meaningful opportunity → Thoughtful action → Real-world relationship → optional reflection or a new memory*. Nothing is renamed to match it; capabilities that would operationalise it are Explore-later hypotheses (§28, bucket D). Full text: [Part 2](#part-2--founder-decisions) CC-28.
 
@@ -659,7 +659,7 @@ Examples:
 
 ### 15. Human handoff
 
-Every useful moment ends in the real relationship. Kinship opens the channel and never sends anything.Every useful moment ends in the real relationship. Kinship opens the channel and never sends anything.
+Every useful moment ends in the real relationship. Kinship opens the channel and never sends anything.
 
 > **CC-28:** the channels below are how the built loop ends. A future Moment or hand-off may carry one meaningful action other than Message or Call (make a plan, offer help, send something), as one clear primary with at most one relevant secondary and progressive disclosure, never five equal-weight actions and never a requirement. The Moment detail is the likely home. The return check's **In person** already records presence. Hypothesis only; see §28 bucket D.
 
@@ -702,7 +702,7 @@ Delivery: push 60–90 min before, lock screen "Something for tonight"; opens Br
 After: 2–3 h after event end, Today asks "How was dinner with David?" (in-app only)
 ```
 
-**Tone rule:** a brief lists what the user already knows, in their words. It carries no talking points, no goals, no "remember to ask about…". There are at most 4 lines. Kept promises offer "Kept it".**Tone rule:** a brief lists what the user already knows, in their words. It carries no talking points, no goals, no "remember to ask about…". There are at most 4 lines. Kept promises offer "Kept it".
+**Tone rule:** a brief lists what the user already knows, in their words. It carries no talking points, no goals, no "remember to ask about…". There are at most 4 lines. Kept promises offer "Kept it".
 
 > **CC-28:** if briefs are built, they may later include thoughtful ways to spend time, celebrate or support, not only what to mention, under D9 (ideas only on request, editable, never sent). Calendar availability never implies another person's availability, attendance or willingness. Hypothesis only.
 
@@ -948,7 +948,7 @@ A **showing-up moment** is counted when all of these hold:
    - the user tapped **Done** on that reason,
    - or the user created a capture about P whose extraction includes a `moment` or contact.
 
-Opening Messages alone doesn't count. The confirmation work is at most one tap, and it's always optional; unanswered means not counted.Opening Messages alone doesn't count. The confirmation work is at most one tap, and it's always optional; unanswered means not counted.
+Opening Messages alone doesn't count. The confirmation work is at most one tap, and it's always optional; unanswered means not counted.
 
 > **CC-28 (18 Oct 2026): the definition above and its founder gate are unchanged.** A future evolution is recorded, not implemented: once meaningful actions beyond contact exist (a plan made, a visit, a meal brought, a gesture sent), the qualifying action may include a user-confirmed action of a content-free kind (an enum, never text), and three things are kept apart in analysis: a *relationship outcome* (the user did something meaningful for another person), *action assistance* (Kinship materially helped choose or carry it out) and a *commercial transaction* (an optional purchase). A purchase, an opened link, an RSVP or a suggested gesture never establishes an outcome by itself; only the user's confirmation does, at most one optional tap, never a verification chore, never a visible count. Any change to the metric needs its own founder decision. Exploration: `docs/product/explorations/showing-up-actions-2026-10/00-opportunity-brief.md` §9.
 
@@ -1115,7 +1115,7 @@ The domain code shared between the app and Deno lives in `packages/domain/` (pla
 > | **D. Explore later** | Intentions v0 (a user-authored sentence used as a relevance signal); chapters / life groups (user-named, many-to-many, a People filter); calendar as an evidence source; reconnect as a Today candidate; About You in Settings; year-ago and an occasional or yearly reflection; a dock mic / voice; a text share extension; the Landscape / Garden checkpoint; the Opportunity Engine's external-event experiment; subscriptions and pricing; growth systems |
 > | **E. Hold / drop / absorb** | Rhythm as a user-facing or neglect mechanism; a separate reconnect engine; a separate Brief product; monthly reporting by default; About You as a primary destination; the widget; semantic slots ahead of Ask evidence; `reason_generate` unless copy problems emerge; a general chatbot; a task manager; scores; timeline-heavy CRM UI; Garden vitality and growth mechanics |
 >
-> **The standing test:** *does this strengthen the smallest coherent Kinship (Tell · Understand · Memory · Today · Delivery · Trust), or is it trying to create another product inside Kinship?*> **The standing test:** *does this strengthen the smallest coherent Kinship (Tell · Understand · Memory · Today · Delivery · Trust), or is it trying to create another product inside Kinship?*
+> **The standing test:** *does this strengthen the smallest coherent Kinship (Tell · Understand · Memory · Today · Delivery · Trust), or is it trying to create another product inside Kinship?*
 >
 > **Showing up beyond communication (founder, CC-28, 18 Oct 2026).** Showing up is an outcome, not a channel; Kinship helps users turn what they know into meaningful actions in people's lives. The buckets above are unchanged in A, B and C. **Bucket D gains one frame, Showing-Up Actions**, which holds (without duplicating epics): a secondary contextual action on a Moment or hand-off; Ask's suggestion mode (a derived suggestion, kept apart from retrieved memory); Intentions as the user's own statement of which help they want; calendar and user-shared invitations as evidence; external hand-offs for gifting, flowers, experiences and practical support; and the Opportunity Engine's external-event experiment. **Bucket E gains:** a standalone shopping marketplace; a separate Gifts or Events tab without demonstrated need; autonomous purchases; an event-hosting / RSVP platform; relationship-health scoring; commercially driven nudges; unbounded proactive opportunity generation; a general-purpose concierge with no relationship grounding. The order of value is fixed: Memory → meaningful opportunity → user-chosen action → optional commercial fulfillment. **The second standing test:** *does this help someone be more present, thoughtful, supportive or dependable toward another real person?* Roadmap options and the proposed first probe (a proposal, not a build): `docs/product/explorations/showing-up-actions-2026-10/01-roadmap-options.md`.
 
@@ -1420,7 +1420,7 @@ Kinship may eventually notice natural openings for connection by combining relat
 
 *Example:* the user wants to keep the Austin crew connected, and Kinship knows they watched Texas football together. Texas plays Michigan on Saturday, so Kinship might offer: "Texas plays Michigan Saturday. Good excuse to wake up the old game-day thread?"
 
-**Principle:** Kinship never searches the world at random for reasons to message people. External context is retrieved **only after** Kinship has a grounded hypothesis about what matters to this user and this relationship.**Principle:** Kinship never searches the world at random for reasons to message people. External context is retrieved **only after** Kinship has a grounded hypothesis about what matters to this user and this relationship.
+**Principle:** Kinship never searches the world at random for reasons to message people. External context is retrieved **only after** Kinship has a grounded hypothesis about what matters to this user and this relationship.
 
 > **CC-28 (18 Oct 2026):** the preferred architecture is **not a standalone engine**. It is a lightweight expansion of grounded Today candidates, user-initiated contextual assistance (the person's page, the hand-off sheet, the Moment detail, later Ask) and user-authored Intentions. An opportunity may be acted on by any meaningful action, not only a message. External event data (a concert matching a stated interest, a shared invitation) stays a later, separate experiment with its own privacy posture; nothing is retrieved without a grounded hypothesis, nothing implies another person's availability, and no commercial partner decides what surfaces. The opportunity space, ranked: `docs/product/explorations/showing-up-actions-2026-10/00-opportunity-brief.md`.
 
@@ -2724,7 +2724,7 @@ From the founder's K28 + K26 brief, after testing the B6 build (ledger K26–K28
 One primary Moment, milestone day precision, proactive notifications, T12, the K23 reason-linked loop, B6's gate and B7 → B8 → B9. K27 is diagnosed only (`docs/product/k27-diagnosis.md`); its fix waits for the founder.
 
 ### CC-28. Showing up beyond communication: meaningful actions as the product outcome (18 Oct 2026)
-From the founder's investigation into how Kinship might help people be better friends. It began with questions about Partiful, gifts, flowers, shared experiences and commerce integrations; the founder clarified that those were examples, not the objective. **Strategy only:** it starts no build, changes nothing in Phase 4B's order or scope, adds nothing to CC-25's Commit-next bucket, and renames no API, schema or feature. Where it differs from CC-25 or CC-26 it is newer; it contradicts neither. (CC-27 is K27's memory-trust fix, recorded on its own branch; this entry is numbered after it.) The exploration behind it: `docs/product/explorations/showing-up-actions-2026-10/`.
+From the founder's investigation into how Kinship might help people be better friends. It began with questions about Partiful, gifts, flowers, shared experiences and commerce integrations; the founder clarified that those were examples, not the objective. **Strategy only:** it starts no build, changes nothing in Phase 4B's order or scope, adds nothing to CC-25's Commit-next bucket, and renames no API, schema or feature. Where it differs from CC-25 or CC-26 it is newer; it contradicts neither. (CC-27 is K27's memory-trust fix on `claude/k27-fluffy`, PR #50, open when this was written; this entry is numbered after it. When both merge, CC-27 precedes CC-28 in this file, neither entry's text is edited by the other's merge, and nothing is renumbered; if PR #50 closes unmerged, CC-27 stays reserved for K27.) The exploration behind it: `docs/product/explorations/showing-up-actions-2026-10/`.
 
 #### The strategic interpretation (approved)
 - **Showing up is an outcome, not a communication channel.** Messaging and calling are two ways of acting meaningfully toward another person, and the current loop ends in a real conversation. People also show up through presence, thoughtfulness, practical support, follow-through, shared experiences, celebrations, and connecting people with one another.
@@ -2799,7 +2799,7 @@ No production API, table, event name or feature is renamed to match layer 2. The
 | **E. Hold / drop / absorb** | Added: a standalone shopping marketplace; a separate Gifts or Events tab without demonstrated need; autonomous purchases; an event-hosting / RSVP platform; relationship-health scoring; commercially driven nudges; unbounded proactive opportunity generation; a general-purpose concierge with no relationship grounding |
 
 #### The proposed first experiment (a proposal, not an authorised build)
-The exploration recommends the **conservative sequence**: validate ordinary showing-up in the wife dogfood as planned (round 1 without push, round 2 with the minimal push), then run one narrow, user-initiated, non-commercial probe in early Alpha: a single fixed-template "You could…" gesture line beneath the primary action on the hand-off sheet and the Moment detail, for a small set of grounded contexts (a milestone or event ahead, an open promise), built on K26's deterministic preference, with a content-free analytics event and an interview question. Its evidence gate and alternatives: `explorations/showing-up-actions-2026-10/01-roadmap-options.md`. **Nothing starts from this entry.**
+The exploration recommends the **conservative sequence**: validate ordinary showing-up in the wife dogfood as planned (round 1 without push, round 2 with the minimal push), then run one narrow, user-initiated, non-commercial probe in early Alpha: a single fixed-template "You could…" gesture line beneath the primary action on the hand-off sheet and the Moment detail, for a small set of grounded contexts (a milestone or event ahead, an open promise), built on K26's deterministic preference, with a content-free analytics event and an interview question. **What it validates:** whether a contextual action suggestion, grounded in memory, helps without intruding (a suggestion-layer question). **What it does not validate:** that non-communication showing-up actions happen in the real world; that needs later, user-confirmed evidence (a confirmed action of a content-free kind, "Kept it" on a promise, a later Tell, interviews), defined in the exploration and gated by a later founder decision before any metric changes (§24). Its evidence gates and alternatives: `explorations/showing-up-actions-2026-10/01-roadmap-options.md` §4. **Nothing starts from this entry.**
 
 #### The standing test, extended
 Every proposed expansion answers contract §11 rule 8 *and*: ***"Does this help someone be more present, thoughtful, supportive or dependable toward another real person?"*** If the honest primary answer is more engagement, more transactions, more data recorded, another integration, or a more ambitious-looking roadmap, it does not yet justify inclusion.
@@ -3395,7 +3395,6 @@ There are 22 detailed epics (E00–E21) for Phases 0–5 and the first Phase 6 f
 ### Phase 6 epics, outlined (detailed after the beta gate)
 
 > **CC-25 (16 Oct 2026):** this order is superseded by the roadmap buckets in [Part 1](#part-1--operationalization--build-architecture) §28. E25 Ask is the first major Alpha expansion (one capability with `retrieval_answer`). E22 Reconnect is likely a Today candidate, with rhythm held. E21's brief is likely Moment detail with the calendar as an evidence source. E26's monthly letter is downgraded to later validation. E23 starts with chapters as a People filter before any visual. E24 starts with Siri / Action Button; the widget is held. Approved board surfaces stay deferred, not removed.
-E24 starts with Siri / Action Button; the widget is held. Approved board surfaces stay deferred, not removed.
 >
 > **CC-28 (18 Oct 2026):** no epic is added. Showing-Up Actions is an Explore-later frame (plan §28 bucket D); any capability under it (a secondary action on a Moment, Ask's suggestion mode, external hand-offs) gets its own epic only after a founder decision and its own brief.
 
@@ -3690,7 +3689,7 @@ Each ticket is sized for one engineer or one coding agent to implement and revie
 
 ### Phase 6 — Next (after the beta gate; order set by evidence)
 
-> **CC-25 (16 Oct 2026):** sequencing after Phase 4 follows the buckets in [Part 1](#part-1--operationalization--build-architecture) §28. From the tickets above, RSN-06 and RSN-07, a minimal PUSH-01…08 subset, PER-05, PER-06, SET-04 and SET-05 are committed next; RSN-09 and ASK-01 are Alpha direction; RCN-01 (rhythm) is held; LTR-01 is downgraded to later validation; NAT-01 comes before NAT-02 and the widget.RSN-09 and ASK-01 are Alpha direction; RCN-01 (rhythm) is held; LTR-01 is downgraded to later validation; NAT-01 comes before NAT-02 and the widget.
+> **CC-25 (16 Oct 2026):** sequencing after Phase 4 follows the buckets in [Part 1](#part-1--operationalization--build-architecture) §28. From the tickets above, RSN-06 and RSN-07, a minimal PUSH-01…08 subset, PER-05, PER-06, SET-04 and SET-05 are committed next; RSN-09 and ASK-01 are Alpha direction; RCN-01 (rhythm) is held; LTR-01 is downgraded to later validation; NAT-01 comes before NAT-02 and the widget.
 >
 > **CC-28 (18 Oct 2026):** no ticket is added or reordered. Showing-Up Actions (plan §28 bucket D) produces tickets only after a founder decision; the proposed first probe is described in `docs/product/explorations/showing-up-actions-2026-10/01-roadmap-options.md`.
 

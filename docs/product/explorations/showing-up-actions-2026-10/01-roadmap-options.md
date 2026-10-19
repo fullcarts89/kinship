@@ -64,7 +64,7 @@ Existing: rhythm as a user-facing or neglect mechanism; a separate reconnect eng
 
 | Capability | User outcome | Core-loop fit | Existing capability reused | Minimum dependencies | Privacy / trust risk | Complexity | Learning value | Monetisation relevance | Phase | Evidence gate |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **SUA-1 gesture line** | A plan made, help offered, a note sent, from a Moment the user already had | High: rides the hand-off and return | K26 preference and templates; I1 detail; §23 analytics; the return check | Nothing new; a brief with copy and contexts | Low: user-initiated, non-commercial, fixed templates, sensitive lines excluded | S | High: the first direct test of the thesis | None | Early Alpha, after the wife dogfood | G2 (`00` §13): ordinary loop proven; MVE-1 says the need is real |
+| **SUA-1 gesture line** | A plan made, help offered, a note sent, from a Moment the user already had | High: rides the hand-off and return | K26 preference and templates; I1 detail; §23 analytics; the return check | Nothing new; a brief with copy and contexts | Low: user-initiated, non-commercial, fixed templates, sensitive lines excluded | S | High **for the suggestion layer** (does a grounded action suggestion help without intruding); it does not by itself prove real-world actions | None | Early Alpha, after the wife dogfood | G2 (`00` §13): ordinary loop proven; MVE-1 says the need is real. Real-world action evidence: G3b, §4 |
 | **SUA-2 Ask suggestion mode** | "What could we do together?" answered honestly | High through Ask | Ask v1, `retrieval_answer` | Ask v1 built and used | Medium: a derived suggestion must never read as memory; a chat smell | M | High | None | Later Alpha | G3 passed; Ask v1 evidence |
 | **SUA-3 ways to help** | Support given without guessing or intruding | High | RSN-09 rules; the page; Messages | RSN-09 brief; Remembered / Paused brief | High: sensitivity; one wrong attribution is grave | S–M | High for a subset | None by rule | Later Alpha, after RSN-09 | RSN-09 proven; interviews |
 | **SUA-4 Intentions as wanted help** | Help with the kind of showing up the user chose | High | Intentions v0 | Intentions v0 | Low–medium: no tracking | S on top of v0 | Medium | None | Later Alpha | Intentions v0 decision |
@@ -72,7 +72,7 @@ Existing: rhythm as a user-facing or neglect mechanism; a separate reconnect eng
 | **SUA-6 plain external hand-off** | A gift or a show found from what the user knows, on the provider's surface | Medium: fulfillment after the action | The hand-off sheet | SUA-1 evidence; the monetisation decision; disclosure copy | Medium–high: perception; D2 if anything is passed | S | Medium | **The only item with any** | After Alpha | G5 |
 | **SUA-7 group convening** | A chapter brought together | Medium | Chapters; Intentions | Chapters built | Medium: AI-defined groups forbidden | M | Medium | None | Later | Chapters decision |
 
-Reading the table: **SUA-1 is the only capability that is small, non-commercial, dependency-free and directly tests the thesis.** Everything else waits on an existing roadmap item or a founder decision.
+Reading the table: **SUA-1 is the only capability that is small, non-commercial and dependency-free, and it tests the thesis's first link: whether a grounded, contextual action suggestion is welcome.** Whether the actions happen is a second, later question (§4). Everything else waits on an existing roadmap item or a founder decision.
 
 ## 3. Where it fits in the phases, without displacement
 
@@ -95,13 +95,21 @@ No phase is lengthened by CC-28. The probe's size (S: templates and copy over an
 
 **A proposal.** Nothing here is authorised; it needs its own brief and the founder's yes (G2).
 
+**What SUA-1 validates, and what it does not.** SUA-1 is a small exploratory probe of the *suggestion layer*: does a contextual action suggestion, grounded in what the user told Kinship and placed beneath the action they already chose, feel like help rather than a task, a nag or an ad, and do people use it? It does **not** validate that non-communication showing-up actions (a dinner, a visit, a meal, a gift) actually happen: a tap opens Messages, and Kinship then knows only what the return check and the user tell it. Treat its result as evidence about suggestions, never as evidence about outcomes.
+
+**The later evidence needed to validate real-world actions** (a separate stage, its own brief and founder decision; FD-5 in `02-founder-decisions.md`):
+1. *User-confirmed action, content-free.* After a Yes to the return check that followed a gesture tap, one optional question ("Did you make a plan?" / "Did you offer to help?" Yes · Not yet), recorded as a kind enum, never text, never required, never counted back to the user. Or an equivalent: "Kept it" on a promise that came from a gesture; a later Tell that names the action ("we're having dinner Friday"), read by the pipeline as a plan or a promise the way it already does.
+2. *Self-reported outcomes in interviews*, with the question asked about specific Moments the participant had.
+3. *A consistent story across the three layers* (`00` §9): outcome, assistance, and (absent here) transaction. Assistance without outcomes means the line is pleasant but idle; outcomes without assistance means the line was not needed.
+4. *A §24 evolution* only after that evidence exists: the qualifying action may then include a confirmed action kind, under the same content-free rules, with a founder decision.
+
 - **Where:** beneath Message / Call on the hand-off sheet (board 1's follow-up sheet) and in the Moment detail (I1), as one quiet line in the same voice as "You could mention", after it. Progressive disclosure: present only when a context matches; zero is an answer.
 - **Contexts (fixed, deterministic, from `mentions.ts`'s existing tiers):** a milestone ahead (wedding, engagement, new home, baby…) → "You could invite them to dinner." / "You could offer to help."; an event ahead the user knows about → "You could ask if they'd like company."; good news → "You could send a note."; an open promise of the user's own → nothing new (the promise is the action). **Excluded:** any sensitive line, any relative-subject line, anyone remembered or paused, anything retracted, superseded or expired.
 - **What a tap does:** opens Messages (the same hand-off), nothing pre-written (D9). Never a shop, never a provider.
 - **Copy:** fixed templates, a proposal for the founder's yes, in the K26 register; clearly a suggestion, never the user's words.
 - **Measurement:** `gesture_shown` and `gesture_tapped` with `kind` as a closed enum (plan · help · note · company), content-free; the existing return check unchanged; interviews. Optionally one extra optional question after a Yes that followed a tap ("Did you make a plan?" Yes · Not yet), decided in the brief.
 - **Flag:** per-user, founder's yes per id, as always.
-- **Evidence gate to continue (G3):** some taps; interviews say "helping, not telling"; at least some gestures reported as done; no stop condition (a nag, a task, an ad, judgment). **Evidence to stop:** any stop condition, or no taps and interviews that say the line is noise.
+- **Evidence gate to continue (G3, the suggestion layer):** some taps; interviews say "helping, not telling"; no stop condition (a nag, a task, an ad, judgment). **Evidence to stop:** any stop condition, or no taps and interviews that say the line is noise. **A second gate (G3b, real-world actions)** uses the evidence listed above and is the one that would justify investing further in showing-up actions as outcomes.
 - **What it must not become:** a second primary action; a list; a count; a reason for a push; a commercial door.
 
 ## 5. Sequencing alternatives
@@ -135,7 +143,7 @@ Alternative 1, with the probe flagged on for the founder's own account during do
 | The thesis, the value order, the ten safeguards, the two standing tests | **Approved** (CC-28) |
 | Bucket D's Showing-Up Actions frame; bucket E's additions | **Approved as roadmap placement** (CC-28); no build |
 | MVE-1 interviews during dogfood | A recommendation; the founder decides (G1) |
-| SUA-1 the gesture line | **A proposal.** Needs a brief and the founder's yes (G2) |
+| SUA-1 the gesture line | **A proposal.** A probe of the suggestion layer, not of real-world outcomes. Needs a brief and the founder's yes (G2) |
 | SUA-2 … SUA-7 | **Hypotheses.** Each waits on an existing roadmap item and a founder decision |
 | Any commerce, affiliate, revenue share, partnership | **Not approved; deferred.** FD-1 and FD-2 in `02-founder-decisions.md` |
 | Any change to §24's metric | **Not approved.** A note only; FD-5 |
