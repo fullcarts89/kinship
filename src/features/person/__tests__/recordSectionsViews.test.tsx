@@ -137,11 +137,24 @@ describe("B8: What Kinship knows in sections", () => {
     ).rows;
     expect(h.map((x) => [x.composed?.text, x.provenance, x.noteId, x.history, x.section])).toEqual([["Previously lived in Alameda, California", "You told Kinship · Oct 9", "n-closer", { when: null }, "background"]]);
     const opened: RecordLine[] = [];
-    const r = record({ onComposed: (l) => opened.push(l) }, { lines: [lines[0]], history: h });
+    const sources: string[] = [];
+    const r = record({ onComposed: (l) => opened.push(l), onSource: (n) => sources.push(n) }, { lines: [lines[0]], history: h });
     expect(headers(r)).toEqual(["Background", BEFORE_LABEL]);
     expect(textsOf(r)).toContain("Previously lived in Alameda, California");
     press(r, "Previously lived in Alameda, California");
-    expect(opened.map((l) => l.composed?.memberIds)).toEqual([["a", "b"]]);
+    press(r, "Edit: Previously lived in Alameda, California");
+    expect(opened.map((l) => l.composed?.memberIds)).toEqual([["a", "b"], ["a", "b"]]);
+    // Its provenance is the day the change was told, and opens that note (simulator row 3 step 3; choice 3).
+    const prov = r.root.findAll((n) => typeof n.props.onPress === "function" && n.findAllByType(Text).some((t) => [t.props.children].flat().join("") === "You told Kinship · Oct 9"));
+    act(() => prov[0].props.onPress());
+    expect(sources).toEqual(["n-closer"]);
+    expect(opened.length).toBe(2);
+    // A composed current line's provenance still opens its members (B5).
+    const cur = record({ onComposed: (l) => opened.push(l), onSource: (n) => sources.push(n) }, { lines: [composedRows([member("b", "Susan lives in California", "California", [P.california], "2026-09-03T12:00:00Z"), member("a", "Susan lives in Alameda", "Alameda", [P.alameda], "2026-10-02T12:00:00Z")], NOW).rows[0]] });
+    const curProv = cur.root.findAll((n) => typeof n.props.onPress === "function" && n.findAllByType(Text).some((t) => /and 1 other note$/u.test([t.props.children].flat().join(""))));
+    act(() => curProv[0].props.onPress());
+    expect(opened.length).toBe(3);
+    expect(sources).toEqual(["n-closer"]);
     // One member on its own as history: "Previously lived in Alameda", the same date and note.
     const one = composedRows([member("a", "Susan lives in Alameda", "Alameda", [P.alameda], "2026-10-02T12:00:00Z")], NOW, { history: { when: "Moved · Oct 4", provenance: "You told Kinship · Oct 9", noteId: "n-closer" } }).rows;
     expect(one.map((x) => [x.display, x.composed, x.provenance, x.history])).toEqual([["Previously lived in Alameda", undefined, "You told Kinship · Oct 9", { when: "Moved · Oct 4" }]]);

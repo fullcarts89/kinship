@@ -198,7 +198,7 @@ function Row({ r, group, heading, props, focus }: {
       {heading ? <Small style={{ marginBottom: space.s }} accessibilityRole="header">{heading}</Small> : null}
       <Emphasis on={focused}>
         {r.composed ? (
-          <ComposedRow r={r} onComposed={props.onComposed ?? (() => undefined)} />
+          <ComposedRow r={r} onComposed={props.onComposed ?? (() => undefined)} onSource={props.onSource} />
         ) : r.history ? (
           <HistoryRow r={r} onChange={props.onChange} onForget={props.onForget} onSource={props.onSource} />
         ) : (
@@ -334,10 +334,13 @@ export function RecordRow({ r, onChange, onForget, onSource, onSettle }: {
 /**
  * A composed line (B5, brief §12): the words, the union of its sources, and
  * one way in, to its members. No tokens of its own (it is no memory) and no
- * "Not this" of its own: each member has them.
+ * "Not this" of its own: each member has them. As history (B8), its
+ * provenance is the day the change was told and opens that note's Source
+ * view; the line and Edit still open its members.
  */
-function ComposedRow({ r, onComposed }: { r: RecordLine; onComposed: (line: RecordLine) => void }) {
+function ComposedRow({ r, onComposed, onSource }: { r: RecordLine; onComposed: (line: RecordLine) => void; onSource: (noteId: string) => void }) {
   const text = r.composed!.text;
+  const provenance = r.history && r.noteId ? () => onSource(r.noteId as string) : () => onComposed(r);
   return (
     <>
       <Pressable
@@ -352,7 +355,7 @@ function ComposedRow({ r, onComposed }: { r: RecordLine; onComposed: (line: Reco
       {r.history?.when ? <Small style={{ marginTop: space.xs }}>{r.history.when}</Small> : null}
       <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
         <View style={{ flex: 1 }}>
-          <Provenance line={r.provenance} onPress={() => onComposed(r)} />
+          <Provenance line={r.provenance} onPress={provenance} />
         </View>
         <Pill variant="quiet" label={COMPOSED_COPY.edit} accessibilityLabel={`${COMPOSED_COPY.edit}: ${text}`} accessibilityHint={COMPOSED_COPY.editHint} onPress={() => onComposed(r)} />
       </View>
