@@ -2,6 +2,9 @@
 
 **Status: EXPLORATORY · UNAPPROVED · design only.** After the founder's review of the first checkpoint A (Overgrown: too decorative, Ben confined to a card; Fragments: people-first but juvenile and busy; Rings: too close to activity rings, not advancing), Overgrown and Fragments were rebuilt around the person. Rings stays in the folder as reference only (`gallery.html?rings=1`). No production code, gateway, schema, eligibility, ranking, decision register or coverage change; PR #55 untouched; B7–B9 and the RRU workstream (PR #52) untouched. **Stopped here for founder review. No winner, no checkpoint B, no study.**
 
+> **20 October 2026 · Stage 1 of the creative fidelity reset is in [`stage1/`](stage1/README.md).** The founder judged the concepts below technically competent but creatively underwhelming against the boards; Stage 1 restarts from the boards with original raster art and photography and stops for feedback. The gallery below stays as the record of checkpoint A.
+
+
 ## Open this
 
 - **[`gallery.html`](gallery.html)**: the two concepts side by side on six states: a Moment with no photo (the default), the same Moment with a **person photo** the user chose, the same Moment with a **memory photo** and the user's caption, the same Moment on a **busy week** (production's order: a Waiting line, three Coming up lines, "and 2 more"), a birthday, a quiet day. Light / Dark, Reduce Motion. Double-click to open.
