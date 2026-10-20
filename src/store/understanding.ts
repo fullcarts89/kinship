@@ -55,7 +55,7 @@ import {
   lineNamesOf, type MentionSubject, mentionsAfterEdit, mentionsOf, type NamedPerson, recordMentions, withSubjectReassigned,
 } from "../../supabase/functions/_shared/extraction/names";
 import { peopleOf, repositoriesFor, type Capture, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
-import { followUpsOf, recoveryOf } from "./followUp";
+import { followUpsOf, keptLinesOf, recoveryOf } from "./followUp";
 import { getMeta, setMeta } from "./schema";
 import type { SyncReport } from "./syncEngine";
 import { StoreWriteError, type Data, type UserStore } from "./userStore";
@@ -399,7 +399,9 @@ export class Understanding {
     const coverage = capture.coverage ?? row?.reading?.coverage ?? null;
     if (!coverage || (!coverage.unprocessed.length && !coverage.unlocated)) return null;
     const followUps = await followUpsOf(this.store, captureId);
-    const still = followUps.length ? recoveryOf(capture.raw_text, coverage.unprocessed, followUps).remaining : coverage.unprocessed;
+    const still = followUps.length
+      ? recoveryOf(capture.raw_text, coverage.unprocessed, { kept: await keptLinesOf(this.store, captureId) }, followUps).remaining
+      : coverage.unprocessed;
     if (!still.length && !coverage.unlocated) return null;
     const chars = Array.from(capture.raw_text);
     const passages = [...still]

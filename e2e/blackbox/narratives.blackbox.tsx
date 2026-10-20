@@ -118,7 +118,7 @@ for (const [name, note, label, answers] of [
     // The Source view marks the words not got to (on their own, or under a kept line's words when one
     // sentence held two things), and offers Tell the rest.
     const source = (await noteFor(acct.store, first.id, new Date()))!;
-    expect(source.partial).toEqual({ followUp: "none", resolved: false, recovered: 0, unlocated: coverage!.unlocated, tellRest: true });
+    expect(source.partial).toEqual({ followUp: "none", resolved: false, recovered: 0, uncertain: 0, unlocated: coverage!.unlocated, tellRest: true });
     const text = first.raw_text!;
     for (const sp of coverage!.unprocessed) {
       const words = Array.from(text).slice(sp.start, sp.end).join("");
@@ -161,7 +161,7 @@ for (const [name, note, label, answers] of [
     await harness.session!.understanding.undo(second.id);
     await acct.engine.sync();
     const undone = (await noteFor(acct.store, first.id, new Date()))!;
-    expect(undone.partial).toEqual({ followUp: "none", resolved: false, recovered: 0, unlocated: coverage!.unlocated, tellRest: true });
+    expect(undone.partial).toEqual({ followUp: "none", resolved: false, recovered: 0, uncertain: 0, unlocated: coverage!.unlocated, tellRest: true });
     expect((await serverRows<CaptureRow & { deleted_at: string | null }>("captures", acct.userId)).filter((c) => !c.deleted_at).map((c) => c.id)).toEqual([first.id]);
   });
 }

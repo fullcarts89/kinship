@@ -355,8 +355,10 @@ export interface Clarification {
  * `unprocessed`: the note's own words, as code-point spans, of proposals the pipeline could not take
  * because the note held more than one understanding carries (MAX_ITEMS), and that neither the item rules
  * excluded on their own nor a kept line already says (the same test that folds a repeat inside the
- * limit). Only spans the evidence locator placed reliably. A span may lie under a kept line's words: one
- * sentence can hold two things, and sharing words proves nothing (founder review of PR #58). `unlocated`:
+ * limit). Only spans the evidence locator placed reliably; one span per lost proposal (its first quote),
+ * never folded, so the same span twice means two things were lost on those words. A span may lie under a
+ * kept line's words: one sentence can hold two things, and sharing words proves nothing (founder review
+ * of PR #58). `unlocated`:
  * proposals past the limit whose words could not be placed; the note is still partial, with no highlight
  * invented for them. Content-free: offsets and a count, never words.
  */

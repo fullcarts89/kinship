@@ -710,10 +710,10 @@ Deno.test("proposals past the limit sharing evidence with each other are each ju
   const jazzAgain = item({ statement: "Ben loves jazz", evidence: ["loves jazz"] });
   const out = run(input(note), [...kept, jazz, chess, jazzAgain]);
   eq(out.items.length, 8);
-  // Neither is a kept line, so neither is a duplicate of one: both lost, one span (the same words), and
-  // the repeat of a lost line is lost too (nothing kept says it).
+  // Neither is a kept line, so neither is a duplicate of one: both lost, one span each (the same words
+  // twice: two things lost there), and the repeat of a lost line is lost too (nothing kept says it).
   eq(out.dropped.map((d) => d.reason), ["too_many_items", "too_many_items", "too_many_items"]);
-  eq((out.coverage?.unprocessed ?? []).map((sp) => sliceCodePoints(note, sp)), [sentence, "loves jazz"], "in the note's order");
+  eq((out.coverage?.unprocessed ?? []).map((sp) => sliceCodePoints(note, sp)), [sentence, sentence, "loves jazz"], "in the note's order, one per lost proposal");
 });
 
 Deno.test("a proposal past the limit the rules exclude on their own is excluded for that reason, as inside the limit", () => {

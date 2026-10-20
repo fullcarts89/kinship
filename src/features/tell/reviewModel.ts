@@ -178,15 +178,18 @@ export interface ReviewView {
    * The note held more than the understanding could take (Option A, founder 19 Oct): what it kept is
    * kept, the rest is marked in the Source view, and the card offers "Tell the rest". Never "Try again":
    * the same note would meet the same limit. `unprocessed`: the passages still not got to (one a later
-   * note's kept line rests on is out of it). `recovered`: how many a later note took. `followUp`: the
-   * later notes' own state, said plainly, never assumed. `resolved`: every passage was taken and nothing
-   * was left unplaced, so the note is no longer unfinished. `tellRest`: the pill is offered (not while a
+   * note's kept line rests on is out of it). `recovered`: how many a later note demonstrably took.
+   * `uncertain`: how many a later note kept something new on, where the words held more than one thing
+   * (kept something, not provably what was missed; they stay in `unprocessed`). `followUp`: the later
+   * notes' own state, said plainly, never assumed. `resolved`: every passage was taken and nothing was
+   * left unplaced, so the note is no longer unfinished. `tellRest`: the pill is offered (not while a
    * later note is still to be read, or failed and has its own Try again).
    */
   partial?: {
     unprocessed: { start: number; end: number }[];
     unlocated: number;
     recovered: number;
+    uncertain: number;
     followUp: FollowUpState;
     resolved: boolean;
     tellRest: boolean;
@@ -215,6 +218,8 @@ export const COPY = {
   partialSome: "Some of it was kept from a later note. The rest still wasn't.",
   /** The later note was read, and none of its kept lines rest on the passages left out. */
   partialMissed: "Your later note didn't cover what was left out.",
+  /** The later note kept something new on words that held more than one thing: not provably what was missed. */
+  partialUnsure: "A later note kept something from the words left out. Kinship can't tell if it was all it had missed.",
   /** Only unplaced things remain: a later note can never be matched to them, so nothing is claimed. */
   partialUnplaced: "Part of this note couldn't be placed in its words, so Kinship can't tell if a later note covered it.",
   tellRest: "Tell the rest",
@@ -254,12 +259,14 @@ export function partialOf(
   if (!all.length && !unlocated) return null;
   const followUp = recovery?.followUp ?? "none";
   const recovered = recovery ? recovery.recovered.filter(sound) : [];
-  const unprocessed = recovery
-    ? all.filter((s) => !recovered.some((r) => r.start === s.start && r.end === s.end))
-    : all;
+  // Distinct passages still not answered (the coverage holds one span per lost proposal).
+  const unprocessed = all
+    .filter((s) => !recovered.some((r) => r.start === s.start && r.end === s.end))
+    .filter((s, i, list) => list.findIndex((t) => t.start === s.start && t.end === s.end) === i);
+  const uncertain = recovery?.uncertain ?? 0;
   const resolved = followUp === "read" && unprocessed.length === 0 && unlocated === 0;
   return {
-    unprocessed, unlocated, recovered: recovered.length, followUp, resolved,
+    unprocessed, unlocated, recovered: recovered.length, uncertain, followUp, resolved,
     tellRest: !resolved && followUp !== "pending" && followUp !== "failed",
   };
 }
@@ -271,6 +278,7 @@ export function partialStatus(partial: NonNullable<ReviewView["partial"]>): stri
   if (partial.followUp === "failed") return COPY.partialFailed;
   if (partial.followUp === "read") {
     if (!partial.unprocessed.length) return COPY.partialUnplaced;
+    if (partial.uncertain) return COPY.partialUnsure;
     return partial.recovered ? COPY.partialSome : COPY.partialMissed;
   }
   return COPY.partial;

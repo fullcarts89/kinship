@@ -168,8 +168,11 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
  *   - one that is the same thing as a kept line, by the same test that folds a repeat inside the limit
  *     (`sameItem`, `sameSharedPlanned`: same kind, same person, same words or same day), joins that line's
  *     spans and is a `duplicate`, not lost;
- *   - everything else is lost to the limit (`too_many_items`): its words stay in the note as unprocessed,
- *     even where a kept line rests on the same words, so it stays visible until it is told again;
+ *   - everything else is lost to the limit (`too_many_items`): the words it rests on (its first quote) stay
+ *     in the note as unprocessed, even where a kept line rests on the same words, so it stays visible until
+ *     it is told again. One span per lost proposal, never folded: the same span twice records that two
+ *     things were lost on those words, which is what later lets the phone refuse to call one new line on
+ *     them the recovery of both (founder, final Option A correction);
  *   - one whose words the locator cannot place is counted (`unlocated`), with no span invented.
  * Returns null when nothing was lost: the limit cost nothing this time.
  */
@@ -204,9 +207,7 @@ function leftOut(
       continue;
     }
     dropped.push({ reason: "too_many_items", kind: result.item.kind });
-    for (const s of result.item.spans) {
-      if (!unprocessed.some((u) => u.start === s.start && u.end === s.end)) unprocessed.push({ start: s.start, end: s.end });
-    }
+    unprocessed.push({ start: result.item.spans[0].start, end: result.item.spans[0].end });
   }
   unprocessed.sort((a, b) => a.start - b.start || a.end - b.end);
   return unprocessed.length || unlocated ? { unprocessed, unlocated } : null;

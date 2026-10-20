@@ -27,7 +27,7 @@ import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, smallCount, track } from "@/platform/analytics";
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
-import { followUpsOf, recoveryOf, type Recovery } from "@/store/followUp";
+import { followUpsOf, keptLinesOf, recoveryOf, type Recovery } from "@/store/followUp";
 import { isOn } from "@/store/flags";
 import { closedBy, peopleOf, repositoriesFor, type Capture, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
 import type { HeldItem } from "@/store/gateway";
@@ -145,7 +145,7 @@ export async function recoveryFor(store: UserStore, capture: Capture): Promise<R
   if (!capture.coverage || !capture.raw_text) return null;
   const followUps = await followUpsOf(store, capture.id);
   if (!followUps.length) return null;
-  return recoveryOf(capture.raw_text, capture.coverage.unprocessed, followUps);
+  return recoveryOf(capture.raw_text, capture.coverage.unprocessed, { kept: await keptLinesOf(store, capture.id) }, followUps);
 }
 
 export interface OpenNotes {
@@ -414,7 +414,7 @@ export async function noteFor(store: UserStore, captureId: string, now: Date): P
     arrived: `${arrivedLabel(capture.source)} · ${momentLabel(String(capture.created_at ?? capture.occurred_at), now)}`,
     items,
     partial: partial
-      ? { followUp: partial.followUp, resolved: partial.resolved, recovered: partial.recovered, unlocated: partial.unlocated, tellRest: partial.tellRest }
+      ? { followUp: partial.followUp, resolved: partial.resolved, recovered: partial.recovered, uncertain: partial.uncertain, unlocated: partial.unlocated, tellRest: partial.tellRest }
       : null,
   };
 }

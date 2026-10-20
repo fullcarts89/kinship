@@ -15,7 +15,7 @@ import { voiced } from "@/features/memory/statements";
 import { NOTE_COPY, partialNoteLine } from "@/features/person/NoteView";
 import { buildReview, COPY, partialOf, partialStatus, type ReviewView } from "@/features/tell/reviewModel";
 import { cardFor, TellFlowProvider, useTellFlow, type TellFlow } from "@/features/tell/TellFlow";
-import { recoveryOf } from "@/store/followUp";
+import { recoveryOf, type FirstNote, type FollowUpNote, type Recovery } from "@/store/followUp";
 import { Gateway } from "@/store/gateway";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
@@ -148,7 +148,7 @@ describe("a note the understanding could not take whole (Option A)", () => {
     expect(v.mode).toBe("card");
     expect(v.heading).toBe("Kept for Priya");
     expect(v.status).toBe(COPY.partial);
-    expect(v.partial).toEqual({ unprocessed: capture.coverage!.unprocessed, unlocated: 0, recovered: 0, followUp: "none", resolved: false, tellRest: true });
+    expect(v.partial).toEqual({ unprocessed: capture.coverage!.unprocessed, unlocated: 0, recovered: 0, uncertain: 0, followUp: "none", resolved: false, tellRest: true });
     // The card: a kept note that offers "Tell the rest"; never "Try again" (the same note would meet the same limit).
     const card = cardFor(v)!;
     expect(card.mode).toBe("card");
@@ -161,7 +161,7 @@ describe("a note the understanding could not take whole (Option A)", () => {
     expect(n.runs!.filter((r) => r.unprocessed).map((r) => r.text.trim())).toEqual([THINGS[8], THINGS[9]]);
     expect(n.runs!.filter((r) => r.marked).length).toBe(8);
     expect(n.runs!.some((r) => r.marked && r.unprocessed)).toBe(false);
-    expect(n.partial).toEqual({ followUp: "none", resolved: false, recovered: 0, unlocated: 0, tellRest: true });
+    expect(n.partial).toEqual({ followUp: "none", resolved: false, recovered: 0, uncertain: 0, unlocated: 0, tellRest: true });
     expect(partialNoteLine(n.partial!, true)).toBe("");
 
     // "Tell the rest": the words not got to, in the note's order, about Priya.
@@ -182,11 +182,11 @@ describe("a note the understanding could not take whole (Option A)", () => {
     expect(new Set(lines.map((l) => l.statement)).size).toBe(10);
 
     const v = await review(w, first);
-    expect(v.partial).toEqual({ unprocessed: [], unlocated: 0, recovered: 2, followUp: "read", resolved: true, tellRest: false });
+    expect(v.partial).toEqual({ unprocessed: [], unlocated: 0, recovered: 2, uncertain: 0, followUp: "read", resolved: true, tellRest: false });
     expect(v.status).toBeNull();
     expect(cardFor(v)!.partial).toEqual({ tellRest: false, resolved: true });
     const n = (await note(w, first))!;
-    expect(n.partial).toEqual({ followUp: "read", resolved: true, recovered: 2, unlocated: 0, tellRest: false });
+    expect(n.partial).toEqual({ followUp: "read", resolved: true, recovered: 2, uncertain: 0, unlocated: 0, tellRest: false });
     expect(partialNoteLine(n.partial!, false)).toBe(NOTE_COPY.continued);
     expect(n.runs!.some((r) => r.unprocessed)).toBe(false);
     expect(await w.understanding.restOf(first)).toBeNull();
@@ -289,47 +289,78 @@ describe("a note the understanding could not take whole (Option A)", () => {
     expect(partialOf({ unprocessed: [], unlocated: 0 }, null)).toBeNull();
     expect(partialOf({ unprocessed: [{ start: 5, end: 2 }], unlocated: 0 }, null)).toBeNull();
     const two = [{ start: 0, end: 4 }, { start: 5, end: 9 }];
-    expect(partialOf({ unprocessed: two, unlocated: 0 }, null)).toEqual({ unprocessed: two, unlocated: 0, recovered: 0, followUp: "none", resolved: false, tellRest: true });
-    // Read, but only one passage has a kept line on it: the other stays, and the pill stays.
-    const some = partialOf({ unprocessed: two, unlocated: 0 }, { recovered: [two[0]], remaining: [two[1]], followUp: "read" })!;
-    expect(some).toEqual({ unprocessed: [two[1]], unlocated: 0, recovered: 1, followUp: "read", resolved: false, tellRest: true });
+    expect(partialOf({ unprocessed: two, unlocated: 0 }, null)).toEqual({ unprocessed: two, unlocated: 0, recovered: 0, uncertain: 0, followUp: "none", resolved: false, tellRest: true });
+    const rec = (over: Partial<Recovery>): Recovery => ({ passages: [], recovered: [], remaining: two, uncertain: 0, followUp: "read", ...over });
+    // Read, but only one passage has a new kept line on it: the other stays, and the pill stays.
+    const some = partialOf({ unprocessed: two, unlocated: 0 }, rec({ recovered: [two[0]], remaining: [two[1]] }))!;
+    expect(some).toEqual({ unprocessed: [two[1]], unlocated: 0, recovered: 1, uncertain: 0, followUp: "read", resolved: false, tellRest: true });
     expect(partialStatus(some)).toBe(COPY.partialSome);
-    // Read, nothing resting on the passages: not covered, said so.
-    const missed = partialOf({ unprocessed: two, unlocated: 0 }, { recovered: [], remaining: two, followUp: "read" })!;
+    // Read, nothing new resting on the passages: not covered, said so.
+    const missed = partialOf({ unprocessed: two, unlocated: 0 }, rec({}))!;
     expect([missed.resolved, missed.tellRest, partialStatus(missed)]).toEqual([false, true, COPY.partialMissed]);
+    // Read, something new kept on words that held more than one thing: said as that, unresolved, pill stays.
+    const unsure = partialOf({ unprocessed: two, unlocated: 0 }, rec({ uncertain: 1 }))!;
+    expect([unsure.resolved, unsure.tellRest, unsure.unprocessed, partialStatus(unsure)]).toEqual([false, true, two, COPY.partialUnsure]);
+    // The same span twice (two things lost there) is one passage to mark.
+    expect(partialOf({ unprocessed: [two[0], two[0]], unlocated: 0 }, null)!.unprocessed).toEqual([two[0]]);
     // Not read yet, or failed: the pill waits (the later note has its own Try again).
-    const pending = partialOf({ unprocessed: two, unlocated: 0 }, { recovered: [], remaining: two, followUp: "pending" })!;
+    const pending = partialOf({ unprocessed: two, unlocated: 0 }, rec({ followUp: "pending" }))!;
     expect([pending.tellRest, partialStatus(pending)]).toEqual([false, COPY.partialPending]);
-    const failed = partialOf({ unprocessed: two, unlocated: 0 }, { recovered: [], remaining: two, followUp: "failed" })!;
+    const failed = partialOf({ unprocessed: two, unlocated: 0 }, rec({ followUp: "failed" }))!;
     expect([failed.tellRest, partialStatus(failed)]).toEqual([false, COPY.partialFailed]);
     // Unplaced things are never matched to a later note: all passages taken still leaves the note unresolved.
-    const unplaced = partialOf({ unprocessed: two, unlocated: 1 }, { recovered: two, remaining: [], followUp: "read" })!;
+    const unplaced = partialOf({ unprocessed: two, unlocated: 1 }, rec({ recovered: two, remaining: [] }))!;
     expect([unplaced.resolved, unplaced.tellRest, unplaced.unprocessed, partialStatus(unplaced)]).toEqual([false, true, [], COPY.partialUnplaced]);
     // Everything taken, nothing unplaced: resolved, no line.
-    const done = partialOf({ unprocessed: two, unlocated: 0 }, { recovered: two, remaining: [], followUp: "read" })!;
+    const done = partialOf({ unprocessed: two, unlocated: 0 }, rec({ recovered: two, remaining: [] }))!;
     expect([done.resolved, done.tellRest, partialStatus(done)]).toEqual([true, false, null]);
   });
 
-  it("recoveryOf reads the evidence only: the words in a read note, with a kept line on them", () => {
+  it("recoveryOf reads the evidence only: a new kept line on the words, in a read note, where one thing was lost and nothing kept", () => {
     const text = "Priya plays chess on Tuesdays. Priya grows tomatoes.";
     const chess = span(text, "Priya plays chess on Tuesdays");
     const tomatoes = span(text, "Priya grows tomatoes");
-    const later = (over: Partial<Parameters<typeof recoveryOf>[2][number]>) => ({ state: "read" as const, text: "Priya plays chess on Tuesdays Priya grows tomatoes", kept: [{ start: 0, end: 29 }], ...over });
-    expect(recoveryOf(text, [chess, tomatoes], [])).toEqual({ recovered: [], remaining: [chess, tomatoes], followUp: "none" });
-    // The later note says both; a line rests on the chess words only.
-    expect(recoveryOf(text, [chess, tomatoes], [later({})])).toEqual({ recovered: [chess], remaining: [tomatoes], followUp: "read" });
+    const line = (itemId: string, statement: string, start: number, end: number) => ({ itemId, statement, start, end });
+    const none: FirstNote = { kept: [] };
+    const later = (over: Partial<FollowUpNote>): FollowUpNote => ({ state: "read", text: "Priya plays chess on Tuesdays Priya grows tomatoes", kept: [line("c", "Priya plays chess on Tuesdays", 0, 29)], ...over });
+    const summary = (r: Recovery) => [r.recovered, r.remaining, r.uncertain, r.followUp];
+    expect(summary(recoveryOf(text, [chess, tomatoes], none, []))).toEqual([[], [chess, tomatoes], 0, "none"]);
+    // The later note says both; a new line rests on the chess words only.
+    expect(summary(recoveryOf(text, [chess, tomatoes], none, [later({})]))).toEqual([[chess], [tomatoes], 0, "read"]);
     // The later note says the words but kept nothing on them: not recovered.
-    expect(recoveryOf(text, [chess, tomatoes], [later({ kept: [] })]).recovered).toEqual([]);
+    expect(recoveryOf(text, [chess, tomatoes], none, [later({ kept: [] })]).recovered).toEqual([]);
     // A line resting on other words of the later note proves nothing about these.
-    expect(recoveryOf(text, [chess], [later({ text: "Priya got a dog. Priya plays chess on Tuesdays", kept: [{ start: 0, end: 15 }] })]).recovered).toEqual([]);
+    expect(recoveryOf(text, [chess], none, [later({ text: "Priya got a dog. Priya plays chess on Tuesdays", kept: [line("d", "Priya got a dog", 0, 15)] })]).recovered).toEqual([]);
     // Said with different spacing or case: still the same words.
-    expect(recoveryOf(text, [chess], [later({ text: "priya  plays chess\non Tuesdays", kept: [{ start: 0, end: 10 }] })]).recovered).toEqual([chess]);
+    expect(recoveryOf(text, [chess], none, [later({ text: "priya  plays chess\non Tuesdays", kept: [line("c", "Priya plays chess on Tuesdays", 0, 10)] })]).recovered).toEqual([chess]);
     // Not read yet, or failed: nothing recovered, whatever its text says; pending outranks failed outranks read.
-    expect(recoveryOf(text, [chess], [later({ state: "pending" })])).toEqual({ recovered: [], remaining: [chess], followUp: "pending" });
-    expect(recoveryOf(text, [chess], [later({ state: "failed" }), later({})])).toEqual({ recovered: [chess], remaining: [], followUp: "failed" });
-    expect(recoveryOf(text, [chess], [later({ state: "pending" }), later({})]).followUp).toBe("pending");
+    expect(summary(recoveryOf(text, [chess], none, [later({ state: "pending" })]))).toEqual([[], [chess], 0, "pending"]);
+    expect(summary(recoveryOf(text, [chess], none, [later({ state: "failed" }), later({})]))).toEqual([[chess], [], 0, "failed"]);
+    expect(recoveryOf(text, [chess], none, [later({ state: "pending" }), later({})]).followUp).toBe("pending");
     // Its text gone (delete after): nothing to match.
-    expect(recoveryOf(text, [chess], [later({ text: null })]).recovered).toEqual([]);
+    expect(recoveryOf(text, [chess], none, [later({ text: null })]).recovered).toEqual([]);
+
+    // The founder's counterexample, at the pure function: the line on the words is one of the first note's own.
+    const compound = "Priya loves jazz and plays chess on Tuesdays.";
+    const whole = span(compound, "Priya loves jazz and plays chess on Tuesdays");
+    const firstKept: FirstNote = { kept: [line("j", "Priya loves jazz", whole.start, whole.end)] };
+    const again = later({ text: "Priya loves jazz and plays chess on Tuesdays", kept: [line("j", "Priya loves jazz", 0, 16)] });
+    expect(summary(recoveryOf(compound, [whole], firstKept, [again]))).toEqual([[], [whole], 0, "read"]);
+    // The same words kept as a second memory with the first note's words: still the first note's line, not recovery.
+    const copy = later({ text: "Priya loves jazz and plays chess on Tuesdays", kept: [line("j2", "priya loves jazz", 0, 16)] });
+    expect(summary(recoveryOf(compound, [whole], firstKept, [copy]))).toEqual([[], [whole], 0, "read"]);
+    // A new line on the words, but the words held a kept thing too: uncertain, never recovered.
+    const chessKept = later({ text: "Priya loves jazz and plays chess on Tuesdays", kept: [line("c", "Priya plays chess on Tuesdays", 21, 44)] });
+    expect(summary(recoveryOf(compound, [whole], firstKept, [chessKept]))).toEqual([[], [whole], 1, "read"]);
+    // Two things lost on the same words (the span twice), nothing kept there: one new line, or two, is uncertain.
+    const both = "Priya plays chess on Tuesdays and grows tomatoes.";
+    const twoSpan = span(both, "Priya plays chess on Tuesdays and grows tomatoes");
+    const one = later({ text: "Priya plays chess on Tuesdays and grows tomatoes", kept: [line("c", "Priya plays chess on Tuesdays", 0, 29)] });
+    expect(summary(recoveryOf(both, [twoSpan, twoSpan], none, [one]))).toEqual([[], [twoSpan], 1, "read"]);
+    const pair = later({ text: "Priya plays chess on Tuesdays and grows tomatoes", kept: [line("c", "Priya plays chess on Tuesdays", 0, 29), line("t", "Priya grows tomatoes", 34, 48)] });
+    expect(summary(recoveryOf(both, [twoSpan, twoSpan], none, [pair]))).toEqual([[], [twoSpan], 1, "read"]);
+    // Lost once, nothing kept there, a new line on the words: recovered (the ordinary case).
+    expect(summary(recoveryOf(both, [twoSpan], none, [one]))).toEqual([[twoSpan], [], 0, "read"]);
   });
 });
 
@@ -345,7 +376,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
     expect(v.partial).toEqual(expect.objectContaining({ followUp: "pending", resolved: false, recovered: 0, tellRest: false }));
     expect(cardFor(v)!.partial).toEqual({ tellRest: false, resolved: false });
     const n = (await note(w, first))!;
-    expect(n.partial).toEqual({ followUp: "pending", resolved: false, recovered: 0, unlocated: 0, tellRest: false });
+    expect(n.partial).toEqual({ followUp: "pending", resolved: false, recovered: 0, uncertain: 0, unlocated: 0, tellRest: false });
     expect(n.runs!.filter((r) => r.unprocessed).length).toBe(2);
     expect(partialNoteLine(n.partial!, true)).toBe(NOTE_COPY.pending);
     // What is still not got to is unchanged.
@@ -399,7 +430,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
 
     const v = await review(w, first);
     expect(v.status).toBe(COPY.partialSome);
-    expect(v.partial).toEqual({ unprocessed: [span(TEN, THINGS[9])], unlocated: 0, recovered: 1, followUp: "read", resolved: false, tellRest: true });
+    expect(v.partial).toEqual({ unprocessed: [span(TEN, THINGS[9])], unlocated: 0, recovered: 1, uncertain: 0, followUp: "read", resolved: false, tellRest: true });
     const n = (await note(w, first))!;
     expect(n.runs!.filter((r) => r.unprocessed).map((r) => r.text.trim())).toEqual([THINGS[9]]);
     expect(partialNoteLine(n.partial!, true)).toBe(NOTE_COPY.some);
@@ -462,7 +493,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
     await tellRest(w, first, [THINGS[8]]);
     const v = await review(w, first);
     expect(v.status).toBe(COPY.partialUnplaced);
-    expect(v.partial).toEqual({ unprocessed: [], unlocated: 1, recovered: 1, followUp: "read", resolved: false, tellRest: true });
+    expect(v.partial).toEqual({ unprocessed: [], unlocated: 1, recovered: 1, uncertain: 0, followUp: "read", resolved: false, tellRest: true });
     const n = (await note(w, first))!;
     expect(n.runs!.some((r) => r.unprocessed)).toBe(false);
     expect(partialNoteLine(n.partial!, false)).toBe(NOTE_COPY.unplaced);
@@ -487,11 +518,14 @@ describe("what a later note did, from the evidence only (founder review of PR #5
     expect((await review(w, first)).status).toBe(COPY.partial);
     expect(await w.understanding.restOf(first)).toEqual({ text: sentence, personId: w.priya.id });
 
-    // Told again, the chess line is kept from the later note, on those words: answered.
+    // Told again, the chess line is kept from the later note, on those words. The words held a kept thing
+    // too, so Option A can say something new was kept there, never that the loss is answered (founder's
+    // final correction): the mark stays, with "can't tell if it was all it had missed".
     await tellRest(w, first, [{ statement: "Priya plays chess on Tuesdays", evidence: "plays chess on Tuesdays" }]);
     expect((await liveLines(w)).map((l) => l.statement)).toContain("Priya plays chess on Tuesdays");
-    expect((await review(w, first)).partial!.resolved).toBe(true);
-    expect((await note(w, first))!.runs!.some((r) => r.unprocessed)).toBe(false);
+    const after = await review(w, first);
+    expect([after.partial!.resolved, after.partial!.uncertain, after.status, after.partial!.tellRest]).toEqual([false, 1, COPY.partialUnsure, true]);
+    expect((await note(w, first))!.runs!.filter((r) => r.marked && r.unprocessed).map((r) => r.text)).toEqual([sentence]);
   });
 
   it("several people, no page: the rest is told about no one in particular, and each passage is answered by its own kept line", async () => {
@@ -539,6 +573,95 @@ describe("what a later note did, from the evidence only (founder review of PR #5
     const lines = await liveLines(w);
     expect(lines.length).toBe(10);
     expect(lines.filter((l) => /tomatoes/u.test(l.statement)).map((l) => l.person_id)).toEqual([w.priya.id]);
+  });
+});
+
+describe("repeating a passage is not remembering what was missed (founder, final Option A correction)", () => {
+  const sentence = "Priya loves jazz and plays chess on Tuesdays";
+  const compound = [...THINGS.slice(1, 8), sentence].map((t) => `${t}.`).join(" ");
+  const jazz = { statement: "Priya loves jazz", evidence: sentence };
+  const chess = { statement: "Priya plays chess on Tuesdays", evidence: sentence };
+
+  /** The first note: seven plain things and the compound sentence; jazz kept from it, chess lost to the limit. */
+  async function compoundFirst(w: World): Promise<string> {
+    const first = await tell(w, compound, [...THINGS.slice(1, 8), jazz, chess], { context: w.priya });
+    expect((await liveLines(w)).map((l) => l.statement)).toContain("Priya loves jazz");
+    expect((await liveLines(w)).map((l) => l.statement)).not.toContain("Priya plays chess on Tuesdays");
+    expect(await w.understanding.restOf(first)).toEqual({ text: sentence, personId: w.priya.id });
+    return first;
+  }
+
+  it("the rest told again keeps only the jazz again: the chess is still missing, and the note stays unresolved everywhere", async () => {
+    const w = await world();
+    const first = await compoundFirst(w);
+    // The later note is read; the model keeps "Priya loves jazz" once more, on the same words, and leaves the chess out again.
+    await tellRest(w, first, [{ statement: "Priya loves jazz", evidence: "Priya loves jazz" }]);
+    expect((await liveLines(w)).map((l) => l.statement)).not.toContain("Priya plays chess on Tuesdays");
+
+    const v = await review(w, first);
+    expect(v.partial!.resolved).toBe(false);
+    expect(v.status).not.toBeNull();
+    expect(v.partial!.tellRest).toBe(true);
+    expect(cardFor(v)!.partial).toEqual({ tellRest: true, resolved: false });
+    const n = (await note(w, first))!;
+    expect(n.partial!.resolved).toBe(false);
+    expect(n.runs!.some((r) => r.unprocessed)).toBe(true);
+    expect(n.runs!.filter((r) => r.marked && r.unprocessed).map((r) => r.text)).toEqual([sentence]);
+    expect(partialNoteLine(n.partial!, true)).not.toBe(NOTE_COPY.continued);
+    expect(await w.understanding.restOf(first)).toEqual({ text: sentence, personId: w.priya.id });
+  });
+
+  it("the rest told again keeps the chess, a line that is not one of the first note's: kept, but on a compound passage Kinship says only that", async () => {
+    const w = await world();
+    const first = await compoundFirst(w);
+    await tellRest(w, first, [{ statement: "Priya plays chess on Tuesdays", evidence: "plays chess on Tuesdays" }]);
+    expect((await liveLines(w)).map((l) => l.statement)).toContain("Priya plays chess on Tuesdays");
+    const v = await review(w, first);
+    // The words held a kept thing and a lost one; a new line on them is evidence something was kept, not that the loss is answered.
+    expect(v.partial!.resolved).toBe(false);
+    expect(v.partial!.uncertain).toBe(1);
+    expect(v.status).toBe(COPY.partialUnsure);
+    expect(v.partial!.tellRest).toBe(true);
+    const n = (await note(w, first))!;
+    expect(partialNoteLine(n.partial!, true)).toBe(NOTE_COPY.unsure);
+    expect(n.runs!.filter((r) => r.marked && r.unprocessed).map((r) => r.text)).toEqual([sentence]);
+  });
+
+  it("several things lost in one passage, none kept: one new line on those words is not all of them", async () => {
+    const w = await world();
+    const two = "Priya plays chess on Tuesdays and grows tomatoes";
+    const text = [...THINGS.slice(0, 8), two].map((t) => `${t}.`).join(" ");
+    const first = await tell(w, text, [...THINGS.slice(0, 8), { statement: "Priya plays chess on Tuesdays", evidence: two }, { statement: "Priya grows tomatoes", evidence: two }], { context: w.priya });
+    // The record keeps one span per lost proposal: two things were lost on these words.
+    expect((await w.repos.captures.get(first))!.coverage).toEqual({ v: 1, unprocessed: [span(text, two), span(text, two)], unlocated: 0 });
+    expect((await review(w, first)).partial!.unprocessed).toEqual([span(text, two)]);
+    expect(await w.understanding.restOf(first)).toEqual({ text: two, personId: w.priya.id });
+
+    await tellRest(w, first, [{ statement: "Priya plays chess on Tuesdays", evidence: "plays chess on Tuesdays" }]);
+    let v = await review(w, first);
+    expect([v.partial!.resolved, v.partial!.uncertain, v.status, v.partial!.tellRest]).toEqual([false, 1, COPY.partialUnsure, true]);
+    // Even two new lines on those words: Option A cannot tell them from one thing said twice; still uncertain, never resolved.
+    await tellRest(w, first, [{ statement: "Priya grows tomatoes", evidence: "grows tomatoes" }]);
+    v = await review(w, first);
+    expect([v.partial!.resolved, v.partial!.uncertain, v.status]).toEqual([false, 1, COPY.partialUnsure]);
+    expect((await liveLines(w)).length).toBe(10);
+  });
+
+  it("a new line on the passage that is one of the first note's lines from elsewhere is not recovery either", async () => {
+    const w = await world();
+    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    // The later note says the two passages; the model keeps "Priya loves jazz" (the first note's first line) resting on them.
+    await tellRest(w, first, [{ statement: "Priya loves jazz", evidence: THINGS[8] }]);
+    const v = await review(w, first);
+    expect([v.partial!.resolved, v.partial!.recovered, v.partial!.uncertain, v.status]).toEqual([false, 0, 0, COPY.partialMissed]);
+  });
+
+  it("ordinary recovery stands: a plain passage, lost once, with a new line on its words in a read later note", async () => {
+    const w = await world();
+    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    await tellRest(w, first, THINGS.slice(8));
+    const v = await review(w, first);
+    expect([v.partial!.resolved, v.partial!.recovered, v.partial!.uncertain, v.status]).toEqual([true, 2, 0, null]);
   });
 });
 

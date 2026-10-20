@@ -22,10 +22,11 @@ export interface NoteData {
    * The note held more than the understanding could take (Option A, founder 19 Oct). `unlocated`: how
    * many of the things left out could not be placed in the note (nothing is marked for them; the note is
    * still partial). `followUp`: what later notes ("Tell the rest") are, as the phone has them; `recovered`:
-   * how many passages a read later note's kept lines rest on; `resolved`: all of them, and nothing
-   * unplaced; `tellRest`: offer the pill.
+   * how many passages a read later note demonstrably answered; `uncertain`: how many it kept something new
+   * on without that proving what was missed (words that held more than one thing); `resolved`: all
+   * answered, and nothing unplaced; `tellRest`: offer the pill.
    */
-  partial?: { followUp: "none" | "pending" | "failed" | "read"; resolved: boolean; recovered: number; unlocated: number; tellRest: boolean } | null;
+  partial?: { followUp: "none" | "pending" | "failed" | "read"; resolved: boolean; recovered: number; uncertain: number; unlocated: number; tellRest: boolean } | null;
 }
 
 export const NOTE_COPY = {
@@ -41,6 +42,8 @@ export const NOTE_COPY = {
   failed: "Kinship couldn't read the note that told the rest. Try again from that note.",
   some: "Some of it was kept from a later note. The marked words weren't.",
   missed: "Your later note didn't cover the marked words.",
+  /** Kept something new on marked words that held more than one thing: said as that, never as recovery. */
+  unsure: "A later note kept something from the marked words. Kinship can't tell if it was all it had missed.",
   unplaced: "Part of this note couldn't be placed in its words, so Kinship can't tell if a later note covered it.",
   tellRest: "Tell the rest",
 } as const;
@@ -50,7 +53,7 @@ export function partialNoteLine(partial: NonNullable<NoteData["partial"]>, marke
   if (partial.resolved) return NOTE_COPY.continued;
   if (partial.followUp === "pending") return NOTE_COPY.pending;
   if (partial.followUp === "failed") return NOTE_COPY.failed;
-  if (partial.followUp === "read") return !marked ? NOTE_COPY.unplaced : partial.recovered ? NOTE_COPY.some : NOTE_COPY.missed;
+  if (partial.followUp === "read") return !marked ? NOTE_COPY.unplaced : partial.uncertain ? NOTE_COPY.unsure : partial.recovered ? NOTE_COPY.some : NOTE_COPY.missed;
   return marked ? "" : NOTE_COPY.someLeft;
 }
 
