@@ -11,7 +11,7 @@ import { act } from "react-test-renderer";
 import { MENTION_OPENERS } from "@/features/today/mentions";
 import { canTap, mount, setUp, settle, show, signedIn, tap, tell, texts, unmount, until } from "./app";
 import { appState, N6 } from "./k20flow";
-import { earlierLine, legacyLine, serverRows, useReply as chooseReply } from "./localStack";
+import { earlierLine, legacyLine, runTimeZone, serverRows, useReply as chooseReply } from "./localStack";
 import { harness } from "./state";
 
 const PEOPLE = ["Anthony", "Anthony Lopez", "Sam Eden", "Sam Doughty", "Chris", "Ben", "John", "Susan"];
@@ -224,8 +224,10 @@ describe("K26: Fluffy before ice skating, about the vet appointment (the founder
       detail: { date: isoDay(yesterday), date_precision: "day", event_type: "medical", followup_policy: "both" }, at: at(4),
     });
     await a.acct.engine.sync();
-    // The server's candidates are refreshed at most every ten minutes; the phone's next refresh, forced here.
-    await harness.session!.reasons.refresh({ force: true, timeZone: "America/Los_Angeles" });
+    // The server's candidates are refreshed at most every ten minutes; the phone's next refresh, forced here, in
+    // this run's own time zone (as the phone sends it): "yesterday" above is this run's calendar, and the
+    // follow-up's window is the server's reading of the same day. Every hour of the day, in any time zone.
+    await harness.session!.reasons.refresh({ force: true, timeZone: runTimeZone() });
     await show(a.r, { screen: "today" });
     // The one Bring back screen of first use (H4) is put away.
     if (canTap(a.r, "Got it")) await tap(a.r, "Got it");

@@ -27,6 +27,25 @@ const STUB = process.env.STUB_URL ?? "http://127.0.0.1:8790";
 const GATEWAY = process.env.GATEWAY_URL;
 if (GATEWAY && !/^http:\/\/(127\.0\.0\.1|localhost):/u.test(GATEWAY)) throw new Error("the harness runs only against a local gateway");
 
+/** The time zone this run's phone is in (what the app sends with a reasons refresh), so the suites' days agree with the server's. */
+export const runTimeZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/**
+ * The server stamps created_at itself (v2_row_guard, on insert and on update): a fixture row inserted "4 days
+ * ago" is stored as told now. An earlier day's line gets its day back here, with the guards off for these rows
+ * alone (a superuser's session_replication_role). updated_at stays the server's, so the phone's next
+ * incremental pull still brings the row in. Reads the ids the inserting statement left in `seeded`.
+ */
+function giveBackDay(at: string): string {
+  const q = `$q$${at.replace(/\$q\$/gu, "")}$q$`;
+  return `begin;
+set local session_replication_role = replica;
+update public.captures set created_at = ${q} where id = (select capture_id from seeded);
+update public.memory_items set created_at = ${q} where id = (select item_id from seeded);
+update public.memory_item_sources set created_at = ${q} where id = (select source_id from seeded);
+commit;`;
+}
+
 async function admin(path: string, init: RequestInit = {}) {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -98,18 +117,23 @@ export async function serverRowsIn<T = Record<string, unknown>>(table: string, c
 export function legacyLine(userId: string, note: string, ownerId: string, withIds: string[], mentions: { person_id: string; text: string; name: string }[]): void {
   for (const id of [userId, ownerId, ...withIds]) if (!/^[0-9a-f-]{36}$/u.test(id)) throw new Error("ids only");
   const q = (t: string) => `$q$${t.replace(/\$q\$/gu, "")}$q$`;
-  const sql = `begin;
+  const at = "2026-10-12T20:00:00Z";
+  const sql = `create temp table seeded (capture_id uuid, item_id uuid, source_id uuid);
+begin;
 with c as (
   insert into public.captures (user_id, source, raw_text, status, occurred_at, time_zone)
-  values ('${userId}', 'text', ${q(note)}, 'extracted', '2026-10-12T20:00:00Z', 'America/Los_Angeles') returning id
+  values ('${userId}', 'text', ${q(note)}, 'extracted', '${at}', 'America/Los_Angeles') returning id
 ), m as (
   insert into public.memory_items (user_id, kind, person_id, with_person_ids, statement, detail, origin, extraction_confidence, person_mentions)
   values ('${userId}', 'fact', '${ownerId}', array[${withIds.map((x) => `'${x}'`).join(",")}]::uuid[], ${q(note)},
     '{"category":"interest"}'::jsonb, 'extracted', 0.93, ${q(JSON.stringify(mentions))}::jsonb) returning id
+), s as (
+  insert into public.memory_item_sources (user_id, memory_item_id, capture_id, source_kind, span_start, span_end, quote)
+  select '${userId}', m.id, c.id, 'capture', 0, ${note.length}, ${q(note)} from c, m returning id
 )
-insert into public.memory_item_sources (user_id, memory_item_id, capture_id, source_kind, span_start, span_end, quote)
-select '${userId}', m.id, c.id, 'capture', 0, ${note.length}, ${q(note)} from c, m;
-commit;`;
+insert into seeded select c.id, m.id, s.id from c, m, s;
+commit;
+${giveBackDay(at)}`;
   execFileSync("docker", ["exec", "-i", "supabase_db_kinship", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], { input: sql, stdio: ["pipe", "ignore", "pipe"] });
 }
 
@@ -134,23 +158,29 @@ commit;`;
 
 /**
  * A line an earlier day's note left in this local test account (the founder's account had 13 Oct's "call
- * John tonight" when 14 Oct's was told): the note, the memory and its source, in one transaction. Local
- * database container only.
+ * John tonight" when 14 Oct's was told): the note, the memory and its source, in one transaction, told on
+ * `at` (its created_at, which the server would otherwise stamp with now: see giveBackDay). Local database
+ * container only.
  */
 export function earlierLine(userId: string, line: { kind: string; personId: string; subject: string; statement: string; detail: Record<string, unknown>; at: string }): void {
   for (const id of [userId, line.personId]) if (!/^[0-9a-f-]{36}$/u.test(id)) throw new Error("ids only");
+  if (!/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/u.test(line.at)) throw new Error("an ISO instant only");
   const q = (t: string) => `$q$${t.replace(/\$q\$/gu, "")}$q$`;
-  const sql = `begin;
+  const sql = `create temp table seeded (capture_id uuid, item_id uuid, source_id uuid);
+begin;
 with c as (
-  insert into public.captures (user_id, source, raw_text, status, occurred_at, time_zone, created_at, updated_at)
-  values ('${userId}', 'text', ${q(line.statement)}, 'extracted', ${q(line.at)}, 'America/Los_Angeles', ${q(line.at)}, ${q(line.at)}) returning id
+  insert into public.captures (user_id, source, raw_text, status, occurred_at, time_zone)
+  values ('${userId}', 'text', ${q(line.statement)}, 'extracted', ${q(line.at)}, 'America/Los_Angeles') returning id
 ), m as (
-  insert into public.memory_items (user_id, kind, person_id, subject_type, statement, detail, origin, extraction_confidence, created_at, updated_at)
-  values ('${userId}', ${q(line.kind)}, '${line.personId}', ${q(line.subject)}, ${q(line.statement)}, ${q(JSON.stringify(line.detail))}::jsonb, 'extracted', 0.93, ${q(line.at)}, ${q(line.at)}) returning id
+  insert into public.memory_items (user_id, kind, person_id, subject_type, statement, detail, origin, extraction_confidence)
+  values ('${userId}', ${q(line.kind)}, '${line.personId}', ${q(line.subject)}, ${q(line.statement)}, ${q(JSON.stringify(line.detail))}::jsonb, 'extracted', 0.93) returning id
+), s as (
+  insert into public.memory_item_sources (user_id, memory_item_id, capture_id, source_kind, span_start, span_end, quote)
+  select '${userId}', m.id, c.id, 'capture', 0, ${line.statement.length}, ${q(line.statement)} from c, m returning id
 )
-insert into public.memory_item_sources (user_id, memory_item_id, capture_id, source_kind, span_start, span_end, quote, created_at, updated_at)
-select '${userId}', m.id, c.id, 'capture', 0, ${line.statement.length}, ${q(line.statement)}, ${q(line.at)}, ${q(line.at)} from c, m;
-commit;`;
+insert into seeded select c.id, m.id, s.id from c, m, s;
+commit;
+${giveBackDay(line.at)}`;
   execFileSync("docker", ["exec", "-i", "supabase_db_kinship", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], { input: sql, stdio: ["pipe", "ignore", "pipe"] });
 }
 

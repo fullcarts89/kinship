@@ -8,7 +8,7 @@
 import type TestRenderer from "react-test-renderer";
 import { canTap, mount, setUp, settle, show, signedIn, tap, tell, texts, until } from "./app";
 import { appState, N6 } from "./k20flow";
-import { earlierLine, serverRows, useReply as chooseReply } from "./localStack";
+import { earlierLine, runTimeZone, serverRows, useReply as chooseReply } from "./localStack";
 import { harness } from "./state";
 
 const LIVE = process.env.LIVE === "1";
@@ -56,7 +56,7 @@ function vetYesterday(a: Account) {
 /** The founder's path: the Moment, the hand-off, Yes, the prompt, Tell Kinship, note 2. */
 async function recoveryAfterFollowUp(a: Account) {
   await a.acct.engine.sync();
-  await harness.session!.reasons.refresh({ force: true, timeZone: "America/Los_Angeles" });
+  await harness.session!.reasons.refresh({ force: true, timeZone: runTimeZone() }); // this run's own calendar, as the phone sends it
   await show(a.r, { screen: "today" });
   if (canTap(a.r, "Got it")) await tap(a.r, "Got it");
   await until(a.r, (s) => s.some((t) => t === "How did it go for Chris?"), "the follow-up Moment for Chris", 30000);
