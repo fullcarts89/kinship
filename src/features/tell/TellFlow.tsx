@@ -58,6 +58,14 @@ export interface KeptCardState {
   newcomers?: { name: string; itemIds: string[] }[];
   /** The user's "Got it right / Not quite", once given (H6). */
   feedback?: ReviewView["feedback"];
+  /**
+   * The note held more than the understanding could take (Option A): the card says so (its status line
+   * says what later notes did, from the evidence) and offers "Tell the rest" while that is the honest
+   * next step (`tellRest`). `resolved`: a later note demonstrably took all of it. Never for a complete note.
+   */
+  partial?: { tellRest: boolean; resolved: boolean } | null;
+  /** Understanding kept failing for a reason repeating may mend: the card offers "Try again". */
+  canRetry?: boolean;
 }
 
 /** @deprecated kept for the lab: the one-line form of the card. */
@@ -70,8 +78,18 @@ export interface KeptLineState {
 export interface TellFlow {
   tellOn: boolean;
   ai: boolean;
-  /** Keeps what the user said; resolves once it's safely on the phone. */
-  keep: (text: string, contextPersonId?: string | null, source?: "text" | "onboarding") => Promise<boolean>;
+  /**
+   * Keeps what the user said; resolves once it's safely on the phone. `continues`: the partial note this
+   * one tells the rest of (Option A), recorded on the new note so every phone sees the first as answered.
+   */
+  keep: (text: string, contextPersonId?: string | null, source?: "text" | "onboarding", continues?: string | null) => Promise<boolean>;
+  /**
+   * "Tell the rest" on a partial note (Option A): the words the understanding did not get to become the
+   * draft, about the note's person, and the field takes focus; what the user then keeps is linked back.
+   */
+  tellRest: (captureId: string) => void;
+  /** "Try again" on a note whose understanding kept failing: the same note, asked for once more. */
+  retryCard: () => void;
   /** The note just told, as a card; null when there's nothing to say about it. */
   card: KeptCardState | null;
   /** Opens what was kept (or the question), to look over or correct. */
@@ -106,7 +124,8 @@ export interface TellFlow {
   returnFromNote: (captureId: string) => void;
   /** Ask the Tell field to take focus, optionally about someone ("Anything worth remembering?"). */
   focusTell: (personId?: string | null) => void;
-  focusRequest: { at: number; personId: string | null } | null;
+  /** `continues`: the field is telling the rest of that partial note (Option A); the next Keep links to it. */
+  focusRequest: { at: number; personId: string | null; continues?: string | null } | null;
   /** The unsent words for a Tell about someone (or the general one). */
   draft: (personId?: string | null) => string;
   setDraft: (personId: string | null | undefined, text: string) => void;
@@ -138,6 +157,8 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     status: view.mode === "card" ? view.status : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
     personIds: view.personIds,
     feedback: view.feedback ?? null,
+    partial: view.mode === "card" && view.partial ? { tellRest: view.partial.tellRest, resolved: view.partial.resolved } : null,
+    canRetry: view.mode === "failed",
     ...(() => {
       const byName = new Map<string, string[]>();
       for (const l of view.lines) for (const name of l.newcomers ?? []) byName.set(name, [...(byName.get(name) ?? []), l.id]);
@@ -241,12 +262,12 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     if (how === "done") setDismissed((d) => ({ ...d, [id]: true }));
   }, [showing, fromCard, u, sheetView, activate]);
 
-  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text") => {
+  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text", continues?: string | null) => {
     if (!text.trim()) return false;
     // When Send was tapped, before anything is saved (CC-18 telemetry, content-free).
     const tapped = u.now();
     try {
-      const id = await keepNote(text, contextPersonId ?? null, source);
+      const id = await keepNote(text, contextPersonId ?? null, source, continues ?? null);
       u.sent(id, tapped);
       // Telling something else is the end of the last card: what it kept stays kept.
       if (current && current !== id && !dismissed[current] && currentView?.mode === "card") finishCard(current, "idle");
@@ -306,6 +327,19 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
       else u.hidden(card.captureId);
     },
     addNewcomer: (name, itemIds) => fail(u.addNewcomer(itemIds, name)),
+    tellRest: (captureId) => {
+      void u.restOf(captureId).then((rest) => {
+        // The words not got to become the draft about the note's person; an empty draft when none could
+        // be placed (the user tells the rest in their own words). The card stays until they do.
+        const personId = rest?.personId ?? null;
+        drafts.set(draftKey(personId), rest?.text ?? "");
+        setFocusRequest({ at: Date.now(), personId, continues: captureId });
+      });
+    },
+    retryCard: () => {
+      if (!card?.canRetry) return;
+      fail(u.retry(card.captureId));
+    },
     pending,
     questions,
     asking,
@@ -370,6 +404,12 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
             setShowing(null);
             u.hidden(id);
             router.push(`/v2/source/${id}`);
+          }}
+          onTellRest={() => {
+            // The look-over is done (what it kept stays kept); the rest goes back to the field (Option A).
+            const id = showing;
+            close("done");
+            value.tellRest(id);
           }}
           onActivity={() => undefined}
         />

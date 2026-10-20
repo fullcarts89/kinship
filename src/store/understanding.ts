@@ -54,7 +54,8 @@ import { detailForKind, withDate, type SwitchableKind } from "./memoryDetail";
 import {
   lineNamesOf, type MentionSubject, mentionsAfterEdit, mentionsOf, type NamedPerson, recordMentions, withSubjectReassigned,
 } from "../../supabase/functions/_shared/extraction/names";
-import { peopleOf, repositoriesFor, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
+import { peopleOf, repositoriesFor, type Capture, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
+import { followUpsOf, keptLinesOf, recoveryOf } from "./followUp";
 import { getMeta, setMeta } from "./schema";
 import type { SyncReport } from "./syncEngine";
 import { StoreWriteError, type Data, type UserStore } from "./userStore";
@@ -79,6 +80,12 @@ export interface Reading {
   known?: string[];
   /** The answer that settled it, to check it landed after "already_resolved". */
   answered?: HeldAnswer[];
+  /**
+   * What the understanding did not get to (Option A, founder 19 Oct): the note's own spans and a count
+   * of unplaced ones. Present only when the note held more than one understanding could take. The
+   * capture row's own `coverage` (synced) is the truth across phones; this is the reply's copy.
+   */
+  coverage?: { unprocessed: { start: number; end: number }[]; unlocated: number };
 }
 
 export interface PendingAnswer {
@@ -128,6 +135,8 @@ export interface UnderstandingOptions {
 export const REPORT_META = "semantic_report";
 
 const BACKOFF = [15_000, 60_000, 180_000, 600_000, 1_800_000, 3_600_000];
+/** The server still has the note (Option A): ask again after this long; never an attempt. */
+const BUSY_RETRY_MS = 10_000;
 /** A review seen and then left open (the app went away) is finished as left after this long. */
 const LEFT_OPEN_MS = 10 * 60_000;
 const PERSON_FLAGS = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple"];
@@ -275,6 +284,7 @@ export class Understanding {
     const outcome = row.state === "failed" ? "failed"
       : row.reading && questionWaiting(row.reading) ? "needs_input"
       : row.reading?.tier === "nothing" || (row.state === "done" && !row.reading?.saved.length) ? "nothing"
+      : row.reading?.coverage ? "partial"
       : "kept";
     const at = (iso: string | null) => (iso ? Date.parse(iso) : NaN);
     const span = (from: number, to: number): DurationBucket | "unknown" =>
@@ -359,6 +369,47 @@ export class Understanding {
       && (capture?.status === "needs_review" || reading.tier === "confirm" || reading.tier === "clarify");
     await this.save(captureId, { state: serverWaits ? "closing" : "done", notice: null, attempts: 0, next_at: null });
     if (serverWaits) this.kick();
+  }
+
+  /**
+   * "Try again" on a note whose understanding kept failing (Option A, founder 19 Oct): the same note,
+   * never re-entered, asked for once more from a fresh count. Only for a failure that repeating can
+   * mend (a timeout, a server error); a note the understanding took but could not take whole is not
+   * retried this way (that is "Tell the rest").
+   */
+  async retry(captureId: string): Promise<void> {
+    const row = await this.get(captureId);
+    if (!row || row.state !== "failed") return;
+    await this.save(captureId, { state: "waiting", attempts: 0, next_at: null, understood_at: null, shown_at: null, retries: null });
+    this.kick();
+  }
+
+  /**
+   * "Tell the rest" (Option A): the words of a partial note the understanding did not get to, in the
+   * note's own order, for the user to tell again (and change as they like), with the person the note was
+   * about. Null when the note is not partial, its text is gone, or nothing could be placed (then the
+   * user tells the rest from an empty field). The capture row's coverage is the truth; the reply's copy
+   * stands in until the row has synced. A passage a later note demonstrably took (a read note with a
+   * kept line on those words; store/followUp.ts) is left out: told again, it would only be kept twice.
+   */
+  async restOf(captureId: string): Promise<{ text: string; personId: string | null } | null> {
+    const capture = (await this.store.get("captures", captureId)) as Capture | null;
+    if (!capture || !capture.raw_text) return null;
+    const row = await this.get(captureId);
+    const coverage = capture.coverage ?? row?.reading?.coverage ?? null;
+    if (!coverage || (!coverage.unprocessed.length && !coverage.unlocated)) return null;
+    const followUps = await followUpsOf(this.store, captureId);
+    const still = followUps.length
+      ? recoveryOf(capture.raw_text, coverage.unprocessed, { kept: await keptLinesOf(this.store, captureId) }, followUps).remaining
+      : coverage.unprocessed;
+    if (!still.length && !coverage.unlocated) return null;
+    const chars = Array.from(capture.raw_text);
+    const passages = [...still]
+      .filter((s) => Number.isInteger(s.start) && Number.isInteger(s.end) && s.start >= 0 && s.end > s.start && s.end <= chars.length)
+      .sort((a, b) => a.start - b.start)
+      .map((s) => chars.slice(s.start, s.end).join("").trim())
+      .filter((t, i, all) => t && all.indexOf(t) === i);
+    return { text: passages.join(" "), personId: capture.context_person_id ?? null };
   }
 
   /** Undo: the note and what it alone created go; an older memory it added to stays. */
@@ -753,12 +804,18 @@ export class Understanding {
       await this.save(id, { state: "kept", attempts: 0, next_at: null, understood_at: this.store.now(), retries: row.attempts });
       return false;
     }
+    // What the understanding could not take, when anything (Option A): kept with the reading so the card
+    // and the Source view say so, on this phone at once and on every phone through the capture row.
+    const coverage = reply.coverage.state === "partial"
+      ? { unprocessed: reply.coverage.unprocessed, unlocated: reply.coverage.unlocated }
+      : null;
     if (reply.status === "extracted") {
       track("extraction_completed", {
         items_n: smallCount(reply.saved.length + reply.held.length),
         tier: reply.tier === "confirm" ? "light" : reply.tier === "nothing" ? "none" : reply.tier,
         latency_ms_bucket: latencyBucket(this.clock() - started),
         model_id: "primary",
+        unprocessed_n: smallCount(coverage ? coverage.unprocessed.length + coverage.unlocated : 0),
       });
     }
     const reading: Reading = reply.status === "extracted"
@@ -770,14 +827,17 @@ export class Understanding {
           review_created_at: reply.review_created_at,
           settled: reply.held.length === 0 && (reply.tier === "auto" || reply.tier === "nothing"),
           ...(reply.known?.length ? { known: reply.known } : {}),
+          ...(coverage ? { coverage } : {}),
         }
       : {
+          // A reply lost to a timeout: the server says what it kept (never "nothing") and what it left out.
           tier: "unknown",
-          saved: [],
+          saved: reply.saved_ids.map((id) => ({ id, tier: "confirm" as const })),
           held: reply.held,
           clarification: reply.clarification,
           review_created_at: reply.review_created_at,
           settled: false,
+          ...(coverage ? { coverage } : {}),
         };
     // Nothing to remember in it: done, with the reading kept so the user is
     // told so ("Nothing to remember in that one.") rather than met with silence.
@@ -802,6 +862,12 @@ export class Understanding {
       case "daily_limit_reached":
         this.failure("limited", row.attempts + 1, row.capture_id);
         await this.save(row.capture_id, { next_at: this.later((err.retryAfterS ?? 3600) * 1000) });
+        return false;
+      case "in_progress":
+        // The server is still on it (a reply this phone gave up on, or another phone's request): not a
+        // failed attempt (Option A, founder 19 Oct). Ask again shortly; the claim answers "done" with
+        // what was kept once it finishes, and frees itself after two minutes if the worker died.
+        await this.save(row.capture_id, { next_at: this.later(BUSY_RETRY_MS) });
         return false;
       default:
         this.failure("server", row.attempts + 1, row.capture_id);

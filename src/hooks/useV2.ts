@@ -18,7 +18,7 @@ import { reachedAbout, trailFor, type ContactEventRow } from "@/features/person/
 import { dayMonth, nextBirthday, type PickRow } from "@/features/setup/setupModel";
 import { legacyActivation, NO_ACTIVATION, nextStep, setupFinished, setupStepsFor, type SetupNeeds } from "@/features/setup/activation";
 import { useActivation, type ActivationState } from "./useActivation";
-import { buildReview, itemLine, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
+import { buildReview, itemLine, partialOf, personLabel, type ItemLine, type ReviewView } from "@/features/tell/reviewModel";
 import { parseDrafts, withDraft, type Drafts } from "@/features/tell/drafts";
 import { misfiledOn, voiced } from "@/features/memory/statements";
 import { linkSuggestions, type LinkSuggestion } from "@/features/person/links";
@@ -27,8 +27,9 @@ import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, smallCount, track } from "@/platform/analytics";
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
+import { followUpsOf, keptLinesOf, recoveryOf, type Recovery } from "@/store/followUp";
 import { isOn } from "@/store/flags";
-import { closedBy, peopleOf, repositoriesFor, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
+import { closedBy, peopleOf, repositoriesFor, type Capture, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
 import type { HeldItem } from "@/store/gateway";
 import { questionWaiting } from "@/store/understanding";
 import type { UserStore } from "@/store/userStore";
@@ -58,9 +59,11 @@ export function useTell() {
   // The server checks consent on every call; this only decides whether to ask.
   const consent = s ? (s.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION ? "on" : "off") : "unknown";
   const ai = isOn(flags, "ai_extraction") && consent !== "off";
-  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text"): Promise<string> => {
+  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text", continues: string | null = null): Promise<string> => {
     const capture = await repositoriesFor(store).captures.tell(text, {
       aiEnabled: ai, timeZone: timeZone(), contextPersonId: contextPersonId ?? undefined, source,
+      // "Tell the rest" (Option A): the partial note this one answers, so every phone sees it answered.
+      continuesCaptureId: continues,
     });
     track("capture_completed", { source, chars_bucket: charsBucket([...text].length), offline: understanding.offline });
     if (ai) {
@@ -113,7 +116,11 @@ export function useReview(captureId: string | null): ReviewView | null {
     return buildReview({
       row,
       capture: capture
-        ? { id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status, feedback: capture.feedback }
+        ? {
+          id: capture.id, raw_text: capture.raw_text, context_person_id: capture.context_person_id, status: capture.status, feedback: capture.feedback,
+          coverage: capture.coverage ?? null,
+          recovery: await recoveryFor(store, capture),
+        }
         : null,
       items,
       earlier: await earlierOf(repos, items, row.reading?.held ?? []),
@@ -127,6 +134,18 @@ export function useReview(captureId: string | null): ReviewView | null {
   // Only ever the note asked for: while a new id loads, the previous note's
   // view must not stand in for it.
   return q.data && q.data.captureId === captureId ? q.data : null;
+}
+
+/**
+ * What later notes ("Tell the rest") did for a partial note (Option A), from the evidence: which of its
+ * passages a read note's kept lines rest on, and the later notes' own state. Null when it has none, or
+ * no later note is linked. Synced rows, so every phone reads the same.
+ */
+export async function recoveryFor(store: UserStore, capture: Capture): Promise<Recovery | null> {
+  if (!capture.coverage || !capture.raw_text) return null;
+  const followUps = await followUpsOf(store, capture.id);
+  if (!followUps.length) return null;
+  return recoveryOf(capture.raw_text, capture.coverage.unprocessed, { kept: await keptLinesOf(store, capture.id) }, followUps);
 }
 
 export interface OpenNotes {
@@ -387,34 +406,57 @@ export async function noteFor(store: UserStore, captureId: string, now: Date): P
     if (typeof s.quote === "string" && !quotes.includes(s.quote)) quotes.push(s.quote);
   }
   const text = capture.raw_text;
+  // What the understanding did not get to (Option A): marked in the note until a later note demonstrably took it.
+  const partial = partialOf(capture.coverage ?? null, await recoveryFor(store, capture));
   return {
-    runs: text ? runsOf(text, spans) : null,
+    runs: text ? runsOf(text, spans, partial?.unprocessed ?? []) : null,
     quotes: text ? [] : quotes,
     arrived: `${arrivedLabel(capture.source)} · ${momentLabel(String(capture.created_at ?? capture.occurred_at), now)}`,
     items,
+    partial: partial
+      ? { followUp: partial.followUp, resolved: partial.resolved, recovered: partial.recovered, uncertain: partial.uncertain, unlocated: partial.unlocated, tellRest: partial.tellRest }
+      : null,
   };
 }
 
-/** Splits text at the (code-point) spans, merged, into marked and plain runs. */
-export function runsOf(text: string, spans: { start: number; end: number }[]): { text: string; marked: boolean }[] {
-  const ranges = spans
-    .map((s) => [codePointToUtf16(text, s.start), codePointToUtf16(text, s.end)] as const)
-    .filter(([a, b]) => b > a)
-    .sort((x, y) => x[0] - y[0]);
-  const merged: [number, number][] = [];
-  for (const [a, b] of ranges) {
-    const last = merged[merged.length - 1];
-    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
-    else merged.push([a, b]);
+/**
+ * Splits text at the (code-point) spans, merged, into marked and plain runs. `unprocessed` spans (Option
+ * A: words the understanding did not get to) become their own runs. Where one lies under a kept span the
+ * run says both (one sentence can hold a kept thing and one not got to; founder review of PR #58): the
+ * kept mark stays, and the not-got-to is shown on it, never hidden by it.
+ */
+export function runsOf(
+  text: string,
+  spans: { start: number; end: number }[],
+  unprocessed: { start: number; end: number }[] = [],
+): { text: string; marked: boolean; unprocessed?: boolean }[] {
+  const toRanges = (list: { start: number; end: number }[]) => {
+    const ranges = list
+      .map((s) => [codePointToUtf16(text, s.start), codePointToUtf16(text, s.end)] as const)
+      .filter(([a, b]) => b > a)
+      .sort((x, y) => x[0] - y[0]);
+    const merged: [number, number][] = [];
+    for (const [a, b] of ranges) {
+      const last = merged[merged.length - 1];
+      if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+      else merged.push([a, b]);
+    }
+    return merged;
+  };
+  const kept = toRanges(spans);
+  const left = toRanges(unprocessed);
+  const edges = [...new Set([0, text.length, ...kept.flat(), ...left.flat()])].sort((x, y) => x - y);
+  const within = (ranges: [number, number][], a: number, b: number) => ranges.some(([ra, rb]) => ra <= a && b <= rb);
+  const runs: { text: string; marked: boolean; unprocessed?: boolean }[] = [];
+  for (let i = 0; i + 1 < edges.length; i++) {
+    const [a, b] = [edges[i], edges[i + 1]];
+    if (b <= a) continue;
+    const marked = within(kept, a, b);
+    const open = within(left, a, b);
+    const last = runs[runs.length - 1];
+    if (last && last.marked === marked && (last.unprocessed ?? false) === open) last.text += text.slice(a, b);
+    else runs.push({ text: text.slice(a, b), marked, ...(open ? { unprocessed: true } : {}) });
   }
-  const runs: { text: string; marked: boolean }[] = [];
-  let at = 0;
-  for (const [a, b] of merged) {
-    if (a > at) runs.push({ text: text.slice(at, a), marked: false });
-    runs.push({ text: text.slice(a, b), marked: true });
-    at = b;
-  }
-  if (at < text.length) runs.push({ text: text.slice(at), marked: false });
   return runs;
 }
 

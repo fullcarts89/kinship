@@ -91,6 +91,8 @@ export interface AnalyticsEvents {
     tier: ExtractionTier;
     latency_ms_bucket: LatencyBucket;
     model_id: "primary" | "fallback";
+    /** Proposals the understanding could not take for want of room (Option A): a count, never words. */
+    unprocessed_n: SmallCount;
   };
   extraction_corrected: {
     correction: "person" | "date" | "kind" | "owner" | "relation" | "statement";
@@ -110,7 +112,8 @@ export interface AnalyticsEvents {
    * a slow model and a slow screen can be told apart. Buckets only.
    */
   tell_lifecycle: {
-    outcome: "kept" | "needs_input" | "nothing" | "failed";
+    /** "partial": kept, but the note held more than the understanding could take (Option A). */
+    outcome: "kept" | "needs_input" | "nothing" | "failed" | "partial";
     understood_bucket: LatencyBucket;
     shown_bucket: LatencyBucket;
     /** Send → the result visible: what the user waited, end to end. */

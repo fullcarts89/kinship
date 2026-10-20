@@ -28,6 +28,11 @@ export default function SourceScreen() {
           { text: "Cancel", style: "cancel" },
           { text: "Delete", style: "destructive", onPress: () => void deleteNote(String(captureId)).then(() => router.back()) },
         ])}
+      // Option A: the words Kinship couldn't get to go back into the Tell field (on Today or People, where it lives).
+      onTellRest={() => {
+        flow.tellRest(String(captureId));
+        router.back();
+      }}
     />
   );
 }

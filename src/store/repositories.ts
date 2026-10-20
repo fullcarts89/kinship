@@ -37,6 +37,14 @@ export interface Capture extends Data {
   context_person_id: string | null;
   occurred_at: string;
   status: string;
+  /**
+   * What the understanding did not get to (Option A, founder 19 Oct): the note's own spans (code points
+   * into raw_text) and a count of unplaced ones; null or absent when the note was taken whole. The
+   * gateway's; the app only reads it.
+   */
+  coverage?: { v: 1; unprocessed: { start: number; end: number }[]; unlocated: number } | null;
+  /** The partial note this one tells the rest of ("Tell the rest"); set once, at insert. */
+  continues_capture_id?: string | null;
 }
 
 export interface MemoryItem extends Data {
@@ -270,7 +278,11 @@ export class CaptureRepo {
   /** Records exactly what the user said (NFC), queued for sync and, with AI on, for extraction. */
   tell(
     text: string,
-    opts: { source?: CaptureSource; contextPersonId?: string; occurredAt?: string; timeZone?: string; aiEnabled: boolean },
+    opts: {
+      source?: CaptureSource; contextPersonId?: string; occurredAt?: string; timeZone?: string; aiEnabled: boolean;
+      /** The partial note this one tells the rest of (Option A). */
+      continuesCaptureId?: string | null;
+    },
   ): Promise<Capture> {
     const raw = text.normalize("NFC");
     if (!raw.trim()) throw new StoreWriteError("nothing to remember");
@@ -282,6 +294,7 @@ export class CaptureRepo {
       occurred_at: opts.occurredAt ?? this.store.now(),
       time_zone: opts.timeZone ?? null,
       status: opts.aiEnabled ? "pending" : "skipped",
+      ...(opts.continuesCaptureId ? { continues_capture_id: opts.continuesCaptureId } : {}),
     }) as Promise<Capture>;
   }
 
