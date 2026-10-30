@@ -166,7 +166,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
             <Pill size="small" fixedLabel label={COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to back in the Tell field, to tell again" onPress={act(props.onTellRest)} />
           </View>
         ) : null}
-        {view.notice ? <Body tone="ochreText" style={{ marginTop: space.s }}>{view.notice}</Body> : null}
+        {view.notice ? <Body tone="markText" style={{ marginTop: space.s }}>{view.notice}</Body> : null}
         {view.lines.length ? (
           <View style={{ marginTop: space.xl, borderTopWidth: 1, borderTopColor: p.hairline }}>
             {view.lines.map((line) => (

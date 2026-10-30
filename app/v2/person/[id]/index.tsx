@@ -13,6 +13,7 @@ import { TellSheet } from "@/features/tell/TellSheet";
 import { useHandoff } from "@/features/today/useHandoff";
 import { todayIso, useItemLine, usePeople, usePersonLinks, usePersonReturn, usePortrait, useTodayActions, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { NamePane } from "@/features/tell/Pickers";
+import { PHOTO_COPY, usePersonPortrait } from "@/hooks/usePersonPortrait";
 import { Pill, Sheet, Title } from "@/ui";
 import { space } from "@/design/tokens";
 import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
@@ -55,6 +56,19 @@ export default function PersonScreen() {
   }, []));
   const back = usePersonReturn(personId, now);
   const today = useTodayActions();
+  // Their photo, the user's own choice, kept on this phone only (FD-30b).
+  const photo = usePersonPortrait(personId);
+  const choosePhoto = () => {
+    if (!photo.uri) {
+      void photo.pick();
+      return;
+    }
+    Alert.alert(`Photo of ${first}`, PHOTO_COPY.hint(first), [
+      { text: PHOTO_COPY.change, onPress: () => void photo.pick() },
+      { text: PHOTO_COPY.remove, style: "destructive", onPress: () => void photo.remove() },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
   // After a Yes: "Anything worth remembering…?", optional, as Today asks it (founder I2, K28).
   const [afterReturn, setAfterReturn] = useState<{ followUp: string } | null>(null);
   // Reaching out about something they said they'd do gets the same return question as Today's line
@@ -88,6 +102,8 @@ export default function PersonScreen() {
       onCall={reachOut}
       onTell={() => setTelling(true)}
       onRename={() => setRenaming(true)}
+      photoUri={photo.uri}
+      onPhoto={choosePhoto}
       hasDraft={!!flow.draft(personId).trim()}
       focusItemId={typeof focusItem === "string" ? focusItem : null}
       returnCheck={back.returnCheck}

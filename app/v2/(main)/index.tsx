@@ -11,6 +11,7 @@ import { MomentDetailSheet } from "@/features/today/MomentDetailSheet";
 import { detailFor, quietKey } from "@/features/today/momentDetail";
 import { reachedSomeone } from "@/platform/haptics";
 import { todayIso, usePeople, usePersonFocus, useToday, useTodayActions } from "@/hooks/useV2";
+import { usePersonPortrait } from "@/hooks/usePersonPortrait";
 import { afterSheets } from "@/ui/sheetStack";
 import { useActivation } from "@/hooks/useActivation";
 import { shortName } from "../../../supabase/functions/_shared/extraction/names";
@@ -68,6 +69,8 @@ export default function TodayScreen() {
   }, []));
 
   const moment = view?.moment ?? null;
+  // The photo the user chose for the moment's person (kept on this phone only), if any.
+  const portrait = usePersonPortrait(moment?.personId ?? null);
   useEffect(() => {
     if (moment) void actions.shown({ reasonId: moment.reasonId, personId: moment.personId, type: moment.type, score: moment.score });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,6 +128,7 @@ export default function TodayScreen() {
           else if (q.kind === "coming" || q.kind === "waiting") setDetailKey(quietKey(q));
         }}
         settling={settling}
+        photoUri={portrait.uri}
         onTellFirst={() => flow.focusTell(null)}
         onAddPeople={() => router.push("/v2/people/add")}
         onBringBackSeen={() => void activation.seeBringBack()}

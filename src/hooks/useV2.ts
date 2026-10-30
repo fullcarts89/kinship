@@ -997,7 +997,8 @@ export function useSetupGate(): SetupGate {
       await Promise.race([
         understanding.run().catch(() => undefined),
         new Promise((r) => {
-          timer = setTimeout(r, SETUP_SYNC_WAIT_MS);
+          // Widened so the platform's and Node's timer typings agree (Node types 25 make the plain call ambiguous).
+          timer = setTimeout(r, SETUP_SYNC_WAIT_MS) as unknown as ReturnType<typeof setTimeout>;
         }),
       ]);
       clearTimeout(timer);

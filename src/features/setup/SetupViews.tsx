@@ -1,7 +1,7 @@
-// Setup, drawn (board 1, "Setting up · 1 of 2" and "2 of 2"; consent from
-// D2/D3 in the same composition): a caps label, the question in the display
-// serif, a line of explanation, the content, and the action pinned at the
-// bottom in the gutter. From plain data; SetupScreen.tsx supplies it.
+// Setup, drawn (board 1's composition in the Electric Garden): a leaf cut by
+// the page's top right over a warm wash, a caps label, the question in the
+// poster voice, a line of explanation, the content, and the action pinned at
+// the bottom in the gutter. From plain data; SetupScreen.tsx supplies it.
 import React, { useRef } from "react";
 import { ActivityIndicator, FlatList, Platform, ScrollView, TextInput, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GUTTER, height, maxScale, press, radius, size, space, type } from "@/design/tokens";
 import { CONSENT_COPY, ConsentBody } from "@/features/tell/ConsentSheet";
 import { useKeyboardInset } from "@/ui/useKeyboardLift";
-import { Body, Display, KeyboardBar, Label, MomentText, Pill, Provenance, Small, Sprig, useKeyboardBarId, usePalette } from "@/ui";
+import { Body, Botanical, DawnWash, Display, Grain, KeyboardBar, Label, MomentText, Pill, Provenance, SectionDot, Small, Sprig, useKeyboardBarId, usePalette } from "@/ui";
 import type { PickRow, WorthLine } from "./setupModel";
 
 export const SETUP_COPY = {
@@ -89,6 +89,16 @@ function Head({ label, title, body }: { label: string; title: string; body?: str
   );
 }
 
+/** The garden behind a setup step: a warm wash and one leaf from the top right. */
+export function SetupArt() {
+  return (
+    <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+      <DawnWash kind="warm" height={360} />
+      <Botanical art="leaf" width={180} top={-50} right={-70} rotate={26} />
+    </View>
+  );
+}
+
 function Frame({ children, footer }: { children: React.ReactNode; footer: React.ReactNode }) {
   const p = usePalette();
   const insets = useSafeAreaInsets();
@@ -100,11 +110,13 @@ function Frame({ children, footer }: { children: React.ReactNode; footer: React.
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-        contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: insets.top + space.x3, paddingBottom: space.xl }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: GUTTER, paddingTop: insets.top + space.x4, paddingBottom: space.xl }}
       >
+        <SetupArt />
         {children}
       </ScrollView>
       <SetupFooter>{footer}</SetupFooter>
+      <Grain />
     </View>
   );
 }
@@ -318,7 +330,8 @@ export function PeoplePickView(props: PeoplePickViewProps) {
   })();
 
   const header = (
-    <View style={{ paddingHorizontal: GUTTER, paddingTop: insets.top + space.x3 }}>
+    <View style={{ paddingHorizontal: GUTTER, paddingTop: insets.top + space.x4 }}>
+      <SetupArt />
       <Head label={props.label} title={SETUP_COPY.pickTitle} body={intro} />
       {props.access.state === "loading" ? <ActivityIndicator style={{ marginTop: space.xl }} color={p.inkQuiet} /> : null}
       {props.access.state === "undetermined" ? (
@@ -371,6 +384,7 @@ export function PeoplePickView(props: PeoplePickViewProps) {
         )}
         ListFooterComponent={<View style={{ height: space.xl }} />}
       />
+      <Grain />
       <SetupFooter>
         {props.error ? <Small tone="brick" accessibilityRole="alert" accessibilityLiveRegion="assertive">{props.error}</Small> : null}
         {granted ? <LockLine text={SETUP_COPY.pickLock} /> : null}
@@ -416,8 +430,8 @@ export function WorthStepView(props: WorthStepViewProps) {
           <Head label={props.label} title={SETUP_COPY.worthTitle} />
           <View style={{ marginTop: space.xl, gap: space.l }}>
             {props.lines.map((l, i) => (
-              <View key={l.personId} style={{ flexDirection: "row", gap: space.l }}>
-                <View style={{ width: 3, borderRadius: 2, backgroundColor: i === 0 ? p.ochre : p.hairline }} />
+              <View key={l.personId} style={{ flexDirection: "row", gap: space.m, alignItems: "flex-start" }}>
+                <View style={{ paddingTop: space.s }}><SectionDot accent={i === 0 ? "mark" : "lavender"} /></View>
                 <View style={{ flex: 1 }}>
                   <MomentText>{l.text}</MomentText>
                   <View style={{ marginTop: space.xs }}><Provenance line={l.provenance} dot={false} /></View>

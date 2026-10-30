@@ -1,12 +1,13 @@
-// People (Design Direction §I.6; board 3's list side): search at the top,
-// then everyone, alphabetical: sprig, name, one live line. No counts, no
-// ranking, nothing to keep up with. Adding someone is a name and Done.
+// People (Electric Garden): a leaf spray cut by the page's top right, search
+// as the one raised surface, then everyone, alphabetical: sprig, name, one
+// live line in the user's words. No counts, no ranking, nothing to keep up
+// with. Adding someone is a name and Done.
 import React, { useMemo, useState } from "react";
 import { TextInput, View } from "react-native";
 import { Plus, Search, Settings } from "lucide-react-native";
-import { height, maxScale, radius, size, space, type } from "@/design/tokens";
+import { height, maxScale, radius, shadow, size, space, type } from "@/design/tokens";
 import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
-import { Body, IconButton, KeyboardBar, type NavKey, Pill, Row, Screen, Sprig, useKeyboardBarId, usePalette } from "@/ui";
+import { Body, Botanical, DawnWash, IconButton, KeyboardBar, type NavKey, Pill, Row, Screen, Sprig, useKeyboardBarId, usePalette } from "@/ui";
 
 export interface PersonRowData {
   id: string;
@@ -45,15 +46,20 @@ export function PeopleView({
     return q ? rows.filter((r) => r.label.toLocaleLowerCase().includes(q)) : rows;
   }, [rows, query]);
 
+  const art = (
+    <>
+      <DawnWash kind="quiet" height={300} />
+      <Botanical art="leaves" width={210} top={-70} right={-84} rotate={22} />
+    </>
+  );
   return (
-    <Screen>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, paddingTop: space.l }}>
+    <Screen art={art}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, paddingTop: space.xl }}>
         <View
-          style={{
+          style={[shadow.field, {
             flex: 1, minHeight: height.search, borderRadius: radius.pill(height.search), backgroundColor: p.surface,
-            borderWidth: 1, borderColor: p.hairline, flexDirection: "row", alignItems: "center", gap: space.s,
-            paddingHorizontal: space.l,
-          }}
+            flexDirection: "row", alignItems: "center", gap: space.s, paddingHorizontal: space.l,
+          }]}
         >
           <Search color={p.inkQuiet} size={size.icon} strokeWidth={1.8} />
           <TextInput
@@ -88,6 +94,7 @@ export function PeopleView({
             leading={<Sprig personId={r.id} width={size.sprig.row} remembered={r.remembered} />}
             title={r.label}
             subtitle={r.line}
+            serifSubtitle
             onPress={() => onOpen(r.id)}
           />
         ))}
