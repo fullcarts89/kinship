@@ -90,6 +90,14 @@ function fromMoment(m: MomentView, today: string): MomentDetail {
     case "birthday":
       why = `It's ${m.personName}'s birthday today.`;
       break;
+    case "promise":
+      // On its day, and a few days on if still open: when it was for, never how late.
+      why = day && day === today ? "It's due today." : day ? `It was due ${behind(day, today)}.` : "You said you'd do it.";
+      break;
+    case "thread":
+      // With a day of its own, that day; without one, when the user told Kinship.
+      why = !day ? "It's still open." : m.toldDay ? `You told Kinship ${behind(day, today)}.` : `It was ${behind(day, today)}.`;
+      break;
     default:
       why = day ? `It's ${ahead(day, today)}.` : "It's coming up.";
   }

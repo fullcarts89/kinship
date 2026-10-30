@@ -564,7 +564,7 @@ export function useToday(
 export function useTodayActions() {
   const { store, reasons, reasonLocal } = useV2Session();
   const loop = {
-    local: reasonLocal, contacts: repositoriesFor(store).contacts, now: () => new Date(),
+    local: reasonLocal, contacts: repositoriesFor(store).contacts, memory: repositoriesFor(store).memory, now: () => new Date(),
     record: (id: string, event: Parameters<typeof reasons.record>[1], channel?: string) => reasons.record(id, event, channel),
   };
   return {
@@ -589,10 +589,14 @@ export function useTodayActions() {
     },
     /** The app didn't open: nothing was handed off after all (the Moment may speak again, also after a sync). */
     handoffFailed: (reasonId: string) => cancelHandOff(loop, reasonId),
-    /** "Yes": the one place a conversation is recorded (plan §15, founder I2); answered once. */
-    returned: async (answer: "yes" | "not_yet") => {
+    /**
+     * "Yes": the one place a conversation is recorded (plan §15, founder I2); answered once. "put_aside"
+     * ("Didn't happen", a promise's return check, RSN-06): nothing recorded, the promise put aside.
+     */
+    returned: async (answer: "yes" | "not_yet" | "put_aside") => {
       const h = await answerReturn(loop, answer);
       if (h) track("return_check_answered", { answer, minutes_since_handoff_bucket: minutesBucket(Date.now() - Date.parse(h.at)) });
+      if (h && answer === "put_aside" && h.type && h.type !== "page") track("reason_dismissed", { reason_type: reasonTypeName(h.type), mode: "put_aside" });
       return h;
     },
     linkContact: (personId: string, contactId: string) => store.update("people", personId, { contact_ref: contactId }),

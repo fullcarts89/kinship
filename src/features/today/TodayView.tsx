@@ -24,7 +24,8 @@ export interface TodayViewProps {
   onOpenMoment?: () => void;
   onNotNow: () => void;
   onProvenance: () => void;
-  onReturn: (answer: "yes" | "not_yet") => void;
+  /** "put_aside" is "Didn't happen", offered only on a promise's return check (RSN-06). */
+  onReturn: (answer: "yes" | "not_yet" | "put_aside") => void;
   onRemember: () => void;
   onNothing: () => void;
   onQuiet: (q: QuietView) => void;
@@ -42,6 +43,11 @@ export interface TodayViewProps {
   settling?: boolean;
   footer?: React.ReactNode;
 }
+
+/** The return check's third answer for a promise (RSN-06; copy a proposal, WS-3). */
+export const RETURN_COPY = {
+  putAside: "Didn't happen",
+} as const;
 
 export const FIRST_USE_COPY = {
   title: "This is where Kinship brings things back.",
@@ -96,9 +102,11 @@ export function TodayView(props: TodayViewProps) {
         <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
           <MomentText>{view.returnCheck.ask}</MomentText>
           {view.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{view.returnCheck.about}</Small> : null}
-          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
             <Pill size="small" label="Yes" onPress={() => props.onReturn("yes")} />
             <Pill size="small" label="Not yet" onPress={() => props.onReturn("not_yet")} />
+            {/* A promise's quiet way out (RSN-06, WS-3): put aside without judgement; nothing is recorded. */}
+            {view.returnCheck.type === "promise" ? <Pill size="small" variant="quiet" label={RETURN_COPY.putAside} onPress={() => props.onReturn("put_aside")} /> : null}
           </View>
         </View>
       ) : null}
