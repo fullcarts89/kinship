@@ -36,7 +36,7 @@
 | 20 | **Reconnect** | B2 "A reason to reconnect"; P §17 | A true reason after a quiet stretch | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Needs rhythm data + reason corpus (P §17) | Yes (plan §4 "Next") | Phase 6 (E22) |
 | 21 | **Reflection (monthly letter)** | B3 "September, looking back"; P E26 | Did I show up? | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Needs 4+ weeks of data | Yes (plan §4 "Next") | Phase 6 |
 | 22 | **Ask Kinship** | B3 "When did I last see Sam?"; P E25 | A cited answer from your own memory | NOT BUILT | NOT BUILT (People search finds people only) | No | — | — | — | ✗ | ✗ | ✓ | Retrieval capability not built (plan §4 "Next") | Yes (plan §4) | Phase 6 |
-| 23 | **Privacy / settings** | B3 "What Kinship knows" (settings); P E17 | Sources, switches, export, delete | PARTIAL — understanding switch + sign out | PARTIAL — adds the D2 disclosure and a Contacts line ("read on this phone; only the people you pick are saved") | Yes | Partial | Partial | ✗ | ✓ (understanding off/on) | ✓ (export, delete, lock-screen) | — | Export/delete-account v2 UI not built (E17) | Yes (CC-25, 16 Oct: export and delete-account v2 block broader Alpha, not the household dogfood) | E17 before alpha |
+| 23 | **Privacy / settings** | B3 "What Kinship knows" (settings); P E17 | Sources, switches, export, delete | PARTIAL — understanding switch + sign out | **BUILT (native pending)** — the D2 disclosure, the Contacts line, Removed from People (I3), and now **Paused and remembered** (Resume), **Your data** (export as Markdown or JSON through the share sheet; nothing uploaded) and **Delete account** (two confirms; the server removes every table's rows and the auth user, then the phone wipes). WS-4, 30 Oct 2026 | Yes | Partial | Lab ✓ | ✗ | ✓ (understanding off/on) | ✓ (export, delete, lock-screen) | — | — | FD-30e (founder directive 30 Oct, §4E) authorises export and delete-account v2 now; CC-25 kept them for before broader Alpha | Native pass; lock-screen; `docs/product/trust-floor.md` |
 | 24 | **First-use empty states** | Contract §8; DD §I | Orientation and a next action, not a void | **NOT BUILT** (new accounts saw the mature quiet day) | **BUILT** — Today first-use orientation; People empty recovery; person empty invites Tell | Yes | Lab ✓ | Lab ✓ | ✗ | ✓ | ✓ | — | — | n/a | Native pass |
 | 25 | **Mature empty states** | DD §I.2 "Nothing needs you today" | Quiet is correct | BUILT | BUILT, now only for accounts that have told Kinship something | Yes | ✓ | ✓ | ✗ | ✓ | ✓ | — | — | n/a | — |
 | 26 | **Offline** | P §7 | Kept now, understood later | BUILT | BUILT; setup works offline except contacts are local anyway; consent saved when online (asked again if it couldn't save) | Yes | ✓ | ✓ | ✗ | ✓ | ✓ | — | — | n/a | Airplane-mode pass on device |
@@ -47,7 +47,7 @@
 | 31 | **Notification permission ask** | P §22, PUSH-08 | Ask after the first real moment | NOT BUILT | NOT BUILT | No | — | — | — | ✗ (no push yet) | ✓ | — | Server push not built (E15) | Yes (CC-25, 16 Oct: asked with the minimal push, committed next, only after a genuinely useful Moment) | E15 |
 | 32 | **Siri / Action Button / widget / share sheet** | DD §C, P §21 | Capture from anywhere | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Native targets, Next/Later | Yes (plan §4) | E24 |
 | 33 | **Subscriptions, Intentions, Opportunity Engine** | D10, P §35 | — | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Post-validation | Yes (D10, §35) | — |
-| 34 | **Person states (Remembered / Paused)** | D13; P PER-06 | Hold grief and estrangement | PARTIAL (rendering only) | PARTIAL | Partly | ✓ | ✗ (no UI to set) | ✗ | ✗ | ✓ | — | — | — | PER-06 before broader Alpha (CC-25: trust floor; not blocking the household dogfood) |
+| 34 | **Person states (Remembered / Paused)** | D13; P PER-06 | Hold grief and estrangement | PARTIAL (rendering only) | **BUILT (native pending)** — set only by the user from the person's name sheet (Pause · Hold as remembered, each confirmed; Resume, asked once more when leaving Remembered); one quiet line on the page, no marker in People (D13); nothing proactive on Today, no birthday, no server candidate; listed in Settings with Resume; `isProactiveEligible` for every reader. WS-4, 30 Oct 2026 | Yes | Lab ✓ | Lab ✓ | ✗ | ✗ | ✓ | — | — | FD-30e (30 Oct) | Native pass; WS-3 to route Today's three state checks through the helper (`docs/product/trust-floor.md`) |
 | 35 | **App icon, Terms, Privacy Policy pages** | DD §B identity | No 1.0 visual leaks | 1.0-styled | 1.0-styled | Yes (links from sign-in) | ✗ | — | ✗ | Rough edge | ✓ | — | — | — | Restyle; new icon |
 
 ---
@@ -155,6 +155,17 @@ Roadmap only (not a surface yet): grounded **Ask Kinship** as an Alpha candidate
 | Tell field / all inputs | Done accessory, drag-to-dismiss, nav usable with the keyboard open, draft kept | I6 | 4 | Bottom navigation stays |
 | 14 What Kinship knows › **Background** | Clearly-past history ("Previously interviewed with Box · Ended Oct 6") | I7 (with H15) | 4 | Never alongside current state as if true; declined sensitive outcomes stay out |
 | 12 Relationship page / 14 What Kinship knows | Visible **Edit** for the name; soft **Remove from People** | I3 | Gate 0 | Archive, restorable; notes and sources kept. **BUILT in Gate 0** (see below); native pending |
+
+## The alpha trust floor (30 Oct, FD-30e; WS-4): what changed on approved surfaces
+
+Built on `claude/ws4-trust-floor-176a4a` (PR #70) under the founder's 30 Oct directive (§4E) and CC-25's "trust floor before broader Alpha". No approved surface was removed; nothing below is a redesign (WS-2 restyles every view). Native: pending the integrated release candidate's pass. Semantics in `docs/product/trust-floor.md`.
+
+| Surface | What is built | Reference | Founder approval |
+|---|---|---|---|
+| 12 Relationship page | The name sheet (Edit) carries the person's own controls: **Pause**, **Hold as remembered** (each with one sentence and a confirm; **Resume** while held, asked once more when leaving Remembered), **Merge with someone**, Remove from People. The page shows one quiet line, Paused or Remembered, and "Merged with Anthony · Undo" while a merge can be undone (30 days) | D13, PER-06, PER-05 | FD-30e |
+| 11 People | Add by name of a name already in People asks "Is this the same Anthony?" → Use existing · Add someone new · Cancel (the I3 removed-person path unchanged). No marker for a paused person in the list (D13) | PER-05, I3 | FD-30e |
+| 23 Privacy / settings | **Paused and remembered** (Resume); **Your data**: Export your data (Markdown) · Export as JSON, through the share sheet, nothing uploaded; **Delete account** with two confirms in Kinship's words; a merged-away person is not listed under Removed from People | SET-04, SET-05, D13 | FD-30e |
+| Merge sheet (new, from the name sheet) | "Who is also Anthony Lopez?": people who share a name, alphabetical, never scored; Someone else; then a preview of exactly what moves (memories in the page's words, lines that will name them, their people, conversations, birthday / Contacts link / names taken) and Merge. Server: `merge_people` keeps every source, archives the merged person, journals for Undo | PER-05 | FD-30e |
 
 ## Gate 0 Final Trust Closure (7 Oct, CC-18): what changed on approved surfaces
 
@@ -383,13 +394,13 @@ Strategy only; no surface is built, removed or redesigned by this entry. **No ap
 | 20 | Reconnect | INTENTIONALLY DEFERRED | Explore later (reconnect as a Today candidate) | A Today candidate type, possibly gated by an explicit Intention and a real reason; rhythm held, never visible, never the reason |
 | 21 | Reflection (monthly letter) | INTENTIONALLY DEFERRED | Explore later, downgraded to validation | Year-ago resurfacing, Ask over history, or an occasional / yearly reflection instead of a monthly report |
 | 22 | Ask Kinship | INTENTIONALLY DEFERRED | **Alpha direction**, the first major Alpha expansion | v1 grounded search over statements with sources, then bounded synthesis if needed; one capability with `retrieval_answer`; not limited to one-person lookups; never a chat |
-| 23 | Privacy / settings (export, delete-account v2) | PARTIAL | **Commit next**, before broader Alpha | — |
+| 23 | Privacy / settings (export, delete-account v2) | BUILT (native pending), 30 Oct (FD-30e, WS-4) | Was **Commit next**; built | `docs/product/trust-floor.md` |
 | 29 | Listening (voice) screen | NOT BUILT (D5) | Explore later; **questioned before implementation** | Capture order: Siri / Action Button → a simple on-device mic in Tell → a text share extension. The board stays approved; re-confirm or change it before voice work |
 | 30 | Garden / Landscape | Superseded (D7) | Explore later; chapters / life groups first | User-named, many-to-many groups as a People filter; any visual stays the GDN-00 checkpoint |
 | 31 | Notification permission ask | NOT BUILT | **Commit next**, with the minimal push | One private notification of the Moment Today chose; D4's caps the ceiling; pause |
 | 32 | Siri / Action Button / widget / share sheet | NOT BUILT | Siri / Action Button: **Alpha direction**; share: explore later; widget: **hold** | — |
 | 33 | Subscriptions, Intentions, Opportunity Engine | NOT BUILT | Explore later | Intentions v0 as a user-authored sentence used as a relevance signal (Later Alpha); the Opportunity Engine as Today's ranking plus Intentions, external events a later experiment |
-| 34 | Person states (Remembered / Paused) | PARTIAL | **Commit next**, before broader Alpha | — |
+| 34 | Person states (Remembered / Paused) | BUILT (native pending), 30 Oct (FD-30e, WS-4) | Was **Commit next**; built | `docs/product/trust-floor.md` |
 | — | About You (G28) | Not an approved surface | Explore later, in Settings | The user's own grounded memory listed in Settings, not a primary destination |
 | — | Promise, open-thread, hard-time Moments on Today | Not built (RSN-06, RSN-07, RSN-09) | Promise and open thread: **commit next**; hard time: **Alpha direction** | Promise guilt firewall kept; hard-time copy never cheerful, lock screen always private |
 
