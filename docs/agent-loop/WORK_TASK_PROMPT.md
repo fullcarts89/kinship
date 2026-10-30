@@ -2,7 +2,7 @@
 
 Create an **event-triggered task** for GitHub repository `fullcarts89/kinship`.
 Trigger on **pull request commit updates / new pushes** (and, if useful, newly opened/ready
-PRs), filtered to the pilot PR or explicit `agent-loop` enrollment. Avoid PR-comment
+PRs), filtered to the disposable pilot PR / explicit `agent-loop` label enrollment. Avoid PR-comment
 events during the first pilot to prevent review/comment feedback loops.
 
 Task instructions:
@@ -22,7 +22,7 @@ On each eligible PR SHA:
    real-world first-use paths, and regression proof appropriate to the change.
    Distinguish CI from live model, black-box, native simulator and founder-device.
 5. For an objective, localizable issue **within the pre-approved scope**, post one
-   top-level GitHub PR comment starting exactly `@claude /kinship-fix` and including:
+   top-level GitHub PR comment starting exactly `@claude /kinship-fix` **only when the triggering GitHub identity is authorized for the workflow** and including:
    SHA; review round; failing behavior; code reference; minimal correction; regression
    test; no-merge/no-deploy boundary. Confirm connector actions are permitted.
 6. For product-direction disagreements, UI/art-quality judgment, migrations,
@@ -43,3 +43,5 @@ On each eligible PR SHA:
 The automation is a reviewer, not a release manager. Do not create unrelated features.
 Avoid circular comments: only review each changed SHA once, never trigger repairs in
 response to your own comments, and cap automated rounds at three.
+
+**Important:** During pilot, if GitHub evaluates Work's comment as a bot or non-collaborator, do not claim Claude was triggered. Record the identity and pause for founder-approved configuration of a narrowly trusted integration identity. Never broaden allowed bots to wildcard.
