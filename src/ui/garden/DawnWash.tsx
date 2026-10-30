@@ -28,8 +28,8 @@ const LIGHTS: Record<DayKind, Light[]> = {
     { c: "lavender", cx: 0.08, cy: 0.34, rx: 160, ry: 150, a: 0.35 },
   ],
   quiet: [
-    { c: "lavender", cx: 0.86, cy: 0.08, rx: 220, ry: 190, a: 0.34 },
-    { c: "butter", cx: 0.12, cy: 0.22, rx: 170, ry: 150, a: 0.22 },
+    { c: "lavender", cx: 0.86, cy: 0.08, rx: 230, ry: 200, a: 0.44 },
+    { c: "butter", cx: 0.12, cy: 0.22, rx: 180, ry: 160, a: 0.3 },
     { c: "lime", cx: 0.62, cy: 0.42, rx: 150, ry: 130, a: 0.14 },
   ],
   difficult: [

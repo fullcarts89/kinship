@@ -279,7 +279,7 @@ export function PortraitView(props: PortraitViewProps) {
       {photo ? (
         <View style={{ height: photoH - 40 * k, marginTop: -TOUCH, alignItems: "flex-end", marginRight: -GUTTER / 2 }}>
           <FluidPhoto uri={photo} width={photoW} height={photoH} label={`Photo of ${first}`} />
-          <Botanical art="leaf" width={128} top={134} left={-76} rotate={-34} />
+          <Botanical art="leaf" width={128} top={134} left={58} rotate={-34} />
         </View>
       ) : (
         <View style={{ height: 196 * k }} />

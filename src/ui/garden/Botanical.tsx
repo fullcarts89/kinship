@@ -38,6 +38,7 @@ export function Botanical({ art, width, top, bottom, left, right, rotate = 0, fl
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
+      testID={`botanical-${art}`}
       style={{
         position: "absolute", width: w, height: h,
         ...(top !== undefined ? { top: top * k } : {}), ...(bottom !== undefined ? { bottom: bottom * k } : {}),
@@ -45,7 +46,7 @@ export function Botanical({ art, width, top, bottom, left, right, rotate = 0, fl
         transform, opacity: dim ? opacity * 0.55 : opacity, zIndex,
       }}
     >
-      <Image source={gardenArt[art]} resizeMode="contain" testID={`botanical-`} style={[{ width: w, height: h }, style]} />
+      <Image source={gardenArt[art]} resizeMode="contain" style={[{ width: w, height: h }, style]} />
     </View>
   );
 }
