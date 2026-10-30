@@ -21,6 +21,9 @@ export function TellSheet({ person, onClose }: { person: { id: string; name: str
   if (person && opened.current?.id !== person.id) opened.current = { id: person.id, hadDraft: !!draft.trim() };
   if (!person) opened.current = null;
   const sending = useRef(false);
+  // "Tell the rest" (Option A): the open request for this person names the partial note the draft is the
+  // rest of; keeping the draft links the new note to it, as Today's dock does. Nothing once it is answered.
+  const continues = person && flow.focusRequest?.personId === person.id ? flow.focusRequest.continues ?? null : null;
   return (
     <Sheet visible={!!person} onDismiss={onClose} label={person ? `Tell Kinship about ${person.name}` : "Tell Kinship"}>
       <Heading>{person ? `About ${person.name}` : ""}</Heading>
@@ -41,7 +44,7 @@ export function TellSheet({ person, onClose }: { person: { id: string; name: str
           sending.current = true;
           flow.setDraft(person.id, "");
           onClose();
-          void flow.keep(text, person.id).then((ok) => {
+          void flow.keep(text, person.id, "text", continues).then((ok) => {
             // Not kept: the words go back to being this person's draft.
             if (!ok) flow.setDraft(person.id, text);
           }).finally(() => {

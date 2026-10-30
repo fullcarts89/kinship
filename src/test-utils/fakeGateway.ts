@@ -98,7 +98,7 @@ export class FakeGateway implements GatewayTransport {
     return [...this.server.table(table).values()].filter((r) => r.user_id === this.userId && !r.deleted_at) as unknown as T[];
   }
 
-  private pipeline(captureId: string, reply: (input: ExtractionInput) => ModelProposal): Script & { planned: Record<string, unknown>[]; known?: string[] } {
+  private pipeline(captureId: string, reply: (input: ExtractionInput) => ModelProposal): Script & { planned: Record<string, unknown>[]; known?: string[]; coverage?: { unprocessed: { start: number; end: number }[]; unlocated: number } } {
     const c = this.capture(captureId)!;
     const capture: CaptureRow = {
       id: captureId, raw_text: String(c.raw_text), occurred_at: String(c.occurred_at),
@@ -114,7 +114,10 @@ export class FakeGateway implements GatewayTransport {
       ...(this.places ? { places: this.places } : {}),
     };
     const outcome = planExtraction(input, reply(input));
-    return { items: [], clarification: outcome.clarification, planned: outcome.items as unknown as Record<string, unknown>[], known: outcome.known };
+    return {
+      items: [], clarification: outcome.clarification, planned: outcome.items as unknown as Record<string, unknown>[], known: outcome.known,
+      ...(outcome.coverage ? { coverage: outcome.coverage } : {}),
+    };
   }
 
   async post(body: Record<string, unknown>): Promise<TransportReply> {
@@ -180,8 +183,16 @@ export class FakeGateway implements GatewayTransport {
     if (kind === "answer") return this.answer(captureId, body);
 
     if (capture.status === "extracted" || capture.status === "needs_review") {
+      // As the gateway (Option A): what was kept and what was left out come back, never "nothing".
       const review = this.reviews.get(captureId);
-      return ok({ status: "done", held: review?.items ?? [], clarification: review?.clarification ?? null, review_created_at: review?.created_at ?? null });
+      const savedIds = [...this.server.table("memory_item_sources").values()]
+        .filter((s) => s.capture_id === captureId)
+        .map((s) => String(s.memory_item_id))
+        .filter((id, i, all) => all.indexOf(id) === i && !this.server.table("memory_items").get(id)?.deleted_at);
+      return ok({
+        status: "done", held: review?.items ?? [], clarification: review?.clarification ?? null, review_created_at: review?.created_at ?? null,
+        saved_ids: savedIds, coverage: coverageReply(capture.coverage),
+      });
     }
     if (capture.status === "processing") return refuse(409, "in_progress");
 
@@ -202,9 +213,12 @@ export class FakeGateway implements GatewayTransport {
     // The note's tier is the pipeline's (it doesn't know what the gateway holds back).
     const tier = planned.some((p) => p.tier === "hold") ? "clarify" : planned.length === 0 ? "nothing"
       : planned.every((p) => p.tier === "auto") ? "auto" : "confirm";
+    // What the understanding could not take (Option A): on the capture, before its lines, as the gateway does.
+    const coverage = "coverage" in script && script.coverage ? { v: 1, ...script.coverage } : null;
     this.write("captures", captureId, {
       status: tier === "auto" || tier === "nothing" ? "extracted" : "needs_review",
       extraction_version: "relationship_extract/v6+model",
+      coverage,
     });
     let createdAt: string | null = null;
     if (held.length) {
@@ -219,6 +233,7 @@ export class FakeGateway implements GatewayTransport {
       clarification: held.length ? (script.clarification ?? null) : null,
       review_created_at: createdAt,
       ...(knownOf(script).length ? { known: knownOf(script) } : {}),
+      coverage: coverageReply(coverage),
     });
   }
 
@@ -557,4 +572,12 @@ function refuse(status: number, error: string, reason?: string): TransportReply 
 function knownOf(script: unknown): string[] {
   const k = (script as { known?: unknown }).known;
   return Array.isArray(k) ? k.filter((x): x is string => typeof x === "string") : [];
+}
+
+/** As the gateway tells the phone about coverage (Option A): "partial" with spans and a count, else "complete". */
+function coverageReply(raw: unknown): { state: "complete" | "partial"; unprocessed: { start: number; end: number }[]; unlocated: number } {
+  const c = raw as { unprocessed?: { start: number; end: number }[]; unlocated?: number } | null | undefined;
+  return c && ((c.unprocessed?.length ?? 0) > 0 || (c.unlocated ?? 0) > 0)
+    ? { state: "partial", unprocessed: c.unprocessed ?? [], unlocated: c.unlocated ?? 0 }
+    : { state: "complete", unprocessed: [], unlocated: 0 };
 }

@@ -350,6 +350,23 @@ export interface Clarification {
   options: string[];
 }
 
+/**
+ * What one note's understanding did not get to (founder, 19 Oct 2026: no silent capacity-based loss).
+ * `unprocessed`: the note's own words, as code-point spans, of proposals the pipeline could not take
+ * because the note held more than one understanding carries (MAX_ITEMS), and that neither the item rules
+ * excluded on their own nor a kept line already says (the same test that folds a repeat inside the
+ * limit). Only spans the evidence locator placed reliably; one span per lost proposal (its first quote),
+ * never folded, so the same span twice means two things were lost on those words. A span may lie under a
+ * kept line's words: one sentence can hold two things, and sharing words proves nothing (founder review
+ * of PR #58). `unlocated`:
+ * proposals past the limit whose words could not be placed; the note is still partial, with no highlight
+ * invented for them. Content-free: offsets and a count, never words.
+ */
+export interface Coverage {
+  unprocessed: { start: number; end: number }[];
+  unlocated: number;
+}
+
 export interface ExtractionOutcome {
   items: PlannedItem[];
   dropped: { reason: DropReason; kind: Kind | null }[];
@@ -359,6 +376,8 @@ export interface ExtractionOutcome {
   injection_suspected: boolean;
   /** Relationships said again that Kinship already holds, in the user's terms ("John is your brother"). */
   known?: string[];
+  /** What this understanding could not take (capacity), when anything; absent when the note was taken whole. */
+  coverage?: Coverage;
 }
 
 export type { DatePrecision, Direction };

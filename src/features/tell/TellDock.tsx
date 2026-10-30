@@ -71,6 +71,10 @@ export const KEPT_COPY = {
   correct: "Correct this",
   undo: "Undo",
   rateAsk: "Did Kinship get this right?",
+  /** Option A (founder, 19 Oct): the note held more than one understanding takes; the rest is told again. */
+  tellRest: "Tell the rest",
+  /** Option A: understanding kept failing for a reason repeating may mend. */
+  tryAgain: "Try again",
 } as const;
 
 /**
@@ -101,6 +105,8 @@ export function KeptCard({
   onDismiss,
   onRate,
   onAddNewcomer,
+  onTellRest,
+  onRetry,
 }: {
   card: KeptCardState;
   onOpen: () => void;
@@ -110,6 +116,10 @@ export function KeptCard({
   onRate?: (verdict: "right" | "not_quite", off?: FeedbackOff) => void;
   /** "Add Pedro" (founder I4). */
   onAddNewcomer?: (name: string, itemIds: string[]) => void;
+  /** "Tell the rest" of a note the understanding could not take whole (Option A). */
+  onTellRest?: () => void;
+  /** "Try again" on a note whose understanding kept failing (Option A). */
+  onRetry?: () => void;
 }) {
   const p = usePalette();
   const [asking, setAsking] = React.useState(false);
@@ -219,9 +229,23 @@ export function KeptCard({
         </View>
       ))}
 
+      {/* 2b. The note held more than the understanding could take (Option A): the rest is in the note,
+          marked, and the user can tell it again. Not "Try again": the same note would meet the same limit. */}
+      {kept && card.partial?.tellRest && onTellRest ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginTop: space.m }}>
+          <Pill size="small" label={KEPT_COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to back in the Tell field, to tell again" onPress={onTellRest} />
+        </View>
+      ) : null}
+
       {/* 3. Correcting it: Correct this · Undo. */}
       {editing ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: newcomers.length ? space.m : 0 }}>
+          {card.canRetry && onRetry ? (
+            <>
+              <Pill variant="quiet" label={KEPT_COPY.tryAgain} accessibilityHint="Asks Kinship to understand this note once more" onPress={onRetry} />
+              <Small accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{"·"}</Small>
+            </>
+          ) : null}
           {kept ? (
             <>
               <Pill variant="quiet" label={KEPT_COPY.correct} accessibilityHint="Shows what was kept, to change it" onPress={onOpen} />
@@ -334,10 +358,18 @@ export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to
   const input = useRef<TextInput>(null);
   const draft = flow.draft(about);
 
+  // "Tell the rest" (Option A): what the field is telling the rest of; the next Keep links to it.
+  const continues = useRef<string | null>(null);
+
   // "Anything worth remembering?" focuses the field, about that person.
   useEffect(() => {
-    if (!flow.focusRequest) return;
+    if (!flow.focusRequest) {
+      // Answered (the rest was told, from here or from a person's page): the next note here links to nothing.
+      continues.current = null;
+      return;
+    }
     setAbout(flow.focusRequest.personId);
+    continues.current = flow.focusRequest.continues ?? null;
     setOpen(true);
     setFocusNow(true);
     input.current?.focus();
@@ -350,12 +382,16 @@ export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to
     if (!text.trim() || sending.current) return;
     sending.current = true;
     const forWhom = about;
+    const rest = continues.current;
     flow.setDraft(forWhom, "");
     started.current = false;
     try {
-      const ok = await flow.keep(text, forWhom);
+      const ok = await flow.keep(text, forWhom, "text", rest);
       if (!ok) flow.setDraft(forWhom, text);
-      else setAbout(null);
+      else {
+        setAbout(null);
+        continues.current = null;
+      }
     } finally {
       sending.current = false;
     }
@@ -363,7 +399,12 @@ export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to
 
   let line: React.ReactNode = null;
   if (flow.card) {
-    line = <KeptCard card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} onRate={flow.rateCard} onAddNewcomer={flow.addNewcomer} />;
+    line = (
+      <KeptCard
+        card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} onRate={flow.rateCard} onAddNewcomer={flow.addNewcomer}
+        onTellRest={() => flow.tellRest(flow.card!.captureId)} onRetry={flow.retryCard}
+      />
+    );
   } else if (flow.waitingOffline) {
     line = <KeptLine text={OFFLINE_LINE} />;
   }

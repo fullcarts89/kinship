@@ -1,0 +1,1512 @@
+{
+  "note": "Susan is getting married to Pedro this fall and she's stressed about finding a venue. She asked if I'd come to a tasting with her next month. Her mom is visiting from Ohio next week; her mom just retired. Ben ran a half marathon on Sunday and he wants to break two hours next time, though his knee has been bothering him. Susan, Ben and I are doing Friendsgiving at my place in November, and Susan is bringing her pie. I told Ben I'd send him my physio's number. Ben and Susan went to the A's game together last week. Susan has been obsessed with ceramics lately; she signed up for a wheel class on Thursdays and she wants me to come to one.",
+  "variants": [
+    {
+      "label": "live 1 (19 Oct calibration, synthetic roster; 13 proposals, 3140 output tokens, 22209 ms)",
+      "output": {
+        "items": [
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan is getting married to Pedro this fall",
+            "evidence": [
+              "Susan is getting married to Pedro this fall"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "this fall",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "wedding",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Susan",
+            "person_mention": "she",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan is stressed about finding a wedding venue",
+            "evidence": [
+              "she's stressed about finding a venue"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "finding a venue",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Susan",
+            "person_mention": "She",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan asked if you'd come to a tasting with her next month",
+            "evidence": [
+              "She asked if I'd come to a tasting with her next month"
+            ],
+            "certainty": "tentative",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "next month",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "idea",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "Her mom",
+            "subject": "related",
+            "related_relation": "mother",
+            "related_name": null,
+            "statement": "Susan's mom is visiting from Ohio next week",
+            "evidence": [
+              "Her mom is visiting from Ohio next week"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "next week",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "trip",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "her mom",
+            "subject": "related",
+            "related_relation": "mother",
+            "related_name": null,
+            "statement": "Susan's mom just retired",
+            "evidence": [
+              "her mom just retired"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "retired",
+              "value": "just retired",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben ran a half marathon on Sunday and wants to break two hours next time",
+            "evidence": [
+              "Ben ran a half marathon on Sunday",
+              "he wants to break two hours next time"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "on Sunday",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "race",
+              "event_goal": "break two hours",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Ben",
+            "person_mention": "his",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben's knee has been bothering him",
+            "evidence": [
+              "his knee has been bothering him"
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "knee",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Susan and Ben are doing Friendsgiving at your place in November; Susan is bringing her pie",
+            "evidence": [
+              "Susan, Ben and I are doing Friendsgiving at my place in November",
+              "Susan is bringing her pie"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in November",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Ben and Susan are doing Friendsgiving at your place in November",
+            "evidence": [
+              "Susan, Ben and I are doing Friendsgiving at my place in November"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "in November",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "user",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You told Ben you'd send him your physio's number",
+            "evidence": [
+              "I told Ben I'd send him my physio's number"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben and Susan went to the A's game together last week",
+            "evidence": [
+              "Ben and Susan went to the A's game together last week"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": "last week",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "other",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan has been obsessed with ceramics lately and signed up for a wheel class on Thursdays",
+            "evidence": [
+              "Susan has been obsessed with ceramics lately",
+              "she signed up for a wheel class on Thursdays"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "on Thursdays",
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "ceramics",
+              "value": "wheel class on Thursdays",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Susan",
+            "person_mention": "she",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan wants you to come to one of her wheel classes",
+            "evidence": [
+              "she wants me to come to one"
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "idea",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          }
+        ],
+        "needs_clarification": null
+      }
+    },
+    {
+      "label": "live 2 (19 Oct calibration, synthetic roster; 14 proposals, 3331 output tokens, 22492 ms)",
+      "output": {
+        "items": [
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan is getting married to Pedro this fall",
+            "evidence": [
+              "Susan is getting married to Pedro this fall"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "this fall",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "wedding",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Susan",
+            "person_mention": "she",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan is stressed about finding a wedding venue",
+            "evidence": [
+              "she's stressed about finding a venue"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "finding a venue",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Susan",
+            "person_mention": "She",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan asked if you'd come to a tasting with her next month",
+            "evidence": [
+              "She asked if I'd come to a tasting with her next month"
+            ],
+            "certainty": "tentative",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "next month",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "intended",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "Her mom",
+            "subject": "related",
+            "related_relation": "mother",
+            "related_name": null,
+            "statement": "Susan's mom is visiting from Ohio next week",
+            "evidence": [
+              "Her mom is visiting from Ohio next week"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "next week",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "trip",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "her mom",
+            "subject": "related",
+            "related_relation": "mother",
+            "related_name": null,
+            "statement": "Susan's mom just retired",
+            "evidence": [
+              "her mom just retired"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "status",
+              "value": "retired",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben ran a half marathon on Sunday",
+            "evidence": [
+              "Ben ran a half marathon on Sunday"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "on Sunday",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "race",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Ben",
+            "person_mention": "he",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben wants to break two hours in his next half marathon",
+            "evidence": [
+              "he wants to break two hours next time"
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "break two hours",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Ben",
+            "person_mention": "his",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben's knee has been bothering him",
+            "evidence": [
+              "his knee has been bothering him"
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "knee",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Susan and Ben are doing Friendsgiving at your place in November; Susan is bringing her pie",
+            "evidence": [
+              "Susan, Ben and I are doing Friendsgiving at my place in November",
+              "Susan is bringing her pie"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in November",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Ben and Susan are doing Friendsgiving at your place in November",
+            "evidence": [
+              "Susan, Ben and I are doing Friendsgiving at my place in November"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "in November",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "user",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You told Ben you'd send him your physio's number",
+            "evidence": [
+              "I told Ben I'd send him my physio's number"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben and Susan went to the A's game together last week",
+            "evidence": [
+              "Ben and Susan went to the A's game together last week"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": "last week",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "other",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan has been obsessed with ceramics lately and takes a wheel class on Thursdays",
+            "evidence": [
+              "Susan has been obsessed with ceramics lately",
+              "she signed up for a wheel class on Thursdays"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "on Thursdays",
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "ceramics",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Susan",
+            "person_mention": "she",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan wants you to come to one of her wheel classes",
+            "evidence": [
+              "she wants me to come to one"
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "idea",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          }
+        ],
+        "needs_clarification": null
+      }
+    },
+    {
+      "label": "live 3 (19 Oct calibration, synthetic roster; 14 proposals, 3325 output tokens, 22474 ms)",
+      "output": {
+        "items": [
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan is getting married to Pedro this fall",
+            "evidence": [
+              "Susan is getting married to Pedro this fall"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "this fall",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "wedding",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Susan",
+            "person_mention": "she",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan is stressed about finding a wedding venue",
+            "evidence": [
+              "she's stressed about finding a venue"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "finding a venue",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Susan",
+            "person_mention": "She",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan asked if you'd come to a tasting with her next month",
+            "evidence": [
+              "She asked if I'd come to a tasting with her next month"
+            ],
+            "certainty": "tentative",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": "next month",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "intended",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "Her mom",
+            "subject": "related",
+            "related_relation": "mother",
+            "related_name": null,
+            "statement": "Susan's mom is visiting from Ohio next week",
+            "evidence": [
+              "Her mom is visiting from Ohio next week"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "next week",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "trip",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "milestone",
+            "person": "@Susan",
+            "person_mention": "her mom",
+            "subject": "related",
+            "related_relation": "mother",
+            "related_name": null,
+            "statement": "Susan's mom just retired",
+            "evidence": [
+              "her mom just retired"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": null,
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "retirement",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben ran a half marathon on Sunday",
+            "evidence": [
+              "Ben ran a half marathon on Sunday"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "on Sunday",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "race",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Ben",
+            "person_mention": "he",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben wants to break two hours in his next half marathon",
+            "evidence": [
+              "he wants to break two hours next time"
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "break two hours",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Ben",
+            "person_mention": "his",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben's knee has been bothering him",
+            "evidence": [
+              "his knee has been bothering him"
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "knee",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Susan and Ben are doing Friendsgiving at your place in November; Susan is bringing her pie",
+            "evidence": [
+              "Susan, Ben and I are doing Friendsgiving at my place in November",
+              "Susan is bringing her pie"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in November",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You, Ben and Susan are doing Friendsgiving at your place in November",
+            "evidence": [
+              "Susan, Ben and I are doing Friendsgiving at my place in November"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "in November",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "promise",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "user",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You told Ben you'd send him your physio's number",
+            "evidence": [
+              "I told Ben I'd send him my physio's number"
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Ben",
+            "person_mention": "Ben",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Ben and Susan went to the A's game together last week",
+            "evidence": [
+              "Ben and Susan went to the A's game together last week"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": "last week",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "other",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Susan",
+            "person_mention": "Susan",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan has been obsessed with ceramics lately and takes a wheel class on Thursdays",
+            "evidence": [
+              "Susan has been obsessed with ceramics lately",
+              "she signed up for a wheel class on Thursdays"
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "lately",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "ceramics",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Susan",
+            "person_mention": "she",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Susan wants you to come to one of her wheel classes",
+            "evidence": [
+              "she wants me to come to one"
+            ],
+            "certainty": "wished",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "idea",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          }
+        ],
+        "needs_clarification": null
+      }
+    }
+  ]
+}

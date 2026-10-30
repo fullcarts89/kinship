@@ -24,6 +24,7 @@ import { voiced } from "@/features/memory/statements";
 import type { HeldAnswer, HeldItem } from "@/store/gateway";
 import { SWITCHABLE_KINDS, takesDate } from "@/store/memoryDetail";
 import { closedBy, type MemoryItem, type Person, type RelatedPerson } from "@/store/repositories";
+import type { FollowUpState, Recovery } from "@/store/followUp";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
@@ -33,7 +34,16 @@ import { residenceQuestion } from "../../../supabase/functions/_shared/semantic/
 export interface ReviewInput {
   row: UnderstandingRow;
   /** The note as told (raw_text is null once a "delete after" note settles). */
-  capture: { id: string; raw_text: string | null; context_person_id: string | null; status: string; feedback?: unknown } | null;
+  capture: {
+    id: string; raw_text: string | null; context_person_id: string | null; status: string; feedback?: unknown;
+    /** What the understanding did not get to (Option A), from the synced row; null when taken whole. */
+    coverage?: { unprocessed: { start: number; end: number }[]; unlocated: number } | null;
+    /**
+     * What later notes ("Tell the rest") did for this one, from the evidence (store/followUp.ts):
+     * which passages a read note's kept lines rest on, and the later notes' own state. Null when none.
+     */
+    recovery?: Recovery | null;
+  } | null;
   /** The live items this note saved (Understanding.itemsFor). */
   items: MemoryItem[];
   /** Items the reading saved that haven't reached this phone yet (sync in flight). */
@@ -164,6 +174,26 @@ export interface ReviewView {
   personIds: string[];
   /** The user's "Got it right / Not quite" on this note, once given (H6). */
   feedback?: { verdict: "right" | "not_quite"; off?: string } | null;
+  /**
+   * The note held more than the understanding could take (Option A, founder 19 Oct): what it kept is
+   * kept, the rest is marked in the Source view, and the card offers "Tell the rest". Never "Try again":
+   * the same note would meet the same limit. `unprocessed`: the passages still not got to (one a later
+   * note's kept line rests on is out of it). `recovered`: how many a later note demonstrably took.
+   * `uncertain`: how many a later note kept something new on, where the words held more than one thing
+   * (kept something, not provably what was missed; they stay in `unprocessed`). `followUp`: the later
+   * notes' own state, said plainly, never assumed. `resolved`: every passage was taken and nothing was
+   * left unplaced, so the note is no longer unfinished. `tellRest`: the pill is offered (not while a
+   * later note is still to be read, or failed and has its own Try again).
+   */
+  partial?: {
+    unprocessed: { start: number; end: number }[];
+    unlocated: number;
+    recovered: number;
+    uncertain: number;
+    followUp: FollowUpState;
+    resolved: boolean;
+    tellRest: boolean;
+  } | null;
 }
 
 export const COPY = {
@@ -178,6 +208,22 @@ export const COPY = {
   /** The user's own "Don't keep this": nothing kept, never "nothing to remember". */
   notKept: "Nothing kept from that one.",
   failed: "Couldn't understand this one. Your note is saved.",
+  /** Option A: the note held more than one understanding takes; the kept lines are kept, the rest is in the note. */
+  partial: "Kinship couldn't get to all of it.",
+  /** A later note tells the rest, but has not been read yet (kept, waiting, or being understood). */
+  partialPending: "You told the rest in a later note. Kinship hasn't read it yet.",
+  /** The later note's understanding failed; it offers Try again on its own card. */
+  partialFailed: "Kinship couldn't read the note that told the rest. Try again from that note.",
+  /** The later note was read and kept some of the passages, not all. */
+  partialSome: "Some of it was kept from a later note. The rest still wasn't.",
+  /** The later note was read, and none of its kept lines rest on the passages left out. */
+  partialMissed: "Your later note didn't cover what was left out.",
+  /** The later note kept something new on words that held more than one thing: not provably what was missed. */
+  partialUnsure: "A later note kept something from the words left out. Kinship can't tell if it was all it had missed.",
+  /** Only unplaced things remain: a later note can never be matched to them, so nothing is claimed. */
+  partialUnplaced: "Part of this note couldn't be placed in its words, so Kinship can't tell if a later note covered it.",
+  tellRest: "Tell the rest",
+  tryAgain: "Try again",
   check: "One thing to check",
   notSure: "Not sure",
   answering: "Saving your answer…",
@@ -195,6 +241,48 @@ export const COPY = {
 } as const;
 
 const PERSON_FLAGS = ["person_ambiguous", "person_disagreement", "pronoun_multiple", "new_person", "person_archived"];
+
+/**
+ * The partial state, when the note was not taken whole: the passages still to mark, a count that cannot
+ * be, and what later notes did, from the evidence only. A later note that is not read, or read without
+ * a kept line on a passage, leaves that passage unresolved; a count of unplaced things is never resolved
+ * by a later note (nothing can match them). Null for a note taken whole.
+ */
+export function partialOf(
+  coverage: { unprocessed: { start: number; end: number }[]; unlocated: number } | null,
+  recovery: Recovery | null,
+): ReviewView["partial"] {
+  if (!coverage) return null;
+  const sound = (s: { start: number; end: number }) => Number.isInteger(s.start) && Number.isInteger(s.end) && s.end > s.start && s.start >= 0;
+  const all = coverage.unprocessed.filter(sound);
+  const unlocated = Number.isInteger(coverage.unlocated) ? Math.max(0, coverage.unlocated) : 0;
+  if (!all.length && !unlocated) return null;
+  const followUp = recovery?.followUp ?? "none";
+  const recovered = recovery ? recovery.recovered.filter(sound) : [];
+  // Distinct passages still not answered (the coverage holds one span per lost proposal).
+  const unprocessed = all
+    .filter((s) => !recovered.some((r) => r.start === s.start && r.end === s.end))
+    .filter((s, i, list) => list.findIndex((t) => t.start === s.start && t.end === s.end) === i);
+  const uncertain = recovery?.uncertain ?? 0;
+  const resolved = followUp === "read" && unprocessed.length === 0 && unlocated === 0;
+  return {
+    unprocessed, unlocated, recovered: recovered.length, uncertain, followUp, resolved,
+    tellRest: !resolved && followUp !== "pending" && followUp !== "failed",
+  };
+}
+
+/** The card's one line about a partial note: the state of the rest, never a claim beyond the evidence. */
+export function partialStatus(partial: NonNullable<ReviewView["partial"]>): string | null {
+  if (partial.resolved) return null;
+  if (partial.followUp === "pending") return COPY.partialPending;
+  if (partial.followUp === "failed") return COPY.partialFailed;
+  if (partial.followUp === "read") {
+    if (!partial.unprocessed.length) return COPY.partialUnplaced;
+    if (partial.uncertain) return COPY.partialUnsure;
+    return partial.recovered ? COPY.partialSome : COPY.partialMissed;
+  }
+  return COPY.partial;
+}
 
 export function buildReview(input: ReviewInput): ReviewView {
   const { row, capture, offline } = input;
@@ -241,6 +329,9 @@ export function buildReview(input: ReviewInput): ReviewView {
   const fb = input.capture?.feedback as { verdict?: unknown; off?: unknown } | null | undefined;
   const feedback = fb && (fb.verdict === "right" || fb.verdict === "not_quite")
     ? { verdict: fb.verdict as "right" | "not_quite", ...(typeof fb.off === "string" ? { off: fb.off } : {}) } : null;
+  // What the understanding did not get to (Option A): the synced row's word first, the reply's until it syncs.
+  const partial = partialOf(capture.coverage ?? reading.coverage ?? null, capture.recovery ?? null);
+  const partialLine = partial ? partialStatus(partial) : null;
   const base: ReviewView = {
     ...empty,
     feedback,
@@ -248,9 +339,10 @@ export function buildReview(input: ReviewInput): ReviewView {
     lines,
     questions,
     answering,
-    status: answering ? (offline ? COPY.answeringOffline : COPY.answering) : known,
+    status: answering ? (offline ? COPY.answeringOffline : COPY.answering) : partialLine ?? known,
     canUndo: true,
     personIds,
+    partial,
   };
   if (answering || questions.length || row.notice || questionWaiting(reading)) return { ...base, mode: "sheet" };
   // What the reading saved is still on its way here: understanding, not empty.

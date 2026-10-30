@@ -1,0 +1,85 @@
+{
+ "note": "Priya plays chess on Tuesdays Priya grows tomatoes",
+ "variants": [
+  {
+   "label": "hand: the two told again",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya plays chess on Tuesdays",
+      "evidence": [
+       "Priya plays chess on Tuesdays"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya plays chess on Tuesdays",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya grows tomatoes",
+      "evidence": [
+       "Priya grows tomatoes"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya grows tomatoes",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

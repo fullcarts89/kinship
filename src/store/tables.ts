@@ -59,10 +59,11 @@ export const TABLES: readonly TableSpec[] = [
   },
   {
     name: "captures", key: "id", appInsert: true, appUpdate: true, tombstones: true, personColumn: "context_person_id",
-    // status starts pending/skipped (insert only); extraction fields are the gateway's.
+    // status starts pending/skipped (insert only); extraction fields (and coverage) are the gateway's.
+    // continues_capture_id: the partial note this one tells the rest of (Option A), set once at insert.
     writable: ["source", "raw_text", "transcript_meta", "context_person_id", "occurred_at", "time_zone",
-      "status", "retention", "deleted_at", "feedback"],
-    insertOnly: ["source", "transcript_meta", "status"],
+      "status", "retention", "deleted_at", "feedback", "continues_capture_id"],
+    insertOnly: ["source", "transcript_meta", "status", "continues_capture_id"],
   },
   {
     name: "memory_items", key: "id", appInsert: true, appUpdate: true, tombstones: true, personColumn: "person_id",

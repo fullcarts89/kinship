@@ -15,6 +15,7 @@ import {
   type PendingReview,
   ServiceError,
   type ServiceOps,
+  type StoredCoverage,
   type StoredReview,
   type WriteItem,
 } from "./handler.ts";
@@ -63,6 +64,8 @@ interface World {
   pages: { after: string | null; limit: number }[];
   /** Lines whose quotes were read (B6). */
   quoteIds: string[];
+  /** Every coverage write (Option A), in order: what the understanding did not get to, or null to clear. */
+  coverages: (StoredCoverage | null)[];
 }
 
 function world(opts: {
@@ -77,6 +80,10 @@ function world(opts: {
   note?: string;
   people?: { id: string; display_name: string; full_name: string | null; nicknames: string[]; relationship_label: string | null; state: string }[];
   review?: StoredReview | null;
+  /** The live lines an earlier understanding saved (Option A, the "done" reply). */
+  savedIds?: string[];
+  /** The capture row's stored coverage (Option A). */
+  coverage?: unknown;
   resolveResult?: Awaited<ReturnType<ServiceOps["resolve"]>> | ServiceError;
   closes?: boolean;
   /** Memory already kept, per person (loadItems answers for the ids asked). */
@@ -97,7 +104,7 @@ function world(opts: {
   reportThrows?: boolean;
 } = {}): World {
   const w: World = {
-    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [], ops: [], reports: [], runs: new Map(), pages: [], quoteIds: [],
+    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [], ops: [], reports: [], runs: new Map(), pages: [], quoteIds: [], coverages: [],
     deps: undefined as unknown as GatewayDeps,
   };
   const caller: GatewayCaller = {
@@ -111,6 +118,7 @@ function world(opts: {
     loadCapture: (id) =>
       Promise.resolve(opts.capture === false || id !== CAPTURE ? null : {
         id, raw_text: opts.note ?? NOTE, occurred_at: "2026-10-09T02:14:00Z", time_zone: "America/Chicago", context_person_id: null,
+        ...(opts.coverage !== undefined ? { coverage: opts.coverage } : {}),
       }),
     loadPeople: () => Promise.resolve({
       people: opts.people ?? [{ id: "person-ben", display_name: "Ben", full_name: "Ben Ortiz", nicknames: [], relationship_label: "college roommate", state: "active" }],
@@ -130,6 +138,7 @@ function world(opts: {
     loadUnread: (ids) => Promise.resolve((opts.unread ?? []).filter((u) => ids.includes(u.line.id))),
     loadFacets: (ids) => Promise.resolve(opts.facets === null ? null : (opts.facets ?? []).filter((f) => ids.includes(f.memory_item_id))),
     loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
+    loadSavedIds: () => Promise.resolve(opts.savedIds ?? []),
     closeReview: (id) => {
       w.closes.push(id);
       return Promise.resolve(opts.closes ?? true);
@@ -139,6 +148,10 @@ function world(opts: {
     claim: () => Promise.resolve(opts.claim ?? "claimed"),
     release: (_u, _c, status) => {
       w.releases.push(status);
+      return Promise.resolve();
+    },
+    setCoverage: (_u, _c, coverage) => {
+      w.coverages.push(coverage);
       return Promise.resolve();
     },
     write: (_u, _c, version, needsReview, items, review) => {
@@ -227,7 +240,10 @@ Deno.test("refuses before spending anything: auth, consent, body, flag, ownershi
 
 Deno.test("one extraction per capture: a retry after success costs nothing", async () => {
   let w = world({ claim: "done" });
-  eq(await call(w, post(extract)), { status: 200, body: { status: "done", held: [], clarification: null, review_created_at: null } });
+  eq(await call(w, post(extract)), {
+    status: 200,
+    body: { status: "done", held: [], clarification: null, review_created_at: null, saved_ids: [], coverage: { state: "complete", unprocessed: [], unlocated: 0 } },
+  });
   eq([w.modelCalls.length, w.quota], [0, 0]);
   w = world({ claim: "busy" });
   eq((await call(w, post(extract))).status, 409);
@@ -835,4 +851,51 @@ Deno.test("B6: a line is examined by the user's own words: a note that says wher
   const { body } = await call(w, post(reportBody()));
   eq([(body.summary as { examined: number }).examined, (body.summary as { eligible: number }).eligible], [1, 1]);
   eq(w.reports[0].rows, [{ memory_item_id: place.id, bucket: "eligible" }, { memory_item_id: place.id, bucket: "candidates" }]);
+});
+
+// ─── Option A (founder, 19 Oct 2026): no silent capacity-based loss, no false completion ──
+
+const NINE = [
+  "Ben loves jazz", "Ben took up pottery", "Ben started cycling", "Ben is learning Italian", "Ben joined a choir",
+  "Ben bought a kayak", "Ben reads Russian novels", "Ben collects stamps", "Ben grows tomatoes",
+];
+const NINE_NOTE = NINE.map((t) => `${t}.`).join(" ");
+const nineProposal = (n = 9) => ({
+  items: NINE.slice(0, n).map((t) => ({
+    ...BEN_PROPOSAL.items[0], kind: "fact", statement: t, evidence: [t], date_text: null, date_direction: "unclear",
+    detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "interest", topic: t },
+  })),
+  needs_clarification: null,
+});
+
+Deno.test("Option A: a note with more than the understanding takes is told so, with the words left out, before its lines are written", async () => {
+  const w = world({ note: NINE_NOTE, model: { output: nineProposal() } });
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200);
+  eq((body.saved as unknown[]).length, 8, "eight lines kept, as before");
+  const ninth = { start: NINE_NOTE.indexOf(NINE[8]), end: NINE_NOTE.indexOf(NINE[8]) + NINE[8].length };
+  eq(body.coverage, { state: "partial", unprocessed: [ninth], unlocated: 0 }, "the reply says what was left out, as the note's own words");
+  eq(w.coverages, [{ v: 1, unprocessed: [ninth], unlocated: 0 }], "the capture carries it, for every phone");
+  eq(w.ops.indexOf("setCoverage") < w.ops.indexOf("write"), true, "recorded before the lines, never a whole note by mistake");
+  eq(w.logs[0].items_dropped, 1);
+  eq(JSON.stringify(w.coverages).includes("tomatoes"), false, "offsets only, never words");
+});
+
+Deno.test("Option A: a note taken whole clears an earlier coverage, and writes none when there was none", async () => {
+  const stale = world({ note: NINE_NOTE, model: { output: nineProposal(8) }, coverage: { v: 1, unprocessed: [{ start: 0, end: 5 }], unlocated: 0 } });
+  const { body } = await call(stale, post(extract));
+  eq(body.coverage, { state: "complete", unprocessed: [], unlocated: 0 });
+  eq(stale.coverages, [null], "the earlier record is cleared");
+  const clean = world();
+  await call(clean, post(extract));
+  eq(clean.coverages, [], "a whole note never touches coverage");
+});
+
+Deno.test("Option A: a reply lost to a timeout comes back as what was kept and what was left out, never as nothing", async () => {
+  const w = world({ claim: "done", savedIds: ["item-a", "item-b"], coverage: { v: 1, unprocessed: [{ start: 3, end: 9 }], unlocated: 2 } });
+  const { body } = await call(w, post(extract));
+  eq(body.status, "done");
+  eq(body.saved_ids, ["item-a", "item-b"]);
+  eq(body.coverage, { state: "partial", unprocessed: [{ start: 3, end: 9 }], unlocated: 2 });
+  eq([w.modelCalls.length, w.quota, w.writes.length], [0, 0, 0], "no second model run, no second write");
 });

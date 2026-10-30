@@ -1,0 +1,823 @@
+{
+  "note": "Priya started at a new clinic on October 6. She's working night shifts and she hates them. Her pottery show is on October 24. She's been getting into trail running lately. She told me she's been dealing with anxiety again and is seeing someone about it. She wants to visit her parents in Pune over Christmas. She asked if I'd come to the pottery show. We're also thinking about doing the Point Reyes hike together in November. And she finally fixed her bike.",
+  "variants": [
+    {
+      "label": "live 1 (19 Oct calibration, synthetic roster; 7 proposals, 1709 output tokens, 12327 ms)",
+      "output": {
+        "items": [
+          {
+            "kind": "fact",
+            "person": "@Priya",
+            "person_mention": "Priya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya started at a new clinic on October 6",
+            "evidence": [
+              "Priya started at a new clinic on October 6."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "October 6",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "job",
+              "value": "new clinic",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya is working night shifts and hates them",
+            "evidence": [
+              "She's working night shifts and she hates them."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "shifts",
+              "value": "night shifts, hates them",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Priya",
+            "person_mention": "Her",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya's pottery show is on October 24; she asked if you'd come",
+            "evidence": [
+              "Her pottery show is on October 24.",
+              "She asked if I'd come to the pottery show."
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "October 24",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya has been getting into trail running lately",
+            "evidence": [
+              "She's been getting into trail running lately."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "lately",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "trail running",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya has been dealing with anxiety again and is seeing someone about it",
+            "evidence": [
+              "She told me she's been dealing with anxiety again and is seeing someone about it."
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "anxiety",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya wants to visit her parents in Pune over Christmas",
+            "evidence": [
+              "She wants to visit her parents in Pune over Christmas."
+            ],
+            "certainty": "tentative",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "over Christmas",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "visit her parents in Pune",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Priya",
+            "person_mention": "she",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You and Priya are thinking about doing the Point Reyes hike together in November",
+            "evidence": [
+              "We're also thinking about doing the Point Reyes hike together in November."
+            ],
+            "certainty": "tentative",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in November",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "idea",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          }
+        ],
+        "needs_clarification": null
+      }
+    },
+    {
+      "label": "live 2 (19 Oct calibration, synthetic roster; 7 proposals, 1709 output tokens, 13297 ms)",
+      "output": {
+        "items": [
+          {
+            "kind": "fact",
+            "person": "@Priya",
+            "person_mention": "Priya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya started at a new clinic on October 6",
+            "evidence": [
+              "Priya started at a new clinic on October 6."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "October 6",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "workplace",
+              "value": "new clinic",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya is working night shifts and hates them",
+            "evidence": [
+              "She's working night shifts and she hates them."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "shifts",
+              "value": "night shifts, hates them",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Priya",
+            "person_mention": "Her",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya's pottery show is on October 24, and she asked if you'd come",
+            "evidence": [
+              "Her pottery show is on October 24.",
+              "She asked if I'd come to the pottery show."
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "October 24",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya has been getting into trail running lately",
+            "evidence": [
+              "She's been getting into trail running lately."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "lately",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "trail running",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya has been dealing with anxiety again and is seeing someone about it",
+            "evidence": [
+              "She told me she's been dealing with anxiety again and is seeing someone about it."
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "dealing with anxiety again",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya wants to visit her parents in Pune over Christmas",
+            "evidence": [
+              "She wants to visit her parents in Pune over Christmas."
+            ],
+            "certainty": "tentative",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "over Christmas",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "trip",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Priya",
+            "person_mention": "she",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You and Priya are thinking about doing the Point Reyes hike together in November",
+            "evidence": [
+              "We're also thinking about doing the Point Reyes hike together in November."
+            ],
+            "certainty": "tentative",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in November",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "idea",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          }
+        ],
+        "needs_clarification": null
+      }
+    },
+    {
+      "label": "live 3 (19 Oct calibration, synthetic roster; 8 proposals, 1921 output tokens, 17929 ms)",
+      "output": {
+        "items": [
+          {
+            "kind": "fact",
+            "person": "@Priya",
+            "person_mention": "Priya",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya started at a new clinic on October 6",
+            "evidence": [
+              "Priya started at a new clinic on October 6."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "October 6",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "workplace",
+              "value": "new clinic",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya is working night shifts and hates them",
+            "evidence": [
+              "She's working night shifts and she hates them."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "work",
+              "attribute": "shifts",
+              "value": "night shifts",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "event",
+            "person": "@Priya",
+            "person_mention": "Her",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya's pottery show is on October 24",
+            "evidence": [
+              "Her pottery show is on October 24."
+            ],
+            "certainty": "planned",
+            "sensitivity": "none",
+            "confidence": 0.9,
+            "date_text": "October 24",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "celebration",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya asked if you'd come to her pottery show",
+            "evidence": [
+              "She asked if I'd come to the pottery show."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.75,
+            "date_text": null,
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "coming to the pottery show",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "fact",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya has been getting into trail running lately",
+            "evidence": [
+              "She's been getting into trail running lately."
+            ],
+            "certainty": "stated",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "lately",
+            "date_direction": "past",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "interest",
+              "attribute": "hobby",
+              "value": "trail running",
+              "firmness": "",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya has been dealing with anxiety again and is seeing someone about it",
+            "evidence": [
+              "She told me she's been dealing with anxiety again and is seeing someone about it."
+            ],
+            "certainty": "stated",
+            "sensitivity": "health",
+            "confidence": 0.85,
+            "date_text": null,
+            "date_direction": "unclear",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "dealing with anxiety again",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "thread",
+            "person": "@Priya",
+            "person_mention": "She",
+            "subject": "person",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "Priya wants to visit her parents in Pune over Christmas",
+            "evidence": [
+              "She wants to visit her parents in Pune over Christmas."
+            ],
+            "certainty": "tentative",
+            "sensitivity": "none",
+            "confidence": 0.8,
+            "date_text": "over Christmas",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "",
+              "topic": "visit her parents in Pune",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          },
+          {
+            "kind": "plan",
+            "person": "@Priya",
+            "person_mention": "she",
+            "subject": "shared",
+            "related_relation": null,
+            "related_name": null,
+            "statement": "You and Priya are thinking about doing the Point Reyes hike together in November",
+            "evidence": [
+              "We're also thinking about doing the Point Reyes hike together in November."
+            ],
+            "certainty": "tentative",
+            "sensitivity": "none",
+            "confidence": 0.85,
+            "date_text": "in November",
+            "date_direction": "future",
+            "detail": {
+              "event_type": "",
+              "event_goal": "",
+              "category": "",
+              "attribute": "",
+              "value": "",
+              "firmness": "idea",
+              "topic": "",
+              "place": "",
+              "milestone_type": "",
+              "recurrence": "",
+              "anchor": "",
+              "aspect": "",
+              "time_of_day": ""
+            },
+            "existing": {
+              "action": "new",
+              "target": null
+            }
+          }
+        ],
+        "needs_clarification": null
+      }
+    }
+  ]
+}

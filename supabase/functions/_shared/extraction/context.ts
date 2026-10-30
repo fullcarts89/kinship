@@ -117,6 +117,8 @@ export interface CaptureRow {
   occurred_at: string;
   time_zone: string | null;
   context_person_id: string | null;
+  /** What an earlier understanding did not get to (Option A); null or absent when none. */
+  coverage?: unknown;
 }
 
 function namedIn(text: string): (p: PersonRow) => boolean {
