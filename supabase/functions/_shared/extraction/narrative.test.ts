@@ -187,6 +187,35 @@ Deno.test("a mention the model padded past the pronoun ('he loves', 'he's') is t
   eq(out.clarification, null);
 });
 
+// ─── Shapes from WS-5's integration probe (30 Oct, PR #72 comment) ───────────
+
+Deno.test("s5: a sister's surgery on a stated date ('next Thursday, November 5') is held for the user's yes, never asked 'When is it?'", () => {
+  const dani: RosterPerson = { key: "p7", id: "dani", display_name: "Dani", full_name: "Dani Oyelaran", nicknames: [], relationship_label: "neighbor" };
+  const note = "Dani said her sister Lila has surgery next Thursday, November 5. Dani is taking that afternoon off to drive her.";
+  const out = run(input(note, "p7", { roster: [...ROSTER, dani] }), [
+    item({ kind: "event", person: "p7", person_mention: "Dani", subject: "related", related_relation: "sister", related_name: "Lila",
+      statement: "Dani's sister Lila has surgery next Thursday, November 5", evidence: ["Dani said her sister Lila has surgery next Thursday, November 5"],
+      certainty: "reported", sensitivity: "health", date_text: "next Thursday, November 5", date_direction: "future",
+      detail: { ...item({}).detail, category: null, event_type: "surgery" } }),
+  ]);
+  const surgery = out.items[0];
+  eq([surgery.person_id, surgery.subject_type, surgery.related?.name, surgery.sensitivity, surgery.detail.date], ["dani", "related", "Lila", "health", "2026-11-05"]);
+  eq(surgery.flags.includes("date_unresolved_sensitive"), false);
+  eq(surgery.flags.includes("date_ambiguous"), false, "the stated date is not ambiguous because 'next' precedes the weekday");
+  eq(out.clarification, null, "no 'When is it?': the yes is asked by the sensitive hold on the phone");
+});
+
+Deno.test("s9: 'his roommate' as the model's mention on a line about Noah himself is Noah, never 'Who is this about?'", () => {
+  const noah: RosterPerson = { key: "p11", id: "noah", display_name: "Noah", full_name: "Noah Feld", nicknames: [], relationship_label: "friend" };
+  const note = "Noah loves hiking, bird photography and Thai food, but he hates olives. He just started pottery and is trying to persuade his roommate to join.";
+  const out = run(input(note, null, { roster: [...ROSTER, noah] }), [
+    item({ kind: "thread", person: "p11", person_mention: "his roommate", subject: "person", statement: "Noah is trying to persuade his roommate to join pottery",
+      evidence: ["is trying to persuade his roommate to join"], confidence: 0.8, detail: { ...item({}).detail, category: null, topic: "pottery" } }),
+  ]);
+  eq(out.items.map((i) => [i.person_id, i.tier === "hold"]), [["noah", false]]);
+  eq(out.clarification, null);
+});
+
 // ─── Long notes: the passages ─────────────────────────────────────────────────
 
 Deno.test("a note up to the long-note length is one passage; a longer one splits on sentences near the passage size, covering every character", () => {
