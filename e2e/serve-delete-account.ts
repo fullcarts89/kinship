@@ -18,4 +18,22 @@ for (const line of text.split("\n")) {
 if (!/^http:\/\/(127\.0\.0\.1|localhost):/u.test(env.API_URL ?? "")) throw new Error("local stack only");
 const admin = createClient(env.API_URL, env.SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 const port = Number(Deno.env.get("DELETE_ACCOUNT_PORT") ?? "8792");
-Deno.serve({ port, hostname: "127.0.0.1" }, createDeleteAccountHandler(realDeps(admin)));
+const deps = realDeps(admin);
+// The local stack may run without its Storage service (it is among the stopped containers on this Mac).
+// Kinship 2.0 keeps no files in Storage (photos are 1.0 and device-only), so for the harness alone a
+// Storage API that is not there counts as "nothing to remove"; any other Storage failure still fails the
+// deletion, as deployed. Stated in the log each time it happens.
+Deno.serve({ port, hostname: "127.0.0.1" }, createDeleteAccountHandler({
+  ...deps,
+  removeStorage: async (userId) => {
+    try {
+      return await deps.removeStorage(userId);
+    } catch (err) {
+      if (err instanceof Error && /name resolution failed|ECONNREFUSED|fetch failed/u.test(err.message)) {
+        console.warn("serve-delete-account: the local Storage service is not running; treating it as empty (local stack only)");
+        return 0;
+      }
+      throw err;
+    }
+  },
+}));
