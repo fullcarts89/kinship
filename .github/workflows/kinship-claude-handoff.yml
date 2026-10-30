@@ -13,6 +13,7 @@ jobs:
     if: >-
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '@claude /kinship-fix') &&
+      contains(github.event.issue.labels.*.name, 'agent-loop') &&
       (
         github.event.comment.author_association == 'OWNER' ||
         github.event.comment.author_association == 'COLLABORATOR' ||
@@ -38,6 +39,7 @@ jobs:
             actions: read
           claude_args: |
             --max-turns 16
+            --allowedTools "Bash(npm ci),Bash(npm run typecheck),Bash(npm test:*),Bash(npx eslint:*),Bash(deno test:*),Bash(deno check:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*)"
           prompt: |
             You are the Kinship engineering agent. Read CLAUDE.md, the canonical Kinship
             product contract, and docs/agent-loop/README.md before changing anything.
@@ -46,6 +48,7 @@ jobs:
 
             Repository: ${{ github.repository }}
             PR: ${{ github.event.issue.number }}
+            Only the reviewed and explicitly labeled existing PR is in scope.
             Trusted review comment:
             ${{ github.event.comment.body }}
 
