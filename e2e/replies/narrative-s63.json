@@ -1,0 +1,613 @@
+{
+ "note": "Pablo loves cooking, sleeping in, reading, and going to electronic music shows. He is close with his mom and sister and sees them often. He has a pet dog named Rocket who dislikes unfamiliar dogs but gets along with our dog Bean. He is worried about changes at work.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-19-30 (30 Oct 2026, synthetic roster, s63 page; 4 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "Pablo",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo loves cooking, sleeping in, reading, and going to electronic music shows",
+      "evidence": [
+       "Pablo loves cooking, sleeping in, reading, and going to electronic music shows."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "loves",
+       "value": "cooking, sleeping in, reading, and going to electronic music shows",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo is close with his mom and sister and sees them often",
+      "evidence": [
+       "He is close with his mom and sister and sees them often."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "family",
+       "attribute": "close with",
+       "value": "his mom and sister",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo has a dog named Rocket who dislikes unfamiliar dogs but gets along with your dog Bean",
+      "evidence": [
+       "He has a pet dog named Rocket who dislikes unfamiliar dogs but gets along with our dog Bean."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "pet",
+       "attribute": "dog",
+       "value": "Rocket",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo is worried about changes at work",
+      "evidence": [
+       "He is worried about changes at work."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "changes at work",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-19-30 (30 Oct 2026, synthetic roster, s63 general; 4 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "Pablo",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo loves cooking, sleeping in, reading, and going to electronic music shows",
+      "evidence": [
+       "Pablo loves cooking, sleeping in, reading, and going to electronic music shows."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "loves",
+       "value": "cooking, sleeping in, reading, and going to electronic music shows",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo is close with his mom and sister and sees them often",
+      "evidence": [
+       "He is close with his mom and sister and sees them often."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "family",
+       "attribute": "close with",
+       "value": "his mom and sister",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo has a dog named Rocket who dislikes unfamiliar dogs but gets along with your dog Bean",
+      "evidence": [
+       "He has a pet dog named Rocket who dislikes unfamiliar dogs but gets along with our dog Bean."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "pet",
+       "attribute": "dog",
+       "value": "Rocket",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo is worried about changes at work",
+      "evidence": [
+       "He is worried about changes at work."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "changes at work",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s63 page, on the page; 4 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "Pablo",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo loves cooking, sleeping in, reading, and going to electronic music shows",
+      "evidence": [
+       "Pablo loves cooking, sleeping in, reading, and going to electronic music shows."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "loves",
+       "value": "cooking, sleeping in, reading, and going to electronic music shows",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo is close with his mom and sister and sees them often",
+      "evidence": [
+       "He is close with his mom and sister and sees them often."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "family",
+       "attribute": "close with",
+       "value": "his mom and sister",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo has a dog named Rocket who dislikes unfamiliar dogs but gets along with your dog Bean",
+      "evidence": [
+       "He has a pet dog named Rocket who dislikes unfamiliar dogs but gets along with our dog Bean."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "pet",
+       "attribute": "dog",
+       "value": "Rocket",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo is worried about changes at work",
+      "evidence": [
+       "He is worried about changes at work."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "changes at work",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s63 general; 4 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "Pablo",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo loves cooking, sleeping in, reading, and going to electronic music shows",
+      "evidence": [
+       "Pablo loves cooking, sleeping in, reading, and going to electronic music shows."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "loves",
+       "value": "cooking, sleeping in, reading, and going to electronic music shows",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo is close with his mom and sister and sees them often",
+      "evidence": [
+       "He is close with his mom and sister and sees them often."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "family",
+       "attribute": "close with",
+       "value": "his mom and sister",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo has a dog named Rocket who dislikes unfamiliar dogs but gets along with your dog Bean",
+      "evidence": [
+       "He has a pet dog named Rocket who dislikes unfamiliar dogs but gets along with our dog Bean."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "pet",
+       "attribute": "dog",
+       "value": "Rocket",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Pablo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Pablo is worried about changes at work",
+      "evidence": [
+       "He is worried about changes at work."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "changes at work",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

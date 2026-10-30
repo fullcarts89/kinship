@@ -1,0 +1,325 @@
+{
+ "note": "Marin and Elise went camping last weekend. She misplaced her keys along the trail, but Elise found them back in the car.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-19-30 (30 Oct 2026, synthetic roster, s4 page; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "event",
+      "person": "@Marin",
+      "person_mention": "Marin",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Marin went camping with Elise last weekend",
+      "evidence": [
+       "Marin and Elise went camping last weekend."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "trip",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Elise",
+      "person_mention": "Elise",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Elise went camping with Marin last weekend",
+      "evidence": [
+       "Marin and Elise went camping last weekend."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "trip",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-19-30 (30 Oct 2026, synthetic roster, s4 general; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "event",
+      "person": "@Marin",
+      "person_mention": "Marin",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Marin went camping with Elise last weekend",
+      "evidence": [
+       "Marin and Elise went camping last weekend."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "trip",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Elise",
+      "person_mention": "Elise",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Elise went camping with Marin last weekend",
+      "evidence": [
+       "Marin and Elise went camping last weekend."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "trip",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s4 page, on the page; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "event",
+      "person": "@Marin",
+      "person_mention": "Marin",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Marin and Elise went camping last weekend",
+      "evidence": [
+       "Marin and Elise went camping last weekend."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "trip",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Elise",
+      "person_mention": "Elise",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Elise and Marin went camping last weekend",
+      "evidence": [
+       "Marin and Elise went camping last weekend."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "trip",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s4 general; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "event",
+      "person": "@Marin",
+      "person_mention": "Marin",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Marin and Elise went camping last weekend",
+      "evidence": [
+       "Marin and Elise went camping last weekend."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "trip",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Elise",
+      "person_mention": "Elise",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Elise and Marin went camping last weekend",
+      "evidence": [
+       "Marin and Elise went camping last weekend."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "trip",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}
