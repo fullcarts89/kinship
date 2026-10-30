@@ -7,7 +7,7 @@ database migrations, native-device installs, private-account testing, or design 
 ## Goal
 
 Replace the founder's manual copy/paste between ChatGPT (independent reviewer) and Claude Code
-(builder) with GitHub PR comments. Founder remains the release authority and creative director.
+(builder) with GitHub PR comments. Founder remains the **product stage-gate**, production-release and creative-direction authority; ordinary reviewed PR integration should not consume founder attention.
 
 1. Claude works on a pre-approved bounded scope, pushes a PR, and runs tests.
 2. ChatGPT independently checks the current SHA, tests, code diff, contracts, and evidence tier.
@@ -19,9 +19,15 @@ Replace the founder's manual copy/paste between ChatGPT (independent reviewer) a
 6. A fresh independent review reads the new SHA (not Claude's prose). Maximum **three** autonomous
    correction rounds per PR before founder escalation. Re-review must not conflate passing CI
    with live-model, simulator, hosted, or founder-device evidence.
-7. If green and within approved scope, reviewer reports **READY FOR FOUNDER DECISION**. Do **not**
-   merge automatically. For a PR containing a migration or gateway change, require a separate
-   rollout plan and explicit founder approval.
+7. If green and within approved scope, reviewer reports **READY FOR INTEGRATION**. During the
+   pilot, merge remains manual until the branch-protection/deployment audit and separate
+   authorization of an auto-merge policy. Once authorized, low-risk PRs may be merged
+   automatically after independent review and required checks; founder does not approve
+   each PR. Higher-risk changes continue to require explicit gate decisions.
+8. At a meaningful **product stage gate** (feature slice, native journey, household
+   readiness, creative direction), deliver a concise founder briefing, runnable build,
+   coverage changes and remaining risks. Founder evaluates the *experience* rather than
+   reviewing each implementation PR.
 
 ## Setup prerequisites (not done by this PR)
 
@@ -43,12 +49,33 @@ Replace the founder's manual copy/paste between ChatGPT (independent reviewer) a
   observed, diagnose event propagation and use an appropriately scoped GitHub App token
   rather than silently treating the loop as operational.
 
+## Stage gates and integration policy
+
+The founder is NOT the approval gate for every small PR. Three risk tiers:
+
+| Tier | Examples | Merge policy | Founder gate |
+|---|---|---|---|
+| A — reversible, low-risk | tests, docs, purely internal refactors and scoped app changes with no persistence, eligibility or permission effect | After **separate explicit authorization** of automation: auto-merge once independent review + CI pass; during pilot, recommend merge only | Review at the next coherent product milestone |
+| B — consequential or hard to undo | schema/migration, gateway, model/prompt/AI trust, sync, retention/deletion, eligibility/ranking, user privacy, permissions, app release pipeline | Separate rollout/change-control gate, with migration order, rollback/forward-fix plan and compatibility matrix; do not auto-merge under initial pilot | Approve when the change can affect production |
+| C — product/creative | new UX direction, roadmap, privacy posture, photos, onboarding promise, user-facing behavior beyond approved scope | Pause for founder product decision | Evaluate visual prototypes, device workflows and user experience |
+
+**Merging is not reliably reversible.** Revert commits can reverse code but do not reverse
+data migrations, deleted/processed data, external notifications, or actions taken by deployed
+code. A merge may itself trigger production migrations (Kinship's CLAUDE.md explicitly says so).
+Before any auto-merge policy, audit all main-branch hooks (Supabase, CI/CD, EAS, GitHub Actions),
+branch protections and required checks. Permit auto-merge only for independently verified
+low-risk classes that cannot initiate a production side effect.
+
+A stage gate must specify founder-visible scenarios, expected behavior, current evidence tier,
+known open bugs, and clear yes/no decisions. The founder should be brought in when choices
+affect the actual product, not when a code reviewer needs a small test fix.
+
 ## Safeguards
 
 - Read `CLAUDE.md` and the contract before touching product behavior.
 - Authorized scope means current PR brief, NOT new feature approval.
 - No production secrets or real relationship data in agent prompts, CI logs, or public comments.
-- No automatic approvals, merges, migrations, gateway deploys, store submissions or iPhone installs.
+- **This pilot** has no automatic merges, migrations, gateway deploys, store submissions or iPhone installs. A future tier-A auto-merge policy needs its own explicit founder go-ahead and deploy-hook verification.
 - No broad trigger from arbitrary PRs, comments, or bots. No workflow self-edits.
 - One review comment per unique head SHA; repeat only on a changed SHA. Maximum 3 correction loops.
 - Escalate: changes to trust/provenance/privacy, schema semantics, AI prompt/model, scope or UX,
