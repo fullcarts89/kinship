@@ -62,7 +62,7 @@ export const HOW_COPY = {
 function Understood({ children }: { children: string }) {
   const p = usePalette();
   return (
-    <View style={{ borderBottomWidth: stroke.underline, borderBottomColor: p.ochre, paddingBottom: 1 }}>
+    <View style={{ borderBottomWidth: stroke.underline, borderBottomColor: p.mark, paddingBottom: 1 }}>
       <Text maxFontSizeMultiplier={maxScale.text} style={[type.field, { color: p.inkBody }]}>{children}</Text>
     </View>
   );
@@ -167,7 +167,7 @@ export function Afterwards({ phase, onPhase }: { phase: number; onPhase: (n: num
       {phase >= 2 ? (
         <Arrive>
           <View style={{ marginTop: space.xl }}>
-            <Label tone="ochreText">{HOW_COPY.remembered}</Label>
+            <Label tone="markText">{HOW_COPY.remembered}</Label>
             {HOW_COPY.afterLines.map((l) => (
               <View key={l.text} style={{ marginTop: space.m }}>
                 <Small>{l.section}</Small>

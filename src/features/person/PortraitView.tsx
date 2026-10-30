@@ -125,10 +125,10 @@ function withWhen(l: PortraitLineData, leading = false): string {
  * step darker. "You told Kinship · Oct 5" is shown once per run of lines that
  * share it, not under every line (the line's sheet always has it).
  */
-function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusItemId, focus, after }: {
+function Section({ title, lines, mark, leadWithWhen, onLine, onSource, focusItemId, focus, after }: {
   title: string;
   lines: PortraitLineData[];
-  ochre?: boolean;
+  mark?: boolean;
   leadWithWhen?: boolean;
   onLine: (id: string) => void;
   onSource: (noteId: string) => void;
@@ -144,7 +144,7 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusIte
       onLayout={(e) => focus?.onGroup(title, e.nativeEvent.layout.y)}
       style={{ marginTop: space.x3, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline }}
     >
-      <Label tone={ochre ? "ochreText" : "inkBody"} accessibilityRole="header">{title}</Label>
+      <Label tone={mark ? "markText" : "inkBody"} accessibilityRole="header">{title}</Label>
       {lines.map((l, i) => {
         const text = withWhen(l, leadWithWhen);
         // One source line for several memories only when they came from the
@@ -329,7 +329,7 @@ export function PortraitView(props: PortraitViewProps) {
 
       <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
       <Section title="Coming up" lines={props.comingUp} leadWithWhen onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
-      <Section title="You said you'd" lines={props.youSaid} ochre onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      <Section title="You said you'd" lines={props.youSaid} mark onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
       <Section
         title="Between you"
         lines={props.between}
@@ -363,7 +363,7 @@ export function PortraitView(props: PortraitViewProps) {
             minHeight: height.small, justifyContent: "center",
           })}
         >
-          <Small tone="ochreText">{`What Kinship knows about ${first} →`}</Small>
+          <Small tone="markText">{`What Kinship knows about ${first} →`}</Small>
         </Pressable>
       ) : null}
       {props.children}

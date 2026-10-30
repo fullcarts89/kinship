@@ -318,7 +318,7 @@ export function RecordRow({ r, onChange, onForget, onSource, onSettle }: {
       </View>
       {r.conflict ? (
         <View style={{ marginTop: space.s }}>
-          <Small tone="ochreText">{r.conflict.title}</Small>
+          <Small tone="markText">{r.conflict.title}</Small>
           {r.conflict.choices.map((c) => (
             <View key={c.field} style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.xs }}>
               <Pill size="small" label={`${c.keep.label} ${c.keep.value}`} onPress={() => onSettle(r.conflict!.id, "keep_current")} />

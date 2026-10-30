@@ -3,8 +3,8 @@
 import React from "react";
 import { View } from "react-native";
 import { Pressable } from "./Pressable";
-import { height, press, space, TOUCH } from "@/design/tokens";
-import { Body, Small } from "./Text";
+import { font as type, height, press, space, TOUCH } from "@/design/tokens";
+import { Body, Italic, Small } from "./Text";
 import { usePalette } from "./theme";
 
 export function Row({
@@ -16,6 +16,7 @@ export function Row({
   accessibilityHint,
   selected = false,
   first = false,
+  serifSubtitle = false,
 }: {
   title: string;
   /** One live line under the title (12, quiet). */
@@ -28,6 +29,8 @@ export function Row({
   selected?: boolean;
   /** Draws the hairline above, for the first row of a list. */
   first?: boolean;
+  /** The subtitle is the user's own words (a person's live line): Newsreader italic. */
+  serifSubtitle?: boolean;
 }) {
   const p = usePalette();
   const content = (
@@ -45,8 +48,8 @@ export function Row({
     >
       {leading}
       <View style={{ flex: 1 }}>
-        <Body tone={selected ? "ochreText" : "ink"}>{title}</Body>
-        {subtitle ? <Small numberOfLines={2}>{subtitle}</Small> : null}
+        <Body tone={selected ? "markText" : "ink"} style={{ fontFamily: type.sansMedium }}>{title}</Body>
+        {subtitle ? (serifSubtitle ? <Italic numberOfLines={2}>{subtitle}</Italic> : <Small numberOfLines={2}>{subtitle}</Small>) : null}
       </View>
       {trailing}
     </View>

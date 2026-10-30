@@ -93,14 +93,14 @@ function ExampleCard({ onPress }: { onPress?: () => void }) {
       <Small>{WELCOME_COPY.example.label}</Small>
       {WELCOME_COPY.example.steps.map((s, i) => (
         <View key={s.label} style={{ flexDirection: "row", gap: space.m }}>
-          <View style={{ width: 3, borderRadius: 2, backgroundColor: i === 2 ? p.ochre : p.hairline }} />
+          <View style={{ width: 3, borderRadius: 2, backgroundColor: i === 2 ? p.mark : p.hairline }} />
           <View style={{ flex: 1 }}>
             <Label>{s.label}</Label>
             <Body tone="ink" style={{ marginTop: space.xs }}>{s.text}</Body>
           </View>
         </View>
       ))}
-      {onPress ? <Small tone="ochreText">{`${HOW_COPY.link} →`}</Small> : null}
+      {onPress ? <Small tone="markText">{`${HOW_COPY.link} →`}</Small> : null}
     </View>
   );
   if (!onPress) return <View style={{ marginTop: space.xl }}>{body}</View>;

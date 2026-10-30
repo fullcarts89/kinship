@@ -98,7 +98,7 @@ function NamedPane({ people, title, named, chosen, onDone, onSomeoneElse, onCanc
           leading={<Sprig personId={x.id} width={size.sprig.row} />}
           title={personLabel(x, people)}
           selected={picked.includes(x.id)}
-          trailing={picked.includes(x.id) ? <Check size={20} strokeWidth={1.8} color={p.ochreText} /> : null}
+          trailing={picked.includes(x.id) ? <Check size={20} strokeWidth={1.8} color={p.markText} /> : null}
           onPress={() => toggle(x.id)}
         />
       ))}
@@ -352,7 +352,7 @@ export function DatePane({
                   style={{
                     width: dot, height: dot, borderRadius: dot / 2, alignItems: "center", justifyContent: "center",
                     backgroundColor: selected ? p.ink : "transparent",
-                    borderWidth: day === today && !selected ? 1.5 : 0, borderColor: p.ochre,
+                    borderWidth: day === today && !selected ? 1.5 : 0, borderColor: p.mark,
                   }}
                 >
                   <Text maxFontSizeMultiplier={maxScale.label} style={[type.field, { color: selected ? p.onInk : p.ink }]}>{d}</Text>

@@ -1,6 +1,6 @@
-// Buttons (Design Direction §H, System board): pills, height / 2.
-//   primary   ink fill, the one action that matters on a screen
-//   ghost     a hairline outline
+// Buttons (Electric Garden): pills, height / 2.
+//   primary   leaf-green ink fill, the one action that matters on a screen
+//   ghost     a 1.5 pt outline in the rule colour
 //   quiet     text only, for secondary actions in a line
 //   danger    brick text in a faint outline, for destructive actions
 // At least 44 pt to touch; the label is never cut off (it shrinks a little as
@@ -81,7 +81,7 @@ export function Pill({
           justifyContent: "center",
           gap: space.s,
           backgroundColor: variant === "primary" ? p.ink : "transparent",
-          borderWidth: variant === "ghost" || variant === "danger" ? 1 : 0,
+          borderWidth: variant === "ghost" ? 1.5 : variant === "danger" ? 1 : 0,
           borderColor: variant === "danger" ? p.hairline : p.rule,
         }}
       >

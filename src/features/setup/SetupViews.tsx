@@ -417,7 +417,7 @@ export function WorthStepView(props: WorthStepViewProps) {
           <View style={{ marginTop: space.xl, gap: space.l }}>
             {props.lines.map((l, i) => (
               <View key={l.personId} style={{ flexDirection: "row", gap: space.l }}>
-                <View style={{ width: 3, borderRadius: 2, backgroundColor: i === 0 ? p.ochre : p.hairline }} />
+                <View style={{ width: 3, borderRadius: 2, backgroundColor: i === 0 ? p.mark : p.hairline }} />
                 <View style={{ flex: 1 }}>
                   <MomentText>{l.text}</MomentText>
                   <View style={{ marginTop: space.xs }}><Provenance line={l.provenance} dot={false} /></View>

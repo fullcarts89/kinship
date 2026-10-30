@@ -1,6 +1,7 @@
-// The 2.0 component vocabulary (plan §18; Design Direction §H): Moment,
+// The 2.0 component vocabulary (plan §18; Electric Garden FD-30b): Moment,
 // Row, Token, Provenance, Sprig, TellField, Sheet, Pill, QuietLine, Label,
-// Screen. There is no Card.
+// Screen, and the garden (wash, botanicals, fluid photo, poster name,
+// section dots, grain). There is no Card.
 export { Moment } from "./Moment";
 export { KEYBOARD_BAR, KeyboardBar, useKeyboardBarId } from "./KeyboardBar";
 export { Emphasis, useLineFocus } from "./LineFocus";
@@ -13,7 +14,9 @@ export { BackButton, IconButton, Screen } from "./Screen";
 export { Sheet } from "./Sheet";
 export { Sprig } from "./Sprig";
 export { TellDockFrame, TellField } from "./TellField";
-export { Body, Display, Greeting, Heading, Italic, Label, Line, MomentText, Name, Small, Title, type Tone } from "./Text";
+export { Body, Context, Display, Greeting, Heading, Italic, Label, Line, MomentText, Name, Quote, Small, Source, Statement, Title, Week, type Tone } from "./Text";
+export { sprigAccent } from "./Sprig";
+export * from "./garden";
 export { Token, TokenRow } from "./Token";
 export { useNight, usePalette, useReduceMotion } from "./theme";
 export { Waiting, WAITING_DELAY_MS } from "./Waiting";

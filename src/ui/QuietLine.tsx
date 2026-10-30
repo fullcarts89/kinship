@@ -1,11 +1,12 @@
-// A secondary line on Today (plan §13; board 1): a small caps label over one
-// serif line, with at most one quiet action. Never a badge, a count to clear,
-// or urgency.
+// A secondary line on Today (plan §13): a small caps label in ink over one
+// serif line, with at most one quiet action. The week's rhythm under the
+// moment (Stage 1): "WED 14 · Josh's interview". Never a badge, a count to
+// clear, or urgency.
 import React from "react";
 import { View } from "react-native";
 import { Pressable } from "./Pressable";
 import { press, space, TOUCH } from "@/design/tokens";
-import { Label, Line, Small } from "./Text";
+import { Line, Small, Week } from "./Text";
 
 export function QuietLine({
   label,
@@ -22,7 +23,7 @@ export function QuietLine({
 }) {
   const body = (
     <View style={{ flex: 1 }}>
-      <Label>{label}</Label>
+      <Week>{label}</Week>
       <Line style={{ marginTop: space.xs }}>{text}</Line>
     </View>
   );
@@ -48,7 +49,7 @@ export function QuietLine({
           hitSlop={space.s}
           style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.link : 1 })}
         >
-          <Small>{action.label}</Small>
+          <Small tone="ink">{action.label}</Small>
         </Pressable>
       ) : null}
     </View>

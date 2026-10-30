@@ -1,6 +1,6 @@
 // The Source view (plan §6; Design Direction §J "what you said, when"): the
 // note as the user told it, the words each memory rests on underlined in
-// ochre, how and when it arrived, and what came of it. Deleting it forgets
+// mark, how and when it arrived, and what came of it. Deleting it forgets
 // what came only from it.
 import React from "react";
 import { Text, View } from "react-native";
@@ -95,12 +95,12 @@ export function NoteView({
                 key={i}
                 style={r.marked
                   ? {
-                    textDecorationLine: "underline", textDecorationColor: p.ochre, textDecorationStyle: "solid",
+                    textDecorationLine: "underline", textDecorationColor: p.mark, textDecorationStyle: "solid",
                     // Kept words that also hold something not got to: the kept mark stays, and the words are shaded.
                     ...(r.unprocessed ? { backgroundColor: p.hairline } : {}),
                   }
                   : r.unprocessed
-                    // Not ochre: nothing here was understood. A plain, dotted mark on the note's own words.
+                    // Not mark: nothing here was understood. A plain, dotted mark on the note's own words.
                     ? { textDecorationLine: "underline", textDecorationColor: p.inkQuiet, textDecorationStyle: "dotted" }
                     : undefined}
               >
