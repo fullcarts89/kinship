@@ -52,6 +52,7 @@ Founder-directed changes recorded by this effort (new, 30 Oct 2026):
 3. Migrations are forward-only and additive; a session that adds one says so in its section and in its PR, and applies it to the shared local stack (`npx supabase migration up --local`) only after checking nobody else is mid-run.
 4. The shared local stack (`npx supabase status`), the shared `functions serve` and the stub on :8790 are never stopped; a branch's own gateway runs on another port (`e2e/README.md`). Never kill by port.
 5. Evidence tiers are reported apart (UNIT · INTEGRATION · BLACK-BOX · LIVE-MODEL · NATIVE-SIMULATOR · FOUNDER-DEVICE). Nothing is "ready" from screenshots.
+6. **One Release simulator build at a time on this Mac** (30 Oct, evening: three concurrent `xcodebuild`s put the load average at 150–250 and every timing-based black-box suite timed out). WS-5 owns the simulator build and the native journey; WS-3 and WS-4 report their native rows as covered by WS-5's journey, with the exact steps to walk; WS-2 may build for design verification but only when `pgrep -x xcodebuild` finds none running; WS-5 takes the next free window. Black-box suites run one at a time; a ~32 s timeout under load is re-run alone before it counts as a defect.
 
 ## Baseline (30 Oct 2026, `main` f55f331)
 
