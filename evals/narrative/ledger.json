@@ -1,0 +1,149 @@
+{
+  "comment": "Expected ledgers for corpus.json (CER-1, frozen 30 Oct 2026 before tuning). One row per atomic assertion a careful reader would keep. subject: the roster person it is filed on (related = their related someone; user = the user's own promise; shared = both). hold: 'none' (saved on show or auto), 'confirm' (a look-over is fine), 'ask' (a question is legitimate: genuinely ambiguous person or a sensitive date), 'sensitive' (must wait for the user's yes). never: things that must not appear (invented people, wrong person, a question).",
+  "scenarios": {
+    "s63": {
+      "expect": [
+        { "fact": "loves cooking, sleeping in, reading, electronic music shows", "subject": "Pablo", "kind": "fact", "hold": "none" },
+        { "fact": "close with his mom and sister, sees them often", "subject": "Pablo", "kind": "fact", "hold": "none" },
+        { "fact": "has a dog named Rocket; dislikes unfamiliar dogs; gets along with the user's dog Bean", "subject": "Pablo (related dog Rocket)", "kind": "fact", "hold": "none" },
+        { "fact": "worried about changes at work", "subject": "Pablo", "kind": "thread", "hold": "confirm" }
+      ],
+      "never": ["Who is 'he'?", "Rocket or Bean as a person", "mom or sister as the subject of a pronoun line"]
+    },
+    "s1": {
+      "expect": [
+        { "fact": "into cooking and electronic music shows", "subject": "Leo", "kind": "fact", "hold": "none" },
+        { "fact": "sees his mom and sister most weekends; close", "subject": "Leo", "kind": "fact", "hold": "none" },
+        { "fact": "dog Rocket nervous around unfamiliar dogs, fine with the user's dog Bean", "subject": "Leo (related dog Rocket)", "kind": "fact", "hold": "none" },
+        { "fact": "worried about changes in his industry", "subject": "Leo", "kind": "thread", "hold": "confirm" }
+      ],
+      "never": ["Who is 'he'?", "Rocket or Bean as a person"]
+    },
+    "s2": {
+      "expect": [
+        { "fact": "reading a lot of mysteries on the train", "subject": "Ari", "kind": "fact", "hold": "none" },
+        { "fact": "picked up watercolor painting last month", "subject": "Ari", "kind": "fact", "hold": "none" },
+        { "fact": "wants to try a class if work settles down", "subject": "Ari", "kind": "thread", "hold": "confirm", "certainty": "tentative" }
+      ],
+      "never": ["a scheduled class"]
+    },
+    "s3": {
+      "expect": [
+        { "fact": "uses they/them pronouns", "subject": "Jun", "kind": "fact", "hold": "none" },
+        { "fact": "learning to bake bread; first sourdough didn't turn out", "subject": "Jun", "kind": "fact", "hold": "none" },
+        { "fact": "thought it was funny and wants to try again", "subject": "Jun", "kind": "thread", "hold": "confirm" }
+      ],
+      "never": ["Who is 'they'?"]
+    },
+    "s4": {
+      "expect": [
+        { "fact": "went camping last weekend", "subject": "Marin and Elise (shared between them)", "kind": "event", "hold": "confirm" },
+        { "fact": "misplaced her keys along the trail", "subject": "Marin or Elise", "kind": "fact", "hold": "ask" },
+        { "fact": "Elise found the keys in the car", "subject": "Elise", "kind": "fact", "hold": "none" }
+      ],
+      "never": ["the keys filed on one of them without asking"]
+    },
+    "s5": {
+      "expect": [
+        { "fact": "sister Lila has surgery Thursday, November 5", "subject": "Dani (related sister Lila)", "kind": "event", "hold": "sensitive" },
+        { "fact": "taking that afternoon off to drive her", "subject": "Dani", "kind": "event", "hold": "sensitive" }
+      ],
+      "never": ["the surgery as Dani's own", "Lila as a person in People"]
+    },
+    "s6": {
+      "expect": [
+        { "fact": "met for coffee yesterday", "subject": "Sora (shared)", "kind": "moment", "hold": "none" },
+        { "fact": "played tennis together in college", "subject": "Sora (shared)", "kind": "context", "hold": "none" },
+        { "fact": "would be fun to play tennis again sometime", "subject": "Sora (shared)", "kind": "plan", "hold": "none", "certainty": "wished" }
+      ],
+      "never": ["a scheduled tennis date"]
+    },
+    "s7": {
+      "expect": [
+        { "fact": "considering moving to Denver next spring; hasn't decided about the offer", "subject": "Felix", "kind": "thread", "hold": "confirm", "certainty": "tentative" },
+        { "fact": "still in Oakland", "subject": "Felix", "kind": "fact", "hold": "none" }
+      ],
+      "never": ["Felix lives in Denver", "Oakland superseded by Denver"]
+    },
+    "s8": {
+      "expect": [
+        { "fact": "birthday is November 4", "subject": "Tessa", "kind": "fact", "hold": "none" },
+        { "fact": "wants a quiet lunch with a few friends instead of a big party this year", "subject": "Tessa", "kind": "fact", "hold": "none" }
+      ],
+      "never": ["Who is 'she'?"]
+    },
+    "s9": {
+      "expect": [
+        { "fact": "loves hiking", "subject": "Noah", "kind": "fact", "hold": "none" },
+        { "fact": "loves bird photography", "subject": "Noah", "kind": "fact", "hold": "none" },
+        { "fact": "loves Thai food", "subject": "Noah", "kind": "fact", "hold": "none" },
+        { "fact": "hates olives", "subject": "Noah", "kind": "fact", "hold": "none" },
+        { "fact": "just started pottery", "subject": "Noah", "kind": "fact", "hold": "none" },
+        { "fact": "trying to persuade his roommate to join", "subject": "Noah (roommate as related)", "kind": "thread", "hold": "confirm" }
+      ],
+      "never": ["the roommate as a person in People", "Who is 'he'?"]
+    },
+    "s10": {
+      "expect": [
+        { "fact": "you promised to bring Sam soup this Saturday", "subject": "Sam (user promise)", "kind": "promise", "hold": "none", "date": "2026-11-01" },
+        { "fact": "overwhelmed at work", "subject": "Sam", "kind": "thread", "hold": "confirm" },
+        { "fact": "hasn't decided which kind of soup", "subject": "Sam", "kind": "thread", "hold": "confirm", "optional": true }
+      ],
+      "never": ["the promise as Sam's", "Who is 'she'?"]
+    },
+    "s11": {
+      "expect": [
+        { "fact": "moved from Austin to Portland last summer; Portland is home", "subject": "Riley", "kind": "fact", "hold": "none" },
+        { "fact": "at a conference in Seattle this week, staying with friends", "subject": "Riley", "kind": "event", "hold": "confirm" }
+      ],
+      "never": ["Riley lives in Seattle", "Portland superseded by Seattle"]
+    },
+    "s12": {
+      "expect": [
+        { "fact": "collects records", "subject": "Mina", "kind": "fact", "hold": "none" },
+        { "fact": "loves jazz", "subject": "Mina", "kind": "fact", "hold": "none" },
+        { "fact": "learning Portuguese", "subject": "Mina", "kind": "fact", "hold": "none" },
+        { "fact": "keeps succulents on her desk", "subject": "Mina", "kind": "fact", "hold": "none" },
+        { "fact": "rides a bike to work", "subject": "Mina", "kind": "fact", "hold": "none" },
+        { "fact": "plays badminton", "subject": "Mina", "kind": "fact", "hold": "none" },
+        { "fact": "makes ceramics", "subject": "Mina", "kind": "fact", "hold": "none" },
+        { "fact": "reads fantasy", "subject": "Mina", "kind": "fact", "hold": "none" },
+        { "fact": "grows herbs", "subject": "Mina", "kind": "fact", "hold": "none" },
+        { "fact": "plays chess on Thursdays", "subject": "Mina", "kind": "tradition or fact", "hold": "confirm" },
+        { "fact": "nervous about a job interview next Wednesday", "subject": "Mina", "kind": "event", "hold": "ask", "note": "'next Wednesday' said on a Friday is a C-4 ambiguous date; asking the day is legitimate" }
+      ],
+      "never": ["any of the eleven lost to a count", "Kinship couldn't get to all of it"]
+    },
+    "s13": {
+      "expect": [
+        { "fact": "long dinner with Leo last night", "subject": "Leo (shared)", "kind": "moment", "hold": "none" },
+        { "fact": "signed the lease on an apartment in Pilsen; moves in November 15", "subject": "Leo", "kind": "event", "hold": "none", "date": "2026-11-15" },
+        { "fact": "sister Carla is getting married in June", "subject": "Leo (related sister Carla)", "kind": "event", "hold": "confirm" },
+        { "fact": "asked to give a toast; nervous; hates public speaking", "subject": "Leo", "kind": "thread or fact", "hold": "confirm" },
+        { "fact": "mom's knee better after surgery in August; walking the dog again", "subject": "Leo (related mom)", "kind": "fact", "hold": "sensitive" },
+        { "fact": "moved onto the platform team; likes his new manager", "subject": "Leo", "kind": "fact", "hold": "none" },
+        { "fact": "into film photography; bought an old Pentax", "subject": "Leo", "kind": "fact", "hold": "none" },
+        { "fact": "wants to do a darkroom class in the winter", "subject": "Leo", "kind": "thread", "hold": "confirm" },
+        { "fact": "still running; 10K last weekend under fifty minutes", "subject": "Leo", "kind": "event", "hold": "none" },
+        { "fact": "wants to try a half marathon in the spring", "subject": "Leo", "kind": "thread", "hold": "confirm" },
+        { "fact": "camping trip to the Dunes together in May", "subject": "Leo (shared)", "kind": "plan", "hold": "none" },
+        { "fact": "you owe Leo the name of the contractor who did your kitchen", "subject": "Leo (user promise)", "kind": "promise", "hold": "none" },
+        { "fact": "Rocket limping; vet on Friday", "subject": "Leo (related dog Rocket)", "kind": "event", "hold": "confirm", "note": "a pet's health is never the person's health (J9)" },
+        { "fact": "birthday is December 3", "subject": "Leo", "kind": "fact", "hold": "none" },
+        { "fact": "wants dinner at the Ethiopian place he loves", "subject": "Leo", "kind": "plan or fact", "hold": "confirm" }
+      ],
+      "never": ["Is His sister Carla someone new?", "Which Ethiopian do you mean?", "Carla, Rocket or the manager as a person in People", "anything lost to a count"]
+    },
+    "s14": {
+      "expect": [ { "fact": "plays chess on Thursdays", "subject": "Mina", "kind": "tradition or fact", "hold": "confirm" } ],
+      "never": ["Nothing to remember", "Who is this about?"]
+    },
+    "s15": {
+      "expect": [
+        { "fact": "the offer is with a climate startup", "subject": "Felix", "kind": "thread", "hold": "confirm" },
+        { "fact": "his partner is on the fence about leaving the Bay", "subject": "Felix (related partner)", "kind": "thread", "hold": "confirm" }
+      ],
+      "never": ["Who is 'he'?", "the partner as a person in People"]
+    }
+  }
+}

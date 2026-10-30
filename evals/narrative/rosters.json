@@ -1,0 +1,20 @@
+{
+  "people": [
+    { "key": "p1", "name": "Pablo", "full": "Pablo Reyes", "label": "friend" },
+    { "key": "p2", "name": "Leo", "full": "Leo Marchetti", "label": "friend" },
+    { "key": "p3", "name": "Ari", "full": "Ari Lund", "label": "friend from work" },
+    { "key": "p4", "name": "Jun", "full": "Jun Okafor" },
+    { "key": "p5", "name": "Marin", "full": "Marin Castillo", "label": "college friend" },
+    { "key": "p6", "name": "Elise", "full": "Elise Nakamura", "label": "college friend" },
+    { "key": "p7", "name": "Dani", "full": "Dani Oyelaran", "label": "neighbor" },
+    { "key": "p8", "name": "Sora", "full": "Sora Kim", "label": "college friend" },
+    { "key": "p9", "name": "Felix", "full": "Felix Adeyemi", "label": "friend" },
+    { "key": "p10", "name": "Tessa", "full": "Tessa Brandt", "label": "friend" },
+    { "key": "p11", "name": "Noah", "full": "Noah Feld", "label": "friend" },
+    { "key": "p12", "name": "Sam", "full": "Sam Delgado", "label": "friend" },
+    { "key": "p13", "name": "Riley", "full": "Riley Quinn", "label": "friend" },
+    { "key": "p14", "name": "Mina", "full": "Mina Haddad", "label": "friend" },
+    { "key": "p15", "name": "Anthony", "full": "Anthony Lopez", "label": "friend" },
+    { "key": "p16", "name": "Chris", "full": "Chris Walker", "label": "friend" }
+  ]
+}
