@@ -12,6 +12,8 @@ jobs:
   fix-reviewed-pr:
     if: >-
       github.event.issue.pull_request &&
+      github.event.issue.number == 60 &&
+      github.event.issue.state == 'open' &&
       startsWith(github.event.comment.body, '@claude /kinship-fix') &&
       contains(github.event.issue.labels.*.name, 'agent-loop') &&
       (
@@ -31,9 +33,17 @@ jobs:
       actions: read
       id-token: write
     steps:
-      - name: Implement one scoped PR-review correction
-        uses: anthropics/claude-code-action@v1
+      # Initialize the repository; tag mode below selects and pins the open PR head.
+      - uses: actions/checkout@v4
         with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Implement one scoped PR-review correction
+        uses: anthropics/claude-code-action@6d5ae526d25ce88daa2200be073e1a373167f064 # v1
+        with:
+          # Tag mode preserves PR checkout, bounded push tools and progress comments.
+          track_progress: true
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           additional_permissions: |
             actions: read
