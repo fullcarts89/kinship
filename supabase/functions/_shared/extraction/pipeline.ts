@@ -73,7 +73,13 @@ import type {
 } from "./types.ts";
 import { ASPECTS, CERTAINTIES, EVENT_TYPES, FACT_CATEGORIES, FIRMNESS, KINDS, RECURRENCES, SENSITIVITIES, SUBJECTS } from "./types.ts";
 
-export const MAX_ITEMS = 8;
+/**
+ * Proposals the pipeline judges per note: all of them (founder, 30 Oct 2026, FD-30c: long notes are
+ * processed, not pushed back). The eight-item cap (Checkpoint C) and Option A's accounting of what it
+ * left out are gone; a long note is understood in passages (run.ts), and only a passage whose model
+ * call failed is recorded as not got to. The number stays as a guard against a runaway proposal list.
+ */
+export const MAX_PROPOSALS = 200;
 export const AUTO_SAVE_CONFIDENCE = 0.85;
 export const DROP_BELOW_CONFIDENCE = 0.6;
 /** A plain same-day phrase, as the user said it (founder K20). */
@@ -96,27 +102,30 @@ export const FOLLOWUP_POLICY: Record<EventType, "before" | "after" | "both" | "n
 
 const CERTAINTY_RANK = { stated: 3, planned: 2, reported: 1, tentative: 1, wished: 0 } as const;
 
-export function planExtraction(input: ExtractionInput, proposal: ModelProposal): ExtractionOutcome {
+/** What `planExtraction` is told besides the proposal. */
+export interface PlanOptions {
+  /**
+   * Passages of the note no proposal could come from because their model call failed (run.ts): kept on
+   * the note as not got to, so the phone can mark them and offer to tell them again. Code-point spans.
+   */
+  unprocessed?: { start: number; end: number }[];
+}
+
+export function planExtraction(input: ExtractionInput, proposal: ModelProposal, opts: PlanOptions = {}): ExtractionOutcome {
   const text = input.capture.raw_text.normalize("NFC");
   const ctx = new Context(input, text, proposal?.needs_clarification ?? null);
   const dropped: ExtractionOutcome["dropped"] = [];
   const items: PlannedItem[] = [];
   const known: string[] = [];
 
-  const proposed = oneSentenceOneMemory(input, text, Array.isArray(proposal?.items) ? proposal.items : [], proposal?.needs_clarification ?? null);
+  const all = oneSentenceOneMemory(input, text, Array.isArray(proposal?.items) ? proposal.items : [], proposal?.needs_clarification ?? null);
+  // Every proposal is judged by the item rules (FD-30c): nothing is lost to a count. The guard above
+  // only stops a runaway list; what it cuts is recorded, never silent.
+  const proposed = all.slice(0, MAX_PROPOSALS);
+  for (const raw of all.slice(MAX_PROPOSALS)) dropped.push({ reason: "too_many_items", kind: KINDS.includes(raw?.kind) ? raw.kind : null });
   // Every line's own words, so a hedge in one never hedges another (founder I12b).
-  ctx.evidence = proposed.slice(0, MAX_ITEMS).map((raw) => evidenceSpans(text, raw));
-  // Proposals past the limit are never taken silently (founder, 19 Oct): each is judged by the same rules as
-  // the first eight, and only one those rules exclude, or one that is the same thing as a kept line, is not
-  // lost. Every other one stays in the note as "not got to" (its own words, or a count when they can't be
-  // placed), so the user can tell that part again. Judged once the eight are settled, so a duplicate is a
-  // duplicate of a kept line, never of another proposal past the limit.
-  const overflow: ProposedItem[] = [];
+  ctx.evidence = proposed.map((raw) => evidenceSpans(text, raw));
   for (const [i, raw] of proposed.entries()) {
-    if (i >= MAX_ITEMS) {
-      overflow.push(raw);
-      continue;
-    }
     const result = planItem(ctx, raw, i);
     if ("drop" in result) {
       dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null });
@@ -136,7 +145,11 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     }
   }
 
-  const coverage = leftOut(ctx, overflow, items, dropped, known);
+  // What this understanding could not get to (a passage whose call failed), in the note's order.
+  const unprocessed = [...(opts.unprocessed ?? [])]
+    .filter((sp) => Number.isInteger(sp.start) && Number.isInteger(sp.end) && sp.start >= 0 && sp.end > sp.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+  const coverage: Coverage | null = unprocessed.length ? { unprocessed, unlocated: 0 } : null;
 
   collapseMirrors(ctx, items, dropped);
   settleOpenNames(items);
@@ -155,62 +168,6 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal):
     ...(known.length ? { known } : {}),
     ...(coverage ? { coverage } : {}),
   };
-}
-
-/**
- * What the limit left out, and whether anything was lost (founder, 19 Oct 2026, review of PR #58: an
- * evidence span shared with a kept line does not make a proposal a duplicate; "Priya loves jazz and
- * plays chess" holds two things on the same words). Each proposal past the limit goes through the rules
- * the first eight went through:
- *   - one the rules exclude on their own (an instruction, a contact detail, a relationship already held,
- *     a hedge the note never says, confidence below the floor) is excluded for that reason, as it would
- *     have been inside the limit: recorded under that reason, not lost;
- *   - one that is the same thing as a kept line, by the same test that folds a repeat inside the limit
- *     (`sameItem`, `sameSharedPlanned`: same kind, same person, same words or same day), joins that line's
- *     spans and is a `duplicate`, not lost;
- *   - everything else is lost to the limit (`too_many_items`): the words it rests on (its first quote) stay
- *     in the note as unprocessed, even where a kept line rests on the same words, so it stays visible until
- *     it is told again. One span per lost proposal, never folded: the same span twice records that two
- *     things were lost on those words, which is what later lets the phone refuse to call one new line on
- *     them the recovery of both (founder, final Option A correction);
- *   - one whose words the locator cannot place is counted (`unlocated`), with no span invented.
- * Returns null when nothing was lost: the limit cost nothing this time.
- */
-function leftOut(
-  ctx: Context,
-  overflow: ProposedItem[],
-  items: PlannedItem[],
-  dropped: ExtractionOutcome["dropped"],
-  known: string[],
-): Coverage | null {
-  if (overflow.length === 0) return null;
-  const unprocessed: Coverage["unprocessed"] = [];
-  let unlocated = 0;
-  for (const raw of overflow) {
-    const kind = KINDS.includes(raw?.kind) ? raw.kind : null;
-    const result = planItem(ctx, raw, -1);
-    if ("drop" in result) {
-      if (result.drop === "no_evidence" || result.drop === "evidence_ambiguous") {
-        // Its words are not in the note, or are there twice: nothing to mark, and nothing to assume.
-        dropped.push({ reason: "too_many_items", kind });
-        unlocated++;
-      } else {
-        dropped.push({ reason: result.drop, kind });
-        if (result.drop === "already_known" && result.known && !known.includes(result.known)) known.push(result.known);
-      }
-      continue;
-    }
-    const dup = items.find((p) => sameSharedPlanned(p, result.item)) ?? items.find((p) => sameItem(p, result.item));
-    if (dup) {
-      for (const s of result.item.spans) if (!dup.spans.some((d) => d.start === s.start)) dup.spans.push(s);
-      dropped.push({ reason: "duplicate", kind: result.item.kind });
-      continue;
-    }
-    dropped.push({ reason: "too_many_items", kind: result.item.kind });
-    unprocessed.push({ start: result.item.spans[0].start, end: result.item.spans[0].end });
-  }
-  unprocessed.sort((a, b) => a.start - b.start || a.end - b.end);
-  return unprocessed.length || unlocated ? { unprocessed, unlocated } : null;
 }
 
 // ─── Context ────────────────────────────────────────────────────────────────
@@ -1583,17 +1540,68 @@ function pronounAt(ctx: Context, raw: ProposedItem, mention: string): number {
   return re.exec(ctx.text)?.index ?? -1;
 }
 
+/** Relation words that can only be a woman, or only a man, as a pronoun reads them. */
+const FEMALE_RELATIONS = new Set(["mom", "mother", "mum", "mama", "sister", "daughter", "wife", "girlfriend", "fiancee", "fiancée", "grandma",
+  "grandmother", "granddaughter", "aunt", "niece", "stepmom", "stepdaughter", "mother-in-law", "sister-in-law", "ex-wife"]);
+const MALE_RELATIONS = new Set(["dad", "father", "papa", "brother", "son", "husband", "boyfriend", "fiance", "fiancé", "grandpa", "grandfather",
+  "grandson", "uncle", "nephew", "stepdad", "stepson", "father-in-law", "brother-in-law", "ex-husband"]);
+/** Capitalised words that start a sentence or name a time, never a person (beside the lexicon's NOT_PEOPLE). */
+const COMMON_CAPITALS = new Set([
+  "i", "i'm", "i'd", "i'll", "i've", "he", "he's", "he'd", "he'll", "she", "she's", "she'd", "she'll", "they", "they're", "they've", "they'd", "it",
+  "it's", "his", "her", "hers", "their", "them", "him", "we", "we're", "we've", "us", "our", "you", "your", "my", "me", "the", "a", "an", "and", "but",
+  "so", "or", "then", "now", "lately", "recently", "also", "still", "anyway", "apparently", "there", "this", "that", "these", "those", "when", "while",
+  "since", "after", "before", "last", "next", "yesterday", "today", "tomorrow", "tonight", "every", "each", "both", "all", "no", "not", "nothing",
+  "something", "maybe", "probably", "honestly", "basically", "turns", "also", "plus", "if", "as", "at", "in", "on", "for", "with", "from", "to", "of",
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "january", "february", "march", "april", "may", "june", "july",
+  "august", "september", "october", "november", "december", "christmas", "thanksgiving", "easter", "halloween", "hanukkah", "diwali", "eid", "new",
+  "spring", "summer", "fall", "autumn", "winter", "ai", "work", "life", "school", "college", "home",
+]);
+const ANIMAL_BEFORE = new RegExp(String.raw`\b(?:dog|dogs|puppy|pup|cat|cats|kitten|horse|pony|bunny|rabbit|bird|parrot|hamster|ferret|lizard|turtle|tortoise|fish|goat|pig|chicken|guinea pig|pet|pets)\b(?:\s+(?:is|was|named|called))*\s*$`, "iu");
+
 /**
- * Nothing before the pronoun could be someone else (founder J1): no other
- * capitalised word than "I" and the page person's own names, and no
- * relation word ("my friend Zed visited. He…" is asked, never guessed).
+ * Whether anything before the pronoun could be a person other than those it may already mean (founder
+ * J1, narrowed by #63): a name not in People written mid-sentence or as an unusual sentence opener
+ * ("Zed told me he…"), or someone the writer introduces by relation ("my friend visited. He…", "Mom
+ * says she…"). Not a competitor: the subject's own relatives ("his mom and sister": they are theirs,
+ * and a woman is never "he"), a relation word of the other gender, a pet ("his dog Rocket", "our dog
+ * Bean", "a cat named Miso", a known companion), an acronym ("AI"), a place after "in/to/from/at", a
+ * weekday, month or season, or a word the note also writes in lower case.
  */
-function noOneElseBefore(ctx: Context, at: number, page: RosterPerson): boolean {
-  if (at < 0) return false;
+function someoneElseBefore(ctx: Context, at: number, pronoun: string, allowed: RosterPerson[]): boolean {
+  if (at < 0) return true;
   const before = ctx.text.slice(0, at);
-  const theirs = new Set(namesFor(page).flatMap((n) => (n.match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).map(nameKey)));
-  const capitals = (before.match(/\p{Lu}[\p{L}\p{M}'’-]*/gu) ?? []).filter((w) => w !== "I" && !theirs.has(nameKey(w)));
-  return capitals.length === 0 && !wordsOf(before).some((w) => kinshipReference(w));
+  const p = fold(pronoun);
+  const male = p === "he" || p === "him" || p === "his" || p === "himself";
+  const female = p === "she" || p === "her" || p === "hers" || p === "herself";
+  const theirs = new Set(allowed.flatMap((person) => namesFor(person)).flatMap((n) => (n.match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).map(nameKey)));
+  const lower = new Set((ctx.text.match(/(?<![\p{L}'’])\p{Ll}[\p{L}\p{M}'’-]*/gu) ?? []).map((w) => fold(w)));
+  const pets = new Set(ctx.companions.filter((c) => isPetWord(c.relation)).map((c) => nameKey(c.name)));
+  for (const pet of petsNamedIn(ctx.text, allowed.flatMap((person) => namesFor(person)))) pets.add(nameKey(pet.name));
+  for (const m of before.matchAll(/\p{Lu}[\p{L}\p{M}'’-]*/gu)) {
+    const word = m[0];
+    const k = nameKey(withoutPossessive(word));
+    if (!k || word === "I" || theirs.has(k) || COMMON_CAPITALS.has(fold(word)) || pets.has(k)) continue;
+    if (/^\p{Lu}{2,}$/u.test(word)) continue; // an acronym
+    if (lower.has(fold(word))) continue; // a word the note also writes in lower case
+    const lead = before.slice(Math.max(0, (m.index ?? 0) - 40), m.index ?? 0);
+    if (ANIMAL_BEFORE.test(lead)) continue; // "our dog Bean", "a cat named Miso"
+    if (/\b(?:in|to|from|at|near|of)\s+$/iu.test(lead)) continue; // a place
+    return true;
+  }
+  // Someone the writer introduces by relation: "my friend", "our neighbor", "Mom". The subject's own
+  // relatives ("his mom", "her brother") are theirs, never who "he" or "she" means next.
+  for (const m of before.matchAll(/(?<![\p{L}'’])(my|our|his|her|their|a|an|the)?\s*([\p{L}-]+)(?![\p{L}])/giu)) {
+    const rel = kinshipReference(m[2]);
+    if (!rel) continue;
+    const det = fold(m[1] ?? "");
+    if (det === "his" || det === "her" || det === "their") continue;
+    if (det !== "my" && det !== "our" && !/^\p{Lu}/u.test(m[2])) continue; // "a friend of the family" is no one in particular
+    const w = fold(m[2]);
+    if (male && FEMALE_RELATIONS.has(w)) continue;
+    if (female && MALE_RELATIONS.has(w)) continue;
+    return true;
+  }
+  return false;
 }
 
 function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
@@ -1644,9 +1652,13 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   // "Chris, my neighbor" / "Chris (my neighbor)": the name; the label settles ties below.
   const labelled = mention.match(/^(.+?)\s*[,(]\s*(?:my|our)\s+[^,()]+[,)]?$/u);
   if (labelled) return resolvePerson(ctx, { ...raw, person_mention: labelled[1].trim() }, flags);
-  // "his dad", "her mom" for a related subject: the pronoun names the person.
-  const pronounRelation = fold(mention).match(/^(his|her|their)\s+\S+$/);
+  // "his dad", "her mom", "his sister Carla" for a related subject: the pronoun names the person, and
+  // the relation and name are the related someone's (never "Is His sister Carla someone new?").
+  const pronounRelation = fold(mention).match(/^(his|her|their)\s+\S+(?:\s+\S+)?$/);
   if (pronounRelation && raw.subject === "related") return resolvePerson(ctx, { ...raw, person_mention: pronounRelation[1] }, flags);
+  // "he loves", "he's", "she said": a mention the model padded past the pronoun is the pronoun.
+  const leadPronoun = fold(mention).match(/^(he|him|his|she|her|hers|they|them|their)(?:['’](?:s|ll|d|re|ve))?(?=\s)/u);
+  if (leadPronoun && !kinshipReference(fold(mention).split(/\s+/u)[1] ?? "")) return resolvePerson(ctx, { ...raw, person_mention: leadPronoun[1] }, flags);
 
   const folded = withoutPossessive(fold(mention));
   // "Sarah's sister" names Sarah, as "Chris' dog" names Chris (founder K7);
@@ -1665,14 +1677,15 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
     const { allowed, at } = pronounReferents(ctx, raw, mention);
     const ids = allowed.map((p) => p.id);
     const chosen = ctx.byKey.get(modelKey);
-    // On someone's page with no one else before it, "he" or "she" is that
-    // person: also when the model filed it on someone it can't be (the
-    // sentence's object) or couldn't tell, as long as nothing before it
-    // could be anyone else. "New" (someone not in People) is asked.
-    const page = context && allowed.length === 1 && allowed[0].key === context ? allowed[0] : null;
-    if (page && SINGULAR_PRONOUNS.has(folded) &&
-        (chosen?.key === page.key || (modelKey !== "new" && noOneElseBefore(ctx, at, page)))) {
-      return pick(page);
+    // One person it can mean (the one the note named before it, or the page's person), and nothing
+    // before it that could be anyone else: "he" or "she" is that person (founder J1; #63), also when
+    // the model filed it on someone it can't be (the sentence's object) or couldn't tell. A relative of
+    // theirs, their pet, an acronym or a place before it is no one else. "New" (the model says someone
+    // not in People is meant) is still asked, unless the model's own page is that person.
+    const only = allowed.length === 1 ? allowed[0] : null;
+    if (only && SINGULAR_PRONOUNS.has(folded) &&
+        (chosen?.key === only.key || (modelKey !== "new" && !someoneElseBefore(ctx, at, folded, allowed)))) {
+      return pick(only);
     }
     if (!chosen || !allowed.some((p) => p.key === modelKey)) return { ...unresolved("person_ambiguous"), candidate_ids: ids };
     if (allowed.length > 1) {

@@ -1,0 +1,165 @@
+{
+ "note": "Tessa's birthday is November 4. She wants a quiet lunch with a few friends instead of a big party this year.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s8 page, on the page; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Tessa",
+      "person_mention": "Tessa's",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Tessa's birthday is November 4",
+      "evidence": [
+       "Tessa's birthday is November 4."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": "November 4",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "other",
+       "attribute": "birthday",
+       "value": "November 4",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Tessa",
+      "person_mention": "She",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Tessa wants a quiet lunch with a few friends instead of a big party for her birthday this year",
+      "evidence": [
+       "She wants a quiet lunch with a few friends instead of a big party this year."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "this year",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "birthday wish",
+       "value": "a quiet lunch with a few friends instead of a big party",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s8 general; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Tessa",
+      "person_mention": "Tessa's",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Tessa's birthday is November 4",
+      "evidence": [
+       "Tessa's birthday is November 4."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "November 4",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "other",
+       "attribute": "birthday",
+       "value": "November 4",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Tessa",
+      "person_mention": "She",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Tessa wants a quiet lunch with a few friends instead of a big party for her birthday this year",
+      "evidence": [
+       "She wants a quiet lunch with a few friends instead of a big party this year."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "this year",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "birthday preference",
+       "value": "a quiet lunch with a few friends instead of a big party",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

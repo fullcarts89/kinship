@@ -1,0 +1,105 @@
+{
+ "comment": "CER-1 realistic corpus (synthetic people only). today = 2026-10-30, America/Los_Angeles. Expected ledgers live in ledger.json.",
+ "scenarios": [
+  {
+   "id": "s63",
+   "title": "Issue #63 reproduction",
+   "page": "Pablo",
+   "note": "Pablo loves cooking, sleeping in, reading, and going to electronic music shows. He is close with his mom and sister and sees them often. He has a pet dog named Rocket who dislikes unfamiliar dogs but gets along with our dog Bean. He is worried about changes at work."
+  },
+  {
+   "id": "s1",
+   "title": "One person, family, pet",
+   "page": "Leo",
+   "note": "Leo is really into cooking and electronic music shows. He sees his mom and sister most weekends, and they're close. His dog Rocket gets nervous around unfamiliar dogs but gets along with our dog Bean. Lately he's worried about changes in his industry."
+  },
+  {
+   "id": "s2",
+   "title": "Interests and a conditional plan",
+   "page": "Ari",
+   "note": "Ari has been reading a lot of mysteries on the train. She picked up watercolor painting last month and wants to try a class if work settles down."
+  },
+  {
+   "id": "s3",
+   "title": "Singular they",
+   "page": "Jun",
+   "note": "Jun uses they/them pronouns. They're learning to bake bread, although their first sourdough didn't turn out. They thought it was funny and want to try again."
+  },
+  {
+   "id": "s4",
+   "title": "Genuine ambiguity",
+   "page": "Marin",
+   "note": "Marin and Elise went camping last weekend. She misplaced her keys along the trail, but Elise found them back in the car."
+  },
+  {
+   "id": "s5",
+   "title": "Related person and sensitivity",
+   "page": "Dani",
+   "note": "Dani said her sister Lila has surgery next Thursday, November 5. Dani is taking that afternoon off to drive her."
+  },
+  {
+   "id": "s6",
+   "title": "Shared history",
+   "page": "Sora",
+   "note": "I met Sora for coffee yesterday. We played tennis together in college and thought it would be fun to do that again sometime."
+  },
+  {
+   "id": "s7",
+   "title": "Current and planned residence",
+   "page": "Felix",
+   "note": "Felix is considering moving to Denver next spring. He's still in Oakland and hasn't decided whether to take the offer."
+  },
+  {
+   "id": "s8",
+   "title": "Specific event and preferences",
+   "page": "Tessa",
+   "note": "Tessa's birthday is November 4. She wants a quiet lunch with a few friends instead of a big party this year."
+  },
+  {
+   "id": "s9",
+   "title": "Compound interests",
+   "page": "Noah",
+   "note": "Noah loves hiking, bird photography and Thai food, but he hates olives. He just started pottery and is trying to persuade his roommate to join."
+  },
+  {
+   "id": "s10",
+   "title": "User promise",
+   "page": "Sam",
+   "note": "I promised I'd bring Sam soup this Saturday because she's been overwhelmed at work. Sam hasn't decided which kind she wants."
+  },
+  {
+   "id": "s11",
+   "title": "Temporary versus permanent location",
+   "page": "Riley",
+   "note": "Riley moved from Austin to Portland last summer. This week they're at a conference in Seattle, staying with friends, but Portland is still home."
+  },
+  {
+   "id": "s12",
+   "title": "Density and recovery",
+   "page": "Mina",
+   "note": "Mina collects records, loves jazz, is learning Portuguese, keeps succulents on her desk, rides a bike to work, plays badminton, makes ceramics, reads fantasy, grows herbs and plays chess on Thursdays. She is also nervous about a job interview next Wednesday."
+  },
+  {
+   "id": "s13",
+   "title": "Long narrative in passages (three passages)",
+   "page": "Leo",
+   "note": "Had a long dinner with Leo last night and he had a lot going on. He finally signed the lease on the apartment in Pilsen and moves in on November 15, so he's spending every weekend until then packing. His sister Carla is getting married in June and asked him to give a toast, which he's nervous about because he hates public speaking. He mentioned his mom's knee is finally better after the surgery in August and she's walking the dog again. Work-wise he got moved onto the platform team and his new manager is someone he actually likes for once. He's been getting really into film photography, bought an old Pentax, and wants to do a darkroom class in the winter. He is still running, did a 10K last weekend in under fifty minutes, and wants to try a half marathon in the spring. We talked about doing a camping trip to the Dunes together in May. He also asked me to send him the name of the contractor who did our kitchen, so I owe him that. Rocket has been limping a bit and he's taking him to the vet on Friday. Oh, and his birthday is December 3, he wants to do dinner at that Ethiopian place he loves."
+  },
+  {
+   "id": "s14",
+   "title": "Tell the rest: an unedited fragment with the earlier note as context",
+   "page": null,
+   "earlier": "Mina collects records, loves jazz, is learning Portuguese, keeps succulents on her desk, rides a bike to work, plays badminton, makes ceramics, reads fantasy, grows herbs and plays chess on Thursdays. She is also nervous about a job interview next Wednesday.",
+   "earlier_person": "Mina",
+   "note": "plays chess on Thursdays"
+  },
+  {
+   "id": "s15",
+   "title": "Tell the rest: a pronoun fragment",
+   "page": null,
+   "earlier": "Felix is considering moving to Denver next spring. He's still in Oakland and hasn't decided whether to take the offer.",
+   "earlier_person": "Felix",
+   "note": "He also said the offer is with a climate startup and that his partner is on the fence about leaving the Bay."
+  }
+ ]
+}
