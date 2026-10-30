@@ -1,7 +1,8 @@
 // The first screen of Kinship 2.0: welcome and sign in (D1: an account before
-// the first Tell; Sign in with Apple first). Board 1's setup language: paper,
-// a caps label, the promise in the display serif, one pressed sprig, and the
-// action pinned at the bottom in the gutter. Nothing about features or AI.
+// the first Tell; Sign in with Apple first). Electric Garden: a dawn wash and
+// the hero bloom cut by the page's top right, a caps label, the promise in the
+// poster voice, the example as three open lines, and the action pinned at the
+// bottom in the gutter. Nothing about features or AI.
 //
 // From plain data; app/(auth)/login.tsx supplies the auth calls.
 import React from "react";
@@ -9,10 +10,10 @@ import { ActivityIndicator, Platform, ScrollView, Text, TextInput, View } from "
 import { Pressable } from "@/ui/Pressable";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { appleButton, GUTTER, press, height, maxScale, radius, size, space, type } from "@/design/tokens";
+import { appleButton, font, GUTTER, press, height, maxScale, radius, size, space, type } from "@/design/tokens";
 import { AppleMark, GoogleMark } from "@/ui/brand";
 import { HOW_COPY } from "./HowItWorks";
-import { Body, Display, Label, Pill, Sheet, Small, Sprig, Title, useNight, usePalette } from "@/ui";
+import { Body, Botanical, DawnWash, Display, Grain, Label, Pill, SectionDot, Sheet, Small, Title, useNight, usePalette } from "@/ui";
 
 /** The sprig on the welcome screen: a fixed identity, the same on every phone. */
 export const WELCOME_SPRIG = "kinship";
@@ -85,32 +86,33 @@ function AppleButton({ onPress, busy, disabled }: { onPress: () => void; busy: b
   );
 }
 
-/** Tell → Remember → Bring back, in three short lines on one card; it opens the full example. */
+/** Tell → Remember → Bring back, in three open lines with their dots (no card); it opens the full example. */
 function ExampleCard({ onPress }: { onPress?: () => void }) {
   const p = usePalette();
+  const accents = ["lavender", "mark", "bloom"] as const;
   const body = (
-    <View style={{ backgroundColor: p.surface, borderRadius: radius.inline + 2, borderWidth: 1, borderColor: p.hairline, padding: space.l, gap: space.m }}>
+    <View style={{ borderTopWidth: 1, borderTopColor: p.hairline, paddingTop: space.l, gap: space.l }}>
       <Small>{WELCOME_COPY.example.label}</Small>
       {WELCOME_COPY.example.steps.map((s, i) => (
-        <View key={s.label} style={{ flexDirection: "row", gap: space.m }}>
-          <View style={{ width: 3, borderRadius: 2, backgroundColor: i === 2 ? p.mark : p.hairline }} />
+        <View key={s.label} style={{ flexDirection: "row", gap: space.m, alignItems: "flex-start" }}>
+          <View style={{ paddingTop: space.xs }}><SectionDot accent={accents[i]} /></View>
           <View style={{ flex: 1 }}>
             <Label>{s.label}</Label>
             <Body tone="ink" style={{ marginTop: space.xs }}>{s.text}</Body>
           </View>
         </View>
       ))}
-      {onPress ? <Small tone="markText">{`${HOW_COPY.link} →`}</Small> : null}
+      {onPress ? <Body tone="ink" style={{ fontFamily: font.sansSemi }}>{`${HOW_COPY.link} →`}</Body> : null}
     </View>
   );
-  if (!onPress) return <View style={{ marginTop: space.xl }}>{body}</View>;
+  if (!onPress) return <View>{body}</View>;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${WELCOME_COPY.example.label}: ${WELCOME_COPY.example.steps.map((s) => `${s.label}, ${s.text}`).join(". ")}`}
       accessibilityHint={HOW_COPY.link}
       onPress={onPress}
-      style={({ pressed }) => ({ marginTop: space.xl, opacity: pressed ? press.surface : 1 })}
+      style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
     >
       {body}
     </Pressable>
@@ -127,13 +129,17 @@ export function WelcomeView(props: WelcomeViewProps) {
       <StatusBar style={night ? "light" : "dark"} />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: GUTTER, paddingTop: insets.top + space.xl, paddingBottom: space.xl }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: GUTTER, paddingTop: insets.top + space.x5 + space.x5, paddingBottom: space.xl }}
       >
-        <Sprig personId={WELCOME_SPRIG} width={size.sprig.moment} />
-        <Label style={{ marginTop: space.xl }}>{WELCOME_COPY.label}</Label>
-        <Display style={{ marginTop: space.m }}>{WELCOME_COPY.promise}</Display>
+        <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+          <DawnWash kind="joyful" />
+          <Botanical art="bloom" width={330} top={-30} right={-40} />
+          <Botanical art="leaves" width={200} top={150} left={-110} rotate={-28} flip />
+        </View>
+        <Label>{WELCOME_COPY.label}</Label>
+        <Display style={{ marginTop: space.m, maxWidth: "88%" }}>{WELCOME_COPY.promise}</Display>
         <Body style={{ marginTop: space.m }}>{WELCOME_COPY.sub}</Body>
-        <ExampleCard onPress={props.onHowItWorks} />
+        <View style={{ marginTop: space.xxl }}><ExampleCard onPress={props.onHowItWorks} /></View>
       </ScrollView>
 
       <View style={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + space.xl, gap: space.m }}>
@@ -165,6 +171,7 @@ export function WelcomeView(props: WelcomeViewProps) {
           {"."}
         </Text>
       </View>
+      <Grain />
       {props.children}
     </View>
   );
@@ -229,7 +236,7 @@ function Field(props: {
       maxFontSizeMultiplier={maxScale.text}
       style={[type.field, {
         color: p.ink, minHeight: height.search, paddingHorizontal: space.l, borderRadius: radius.inline,
-        borderWidth: 1, borderColor: p.hairline, backgroundColor: p.paper,
+        borderWidth: 1, borderColor: p.hairline, backgroundColor: p.surface,
         ...(Platform.OS === "web" ? { outlineWidth: 0 } : {}),
       }]}
     />

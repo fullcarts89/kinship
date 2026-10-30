@@ -52,6 +52,7 @@ export function Screen({
     </View>
   ) : null;
   const body = {
+    flexGrow: 1,
     paddingHorizontal: GUTTER,
     paddingTop: insets.top + (hasHeader ? TOUCH + space.xs : space.l),
     paddingBottom: space.x4,

@@ -13,8 +13,9 @@ export interface BotanicalProps {
   art: GardenArt;
   /** Width in design points (scaled to the page). */
   width: number;
-  /** Offsets in design points; one of left or right. */
-  top: number;
+  /** Offsets in design points; one of left or right, and top or bottom. */
+  top?: number;
+  bottom?: number;
   left?: number;
   right?: number;
   rotate?: number;
@@ -26,7 +27,7 @@ export interface BotanicalProps {
   style?: ImageStyle;
 }
 
-export function Botanical({ art, width, top, left, right, rotate = 0, flip = false, opacity = 1, zIndex, dim = false, style }: BotanicalProps) {
+export function Botanical({ art, width, top, bottom, left, right, rotate = 0, flip = false, opacity = 1, zIndex, dim = false, style }: BotanicalProps) {
   const { width: page } = useWindowDimensions();
   const k = page / DESIGN_WIDTH;
   const w = width * k;
@@ -38,7 +39,8 @@ export function Botanical({ art, width, top, left, right, rotate = 0, flip = fal
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       style={{
-        position: "absolute", width: w, height: h, top: top * k,
+        position: "absolute", width: w, height: h,
+        ...(top !== undefined ? { top: top * k } : {}), ...(bottom !== undefined ? { bottom: bottom * k } : {}),
         ...(left !== undefined ? { left: left * k } : {}), ...(right !== undefined ? { right: right * k } : {}),
         transform, opacity: dim ? opacity * 0.55 : opacity, zIndex,
       }}

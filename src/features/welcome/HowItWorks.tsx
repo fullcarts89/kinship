@@ -13,8 +13,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Modal, ScrollView, Text, View } from "react-native";
 import { MessageCircle, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { GUTTER, maxScale, motion, radius, size, space, stroke, type } from "@/design/tokens";
-import { Body, Display, IconButton, Label, Line, Pill, Provenance, Small, Sprig, Title, usePalette, useReduceMotion } from "@/ui";
+import { GUTTER, maxScale, motion, size, space, stroke, type } from "@/design/tokens";
+import { Body, Botanical, Grain, IconButton, Label, Line, Pill, Provenance, Quote, Small, Sprig, Statement, Title, usePalette, useReduceMotion } from "@/ui";
 
 /** A fixed identity for the example's Ben (never a real person's id). */
 export const EXAMPLE_BEN = "example:ben";
@@ -74,8 +74,8 @@ function Step({ index, phase, onPhase }: { index: number; phase: number; onPhase
     case 0:
       return (
         <View style={{ marginTop: space.xl }}>
-          <View style={{ backgroundColor: p.surface, borderRadius: radius.inline + 2, borderWidth: 1, borderColor: p.hairline, padding: space.l + 2 }}>
-            <Line>{`“${HOW_COPY.note}”`}</Line>
+          <View style={{ borderLeftWidth: 2, borderLeftColor: p.lavender, paddingLeft: space.l, paddingVertical: space.xs }}>
+            <Quote>{`“${HOW_COPY.note}”`}</Quote>
           </View>
           <Small style={{ marginTop: space.m }}>{HOW_COPY.notSaved}</Small>
         </View>
@@ -102,9 +102,9 @@ function Step({ index, phase, onPhase }: { index: number; phase: number; onPhase
           <View style={{ flexDirection: "row", gap: space.l, marginTop: space.l, alignItems: "flex-start" }}>
             <Sprig personId={EXAMPLE_BEN} width={size.sprig.moment} />
             <View style={{ flex: 1 }}>
-              <Display>{HOW_COPY.moment}</Display>
+              <Statement>{HOW_COPY.moment}</Statement>
               <Body style={{ marginTop: space.m }}>{HOW_COPY.context}</Body>
-              <Body tone="ink" style={{ marginTop: space.xs }}>{HOW_COPY.hope}</Body>
+              <Quote style={{ marginTop: space.xs }}>{HOW_COPY.hope}</Quote>
               <View style={{ marginTop: space.s }}><Provenance line={HOW_COPY.told} /></View>
             </View>
           </View>
@@ -158,8 +158,8 @@ export function Afterwards({ phase, onPhase }: { phase: number; onPhase: (n: num
         <Arrive>
           <View style={{ marginTop: space.xxl, paddingTop: space.xl, borderTopWidth: 1, borderTopColor: p.hairline }}>
             <Title>{HOW_COPY.after}</Title>
-            <View style={{ marginTop: space.m, backgroundColor: p.surface, borderRadius: radius.inline + 2, borderWidth: 1, borderColor: p.hairline, padding: space.l }}>
-              <Line>{`“${HOW_COPY.reply}”`}</Line>
+            <View style={{ marginTop: space.m, borderLeftWidth: 2, borderLeftColor: p.lavender, paddingLeft: space.l, paddingVertical: space.xs }}>
+              <Quote>{`“${HOW_COPY.reply}”`}</Quote>
             </View>
           </View>
         </Arrive>
@@ -209,6 +209,9 @@ export function HowItWorksView({ step, onNext, onClose, initialPhase = 0 }: {
   const next = lastStep ? () => setPhase((n) => Math.min(n + 1, AFTER_PHASES - 1)) : onNext;
   return (
     <View style={{ flex: 1, backgroundColor: p.paper, paddingTop: insets.top }}>
+      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+        <Botanical art="leaf" width={170} top={-40} right={-70} rotate={26} dim />
+      </View>
       <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: space.m }}>
         <IconButton label={HOW_COPY.close} onPress={onClose}>
           <X color={p.inkQuiet} size={size.iconLarge} strokeWidth={1.8} />
@@ -224,6 +227,7 @@ export function HowItWorksView({ step, onNext, onClose, initialPhase = 0 }: {
       <View style={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + space.xl }}>
         <Pill variant={last ? "primary" : "ghost"} label={last ? HOW_COPY.done : HOW_COPY.next} onPress={last ? onClose : next} />
       </View>
+      <Grain />
     </View>
   );
 }

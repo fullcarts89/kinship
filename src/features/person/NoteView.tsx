@@ -5,7 +5,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 import { maxScale, size, space, type } from "@/design/tokens";
-import { Body, Label, MomentText, Pill, Row, Screen, Small, Sprig, usePalette } from "@/ui";
+import { Body, Botanical, Label, MomentText, Pill, Row, Screen, Small, Sprig, usePalette } from "@/ui";
 
 export interface NoteData {
   /**
@@ -80,7 +80,7 @@ export function NoteView({
     );
   }
   return (
-    <Screen onBack={onBack}>
+    <Screen onBack={onBack} art={<Botanical art="leaf" width={160} top={-30} right={-60} rotate={24} dim />}>
       <Label>Your note</Label>
       <Small style={{ marginTop: space.xs }}>{note.arrived}</Small>
       <View style={{ marginTop: space.xl }}>
