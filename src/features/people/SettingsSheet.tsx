@@ -25,10 +25,21 @@ export const CONTACTS_COPY = {
   settings: "Open iOS Settings",
 } as const;
 
+/** Settings › Notifications (CC-25 item 3, FD-30e; WS-3): on or paused. Copy a proposal. */
+export const NOTIFICATIONS_COPY = {
+  title: "Notifications",
+  how: "One private note on a day Kinship has something for you. Never what it is, and at most a few a week.",
+  on: "On",
+  paused: "Paused",
+} as const;
+
 export function SettingsSheetView(props: {
   visible: boolean;
   understanding: boolean | null;
   onUnderstanding: (on: boolean) => void;
+  /** Notifications on or paused (null while unknown, or when the phone can't notify). */
+  notifications?: boolean | null;
+  onNotifications?: (on: boolean) => void;
   /** What Kinship can see of the contacts on this phone (null while checking). */
   contacts?: ContactsAccess | null;
   onAddFromContacts?: () => void;
@@ -72,6 +83,27 @@ export function SettingsSheetView(props: {
           {contactsActions(props).map((a) => <Pill key={a.label} variant="quiet" label={a.label} onPress={a.onPress} />)}
         </View>
       </View>
+      {props.onNotifications ? (
+        <View style={{ paddingVertical: space.l, borderBottomWidth: 1, borderColor: p.hairline }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.m }}>
+            <View style={{ flex: 1 }}>
+              <Body tone="ink">{NOTIFICATIONS_COPY.title}</Body>
+              <Small tone="inkBody" style={{ marginTop: space.xs }}>{props.notifications ? NOTIFICATIONS_COPY.on : NOTIFICATIONS_COPY.paused}</Small>
+              <Small style={{ marginTop: space.xs }}>{NOTIFICATIONS_COPY.how}</Small>
+            </View>
+            <Switch
+              accessibilityLabel={NOTIFICATIONS_COPY.title}
+              value={props.notifications === true}
+              disabled={props.notifications === null}
+              onValueChange={props.onNotifications}
+              trackColor={{ true: p.ink, false: p.hairline }}
+              thumbColor={p.surface}
+              ios_backgroundColor={p.hairline}
+              {...({ activeThumbColor: p.surface } as object)}
+            />
+          </View>
+        </View>
+      ) : null}
       {props.removed?.length && props.onBringBack ? (
         <View style={{ paddingVertical: space.l, borderBottomWidth: 1, borderColor: p.hairline }}>
           <Body tone="ink">Removed from People</Body>
@@ -115,11 +147,14 @@ function contactsActions(props: Parameters<typeof SettingsSheetView>[0]): { labe
   return out;
 }
 
-export function SettingsSheet({ visible, onDismiss, understanding, setUnderstanding, signOut, onAddFromContacts, removed, onBringBack }: {
+export function SettingsSheet({ visible, onDismiss, understanding, setUnderstanding, notifications, setNotifications, signOut, onAddFromContacts, removed, onBringBack }: {
   visible: boolean;
   onDismiss: () => void;
   understanding: boolean | null;
   setUnderstanding: (on: boolean) => Promise<void>;
+  /** Notifications on or paused, and the way to change it (absent where the phone can't notify). */
+  notifications?: boolean | null;
+  setNotifications?: (on: boolean) => Promise<void>;
   signOut: () => Promise<void>;
   onAddFromContacts: () => void;
   removed?: { id: string; name: string }[];
@@ -148,6 +183,10 @@ export function SettingsSheet({ visible, onDismiss, understanding, setUnderstand
       onOpenSettings={openAppSettings}
       removed={removed}
       onBringBack={onBringBack}
+      notifications={notifications}
+      onNotifications={setNotifications ? (on) => {
+        setNotifications(on).catch(() => Alert.alert("That wasn't saved", "Try again when you're online."));
+      } : undefined}
       understanding={saving ? null : understanding}
       onUnderstanding={(on) => {
         setSaving(true);

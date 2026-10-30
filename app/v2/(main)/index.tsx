@@ -49,7 +49,11 @@ export default function TodayScreen() {
       }
     };
     const t = setTimeout(end, SETTLE_MS);
-    void actions.refresh().finally(end);
+    // Once the reasons are fresh, the next Moment notification is planned from the same selection (FD-30e).
+    void actions.refresh().finally(() => {
+      end();
+      void actions.planNotification();
+    });
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -61,6 +65,9 @@ export default function TodayScreen() {
       if (s === "active") {
         setNow(new Date());
         void actions.refresh();
+      } else if (s === "background") {
+        // Leaving: what was shown, put aside or answered is known; the next notification follows it.
+        void actions.planNotification();
       }
     });
     const t = setInterval(() => setNow(new Date()), 60_000);
