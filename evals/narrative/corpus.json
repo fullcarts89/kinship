@@ -1,0 +1,31 @@
+{
+  "comment": "CER-1 realistic corpus (synthetic people only). today = 2026-10-30, America/Los_Angeles. Expected ledgers live in ledger.json.",
+  "scenarios": [
+    { "id": "s63", "title": "Issue #63 reproduction", "page": "Pablo",
+      "note": "Pablo loves cooking, sleeping in, reading, and going to electronic music shows. He is close with his mom and sister and sees them often. He has a pet dog named Rocket who dislikes unfamiliar dogs but gets along with our dog Bean. He is worried about changes at work." },
+    { "id": "s1", "title": "One person, family, pet", "page": "Leo",
+      "note": "Leo is really into cooking and electronic music shows. He sees his mom and sister most weekends, and they're close. His dog Rocket gets nervous around unfamiliar dogs but gets along with our dog Bean. Lately he's worried about changes in his industry." },
+    { "id": "s2", "title": "Interests and a conditional plan", "page": "Ari",
+      "note": "Ari has been reading a lot of mysteries on the train. She picked up watercolor painting last month and wants to try a class if work settles down." },
+    { "id": "s3", "title": "Singular they", "page": "Jun",
+      "note": "Jun uses they/them pronouns. They're learning to bake bread, although their first sourdough didn't turn out. They thought it was funny and want to try again." },
+    { "id": "s4", "title": "Genuine ambiguity", "page": "Marin",
+      "note": "Marin and Elise went camping last weekend. She misplaced her keys along the trail, but Elise found them back in the car." },
+    { "id": "s5", "title": "Related person and sensitivity", "page": "Dani",
+      "note": "Dani said her sister Lila has surgery next Thursday, November 5. Dani is taking that afternoon off to drive her." },
+    { "id": "s6", "title": "Shared history", "page": "Sora",
+      "note": "I met Sora for coffee yesterday. We played tennis together in college and thought it would be fun to do that again sometime." },
+    { "id": "s7", "title": "Current and planned residence", "page": "Felix",
+      "note": "Felix is considering moving to Denver next spring. He's still in Oakland and hasn't decided whether to take the offer." },
+    { "id": "s8", "title": "Specific event and preferences", "page": "Tessa",
+      "note": "Tessa's birthday is November 4. She wants a quiet lunch with a few friends instead of a big party this year." },
+    { "id": "s9", "title": "Compound interests", "page": "Noah",
+      "note": "Noah loves hiking, bird photography and Thai food, but he hates olives. He just started pottery and is trying to persuade his roommate to join." },
+    { "id": "s10", "title": "User promise", "page": "Sam",
+      "note": "I promised I'd bring Sam soup this Saturday because she's been overwhelmed at work. Sam hasn't decided which kind she wants." },
+    { "id": "s11", "title": "Temporary versus permanent location", "page": "Riley",
+      "note": "Riley moved from Austin to Portland last summer. This week they're at a conference in Seattle, staying with friends, but Portland is still home." },
+    { "id": "s12", "title": "Density and recovery", "page": "Mina",
+      "note": "Mina collects records, loves jazz, is learning Portuguese, keeps succulents on her desk, rides a bike to work, plays badminton, makes ceramics, reads fantasy, grows herbs and plays chess on Thursdays. She is also nervous about a job interview next Wednesday." }
+  ]
+}
