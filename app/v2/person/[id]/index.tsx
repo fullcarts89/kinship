@@ -13,9 +13,13 @@ import { TellSheet } from "@/features/tell/TellSheet";
 import { useHandoff } from "@/features/today/useHandoff";
 import { OUTCOME_ASK, type GestureKind } from "@/features/today/suggestions";
 import { track } from "@/platform/analytics";
-import { todayIso, useItemLine, usePeople, usePersonLinks, usePersonReturn, usePortrait, useTodayActions, useUnderstanding, useV2Actions } from "@/hooks/useV2";
+import { todayIso, useItemLine, useMerges, usePeople, usePersonLinks, usePersonReturn, usePortrait, useTodayActions, useTrustActions, useUnderstanding, useV2Actions } from "@/hooks/useV2";
+import { MergeSheet } from "@/features/people/MergeSheet";
 import { NamePane } from "@/features/tell/Pickers";
 import { PHOTO_COPY, usePersonPortrait } from "@/hooks/usePersonPortrait";
+import { MERGE_COPY } from "@/store/peopleMerge";
+import { HOLD_COPY, stateLine, type HoldState } from "@/store/peopleStates";
+import type { Person } from "@/store/repositories";
 import { Pill, Sheet, Title } from "@/ui";
 import { space } from "@/design/tokens";
 import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
@@ -41,6 +45,10 @@ export default function PersonScreen() {
   const [renaming, setRenaming] = useState(false);
   const [inTouch, setInTouch] = useState(false);
   const { rename, removePerson, inTouch: recordInTouch } = useV2Actions();
+  // The trust floor (FD-30e): Pause / Hold as remembered / Resume (D13), Merge with someone (PER-05).
+  const trust = useTrustActions();
+  const merges = useMerges(personId);
+  const [merging, setMerging] = useState<{ candidates: Person[]; everyone: Person[] } | null>(null);
   const item = useItemLine(itemId);
   const name = portrait.person?.display_name ?? null;
   // Said the way Kinship says their name everywhere (founder I12).
@@ -84,6 +92,32 @@ export default function PersonScreen() {
     suggestion: back.suggestion,
   });
 
+  const state = portrait.person?.state;
+  // Holding someone is asked first, in plain words (D13); leaving "remembered" is asked once more.
+  const hold = (next: HoldState) => {
+    const c = HOLD_COPY[next];
+    Alert.alert(c.confirmTitle(first), c.confirmBody(first), [
+      { text: HOLD_COPY.cancel, style: "cancel" },
+      { text: c.confirm, onPress: () => { setRenaming(false); fail(trust.hold(personId, next)); } },
+    ]);
+  };
+  const resume = () => {
+    if (state === "remembered") {
+      Alert.alert(HOLD_COPY.remembered.resumeTitle(first), HOLD_COPY.remembered.resumeBody(first), [
+        { text: HOLD_COPY.cancel, style: "cancel" },
+        { text: HOLD_COPY.remembered.resume, onPress: () => { setRenaming(false); fail(trust.resume(personId)); } },
+      ]);
+      return;
+    }
+    setRenaming(false);
+    fail(trust.resume(personId));
+  };
+  const openMerge = () => {
+    setRenaming(false);
+    void Promise.all([trust.candidates(personId), trust.everyoneElse(personId)])
+      .then(([candidates, everyone]) => setMerging({ candidates, everyone }), () => Alert.alert("That couldn't be read", "Try again in a moment."));
+  };
+
   return (
     <PortraitView
       personId={personId}
@@ -92,6 +126,16 @@ export default function PersonScreen() {
       short={first}
       label={portrait.label}
       remembered={portrait.person?.state === "remembered"}
+      stateLine={stateLine(portrait.person)}
+      stateExplain={state === "paused" || state === "remembered" ? HOLD_COPY[state].explain(first) : null}
+      merged={merges.map((m) => ({ id: m.id, line: MERGE_COPY.mergedLine(m.sourceName) }))}
+      onUndoMerge={(id) => {
+        const m = merges.find((x) => x.id === id);
+        trust.undoMerge(id).then(
+          () => Alert.alert(MERGE_COPY.undone(m?.sourceName ?? "They")),
+          (e: unknown) => Alert.alert("That couldn't be undone", e instanceof Error && e.message ? e.message : "Try again in a moment."),
+        );
+      }}
       lately={portrait.lately}
       comingUp={portrait.comingUp}
       youSaid={portrait.youSaid}
@@ -172,7 +216,7 @@ export default function PersonScreen() {
       {handoff.sheet}
       <Sheet visible={renaming} onDismiss={() => setRenaming(false)} label="Their name">
         {renaming && name ? (
-          <NamePane initial={name} onCancel={() => setRenaming(false)} onSave={(n) => {
+          <NamePane initial={name} short={first} state={state} onHold={hold} onResume={resume} onMerge={openMerge} onCancel={() => setRenaming(false)} onSave={(n) => {
             fail(rename(personId, n));
             setRenaming(false);
           }} onRemove={() => {
@@ -190,6 +234,15 @@ export default function PersonScreen() {
           }} />
         ) : null}
       </Sheet>
+      <MergeSheet
+        visible={!!merging}
+        person={portrait.person}
+        candidates={merging?.candidates ?? []}
+        everyone={merging?.everyone ?? []}
+        onDismiss={() => setMerging(null)}
+        preview={(sourceId) => trust.preview(personId, sourceId)}
+        onMerge={(sourceId) => trust.merge(personId, sourceId)}
+      />
       {/* A conversation Kinship couldn't know about (founder I2): how, and nothing more. */}
       <Sheet visible={inTouch} onDismiss={() => setInTouch(false)} label={IN_TOUCH.title(first)}>
         {inTouch ? (

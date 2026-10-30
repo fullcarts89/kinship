@@ -33,6 +33,12 @@ import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { followUpsOf, keptLinesOf, recoveryOf, type Recovery } from "@/store/followUp";
 import { isOn } from "@/store/flags";
 import { closedBy, peopleOf, repositoriesFor, type Capture, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
+import { deleteAccount } from "@/lib/accountDeletion";
+import { buildExport, exportInputFrom, shareExport, type ExportFormat } from "@/lib/exportData";
+import { supabase } from "@/lib/supabase";
+import { MERGE_COPY, mergeCandidates, mergedAwayIds, mergePreview, type MergePreview, type MergeRow, sayName, supabaseMergeTransport, undoableMerges } from "@/store/peopleMerge";
+import { isHeld, isInPeople, type HoldState } from "@/store/peopleStates";
+import { StoreWriteError } from "@/store/userStore";
 import type { HeldItem } from "@/store/gateway";
 import { questionWaiting } from "@/store/understanding";
 import type { UserStore } from "@/store/userStore";
@@ -496,10 +502,13 @@ export function useV2Actions() {
 /** People removed from People (founder I3), for Settings' Bring back; never anywhere else. */
 export function useRemovedPeople(): Person[] {
   const { store } = useV2Session();
-  const q = useStoreQuery(store, async (repos) =>
-    (await repos.people.list())
-      .filter((p) => p.state === "archived" && !p.deleted_at)
-      .sort((a, b) => a.display_name.localeCompare(b.display_name)));
+  const q = useStoreQuery(store, async (repos) => {
+    // Someone folded into another person (PER-05) is undone from that person's page, never "brought back" as a shell.
+    const merged = mergedAwayIds((await store.list("people_merges")) as unknown as MergeRow[]);
+    return (await repos.people.list())
+      .filter((p) => p.state === "archived" && !p.deleted_at && !merged.has(p.id))
+      .sort((a, b) => a.display_name.localeCompare(b.display_name));
+  });
   return q.data ?? [];
 }
 
@@ -1149,4 +1158,98 @@ export function useToldCount(): number {
   const { store } = useV2Session();
   const q = useStoreQuery(store, async (repos) => (await repos.captures.list()).length);
   return q.data ?? 0;
+}
+
+// ─── The alpha trust floor (FD-30e): Paused / Remembered, merges, export, deletion ──
+
+/** People the user is holding (paused or remembered; D13), for Settings' Resume. Alphabetical, never counted. */
+export function useHeldPeople(): Person[] {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) =>
+    (await repos.people.list()).filter((p) => isHeld(p)).sort((a, b) => a.display_name.localeCompare(b.display_name)));
+  return q.data ?? [];
+}
+
+/** Merges into this person the user can still undo (PER-05: 30 days), with the merged person's name. */
+export function useMerges(personId: string): { id: string; sourceId: string; sourceName: string }[] {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => {
+    const rows = (await store.list("people_merges")) as unknown as MergeRow[];
+    const people = await repos.people.list();
+    return undoableMerges(rows, personId, new Date()).map((m) => {
+      const s = people.find((p) => p.id === m.source_id);
+      return { id: m.id, sourceId: m.source_id, sourceName: s ? sayName(s) : "someone" };
+    });
+  }, [personId]);
+  return q.data ?? [];
+}
+
+/**
+ * What the trust floor lets the user do: hold and resume someone (D13), merge two People who are one
+ * person and undo it (PER-05), export everything (SET-04) and delete the account (SET-05). Merging goes
+ * through the server (merge_people) after this phone's own changes are pushed, then syncs, so every
+ * device sees one truth; offline it waits.
+ */
+export function useTrustActions() {
+  const { store, understanding } = useV2Session();
+  const repos = repositoriesFor(store);
+  const client = supabase;
+  const settle = () => understanding.run().catch(() => undefined);
+  return {
+    hold: (personId: string, state: HoldState) => repos.people.hold(personId, state),
+    resume: (personId: string) => repos.people.resume(personId),
+    /** Who in People might be the same person as this one (shared name; never a score). */
+    candidates: async (personId: string) => {
+      const people = await repos.people.list();
+      const me = people.find((p) => p.id === personId);
+      return me ? mergeCandidates(me, people) : [];
+    },
+    everyoneElse: async (personId: string) =>
+      (await repos.people.list()).filter((p) => p.id !== personId && isInPeople(p)).sort((a, b) => a.display_name.localeCompare(b.display_name)),
+    /** Exactly what a merge would move, in the words the pages show. */
+    preview: async (targetId: string, sourceId: string): Promise<MergePreview> => {
+      const people = await repos.people.list();
+      const target = people.find((p) => p.id === targetId);
+      const source = people.find((p) => p.id === sourceId);
+      if (!target || !source) throw new StoreWriteError("that person isn't here any more");
+      const all = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people));
+      return mergePreview({
+        target, source,
+        items: all.filter((m) => m.person_id === sourceId),
+        sharedItems: all.filter((m) => m.person_id !== sourceId && Array.isArray(m.with_person_ids) && m.with_person_ids.includes(sourceId)),
+        related: await repos.people.related(sourceId),
+        conversations: (await repos.contacts.forPerson(sourceId)) as unknown as { channel: string; occurred_at: string; deleted_at?: unknown }[],
+      });
+    },
+    merge: async (targetId: string, sourceId: string): Promise<void> => {
+      if (!client) throw new StoreWriteError(MERGE_COPY.offline);
+      await settle();
+      if ((await store.pendingOps()).length) throw new StoreWriteError(MERGE_COPY.offline);
+      await supabaseMergeTransport(client).merge(targetId, sourceId);
+      await settle();
+      store.notify();
+    },
+    undoMerge: async (mergeId: string): Promise<void> => {
+      if (!client) throw new StoreWriteError(MERGE_COPY.offline);
+      await supabaseMergeTransport(client).undo(mergeId);
+      await settle();
+      store.notify();
+    },
+    /** Builds the export from this phone's store (plus the server's consent ledger) and opens the share sheet. */
+    exportData: async (format: ExportFormat): Promise<boolean> => {
+      const input = await exportInputFrom(repos, store, new Date(), timeZone() ?? "UTC");
+      let consents: { scope: string; granted: boolean; created_at: string }[] | null = null;
+      try {
+        if (client) {
+          const { data } = await client.from("consents").select("scope,granted,created_at").order("created_at", { ascending: true });
+          consents = (data ?? []) as unknown as typeof consents;
+        }
+      } catch {
+        consents = null;
+      }
+      return shareExport(buildExport({ ...input, consents }), format);
+    },
+    /** The server removes everything, then this phone is wiped and signed out; never reported done unless it is. */
+    deleteAccount: () => deleteAccount(),
+  };
 }

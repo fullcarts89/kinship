@@ -67,6 +67,13 @@ export interface PortraitViewProps {
   short?: string | null;
   label: string | null;
   remembered: boolean;
+  /** "Paused" / "Remembered" (D13): the only visual difference of a held person; null for anyone active. */
+  stateLine?: string | null;
+  /** What the line means, read to screen readers with it. */
+  stateExplain?: string | null;
+  /** People merged into them that can still be undone (PER-05), each as one quiet line. */
+  merged?: { id: string; line: string }[];
+  onUndoMerge?: (mergeId: string) => void;
   /** Tapping the name corrects it (H1). */
   onRename?: () => void;
   lately: PortraitLineData[];
@@ -296,7 +303,19 @@ export function PortraitView(props: PortraitViewProps) {
         accessibilityHint={props.onRename ? "Double-tap to change their name" : undefined}
       />
       {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
-      {props.remembered ? <Small style={{ marginTop: space.xs }}>Remembered</Small> : null}
+      {/* The one visual difference of a held person (D13, PER-06): one quiet line. */}
+      {props.stateLine ?? (props.remembered ? "Remembered" : null) ? (
+        <Small style={{ marginTop: space.xs }} accessibilityLabel={`${props.stateLine ?? "Remembered"}. ${props.stateExplain ?? ""}`.trim()}>
+          {props.stateLine ?? "Remembered"}
+        </Small>
+      ) : null}
+      {/* Someone merged into them (PER-05): said once, with Undo while it can be undone. */}
+      {props.merged?.map((m) => (
+        <View key={m.id} style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: space.xs, marginLeft: -space.xs }}>
+          <Small style={{ marginLeft: space.xs }}>{m.line}</Small>
+          {props.onUndoMerge ? <Pill variant="quiet" size="small" label="Undo" accessibilityLabel={`Undo: ${m.line}`} onPress={() => props.onUndoMerge?.(m.id)} /> : null}
+        </View>
+      ))}
       {/* A visible Edit beside the name (founder I3): the name, and Remove from People; and the user's own photo (FD-30b). */}
       {props.onRename || props.onPhoto ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginLeft: -space.xs }}>

@@ -14,23 +14,29 @@
 // Only the user sets paused and remembered, from the person's page. Nothing
 // here, in extraction or on the server ever sets them (contract §7.10).
 
-import type { Person, PersonState } from "./repositories";
+import type { PersonState } from "./repositories";
 
 /** The two states the user sets to hold someone (D13). */
 export type HoldState = Extract<PersonState, "paused" | "remembered">;
 
+/** What the helpers read of a person: the state, and whether the row is deleted. */
+export interface StateLike {
+  state: unknown;
+  deleted_at?: unknown;
+}
+
 /** Someone Kinship may speak of on its own: in People, not held, not deleted. */
-export function isProactiveEligible(person: Pick<Person, "state" | "deleted_at"> | null | undefined): boolean {
+export function isProactiveEligible(person: StateLike | null | undefined): boolean {
   return !!person && person.state === "active" && !person.deleted_at;
 }
 
 /** Someone the user is holding: paused or remembered (both still in People). */
-export function isHeld(person: Pick<Person, "state" | "deleted_at"> | null | undefined): person is Person & { state: HoldState } {
+export function isHeld<T extends StateLike>(person: T | null | undefined): person is T & { state: HoldState } {
   return !!person && !person.deleted_at && (person.state === "paused" || person.state === "remembered");
 }
 
 /** In People at all (held or not), as the list shows them. */
-export function isInPeople(person: Pick<Person, "state" | "deleted_at"> | null | undefined): boolean {
+export function isInPeople(person: StateLike | null | undefined): boolean {
   return !!person && !person.deleted_at && person.state !== "archived";
 }
 
@@ -64,6 +70,6 @@ export const HOLD_COPY = {
 } as const;
 
 /** The quiet line on a held person's page ("Paused", "Remembered"), or null. */
-export function stateLine(person: Pick<Person, "state" | "deleted_at"> | null | undefined): string | null {
+export function stateLine(person: StateLike | null | undefined): string | null {
   return isHeld(person) ? HOLD_COPY[person.state].line : null;
 }
