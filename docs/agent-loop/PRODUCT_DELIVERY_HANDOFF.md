@@ -75,7 +75,22 @@ Open in WS-1: black-box regression against this branch's gateway (k27, k4, k28, 
 
 ## WS-2 · Electric Garden
 
-_Section owned by the WS-2 session._
+**Branch** `claude/ws2-electric-garden-5ec0d5` · **PR** #71 (draft, against `main`; do not merge) · **commit** see the PR's head. Worktree session WS-2, started 30 Oct.
+
+**Built (FD-30b):**
+- `src/design/tokens.ts` rewritten for Electric Garden: warm paper, leaf-green ink, a lime `mark` / `markText` for everything understood (the ochre tokens are gone from the 2.0 shell), the five art accents, a night set that keeps the art vivid; the poster type scale (Archivo Black names / statement / titles, Newsreader italic for the user's words, Instrument Sans 400–700 for the machine); motion (hero 520 ms, arrive 320, sheets 360, Reduce Motion → 150 ms fades), depth (sheet and field lifts), art tokens. Contrast gates updated; every pair passes.
+- `assets/images/garden/` with `PROVENANCE.md`; `src/ui/garden/` (Botanical, DawnWash, Grain, FluidPhoto, BloomName, PosterName, SectionDot); primitives re-skinned (Screen art slot + grain, Provenance lime caps, Tell field as the one raised surface, pills, bar, rows, sprig as a two-colour identity mark).
+- Screens: Welcome, See how it works, Setup (all steps), Today (moment with photo or bloom-filled name, quiet day, first use, bring back, return check, week), People, Person portrait, What Kinship knows, Tell dock / sheet / review / Kept card / clarification / correction, Source, Moment detail, hand-off, Settings. Every prop, callback, copy string, test id and accessibility label kept; tests updated only where they asserted on styles (tokens).
+- A user-chosen photo per person, local-only (`src/lib/personPhotos.ts`, `src/hooks/usePersonPortrait.ts`), "Add a photo" on the person's page; shown in the person's hero and Today's hero for that person; never synced, never inferred from, never on a sensitive line, no store schema change.
+- Docs: `approved-design-coverage.md` "Electric Garden (FD-30b)" (each surface's treatment and the Quiet Herbarium rule it replaces; what is not faithful and why); contract §4 note.
+
+**New props other workstreams may see (additive, optional):** `TodayView.photoUri`, `TodayView.dayKind` (a model that knows a day is difficult can say so; the view never infers it), `PortraitView.photoUri` / `onPhoto`. `Row.serifSubtitle`. `Screen.art` / `grain`. `Botanical`, `DawnWash` etc. exported from `@/ui`.
+
+**Other workstreams' files touched, visually only:** `src/features/today/TodayView.tsx` (WS-2 owns views; WS-3 adds props), `src/features/people/SettingsSheet.tsx` (none beyond tokens), `app/v2/(main)/index.tsx` and `app/v2/person/[id]/index.tsx` (the photo hook wired in).
+
+**Not built / known defects:** see the PR's evidence section, kept current. The poster split (the name at 120 pt, the statement's remainder under it) applies only when the statement opens with the person's name followed by a space; otherwise the whole statement sits under the name. The e2e black-box helpers that look for a statement as one Text node will see the split for such statements; the accessibility label is always the whole statement.
+
+**Evidence:** UNIT: `TZ=UTC npx jest` 964 / 964, `tsc` and `eslint` clean at each push. NATIVE-SIMULATOR: the Release simulator walk and its screenshots under `docs/product/screens/electric-garden/`, reported row by row in the PR. Readiness: **NOT READY** (the integrated candidate decides).
 
 ## WS-3 · Showing up
 

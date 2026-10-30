@@ -1,18 +1,19 @@
-// "You told Kinship · Sep 29": where something came from (plan §6; boards 2
-// and System). A small ochre dot and a quiet line; one tap opens the source.
+// "From your note · Oct 8": where something came from (plan §6). The lime dot
+// and a small tracked caps line in ink-quiet (Stage 1); one tap opens the
+// source. The dot is the mark of something understood, never decoration.
 import React from "react";
 import { View } from "react-native";
 import { Pressable } from "./Pressable";
 import { press, size, space } from "@/design/tokens";
-import { Small } from "./Text";
+import { Source } from "./Text";
 import { usePalette } from "./theme";
 
 export function Provenance({ line, onPress, dot = true }: { line: string; onPress?: () => void; dot?: boolean }) {
   const p = usePalette();
   const content = (
     <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
-      {dot ? <View style={{ width: size.dot, height: size.dot, borderRadius: size.dot / 2, backgroundColor: p.ochre }} /> : null}
-      <Small style={{ flexShrink: 1 }}>{line}</Small>
+      {dot ? <View style={{ width: size.dot, height: size.dot, borderRadius: size.dot / 2, backgroundColor: p.mark }} /> : null}
+      <Source style={{ flexShrink: 1 }}>{line}</Source>
     </View>
   );
   if (!onPress) return content;

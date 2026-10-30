@@ -6,7 +6,7 @@ import React from "react";
 import { View } from "react-native";
 import { MessageCircle, Phone } from "lucide-react-native";
 import { space } from "@/design/tokens";
-import { Body, Label, MomentText, Pill, Provenance, Sheet, Small } from "@/ui";
+import { Body, Label, Pill, Provenance, Quote, Sheet, Small, Title } from "@/ui";
 import type { MomentDetail } from "./momentDetail";
 import { SuggestionLine } from "./SuggestionLine";
 
@@ -28,8 +28,8 @@ export function MomentDetailSheet({ detail, onDismiss, onMessage, onCall, onPers
       {detail ? (
         <View>
           <Label>{detail.personName}</Label>
-          <MomentText style={{ marginTop: space.s }}>{detail.line}</MomentText>
-          {detail.hope ? <Body tone="ink" style={{ marginTop: space.xs }}>{detail.hope}</Body> : null}
+          <Title style={{ marginTop: space.s }}>{detail.line}</Title>
+          {detail.hope ? <Quote style={{ marginTop: space.s }}>{detail.hope}</Quote> : null}
           <Body style={{ marginTop: space.l }}>{detail.why}</Body>
           {detail.when ? <Small style={{ marginTop: space.xs }}>{detail.when}</Small> : null}
           {detail.provenance ? (
