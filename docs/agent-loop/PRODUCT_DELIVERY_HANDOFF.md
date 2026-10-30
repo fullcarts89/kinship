@@ -57,7 +57,7 @@ Founder-directed changes recorded by this effort (new, 30 Oct 2026):
 
 ## WS-1 · Extraction + memory (coordinator)
 
-**Branch `claude/kinship-end-to-end-completion-67e702`** (from `main` f55f331). State on 30 Oct 2026, evening:
+**Branch `claude/kinship-end-to-end-completion-67e702`** (from `main` f55f331), **PR #72 (draft)**. State on 30 Oct 2026, evening:
 
 Built:
 - **#63 / K30, "Who is he?"** `someoneElseBefore` replaces `noOneElseBefore` in `pipeline.ts`: only another person before the pronoun (a name not in People, or someone the writer introduces by relation, of a gender the pronoun can mean) makes "he"/"she" ambiguous; the subject's relatives, pets, acronyms, places and lower-cased words do not; the rule now applies with or without a page. Two padded mention shapes fixed from the live run: "he loves" is the pronoun; "His sister Carla" with subject related is Leo's sister Carla. J1's cases unchanged.
