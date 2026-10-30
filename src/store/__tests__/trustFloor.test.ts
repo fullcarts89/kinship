@@ -123,6 +123,21 @@ describe("Today honours Paused / Remembered (D13)", () => {
   });
 });
 
+describe("a shared person recorded before the memory's insert synced", () => {
+  it("reaches the server as a follow-up update (write_memory_item takes no sharing at insert)", async () => {
+    const { server, repos, engine, store } = await setup();
+    const sam = await repos.people.add({ display_name: "Sam Eden" });
+    const anthony = await repos.people.add({ display_name: "Anthony" });
+    const m = await repos.memory.remember({ kind: "moment", person_id: sam.id, statement: "Sam and Anthony went to Tahoe" }, { userAuthored: true });
+    // "Yes" to "Is this the Anthony in …?" while the insert is still queued (offline, or just quick).
+    await store.update("memory_items", m.id, { with_person_ids: [anthony.id] });
+    await engine.sync();
+    expect(server.table("memory_items").get(m.id)).toMatchObject({ with_person_ids: [anthony.id], version: 2 });
+    expect(await store.pendingOps()).toEqual([]);
+    expect(((await repos.memory.get(m.id)) as { with_person_ids?: string[] }).with_person_ids).toEqual([anthony.id]);
+  });
+});
+
 describe("duplicate merge (PER-05)", () => {
   const anthony = person("anthony", { display_name: "Anthony", full_name: null } as Partial<Person>);
   const lopez = person("lopez", { display_name: "Anthony Lopez", full_name: "Anthony Lopez", contact_ref: "c-1", birthday: "1990-03-14", birthday_source: "contacts" } as Partial<Person>);
