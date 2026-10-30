@@ -232,7 +232,7 @@ function newestFirst(a: MemoryItem, b: MemoryItem): number {
 }
 
 /** Several named people, as a sentence: "Sam", "Sam and Chris", "Sam, Chris and Ben". */
-function listNames(people: readonly Person[]): string {
+export function listNames(people: readonly Person[]): string {
   const names = people.map((p) => shortName(p) || p.display_name);
   if (names.length <= 1) return names[0] ?? "";
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
