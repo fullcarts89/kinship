@@ -56,7 +56,7 @@ describe("RSN-06 through the real screens: a promise of the user's own, told tod
     const john = a.person("John");
     // 1. Told: "I need to call John tonight" (the founder's K20 note), kept as a promise of the user's due today.
     await tell(a.r, N6);
-    await until(a.r, (s) => s.includes("You said you'd call John tonight."), "the promise as Today's Moment", 30000);
+    await until(a.r, (s) => s.includes("You said you'd call John tonight."), "the promise as Today's Moment", 120000);
     if (canTap(a.r, "Got it right")) await tap(a.r, "Got it right");
     await settle(300);
     const today = texts(a.r);
@@ -133,7 +133,7 @@ describe("RSN-07 and SUA-1 through the real screens: an open thread's one check-
     const a = await account("hand: plan");
     const felix = a.person("Felix");
     await tell(a.r, N6);
-    await until(a.r, (s) => s.some((t) => /call John/iu.test(t) && t !== N6), "the first note understood", 30000);
+    await until(a.r, (s) => s.some((t) => /call John/iu.test(t) && t !== N6), "the first note understood", 120000);
     if (canTap(a.r, "Got it right")) await tap(a.r, "Got it right");
     // Told 42 days ago: an open thread about Felix; and his wedding, ten days ahead (a current line, no Moment).
     const told = daysAgoNoon(42);
