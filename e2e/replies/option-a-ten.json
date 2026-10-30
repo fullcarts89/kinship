@@ -1,0 +1,373 @@
+{
+ "note": "Priya loves jazz. Priya took up pottery. Priya started trail running. Priya is learning Italian. Priya joined a choir. Priya bought a kayak. Priya reads Russian novels. Priya collects stamps. Priya plays chess on Tuesdays. Priya grows tomatoes.",
+ "variants": [
+  {
+   "label": "hand: ten things, every one proposed",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya loves jazz",
+      "evidence": [
+       "Priya loves jazz"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya loves jazz",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya took up pottery",
+      "evidence": [
+       "Priya took up pottery"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya took up pottery",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya started trail running",
+      "evidence": [
+       "Priya started trail running"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya started trail running",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya is learning Italian",
+      "evidence": [
+       "Priya is learning Italian"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya is learning Italian",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya joined a choir",
+      "evidence": [
+       "Priya joined a choir"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya joined a choir",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya bought a kayak",
+      "evidence": [
+       "Priya bought a kayak"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya bought a kayak",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya reads Russian novels",
+      "evidence": [
+       "Priya reads Russian novels"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya reads Russian novels",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya collects stamps",
+      "evidence": [
+       "Priya collects stamps"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya collects stamps",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya plays chess on Tuesdays",
+      "evidence": [
+       "Priya plays chess on Tuesdays"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya plays chess on Tuesdays",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya grows tomatoes",
+      "evidence": [
+       "Priya grows tomatoes"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya grows tomatoes",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

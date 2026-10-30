@@ -1,7 +1,7 @@
 // A person's page: the portrait (board 2). Tap a line to correct it, its
 // provenance for the note; Message and Call open the real conversation;
 // Tell adds something about them (an unsent note about them waits here).
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Alert, AppState, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { reachedSomeone } from "@/platform/haptics";
@@ -29,6 +29,12 @@ export default function PersonScreen() {
   const links = usePersonLinks(personId);
   const [itemId, setItemId] = useState<string | null>(null);
   const [telling, setTelling] = useState(false);
+  // "Tell the rest" on this page (the card, the review, the Source view): the words not got to are the
+  // draft about this person; the page's own Tell sheet opens on them (Today's dock is not on this screen).
+  useEffect(() => {
+    const r = flow.focusRequest;
+    if (r?.continues && r.personId === personId) setTelling(true);
+  }, [flow.focusRequest, personId]);
   const [renaming, setRenaming] = useState(false);
   const [inTouch, setInTouch] = useState(false);
   const { rename, removePerson, inTouch: recordInTouch } = useV2Actions();

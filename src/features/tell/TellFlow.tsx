@@ -269,6 +269,9 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     try {
       const id = await keepNote(text, contextPersonId ?? null, source, continues ?? null);
       u.sent(id, tapped);
+      // The rest is told: the request that carried its link is answered, so no later note (from any
+      // surface) is linked to that first note again (NATIVE-SIMULATOR finding, 19 Oct).
+      if (continues) setFocusRequest((r) => (r?.continues === continues ? null : r));
       // Telling something else is the end of the last card: what it kept stays kept.
       if (current && current !== id && !dismissed[current] && currentView?.mode === "card") finishCard(current, "idle");
       setCurrent(id);
@@ -279,7 +282,7 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
       Alert.alert("That wasn't kept", "Something went wrong saving it on this phone. Your words are still here.");
       return false;
     }
-  }, [keepNote, ai, activate, current, dismissed, currentView?.mode, finishCard, u]);
+  }, [keepNote, ai, activate, current, dismissed, currentView?.mode, finishCard, u, setFocusRequest]);
 
   const fail = (what: Promise<unknown>) => {
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));

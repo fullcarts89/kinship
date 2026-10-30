@@ -1,0 +1,85 @@
+{
+ "note": "Priya started a book club. Priya is learning to bake.",
+ "variants": [
+  {
+   "label": "hand: two things",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya started a book club",
+      "evidence": [
+       "Priya started a book club"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya started a book club",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Priya",
+      "person_mention": "Priya",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Priya is learning to bake",
+      "evidence": [
+       "Priya is learning to bake"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Priya is learning to bake",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

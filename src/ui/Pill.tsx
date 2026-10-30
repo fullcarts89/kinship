@@ -32,6 +32,7 @@ export function Pill({
   accessibilityLabel,
   accessibilityHint,
   style,
+  fixedLabel = false,
 }: {
   label: string;
   onPress: () => void;
@@ -49,6 +50,12 @@ export function Pill({
   style?: ViewStyle;
   /** Tighter sides, for three equal actions in one row (Message · Call · Tell). */
   dense?: boolean;
+  /**
+   * The label never shrinks: a short label on a surface that re-lays out as it appears (a sheet), where
+   * iOS's fit-to-width misfires and leaves the label a third of its size (the Option A simulator run,
+   * "Tell the rest" on the look-over sheet). The pill keeps its width instead.
+   */
+  fixedLabel?: boolean;
 }) {
   const p = usePalette();
   const h = size === "regular" ? H.button : H.small;
@@ -62,7 +69,7 @@ export function Pill({
       disabled={disabled || busy}
       onPress={onPress}
       hitSlop={variant === "quiet" ? space.s : space.xs}
-      style={({ pressed }) => [{ opacity: disabled ? press.disabled : pressed ? press.surface : 1 }, variant === "quiet" ? { flexShrink: 0 } : null, style]}
+      style={({ pressed }) => [{ opacity: disabled ? press.disabled : pressed ? press.surface : 1 }, variant === "quiet" || fixedLabel ? { flexShrink: 0 } : null, style]}
     >
       <View
         style={{
@@ -86,7 +93,7 @@ export function Pill({
         {icon && !busy ? icon({ color: fg, size: SIZE.icon, strokeWidth: 1.8 }) : null}
         <Text
           numberOfLines={1}
-          adjustsFontSizeToFit={variant !== "quiet"}
+          adjustsFontSizeToFit={variant !== "quiet" && !fixedLabel}
           minimumFontScale={0.8}
           maxFontSizeMultiplier={maxScale.label}
           style={[type.button, { color: fg, opacity: busy ? 0 : 1 }]}

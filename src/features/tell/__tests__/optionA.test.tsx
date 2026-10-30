@@ -15,6 +15,8 @@ import { voiced } from "@/features/memory/statements";
 import { NOTE_COPY, partialNoteLine } from "@/features/person/NoteView";
 import { buildReview, COPY, partialOf, partialStatus, type ReviewView } from "@/features/tell/reviewModel";
 import { cardFor, TellFlowProvider, useTellFlow, type TellFlow } from "@/features/tell/TellFlow";
+import { TellSheet } from "@/features/tell/TellSheet";
+import { TellField } from "@/ui";
 import { recoveryOf, type FirstNote, type FollowUpNote, type Recovery } from "@/store/followUp";
 import { Gateway } from "@/store/gateway";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
@@ -44,6 +46,7 @@ jest.mock("@/hooks/useActivation", () => ({
 jest.mock("@/lib/supabase", () => ({ supabase: null, isSupabaseConfigured: false }));
 jest.mock("expo-router", () => ({ router: { push: () => undefined } }));
 jest.mock("../ReviewSheet", () => ({ ReviewSheet: () => null }));
+jest.mock("react-native-safe-area-context", () => jest.requireActual("react-native-safe-area-context/jest/mock").default);
 
 /** Ten plain things about Priya, one a sentence: the model proposes every one, the understanding takes eight. */
 const THINGS = [
@@ -699,6 +702,44 @@ describe("the Tell flow (Option A)", () => {
     expect(second.continues_capture_id).toBe(first);
     expect(second.context_person_id).toBe(w.priya.id);
     expect((await liveLines(w)).length).toBe(10);
+    r!.unmount();
+  });
+
+  it("a person's page tells the rest through its own sheet: the link is carried once, then answered (simulator finding, 19 Oct)", async () => {
+    const w = await world();
+    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    let r: TestRenderer.ReactTestRenderer | null = null;
+    const person = { id: w.priya.id, name: "Priya" };
+    await act(async () => {
+      r = TestRenderer.create(<TellFlowProvider><Probe /><TellSheet person={person} onClose={() => undefined} /></TellFlowProvider>);
+    });
+    await settle();
+    act(() => flow.current!.tellRest(first));
+    await settle();
+    expect(flow.current!.focusRequest).toEqual(expect.objectContaining({ personId: w.priya.id, continues: first }));
+    expect(flow.current!.draft(w.priya.id)).toBe(REST);
+
+    // Send from the page's sheet (not Today's dock): the new note carries the link.
+    w.gateway.propose(REST, proposals(THINGS.slice(8)));
+    const field = () => r!.root.findByType(TellField);
+    await act(async () => { field().props.onSend(); });
+    await settle();
+    await act(async () => { await w.understanding.run(); });
+    await settle();
+    const rest = (await w.repos.captures.list()).find((c) => c.id !== first)!;
+    expect(rest.continues_capture_id).toBe(first);
+    expect((await review(w, first)).partial!.resolved).toBe(true);
+    // The request is answered: a later note from the same sheet links to nothing.
+    expect(flow.current!.focusRequest).toBeNull();
+    w.gateway.propose("Priya got a dog.", proposals(["Priya got a dog"]));
+    act(() => flow.current!.setDraft(w.priya.id, "Priya got a dog."));
+    await settle();
+    await act(async () => { field().props.onSend(); });
+    await settle();
+    await act(async () => { await w.understanding.run(); });
+    const dog = (await w.repos.captures.list()).find((c) => c.raw_text === "Priya got a dog.")!;
+    expect(dog.continues_capture_id ?? null).toBeNull();
+    expect((await liveLines(w)).length).toBe(11);
     r!.unmount();
   });
 });

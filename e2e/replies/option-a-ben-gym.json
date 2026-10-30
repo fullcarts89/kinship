@@ -1,0 +1,49 @@
+{
+ "note": "Ben joined a gym.",
+ "variants": [
+  {
+   "label": "hand: one thing",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben joined a gym",
+      "evidence": [
+       "Ben joined a gym"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben joined a gym",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

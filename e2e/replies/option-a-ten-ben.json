@@ -1,0 +1,373 @@
+{
+ "note": "Ben loves jazz. Ben took up pottery. Ben started trail running. Ben is learning Italian. Ben joined a choir. Ben bought a kayak. Ben reads Russian novels. Ben collects stamps. Ben plays chess on Tuesdays. Ben grows tomatoes.",
+ "variants": [
+  {
+   "label": "hand: ten things, every one proposed",
+   "output": {
+    "needs_clarification": null,
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben loves jazz",
+      "evidence": [
+       "Ben loves jazz"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben loves jazz",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben took up pottery",
+      "evidence": [
+       "Ben took up pottery"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben took up pottery",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben started trail running",
+      "evidence": [
+       "Ben started trail running"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben started trail running",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben is learning Italian",
+      "evidence": [
+       "Ben is learning Italian"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben is learning Italian",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben joined a choir",
+      "evidence": [
+       "Ben joined a choir"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben joined a choir",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben bought a kayak",
+      "evidence": [
+       "Ben bought a kayak"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben bought a kayak",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben reads Russian novels",
+      "evidence": [
+       "Ben reads Russian novels"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben reads Russian novels",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben collects stamps",
+      "evidence": [
+       "Ben collects stamps"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben collects stamps",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben plays chess on Tuesdays",
+      "evidence": [
+       "Ben plays chess on Tuesdays"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben plays chess on Tuesdays",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ben",
+      "person_mention": "Ben",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ben grows tomatoes",
+      "evidence": [
+       "Ben grows tomatoes"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": null,
+      "date_direction": "unclear",
+      "existing": {
+       "action": "new",
+       "target": null
+      },
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "Ben grows tomatoes",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

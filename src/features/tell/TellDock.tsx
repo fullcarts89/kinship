@@ -363,7 +363,11 @@ export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to
 
   // "Anything worth remembering?" focuses the field, about that person.
   useEffect(() => {
-    if (!flow.focusRequest) return;
+    if (!flow.focusRequest) {
+      // Answered (the rest was told, from here or from a person's page): the next note here links to nothing.
+      continues.current = null;
+      return;
+    }
     setAbout(flow.focusRequest.personId);
     continues.current = flow.focusRequest.continues ?? null;
     setOpen(true);

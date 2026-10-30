@@ -162,8 +162,8 @@ export function ReviewSheet(props: ReviewSheetProps) {
         ) : null}
         {/* Option A: the note held more than the understanding could take; the rest can be told again from here. */}
         {view.partial?.tellRest && props.onTellRest && !waiting ? (
-          <View style={{ alignItems: "flex-start", marginTop: space.s }}>
-            <Pill size="small" label={COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to back in the Tell field, to tell again" onPress={act(props.onTellRest)} />
+          <View style={{ flexDirection: "row", alignItems: "center", marginTop: space.s }}>
+            <Pill size="small" fixedLabel label={COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to back in the Tell field, to tell again" onPress={act(props.onTellRest)} />
           </View>
         ) : null}
         {view.notice ? <Body tone="ochreText" style={{ marginTop: space.s }}>{view.notice}</Body> : null}
