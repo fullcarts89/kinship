@@ -13,7 +13,7 @@ INSERT INTO auth.sessions (user_id) VALUES (:A);
 -- Give both users data in every table, 1.0 and 2.0.
 CREATE FUNCTION pg_temp.seed_v2(u uuid) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE p uuid := gen_random_uuid(); c uuid := gen_random_uuid(); i uuid := gen_random_uuid();
-        r uuid := gen_random_uuid(); d uuid := gen_random_uuid(); rp uuid := gen_random_uuid();
+        r uuid := gen_random_uuid(); d uuid := gen_random_uuid(); rp uuid := gen_random_uuid(); p2 uuid := gen_random_uuid();
 BEGIN
   INSERT INTO public.people (id, user_id, display_name) VALUES (p, u, 'Ben');
   INSERT INTO public.related_people (id, user_id, person_id, relation) VALUES (rp, u, p, 'sister');
@@ -49,6 +49,9 @@ BEGIN
   -- No user_id of its own: it goes with the item it names.
   INSERT INTO public.residence_backfill_report (memory_item_id, bucket, rule_version, dataset_version)
     VALUES (i, 'not_residence', 'residence/v1', 'places-2026.10');
+  -- The duplicate-merge journal (trust floor, 20261030090000).
+  INSERT INTO public.people (id, user_id, display_name, state) VALUES (p2, u, 'Ben (by name)', 'archived');
+  INSERT INTO public.people_merges (user_id, target_id, source_id, journal) VALUES (u, p, p2, '{"v": 1}');
 END $$;
 CREATE FUNCTION pg_temp.seed(u uuid) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE p uuid := gen_random_uuid(); s uuid := gen_random_uuid();
@@ -71,7 +74,7 @@ SELECT is(
   (SELECT count(*)::int FROM information_schema.columns c
    JOIN information_schema.tables t USING (table_schema, table_name)
    WHERE c.table_schema = 'public' AND c.column_name = 'user_id' AND t.table_type = 'BASE TABLE'),
-  27, 'all 27 user-owned tables are seeded by this test');
+  28, 'all 28 user-owned tables are seeded by this test');
 
 -- Users and anon can't call it.
 SELECT tests.as_user(:A);
@@ -90,7 +93,7 @@ SELECT is(
   '{"ai_usage": 1, "interactions": 1, "memories": 1, "persons": 1, "promises": 1, "season_commitments": 1,
     "seasons": 1, "user_settings": 1, "captures": 1, "contact_events": 1, "consents": 1, "devices": 1,
     "memory_item_history": 1, "memory_item_sources": 1, "memory_items": 1, "notification_log": 1,
-    "people": 1, "person_identities": 1, "reason_events": 1, "reason_evidence": 1, "reasons": 1,
+    "people": 2, "people_merges": 1, "person_identities": 1, "reason_events": 1, "reason_evidence": 1, "reasons": 1,
     "related_people": 1, "user_flag_overrides": 1, "capture_reviews": 1, "person_mentions_backfill_report": 1,
     "memory_item_facets": 1, "semantic_runs": 1}'::jsonb,
   'returns what it removed from every table');
