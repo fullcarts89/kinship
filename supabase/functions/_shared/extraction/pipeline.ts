@@ -1654,8 +1654,12 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   if (labelled) return resolvePerson(ctx, { ...raw, person_mention: labelled[1].trim() }, flags);
   // "his dad", "her mom", "his sister Carla" for a related subject: the pronoun names the person, and
   // the relation and name are the related someone's (never "Is His sister Carla someone new?").
-  const pronounRelation = fold(mention).match(/^(his|her|their)\s+\S+(?:\s+\S+)?$/);
-  if (pronounRelation && raw.subject === "related") return resolvePerson(ctx, { ...raw, person_mention: pronounRelation[1] }, flags);
+  const pronounRelation = fold(mention).match(/^(his|her|their)\s+(\S+)(?:\s+\S+)?$/);
+  if (pronounRelation && (raw.subject === "related" || kinshipReference(pronounRelation[2]))) {
+    // "his roommate" on a line about the person themself ("Noah is trying to persuade his roommate"):
+    // the pronoun's person, never "Who is this about?" (CER-1 s9).
+    return resolvePerson(ctx, { ...raw, person_mention: pronounRelation[1] }, flags);
+  }
   // "he loves", "he's", "she said": a mention the model padded past the pronoun is the pronoun.
   const leadPronoun = fold(mention).match(/^(he|him|his|she|her|hers|they|them|their)(?:['’](?:s|ll|d|re|ve))?(?=\s)/u);
   if (leadPronoun && !kinshipReference(fold(mention).split(/\s+/u)[1] ?? "")) return resolvePerson(ctx, { ...raw, person_mention: leadPronoun[1] }, flags);

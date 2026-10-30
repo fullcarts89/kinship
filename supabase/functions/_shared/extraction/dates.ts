@@ -273,9 +273,10 @@ function resolveFrom(e: string, today: CivilDate, zone: string, dir: Direction):
     return seasonRule(m[1]?.trim() ?? "", s, m[3] ? Number(m[3]) : null, today, zone, past);
   }
 
-  // "Thursday the 15th", "Sat, Feb 18": the date decides; a weekday that
-  // doesn't match it makes the result ambiguous.
-  m = e.match(/^([a-z]+),? (.+)$/);
+  // "Thursday the 15th", "Sat, Feb 18", "next Thursday, November 5": the date decides; a weekday that
+  // doesn't match it makes the result ambiguous. A "next" or "this" before the weekday adds nothing
+  // once the date is stated (CER-1 s5: a stated date is never asked for).
+  m = e.match(/^(?:this coming |the coming |coming |this |next |last |the |on )?([a-z]+),? (.+)$/);
   if (m && m[1] in WEEKDAYS && !/^(night|morning|afternoon|evening|week|weekend)$/.test(m[2])) {
     const inner = resolveFrom(m[2], today, zone, dir);
     if (inner.date && inner.precision === "day" && !inner.date_end) {
