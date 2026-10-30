@@ -9,7 +9,9 @@ import { Check, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { height, maxScale, press, radius, size, space, TOUCH, type } from "@/design/tokens";
 import { kindLabel, monthName, spokenDay } from "@/features/memory/format";
 import { SWITCHABLE_KINDS, type SwitchableKind } from "@/store/memoryDetail";
-import type { Person } from "@/store/repositories";
+import { MERGE_COPY } from "@/store/peopleMerge";
+import { HOLD_COPY, type HoldState } from "@/store/peopleStates";
+import type { Person, PersonState } from "@/store/repositories";
 import { Body, Heading, IconButton, KeyboardBar, Pill, Row, Small, Sprig, useKeyboardBarId, usePalette } from "@/ui";
 import { personLabel, type ItemLine } from "./reviewModel";
 
@@ -98,7 +100,7 @@ function NamedPane({ people, title, named, chosen, onDone, onSomeoneElse, onCanc
           leading={<Sprig personId={x.id} width={size.sprig.row} />}
           title={personLabel(x, people)}
           selected={picked.includes(x.id)}
-          trailing={picked.includes(x.id) ? <Check size={20} strokeWidth={1.8} color={p.ochreText} /> : null}
+          trailing={picked.includes(x.id) ? <Check size={20} strokeWidth={1.8} color={p.markText} /> : null}
           onPress={() => toggle(x.id)}
         />
       ))}
@@ -221,16 +223,31 @@ export function KindPane({
   );
 }
 
-/** "Their name": a correction, never a new person (founder H1). */
-export function NamePane({ initial, onSave, onCancel, onRemove }: {
+/**
+ * "Their name": a correction, never a new person (founder H1). Below it, the
+ * person's own controls (the trust floor, FD-30e): Pause and Hold as
+ * remembered (D13; Resume while held), Merge with someone who is them
+ * (PER-05), and Remove from People (I3). Each is asked to confirm by the
+ * screen; this pane only offers them.
+ */
+export function NamePane({ initial, onSave, onCancel, onRemove, state, short, onHold, onResume, onMerge }: {
   initial: string;
   onSave: (name: string) => void;
   onCancel: () => void;
   /** "Remove from People" (founder I3), asked to confirm by the screen. */
   onRemove?: () => void;
+  /** The person's state; the controls follow it (nothing shown when absent). */
+  state?: PersonState;
+  /** How Kinship says their name ("Chris"), for the explanations. */
+  short?: string;
+  onHold?: (state: HoldState) => void;
+  onResume?: () => void;
+  onMerge?: () => void;
 }) {
   const p = usePalette();
   const [name, setName] = useState(initial);
+  const who = short?.trim() || initial.trim().split(/\s+/u)[0] || initial;
+  const held = state === "paused" || state === "remembered";
   return (
     <View>
       <PaneHeader title="Their name" onCancel={onCancel} />
@@ -250,7 +267,36 @@ export function NamePane({ initial, onSave, onCancel, onRemove }: {
       <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.m }}>
         <Pill variant="primary" label="Save" disabled={!name.trim() || name.trim() === initial} onPress={() => onSave(name)} />
       </View>
-      {onRemove ? (
+      {state && held && onResume ? (
+        <View style={{ marginTop: space.xl }}>
+          <Small>{`${HOLD_COPY[state].line} · ${HOLD_COPY[state].explain(who)}`}</Small>
+          <View style={{ alignItems: "flex-start", marginTop: space.s, marginLeft: -space.xs }}>
+            <Pill variant="quiet" size="small" label={HOLD_COPY[state].resume} accessibilityLabel={`${HOLD_COPY[state].resume} ${who}`} onPress={onResume} />
+          </View>
+        </View>
+      ) : null}
+      {state === "active" && onHold ? (
+        <View style={{ marginTop: space.xl, gap: space.m }}>
+          <View>
+            <Small>{HOLD_COPY.paused.explain(who)}</Small>
+            <View style={{ alignItems: "flex-start", marginTop: space.xs, marginLeft: -space.xs }}>
+              <Pill variant="quiet" size="small" label={HOLD_COPY.paused.action} accessibilityLabel={`${HOLD_COPY.paused.action} ${who}`} onPress={() => onHold("paused")} />
+            </View>
+          </View>
+          <View>
+            <Small>{HOLD_COPY.remembered.explain(who)}</Small>
+            <View style={{ alignItems: "flex-start", marginTop: space.xs, marginLeft: -space.xs }}>
+              <Pill variant="quiet" size="small" label={HOLD_COPY.remembered.action} accessibilityLabel={`${HOLD_COPY.remembered.action}: ${who}`} onPress={() => onHold("remembered")} />
+            </View>
+          </View>
+        </View>
+      ) : null}
+      {(onMerge || onRemove) && state !== "archived" ? (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, alignItems: "flex-start", marginTop: space.xl, marginLeft: -space.xs }}>
+          {onMerge ? <Pill variant="quiet" size="small" label={MERGE_COPY.action} onPress={onMerge} /> : null}
+          {onRemove ? <Pill variant="quiet" size="small" label="Remove from People" onPress={onRemove} /> : null}
+        </View>
+      ) : onRemove ? (
         <View style={{ alignItems: "flex-start", marginTop: space.xl }}>
           <Pill variant="quiet" size="small" label="Remove from People" onPress={onRemove} />
         </View>
@@ -352,7 +398,7 @@ export function DatePane({
                   style={{
                     width: dot, height: dot, borderRadius: dot / 2, alignItems: "center", justifyContent: "center",
                     backgroundColor: selected ? p.ink : "transparent",
-                    borderWidth: day === today && !selected ? 1.5 : 0, borderColor: p.ochre,
+                    borderWidth: day === today && !selected ? 1.5 : 0, borderColor: p.mark,
                   }}
                 >
                   <Text maxFontSizeMultiplier={maxScale.label} style={[type.field, { color: selected ? p.onInk : p.ink }]}>{d}</Text>

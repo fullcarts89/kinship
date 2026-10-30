@@ -1,0 +1,649 @@
+{
+ "note": "Leo is really into cooking and electronic music shows. He sees his mom and sister most weekends, and they're close. His dog Rocket gets nervous around unfamiliar dogs but gets along with our dog Bean. Lately he's worried about changes in his industry.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-19-30 (30 Oct 2026, synthetic roster, s1 page; 4 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "Leo",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is really into cooking and electronic music shows",
+      "evidence": [
+       "Leo is really into cooking and electronic music shows."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "interests",
+       "value": "cooking and electronic music shows",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo sees his mom and sister most weekends, and they're close",
+      "evidence": [
+       "He sees his mom and sister most weekends, and they're close."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "family",
+       "attribute": "family",
+       "value": "sees his mom and sister most weekends, and they're close",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "His",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo's dog Rocket gets nervous around unfamiliar dogs but gets along with your dog Bean",
+      "evidence": [
+       "His dog Rocket gets nervous around unfamiliar dogs but gets along with our dog Bean."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "pet",
+       "attribute": "dog",
+       "value": "Rocket",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is worried about changes in his industry",
+      "evidence": [
+       "Lately he's worried about changes in his industry."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "Lately",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "changes in his industry",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-19-30 (30 Oct 2026, synthetic roster, s1 general; 4 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "Leo",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is really into cooking and electronic music shows",
+      "evidence": [
+       "Leo is really into cooking and electronic music shows."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "interests",
+       "value": "cooking and electronic music shows",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo sees his mom and sister most weekends, and they're close",
+      "evidence": [
+       "He sees his mom and sister most weekends, and they're close."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "family",
+       "attribute": "family",
+       "value": "sees his mom and sister most weekends, and they're close",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "His",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo's dog Rocket gets nervous around unfamiliar dogs but gets along with your dog Bean",
+      "evidence": [
+       "His dog Rocket gets nervous around unfamiliar dogs but gets along with our dog Bean."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "pet",
+       "attribute": "dog",
+       "value": "Rocket",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is worried about changes in his industry",
+      "evidence": [
+       "Lately he's worried about changes in his industry."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "Lately",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "changes in his industry",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s1 page, on the page; 4 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "Leo",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is really into cooking and electronic music shows",
+      "evidence": [
+       "Leo is really into cooking and electronic music shows."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "interests",
+       "value": "cooking and electronic music shows",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo sees his mom and sister most weekends, and they're close",
+      "evidence": [
+       "He sees his mom and sister most weekends, and they're close."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "family",
+       "attribute": "sees mom and sister",
+       "value": "most weekends",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "His",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo's dog Rocket gets nervous around unfamiliar dogs but gets along with your dog Bean",
+      "evidence": [
+       "His dog Rocket gets nervous around unfamiliar dogs but gets along with our dog Bean."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "pet",
+       "attribute": "dog",
+       "value": "Rocket",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is worried about changes in his industry",
+      "evidence": [
+       "Lately he's worried about changes in his industry."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "Lately",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "changes in his industry",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s1 general; 5 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "Leo",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is really into cooking",
+      "evidence": [
+       "Leo is really into cooking"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "interest",
+       "value": "cooking",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "Leo",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is really into electronic music shows",
+      "evidence": [
+       "Leo is really into cooking and electronic music shows."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "interest",
+       "value": "electronic music shows",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo sees his mom and sister most weekends, and they're close",
+      "evidence": [
+       "He sees his mom and sister most weekends, and they're close."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "most weekends",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "family",
+       "attribute": "sees mom and sister",
+       "value": "most weekends",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "His",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo's dog Rocket gets nervous around unfamiliar dogs but gets along with your dog Bean",
+      "evidence": [
+       "His dog Rocket gets nervous around unfamiliar dogs but gets along with our dog Bean."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "pet",
+       "attribute": "dog",
+       "value": "Rocket",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is worried lately about changes in his industry",
+      "evidence": [
+       "Lately he's worried about changes in his industry."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "Lately",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "changes in his industry",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

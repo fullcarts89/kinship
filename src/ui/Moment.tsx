@@ -1,5 +1,7 @@
-// Today's one moment (plan §13, §18; board 1): the person's sprig, one serif
-// statement, a line of context, where it came from, and at most two actions.
+// One moment (plan §13, §18): the person's sprig, one poster statement, the
+// event under it, what they hoped for in the user's words, where it came from,
+// and at most two actions. Today draws its own hero (features/today); this is
+// the plain form the example and sheets use.
 // It arrives by fading up 8 pt over 320 ms; with Reduce Motion, a 150 ms fade.
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, View } from "react-native";
@@ -7,7 +9,7 @@ import { motion, press, size, space } from "@/design/tokens";
 import { Pressable } from "./Pressable";
 import { Provenance } from "./Provenance";
 import { Sprig } from "./Sprig";
-import { Body, Display } from "./Text";
+import { Context, Quote, Statement } from "./Text";
 import { useReduceMotion } from "./theme";
 
 export function Moment({
@@ -63,15 +65,15 @@ export function Moment({
               onPress={onOpen}
               style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
             >
-              <Display>{statement}</Display>
-              {context ? <Body style={{ marginTop: space.m }}>{context}</Body> : null}
-              {hope ? <Body tone="ink" style={{ marginTop: space.xs }}>{hope}</Body> : null}
+              <Statement>{statement}</Statement>
+              {context ? <Context style={{ marginTop: space.l }}>{context}</Context> : null}
+              {hope ? <Quote style={{ marginTop: space.xs }}>{hope}</Quote> : null}
             </Pressable>
           ) : (
             <>
-              <Display>{statement}</Display>
-              {context ? <Body style={{ marginTop: space.m }}>{context}</Body> : null}
-              {hope ? <Body tone="ink" style={{ marginTop: space.xs }}>{hope}</Body> : null}
+              <Statement>{statement}</Statement>
+              {context ? <Context style={{ marginTop: space.l }}>{context}</Context> : null}
+              {hope ? <Quote style={{ marginTop: space.xs }}>{hope}</Quote> : null}
             </>
           )}
           {provenance ? (

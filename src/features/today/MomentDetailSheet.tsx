@@ -6,8 +6,9 @@ import React from "react";
 import { View } from "react-native";
 import { MessageCircle, Phone } from "lucide-react-native";
 import { space } from "@/design/tokens";
-import { Body, Label, MomentText, Pill, Provenance, Sheet, Small } from "@/ui";
+import { Body, Label, Pill, Provenance, Quote, Sheet, Small, Title } from "@/ui";
 import type { MomentDetail } from "./momentDetail";
+import { SuggestionLine } from "./SuggestionLine";
 
 export interface MomentDetailSheetProps {
   detail: MomentDetail | null;
@@ -17,16 +18,18 @@ export interface MomentDetailSheetProps {
   /** Their page, at this memory. */
   onPerson: () => void;
   onSource: (noteId: string) => void;
+  /** SUA-1 (FD-30d, WS-3): a tap on the detail's "You could…" line opens Messages. */
+  onSuggestion?: () => void;
 }
 
-export function MomentDetailSheet({ detail, onDismiss, onMessage, onCall, onPerson, onSource }: MomentDetailSheetProps) {
+export function MomentDetailSheet({ detail, onDismiss, onMessage, onCall, onPerson, onSource, onSuggestion }: MomentDetailSheetProps) {
   return (
     <Sheet visible={!!detail} onDismiss={onDismiss} label={detail ? detail.line : "Moment"}>
       {detail ? (
         <View>
           <Label>{detail.personName}</Label>
-          <MomentText style={{ marginTop: space.s }}>{detail.line}</MomentText>
-          {detail.hope ? <Body tone="ink" style={{ marginTop: space.xs }}>{detail.hope}</Body> : null}
+          <Title style={{ marginTop: space.s }}>{detail.line}</Title>
+          {detail.hope ? <Quote style={{ marginTop: space.s }}>{detail.hope}</Quote> : null}
           <Body style={{ marginTop: space.l }}>{detail.why}</Body>
           {detail.when ? <Small style={{ marginTop: space.xs }}>{detail.when}</Small> : null}
           {detail.provenance ? (
@@ -53,6 +56,7 @@ export function MomentDetailSheet({ detail, onDismiss, onMessage, onCall, onPers
               onPress={onCall}
             />
           </View>
+          <SuggestionLine suggestion={detail.suggestion} personName={detail.personName} onPress={onSuggestion} />
           <View style={{ alignItems: "flex-start", marginTop: space.m }}>
             <Pill variant="quiet" label={`View ${detail.personName}`} accessibilityHint={`Opens ${detail.personName}'s page at this`} onPress={onPerson} />
           </View>

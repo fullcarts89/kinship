@@ -11,7 +11,8 @@ export type MirroredTable =
   | "memory_item_facets"
   | "reasons"
   | "contact_events"
-  | "user_settings";
+  | "user_settings"
+  | "people_merges";
 
 export interface TableSpec {
   name: MirroredTable;
@@ -95,6 +96,13 @@ export const TABLES: readonly TableSpec[] = [
   {
     name: "user_settings", key: "user_id", appInsert: true, appUpdate: true, tombstones: false,
     writable: ["time_zone", "quiet_hours_start", "quiet_hours_end", "push_enabled", "capture_retention_default"],
+  },
+  {
+    // The duplicate-merge journal (PER-05, 20261030090000): written by
+    // merge_people / undo_merge_people on the server, pulled so the person's
+    // page can offer Undo; never written by the app.
+    name: "people_merges", key: "id", appInsert: false, appUpdate: false, tombstones: true,
+    writable: [], optional: true,
   },
 ];
 

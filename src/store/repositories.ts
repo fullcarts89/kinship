@@ -206,6 +206,28 @@ export class PeopleRepo {
   }
 
   /**
+   * Pause, or hold as remembered (D13, PER-06): the person stays in People
+   * with everything Kinship knows; nothing about them comes up on its own
+   * until the user resumes. Only from the person's page, only by the user;
+   * never for someone removed from People (bring them back first).
+   */
+  async hold(id: string, state: "paused" | "remembered"): Promise<Person> {
+    const person = await this.get(id);
+    if (!person || person.deleted_at) throw new StoreWriteError("that person isn't here any more");
+    if (person.state === "archived") throw new StoreWriteError("bring them back to People first");
+    if (person.state === state) return person;
+    return (await this.store.update("people", id, { state })) as Person;
+  }
+
+  /** Resume (D13): back to active from paused or remembered; nothing else changes. */
+  async resume(id: string): Promise<Person> {
+    const person = await this.get(id);
+    if (!person || person.deleted_at) throw new StoreWriteError("that person isn't here any more");
+    if (person.state !== "paused" && person.state !== "remembered") return person;
+    return (await this.store.update("people", id, { state: "active" })) as Person;
+  }
+
+  /**
    * "Remove from People" (founder I3): a soft archive, never a delete. Their
    * notes, sources, relationships and memories all stay; restore() brings
    * back the same person. What is only about them leaves with them. A memory
@@ -403,6 +425,17 @@ export class MemoryRepo {
   /** "Not this": retracted and removed. */
   retract(id: string): Promise<Data> {
     return this.store.update("memory_items", id, { status: "retracted", deleted_at: this.store.now() });
+  }
+
+  /**
+   * Kept, or answered: a promise the user said they did ("Did you bring Sam soup?" → Yes, RSN-06). The
+   * line leaves the page's "You said you'd" and stays in What Kinship knows as written, the way a
+   * thread something later answered does. Idempotent.
+   */
+  async resolve(id: string): Promise<Data | null> {
+    const item = await this.get(id);
+    if (!item || item.status !== "active") return item;
+    return this.store.update("memory_items", id, { status: "resolved" });
   }
 
   private async sourceFor(evidence: Evidence): Promise<Data> {

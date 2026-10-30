@@ -1,14 +1,19 @@
-// The relationship page (Design Direction §I.7; board 2, "David Reyes"):
-// their name in the display serif with their sprig, then only the sections
-// that have something to say: Lately, Coming up, You said you'd, Between
-// you. Every line says where it came from; tap a line to correct it, tap its
-// provenance for the note. Message, Call and Tell sit at the bottom.
+// The relationship page (Electric Garden, FD-30b; Stage 1 "Ben's page"): the
+// lavender bloom cut by the page's top left, the person's photo in the fluid
+// mask with a leaf crossing in front (or the leaf alone), their name at poster
+// scale, then only the sections that have something to say, each with its
+// coloured dot: Lately, Coming up, You said you'd, Between you, as open paper
+// with a source under every line. Tap a line to correct it, its provenance
+// for the note. Message, Call and Tell sit at the bottom.
 import React, { useRef } from "react";
-import { type ScrollView, Text, View } from "react-native";
+import { type ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
-import { GUTTER, height, press, size, space } from "@/design/tokens";
-import { Body, Emphasis, Label, Line, MomentText, Name, Pill, Provenance, QuietLine, Screen, Small, Sprig, useLineFocus, usePalette } from "@/ui";
+import { art, font, GUTTER, height, press, space, TOUCH } from "@/design/tokens";
+import {
+  Body, Botanical, DawnWash, Emphasis, FluidPhoto, Label, Line, MomentText, Pill, PosterName, Provenance, QuietLine, Screen, SectionLabel, type SectionKey, Small,
+  useLineFocus, usePalette,
+} from "@/ui";
 
 export interface PortraitLineData {
   itemId: string;
@@ -62,6 +67,13 @@ export interface PortraitViewProps {
   short?: string | null;
   label: string | null;
   remembered: boolean;
+  /** "Paused" / "Remembered" (D13): the only visual difference of a held person; null for anyone active. */
+  stateLine?: string | null;
+  /** What the line means, read to screen readers with it. */
+  stateExplain?: string | null;
+  /** People merged into them that can still be undone (PER-05), each as one quiet line. */
+  merged?: { id: string; line: string }[];
+  onUndoMerge?: (mergeId: string) => void;
   /** Tapping the name corrects it (H1). */
   onRename?: () => void;
   lately: PortraitLineData[];
@@ -99,8 +111,12 @@ export interface PortraitViewProps {
    * Back from a conversation Kinship opened with them, from here or from Today (founder K23): the same
    * return question Today asks, "Did you reach John?", with what it was about.
    */
-  returnCheck?: { ask: string; about: string | null } | null;
-  onReturn?: (answer: "yes" | "not_yet") => void;
+  returnCheck?: { ask: string; about: string | null; type?: string } | null;
+  /** "put_aside" is "Didn't happen", offered only on a promise's return check (RSN-06, WS-3). */
+  onReturn?: (answer: "yes" | "not_yet" | "put_aside") => void;
+  /** After a Yes that followed a "You could…" tap (SUA-1, FD-30d; WS-3): one optional question, Yes · Not yet. */
+  afterGesture?: { ask: string } | null;
+  onGesture?: (answer: "yes" | "not_yet") => void;
   /**
    * After a Yes (founder I2, K28): "Anything worth remembering from talking with Susan?", optional and never
    * blocking, as Today asks it. Tell Kinship opens Tell about them; Nothing today changes nothing.
@@ -108,8 +124,15 @@ export interface PortraitViewProps {
   afterReturn?: { followUp: string } | null;
   onRemember?: () => void;
   onNothing?: () => void;
+  /** The photo the user chose for them (kept on this phone only); null when there is none. */
+  photoUri?: string | null;
+  /** "Add a photo" / "Change photo": the user's own choice, from their library. */
+  onPhoto?: () => void;
   children?: React.ReactNode;
 }
+
+/** The photo action's words. */
+export const PHOTO_ACTION = { add: "Add a photo", change: "Change photo" } as const;
 
 function withWhen(l: PortraitLineData, leading = false): string {
   if (!l.when || l.when === "No date yet") return l.statement;
@@ -125,10 +148,10 @@ function withWhen(l: PortraitLineData, leading = false): string {
  * step darker. "You told Kinship · Oct 5" is shown once per run of lines that
  * share it, not under every line (the line's sheet always has it).
  */
-function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusItemId, focus, after }: {
+function Section({ title, section, lines, leadWithWhen, onLine, onSource, focusItemId, focus, after }: {
   title: string;
+  section: SectionKey;
   lines: PortraitLineData[];
-  ochre?: boolean;
   leadWithWhen?: boolean;
   onLine: (id: string) => void;
   onSource: (noteId: string) => void;
@@ -137,14 +160,10 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusIte
   /** More of the section after its lines (Between you's conversations, founder I2). */
   after?: React.ReactNode;
 }) {
-  const p = usePalette();
   if (!lines.length && !after) return null;
   return (
-    <View
-      onLayout={(e) => focus?.onGroup(title, e.nativeEvent.layout.y)}
-      style={{ marginTop: space.x3, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline }}
-    >
-      <Label tone={ochre ? "ochreText" : "inkBody"} accessibilityRole="header">{title}</Label>
+    <View onLayout={(e) => focus?.onGroup(title, e.nativeEvent.layout.y)} style={{ marginTop: space.x3 }}>
+      <SectionLabel section={section}>{title}</SectionLabel>
       {lines.map((l, i) => {
         const text = withWhen(l, leadWithWhen);
         // One source line for several memories only when they came from the
@@ -153,7 +172,7 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusIte
         const next = i + 1 < lines.length ? lines[i + 1] : null;
         const nextShares = !!next && !next.fixed && !!l.noteId && next.noteId === l.noteId && next.provenance === l.provenance;
         return (
-          <View key={l.itemId} onLayout={(e) => focus?.onLine(title, l.itemId, e.nativeEvent.layout.y)} style={{ marginTop: i === 0 ? space.m : space.s }}>
+          <View key={l.itemId} onLayout={(e) => focus?.onLine(title, l.itemId, e.nativeEvent.layout.y)} style={{ marginTop: i === 0 ? space.m : space.l }}>
             <Emphasis on={!!focusItemId && focusItemId === l.itemId}>
             {l.fixed ? (
               <Line>{text}</Line>
@@ -176,7 +195,7 @@ function Section({ title, lines, ochre, leadWithWhen, onLine, onSource, focusIte
             ) : null}
             {/* Said once for the lines it covers: under the last of them. */}
             {nextShares ? null : (
-              <View style={{ marginTop: space.xs }}>
+              <View style={{ marginTop: space.s }}>
                 <Provenance line={l.provenance} onPress={l.noteId ? () => onSource(l.noteId as string) : undefined} />
               </View>
             )}
@@ -205,6 +224,7 @@ function Trail({ lines, first }: { lines: TrailLineData[]; first: boolean }) {
 
 export function PortraitView(props: PortraitViewProps) {
   const p = usePalette();
+  const { width } = useWindowDimensions();
   const scroll = useRef<ScrollView>(null);
   const focus = useLineFocus(props.focusItemId, scroll);
   if (!props.name) {
@@ -251,34 +271,78 @@ export function PortraitView(props: PortraitViewProps) {
     </View>
     </View>
   );
+  // The hero (Stage 1): the lavender bloom from the top left; the photo, in the fluid mask, to the right
+  // with a leaf in front; without a photo, a leaf behind where the photo would be. The photo starts under
+  // the back control, so the page opens on the person.
+  const k = width / 393;
+  const photo = props.photoUri ?? null;
+  const photoW = Math.round(width * 0.585);
+  const photoH = Math.round(photoW * art.photo.aspect);
+  const pageArt = (
+    <>
+      <DawnWash kind="warm" height={420} />
+      <Botanical art="lavender" width={photo ? 262 : 300} top={-10} left={-30} />
+      {photo ? null : <Botanical art="leaf" width={150} top={120} left={214} rotate={28} flip />}
+    </>
+  );
   return (
-    <Screen onBack={props.onBack} footer={footer} scrollRef={scroll}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: space.l }}>
-        <View style={{ flex: 1, paddingTop: space.s }}>
-          {props.onRename ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={props.name ?? ""}
-              accessibilityHint="Double-tap to change their name"
-              onPress={props.onRename}
-              style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
-            >
-              <Name>{props.name}</Name>
-            </Pressable>
-          ) : <Name>{props.name}</Name>}
-          {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
-          {/* A visible Edit beside the name (founder I3): the name, and Remove from People. */}
-          {props.onRename ? (
-            <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
-              <Pill variant="quiet" size="small" label="Edit" accessibilityHint={`Change ${first}'s name, or remove them from People`} onPress={props.onRename} />
-            </View>
-          ) : null}
-          {props.remembered ? <Small style={{ marginTop: space.xs }}>Remembered</Small> : null}
+    <Screen onBack={props.onBack} footer={footer} scrollRef={scroll} art={pageArt}>
+      {photo ? (
+        <View style={{ height: photoH - 40 * k, marginTop: -TOUCH, alignItems: "flex-end", marginRight: -GUTTER / 2 }}>
+          <FluidPhoto uri={photo} width={photoW} height={photoH} label={`Photo of ${first}`} />
+          <Botanical art="leaf" width={128} top={134} left={-76} rotate={-34} />
         </View>
-        <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
-      </View>
+      ) : (
+        <View style={{ height: 196 * k }} />
+      )}
+      <PosterName
+        name={props.name}
+        max={104}
+        onPress={props.onRename}
+        accessibilityLabel={props.name ?? ""}
+        accessibilityHint={props.onRename ? "Double-tap to change their name" : undefined}
+      />
+      {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
+      {/* The one visual difference of a held person (D13, PER-06): one quiet line. */}
+      {props.stateLine ?? (props.remembered ? "Remembered" : null) ? (
+        <Small style={{ marginTop: space.xs }} accessibilityLabel={`${props.stateLine ?? "Remembered"}. ${props.stateExplain ?? ""}`.trim()}>
+          {props.stateLine ?? "Remembered"}
+        </Small>
+      ) : null}
+      {/* Someone merged into them (PER-05): said once, with Undo while it can be undone. */}
+      {props.merged?.map((m) => (
+        <View key={m.id} style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: space.xs, marginLeft: -space.xs }}>
+          <Small style={{ marginLeft: space.xs }}>{m.line}</Small>
+          {props.onUndoMerge ? <Pill variant="quiet" size="small" label="Undo" accessibilityLabel={`Undo: ${m.line}`} onPress={() => props.onUndoMerge?.(m.id)} /> : null}
+        </View>
+      ))}
+      {/* A visible Edit beside the name (founder I3): the name, and Remove from People; and the user's own photo (FD-30b). */}
+      {props.onRename || props.onPhoto ? (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginLeft: -space.xs }}>
+          {props.onRename ? (
+            <Pill variant="quiet" size="small" label="Edit" accessibilityHint={`Change ${first}'s name, or remove them from People`} onPress={props.onRename} />
+          ) : null}
+          {props.onPhoto ? (
+            <Pill
+              variant="quiet"
+              size="small"
+              label={photo ? PHOTO_ACTION.change : PHOTO_ACTION.add}
+              accessibilityHint={`A photo of ${first} from your library. It stays on this phone`}
+              onPress={props.onPhoto}
+            />
+          ) : null}
+        </View>
+      ) : null}
 
-      {props.afterReturn ? (
+      {props.afterGesture ? (
+        <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
+          <MomentText>{props.afterGesture.ask}</MomentText>
+          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+            <Pill size="small" label="Yes" onPress={() => props.onGesture?.("yes")} />
+            <Pill size="small" label="Not yet" onPress={() => props.onGesture?.("not_yet")} />
+          </View>
+        </View>
+      ) : props.afterReturn ? (
         <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
           <MomentText>{props.afterReturn.followUp}</MomentText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
@@ -290,9 +354,10 @@ export function PortraitView(props: PortraitViewProps) {
         <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
           <MomentText>{props.returnCheck.ask}</MomentText>
           {props.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{props.returnCheck.about}</Small> : null}
-          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
             <Pill size="small" label="Yes" onPress={() => props.onReturn?.("yes")} />
             <Pill size="small" label="Not yet" onPress={() => props.onReturn?.("not_yet")} />
+            {props.returnCheck.type === "promise" ? <Pill size="small" variant="quiet" label="Didn't happen" onPress={() => props.onReturn?.("put_aside")} /> : null}
           </View>
         </View>
       ) : null}
@@ -327,11 +392,12 @@ export function PortraitView(props: PortraitViewProps) {
       ) : null}
 
 
-      <Section title="Lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
-      <Section title="Coming up" lines={props.comingUp} leadWithWhen onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
-      <Section title="You said you'd" lines={props.youSaid} ochre onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      <Section title="Lately" section="lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      <Section title="Coming up" section="comingUp" lines={props.comingUp} leadWithWhen onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      <Section title="You said you'd" section="youSaid" lines={props.youSaid} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
       <Section
         title="Between you"
+        section="between"
         lines={props.between}
         onLine={props.onLine}
         onSource={props.onSource}
@@ -359,11 +425,11 @@ export function PortraitView(props: PortraitViewProps) {
           accessibilityRole="link"
           onPress={props.onKnows}
           style={({ pressed }) => ({
-            marginTop: space.x3, paddingTop: space.m, borderTopWidth: 1, borderTopColor: p.hairline, opacity: pressed ? press.link : 1,
+            marginTop: space.x3, opacity: pressed ? press.link : 1,
             minHeight: height.small, justifyContent: "center",
           })}
         >
-          <Small tone="ochreText">{`What Kinship knows about ${first} →`}</Small>
+          <Body tone="ink" style={{ fontFamily: font.sansSemi }}>{`What Kinship knows about ${first} →`}</Body>
         </Pressable>
       ) : null}
       {props.children}
