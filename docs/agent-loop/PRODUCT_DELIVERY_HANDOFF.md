@@ -165,9 +165,13 @@ Check the bundle before any install: `strings` on the `.hbc` for the production 
 
 **External blockers (each needs the founder's explicit yes; no session does them):** the production `ai-gateway` must be deployed from the merged code (prompt v7, passages, continuation context, K27/K31) before the app's new understanding works on a phone; both migrations reach production only on merge to `main`; the device install itself.
 
+### Passes 2–3 (30 Oct, 23:30–00:15 UTC)
+
+Merged: WS-4 `f4a8819` (`2e2c9ff`; four conflicts with WS-2 resolved as glue: logic/props from WS-4, layout from WS-2; `tsconfig.json` excludes WS-4's Deno-only `e2e/serve-delete-account.ts`), WS-1 `5557dae` (`0b3b06f`, the s5/s9 fixes), WS-4 `7718f6a` (`00d76b5`), WS-1 `d529b24` (`c068667`, `narrative.blackbox.tsx`). tsc and eslint clean, Deno 480, Jest 107/1015 at pass 2. A Release simulator build of `c068667` is ready (`ios/build/…/Kinship.app`), pointed at a harness-only proxy on :54398 (ai-gateway → this branch's live-model gateway :8011, delete-account → :8794, the rest → :54321), with a fresh local account and two contacts on the simulator. The journey itself was **not walked**: this WS-5 session stopped at its usage limit with the Jest + black-box chain running. The full hand-over (ports, PIDs, files, next steps) is in the sessions' shared notes folder, `ws5-integration-handover.md`.
+
 ### Open in WS-5
 
-Pass 2 (WS-4 `f4a8819`, WS-3/WS-6 when they land, WS-2 last); k28 against `main`; the full black-box set; the Release-simulator journey with the live model; the walkthrough.
+The Release-simulator journey with the live model (after WS-4 leaves the iPhone 18 Pro); the walkthrough and screenshots; the serialized black-box set and the live-probe re-run after `5557dae`; WS-3/WS-6 heads when they land, WS-2 last; the PR description after each pass.
 
 ## WS-6 · Ask Kinship v1
 
