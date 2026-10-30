@@ -20,6 +20,7 @@ export function PeopleView({
   onOpen,
   onAdd,
   initialAdding = null,
+  initialQuery = "",
   onSettings,
   onAddFromContacts,
   onGo,
@@ -31,6 +32,8 @@ export function PeopleView({
   onAdd: (name: string) => Promise<unknown>;
   /** Opens with the add sheet showing (the lab). */
   initialAdding?: string | null;
+  /** Opens with these words in the search field (the lab). */
+  initialQuery?: string;
   /** Settings, from the header. */
   onSettings?: () => void;
   /** Add from contacts (the setup picker). */
@@ -49,7 +52,7 @@ export function PeopleView({
 }) {
   const p = usePalette();
   const bar = useKeyboardBarId();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [adding, setAdding] = useState<string | null>(initialAdding);
   // Only an account with people has memory to ask; an empty account keeps its own empty state (contract §8).
   const asked = !!memory?.asked && rows.length > 0;

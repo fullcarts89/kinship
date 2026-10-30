@@ -11,6 +11,9 @@ import { PersonRecordView, type RecordLine } from "@/features/person/PersonRecor
 import { sectionsFor } from "@/features/person/recordSections";
 import { PortraitView, type PortraitLineData } from "@/features/person/PortraitView";
 import { PeopleView } from "@/features/people/PeopleView";
+import { AskResults } from "@/features/ask/AskResults";
+import { ASK_COPY } from "@/features/ask/retrieve";
+import { EMPTY_ASK, type AskView } from "@/features/ask/useAsk";
 import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
 import { HowItWorksView } from "@/features/welcome/HowItWorks";
 import type { Portrait as PortraitData } from "@/features/person/portraitModel";
@@ -197,6 +200,67 @@ const peopleRows = [
   { id: ID.sarah, label: "Sarah", line: null, remembered: false },
 ];
 
+// Ask Kinship v1 (WS-6): People with a question in the search field and what
+// the fixture memory says. Susan and Dana exist only for the residence shapes.
+const ASK_ID = { susan: "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a08", dana: "8a9b0c1d-2e3f-4a4b-9c5d-6e7f8a9b0c09" };
+const askPeople = [...people, { id: ASK_ID.susan, display_name: "Susan", state: "active" }, { id: ASK_ID.dana, display_name: "Dana", state: "remembered" }] as unknown as Person[];
+const askRows = [
+  ...peopleRows.slice(0, 2), { id: ASK_ID.dana, label: "Dana", line: null, remembered: true }, ...peopleRows.slice(2),
+  { id: ASK_ID.susan, label: "Susan", line: "Susan lives in Alameda", remembered: false },
+];
+const askLine = (id: string, personId: string, statement: string, provenance: string, over: Partial<RecordLine> = {}): RecordLine => ({
+  line: itemLine(item(id, { person_id: personId, statement, detail: { category: "home" } }), { people: askPeople, related: [], today: TODAY }),
+  provenance, noteId: `c-${id}`, conflict: null, ...over,
+});
+const askViews: Record<string, AskView> = {
+  ask: {
+    ...EMPTY_ASK, query: "Who do I know in Alameda?", asked: true, named: [ASK_ID.susan, ASK_ID.dana],
+    groups: [
+      { personId: ASK_ID.susan, name: "Susan", quiet: false, conversations: [], rows: [{
+        key: "composed", earlier: false, href: `/v2/person/${ASK_ID.susan}`,
+        row: askLine("s-ala", ASK_ID.susan, "Susan lives in Alameda", "You told Kinship · Oct 2 · and 1 other note", {
+          display: "Lives in Alameda, California", composed: { text: "Lives in Alameda, California", memberIds: ["s-ala", "s-ca"], members: [] },
+        }),
+      }] },
+      { personId: ASK_ID.dana, name: "Dana", quiet: true, conversations: [], rows: [{
+        key: "d", earlier: false, href: `/v2/person/${ASK_ID.dana}`, row: askLine("d-ala", ASK_ID.dana, "Dana lives in Alameda", "You told Kinship · Sep 14"),
+      }] },
+    ],
+  },
+  "ask-earlier": {
+    ...EMPTY_ASK, query: "Who do I know in Oakland?", asked: true, named: [],
+    groups: [{ personId: ASK_ID.susan, name: "Susan", quiet: false, conversations: [], rows: [{
+      key: "e", earlier: true, href: `/v2/person/${ASK_ID.susan}/knows`,
+      row: askLine("s-oak", ASK_ID.susan, "Susan lives in Oakland", "You told Kinship · Oct 9", { display: "Previously lived in Oakland", history: { when: null } }),
+    }] }],
+  },
+  "ask-sam": {
+    ...EMPTY_ASK, query: "When did I last see Sam?", asked: true, named: [ID.sam1, ID.sam2],
+    groups: [{ personId: ID.sam1, name: "Sam", quiet: false, rows: [], conversations: [
+      { id: "ce2", label: "You messaged · Oct 6", about: "Sam got the Stripe job" },
+      { id: "ce1", label: "You saw Sam · Sep 20", about: null },
+    ] }],
+  },
+  "ask-into": {
+    ...EMPTY_ASK, query: "What is Ben into?", asked: true, named: [ID.ben],
+    groups: [{ personId: ID.ben, name: "Ben", quiet: false, conversations: [], rows: [
+      { key: "m8", earlier: false, href: `/v2/person/${ID.ben}`, row: record[2] },
+      { key: "m7", earlier: false, href: `/v2/person/${ID.ben}`, row: { line: itemLine(trail, { people, related: [], today: TODAY }), provenance: "You told Kinship · Sep 20", noteId: "c3", conflict: null } },
+    ] }],
+  },
+  "ask-nothing": { ...EMPTY_ASK, query: "Who likes skiing?", asked: true, miss: ASK_COPY.nothing },
+  "ask-miss": { ...EMPTY_ASK, query: "Does Ben ski?", asked: true, named: [ID.ben], miss: ASK_COPY.nothingFor("Ben") },
+};
+function AskLab({ state }: { state: string }) {
+  const view = askViews[state];
+  return (
+    <Phone nav="people">
+      <PeopleView rows={askRows} onOpen={noop} onAdd={async () => undefined} onSettings={noop} initialQuery={view.query}
+        memory={{ asked: view.asked, named: view.named, node: <AskResults view={view} onLine={noop} onSource={noop} onComposed={noop} /> }} />
+    </Phone>
+  );
+}
+
 // Setup fixtures: lab-only contacts (never in a real account; contract §7.9).
 const labContacts: DeviceContact[] = [
   { id: "k1", name: "Maya Okafor", birthday: { day: 17, month: 10, year: 1991 } },
@@ -260,6 +324,7 @@ export const LAB_STATES = [
   "anna-before", "anna-after", "anna-knows", "knee-before", "knee-after", "knee-knows",
   "person-new", "person-light", "person-rich", "person-rich-knows",
   "consent", "settings", "people", "people-add", "person", "person-empty", "correction", "correction-date", "knows", "source",
+  "ask", "ask-earlier", "ask-sam", "ask-into", "ask-nothing", "ask-miss",
 ] as const;
 
 export function V2Lab({ state }: { state: string }) {
@@ -465,6 +530,13 @@ export function V2Lab({ state }: { state: string }) {
       return <Phone nav="people"><PeopleView rows={peopleRows} onOpen={noop} onAdd={async () => undefined} onSettings={noop} /></Phone>;
     case "people-add":
       return <Phone nav="people"><PeopleView rows={peopleRows} onOpen={noop} onAdd={async () => undefined} initialAdding="" /></Phone>;
+    case "ask":
+    case "ask-earlier":
+    case "ask-sam":
+    case "ask-into":
+    case "ask-nothing":
+    case "ask-miss":
+      return <AskLab state={state} />;
     case "person":
       return <Portrait />;
     case "person-empty":
