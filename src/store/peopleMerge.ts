@@ -14,7 +14,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { aliasesOf, firstName, shortName } from "../../supabase/functions/_shared/extraction/names";
 import { isInPeople } from "./peopleStates";
-import type { Data, MemoryItem, Person, RelatedPerson } from "./repositories";
+import type { MemoryItem, Person, RelatedPerson } from "./repositories";
+import type { Data } from "./userStore";
 
 /** How long a merge can be undone (PER-05: 30 days). */
 export const MERGE_UNDO_DAYS = 30;
@@ -26,6 +27,7 @@ export interface MergeRow extends Data {
   source_id: string;
   undone_at: string | null;
   created_at: string;
+  deleted_at?: unknown;
 }
 
 function fold(s: unknown): string {
@@ -68,6 +70,9 @@ export function sameNameMatch(name: string, people: Person[]): Person | null {
   return people.find((p) => isInPeople(p) && nameForms(p).includes(k)) ?? null;
 }
 
+/** What the preview reads of a memory: its words (voiced by the caller) and whether it is current. */
+export type PreviewItem = Pick<MemoryItem, "id" | "statement" | "status"> & { deleted_at?: unknown };
+
 export interface MergePreview {
   /** The memories that move, in the user's terms (every one; nothing is summarised as a count). */
   memories: string[];
@@ -106,9 +111,9 @@ export function mergePreview(input: {
   target: Person;
   source: Person;
   /** Live items filed on the merged person. */
-  items: Pick<MemoryItem, "id" | "statement" | "status" | "deleted_at">[];
+  items: PreviewItem[];
   /** Live items filed elsewhere that are shared with them. */
-  sharedItems: Pick<MemoryItem, "id" | "statement" | "status" | "deleted_at">[];
+  sharedItems: PreviewItem[];
   related: Pick<RelatedPerson, "relation" | "name">[];
   conversations: { channel: string; occurred_at: string; deleted_at?: unknown }[];
 }): MergePreview {
