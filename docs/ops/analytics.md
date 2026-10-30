@@ -57,9 +57,11 @@ From plan §23, defined in `AnalyticsEvents`:
 | `review_reopened` | `question_waiting` (boolean) |
 | `undo_capture` | none |
 | `reason_surfaced` | `reason_type`, `surface` (today/push/brief), `score_bucket` (low/mid/high) |
-| `reason_dismissed` | `reason_type`, `mode` (not_now/not_helpful) |
+| `reason_dismissed` | `reason_type`, `mode` (not_now/not_helpful/put_aside: "Didn't happen" on a promise's return check) |
 | `handoff_opened` | `reason_type` (optional), `channel` (text/call/facetime/whatsapp/email/in_person/other) |
-| `return_check_answered` | `answer` (yes/not_yet), `minutes_since_handoff_bucket` (<15/15-60/1-6h/6h+) |
+| `return_check_answered` | `answer` (yes/not_yet/put_aside), `minutes_since_handoff_bucket` (<15/15-60/1-6h/6h+) |
+| `gesture_shown`, `gesture_tapped` | `kind` (plan/help/company/note/activity), `surface` (handoff/detail): the SUA-1 "You could…" line (FD-30d), what Kinship suggested and what the user initiated, kept apart; never the line, the person or the memory |
+| `gesture_outcome` | `kind` (plan/help/company/note/activity), `answer` (yes/not_yet): the one optional question after a Yes that followed a tap; never counted back to the user |
 | `reason_marked_done` | `reason_type` |
 | `reason_feedback` | `useful` (yes/no) |
 | `incorrect_report` | `what` (person/fact/date) |
@@ -69,7 +71,7 @@ From plan §23, defined in `AnalyticsEvents`:
 | `deletion_completed` | `scope` (item/capture/person/account) |
 | `consent_changed` | `scope` (ai_processing/analytics/notifications), `granted` (boolean) |
 
-`reason_type` is one of birthday/upcoming/follow_up/promise/anniversary/check_in/season/other (Today v0 sends upcoming and follow_up). `item_kind` is one of fact/event/promise/plan/thread/moment/milestone/tradition/context.
+`reason_type` is one of birthday/upcoming/follow_up/promise/anniversary/check_in/season/other (Today v0 sends upcoming and follow_up; a promise Moment sends promise, an open thread's check-in sends check_in). `push_sent` fires when the phone schedules its one private Moment notification (tier normal for a time-sensitive Moment, quiet otherwise), `push_opened` when it is tapped; `consent_changed` with scope notifications at the permission moment; `settings_changed` with key notifications for the pause. `item_kind` is one of fact/event/promise/plan/thread/moment/milestone/tradition/context.
 
 Wired in 1.0 today: `consent_changed` (AI consent) and `deletion_completed` (account).
 
