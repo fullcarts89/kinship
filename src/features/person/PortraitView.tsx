@@ -99,8 +99,12 @@ export interface PortraitViewProps {
    * Back from a conversation Kinship opened with them, from here or from Today (founder K23): the same
    * return question Today asks, "Did you reach John?", with what it was about.
    */
-  returnCheck?: { ask: string; about: string | null } | null;
-  onReturn?: (answer: "yes" | "not_yet") => void;
+  returnCheck?: { ask: string; about: string | null; type?: string } | null;
+  /** "put_aside" is "Didn't happen", offered only on a promise's return check (RSN-06, WS-3). */
+  onReturn?: (answer: "yes" | "not_yet" | "put_aside") => void;
+  /** After a Yes that followed a "You could…" tap (SUA-1, FD-30d; WS-3): one optional question, Yes · Not yet. */
+  afterGesture?: { ask: string } | null;
+  onGesture?: (answer: "yes" | "not_yet") => void;
   /**
    * After a Yes (founder I2, K28): "Anything worth remembering from talking with Susan?", optional and never
    * blocking, as Today asks it. Tell Kinship opens Tell about them; Nothing today changes nothing.
@@ -278,7 +282,15 @@ export function PortraitView(props: PortraitViewProps) {
         <Sprig personId={props.personId} width={size.sprig.page} remembered={props.remembered} />
       </View>
 
-      {props.afterReturn ? (
+      {props.afterGesture ? (
+        <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
+          <MomentText>{props.afterGesture.ask}</MomentText>
+          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+            <Pill size="small" label="Yes" onPress={() => props.onGesture?.("yes")} />
+            <Pill size="small" label="Not yet" onPress={() => props.onGesture?.("not_yet")} />
+          </View>
+        </View>
+      ) : props.afterReturn ? (
         <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
           <MomentText>{props.afterReturn.followUp}</MomentText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
@@ -290,9 +302,10 @@ export function PortraitView(props: PortraitViewProps) {
         <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
           <MomentText>{props.returnCheck.ask}</MomentText>
           {props.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{props.returnCheck.about}</Small> : null}
-          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
             <Pill size="small" label="Yes" onPress={() => props.onReturn?.("yes")} />
             <Pill size="small" label="Not yet" onPress={() => props.onReturn?.("not_yet")} />
+            {props.returnCheck.type === "promise" ? <Pill size="small" variant="quiet" label="Didn't happen" onPress={() => props.onReturn?.("put_aside")} /> : null}
           </View>
         </View>
       ) : null}

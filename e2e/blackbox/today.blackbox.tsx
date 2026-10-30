@@ -49,7 +49,7 @@ for (const shape of ["live 1 (13 Oct, 3 of the runs)", "hand: promise"]) {
     await appState("background");
     const back = Date.now();
     await appState("active");
-    const askedMs = await until(r, (s) => s.some((t) => /^Did you reach John/u.test(t)), "the return question", 5000);
+    const askedMs = await until(r, (s) => s.some((t) => /^Did you (?:reach|call) John/u.test(t)), "the return question", 5000);
     coherent(r, "return question");
     await tap(r, "Not yet");
     await settle(400);

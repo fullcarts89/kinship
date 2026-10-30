@@ -405,6 +405,17 @@ export class MemoryRepo {
     return this.store.update("memory_items", id, { status: "retracted", deleted_at: this.store.now() });
   }
 
+  /**
+   * Kept, or answered: a promise the user said they did ("Did you bring Sam soup?" → Yes, RSN-06). The
+   * line leaves the page's "You said you'd" and stays in What Kinship knows as written, the way a
+   * thread something later answered does. Idempotent.
+   */
+  async resolve(id: string): Promise<Data | null> {
+    const item = await this.get(id);
+    if (!item || item.status !== "active") return item;
+    return this.store.update("memory_items", id, { status: "resolved" });
+  }
+
   private async sourceFor(evidence: Evidence): Promise<Data> {
     if ("userAuthored" in evidence) return { source_kind: "user_edit" };
     const capture = await this.store.get("captures", evidence.captureId);

@@ -11,6 +11,7 @@ import type { RecordLine } from "@/features/person/PersonRecordView";
 import { composedRows, composeRecordLines, memberOf, type RecordInput } from "@/features/person/composedRecord";
 import { historyKind, historyProvenance, historyWhen, relatedHeading, sectionFor, withoutLeadingName } from "@/features/person/recordSections";
 import { mentionsFor, type Mentions } from "@/features/today/mentions";
+import { suggestionFor, type Suggestion } from "@/features/today/suggestions";
 import { buildToday, isLocalReason, pageHandoffFor, type PageHandoffReason, returnViewFor, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type ReturnView, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { answerReturn, cancelHandOff, forgetConversation, handOff } from "@/store/returnLoop";
 import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine, type TrailLine } from "@/features/person/portraitModel";
@@ -23,6 +24,8 @@ import { parseDrafts, withDraft, type Drafts } from "@/features/tell/drafts";
 import { misfiledOn, voiced } from "@/features/memory/statements";
 import { linkSuggestions, type LinkSuggestion } from "@/features/person/links";
 import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
+import { askNotificationPermissionOnce, expoScheduler, notificationPermissionAsked, scheduleMomentNotification, type MomentSummary } from "@/lib/momentNotification";
+import type { ReasonLocal } from "@/store/reasonLocal";
 import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, smallCount, track } from "@/platform/analytics";
 import { useV2Session } from "@/providers/V2SessionProvider";
@@ -502,6 +505,53 @@ export function useRemovedPeople(): Person[] {
 
 // ─── Today ──────────────────────────────────────────────────────────────
 
+/**
+ * What Today is built from on this phone, at `now`: the reasons, the lines voiced as the page shows them,
+ * the people, this device's record of what was shown and answered, every line's provenance and the
+ * note's own words behind it. Shared by the screen (useToday) and the notification planner, which runs
+ * the same selection for the next delivery hour (src/lib/momentNotification.ts).
+ */
+export async function todayInputFor(store: UserStore, reasonLocal: ReasonLocal, now: Date): Promise<Omit<TodayInput, "questions" | "toLookAt">> {
+  const repos = repositoriesFor(store);
+  const reasons = (await store.list("reasons")) as unknown as ReasonRow[];
+  const people = await repos.people.list();
+  const items = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people))
+    .filter((m) => !misfiled(m, people));
+  const told = (await repos.captures.list()).length;
+  const local = await reasonLocal.read();
+  // Where each line Today may show came from (the moment, a Coming up line,
+  // its detail: founder I1), and the note's own words behind it (H16 reads
+  // milestones from those, never from Kinship's wording alone).
+  const byItem = await repos.memory.sourcesByItem();
+  const origins = new Map(items.map((m) => [m.id, m.origin]));
+  const prov = new Map<string, { line: string; noteId: string | null }>();
+  const provenance = (id: string) => {
+    if (!prov.has(id)) {
+      const sources = byItem.get(id) ?? [];
+      if (!sources.length && !origins.has(id)) return null;
+      const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
+        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      const origin = origins.get(id);
+      prov.set(id, {
+        line: provenanceLine(sources.map((s) => ({
+          source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
+        })), now, typeof origin === "string" ? origin : null),
+        noteId: notes[0]?.capture_id ?? null,
+      });
+    }
+    return prov.get(id) ?? null;
+  };
+  const quotes = (id: string) => (byItem.get(id) ?? [])
+    .filter((s) => s.source_kind === "capture" && !s.deleted_at && typeof s.quote === "string")
+    .map((s) => String(s.quote));
+  // Conversations the user confirmed: a "Waiting on …" already acted on doesn't keep asking (K3).
+  const contacts = (await store.list("contact_events")) as unknown as ContactRow[];
+  return {
+    now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
+    handoff: local.handoff, told, provenance, quotes, contacts,
+  };
+}
+
 /** Today's view: the one moment, the return check, at most two quiet lines. */
 export function useToday(
   questions: number,
@@ -512,46 +562,13 @@ export function useToday(
   const { store, reasonLocal } = useV2Session();
   const activation = useActivation();
   const minute = Math.floor(now.getTime() / 60_000);
-  const q = useStoreQuery(store, async (repos) => {
-    const reasons = (await store.list("reasons")) as unknown as ReasonRow[];
-    const people = await repos.people.list();
-    const items = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people))
-      .filter((m) => !misfiled(m, people));
-    const told = (await repos.captures.list()).length;
-    const local = await reasonLocal.read();
+  const q = useStoreQuery(store, async () => {
+    const base = await todayInputFor(store, reasonLocal, now);
     // H9: until the first sync, an existing account's people and notes aren't here yet.
     const synced = !!(await getMeta(store.db, "last_sync_ok_at"));
     const dataKnown = synced || (activation.activation !== null && !activation.activated);
-    // Where each line Today may show came from (the moment, a Coming up line,
-    // its detail: founder I1), and the note's own words behind it (H16 reads
-    // milestones from those, never from Kinship's wording alone).
-    const byItem = await repos.memory.sourcesByItem();
-    const origins = new Map(items.map((m) => [m.id, m.origin]));
-    const prov = new Map<string, { line: string; noteId: string | null }>();
-    const provenance = (id: string) => {
-      if (!prov.has(id)) {
-        const sources = byItem.get(id) ?? [];
-        if (!sources.length && !origins.has(id)) return null;
-        const notes = sources.filter((s) => s.source_kind === "capture" && s.capture_id)
-          .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-        const origin = origins.get(id);
-        prov.set(id, {
-          line: provenanceLine(sources.map((s) => ({
-            source_kind: s.source_kind, capture_id: s.capture_id, created_at: String(s.created_at),
-          })), now, typeof origin === "string" ? origin : null),
-          noteId: notes[0]?.capture_id ?? null,
-        });
-      }
-      return prov.get(id) ?? null;
-    };
-    const quotes = (id: string) => (byItem.get(id) ?? [])
-      .filter((s) => s.source_kind === "capture" && !s.deleted_at && typeof s.quote === "string")
-      .map((s) => String(s.quote));
-    // Conversations the user confirmed: a "Waiting on …" already acted on doesn't keep asking (K3).
-    const contacts = (await store.list("contact_events")) as unknown as ContactRow[];
     return buildToday({
-      now, today: todayIso(now), reasons, items, people, local: local.local, primaries: local.primaries,
-      handoff: local.handoff, told, questions, toLookAt, provenance, quotes, contacts,
+      ...base, questions, toLookAt,
       activated: activation.activated, firstName: activation.firstName, pending, dataKnown,
       bringBack: { activatedAt: activation.activation?.activated_at ?? null, seen: !!activation.activation?.bring_back_at },
     });
@@ -560,13 +577,64 @@ export function useToday(
   return q.data ?? null;
 }
 
+/** Today's selection for a day at a time, for the notification planner (the same selection, nothing else). */
+export async function momentFor(store: UserStore, reasonLocal: ReasonLocal, day: string, at: Date): Promise<MomentSummary | null> {
+  const base = await todayInputFor(store, reasonLocal, at);
+  const v = buildToday({ ...base, today: day, questions: 0, toLookAt: 0, activated: true, dataKnown: true });
+  return v.moment ? { reasonId: v.moment.reasonId, personId: v.moment.personId, personName: v.moment.personName, type: v.moment.type } : null;
+}
+
+/** Settings › Notifications: on, or paused (user_settings.push_enabled; CC-25's global pause). */
+export function useNotificationSetting(): { on: boolean | null; set: (on: boolean) => Promise<void> } {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, async (repos) => (await repos.settings.get())?.push_enabled === true);
+  return {
+    on: q.data ?? null,
+    set: async (on: boolean) => {
+      const scheduler = expoScheduler();
+      // Turning it on is the permission moment when it hasn't come yet; refused, iOS Settings is the way back.
+      if (on && !(await notificationPermissionAsked(store))) {
+        const state = await askNotificationPermissionOnce(store, scheduler, () => repositoriesFor(store).settings.update({ push_enabled: true }));
+        if (state !== "granted") return;
+      } else if (on && (await scheduler.permission()) !== "granted") {
+        const state = await scheduler.request();
+        if (state !== "granted") return;
+      }
+      await repositoriesFor(store).settings.update({ push_enabled: on });
+      track("settings_changed", { key: "notifications" });
+      store.notify();
+    },
+  };
+}
+
+/**
+ * This phone's Moment notification, planned from Today's own selection for the next delivery hour and
+ * kept idempotent by the device's record (src/lib/momentNotification.ts). Run on open, focus and
+ * background; never asks for permission.
+ */
+export async function planMomentNotification(store: UserStore, reasonLocal: ReasonLocal): Promise<void> {
+  const repos = repositoriesFor(store);
+  await scheduleMomentNotification({
+    store, scheduler: expoScheduler(),
+    momentFor: (day, at) => momentFor(store, reasonLocal, day, at),
+    local: async () => (await reasonLocal.read()).local,
+    paused: async () => (await repos.settings.get())?.push_enabled !== true,
+  });
+}
+
+
 /** What Today can do: refresh reasons, mark one shown, put it aside, hand off, answer the return check. */
 export function useTodayActions() {
   const { store, reasons, reasonLocal } = useV2Session();
   const loop = {
-    local: reasonLocal, contacts: repositoriesFor(store).contacts, now: () => new Date(),
+    local: reasonLocal, contacts: repositoriesFor(store).contacts, memory: repositoriesFor(store).memory, now: () => new Date(),
     record: (id: string, event: Parameters<typeof reasons.record>[1], channel?: string) => reasons.record(id, event, channel),
   };
+  const askPermission = () => askNotificationPermissionOnce(store, expoScheduler(), () => repositoriesFor(store).settings.update({ push_enabled: true }))
+    .then((state) => {
+      if (state !== null) store.notify();
+    })
+    .catch(() => undefined);
   return {
     refresh: (force = false) => reasons.refresh({ force, timeZone: timeZone() ?? null }),
     shown: async (m: { reasonId: string; personId: string; type: TodayReasonType; score: number }) => {
@@ -586,15 +654,25 @@ export function useTodayActions() {
     handedOff: async (h: Omit<Handoff, "at" | "answered"> & { type: TodayReasonType | "page" }) => {
       await handOff(loop, h);
       track("handoff_opened", { reason_type: reasonTypeName(h.type), channel: h.channel });
+      // The first Moment acted on is a genuinely useful one: the permission moment (PUSH-08; CC-25), once.
+      if (h.type !== "page") void askPermission();
     },
     /** The app didn't open: nothing was handed off after all (the Moment may speak again, also after a sync). */
     handoffFailed: (reasonId: string) => cancelHandOff(loop, reasonId),
-    /** "Yes": the one place a conversation is recorded (plan §15, founder I2); answered once. */
-    returned: async (answer: "yes" | "not_yet") => {
+    /**
+     * "Yes": the one place a conversation is recorded (plan §15, founder I2); answered once. "put_aside"
+     * ("Didn't happen", a promise's return check, RSN-06): nothing recorded, the promise put aside.
+     */
+    returned: async (answer: "yes" | "not_yet" | "put_aside") => {
       const h = await answerReturn(loop, answer);
       if (h) track("return_check_answered", { answer, minutes_since_handoff_bucket: minutesBucket(Date.now() - Date.parse(h.at)) });
+      if (h && answer === "put_aside" && h.type && h.type !== "page") track("reason_dismissed", { reason_type: reasonTypeName(h.type), mode: "put_aside" });
+      // The first Yes to a return check: the permission moment (PUSH-08; CC-25), once.
+      if (h && answer === "yes") void askPermission();
       return h;
     },
+    /** The next Moment notification, from Today's own selection (never asks for permission). */
+    planNotification: () => planMomentNotification(store, reasonLocal).catch(() => undefined),
     linkContact: (personId: string, contactId: string) => store.update("people", personId, { contact_ref: contactId }),
   };
 }
@@ -665,27 +743,34 @@ export function usePortrait(personId: string): Portrait & { loading: boolean } {
  * something to act on, else the page's own return check and nothing more (never for someone remembered,
  * paused or removed). `now` is the screen's clock, read again when the app comes back.
  */
-export function usePersonReturn(personId: string, now: Date): { returnCheck: ReturnView | null; reason: PageHandoffReason | null; mention: Mentions } {
+export function usePersonReturn(personId: string, now: Date): { returnCheck: ReturnView | null; reason: PageHandoffReason | null; mention: Mentions; suggestion: Suggestion | null } {
   const { store, reasonLocal } = useV2Session();
   const minute = Math.floor(now.getTime() / 60_000);
   const q = useStoreQuery(store, async (repos) => {
     const people = await repos.people.list();
     const person = people.find((p) => p.id === personId && !p.deleted_at) ?? null;
-    if (!person) return { returnCheck: null, reason: null, mention: { lines: [], opener: null } };
+    if (!person) return { returnCheck: null, reason: null, mention: { lines: [], opener: null }, suggestion: null };
     const { handoff } = await reasonLocal.read();
     // Said the way Today says it ("Call John", never "You need to call John").
     const all = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people));
     const items = all.filter((m) => m.person_id === personId);
     const reason = pageHandoffFor(items, person, todayIso(now));
     const about = reason && reason.type !== "page" ? items.find((m) => m.id === reason.itemId) ?? null : null;
+    const theirs = all.filter((m) => peopleOf(m).includes(personId));
+    // The note's own words behind a line (an interest is said only in those, SUA-1).
+    const byItem = await repos.memory.sourcesByItem();
+    const quotes = (id: string) => (byItem.get(id) ?? [])
+      .filter((s) => s.source_kind === "capture" && !s.deleted_at && typeof s.quote === "string").map((s) => String(s.quote));
     return {
       returnCheck: handoff?.personId === personId ? returnViewFor(handoff, person, now) : null,
       reason,
       // What to mention (K26): theirs and what is shared with them, about the hand-off's subject first.
-      mention: mentionsFor({ items: all.filter((m) => peopleOf(m).includes(personId)), person, today: todayIso(now), about }),
+      mention: mentionsFor({ items: theirs, person, today: todayIso(now), about }),
+      // One quiet "You could…" line for the sheet (SUA-1, FD-30d), or none.
+      suggestion: suggestionFor({ items: theirs, person, today: todayIso(now), about, quotes }),
     };
   }, [personId, minute]);
-  return q.data ?? { returnCheck: null, reason: null, mention: { lines: [], opener: null } };
+  return q.data ?? { returnCheck: null, reason: null, mention: { lines: [], opener: null }, suggestion: null };
 }
 
 // ─── Someone added after they were mentioned (G20) ──────────────────────
