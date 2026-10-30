@@ -28,6 +28,7 @@ import { resetAIInsightCache } from "@/lib/aiInsightService";
 import { resetNotificationLog } from "@/lib/notificationEngine";
 import { cancelAllNotifications } from "@/lib/notificationService";
 import { removeExportFile } from "@/lib/exportService";
+import { removeExportFiles } from "@/lib/exportData";
 import { removePhotosExcept } from "@/lib/photoStorage";
 import { resetAnalyticsInstallId } from "@/platform/posthogSink";
 import { wipeAllStores } from "@/store/session";
@@ -46,6 +47,7 @@ export async function clearAllLocalUserData(): Promise<void> {
   resetAIInsightCache();
   resetNotificationLog();
   removeExportFile();
+  removeExportFiles(); // the 2.0 export (SET-04): a copy of everything never outlives the session
   resetAnalyticsInstallId(); // the stored id goes with the on-device store
   try {
     await cancelAllNotifications();
