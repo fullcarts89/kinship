@@ -102,7 +102,69 @@ _Section owned by the WS-4 session._
 
 ## WS-5 · Integration
 
-_Section owned by the WS-5 session, on `claude/alpha-integration`._
+**Branch `claude/alpha-integration`** (from `main` f55f331), **PR #74 (draft, "do not merge")**; its description is the running status. Session WS-5, started 30 Oct 2026 (evening). Readiness **NOT READY**.
+
+### Pass 1 (30 Oct, 22:30–23:30 UTC)
+
+Merged, with merge commits, in the handoff's order:
+
+| WS | Branch | Head | Merge commit | Conflicts |
+|---|---|---|---|---|
+| WS-1 | `claude/kinship-end-to-end-completion-67e702` | `fe98c00` | `0ae5ebf` | none |
+| WS-4 | `claude/ws4-trust-floor-176a4a` | `5c5180b` | `ae4c94b` | none |
+| WS-3 | `claude/ws3-showing-up-c2c5a0` | `a21438e` | `304deac` | none |
+| WS-2 | `claude/ws2-electric-garden-5ec0d5` | `7061603` | `46b419c` | `TodayView.tsx` (WS-3's `afterGesture` guard folded into WS-2's `quietDay` variable; glue), this file (coordinator's version with WS-2's section inserted) |
+
+Glue on the integration branch only: the two conflict resolutions above; `npm install` for WS-2's two new packages (`@expo-google-fonts/archivo-black`, `@react-native-masked-view/masked-view`). Nothing of any workstream's logic changed here.
+
+Migrations applied to the shared local stack (`npx supabase migration up --local`, 30 Oct 22:50 UTC), both checked additive and forward-only: `20261030090000_v2_trust_floor.sql` (WS-4: `person_proactive`, `people_merges`, `merge_people` / `undo_merge_people`, the facet tombstone re-checked, one FK made deferrable) and `20261030120000_v2_showing_up_moment_types.sql` (WS-3: `promise`, `thread` in `contact_events.moment_type`).
+
+Combined checks (UNIT · INTEGRATION):
+
+| Check | Result |
+|---|---|
+| `TZ=UTC npx jest` | PASS 106 suites / 1011 tests (`firstRun.test.tsx` among them) |
+| `deno test supabase/functions` | PASS 475 |
+| `npx tsc --noEmit` | FAIL, 23 errors, all in WS-4's `5c5180b` (`peopleStates.ts`, `peopleMerge.ts`, `trustFloor.test.ts`: `deleted_at` missing on `Person`/`MemoryItem`, `Data` not exported). Routed: comment on #70, message to the WS-4 session. WS-4 answered that `f4a8819` typechecks; merged in pass 2 |
+| `npx eslint app src` | PASS (0 errors, the pre-existing warnings) |
+| free evals: oracle, realistic | 100% on every gate (416 cases) |
+| free evals: baseline replay (`2026-10-06T02-38-45-opus-5-5-low-v6-run`) | as the baseline (expected items 119/120 and 87/89; must-not 0) |
+
+Live-model probe (LIVE-MODEL): `evals/narrative/live.ts`, all 15 corpus scenarios, page and general modes, compared by hand with `ledger.json`. 13 of 15 agree in both modes (s12 11/11; s13 19/19 from three passages in ~13 s; s14/s15 continuation context). Three extraction-side deviations routed to WS-1 (comment on #72, message to the coordinator): **s4** the model never proposes the two keys facts (silent model-side loss, both modes); **s5** the stated-date surgery line is held with "When is it?" instead of the sensitive confirm; **s9** general Tell asks "Who is this about?" for the roommate line (confirm on the page).
+
+Black-box (BLACK-BOX), this branch's own stub on :8793 and gateway on :8010 (WS-4's `serve-delete-account.ts` holds 127.0.0.1:8792; the coordinator holds 8791/8000), one suite at a time:
+
+| Suite | Result |
+|---|---|
+| `k27` | PASS 2/2 |
+| `k28` | FAIL 2/3: the sparse-profile hand-off and the Fluffy follow-up time out (~32 s); the Susan/Pedro flow passes. Run at 22:57 UTC; a sibling session reports the K26 case failing on `main` in the evening (time dependency); re-run in pass 2 and against `main` before routing |
+| `k20`, `k4`, `removal`, `narratives` | running (pass 1) |
+| `trustfloor` (WS-4), `showingup` (WS-3, not yet on the branch), WS-6's | after their merges |
+
+NATIVE-SIMULATOR: the Release simulator build of pass 1 (`ios/build`, e2e-sim env) in progress; the journey walk follows (`docs/product/alpha-walkthrough.md`, screenshots under `docs/product/screens/alpha-rc/`). `docs/product/alpha-acceptance-scenarios.md` written (eight founder scenarios).
+
+### Routed defects
+
+| To | Where | What |
+|---|---|---|
+| WS-4 | #70 comment, session message | `5c5180b` fails tsc (23 errors, own files). Answered: `f4a8819` typechecks |
+| WS-1 | #72 comment, coordinator message | live probe s4 (two facts never proposed), s5 (date question on a stated sensitive date), s9 (who-question as a general Tell) |
+
+### Build for the founder (prepared, not run)
+
+From a clean checkout of `claude/alpha-integration` under the home directory, per the local-build memory note (Xcode 27; the October EAS quota resets 1 Nov):
+
+```bash
+SENTRY_DISABLE_AUTO_UPLOAD=true npx eas-cli build --local --profile dogfood-v2 --platform ios --non-interactive --output ~/kinship-alpha-rc.ipa
+```
+
+Check the bundle before any install: `strings` on the `.hbc` for the production URL and the new copy, never a model identifier. Install only on the founder's yes: `xcrun devicectl device install app --device <UDID> <ipa>`.
+
+**External blockers (each needs the founder's explicit yes; no session does them):** the production `ai-gateway` must be deployed from the merged code (prompt v7, passages, continuation context, K27/K31) before the app's new understanding works on a phone; both migrations reach production only on merge to `main`; the device install itself.
+
+### Open in WS-5
+
+Pass 2 (WS-4 `f4a8819`, WS-3/WS-6 when they land, WS-2 last); k28 against `main`; the full black-box set; the Release-simulator journey with the live model; the walkthrough.
 
 ## WS-6 · Ask Kinship v1
 
