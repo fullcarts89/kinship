@@ -225,7 +225,6 @@ Deno.test("malformed, low-confidence and excess items are dropped without throwi
   eq(out.dropped.map((d) => d.reason), ["bad_kind_subject", "bad_kind_subject", "bad_kind_subject", "low_confidence", "low_confidence"]);
   const many = run(input("Ben loves jazz."), Array.from({ length: 12 }, () => item({})));
   eq(many.items.length, 1, "duplicates collapse");
-  // Past the limit too: the same thing again is a duplicate, never a loss (Option A, founder review of PR #58).
   eq(many.dropped.filter((d) => d.reason === "duplicate").length, 11);
   eq(many.dropped.filter((d) => d.reason === "too_many_items").length, 0);
   eq(many.coverage, undefined);
@@ -654,7 +653,7 @@ Deno.test("people picked from Contacts (full names) are named by their first nam
   eq(lower.items.length === 0 || lower.items[0].person_id === null, true, "'will' is not Will Park");
 });
 
-// ─── Option A (founder, 19 Oct 2026): no silent capacity-based loss ──────────
+// ─── FD-30c (founder, 30 Oct 2026): long notes are processed, not pushed back ─────
 
 const TEN_THINGS = [
   "Ben loves jazz", "Ben took up pottery", "Ben started cycling", "Ben is learning Italian", "Ben joined a choir",
@@ -663,72 +662,44 @@ const TEN_THINGS = [
 const tenNote = TEN_THINGS.map((t) => `${t}.`).join(" ");
 const tenItems = () => TEN_THINGS.map((t) => item({ statement: t, evidence: [t], detail: { ...item({}).detail, topic: t } }));
 
-Deno.test("past the limit, the words of what was left out are kept as unprocessed, never silently dropped", () => {
+Deno.test("every proposal is judged: ten things in one note are ten lines, with no coverage and nothing lost", () => {
   const out = run(input(tenNote), tenItems());
-  eq(out.items.length, 8, "the limit still holds");
-  eq(out.dropped.filter((d) => d.reason === "too_many_items").length, 2);
-  const unprocessed = out.coverage?.unprocessed ?? [];
-  eq(unprocessed.map((s) => sliceCodePoints(tenNote, s)), [TEN_THINGS[8], TEN_THINGS[9]], "the ninth and tenth, in the note's own words");
-  eq(out.coverage?.unlocated, 0);
+  eq(out.items.length, 10);
+  eq(out.items.map((i) => i.statement), TEN_THINGS);
+  eq(out.dropped, []);
+  eq(out.coverage, undefined);
 });
 
-// Founder review of PR #58 (19 Oct): overlapping evidence spans do not prove semantic duplication. A proposal
-// past the limit is not lost only when the item rules exclude it on their own or it is the same thing as a
-// kept line by the test that folds a repeat inside the limit; otherwise it stays in the note, unresolved.
-
-Deno.test("a genuine duplicate past the limit is a duplicate of the kept line, not a loss", () => {
-  // The same thing as the first line, quoted from fewer of its words.
-  const repeat = [...tenItems().slice(0, 8), item({ statement: TEN_THINGS[0], evidence: ["loves jazz"] })];
-  const out = run(input(tenNote), repeat);
-  eq(out.items.length, 8);
-  eq(out.dropped.map((d) => d.reason), ["duplicate"]);
-  eq(out.coverage, undefined, "nothing was lost: the ninth repeated the first");
-  eq(out.items[0].spans.map((sp) => sp.quote), [TEN_THINGS[0], "loves jazz"], "the kept line rests on both quotes, as inside the limit");
-});
-
-Deno.test("two things in one sentence: a proposal past the limit that shares a kept line's words is still lost, and marked", () => {
+Deno.test("two things in one sentence are two lines, each on the sentence's words", () => {
   const sentence = "Ben loves jazz and plays chess on Tuesdays";
   const note = [...TEN_THINGS.slice(1, 8), sentence].map((t) => `${t}.`).join(" ");
   const kept = TEN_THINGS.slice(1, 8).map((t) => item({ statement: t, evidence: [t], detail: { ...item({}).detail, topic: t } }));
   const jazz = item({ statement: "Ben loves jazz", evidence: [sentence], detail: { ...item({}).detail, topic: "jazz" } });
   const chess = item({ statement: "Ben plays chess on Tuesdays", evidence: [sentence], detail: { ...item({}).detail, topic: "chess" } });
   const out = run(input(note), [...kept, jazz, chess]);
-  eq(out.items.length, 8);
-  eq(out.items[7].statement, "Ben loves jazz");
-  eq(out.dropped.map((d) => d.reason), ["too_many_items"], "the chess line is lost to the limit, not folded into the jazz line");
-  eq((out.coverage?.unprocessed ?? []).map((sp) => sliceCodePoints(note, sp)), [sentence], "its words stay in the note, under the kept line's own");
-  eq(out.coverage?.unlocated, 0);
+  eq(out.items.length, 9);
+  eq(out.items.slice(7).map((i) => i.statement), ["Ben loves jazz", "Ben plays chess on Tuesdays"]);
+  eq(out.dropped, []);
+  eq(out.coverage, undefined);
 });
 
-Deno.test("proposals past the limit sharing evidence with each other are each judged; the distinct ones are each lost", () => {
-  const sentence = "Ben loves jazz and plays chess on Tuesdays";
-  const eight = [...TEN_THINGS.slice(1, 8), TEN_THINGS[9]];
-  const note = [...eight, sentence].map((t) => `${t}.`).join(" ");
-  const kept = eight.map((t) => item({ statement: t, evidence: [t], detail: { ...item({}).detail, topic: t } }));
-  const jazz = item({ statement: "Ben loves jazz", evidence: [sentence] });
-  const chess = item({ statement: "Ben plays chess on Tuesdays", evidence: [sentence] });
-  const jazzAgain = item({ statement: "Ben loves jazz", evidence: ["loves jazz"] });
-  const out = run(input(note), [...kept, jazz, chess, jazzAgain]);
-  eq(out.items.length, 8);
-  // Neither is a kept line, so neither is a duplicate of one: both lost, one span each (the same words
-  // twice: two things lost there), and the repeat of a lost line is lost too (nothing kept says it).
-  eq(out.dropped.map((d) => d.reason), ["too_many_items", "too_many_items", "too_many_items"]);
-  eq((out.coverage?.unprocessed ?? []).map((sp) => sliceCodePoints(note, sp)), [sentence, sentence, "loves jazz"], "in the note's order, one per lost proposal");
+Deno.test("a repeat is still folded into the line it repeats, and a contact detail is still never memory", () => {
+  const out = run(input(`${tenNote} Ben's email is ben@example.com.`), [
+    ...tenItems(), item({ statement: TEN_THINGS[0], evidence: ["loves jazz"] }),
+    item({ statement: "Ben's email is ben@example.com", evidence: ["Ben's email is ben@example.com"] }),
+  ]);
+  eq(out.items.length, 10);
+  eq(out.dropped.map((d) => d.reason), ["duplicate", "contact_detail"]);
+  eq(out.items[0].spans.map((sp) => sp.quote), [TEN_THINGS[0], "loves jazz"], "the kept line rests on both quotes");
+  eq(out.coverage, undefined);
 });
 
-Deno.test("a proposal past the limit the rules exclude on their own is excluded for that reason, as inside the limit", () => {
-  const note = `${tenNote} Ben's email is ben@example.com.`;
-  const contact = item({ statement: "Ben's email is ben@example.com", evidence: ["Ben's email is ben@example.com"] });
-  const out = run(input(note), [...tenItems().slice(0, 8), contact]);
-  eq(out.items.length, 8);
-  eq(out.dropped.map((d) => d.reason), ["contact_detail"]);
-  eq(out.coverage, undefined, "a contact detail is never memory, inside the limit or past it: nothing was lost");
-});
-
-Deno.test("a proposal past the limit whose words can't be placed is counted, with no span invented", () => {
-  const invented = [...tenItems().slice(0, 8), item({ statement: "Ben runs marathons", evidence: ["Ben runs marathons"] })];
-  const out = run(input(tenNote), invented);
-  eq(out.coverage, { unprocessed: [], unlocated: 1 });
+Deno.test("a passage whose call failed is recorded as not got to, in the note's order, never silent", () => {
+  const out = run(input(tenNote), tenItems().slice(0, 3));
+  eq(out.coverage, undefined, "the pipeline itself never invents coverage");
+  const failed = { start: 20, end: 40 };
+  const partial = planExtraction(input(tenNote), { items: tenItems().slice(0, 3), needs_clarification: null } as ModelProposal, { unprocessed: [{ start: 50, end: 60 }, failed] });
+  eq(partial.coverage, { unprocessed: [failed, { start: 50, end: 60 }], unlocated: 0 });
 });
 
 Deno.test("a note the understanding takes whole has no coverage at all", () => {

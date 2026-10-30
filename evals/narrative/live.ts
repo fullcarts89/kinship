@@ -15,7 +15,7 @@ const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
 const args = parseArgs(Deno.args, { string: ["ids", "save", "replay"], boolean: ["page", "general"], default: {} });
 
 interface Person { key: string; name: string; full?: string; nick?: string[]; label?: string }
-interface Scenario { id: string; title: string; note: string; page?: string; occurred_at?: string }
+interface Scenario { id: string; title: string; note: string; page?: string | null; occurred_at?: string; earlier?: string; earlier_person?: string }
 
 const roster: Person[] = JSON.parse(await Deno.readTextFile(`${DIR}/rosters.json`)).people;
 let scenarios: Scenario[] = JSON.parse(await Deno.readTextFile(`${DIR}/corpus.json`)).scenarios;
@@ -29,9 +29,14 @@ function inputFor(s: Scenario, mode: "page" | "general"): ExtractionInput {
   const people: RosterPerson[] = roster.map((p) => ({
     key: p.key, id: `id-${p.key}`, display_name: p.name, full_name: p.full ?? null, nicknames: p.nick ?? [], relationship_label: p.label ?? null,
   }));
-  const page = mode === "page" && s.page ? people.find((p) => p.name === s.page) : undefined;
+  const page = mode === "page" && s.page ? people.find((p) => p.display_name === s.page) : undefined;
+  // A continuation (Tell the rest): the earlier note is context, and its person stands in for the page (as the gateway does).
+  const earlierPerson = s.earlier && s.earlier_person ? people.find((p) => p.display_name === s.earlier_person) : undefined;
   return {
-    capture: { id: `c-${s.id}-${mode}`, raw_text: s.note, occurred_at: s.occurred_at ?? "2026-10-30T18:00:00Z", time_zone: "America/Los_Angeles", context_person_key: page?.key ?? null },
+    capture: {
+      id: `c-${s.id}-${mode}`, raw_text: s.note, occurred_at: s.occurred_at ?? "2026-10-30T18:00:00Z", time_zone: "America/Los_Angeles",
+      context_person_key: page?.key ?? earlierPerson?.key ?? null, ...(s.earlier ? { earlier_text: s.earlier } : {}),
+    },
     roster: people,
     related: [],
     dossier: [],
@@ -46,7 +51,7 @@ function describe(input: ExtractionInput, proposal: ModelProposal | null, outcom
   for (const it of proposal.items) lines.push(`    · [${it.kind}/${it.subject}] ${it.person} "${it.person_mention}" ${it.related_relation ? `(${it.related_relation} ${it.related_name ?? ""}) ` : ""}— ${it.statement}`);
   lines.push(`  pipeline: tier=${outcome.tier}, ${outcome.items.length} planned, ${outcome.dropped.length} dropped${outcome.coverage ? `, coverage ${JSON.stringify(outcome.coverage)}` : ""}`);
   for (const it of outcome.items) {
-    lines.push(`    ${it.tier === "hold" ? "HELD" : it.tier === "confirm" ? "CONFIRM" : "kept"} [${it.kind}/${it.subject}] ${name(it.person_key)}${it.new_person_name ? ` new:${it.new_person_name}` : ""}${it.related ? ` (${it.related.relation} ${it.related.name ?? ""})` : ""} — ${it.statement}${it.flags.length ? `  {${it.flags.join(",")}}` : ""}`);
+    lines.push(`    ${it.tier === "hold" ? "HELD" : it.tier === "confirm" ? "CONFIRM" : "kept"} [${it.kind}/${it.subject_type}] ${name(it.person_key)}${it.new_person_name ? ` new:${it.new_person_name}` : ""}${it.related ? ` (${it.related.relation} ${it.related.name ?? ""})` : ""} — ${it.statement}${it.flags.length ? `  {${it.flags.join(",")}}` : ""}`);
   }
   for (const d of outcome.dropped) lines.push(`    dropped: ${d.reason} (${d.kind})`);
   if (outcome.clarification) lines.push(`  QUESTION: ${outcome.clarification.question} ${JSON.stringify(outcome.clarification.options)}`);
@@ -59,12 +64,12 @@ const cap = CAPABILITIES.relationship_extract;
 const saved: Record<string, unknown> = {};
 for (const s of scenarios) {
   for (const mode of modes) {
-    if (mode === "page" && !s.page) continue;
+    if (mode === "page" && !s.page) continue; // a continuation (earlier text, no page) runs once, as "general"
     const input = inputFor(s, mode);
     const started = performance.now();
     const run = await runExtraction(input, cap, call);
     const ms = Math.round(performance.now() - started);
-    console.log(`\n=== ${s.id} · ${s.title} · ${mode === "page" ? `on ${s.page}'s page` : "general Tell"} · ${run.call.outcome} · ${ms} ms · out ${run.call.usage.output} tok`);
+    console.log(`\n=== ${s.id} · ${s.title} · ${mode === "page" ? `on ${s.page}'s page` : "general Tell"} · ${run.call.outcome} · ${ms} ms · out ${run.call.usage.output} tok · ${run.passages} passage(s), ${run.failed} failed`);
     console.log(`  note: ${s.note}`);
     console.log(describe(input, run.proposal, run.outcome));
     saved[`${s.id}-${mode}`] = { input, proposal: run.proposal, call: { outcome: run.call.outcome, usage: run.call.usage, latencyMs: run.call.latencyMs } };

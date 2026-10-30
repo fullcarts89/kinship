@@ -44,7 +44,7 @@
 import { bearerToken } from "../_shared/auth.ts";
 import type { ModelCaller, StructuredResult } from "../_shared/ai/model.ts";
 import { type Capability, CAPABILITIES } from "../_shared/ai/registry.ts";
-import { buildInput, type CaptureRow, dossierPeople, type FacetRow, type ItemRow, type PersonRow, type RelatedRow } from "../_shared/extraction/context.ts";
+import { buildInput, type CaptureRow, dossierPeople, type EarlierNote, type FacetRow, type ItemRow, type PersonRow, type RelatedRow, withEarlier } from "../_shared/extraction/context.ts";
 import type { PlaceIndex } from "../_shared/semantic/placeIndex.ts";
 import { type FacetWrite, type LineToRead, MAX_REREAD, rederive } from "../_shared/semantic/rederive.ts";
 import { looksResidential, type ReportItem, type ReportRow, residenceReport } from "../_shared/semantic/report.ts";
@@ -89,6 +89,11 @@ export interface GatewayCaller {
    * phone that lost the reply to a timeout learns what was kept, never "nothing".
    */
   loadSavedIds(captureId: string): Promise<string[]>;
+  /**
+   * Under the caller's RLS: the distinct people the live lines this capture saved are filed on (CER-1):
+   * a note that tells the rest of an earlier note told from no page is about that note's one person.
+   */
+  loadSavedPeople(captureId: string): Promise<string[]>;
   /** As the user: dismiss what's held ("not now"); false when nothing was waiting. */
   closeReview(captureId: string): Promise<boolean>;
 }
@@ -303,8 +308,13 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
         return json({ error: "daily_limit_reached" }, 429, { ...cors, "Retry-After": String(secondsUntilUtcMidnight()) });
       }
 
+      // A note that tells the rest of an earlier one (Option A's "Tell the rest"; CER-1): the earlier
+      // note's words go to the model as context, never as evidence, and its person stands in for a note
+      // told from no page, so "plays chess on Thursdays" is Mina's, not "nothing to remember".
+      const earlier = await earlierOf(caller, capture);
+      const scope = withEarlier(capture, earlier);
       const { people, related } = await caller.loadPeople();
-      const items = await caller.loadItems(dossierPeople(capture, people, related));
+      const items = await caller.loadItems(dossierPeople(scope, people, related));
       // Residence readings of those lines, when there is place data to read a new one with. Unread, the
       // note is understood without residence (never as though none of those lines had a reading).
       const facets = deps.places && items.length ? await caller.loadFacets(items.map((i) => i.id)) : [];
@@ -316,7 +326,7 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
         const unread = items.map((i) => i.id).filter((id) => !live.has(id));
         if (unread.length) facets.push(...(await reread(deps.places, deps.service, caller, unread).catch(() => [])).flatMap((r) => r.facet));
       }
-      const input = { ...buildInput(capture, people, related, items, facets ?? []), ...(places ? { places } : {}) };
+      const input = { ...buildInput(capture, people, related, items, facets ?? [], earlier), ...(places ? { places } : {}) };
       const run = await runExtraction(input, cap, deps.model);
       const version = `${cap.promptVersion}+${cap.model}`;
 
@@ -373,6 +383,24 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
       return json({ error: "internal_error" }, 500, cors);
     }
   };
+}
+
+/**
+ * The note this one continues, when it does (CER-1): its words, and who it was about (the page it was
+ * told from, else the one person every line it kept is filed on; several people, or none, is no one).
+ * A parent that is gone, or not the caller's, is no context at all.
+ */
+async function earlierOf(caller: GatewayCaller, capture: CaptureRow): Promise<EarlierNote | null> {
+  const parentId = capture.continues_capture_id ?? null;
+  if (!parentId || parentId === capture.id) return null;
+  const parent = await caller.loadCapture(parentId).catch(() => null);
+  if (!parent?.raw_text?.trim()) return null;
+  let personId = parent.context_person_id ?? null;
+  if (!personId) {
+    const people = await caller.loadSavedPeople(parentId).catch(() => [] as string[]);
+    if (people.length === 1) personId = people[0];
+  }
+  return { raw_text: parent.raw_text, person_id: personId };
 }
 
 function toWriteItem(i: PlannedItem): WriteItem {

@@ -72,10 +72,18 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
     },
     async loadCapture(id) {
       const { data, error } = await db.from("captures")
-        .select("id, raw_text, occurred_at, time_zone, context_person_id, coverage")
+        .select("id, raw_text, occurred_at, time_zone, context_person_id, coverage, continues_capture_id")
         .eq("id", id).is("deleted_at", null).not("raw_text", "is", null).maybeSingle();
       if (error) throw new Error("capture read failed");
       return (data as CaptureRow | null) ?? null;
+    },
+    async loadSavedPeople(captureId) {
+      const { data, error } = await db.from("memory_item_sources")
+        .select("memory_items!inner(id, person_id, status, deleted_at)")
+        .eq("capture_id", captureId).is("memory_items.deleted_at", null).in("memory_items.status", ["active", "resolved"]);
+      if (error) throw new Error("saved people read failed");
+      const rows = (data ?? []) as { memory_items: { person_id: string } | { person_id: string }[] | null }[];
+      return [...new Set(rows.flatMap((r) => (Array.isArray(r.memory_items) ? r.memory_items : r.memory_items ? [r.memory_items] : []).map((m) => m.person_id)).filter(Boolean))];
     },
     async loadSavedIds(captureId) {
       const { data, error } = await db.from("memory_item_sources")
