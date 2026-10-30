@@ -19,12 +19,19 @@ export interface TodayViewProps {
   attention?: boolean;
   /** After "Yes": the same reason carried on ("Anything worth remembering from congratulating Ben?"). */
   afterReturn: { personId: string; personName: string; followUp?: string } | null;
+  /**
+   * After a Yes that followed a "You could…" tap (SUA-1, FD-30d): one optional content-free question
+   * ("Did you make a plan?"), Yes · Not yet, before anything else; never counted back to the user.
+   */
+  afterGesture?: { ask: string } | null;
+  onGesture?: (answer: "yes" | "not_yet") => void;
   onPrimary: () => void;
   /** Tap the moment's words → its detail (founder I1). */
   onOpenMoment?: () => void;
   onNotNow: () => void;
   onProvenance: () => void;
-  onReturn: (answer: "yes" | "not_yet") => void;
+  /** "put_aside" is "Didn't happen", offered only on a promise's return check (RSN-06). */
+  onReturn: (answer: "yes" | "not_yet" | "put_aside") => void;
   onRemember: () => void;
   onNothing: () => void;
   onQuiet: (q: QuietView) => void;
@@ -42,6 +49,11 @@ export interface TodayViewProps {
   settling?: boolean;
   footer?: React.ReactNode;
 }
+
+/** The return check's third answer for a promise (RSN-06; copy a proposal, WS-3). */
+export const RETURN_COPY = {
+  putAside: "Didn't happen",
+} as const;
 
 export const FIRST_USE_COPY = {
   title: "This is where Kinship brings things back.",
@@ -84,7 +96,15 @@ export function TodayView(props: TodayViewProps) {
         <Greeting style={{ marginTop: space.s }}>{view.greeting}</Greeting>
       </View>
 
-      {props.afterReturn ? (
+      {props.afterGesture ? (
+        <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
+          <MomentText>{props.afterGesture.ask}</MomentText>
+          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+            <Pill size="small" label="Yes" onPress={() => props.onGesture?.("yes")} />
+            <Pill size="small" label="Not yet" onPress={() => props.onGesture?.("not_yet")} />
+          </View>
+        </View>
+      ) : props.afterReturn ? (
         <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
           <Display>{props.afterReturn.followUp ?? `Anything worth remembering about ${props.afterReturn.personName}?`}</Display>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.xxl }}>
@@ -96,9 +116,11 @@ export function TodayView(props: TodayViewProps) {
         <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
           <MomentText>{view.returnCheck.ask}</MomentText>
           {view.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{view.returnCheck.about}</Small> : null}
-          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
             <Pill size="small" label="Yes" onPress={() => props.onReturn("yes")} />
             <Pill size="small" label="Not yet" onPress={() => props.onReturn("not_yet")} />
+            {/* A promise's quiet way out (RSN-06, WS-3): put aside without judgement; nothing is recorded. */}
+            {view.returnCheck.type === "promise" ? <Pill size="small" variant="quiet" label={RETURN_COPY.putAside} onPress={() => props.onReturn("put_aside")} /> : null}
           </View>
         </View>
       ) : null}
@@ -152,7 +174,7 @@ export function TodayView(props: TodayViewProps) {
         <View style={{ marginTop: space.x4 }}>
           <Display>{view.waiting === "one" ? "One thing to check." : "A few things to check."}</Display>
         </View>
-      ) : view.quietDay && !props.afterReturn && !props.attention ? (
+      ) : view.quietDay && !props.afterReturn && !props.afterGesture && !props.attention ? (
         <View style={{ marginTop: space.x4 }}>
           <Display>Nothing needs you today.</Display>
         </View>

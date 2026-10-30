@@ -127,7 +127,7 @@ export class ReasonLocal {
    * lets the reason speak again while its window lasts, also after a sync has
    * brought the server's "acted" back (founder N6).
    */
-  answered(answer: "yes" | "not_yet", at: string, record?: (h: Handoff) => Promise<void>): Promise<Handoff | null> {
+  answered(answer: "yes" | "not_yet" | "put_aside", at: string, record?: (h: Handoff) => Promise<void>): Promise<Handoff | null> {
     return this.serial(() => this.answerOnce(answer, at, record));
   }
 
@@ -137,12 +137,14 @@ export class ReasonLocal {
    * be safe to run twice (returnLoop.ts writes the conversation by a key of
    * the hand-off, so a second run finds it).
    */
-  private async answerOnce(answer: "yes" | "not_yet", at: string, record?: (h: Handoff) => Promise<void>): Promise<Handoff | null> {
+  private async answerOnce(answer: "yes" | "not_yet" | "put_aside", at: string, record?: (h: Handoff) => Promise<void>): Promise<Handoff | null> {
     const { handoff } = await this.read();
     if (!handoff || handoff.answered) return null;
     if (record) await record(handoff);
     await setMeta(this.store.db, HANDOFF, JSON.stringify({ ...handoff, answered: answer }));
     if (answer === "yes") await this.patch(handoff.reasonId, { done: at, notYet: undefined });
+    // "Didn't happen" (RSN-06): put aside, as "Not now" does; it never speaks again, and nothing is recorded.
+    else if (answer === "put_aside") await this.patch(handoff.reasonId, { acted: undefined, dismissed: at });
     else await this.patch(handoff.reasonId, { acted: undefined, notYet: at });
     this.store.notify();
     return handoff;

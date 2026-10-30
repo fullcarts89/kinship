@@ -11,6 +11,8 @@ import { KeptCard } from "@/features/tell/TellDock";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TellSheet } from "@/features/tell/TellSheet";
 import { useHandoff } from "@/features/today/useHandoff";
+import { OUTCOME_ASK, type GestureKind } from "@/features/today/suggestions";
+import { track } from "@/platform/analytics";
 import { todayIso, useItemLine, usePeople, usePersonLinks, usePersonReturn, usePortrait, useTodayActions, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { NamePane } from "@/features/tell/Pickers";
 import { Pill, Sheet, Title } from "@/ui";
@@ -57,12 +59,15 @@ export default function PersonScreen() {
   const today = useTodayActions();
   // After a Yes: "Anything worth remembering…?", optional, as Today asks it (founder I2, K28).
   const [afterReturn, setAfterReturn] = useState<{ followUp: string } | null>(null);
+  // SUA-1: after a Yes that followed a "You could…" tap, one optional question first; then the usual one.
+  const [afterGesture, setAfterGesture] = useState<{ kind: GestureKind; ask: string; next: { followUp: string } | null } | null>(null);
   // Reaching out about something they said they'd do gets the same return question as Today's line
   // about it (founder K23); with nothing to act on, the page's own return check, and nothing more
   // (founder K28). What to mention is chosen by mentions.ts (K26), never the first rows of the page.
   const reachOut = () => handoff.start({
     personId, personName: first, heading: `Reach ${first}`, mention: back.mention.lines, opener: back.mention.opener,
     ...(back.reason ? { reason: back.reason } : {}),
+    suggestion: back.suggestion,
   });
 
   return (
@@ -96,8 +101,18 @@ export default function PersonScreen() {
         if (answer === "yes") void reachedSomeone();
         void today.returned(answer).then((h) => {
           // Optional, never blocking, never after a promise's logistics (followUp ""); "nothing" undoes nothing.
-          if (answer === "yes" && h && rc?.followUp) setAfterReturn({ followUp: rc.followUp });
+          const next = answer === "yes" && h && rc?.followUp ? { followUp: rc.followUp } : null;
+          // A Yes that followed a "You could…" tap asks its one optional question first (SUA-1).
+          if (answer === "yes" && h?.gesture) setAfterGesture({ kind: h.gesture, ask: OUTCOME_ASK[h.gesture], next });
+          else if (next) setAfterReturn(next);
         }, () => Alert.alert("That couldn't be saved", "Nothing was lost. Try again in a moment."));
+      }}
+      afterGesture={afterGesture}
+      onGesture={(answer) => {
+        if (!afterGesture) return;
+        track("gesture_outcome", { kind: afterGesture.kind, answer });
+        setAfterReturn(afterGesture.next);
+        setAfterGesture(null);
       }}
       afterReturn={afterReturn}
       onRemember={() => {

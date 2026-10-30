@@ -14,6 +14,7 @@
 // is never a stale detail.
 
 import { dayLabel } from "@/features/memory/format";
+import type { Suggestion } from "./suggestions";
 import { comingReasonId, daysBetween, type MomentView, type QuietView, type ReasonType, type TodayView, waitingReasonId } from "./todayModel";
 
 export interface MomentDetail {
@@ -41,6 +42,8 @@ export interface MomentDetail {
   heading: string;
   mention: string[];
   opener?: string | null;
+  /** SUA-1 (FD-30d): one quiet "You could…" line under Message and Call, or none. */
+  suggestion?: Suggestion | null;
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -90,6 +93,14 @@ function fromMoment(m: MomentView, today: string): MomentDetail {
     case "birthday":
       why = `It's ${m.personName}'s birthday today.`;
       break;
+    case "promise":
+      // On its day, and a few days on if still open: when it was for, never how late.
+      why = day && day === today ? "It's due today." : day ? `It was due ${behind(day, today)}.` : "You said you'd do it.";
+      break;
+    case "thread":
+      // With a day of its own, that day; without one, when the user told Kinship.
+      why = !day ? "It's still open." : m.toldDay ? `You told Kinship ${behind(day, today)}.` : `It was ${behind(day, today)}.`;
+      break;
     default:
       why = day ? `It's ${ahead(day, today)}.` : "It's coming up.";
   }
@@ -101,7 +112,7 @@ function fromMoment(m: MomentView, today: string): MomentDetail {
     when: day && !m.toldDay ? dayLabel(day, today) : null,
     provenance: m.provenance, noteId: m.noteId,
     reason: { id: m.reasonId, type: m.type, ask: m.ask, about: m.memory, followUp: m.followUp, itemId: m.itemId },
-    heading: m.heading, mention: m.mention, opener: m.opener,
+    heading: m.heading, mention: m.mention, opener: m.opener, suggestion: m.suggestion ?? null,
   };
 }
 

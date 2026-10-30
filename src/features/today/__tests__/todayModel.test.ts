@@ -2,7 +2,7 @@
 // a valid answer; quiet lines are at most two, from different people; the
 // return check is there as soon as the user is back, with its reason; copy is
 // templates plus the user's own words.
-import { buildToday, evidenceOf, isLocalReason, pageHandoffFor, pageReasonFor, relativeDay, returnViewFor, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
+import { buildToday, evidenceOf, isLocalReason, pageHandoffFor, pageReasonFor, promiseReasonId, relativeDay, returnViewFor, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
 import type { MemoryItem, Person } from "@/store/repositories";
 
 const NOW = new Date(2026, 9, 12, 9, 0); // Monday Oct 12, 9am local
@@ -311,7 +311,13 @@ describe("K20: what the user means to do today is on Today, however it was kept 
   };
   const today = (m: MemoryItem, over: Partial<TodayInput> = {}) =>
     buildToday(input({ items: [m], people: [...people, john], reasons: [], ...over }));
-  const johnLine = (v: ReturnType<typeof buildToday>) => v.quiet.find((q) => q.kind === "coming" && q.personId === "john");
+  /**
+   * Today's line about John: the user's own promise is Today's Moment on its day (RSN-06, FD-30e; WS-3), said
+   * in the same words; a plan or an event of the user's own stays a Coming up line.
+   */
+  const johnLine = (v: ReturnType<typeof buildToday>) => v.moment?.personId === "john" && v.moment.type === "promise"
+    ? { label: "Today", text: v.moment.memory, itemId: v.moment.itemId, day: v.moment.day }
+    : v.quiet.find((q) => q.kind === "coming" && q.personId === "john");
 
   it.each(Object.entries(shapes))("%s: a Today line about John, and never the quiet day", (_kind, m) => {
     const v = today(m);
@@ -326,7 +332,7 @@ describe("K20: what the user means to do today is on Today, however it was kept 
   });
 
   it.each(Object.entries(shapes))("%s: after Yes it has been done, on this phone or any other; Not yet keeps it", (_kind, m) => {
-    const key = `coming:${m.id}:2026-10-12`;
+    const key = m.kind === "promise" ? promiseReasonId(m.id, "2026-10-12") : `coming:${m.id}:2026-10-12`;
     expect(johnLine(today(m, { local: { [key]: { acted: "x", done: "x" } } }))).toBeUndefined();
     expect(johnLine(today(m, { contacts: [{ person_id: "john", memory_item_id: m.id, occurred_at: new Date(2026, 9, 12, 8).toISOString() }] }))).toBeUndefined();
     expect(johnLine(today(m, { local: { [key]: { acted: "x", notYet: "x" } } }))).toBeDefined();

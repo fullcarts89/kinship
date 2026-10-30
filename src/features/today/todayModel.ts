@@ -14,7 +14,9 @@
 // event-type vocabulary in it.
 
 import { mentionsFor, type Mentions } from "./mentions";
-import { aboutAnimalHealth } from "../../../supabase/functions/_shared/extraction/lexicon";
+import { GOOD_NEWS, NOT_NEWS } from "./goodNews";
+import { suggestionFor, type Suggestion } from "./suggestions";
+import { aboutAnimalHealth, wordingSensitivities } from "../../../supabase/functions/_shared/extraction/lexicon";
 import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 import { dayLabel, whenLabel } from "@/features/memory/format";
 import { nextBirthday } from "@/features/setup/setupModel";
@@ -25,7 +27,11 @@ export type ReasonType = "upcoming_event" | "event_followup" | "birthday" | "goo
   /** An engagement, a wedding, a new job… a few days before, through the day (founder H16). */
   | "milestone"
   /** Reached from a Coming up line or a "Waiting on …" line through its detail (founder I1). */
-  | "coming" | "waiting";
+  | "coming" | "waiting"
+  /** The user's own promise, on its day (RSN-06, FD-30e): "You said you'd bring Sam soup." */
+  | "promise"
+  /** An open thread, once, after its own day or a quiet while (RSN-07, FD-30e): "Did Felix decide?" */
+  | "thread";
 
 /** A birthday's moment id: one per person per birthday (never a server reason row). */
 export function birthdayReasonId(personId: string, day: string): string {
@@ -42,7 +48,90 @@ export function isBirthdayReason(id: string): boolean {
  * record on the server for it.
  */
 export function isLocalReason(id: string): boolean {
-  return /^(birthday|news|starts|milestone|coming|waiting|page):/.test(id);
+  return /^(birthday|news|starts|milestone|coming|waiting|page|promise|thread):/.test(id);
+}
+
+// ─── Promise and open-thread reasons (RSN-06, RSN-07; CC-25 "Commit next", authorised by FD-30e) ───
+//
+// Memory-native reasons: a calendar can bring back a birthday; only Kinship
+// can bring back what the user said they'd do, or a question still open in
+// someone's life. Deterministic, from the user's own lines, on the phone.
+// The guilt firewall holds: no "still haven't", no overdue state, no count
+// of days, no daily nagging; each speaks on one day, a promise once more a
+// few days later if it is still open, and "Not now" puts it aside for good.
+
+/** A promise's weight: below an event's follow-up, a birthday and a milestone, above good news. */
+export const PROMISE_WEIGHT = 74;
+/** A promise still open speaks once more, somewhere in these days after its day (never daily, never before). */
+export const PROMISE_AGAIN_DAYS: readonly [number, number] = [3, 5];
+/** A thread's weight: a check-in, below a promise. */
+export const THREAD_WEIGHT = 65;
+/**
+ * An undated thread is worth one check-in this long after it was told (the pipeline's
+ * THREAD_FOLLOWUP_DAYS, carried on the line as followup_after_days; this is its fallback).
+ */
+export const THREAD_FOLLOWUP_DAYS = 42;
+/** How many days a thread's one window stays open (from the day after its day, or from the quiet period's end). */
+export const THREAD_WINDOW_DAYS = 3;
+/** Words that say a thread is a decision still open: "Did Felix decide?" rather than "Any news from Felix?" */
+const DECIDING = /\b(?:consider\w*|decid\w*|whether|thinking (?:about|of)|weigh\w*|debat\w*|torn|undecided|mulling|wondering|might|may|not sure)\b/iu;
+
+/** A promise's moment id on its day, and the one for its second window. */
+export function promiseReasonId(itemId: string, due: string, again = false): string {
+  return `promise:${itemId}:${due}${again ? ":again" : ""}`;
+}
+
+/** A thread's one check-in: keyed to the thread's own day, else the day it was told. */
+export function threadReasonId(itemId: string, day: string): string {
+  return `thread:${itemId}:${day}`;
+}
+
+function toldDayOf(m: MemoryItem): string | null {
+  const c = String(m.created_at ?? "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/u.test(c) ? c : null;
+}
+
+/**
+ * RSN-07: the one window in which an open thread may ask for a check-in. A thread with its own day
+ * ("Mina has a job interview next Wednesday") the day after, for THREAD_WINDOW_DAYS; with no date at
+ * all, THREAD_FOLLOWUP_DAYS after it was told, for the same few days. A month or a season is neither:
+ * it is remembered quietly, like a milestone without a day. Null outside the window. `day` is what the
+ * detail says it from (the thread's day, or the day it was told: `told`).
+ */
+export function threadWindow(m: MemoryItem, today: string): { day: string; told: boolean } | null {
+  const d = (m.detail ?? {}) as Record<string, unknown>;
+  const exact = eventDay(m);
+  if (exact) {
+    const n = daysBetween(exact, today);
+    return n >= 1 && n <= THREAD_WINDOW_DAYS ? { day: exact, told: false } : null;
+  }
+  if (typeof d.date === "string" && d.date) return null;
+  const told = toldDayOf(m);
+  if (!told) return null;
+  const after = Number.isFinite(Number(d.followup_after_days)) && Number(d.followup_after_days) > 0 ? Number(d.followup_after_days) : THREAD_FOLLOWUP_DAYS;
+  const n = daysBetween(told, today) - after;
+  return n >= 0 && n < THREAD_WINDOW_DAYS ? { day: told, told: true } : null;
+}
+
+/** The thread's check-in, in a fixed template: a decision still open, or any news. */
+export function threadAsk(name: string, statement: string): string {
+  return DECIDING.test(statement) ? `Did ${name} decide?` : `Any news from ${name}?`;
+}
+
+function lowerFirst(s: string): string {
+  return s.replace(/[.!]+$/u, "").replace(/^\p{Lu}/u, (c) => c.toLocaleLowerCase());
+}
+
+/** "You said you'd bring Sam soup." from the line as the page shows it ("Bring Sam soup"). */
+export function promiseStatement(statement: string): string {
+  const s = statement.trim().replace(/[.!]+$/u, "");
+  return /^You\b/u.test(s) ? `${s}.` : `You said you'd ${lowerFirst(s)}.`;
+}
+
+/** The return question a promise carries: "Did you bring Sam soup?" (never a bare "Did you reach Sam?" when the words allow). */
+export function promiseAsk(name: string, statement: string): string {
+  const s = statement.trim().replace(/[.!]+$/u, "");
+  return /^You\b/u.test(s) ? `Did you reach ${name}?` : `Did you ${lowerFirst(s)}?`;
 }
 
 /**
@@ -66,8 +155,7 @@ export const GOOD_NEWS_WEIGHT = 75;
 export const STARTS_TODAY_WEIGHT = 70;
 /** How long good news stays worth a congratulation. */
 const GOOD_NEWS_DAYS = 2;
-const GOOD_NEWS = /\b(?:was |got |been |is |has been )?promoted\b|\bpromotion\b|\bgot (?:the|a|an|her|his|their)\s+(?:\S+\s+){0,2}?(?:job|offer|role|position|place)\b|\bgot (?:engaged|married|in|into|accepted|hired)\b|\b(?:was|were) (?:accepted|hired)\b|\bgraduated\b|\bhad (?:a|the|her|his|their) baby\b|\bis engaged\b|\bpassed (?:the|her|his|their)\b|\bbought (?:a|their|his|her) (?:house|home|place)\b|\bclosed on\b|\bfinished (?:the|her|his|their) (?:marathon|race|degree|thesis)\b/iu;
-const NOT = /\b(not|didn['’]?t|did not|never|no longer|wasn['’]?t|isn['’]?t)\b/iu;
+const NOT = NOT_NEWS;
 /** Firsts that matter on the day itself (the server's follow-up comes after). */
 const STARTS = ["job_start", "school_start"];
 
@@ -100,12 +188,18 @@ export interface LocalReason {
   notYet?: string;
 }
 
+/** What the user initiated from a suggestion line (SUA-1, FD-30d): a closed kind, never words. */
+export type GestureKind = "plan" | "help" | "company" | "note" | "activity";
+
 export interface Handoff {
   reasonId: string;
   personId: string;
   channel: "text" | "call" | "facetime" | "whatsapp" | "email";
   at: string;
-  answered?: "yes" | "not_yet";
+  /** "put_aside": "Didn't happen" on a promise's return check: nothing recorded, the promise put aside without judgement. */
+  answered?: "yes" | "not_yet" | "put_aside";
+  /** The hand-off followed a tap on a "You could…" line (SUA-1): what Kinship suggested, kept apart from what the user confirms. */
+  gesture?: GestureKind;
   /** Why Kinship opened it, carried to the return (H18): "Did you congratulate Ben on the promotion?" */
   ask?: string;
   /** The memory it was about, in the user's words: "Ben got promoted". */
@@ -220,6 +314,8 @@ export interface MomentView {
   mention: string[];
   /** One suggested question under the first of them, or none (K26). */
   opener: string | null;
+  /** SUA-1 (FD-30d): one quiet "You could…" line for the hand-off and the detail, or none. */
+  suggestion: Suggestion | null;
   /** The return question, with its reason (H10, H18). */
   ask: string;
   /** After a yes, the same reason: "Anything worth remembering from congratulating Ben?" */
@@ -251,6 +347,10 @@ export interface ReturnView {
   personName: string;
   reasonId: string;
   channel: Handoff["channel"];
+  /** Which kind of Moment the hand-off came from: a promise's return check also offers "Didn't happen". */
+  type?: ReasonType | "page";
+  /** The suggestion the hand-off followed, if any (SUA-1): after a Yes, one optional content-free question. */
+  gesture?: GestureKind;
   /** "Did you congratulate Ben on the promotion?": the reason, never a bare "Did you reach Ben?" (H18). */
   ask: string;
   /** What it was about: "Ben got promoted". */
@@ -445,15 +545,46 @@ export function buildToday(input: TodayInput): TodayView {
   // outright in the user's own words, with a day of its own, from three days
   // before through the day. Never from a hedge, never a relative's, and a
   // month, a year or no date is remembered quietly: nothing asks for one.
-  let local: { item: MemoryItem; day: string; type: "good_news" | "starts_today" | "milestone"; score: number; milestone?: MilestoneType } | null = null;
+  // Promises (RSN-06): the user's own, with a day, on that day and once more a few days later if still
+  // open; undated, never (it stays "You said you'd" on the page). Threads (RSN-07): one check-in the day
+  // after the thread's own day, or a quiet while after it was told; never a sensitive one (hard times
+  // are RSN-09), never a relative's.
+  type LocalType = "good_news" | "starts_today" | "milestone" | "promise" | "thread";
+  let local: { item: MemoryItem; day: string; type: LocalType; score: number; milestone?: MilestoneType; again?: boolean; told?: boolean } | null = null;
   for (const m of input.items) {
-    if (!live(m) || !activePerson(m.person_id) || (m.subject_type !== undefined && m.subject_type !== "person" && m.subject_type !== "shared")) continue;
-    let type: "good_news" | "starts_today" | "milestone" | null = null;
+    if (!live(m) || !activePerson(m.person_id)) continue;
+    const subject = m.subject_type;
+    if (m.kind === "promise" ? subject !== "user" : subject !== undefined && subject !== "person" && subject !== "shared") continue;
+    let type: LocalType | null = null;
     let day: string | null = null;
     let milestone: MilestoneType | null = null;
+    let again = false;
+    let told = false;
     const detail = (m.detail ?? {}) as Record<string, unknown>;
     const exact = eventDay(m);
-    if (m.kind === "event" && STARTS.includes(String(detail.event_type)) && exact === today) {
+    if (m.kind === "promise") {
+      const due = dueDay(m);
+      const n = due ? daysBetween(due, today) : null;
+      // Reached about it since its day, on any phone (a confirmed conversation): it has been seen to.
+      const reachedSince = !!due && (input.contacts ?? []).some((c) => !c.deleted_at && c.memory_item_id === m.id && c.person_id === m.person_id &&
+        typeof c.occurred_at === "string" && daysBetween(due, isoDay(new Date(c.occurred_at))) >= 0);
+      if (reachedSince) continue;
+      if (due && n === 0) {
+        type = "promise";
+        day = due;
+      } else if (due && n !== null && n >= PROMISE_AGAIN_DAYS[0] && n <= PROMISE_AGAIN_DAYS[1]) {
+        type = "promise";
+        day = due;
+        again = true;
+      }
+    } else if (m.kind === "thread") {
+      const w = wordingSensitivities(m.statement).length ? null : threadWindow(m, today);
+      if (w) {
+        type = "thread";
+        day = w.day;
+        told = w.told;
+      }
+    } else if (m.kind === "event" && STARTS.includes(String(detail.event_type)) && exact === today) {
       type = "starts_today";
       day = today;
     } else if (exact && daysBetween(today, exact) >= 0 && daysBetween(today, exact) <= MILESTONE_DAYS_BEFORE && firmEnough(m) &&
@@ -467,21 +598,26 @@ export function buildToday(input: TodayInput): TodayView {
       if (day && daysBetween(day, today) >= 0 && daysBetween(day, today) <= GOOD_NEWS_DAYS) type = "good_news";
     }
     if (!type || !day) continue;
-    const id = type === "good_news" ? `news:${m.id}` : type === "milestone" ? `milestone:${m.id}:${day}` : `starts:${m.id}:${day}`;
+    const id = localReasonId(type, m.id, day, again);
     const lr = input.local[id];
     if (lr?.acted || lr?.dismissed || lr?.done) continue;
-    const capped = input.primaries.some((x) => x.personId === m.person_id && x.reasonId !== id && daysBetween(x.day, today) < 7);
-    const weight = type === "good_news" ? GOOD_NEWS_WEIGHT : type === "milestone" ? MILESTONE_WEIGHT : STARTS_TODAY_WEIGHT;
+    // A promise put aside, kept, or already answered on its day never comes back a few days later.
+    const first = again ? input.local[promiseReasonId(m.id, day)] : undefined;
+    if (first?.dismissed || first?.done) continue;
+    // One primary per person per week; a promise's second window is the same reason, not another.
+    const capped = input.primaries.some((x) => x.personId === m.person_id && x.reasonId !== id &&
+      !(again && x.reasonId === promiseReasonId(m.id, day)) && daysBetween(x.day, today) < 7);
+    const weight = LOCAL_WEIGHT[type];
     const score = capped ? 0 : weight * (lr?.firstShown && lr.firstShown !== today ? 0.5 : 1);
-    if (score >= THRESHOLD && (!local || score > local.score)) local = { item: m, day, type, score, ...(milestone ? { milestone } : {}) };
+    if (score >= THRESHOLD && (!local || score > local.score)) local = { item: m, day, type, score, again, told, ...(milestone ? { milestone } : {}) };
   }
 
   const bestScore = Math.max(best?.score ?? 0, birthday?.score ?? 0);
   if (local && local.score > bestScore) {
     const p = activePerson(local.item.person_id) as Person;
     const name = firstName(p);
-    const id = local.type === "good_news" ? `news:${local.item.id}`
-      : local.type === "milestone" ? `milestone:${local.item.id}:${local.day}` : `starts:${local.item.id}:${local.day}`;
+    const id = localReasonId(local.type, local.item.id, local.day, local.again);
+    const copy = localCopy(local.type, name, local.item, local.day, today, local.told ?? false);
     view.moment = {
       reasonId: id,
       type: local.type,
@@ -490,18 +626,19 @@ export function buildToday(input: TodayInput): TodayView {
       itemId: local.item.id,
       memory: local.item.statement,
       day: local.day,
-      toldDay: local.type === "good_news" && !eventDay(local.item),
-      statement: local.item.statement,
-      context: local.type === "good_news" ? relativeDay(local.day, today) : `${relativeDay(local.day, today)} · ${dayLabel(local.day, today)}`,
+      toldDay: (local.type === "good_news" && !eventDay(local.item)) || (local.type === "thread" && !!local.told),
+      statement: copy.statement,
+      context: copy.context,
       provenance: input.provenance(local.item.id)?.line ?? null,
       noteId: input.provenance(local.item.id)?.noteId ?? null,
       score: local.score,
-      primary: local.type === "good_news"
-        ? { label: `Congratulate ${name}`, hint: `Opens a conversation with ${name}` }
-        : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
-      heading: local.type === "good_news" ? `Congratulate ${name}` : `Message ${name}`,
-      mention: [],
-      opener: null,
+      primary: { label: copy.primary, hint: `Opens a conversation with ${name}` },
+      heading: copy.heading,
+      // What to mention (K26): about the promise or thread first, then what is going on with them.
+      ...(local.type === "promise" || local.type === "thread"
+        ? mentionView(mentionsFor({ items: input.items, person: p, today, about: local.item }))
+        : { mention: [], opener: null }),
+      suggestion: suggestionFor({ items: input.items, person: p, today, about: local.item, quotes: input.quotes }),
       ...(local.type === "milestone" && local.milestone ? milestoneReturn(local.milestone, name) : returnCopy(local.type, name, local.item.statement)),
     };
   } else if (birthday && (!best || birthday.score > best.score)) {
@@ -524,6 +661,7 @@ export function buildToday(input: TodayInput): TodayView {
       heading: `Wish ${name} a happy birthday`,
       ...returnCopy("birthday", name, null),
       ...mentionView(mentionsFor({ items: input.items, person: birthday.p, today })),
+      suggestion: suggestionFor({ items: input.items, person: birthday.p, today, quotes: input.quotes }),
     };
   } else if (best) {
     const p = activePerson(best.r.person_id) as Person;
@@ -552,6 +690,7 @@ export function buildToday(input: TodayInput): TodayView {
         : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: type === "event_followup" ? `Ask ${name} how it went` : `Message ${name}`,
       ...mention,
+      suggestion: suggestionFor({ items: input.items, person: p, today, about: best.item, quotes: input.quotes }),
       ...returnCopy(type, name, best.item.statement),
     };
   }
@@ -629,7 +768,10 @@ export function buildToday(input: TodayInput): TodayView {
   // before and after). Once the user said Yes, they reached them about it today, it has been done.
   const ownToday = (m: MemoryItem) => m.kind === "plan" ||
     (m.kind === "event" && m.subject_type !== undefined && m.subject_type !== "person" && !(m.detail as Record<string, unknown>)?.happened);
-  const doneToday = (m: MemoryItem, day: string) => day === today && (!!input.local[comingReasonId(m.id, day)]?.done ||
+  // A promise kept or put aside from its own Moment today (RSN-06) is not also a Coming up line.
+  const promiseSettled = (m: MemoryItem, day: string) => m.kind === "promise" && !!input.local[promiseReasonId(m.id, day)] &&
+    (!!input.local[promiseReasonId(m.id, day)].done || !!input.local[promiseReasonId(m.id, day)].dismissed);
+  const doneToday = (m: MemoryItem, day: string) => day === today && (!!input.local[comingReasonId(m.id, day)]?.done || promiseSettled(m, day) ||
     (input.contacts ?? []).some((c) => !c.deleted_at && c.memory_item_id === m.id && typeof c.occurred_at === "string" && isoDay(new Date(c.occurred_at)) === today));
   type Coming = {
     personId: string; day: string; text: string; itemId: string | null; key: string;
@@ -731,6 +873,8 @@ export function returnViewFor(h: Handoff | null, p: Person | null, now: Date): R
   const name = firstName(p);
   return {
     personId: p.id, personName: name, reasonId: h.reasonId, channel: h.channel,
+    ...(h.type ? { type: h.type } : {}),
+    ...(h.gesture ? { gesture: h.gesture } : {}),
     ask: h.ask ?? `Did you reach ${name}?`,
     about: h.about ?? null,
     followUp: h.followUp ?? `Anything worth remembering from talking with ${name}?`,
@@ -766,6 +910,11 @@ export function pageReasonFor(items: MemoryItem[], person: Person, today: string
   const m = todays[0] ?? said[0];
   if (!m) return null;
   const name = firstName(person);
+  // A promise due today is Today's own Moment (RSN-06): the page's hand-off carries that reason, so a Yes
+  // keeps the promise and settles Today's line too.
+  if (m.kind === "promise" && dayOf(m) === today) {
+    return { id: promiseReasonId(m.id, today), type: "promise", ask: promiseAsk(name, m.statement), about: m.statement, followUp: "", itemId: m.id };
+  }
   return {
     id: comingReasonId(m.id, dayOf(m) ?? today), type: "coming", ask: `Did you reach ${name}?`, about: m.statement,
     // A promise's logistics: nothing more to ask after a Yes (founder I2), as Today's own line about it.
@@ -784,6 +933,48 @@ export function pageHandoffFor(items: MemoryItem[], person: Person, today: strin
   if (actionable) return actionable;
   const name = firstName(person);
   return { id: pageHandoffId(person.id), type: "page", ask: `Did you reach ${name}?`, followUp: `Anything worth remembering from talking with ${name}?` };
+}
+
+const LOCAL_WEIGHT = {
+  good_news: GOOD_NEWS_WEIGHT, starts_today: STARTS_TODAY_WEIGHT, milestone: MILESTONE_WEIGHT, promise: PROMISE_WEIGHT, thread: THREAD_WEIGHT,
+} as const;
+
+/** A moment worked out on this phone: its id, one per item and day (a promise's second window apart). */
+function localReasonId(type: keyof typeof LOCAL_WEIGHT, itemId: string, day: string, again = false): string {
+  switch (type) {
+    case "good_news":
+      return `news:${itemId}`;
+    case "milestone":
+      return `milestone:${itemId}:${day}`;
+    case "starts_today":
+      return `starts:${itemId}:${day}`;
+    case "promise":
+      return promiseReasonId(itemId, day, again);
+    case "thread":
+      return threadReasonId(itemId, day);
+  }
+}
+
+/**
+ * The Moment's words per kind, from fixed templates and the user's own line (item 5 of FD-30e: useful in
+ * content, not chrome). Copy is a proposal for the founder's review (approved-design-coverage.md).
+ */
+function localCopy(type: keyof typeof LOCAL_WEIGHT, name: string, item: MemoryItem, day: string, today: string, told: boolean): { statement: string; context: string; primary: string; heading: string } {
+  const rel = relativeDay(day, today);
+  // "Today · Sun, Nov 1"; a day said only by its date is said once.
+  const when = rel === dayLabel(day, today) ? rel : `${rel} · ${dayLabel(day, today)}`;
+  switch (type) {
+    case "good_news":
+      return { statement: item.statement, context: relativeDay(day, today), primary: `Congratulate ${name}`, heading: `Congratulate ${name}` };
+    case "promise":
+      // "You said you'd bring Sam soup." · "Today · Sat, Nov 1"; a few days on, the day it was for.
+      return { statement: promiseStatement(item.statement), context: when, primary: `Message ${name}`, heading: `Message ${name}` };
+    case "thread":
+      // "Did Felix decide?" · "Felix is considering moving to Denver"; with a day of its own, that day.
+      return { statement: threadAsk(name, item.statement), context: told ? item.statement : `${item.statement} · ${dayLabel(day, today)}`, primary: `Ask ${name}`, heading: `Ask ${name}` };
+    default:
+      return { statement: item.statement, context: when, primary: `Message ${name}`, heading: `Message ${name}` };
+  }
 }
 
 /** The mention list as a Moment carries it. */
@@ -829,6 +1020,12 @@ function newsTopic(statement: string): string | null {
 
 function returnCopy(type: ReasonType | "good_news" | "starts_today" | "birthday", name: string, statement: string | null): { ask: string; followUp: string } {
   switch (type) {
+    case "promise":
+      // "Did you bring Sam soup?"; a promise's logistics: nothing more to ask after a Yes (founder I2).
+      return { ask: promiseAsk(name, statement ?? ""), followUp: "" };
+    case "thread":
+      // What they said may be the thread's answer ("Felix decided to move"): worth a Tell.
+      return { ask: `Did you ask ${name} about it?`, followUp: `Anything worth remembering from talking with ${name}?` };
     case "good_news": {
       const topic = statement ? newsTopic(statement) : null;
       return {
