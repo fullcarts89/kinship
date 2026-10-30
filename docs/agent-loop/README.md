@@ -13,7 +13,7 @@ Replace the founder's manual copy/paste between ChatGPT (independent reviewer) a
 2. ChatGPT independently checks the current SHA, tests, code diff, contracts, and evidence tier.
 3. If fixable within scope, the reviewer posts ONE top-level PR comment beginning exactly with:
    `@claude /kinship-fix`
-   followed by a short issue statement, reproduction, acceptance criteria, and regression demands.
+   on a PR explicitly labeled **`agent-loop`**, followed by a short issue statement, reproduction, acceptance criteria, and regression demands.
 4. An opt-in GitHub Action processes that trusted comment on the **open PR branch**.
 5. Claude writes the smallest code/test correction, pushes, and reports precise evidence.
 6. A fresh independent review reads the new SHA (not Claude's prose). Maximum **three** autonomous
@@ -31,7 +31,7 @@ Replace the founder's manual copy/paste between ChatGPT (independent reviewer) a
 
 ## Setup prerequisites (not done by this PR)
 
-- Repository admin reviews and merges this **configuration-only** PR.
+- Repository admin reviews and merges this **configuration-only** PR after validation; then create the `agent-loop` label and apply it only to one disposable pilot PR.
 - Configure `ANTHROPIC_API_KEY` as an Actions repository secret. No credential belongs in a
   PR, comment, issue, Work prompt, or source file. Inspect Anthropic account billing/rate limits.
 - Confirm GitHub Actions permission policy and branch protection: CI required, merge/release
@@ -103,7 +103,16 @@ to exercise the automation.
 
 - The GitHub Action workflow must be merged to the repository default branch to receive
   new `issue_comment` events. Being present on this configuration PR alone does not activate it.
-- The action uses explicit `@claude /kinship-fix` commands, not every review comment.
+- The action requires BOTH the `agent-loop` label and an explicit `@claude /kinship-fix` command, not every review comment.
 - Work event task must be created through ChatGPT **Work**; the repository cannot create it.
 - This is an orchestrated sequence of separate agents and webhooks, not a direct synchronous
   API connection between ChatGPT and the user's running local Claude Code session.
+
+## Review of pilot security and ergonomics (30 Oct 2026)
+
+- Claude Code Action v1 runs in **automation mode** when `prompt` is set. `Bash` is disabled by default. The workflow explicitly allows bounded test, package install and read-only git commands; no blanket shell access is granted. GitHub's normal CI remains authoritative.
+- The `issue_comment` workflow uses the **default-branch** definition and will not trigger from this draft PR; to enable, merge after review.
+- PR must be explicitly labeled `agent-loop`, review comment must begin with `@claude /kinship-fix`, and GitHub commenter must be OWNER/COLLABORATOR/MEMBER. **This trusted commenter gate may exclude ChatGPT's GitHub App identity.** Until its exact identity and permission context are verified, ChatGPT can post reviews but a human authorized commenter may have to repeat the activation command; do not widen the gate to all bots.
+- `ANTHROPIC_API_KEY` and a Claude GitHub App installation/authentication path may be needed; follow the official Anthropic installer and verify the identity used to push PR fixes. A Claude subscription in the local CLI does not automatically authenticate a CI GitHub Action.
+- Work's GitHub PR-update trigger is a separate user-created task in ChatGPT Work. This PR does not create or activate it. Check it is actually responding to a new SHA before claiming agent-to-agent autonomy.
+- No deployment or auto-merge is authorized. After the pilot proves the roundtrip, propose and review a separate tier-A integration policy; the founder should only see meaningful stage gates.
