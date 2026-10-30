@@ -62,15 +62,28 @@ it("trust floor: Paused silences Today and the server; Merge keeps every memory 
   await acct.repos.memory.remember({ kind: "event", person_id: anthony, statement: "Anthony starts his new job Monday",
     detail: { date: day(4), date_precision: "day", event_type: "job_start", followup_policy: "before" } }, { captureId: note1.id, quote: "Anthony starts his new job Monday." });
   const note2 = await acct.repos.captures.tell("Sam and Anthony went to Tahoe. Anthony's sister Maria lives in Reno.", { aiEnabled: false, contextPersonId: anthony, timeZone: "America/Los_Angeles" });
-  await acct.repos.memory.remember({ kind: "moment", person_id: sam, statement: "Sam and Anthony went to Tahoe", with_person_ids: [anthony] },
+  const tahoe = await acct.repos.memory.remember({ kind: "moment", person_id: sam, statement: "Sam and Anthony went to Tahoe" },
     { captureId: note2.id, quote: "Sam and Anthony went to Tahoe." });
+  // Shared with Anthony, as "Yes" to "Is this the Anthony in …?" records it (write_memory_item takes no sharing at insert).
+  await acct.store.update("memory_items", tahoe.id, { with_person_ids: [anthony] });
   const sister = await acct.store.create("related_people", { person_id: anthony, relation: "sister", name: "Maria" });
   await acct.repos.memory.remember({ kind: "fact", person_id: anthony, subject_type: "related", subject_related_id: sister.id, statement: "Anthony's sister Maria lives in Reno", detail: { category: "other" } },
     { captureId: note2.id, quote: "Anthony's sister Maria lives in Reno." });
   await acct.repos.contacts.confirm({ person_id: anthony, channel: "text", source: "manual" });
+  // A sync already running (the screens' own tick) is joined, not restarted: a second call pushes what the
+  // first one started before.
   await acct.engine.sync();
-  await harness.session!.reasons.refresh({ force: true, timeZone: "America/Los_Angeles" });
   await acct.engine.sync();
+  // The server's refresh, called directly for the seed (Today's own refresh may already be in flight from
+  // the first open, and the app's class joins a run in progress: a race, not a product path).
+  const refresh = async () => {
+    const { error } = await acct.client.rpc("refresh_my_reasons", { p_time_zone: "America/Los_Angeles" });
+    if (error) throw error;
+    await acct.engine.sync();
+    await acct.engine.sync();
+  };
+  await refresh();
+  expect((await serverRows<{ person_id: string; state: string }>("reasons", acct.userId)).filter((x) => x.person_id === chris && x.state === "candidate")).toHaveLength(1);
 
   // ── 1. Paused (D13) ──
   await show(r, { screen: "today" });
@@ -83,8 +96,7 @@ it("trust floor: Paused silences Today and the server; Merge keeps every memory 
   await until(r, (s) => s.includes("Paused"), "the Paused line on his page");
   alerts.mockRestore();
   await acct.engine.sync();
-  await harness.session!.reasons.refresh({ force: true, timeZone: "America/Los_Angeles" });
-  await acct.engine.sync();
+  await refresh();
   expect((await serverRows<{ state: string }>("people", acct.userId)).find((p) => (p as unknown as { id: string }).id === chris)?.state).toBe("paused");
   const chrisReasons = (await serverRows<{ person_id: string; state: string }>("reasons", acct.userId)).filter((x) => x.person_id === chris);
   expect(chrisReasons.length).toBeGreaterThan(0);
@@ -99,8 +111,8 @@ it("trust floor: Paused silences Today and the server; Merge keeps every memory 
   await tap(r, "Resume Chris");
   await until(r, (s) => !s.includes("Paused"), "the Paused line to go");
   await acct.engine.sync();
-  await harness.session!.reasons.refresh({ force: true, timeZone: "America/Los_Angeles" });
-  await acct.engine.sync();
+  await refresh();
+  expect((await serverRows<{ person_id: string; state: string }>("reasons", acct.userId)).filter((x) => x.person_id === chris && x.state === "candidate")).toHaveLength(1);
   await show(r, { screen: "today" });
   await until(r, (s) => s.some((t) => /Chris/u.test(t)), "Today to speak of Chris again");
 
