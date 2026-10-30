@@ -11,6 +11,7 @@ import type { RecordLine } from "@/features/person/PersonRecordView";
 import { composedRows, composeRecordLines, memberOf, type RecordInput } from "@/features/person/composedRecord";
 import { historyKind, historyProvenance, historyWhen, relatedHeading, sectionFor, withoutLeadingName } from "@/features/person/recordSections";
 import { mentionsFor, type Mentions } from "@/features/today/mentions";
+import { suggestionFor, type Suggestion } from "@/features/today/suggestions";
 import { buildToday, isLocalReason, pageHandoffFor, type PageHandoffReason, returnViewFor, type ContactRow, type Handoff, type ReasonRow, type ReasonType as TodayReasonType, type ReturnView, type TodayInput, type TodayView } from "@/features/today/todayModel";
 import { answerReturn, cancelHandOff, forgetConversation, handOff } from "@/store/returnLoop";
 import { buildPortrait, PORTRAIT_RULES, portraitShows, type Portrait, type PortraitItem, type PortraitLine, type TrailLine } from "@/features/person/portraitModel";
@@ -669,27 +670,34 @@ export function usePortrait(personId: string): Portrait & { loading: boolean } {
  * something to act on, else the page's own return check and nothing more (never for someone remembered,
  * paused or removed). `now` is the screen's clock, read again when the app comes back.
  */
-export function usePersonReturn(personId: string, now: Date): { returnCheck: ReturnView | null; reason: PageHandoffReason | null; mention: Mentions } {
+export function usePersonReturn(personId: string, now: Date): { returnCheck: ReturnView | null; reason: PageHandoffReason | null; mention: Mentions; suggestion: Suggestion | null } {
   const { store, reasonLocal } = useV2Session();
   const minute = Math.floor(now.getTime() / 60_000);
   const q = useStoreQuery(store, async (repos) => {
     const people = await repos.people.list();
     const person = people.find((p) => p.id === personId && !p.deleted_at) ?? null;
-    if (!person) return { returnCheck: null, reason: null, mention: { lines: [], opener: null } };
+    if (!person) return { returnCheck: null, reason: null, mention: { lines: [], opener: null }, suggestion: null };
     const { handoff } = await reasonLocal.read();
     // Said the way Today says it ("Call John", never "You need to call John").
     const all = ((await store.list("memory_items")) as MemoryItem[]).map((m) => voiced(m, people));
     const items = all.filter((m) => m.person_id === personId);
     const reason = pageHandoffFor(items, person, todayIso(now));
     const about = reason && reason.type !== "page" ? items.find((m) => m.id === reason.itemId) ?? null : null;
+    const theirs = all.filter((m) => peopleOf(m).includes(personId));
+    // The note's own words behind a line (an interest is said only in those, SUA-1).
+    const byItem = await repos.memory.sourcesByItem();
+    const quotes = (id: string) => (byItem.get(id) ?? [])
+      .filter((s) => s.source_kind === "capture" && !s.deleted_at && typeof s.quote === "string").map((s) => String(s.quote));
     return {
       returnCheck: handoff?.personId === personId ? returnViewFor(handoff, person, now) : null,
       reason,
       // What to mention (K26): theirs and what is shared with them, about the hand-off's subject first.
-      mention: mentionsFor({ items: all.filter((m) => peopleOf(m).includes(personId)), person, today: todayIso(now), about }),
+      mention: mentionsFor({ items: theirs, person, today: todayIso(now), about }),
+      // One quiet "You could…" line for the sheet (SUA-1, FD-30d), or none.
+      suggestion: suggestionFor({ items: theirs, person, today: todayIso(now), about, quotes }),
     };
   }, [personId, minute]);
-  return q.data ?? { returnCheck: null, reason: null, mention: { lines: [], opener: null } };
+  return q.data ?? { returnCheck: null, reason: null, mention: { lines: [], opener: null }, suggestion: null };
 }
 
 // ─── Someone added after they were mentioned (G20) ──────────────────────

@@ -101,8 +101,8 @@ function dayField(d: Record<string, unknown>, key: string): string | null {
   return typeof v === "string" && /^\d{4}-\d{2}-\d{2}/u.test(v) ? v.slice(0, 10) : null;
 }
 
-/** The line's day, and whether it is only a season, a month, a week or a year. */
-function timeOf(m: MemoryItem): { day: string | null; end: string | null; coarse: boolean } {
+/** The line's day, and whether it is only a season, a month, a week or a year (shared with suggestions.ts). */
+export function timeOf(m: MemoryItem): { day: string | null; end: string | null; coarse: boolean } {
   const d = detailOf(m);
   const day = dayField(d, "date") ?? dayField(d, "due_date");
   const precision = typeof d.date_precision === "string" ? d.date_precision : null;
@@ -114,8 +114,8 @@ function toldDay(m: MemoryItem): string | null {
   return /^\d{4}-\d{2}-\d{2}$/u.test(c) ? c : null;
 }
 
-/** Whether the line is still something to talk about today (its own time, in its own precision). */
-function current(m: MemoryItem, today: string): boolean {
+/** Whether the line is still something to talk about today (its own time, in its own precision; shared with suggestions.ts). */
+export function current(m: MemoryItem, today: string): boolean {
   const R = MENTION_RULES;
   const { day, end, coarse } = timeOf(m);
   const told = toldDay(m);

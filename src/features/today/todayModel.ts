@@ -14,6 +14,8 @@
 // event-type vocabulary in it.
 
 import { mentionsFor, type Mentions } from "./mentions";
+import { GOOD_NEWS, NOT_NEWS } from "./goodNews";
+import { suggestionFor, type Suggestion } from "./suggestions";
 import { aboutAnimalHealth, wordingSensitivities } from "../../../supabase/functions/_shared/extraction/lexicon";
 import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 import { dayLabel, whenLabel } from "@/features/memory/format";
@@ -153,8 +155,7 @@ export const GOOD_NEWS_WEIGHT = 75;
 export const STARTS_TODAY_WEIGHT = 70;
 /** How long good news stays worth a congratulation. */
 const GOOD_NEWS_DAYS = 2;
-const GOOD_NEWS = /\b(?:was |got |been |is |has been )?promoted\b|\bpromotion\b|\bgot (?:the|a|an|her|his|their)\s+(?:\S+\s+){0,2}?(?:job|offer|role|position|place)\b|\bgot (?:engaged|married|in|into|accepted|hired)\b|\b(?:was|were) (?:accepted|hired)\b|\bgraduated\b|\bhad (?:a|the|her|his|their) baby\b|\bis engaged\b|\bpassed (?:the|her|his|their)\b|\bbought (?:a|their|his|her) (?:house|home|place)\b|\bclosed on\b|\bfinished (?:the|her|his|their) (?:marathon|race|degree|thesis)\b/iu;
-const NOT = /\b(not|didn['’]?t|did not|never|no longer|wasn['’]?t|isn['’]?t)\b/iu;
+const NOT = NOT_NEWS;
 /** Firsts that matter on the day itself (the server's follow-up comes after). */
 const STARTS = ["job_start", "school_start"];
 
@@ -313,6 +314,8 @@ export interface MomentView {
   mention: string[];
   /** One suggested question under the first of them, or none (K26). */
   opener: string | null;
+  /** SUA-1 (FD-30d): one quiet "You could…" line for the hand-off and the detail, or none. */
+  suggestion: Suggestion | null;
   /** The return question, with its reason (H10, H18). */
   ask: string;
   /** After a yes, the same reason: "Anything worth remembering from congratulating Ben?" */
@@ -635,6 +638,7 @@ export function buildToday(input: TodayInput): TodayView {
       ...(local.type === "promise" || local.type === "thread"
         ? mentionView(mentionsFor({ items: input.items, person: p, today, about: local.item }))
         : { mention: [], opener: null }),
+      suggestion: suggestionFor({ items: input.items, person: p, today, about: local.item, quotes: input.quotes }),
       ...(local.type === "milestone" && local.milestone ? milestoneReturn(local.milestone, name) : returnCopy(local.type, name, local.item.statement)),
     };
   } else if (birthday && (!best || birthday.score > best.score)) {
@@ -657,6 +661,7 @@ export function buildToday(input: TodayInput): TodayView {
       heading: `Wish ${name} a happy birthday`,
       ...returnCopy("birthday", name, null),
       ...mentionView(mentionsFor({ items: input.items, person: birthday.p, today })),
+      suggestion: suggestionFor({ items: input.items, person: birthday.p, today, quotes: input.quotes }),
     };
   } else if (best) {
     const p = activePerson(best.r.person_id) as Person;
@@ -685,6 +690,7 @@ export function buildToday(input: TodayInput): TodayView {
         : { label: `Message ${name}`, hint: `Opens a conversation with ${name}` },
       heading: type === "event_followup" ? `Ask ${name} how it went` : `Message ${name}`,
       ...mention,
+      suggestion: suggestionFor({ items: input.items, person: p, today, about: best.item, quotes: input.quotes }),
       ...returnCopy(type, name, best.item.statement),
     };
   }

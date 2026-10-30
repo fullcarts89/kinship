@@ -19,6 +19,12 @@ export interface TodayViewProps {
   attention?: boolean;
   /** After "Yes": the same reason carried on ("Anything worth remembering from congratulating Ben?"). */
   afterReturn: { personId: string; personName: string; followUp?: string } | null;
+  /**
+   * After a Yes that followed a "You could…" tap (SUA-1, FD-30d): one optional content-free question
+   * ("Did you make a plan?"), Yes · Not yet, before anything else; never counted back to the user.
+   */
+  afterGesture?: { ask: string } | null;
+  onGesture?: (answer: "yes" | "not_yet") => void;
   onPrimary: () => void;
   /** Tap the moment's words → its detail (founder I1). */
   onOpenMoment?: () => void;
@@ -90,7 +96,15 @@ export function TodayView(props: TodayViewProps) {
         <Greeting style={{ marginTop: space.s }}>{view.greeting}</Greeting>
       </View>
 
-      {props.afterReturn ? (
+      {props.afterGesture ? (
+        <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
+          <MomentText>{props.afterGesture.ask}</MomentText>
+          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+            <Pill size="small" label="Yes" onPress={() => props.onGesture?.("yes")} />
+            <Pill size="small" label="Not yet" onPress={() => props.onGesture?.("not_yet")} />
+          </View>
+        </View>
+      ) : props.afterReturn ? (
         <View style={{ marginTop: space.x4 }} accessibilityLiveRegion="polite">
           <Display>{props.afterReturn.followUp ?? `Anything worth remembering about ${props.afterReturn.personName}?`}</Display>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.xxl }}>
@@ -160,7 +174,7 @@ export function TodayView(props: TodayViewProps) {
         <View style={{ marginTop: space.x4 }}>
           <Display>{view.waiting === "one" ? "One thing to check." : "A few things to check."}</Display>
         </View>
-      ) : view.quietDay && !props.afterReturn && !props.attention ? (
+      ) : view.quietDay && !props.afterReturn && !props.afterGesture && !props.attention ? (
         <View style={{ marginTop: space.x4 }}>
           <Display>Nothing needs you today.</Display>
         </View>
