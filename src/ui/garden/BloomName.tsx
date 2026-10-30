@@ -53,7 +53,8 @@ export function BloomName({ lines, textStyle, width, height }: {
           resizeMode="cover"
           accessibilityElementsHidden
           importantForAccessibility="no"
-          style={{ width: width * 1.5, height: height * 2.4, marginLeft: -width * 0.35, marginTop: -height * 0.5 }}
+          // The window looks onto the bloom's petals (the asset's upper right), so the name reads pink and orange, not leaf.
+          style={{ width: width * 2.2, height: width * 2.2 * 1.339, marginLeft: -width * 1.0, marginTop: -width * 2.2 * 1.339 * 0.16 }}
         />
       </Masked>
     </View>
