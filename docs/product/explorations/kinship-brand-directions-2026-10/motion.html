@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship · brand directions, round 3 · motion concepts (exploratory, unapproved)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Sans:wght@400;500;700&family=Lora:ital,wght@0,400..700;1,400..700&family=Caveat:wght@500;700&family=Courier+Prime:wght@400;700&family=Work+Sans:wght@400;500;600&family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Literata:ital,opsz,wght@0,7..72,400..600;1,7..72,400..600&family=Gabarito:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="motion.css">
+<script src="../today-redesign-2026-10/round-2/sprigs2.js"></script>
+<script src="../today-redesign-2026-10/shared.js"></script>
+<script src="fixtures.js"></script>
+<script src="art.js"></script>
+<script src="engine.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <h1>Motion with a purpose</h1>
+    <div class="hint">Six original interaction concepts, each in every direction, each with a Reduce Motion twin that keeps the meaning. Press Play; compare directions with the buttons.</div>
+    <div class="banner"><b>EXPLORATORY · UNAPPROVED.</b> Delight, not reward: no streaks, points, progress, confetti on a message, or growth tied to contact. Values are starting points for a device, never settled in a browser.</div>
+    <h2>Direction</h2>
+    <div class="states themes"><button data-theme="garden">A · Garden Letter</button><button data-theme="bloom">B · Bloom</button><button data-theme="keepsake">C · Keepsake</button><button data-theme="orbit">D · Orbit</button><button data-theme="postmark">E · Postmark</button><button data-theme="woven">F · Woven</button></div>
+    <h2>Options</h2>
+    <label><input id="reduce" type="checkbox"> Reduce Motion (150 ms fades, same meaning)</label>
+    <label><input id="night" type="checkbox"> Dark appearance</label>
+    <div class="states" style="margin-top:10px"><button id="playall">Play all</button></div>
+    <h2>The rule each concept obeys</h2>
+    <ol class="steps">
+      <li><b>Understood</b> answers "did it hear me?", once, in the direction's own mark.</li>
+      <li><b>Arrival</b> says "something is here for you", under 600 ms, and never again on the same open.</li>
+      <li><b>A celebration</b> happens for the friend's day, not for the user's action, and never for a hard day.</li>
+      <li><b>Yes</b> is an acknowledgment in words with a small nod. Nothing is scored.</li>
+      <li><b>Into a person</b> keeps the mark continuous so the page feels like the same person.</li>
+      <li><b>Press</b> is tactile feedback, 2 px, nothing more.</li>
+    </ol>
+  </div>
+  <div class="stage" style="display:block">
+    <div class="mwrap" id="mwrap"></div>
+  </div>
+</div>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  if (q.get("capture")) document.body.classList.add("capture");
+  let theme = q.get("theme") || "garden", reduce = !!q.get("reduce"), night = !!q.get("night");
+  const CONCEPTS = [
+    { id: "m1", title: "1 · Understood: a story becomes lines", why: "After a long Tell, the kept lines arrive one by one and each gets the direction's 'understood' mark (an ochre underline, a highlighter, a drop onto the desk, a ring, a stamp line, a strand of band). A held line fades in last, plainly. Nothing is counted.", cfg: { screen: "today", state: "first", sheet: "kept" } },
+    { id: "m2", title: "2 · Arrival: the Moment enters", why: "One entrance per direction: the letter rises; the flower unfolds; the card drops and is taped; the discs converge; the postcard is delivered and postmarked; the band weaves in. Then the words. Under 600 ms, once per open.", cfg: { screen: "today", state: "moment" } },
+    { id: "m3", title: "3 · A celebration: Maya's birthday", why: "The occasion art performs once: a halo, a petal drift, a doodle drawing itself, rings expanding, a poster wiping in, charms stringing on. It is about Maya's day. It never happens on a hard day, and never because the user did something.", cfg: { screen: "today", state: "birthday" } },
+    { id: "m4", title: "4 · Yes: the sentence changes tense, the mark nods", why: "\"Did you wish Ben luck?\" becomes \"You wished Ben luck.\" in place (240 ms); the context fades; the person's mark gives one small nod (480 ms, 4°). Same in every direction. Then the optional question. Press Yes.", cfg: { screen: "today", state: "return" } },
+    { id: "m5", title: "5 · Into a person: the mark stays continuous", why: "Tap a row: the other rows fade, the person's mark travels and grows into the page's mark, the page arrives beneath it. The person, not the screen, is what moves. Press Play (Priya).", cfg: { screen: "people", people: "small" } },
+    { id: "m6", title: "6 · Press: a 2 px depression", why: "The primary pill depresses 2 px and loses its hairline shadow while pressed. Tactile, immediate, silent. Reduce Motion: the approved dim only.", cfg: { screen: "today", state: "moment" } },
+  ];
+  const wrap = document.getElementById("mwrap");
+  let apps = {};
+  function build() {
+    Object.values(apps).forEach((a) => a.clear && a.clear());
+    apps = {}; wrap.innerHTML = "";
+    for (const c of CONCEPTS) {
+      const card = document.createElement("div"); card.className = "mcard";
+      card.innerHTML = `<h3>${c.title}</h3><p class="why">${c.why}</p><div class="st"></div><div class="ctl"><button data-play="${c.id}">Play</button><button data-reset="${c.id}">Reset</button><span class="t"></span></div>`;
+      wrap.appendChild(card);
+      const app = KB.mount(card.querySelector(".st"), Object.assign({ theme, reduce, appearance: night ? "night" : "light", label: false }, c.cfg));
+      apps[c.id] = app;
+      const ph = () => card.querySelector(".phone");
+      ph().classList.add(c.id);
+      card.querySelector("[data-play]").addEventListener("click", () => play(c.id));
+      card.querySelector("[data-reset]").addEventListener("click", () => { app.set({ phase: null, sheet: c.cfg.sheet || null }); ph().classList.add(c.id); });
+    }
+  }
+  function play(id) {
+    const app = apps[id], st = wrap.querySelector(`[data-play="${id}"]`).closest(".mcard");
+    let ph = st.querySelector(".phone");
+    if (id === "m4") { app.set({ phase: null }); ph = st.querySelector(".phone"); ph.classList.add("m4"); setTimeout(() => app.act("yes", ph), 300); return; }
+    if (id === "m5") {
+      app.render(); ph = st.querySelector(".phone"); ph.classList.add("m5");
+      const row = ph.querySelector('[data-person="priya"]'); if (!row) return;
+      row.classList.add("chosen");
+      const page = document.createElement("div"); page.className = "pagein";
+      const tmp = document.createElement("div"); KB.mount(tmp, { theme, reduce, appearance: night ? "night" : "light", label: false, screen: "person", person: "priya" });
+      page.innerHTML = tmp.querySelector(".phone").innerHTML; ph.appendChild(page);
+      const from = row.querySelector(".rm").getBoundingClientRect(), to = page.querySelector(".pagemark .mark").getBoundingClientRect();
+      const rm = row.querySelector(".rm"); rm.style.setProperty("--tx", (to.left - from.left) + "px"); rm.style.setProperty("--ty", (to.top - from.top) + "px"); rm.style.setProperty("--sx", to.width / from.width); rm.style.setProperty("--sy", to.height / from.height);
+      requestAnimationFrame(() => ph.classList.add("play"));
+      return;
+    }
+    ph.classList.remove("play"); void ph.offsetWidth; ph.classList.add("play");
+    if (id === "m6") setTimeout(() => ph.classList.remove("play"), 700);
+  }
+  document.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => { theme = b.dataset.theme; sync(); build(); }));
+  document.getElementById("reduce").addEventListener("change", (e) => { reduce = e.target.checked; build(); });
+  document.getElementById("night").addEventListener("change", (e) => { night = e.target.checked; build(); });
+  document.getElementById("playall").addEventListener("click", () => CONCEPTS.forEach((c, i) => setTimeout(() => play(c.id), i * 150)));
+  function sync() { document.querySelectorAll("[data-theme]").forEach((b) => b.classList.toggle("on", b.dataset.theme === theme)); document.getElementById("reduce").checked = reduce; document.getElementById("night").checked = night; }
+  sync(); build();
+  if (q.get("play")) setTimeout(() => CONCEPTS.forEach((c) => play(c.id)), 300);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship · brand directions, round 3 · the divergent gallery (exploratory, unapproved)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Sans:wght@400;500;700&family=Lora:ital,wght@0,400..700;1,400..700&family=Caveat:wght@500;700&family=Courier+Prime:wght@400;700&family=Work+Sans:wght@400;500;600&family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Literata:ital,opsz,wght@0,7..72,400..600;1,7..72,400..600&family=Gabarito:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="brand.css">
+<script src="../today-redesign-2026-10/round-2/sprigs2.js"></script>
+<script src="../today-redesign-2026-10/shared.js"></script>
+<script src="fixtures.js"></script>
+<script src="art.js"></script>
+<script src="engine.js"></script>
+<script src="specs.js"></script>
+<style>
+  body { padding: 28px 32px 80px; }
+  .intro { max-width: 900px; margin-bottom: 26px; }
+  .intro h1 { font-family: "Newsreader", Georgia, serif; font-weight: 400; font-size: 36px; line-height: 40px; margin: 0 0 8px; }
+  .intro p { font-size: 15px; line-height: 22px; color: #3C423D; margin: 6px 0; }
+  .jump { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+  .jump a { font-size: 13px; padding: 7px 12px; border-radius: 16px; border: 1px solid #CFCEC5; background: #F7F6F2; color: #1D221E; text-decoration: none; }
+  .dir { border-top: 1px solid #CFCEC5; padding: 28px 0 10px; }
+  .dir .head { display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap; }
+  .dir .head .txt { width: 420px; flex: none; }
+  .dir h2 { font-family: "Newsreader", Georgia, serif; font-weight: 400; font-size: 30px; line-height: 34px; margin: 0; }
+  .dir h2 small { font-size: 16px; color: #5E645D; margin-left: 8px; font-style: italic; }
+  .dir .meta { font-size: 13px; line-height: 19px; color: #3C423D; margin-top: 10px; }
+  .dir .meta b { font-weight: 500; color: #1D221E; }
+  .dir .concept { font-size: 15px; line-height: 22px; margin-top: 10px; }
+  .dir .spec { width: 400px; flex: none; font-size: 12px; line-height: 17px; color: #3C423D; }
+  .dir .spec h4 { font: 500 11px/14px "Instrument Sans", sans-serif; letter-spacing: 1.5px; text-transform: uppercase; color: #5E645D; margin: 14px 0 6px; }
+  .dir .spec h4:first-child { margin-top: 0; }
+  .sw { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sw div { width: 60px; }
+  .sw i { display: block; height: 34px; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); }
+  .sw span { display: block; font-size: 10px; line-height: 13px; margin-top: 3px; color: #5E645D; }
+  .specimen { background: var(--paper); color: var(--ink); border-radius: 14px; padding: 14px 16px; margin-top: 6px; }
+  .specimen .d { font: 400 30px/34px var(--display); } .specimen .t { font: 400 18px/24px var(--serif); margin-top: 6px; } .specimen .i { font: italic 400 16px/22px var(--serifItalic); margin-top: 2px; color: var(--inkQuiet); } .specimen .s { font: 400 13px/18px var(--sans); margin-top: 6px; color: var(--inkBody); } .specimen .l { font: 500 10px/14px var(--sans); letter-spacing: 1.5px; text-transform: uppercase; color: var(--inkQuiet); margin-top: 8px; }
+  .artrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--paper); color: var(--ink); border-radius: 14px; padding: 12px 14px; margin-top: 6px; }
+  .artrow .mk { display: flex; gap: 8px; align-items: center; }
+  .artrow .oc { display: flex; gap: 6px; align-items: center; }
+  .artrow .oc svg { width: 56px; height: 56px; }
+  .artrow .ic { display: flex; gap: 10px; align-items: center; }
+  .phones { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .phones .ph { width: 236px; height: 512px; position: relative; }
+  .phones .ph > div { transform: scale(.6); transform-origin: 0 0; width: 393px; }
+  .phones .ph .cap { position: absolute; left: 0; right: 0; bottom: -2px; font-size: 11px; color: #5E645D; text-align: center; }
+  .verdict { display: flex; gap: 20px; margin-top: 16px; max-width: 1200px; }
+  .verdict div { flex: 1; font-size: 13px; line-height: 19px; }
+  .verdict b { display: block; font-weight: 500; margin-bottom: 4px; }
+  .verdict .why b { color: #2E6B4F; } .verdict .but b { color: #9A3B2A; }
+  body.capture .intro, body.capture .jump { display: none; }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h1>Six directions for Kinship</h1>
+  <p><b>EXPLORATORY · UNAPPROVED.</b> The same product, the same fictional people, the same four states in every direction: a Moment (Ben's race tomorrow), a person (Priya), a birthday (Maya) and a hard day (Mom's surgery). The phones are live: click the words, the pills, the rows. Nothing here is built, approved or scheduled.</p>
+  <p>The question each direction has to answer: does it make Kinship an app that celebrates having people in your life, that someone is happy to open, that is recognisable without its logo, and that is still mature enough to hold a sick friend's week?</p>
+  <div class="jump" id="jump"></div>
+</div>
+<div id="dirs"></div>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  if (q.get("capture")) document.body.classList.add("capture");
+  const only = q.get("theme");
+  const night = !!q.get("night");
+  const order = ["garden", "bloom", "keepsake", "orbit", "postmark", "woven"].filter((t) => !only || t === only);
+  const jump = document.getElementById("jump"), dirs = document.getElementById("dirs");
+  const PEOPLE = [["priya", "Priya"], ["ben", "Ben"], ["maya", "Maya"], ["chris", "Chris"], ["lena", "Lena"], ["mom", "Mom"]];
+  for (const t of order) {
+    const S = window.SPECS[t], C = window.CRIT[t], T = KB.THEMES[t];
+    const a = document.createElement("a"); a.href = `#${t}`; a.textContent = `${S.letter} · ${S.name}`; jump.appendChild(a);
+    const sec = document.createElement("section"); sec.className = "dir"; sec.id = t;
+    const marks = PEOPLE.map(([id, n]) => T.mark(id, 40, n, night, "row")).join("");
+    const occ = ["race", "birthday", "wedding", "promise"].map((k) => T.art(k, 56, night) || (T.poster ? T.poster(k, 80).replace(/height="\d+"/, 'height="56"') : "")).join("");
+    const K = window.K.icon, ic = (n) => K[n]("currentColor", 18);
+    sec.innerHTML = `<div class="head">
+      <div class="txt"><h2>${S.letter} · ${S.name}<small>${S.sub}</small></h2>
+        <div class="meta"><b>Metaphor.</b> ${S.metaphor}.<br><b>Promise.</b> ${S.promise}</div>
+        <div class="concept">${S.concept}</div>
+        <div class="meta" style="margin-top:12px"><b>Shape and surfaces.</b> ${S.shape}.<br><b>Navigation.</b> ${S.nav}.<br><b>Motion.</b> ${S.motion}.<br><b>Night.</b> ${S.night}.<br><b>App icon.</b> ${S.icon_app}.<br><b>Build.</b> ${S.complexity}.<br><b>Risks.</b> ${S.risks}.</div>
+      </div>
+      <div class="spec">
+        <h4>Colour</h4><div class="sw">${S.palette.map(([n, h, r]) => `<div><i style="background:${h}"></i><span><b>${n}</b> ${h}<br>${r}</span></div>`).join("")}</div>
+        <h4>Type</h4><div class="phone specimen" data-theme="${t}" style="width:auto;height:auto;box-shadow:none;border-radius:14px;overflow:visible"><div class="d">Ben runs Chicago tomorrow.</div><div class="t">Priya's pottery show is on Oct 24</div><div class="i">Coming up · Saturday</div><div class="s">${S.type.display[0]} · ${S.type.display[1]}<br>${S.type.text[0]} · ${S.type.text[1]}<br>${S.type.sans[0]} · ${S.type.sans[1]}</div><div class="l">This week · You said you'd</div></div>
+        <h4>Marks, occasion art, icons</h4><div class="phone artrow" data-theme="${t}" style="width:auto;height:auto;box-shadow:none;border-radius:14px;overflow:visible"><div class="mk">${marks}</div><div class="oc">${occ}</div><div class="ic">${ic("message")}${ic("phone")}${ic("pen")}${ic("search")}</div></div>
+        <div style="margin-top:6px">${S.illustration}. Icons: ${S.icons}.</div>
+      </div>
+    </div>
+    <div class="phones">
+      <div class="ph" data-cfg='{"screen":"today","state":"moment"}'><div></div><div class="cap">Today · a Moment</div></div>
+      <div class="ph" data-cfg='{"screen":"person","person":"priya"}'><div></div><div class="cap">A person · Priya</div></div>
+      <div class="ph" data-cfg='{"screen":"today","state":"birthday"}'><div></div><div class="cap">A birthday</div></div>
+      <div class="ph" data-cfg='{"screen":"today","state":"sensitive"}'><div></div><div class="cap">A hard day</div></div>
+      <div class="ph" data-cfg='{"screen":"today","state":"quiet"}'><div></div><div class="cap">A quiet day</div></div>
+    </div>
+    <div class="verdict"><div class="why"><b>Why it could win</b>${C.why}</div><div class="but"><b>What is wrong with it</b>${C.but}</div></div>`;
+    dirs.appendChild(sec);
+    sec.querySelectorAll(".ph").forEach((ph) => KB.mount(ph.firstElementChild, Object.assign({ theme: t, label: false, appearance: night ? "night" : "light" }, JSON.parse(ph.dataset.cfg))));
+  }
+})();
+</script>
+</body>
+</html>
