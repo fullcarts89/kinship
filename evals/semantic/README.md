@@ -13,7 +13,7 @@ Two corpora:
   - A page is read by the product's composer (`compose.ts`, B5; §9): current lines that contain each other are one line in their own words, anything else its own line; a closed line is history only when every live closer records a change (`historyEligible`). Until B5 the runner carried its own reading of the same rules as test code; the zero-tolerance metrics check the composed words against the members' own words independently of the composer.
   - What a later step delivers is listed in the runner's `DEFERRED` and reported, never silently skipped (empty since B4). A page's `portrait` is the Portrait's residence line (B7, §13): the head's own words for a chain, else each current line as itself.
   - A fixture change needs `manifest.ts --write` (a reviewed change).
-- **Fixtures are written by hand from patterns, never taken from real users' data.** 29 were seeded before B3; B3 added 19 (the Pilsen finding, the §21 rows, stays, "doesn't live in", two people, lower case, "moved from … to") and changed four (res-012/013: "Susan moved"; res-025: §21; res-027: the Pilsen rule). See brief §22. B4 added seven (res-074 to res-080: the §10 Undo matrix rows the corpus can express, the multi-item closures with an edited line, and the no-cue multi-item closure that is never history) and removed the runner's two DEFERRED entries for res-006; the runner's write rules now apply `closes` and restore every closed line on Undo, as the database does.
+- **Fixtures are written by hand from patterns, never taken from real users' data.** 29 were seeded before B3; B3 added 19 (the Pilsen finding, the §21 rows, stays, "doesn't live in", two people, lower case, "moved from … to") and changed four (res-012/013: "Susan moved"; res-025: §21; res-027: the Pilsen rule). See brief §22. B4 added seven (res-074 to res-080: the §10 Undo matrix rows the corpus can express, the multi-item closures with an edited line, and the no-cue multi-item closure that is never history) and removed the runner's two DEFERRED entries for res-006; the runner's write rules now apply `closes` and restore every closed line on Undo, as the database does. Alpha stabilization (31 Oct, CER-1): an update to a line the user edited is now held and asks "Does this replace what you told me?" (`update_check`, `20261031100000_v2_user_chosen_closure.sql`); the runner resolves that question as the gateway does and writes with `user_chose_closure`, and a fixture must give the answer (`keep_both` or `replaces`, with `expect.offers`), never skipped. res-037 and res-057 now answer `keep_both` (their end state is unchanged: nothing closed); res-081 and res-082 are the `replaces` answers.
 
 ## Format: `fixtures/residence.jsonl`, one sequence per line
 
@@ -34,7 +34,7 @@ Two corpora:
     - optional: `kind`, `certainty`, `subject` + `related`, `with` (other people in People: a shared line);
   - `model`: optional, the model's own merge / supersede proposal (`{action, target: step}`). It only matters for places outside the place data;
   - `protect: true`: the user then edits the line, so it is protected;
-  - `answer`: the user's answer to a CONFLICT question, `still_there` or `she_moved`;
+  - `answer`: the user's answer to a CONFLICT question, `still_there` or `she_moved`; or to "Does this replace what you told me?" (CER-1), `keep_both` or `replaces`;
 - **`undo: <step>`:** Undo that step's note;
 - **`correct_person: {step, to}`:** move that step's line to someone else (I13).
 
@@ -43,6 +43,7 @@ Two corpora:
 - `outcome`: `NEW`, `SAME`, `REFINES`, `SUPERSEDES` or `CONFLICT`;
 - `closes`: the steps whose lines it closes, the most specific first;
 - `transition`: `changed`, `corrected` or `null` (replaced as current truth only);
+- `offers`: the steps whose lines "Does this replace what you told me?" offers;
 - `question` and `choices`, for a CONFLICT (the words are `_shared/semantic/questions.ts`'s); `after_answer.facet`, whether the line keeps its reading once answered;
 - `value_text`, `resolved`, `candidates`, for the place reading.
 
