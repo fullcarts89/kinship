@@ -307,12 +307,6 @@ export function PortraitView(props: PortraitViewProps) {
         accessibilityHint={props.onRename ? "Double-tap to change their name" : undefined}
       />
       {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
-      {/* The one visual difference of a held person (D13, PER-06): one quiet line. */}
-      {props.stateLine ?? (props.remembered ? "Remembered" : null) ? (
-        <Small style={{ marginTop: space.xs }} accessibilityLabel={`${props.stateLine ?? "Remembered"}. ${props.stateExplain ?? ""}`.trim()}>
-          {props.stateLine ?? "Remembered"}
-        </Small>
-      ) : null}
       {/* Someone merged into them (PER-05): said once, with Undo while it can be undone. */}
       {props.merged?.map((m) => (
         <View key={m.id} style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: space.xs, marginLeft: -space.xs }}>
@@ -338,20 +332,32 @@ export function PortraitView(props: PortraitViewProps) {
         </View>
       ) : null}
 
+      {/* The one visual difference of a held person (D13, PER-06): one line, on clear paper below the actions
+          (it sat over the leaf art under the name and could not be read). */}
+      {(props.stateLine ?? (props.remembered ? "Remembered" : null)) ? (
+        <Body
+          tone="ink"
+          style={{ marginTop: space.s, fontFamily: font.sansSemi }}
+          accessibilityLabel={`${props.stateLine ?? "Remembered"}. ${props.stateExplain ?? ""}`.trim()}
+        >
+          {props.stateLine ?? "Remembered"}
+        </Body>
+      ) : null}
+
       {props.afterGesture ? (
         <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
           <MomentText>{props.afterGesture.ask}</MomentText>
           <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
-            <Pill size="small" label="Yes" onPress={() => props.onGesture?.("yes")} />
-            <Pill size="small" label="Not yet" onPress={() => props.onGesture?.("not_yet")} />
+            <Pill size="small" fixedLabel label="Yes" onPress={() => props.onGesture?.("yes")} />
+            <Pill size="small" fixedLabel label="Not yet" onPress={() => props.onGesture?.("not_yet")} />
           </View>
         </View>
       ) : props.afterReturn ? (
         <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
           <MomentText>{props.afterReturn.followUp}</MomentText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
-            <Pill size="small" variant="primary" label="Tell Kinship" onPress={() => props.onRemember?.()} />
-            <Pill size="small" variant="quiet" label="Nothing today" onPress={() => props.onNothing?.()} />
+            <Pill size="small" variant="primary" fixedLabel label="Tell Kinship" onPress={() => props.onRemember?.()} />
+            <Pill size="small" variant="quiet" fixedLabel label="Nothing today" onPress={() => props.onNothing?.()} />
           </View>
         </View>
       ) : props.returnCheck ? (
@@ -359,8 +365,8 @@ export function PortraitView(props: PortraitViewProps) {
           <MomentText>{props.returnCheck.ask}</MomentText>
           {props.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{props.returnCheck.about}</Small> : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
-            <Pill size="small" label="Yes" onPress={() => props.onReturn?.("yes")} />
-            <Pill size="small" label="Not yet" onPress={() => props.onReturn?.("not_yet")} />
+            <Pill size="small" fixedLabel label="Yes" onPress={() => props.onReturn?.("yes")} />
+            <Pill size="small" fixedLabel label="Not yet" onPress={() => props.onReturn?.("not_yet")} />
             {props.returnCheck.type === "promise" ? <Pill size="small" variant="quiet" label="Didn't happen" onPress={() => props.onReturn?.("put_aside")} /> : null}
           </View>
         </View>
@@ -373,8 +379,8 @@ export function PortraitView(props: PortraitViewProps) {
               <Label>{"One thing to check"}</Label>
               <Body tone="ink" style={{ marginTop: space.xs }}>{l.prompt}</Body>
               <View style={{ flexDirection: "row", gap: space.s, marginTop: space.s }}>
-                <Pill size="small" label="Yes" onPress={() => props.onLink?.(l.key, true)} />
-                <Pill size="small" variant="quiet" label="No, someone else" onPress={() => props.onLink?.(l.key, false)} />
+                <Pill size="small" fixedLabel label="Yes" onPress={() => props.onLink?.(l.key, true)} />
+                <Pill size="small" variant="quiet" fixedLabel label="No, someone else" onPress={() => props.onLink?.(l.key, false)} />
               </View>
             </View>
           ))}
