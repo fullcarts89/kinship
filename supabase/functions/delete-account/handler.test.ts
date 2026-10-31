@@ -150,3 +150,21 @@ Deno.test("v2: the response never carries user content (only table names and cou
   assertEquals(/raw_text|statement|display_name/u.test(text), false, "no content fields");
   assertEquals(JSON.parse(text).storage_objects, 3);
 });
+
+Deno.test("deployed path: an unreachable Storage service fails the deletion loudly; no row and no auth user is touched", async () => {
+  // The local harness runner (e2e/serve-delete-account.ts) may treat an absent Storage as empty, for the
+  // local stack alone. The function as deployed never does: photos left behind would be a silent breach.
+  const calls: string[] = [];
+  const deps: DeleteAccountDeps = {
+    authenticate: () => Promise.resolve("user-v2"),
+    removeStorage: () => Promise.reject(new Error("listing buckets failed: name resolution failed")),
+    deleteAccount: (id) => {
+      calls.push(`db:${id}`);
+      return Promise.resolve({ auth_user: true, tables: {} });
+    },
+  };
+  const res = await quiet(() => createDeleteAccountHandler(deps)(post({ confirm: true })));
+  assertEquals(res.status, 500);
+  assertEquals(await res.json(), { error: "deletion_failed" });
+  assertEquals(calls, [], "the database function is never reached");
+});
