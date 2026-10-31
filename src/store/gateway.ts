@@ -166,7 +166,9 @@ export interface ResolvedItem {
 
 export type Answered =
   | { status: "resolved"; saved: ResolvedItem[]; new_people: string[]; skipped: number }
-  | { status: "already_resolved" };
+  | { status: "already_resolved" }
+  /** The answer settled who it is about and one more question follows (the replace question): nothing was written. */
+  | { status: "asked_again"; held: HeldItem[]; review_created_at: string };
 
 export type Closed = { status: "closed" | "nothing_waiting" };
 
@@ -275,6 +277,9 @@ export class Gateway {
       };
     }
     if (body.status === "already_resolved") return { status: "already_resolved" };
+    if (body.status === "asked_again" && typeof body.review_created_at === "string") {
+      return { status: "asked_again", held: arrayOf<HeldItem>(body.held), review_created_at: body.review_created_at };
+    }
     throw new GatewayRefused("internal_error", 200);
   }
 
