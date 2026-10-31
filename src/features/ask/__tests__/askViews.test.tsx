@@ -18,6 +18,7 @@ import { prepareSchema } from "@/store/schema";
 import { repositoriesFor } from "@/store/repositories";
 import { UserStore } from "@/store/userStore";
 import { openSqlJsDb } from "@/test-utils/sqljsDb";
+import { kept, world } from "@/test-utils/residenceWorld";
 
 jest.mock("react-native-safe-area-context", () => jest.requireActual("react-native-safe-area-context/jest/mock").default);
 
@@ -52,14 +53,14 @@ const view: AskView = {
   named: [],
   groups: [
     {
-      personId: "susan", name: "Susan", quiet: false, conversations: [],
+      personId: "susan", name: "Susan", href: "/v2/person/susan", quiet: false, conversations: [],
       rows: [
         { key: "composed", earlier: false, href: "/v2/person/susan?item=s-ala", row: row("s-ala", "Susan lives in Alameda", { display: "Lives in Alameda, California", provenance: "You told Kinship · Oct 2 · and 1 other note", composed: { text: "Lives in Alameda, California", memberIds: ["s-ala", "s-ca"], members: [] } }) },
         { key: "earlier", earlier: true, href: "/v2/person/susan/knows?item=s-oak", row: row("s-oak", "Susan lives in Oakland", { display: "Previously lived in Oakland", provenance: "You told Kinship · Oct 9", noteId: "n-move", history: { when: null } }) },
       ],
     },
     {
-      personId: "dana", name: "Dana", quiet: true, conversations: [{ id: "c1", label: "You saw Dana · Sep 20", about: null }],
+      personId: "dana", name: "Dana", href: "/v2/person/dana", quiet: true, conversations: [{ id: "c1", label: "You saw Dana · Sep 20", about: null }],
       rows: [{ key: "d", earlier: false, href: "/v2/person/dana?item=d-ala", row: row("d-ala", "Dana lives in Alameda") }],
     },
   ],
@@ -96,6 +97,31 @@ describe("In your memory", () => {
     expect(onSource).toHaveBeenCalledWith("n-move");
     press(r, `${ASK_COPY.earlier}: Previously lived in Oakland`);
     expect(onLine).toHaveBeenLastCalledWith("/v2/person/susan/knows?item=s-oak");
+    press(r, "You saw Dana · Sep 20");
+    expect(onLine).toHaveBeenLastCalledWith("/v2/person/dana");
+  });
+
+  it("a 'when' question shows the page's when with the line: the moment's day, a history line's move", () => {
+    const moment: AskView = {
+      ...EMPTY_ASK, query: "When did I last see Sam?", asked: true,
+      groups: [{ personId: "sam", name: "Sam", href: "/v2/person/sam", quiet: false, conversations: [], rows: [
+        { key: "m", earlier: false, href: "/v2/person/sam?item=m", row: row("m", "You and Sam had coffee in Pilsen", { line: { ...line("m", "You and Sam had coffee in Pilsen", "sam"), when: { label: "Sun, Oct 11", value: "2026-10-11", changeable: true } } }) },
+        { key: "h", earlier: true, href: "/v2/person/sam/knows?item=h", row: row("h", "Sam lives in Oakland", { display: "Previously lived in Oakland", history: { when: "Moved · Oct 4" } }) },
+      ] }],
+    };
+    const texts = textsOf(render(<AskResults view={moment} onLine={noop} onSource={noop} onComposed={noop} />));
+    expect(texts).toEqual([ASK_COPY.section, "Sam", "You and Sam had coffee in Pilsen", "Sun, Oct 11", "You told Kinship · Oct 8", ASK_COPY.earlier, "Previously lived in Oakland", "Moved · Oct 4", "You told Kinship · Oct 8"]);
+  });
+
+  it("a told birthday's source opens its note; a contact birthday has none to open", () => {
+    const onSource = jest.fn();
+    const r = render(<AskResults view={{ ...EMPTY_ASK, query: "birthdays", asked: true, birthdays: [
+      { personId: "ben", text: "Ben's birthday · Oct 12", provenance: "From Contacts", noteId: null, href: "/v2/person/ben" },
+      { personId: "ana", text: "Ana's birthday · Mar 3", provenance: "You told Kinship · Oct 1", noteId: "n-bday", href: "/v2/person/ana" },
+    ] }} onLine={noop} onSource={onSource} onComposed={noop} />);
+    expect([...new Set(pressables(r).map((n) => String(n.props.accessibilityLabel)))]).toEqual(["Ben's birthday · Oct 12", "Ana's birthday · Mar 3", "You told Kinship · Oct 1"]);
+    press(r, "You told Kinship · Oct 1");
+    expect(onSource).toHaveBeenCalledWith("n-bday");
   });
 
   it("every line and conversation is reachable by VoiceOver with its words", () => {
@@ -128,7 +154,7 @@ describe("People with a question in the search field", () => {
     const onQuery = jest.fn();
     const r = render(
       <PeopleView rows={rows} onOpen={noop} onAdd={async () => undefined} onQuery={onQuery}
-        memory={{ asked: true, named: ["susan"], node: <Text>{ASK_COPY.section}</Text> }} />,
+        memory={{ query: "What gift did Susan mention?", asked: true, named: ["susan"], node: <Text>{ASK_COPY.section}</Text> }} />,
     );
     type(r, "What gift did Susan mention?");
     expect(onQuery).toHaveBeenLastCalledWith("What gift did Susan mention?");
@@ -142,7 +168,7 @@ describe("People with a question in the search field", () => {
   it("a name that is no one's still offers to add them, with no section", () => {
     const r = render(
       <PeopleView rows={rows} onOpen={noop} onAdd={async () => undefined} onQuery={noop}
-        memory={{ asked: false, named: [], node: <Text>{ASK_COPY.section}</Text> }} />,
+        memory={{ query: "Zelda", asked: false, named: [], node: <Text>{ASK_COPY.section}</Text> }} />,
     );
     type(r, "Zelda");
     const texts = textsOf(r);
@@ -150,10 +176,33 @@ describe("People with a question in the search field", () => {
     expect(texts).not.toContain(ASK_COPY.section);
   });
 
+  it("a question that only names someone keeps them in the list and never offers to add the sentence", () => {
+    const r = render(
+      <PeopleView rows={rows} onOpen={noop} onAdd={async () => undefined} onQuery={noop}
+        memory={{ query: "What do I know about Susan", asked: false, named: ["susan"], node: <Text>{ASK_COPY.section}</Text> }} />,
+    );
+    type(r, "What do I know about Susan");
+    const texts = textsOf(r);
+    expect(texts).toContain("Susan");
+    expect(texts).not.toContain("Ben");
+    expect(texts.some((t) => t.startsWith("No one called") || t.startsWith("Add "))).toBe(false);
+  });
+
+  it("an answer for other words (still being read) never empties the list: the last settled one holds", () => {
+    const r = render(
+      <PeopleView rows={rows} onOpen={noop} onAdd={async () => undefined} onQuery={noop}
+        memory={{ query: "Who do I know in Alameda", asked: true, named: [], node: <Text>{ASK_COPY.section}</Text> }} />,
+    );
+    type(r, "Who do I know in Alameda?");
+    const texts = textsOf(r);
+    expect(texts).not.toContain(ASK_COPY.section);
+    expect(texts.some((t) => t.startsWith("Add "))).toBe(false);
+  });
+
   it("an empty account never sees 'In your memory', whatever is typed", () => {
     const r = render(
       <PeopleView rows={[]} onOpen={noop} onAdd={async () => undefined} onAddFromContacts={noop} onQuery={noop}
-        memory={{ asked: true, named: [], node: <Text>{ASK_COPY.section}</Text> }} />,
+        memory={{ query: "What is John into?", asked: true, named: [], node: <Text>{ASK_COPY.section}</Text> }} />,
     );
     type(r, "What is John into?");
     const texts = textsOf(r);
@@ -197,5 +246,34 @@ describe("the read, through a real store", () => {
     expect(miss.groups).toEqual([]);
     expect(miss.miss).toBe(ASK_COPY.nothingFor("Susan"));
     expect((await askView(store, "Susan", NOW)).asked).toBe(false);
+  });
+
+  it("a composed residence line through the real pipeline, and a remembered person last: 'Who do I know in Alameda?'", async () => {
+    const w = await world();
+    await kept(w, "Susan lives in California.", "Susan lives in California");
+    w.server.clock += 36 * 3600 * 1000;
+    await kept(w, "Susan lives in Alameda.", "Susan lives in Alameda");
+    await w.repos.people.setState(w.dana.id, "remembered");
+    await kept(w, "Dana lives in Alameda.", "Dana lives in Alameda", { person: w.dana.id });
+    const now = new Date(w.server.clock);
+    const a = await askView(w.store, "Who do I know in Alameda?", now);
+    // The page's words (AskResults shows them the same way): the composed text, else the display words.
+    const shown = (r: AskView["groups"][number]["rows"][number]) => r.row.composed ? r.row.composed.text : r.row.display ?? r.row.line.statement;
+    expect(a.groups.map((g) => [g.name, g.quiet, g.rows.map((r) => [shown(r), !!r.row.composed, r.row.provenance])])).toEqual([
+      ["Susan", false, [["Lives in Alameda, California", true, expect.stringMatching(/^You told Kinship · Oct \d+ · and 1 other note$/u)]]],
+      ["Dana", true, [["Lives in Alameda", false, expect.stringMatching(/^You told Kinship · Oct \d+$/u)]]],
+    ]);
+    // "Susan lives in California" and "Alameda" are one row (one composed line), never two.
+    expect(a.groups[0].rows).toHaveLength(1);
+    expect(a.groups[0].rows[0].row.composed!.members).toHaveLength(2);
+    // Where the words lead: the portrait shows the chain's head, so the tap lands there.
+    expect(a.groups[0].rows[0].href).toMatch(/^\/v2\/person\/[^/]+\?item=/u);
+    // The chain closed: the move is current, the old lines are found only as earlier.
+    await kept(w, "Susan moved to Colorado.", "Susan moved to Colorado", { existing: { action: "supersede", target: (await w.repos.memory.aboutPerson(w.susan.id)).find((m) => m.statement === "Susan lives in Alameda")!.id, transition: "changed" } as never });
+    const later = await askView(w.store, "Alameda", new Date(w.server.clock));
+    expect(later.groups.map((g) => [g.name, g.rows.map((r) => [r.earlier, shown(r)])])).toEqual([
+      ["Susan", [[true, "Previously lived in Alameda, California"]]],
+      ["Dana", [[false, "Lives in Alameda"]]],
+    ]);
   });
 });

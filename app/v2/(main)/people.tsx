@@ -2,7 +2,7 @@
 // in the search field asks the user's own memory (Ask Kinship v1, CC-25).
 import React, { useCallback, useState } from "react";
 import { Alert } from "react-native";
-import { router } from "expo-router";
+import { type Href, router } from "expo-router";
 import { AskResults } from "@/features/ask/AskResults";
 import { useAsk } from "@/features/ask/useAsk";
 import { ComposedSheet } from "@/features/person/ComposedSheet";
@@ -75,12 +75,13 @@ export default function PeopleScreen() {
         }}
         onQuery={setQuery}
         memory={{
+          query: memory.query,
           asked: memory.asked,
           named: memory.named,
           node: (
             <AskResults
               view={memory}
-              onLine={(href) => router.push(href)}
+              onLine={(href) => router.push(href as Href)}
               onSource={(noteId) => router.push(`/v2/source/${noteId}`)}
               onComposed={setComposed}
             />

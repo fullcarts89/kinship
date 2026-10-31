@@ -2,10 +2,11 @@
 // as the one raised surface, then everyone, alphabetical: sprig, name, one
 // live line in the user's words. No counts, no ranking, nothing to keep up
 // with. Adding someone is a name and Done.
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TextInput, View } from "react-native";
 import { Plus, Search, Settings } from "lucide-react-native";
 import { height, maxScale, radius, shadow, size, space, type } from "@/design/tokens";
+import { looksLikeName } from "@/features/ask/retrieve";
 import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
 import { Body, Botanical, DawnWash, IconButton, KeyboardBar, type NavKey, Pill, Row, Screen, Sprig, useKeyboardBarId, usePalette } from "@/ui";
 
@@ -45,25 +46,35 @@ export function PeopleView({
   /** The search field's words, as typed (the route asks memory with them). */
   onQuery?: (query: string) => void;
   /**
-   * What the words find in memory: when `asked`, the list keeps only the
-   * people the words name and the "In your memory" section follows it
-   * (AskResults); the "No one called … yet" offer stays for a name.
+   * What the words find in memory (useAsk), for the `query` it answers: when
+   * `asked`, the list keeps only the people the words name and the "In your
+   * memory" section follows it (AskResults); a question that only names
+   * someone keeps them too. The "No one called … yet" offer is for a name,
+   * never a sentence. An answer for other words (still being read) is held
+   * until the new one lands, so the list never flashes empty.
    */
-  memory?: { asked: boolean; named: readonly string[]; node: React.ReactNode };
+  memory?: { query: string; asked: boolean; named: readonly string[]; node: React.ReactNode };
 }) {
   const p = usePalette();
   const bar = useKeyboardBarId();
   const [query, setQuery] = useState(initialQuery);
   const [adding, setAdding] = useState<string | null>(initialAdding);
+  // The answer for these words; while a new one is being read, the last settled answer holds.
+  const held = useRef<typeof memory>(undefined);
+  const settled = memory && memory.query === query ? memory : held.current;
+  if (memory && memory.query === query) held.current = memory;
   // Only an account with people has memory to ask; an empty account keeps its own empty state (contract §8).
-  const asked = !!memory?.asked && rows.length > 0;
+  const asked = !!settled?.asked && rows.length > 0;
   const shown = useMemo(() => {
     const q = query.trim().toLocaleLowerCase();
     if (!q) return rows;
+    const named = settled?.named ?? [];
     // A question keeps the people it names ("When did I last see Sam?" → both Sams); a name filters as before.
-    if (asked) return rows.filter((r) => memory!.named.includes(r.id));
-    return rows.filter((r) => r.label.toLocaleLowerCase().includes(q));
-  }, [rows, query, asked, memory]);
+    if (asked) return rows.filter((r) => named.includes(r.id));
+    return rows.filter((r) => named.includes(r.id) || r.label.toLocaleLowerCase().includes(q));
+  }, [rows, query, asked, settled]);
+  // "Add Zelda" is for a name; a sentence no one answers is never offered as someone to add.
+  const offerAdd = shown.length === 0 && !asked && looksLikeName(query);
   useEffect(() => {
     onQuery?.(query);
   }, [query, onQuery]);
@@ -130,7 +141,7 @@ export function PeopleView({
             <Pill variant={onAddFromContacts ? "quiet" : "primary"} label="Add by name" onPress={() => setAdding("")} />
           </View>
         </View>
-      ) : shown.length === 0 && !asked ? (
+      ) : offerAdd ? (
         <View style={{ marginTop: space.l, alignItems: "flex-start", gap: space.m }}>
           <Body>{`No one called “${query.trim()}” yet.`}</Body>
           <Pill label={`Add ${query.trim()}`} onPress={() => setAdding(query.trim())} />
@@ -138,7 +149,7 @@ export function PeopleView({
       ) : null}
 
       {/* Ask Kinship v1 (WS-6): what the words find in memory, under the people. */}
-      {asked ? memory!.node : null}
+      {asked ? settled!.node : null}
 
       <AddByNameSheet
         initial={adding}
