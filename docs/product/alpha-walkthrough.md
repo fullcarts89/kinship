@@ -77,3 +77,24 @@ Same method (Release simulator, live model through the harness proxy, fresh loca
 | Today after setup | Bring-back orientation with the user's own Nov 15 line as the example; "This week · Sam's birthday" | PASS | — |
 
 Still NOT RUN on this build: the promise Moment → hand-off → return check and the SUA-1 line in the redesigned sheet (passed on the earlier build; black-box `k20`/`k28`/`showingup` pass on the redesigned head), WS-3's "Test: send today's notification in 10 s" hook, the open-thread check-in staged by SQL, Paused/Remembered/Export on the redesigned Settings, dark mode and large text on the redesigned screens, the iPhone 17e width, and Delete account. A third walk should cover those once WS-1's "who is this about" follow-up is fixed.
+
+## Third walk: the final head (31 Oct, integration `b5221a8` + `bb7aea0`, all five redesign surfaces; screens `r3-*.jpg`)
+
+Fresh install, fresh local account, live model through the harness proxy, iPhone 18 Pro. Evidence tier NATIVE-SIMULATOR (live model).
+
+| Step | What happened | Result | Screens |
+|---|---|---|---|
+| Setup (name → consent → Sam and Leo from Contacts → Already worth knowing → first Tell) | The consent step carries the D2 sentence and "Sent to Anthropic to understand it; not used to train models."; "Sam's birthday is on Nov 7. · FROM CONTACTS"; first Tell *"I promised I'd bring Sam soup tonight because she's been completely overwhelmed at work. She hasn't decided which kind she wants."* understood in 5.1 s | PASS | — |
+| Today (redesign 2/5) | The promise is the Moment, at once: a big bloom-filled "Sam", **"You said you'd bring Sam soup."**, Today · Sat, Oct 31, "You told Kinship · Oct 31", the Kept card under it; after dismissing, "What you've told Kinship: Sam has been completely overwhelmed at work", **Message Sam** · Not now, and "This week: Sat, Nov 7 · Sam's birthday" | PASS | r3-01 |
+| Hand-off (redesign 5/5) | "Message Sam", You could mention (the thread line), Open Messages, Call · FaceTime · WhatsApp, "When you come back: 'Did you reach Sam?'" | PASS | r3-02 |
+| Messages | Opened with Sam's number and nothing pre-written; the notification permission asked here, after the first useful Moment; Allow | PASS | — |
+| Return check | Back on Today: **"Did you bring Sam soup?"** · "You said you'd bring Sam soup." · Yes · Not yet · Didn't happen, above the bring-back orientation ("This is where Kinship brings things back, when they matter." with its example) | PASS | r3-03 |
+| Yes | Moment gone; server: one `contact_events` row (`promise`, `return_check`), the promise `resolved`; Today keeps the bring-back orientation with the example, plus "This week · Sam's birthday" | PASS | r3-04 |
+| Settings (WS-3 test hook) | Notifications **On** (permission from the hand-off), "Test: send today's notification in 10 s", Your data (Export your data · Export as JSON) | PASS | — |
+| Private notification | With a day-precise promise open for Leo ("I promised Leo I'd send him the name of that moving company tonight." → Today's Moment "You said you'd send Leo the name of that moving company."), the test hook: "Background the app: it arrives in about 10 seconds." → on the lock screen **Kinship · "Something worth knowing about Leo today."** and nothing more | PASS (the hook, not the 09:00 planner) | r3-05 |
+| Tap the notification → Today | The simulator's lock screen does not route a banner tap here | NOT RUN natively (UNIT only) | — |
+| Export | Share sheet `kinship-export-2026-10-31` (Text Document, 2 KB) | PASS | — |
+
+Observations from this walk: (1) with an undated-time promise "this afternoon", the live model files it as the user's promise **and** an event, but `date_precision: "unknown"`, so no Moment is made for it (nothing to say about an afternoon with no day); (2) a promise told for "tonight" after the same person was already reached today makes no second Moment ("Call Sam tonight about the soup recipe she asked for" sat quietly in This week), which is the rule, not a defect; (3) the send arrow in the redesigned Tell dock is a round control that is clearly reachable above the keyboard.
+
+Still NOT RUN on the final head: row 16's "No, keep both" (blocked by the WS-1 defect on #72), the RSN-07 thread check-in, Paused / Remembered / Resume and merge on the redesigned person page, dark mode and large text and the iPhone 17e on the redesigned screens, and Delete account.
