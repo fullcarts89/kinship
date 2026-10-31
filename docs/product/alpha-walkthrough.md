@@ -216,3 +216,26 @@ WS-4 `bf98556` (the merge preview tells same-named people apart) merged with WS-
 - FOUNDER-DEVICE: not run.
 
 Observations for WS-2 (non-blocking): at the largest text size the People rows do not scale and the Person page's Message / Call / Tell stack is tall.
+
+## Tenth walk and the FINAL evidence table (31 Oct; screens `r11-*.png`)
+
+WS-2 `e2a98c4` (accessibility sizes: People summaries grow instead of clamping; the Person page's stacked actions follow the last line inside the scroll) merged on top of WS-4 `bf98556` and WS-2 `3222c1f`. Checks on the final head: tsc clean, eslint 0 errors (warnings only), Jest **116 suites, 1119 tests**, Deno **486 passed, 0 failed** (no server file changed since the last sweep). One last Release rebuild installed on the iPhone 18 Pro.
+
+| Row | Result at XXXL (accessibility-extra-extra-extra-large) | Screen |
+|---|---|---|
+| People rows | **PASS**: name and summary both grow with the pills and header; the summary wraps over three lines with nothing truncated | `r11-ax-people` |
+| Person page | **PASS**: the Lately line, "What Kinship knows about Leo" and the stacked Message / Call / Tell all sit inside one scroll, the actions after the last line (not pinned over it) | `r11-ax-person-top`, `r11-ax-person-scrolled-end` |
+| Merge title | **PASS** at the normal size: "Merge Leo Marchetti into Leo?" | `r11-merge-title` |
+
+One small observation: scrolled far down, the fixed back chevron sits over the page's "Edit" row (`r11-ax-person-scrolled-end`); cosmetic.
+
+### FINAL evidence table (head = the last commit of PR #74)
+
+| | Natively evidenced on the final code (Release, iPhone 18 Pro) | Not natively evidenced |
+|---|---|---|
+| Tell and review | the told-again replace question and its label (full size, wraps, light, dark, XXXL with scrolling); a words edit naming a new day, "Is it now …?", Back / confirm | the "Yes, replace" confirmation on this head (walked on earlier heads); a review sheet with several lines; quiet-day Today; Reduce Motion |
+| Today and People | greeting with the name; scrim light and dark; lettered directory + Ask your memory door; People rows at XXXL | |
+| Person | scrim; Coming up / Today agreement; Paused and Remembered lines with Resume (light, dark); Person scroll at XXXL | |
+| Showing up | SUA-1 line and the real return question in the hand-off sheet | the Today Moment for a same-day milestone (held by the one-primary-per-person-per-7-days cap, WS-3: not a defect); lock-screen banner tap |
+| Trust | Merge with someone: sheet, preview, Merge, Undo, taps afterwards, the disambiguated title | **Delete account** (environment: local Storage stopped; black-box and pgTAP only) |
+| Devices | iPhone 18 Pro | **iPhone 17e** on late WS-2 changes (its own account left untouched); **FOUNDER-DEVICE** |
