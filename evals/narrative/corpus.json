@@ -104,31 +104,16 @@
   {
    "id": "s16",
    "title": "A told-again move against the user's edited line (WS-5 journey defect)",
-   "page": "Leo",
+   "page": null,
    "occurred_at": "2026-10-31T17:00:00Z",
-   "dossier": [
-    {
-     "person": "Leo",
-     "kind": "event",
-     "statement": "Leo signed the lease on the apartment in Pilsen and moves in on November 22",
-     "certainty": "planned",
-     "user_state": "edited",
-     "detail": {
-      "event_type": "move",
-      "date": "2026-11-22",
-      "date_precision": "day"
-     }
-    },
-    {
-     "person": "Leo",
-     "kind": "fact",
-     "statement": "Leo hates public speaking",
-     "user_state": "unreviewed",
-     "detail": {
-      "category": "other"
-     }
-    }
-   ],
+   "dossier": [],
+   "note": "Actually the Pilsen move slipped again, it's December 6 now."
+  },
+  {
+   "id": "s17",
+   "title": "An unnamed update told from Today (WS-5 'Nothing to remember' observation)",
+   "page": null,
+   "occurred_at": "2026-10-31T17:00:00Z",
    "note": "Actually the Pilsen move slipped again, it's December 6 now."
   }
  ]
