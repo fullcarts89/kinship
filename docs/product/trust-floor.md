@@ -68,5 +68,5 @@ Both are confirmed before they take effect. Neither changes a memory, a source o
 | UNIT | `src/store/__tests__/trustFloor.test.ts` (14), `src/lib/__tests__/exportData.test.ts` (4), Deno `delete-account/handler.test.ts` (11) | PASS |
 | INTEGRATION | pgTAP `72_v2_trust_floor.test.sql` (49), `40_delete_account` (22, extended), `61`, `64`, `68` re-run | PASS |
 | BLACK-BOX | `e2e/blackbox/trustfloor.blackbox.tsx`: Pause → Resume, Merge → Undo, Export, Delete, against the local stack (`DELETE_ACCOUNT_URL`, local runner) | PASS (30 Oct) |
-| NATIVE-SIMULATOR | Covered by WS-5's integrated journey (coordinator rule, 30 Oct); steps in `docs/agent-loop/ws4-trust-floor-handoff.md`; one screenshot in `docs/product/screens/ws4/` | NOT RUN here |
+| NATIVE-SIMULATOR | 31 Oct on the integrated Release build (5f3ea55): Pause, Remembered, Resume, Export, Undo, same-person prompt PASS; Merge from the Edit sheet FAILED (second modal dropped; fixed in source with `afterSheets`, not re-walked); Delete NOT RUN (environment). Details and screenshots: handoff "Native pass R8", `docs/product/screens/alpha-rc/` | MIXED |
 | FOUNDER-DEVICE | — | NOT RUN |

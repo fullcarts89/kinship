@@ -18,6 +18,7 @@ import { MERGE_COPY } from "@/store/peopleMerge";
 import { HOLD_COPY, stateLine, type HoldState } from "@/store/peopleStates";
 import type { Person } from "@/store/repositories";
 import { Pill, Sheet, Title } from "@/ui";
+import { afterSheets } from "@/ui/sheetStack";
 import { space } from "@/design/tokens";
 import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
@@ -96,7 +97,11 @@ export default function PersonScreen() {
   const openMerge = () => {
     setRenaming(false);
     void Promise.all([trust.candidates(personId), trust.everyoneElse(personId)])
-      .then(([candidates, everyone]) => setMerging({ candidates, everyone }), () => Alert.alert("That couldn't be read", "Try again in a moment."));
+      .then(
+        // The name sheet is still on its way out: a second iOS modal presented now is lost (sheetStack.ts), so wait.
+        ([candidates, everyone]) => { afterSheets(() => setMerging({ candidates, everyone })); },
+        () => Alert.alert("That couldn't be read", "Try again in a moment."),
+      );
   };
 
   return (
