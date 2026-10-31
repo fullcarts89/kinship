@@ -205,7 +205,8 @@ export function TodayView(props: TodayViewProps) {
           context={moment.context}
           hope={moment.hope ?? null}
           provenance={moment.provenance}
-          context2={moment.mention.filter((m) => m !== moment.statement && m !== moment.context && m !== (moment.hope ?? "")).slice(0, 2)}
+          // The human context: other things told about them, never the moment's own memory said again.
+          context2={moment.mention.filter((m) => m !== moment.statement && m !== moment.context && m !== (moment.hope ?? "") && m !== (moment.memory ?? "")).slice(0, 2)}
           photoUri={photo}
           onOpen={props.onOpenMoment}
           onProvenance={props.onProvenance}

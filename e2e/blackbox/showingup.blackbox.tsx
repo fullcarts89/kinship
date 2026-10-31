@@ -203,14 +203,18 @@ describe("RSN-07 and SUA-1 through the real screens: an open thread's one check-
     const today = texts(a.r);
     expect(today).toContain("Felix is considering moving to Denver");
     expect(canTap(a.r, "Ask Felix")).toBe(true);
-    expect(today.some((t) => /getting married/u.test(t))).toBe(false); // the wedding, ten days off, is no Moment
+    // The wedding, ten days off, is no Moment: not the statement, not a week line. (Since FD-30b it may appear
+    // as human context under the thread's Moment, "What you've told Kinship": a line, never a second action.)
+    const headers = a.r.root.findAll((n) => n.props.accessibilityRole === "header" && typeof n.type === "string").map((n) => [n.props.children].flat().join(""));
+    expect(headers.some((t) => /getting married/u.test(t))).toBe(false);
 
     // 2. Ask Felix: the sheet mentions the wedding (K26) with its opener, and beneath the channels the one SUA-1 line.
     await tap(a.r, "Ask Felix");
     await until(a.r, () => canTap(a.r, "Open Messages"), "the hand-off sheet", 5000);
     const sheet = texts(a.r);
     expect(sheet).toContain("Ask Felix");
-    expect(sheet).toContain("•  Felix is getting married next month");
+    // Electric Garden (FD-30b): the mention lines sit behind a rule, with no bullet; the sheet's own region starts at its label.
+    expect(sheet.slice(sheet.indexOf("You could mention"))).toContain("Felix is getting married next month");
     expect(sheet).toContain(MENTION_OPENERS.wedding);
     expect(sheet).toContain(SUGGESTION_COPY.plan);
     expect(sheet.indexOf(SUGGESTION_COPY.plan)).toBeGreaterThan(sheet.indexOf("Open Messages"));
