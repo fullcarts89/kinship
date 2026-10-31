@@ -151,7 +151,7 @@ Release build of the final head (WS-1 `bd9bfb1` incl. migration `20261031110000_
 
 These five are the first things the founder's native pass (FOUNDER-DEVICE) should cover. Nothing in them is a known failure; they are simply not evidenced on the final build.
 
-## Seventh walk: the final merged head (31 Oct, integration `77a6e44`; screens `r9-*.png`)
+## Seventh walk: the final merged head (31 Oct, integration `77a6e44` + WS-4 `b0c6ac9`; screens `r9-*.png`)
 
 Taken over from WS-5 by WS-6 (WS-5's budget was spent). Release build of `77a6e44` (WS-1 `54a7e71`, WS-3 `887c91e`, WS-2 `c0fab0b` including `9ca5ff5`, WS-4 `909907e` and its walk commits, WS-6 `1834939`), installed over the previous app on the iPhone 18 Pro (UDID named in every call), so the account `sim-f62986e4@kinship.test` kept Leo Marchetti's edited Nov 22 line. Same method: the harness proxy on :54398, this branch's gateways (no gateway-side file changed since the previous walk, so they were not restarted), the shared local stack with every migration through `20261031110000` applied. Evidence tier NATIVE-SIMULATOR; the live model was used for the two notes below. Light mode unless the screen name says dark.
 
@@ -170,3 +170,7 @@ Taken over from WS-5 by WS-6 (WS-5's budget was spent). Release build of `77a6e4
 **Left behind in the account by this walk:** the replace question for the Pilsen move is still waiting (answered "Not now"); Leo Marchetti has a milestone line and the lease line now says December 13.
 
 **Still not evidenced on the final build:** Pause / Remembered / Resume and merge on the redesigned person page; dark mode, largest text and the 17e width on the screens WS-2 changed after its own pass; Delete account (local Storage stopped); the lock-screen banner tap; the review sheet's "Yes, replace" confirmation itself (only the question was walked, then "Not now").
+
+**(h) Edit > Merge with someone on the redesigned person page, built after merging WS-4 `b0c6ac9`** (the fix: the merge sheet opens only after the name sheet has left, `afterSheets`; WS-2's layout kept). On the "Leo" page: Edit → Their name sheet with "Merge with someone · Remove from People" → Merge with someone → **the second sheet opens** "Who is also Leo?" (Leo Marchetti) → the preview "Merge Leo into Leo?" lists MEMORIES THAT MOVE (seven lines incl. the lease on December 13 and the promotion), THEIR PEOPLE (sister Carla), CONVERSATIONS (Messaged · Oct 31) and "you can undo this for 30 days" → Merge → the page shows **"Merged with Leo · Undo"** with the merged lines under Coming up and the pending question → Undo → "Leo is back in People." → OK → the page took every tap (Undo, OK, back) → People lists both Leos again, Leo Marchetti with his own line. PASS, 1 of 1 (WS-4 saw the defect 2 of 2 before the fix). Observation for WS-4/WS-2: when both entries are called Leo the preview title reads "Merge Leo into Leo?"; it is unambiguous only by the lines listed. Screens `r9-merge-sheet-opens`, `-preview`, `-done-undo`, `-undone-page-takes-taps`, `-undone-people-restored`. WS-4's own `r8-*` screens came in with the merge.
+
+**Checks on this head:** tsc clean, eslint 0 errors, Jest **116 suites, 1117 tests**, Deno 486 (no server file changed).
