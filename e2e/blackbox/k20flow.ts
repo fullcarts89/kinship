@@ -60,11 +60,21 @@ async function account(run: JohnRun) {
 
 /** John's line on Today (a promise of the user's is said as "Call John"; a plan in its own words). */
 const johnLine = (s: string[]) => s.find((t) => /call John/iu.test(t) && t !== N6 && !/^Kept for/u.test(t));
-/** Today's own line about John, by its label ("Today: Call John"), never the Kept card's copy of it. */
-async function tapTodayLine(r: TestRenderer.ReactTestRenderer) {
+/**
+ * Today's own line about John, never the Kept card's copy of it: a plan or an event of the user's is the
+ * quiet line "Today: Call John"; a promise of the user's due today is Today's Moment since RSN-06 (WS-3,
+ * FD-30e), tapped by its words ("You said you'd call John tonight.").
+ */
+function todayLineLabel(r: TestRenderer.ReactTestRenderer): string | null {
   const line = johnLine(texts(r));
-  if (!line) throw new Error(`no John line on Today: ${JSON.stringify(texts(r))}`);
-  await tap(r, `Today: ${line}`);
+  if (!line) return null;
+  if (canTap(r, `Today: ${line}`)) return `Today: ${line}`;
+  return /^You said you'd/u.test(line) && canTap(r, line) ? line : null;
+}
+async function tapTodayLine(r: TestRenderer.ReactTestRenderer) {
+  const label = todayLineLabel(r);
+  if (!label) throw new Error(`no John line on Today: ${JSON.stringify(texts(r))}`);
+  await tap(r, label);
 }
 
 /** Whatever the reading asks about this note, answered as the founder would: it is their own call to make. */
@@ -89,7 +99,7 @@ export async function k20FromToday(shape: string, answer: "yes" | "not_yet", run
     await tell(r, N6);
     await answerAny(r, run.readingMs ?? 30000);
     coherent(r, "just told", shape);
-    const shownMs = await until(r, () => canTap(r, `Today: ${johnLine(texts(r)) ?? "-"}`), "John's line on Today", run.readingMs ?? 30000);
+    const shownMs = await until(r, () => todayLineLabel(r) !== null, "John's line on Today", run.readingMs ?? 30000);
     coherent(r, "John on Today", shape);
     if (canTap(r, "Got it right")) await tap(r, "Got it right");
     await settle(300);
@@ -99,7 +109,7 @@ export async function k20FromToday(shape: string, answer: "yes" | "not_yet", run
     expect(harness.opens.map((o) => o.channel)).toEqual(["text"]);
     await appState("background");
     await appState("active");
-    const askedMs = await until(r, (s) => s.some((t) => /^Did you reach John/u.test(t)), "the return question", 5000);
+    const askedMs = await until(r, (s) => s.some((t) => /^Did you (?:reach|call) John/u.test(t)), "the return question", 5000);
     coherent(r, "return question", shape);
     await tap(r, answer === "yes" ? "Yes" : "Not yet");
     await settle(500);
@@ -107,14 +117,14 @@ export async function k20FromToday(shape: string, answer: "yes" | "not_yet", run
     await acct.engine.sync();
     const contacts = await serverRows<{ memory_item_id: string | null; deleted_at: string | null }>("contact_events", acct.userId);
     const rows = await serverRows<{ id: string; statement: string; status: string; deleted_at: string | null; detail: Record<string, unknown> }>("memory_items", acct.userId);
-    const today = rows.filter((m) => m.status === "active" && !m.deleted_at && /call John/iu.test(m.statement) && Object.values(m.detail).includes(new Date().toLocaleDateString("en-CA")));
+    const today = rows.filter((m) => (m.status === "active" || m.status === "resolved") && !m.deleted_at && /call John/iu.test(m.statement) && Object.values(m.detail).includes(new Date().toLocaleDateString("en-CA")));
     expect([shape, today.length]).toEqual([shape, 1]);
     if (answer === "yes") {
       expect([shape, contacts.filter((c) => !c.deleted_at).map((c) => c.memory_item_id)]).toEqual([shape, [today[0].id]]);
-      expect([shape, canTap(r, `Today: ${johnLine(texts(r)) ?? "-"}`)]).toEqual([shape, false]);
+      expect([shape, todayLineLabel(r) !== null]).toEqual([shape, false]);
     } else {
       expect([shape, contacts]).toEqual([shape, []]);
-      expect([shape, canTap(r, `Today: ${johnLine(texts(r)) ?? "-"}`)]).toEqual([shape, true]);
+      expect([shape, todayLineLabel(r) !== null]).toEqual([shape, true]);
     }
     console.log(`K20 (${shape}, ${answer}): John on Today ${shownMs} ms after Tell (${Date.now() - t0} ms in all); return question ${askedMs} ms after foreground`);
     expect(askedMs).toBeLessThanOrEqual(1000);
@@ -126,7 +136,7 @@ export async function k23FromPage(shape: string, answer: "yes" | "not_yet", run:
     const { acct, r, john } = await account(run);
     await tell(r, N6);
     await answerAny(r, run.readingMs ?? 30000);
-    await until(r, () => canTap(r, `Today: ${johnLine(texts(r)) ?? "-"}`), "John's line on Today", run.readingMs ?? 30000);
+    await until(r, () => todayLineLabel(r) !== null, "John's line on Today", run.readingMs ?? 30000);
     if (canTap(r, "Got it right")) await tap(r, "Got it right");
     await show(r, { screen: "person", id: john.id });
     await until(r, (s) => s.some((t) => /call John/iu.test(t)), "the line on John's page", 5000);
@@ -136,24 +146,24 @@ export async function k23FromPage(shape: string, answer: "yes" | "not_yet", run:
     expect(harness.opens.map((o) => o.channel)).toEqual(["text"]);
     await appState("background");
     await appState("active");
-    const askedMs = await until(r, (s) => s.some((t) => /^Did you reach John\?$/u.test(t)), "the return question on John's page", 5000);
+    const askedMs = await until(r, (s) => s.some((t) => /^Did you (?:reach John|call John tonight)\?$/u.test(t)), "the return question on John's page", 5000);
     await show(r, { screen: "today" });
-    await until(r, (s) => s.some((t) => /^Did you reach John\?$/u.test(t)), "the same question on Today", 5000);
+    await until(r, (s) => s.some((t) => /^Did you (?:reach John|call John tonight)\?$/u.test(t)), "the same question on Today", 5000);
     await show(r, { screen: "person", id: john.id });
-    await until(r, (s) => s.some((t) => /^Did you reach John\?$/u.test(t)), "back on John's page", 5000);
+    await until(r, (s) => s.some((t) => /^Did you (?:reach John|call John tonight)\?$/u.test(t)), "back on John's page", 5000);
     await tap(r, answer === "yes" ? "Yes" : "Not yet");
     await settle(500);
-    expect([shape, texts(r).some((t) => /^Did you reach John/u.test(t))]).toEqual([shape, false]);
+    expect([shape, texts(r).some((t) => /^Did you (?:reach|call) John/u.test(t))]).toEqual([shape, false]);
     await acct.engine.sync();
     const contacts = (await serverRows<{ memory_item_id: string | null; deleted_at: string | null }>("contact_events", acct.userId)).filter((c) => !c.deleted_at);
     await show(r, { screen: "today" });
     await settle(300);
     if (answer === "yes") {
       expect([shape, contacts.length, !!contacts[0]?.memory_item_id]).toEqual([shape, 1, true]);
-      expect([shape, canTap(r, `Today: ${johnLine(texts(r)) ?? "-"}`)]).toEqual([shape, false]);
+      expect([shape, todayLineLabel(r) !== null]).toEqual([shape, false]);
     } else {
       expect([shape, contacts]).toEqual([shape, []]);
-      expect([shape, canTap(r, `Today: ${johnLine(texts(r)) ?? "-"}`)]).toEqual([shape, true]);
+      expect([shape, todayLineLabel(r) !== null]).toEqual([shape, true]);
     }
     console.log(`K23 (${shape}, ${answer}): return question ${askedMs} ms after foreground, on John's page`);
     expect(askedMs).toBeLessThanOrEqual(1000);
