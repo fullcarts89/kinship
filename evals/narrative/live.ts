@@ -15,7 +15,8 @@ const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
 const args = parseArgs(Deno.args, { string: ["ids", "save", "replay"], boolean: ["page", "general"], default: {} });
 
 interface Person { key: string; name: string; full?: string; nick?: string[]; label?: string }
-interface Scenario { id: string; title: string; note: string; page?: string | null; occurred_at?: string; earlier?: string; earlier_person?: string }
+interface Dossier { person: string; kind: string; statement: string; certainty?: string; user_state?: string; detail?: Record<string, unknown> }
+interface Scenario { id: string; title: string; note: string; page?: string | null; occurred_at?: string; earlier?: string; earlier_person?: string; dossier?: Dossier[] }
 
 const roster: Person[] = JSON.parse(await Deno.readTextFile(`${DIR}/rosters.json`)).people;
 let scenarios: Scenario[] = JSON.parse(await Deno.readTextFile(`${DIR}/corpus.json`)).scenarios;
@@ -39,7 +40,14 @@ function inputFor(s: Scenario, mode: "page" | "general"): ExtractionInput {
     },
     roster: people,
     related: [],
-    dossier: [],
+    // Memory Kinship already holds, as the gateway would load it (a user-edited line keeps its state).
+    dossier: (s.dossier ?? []).map((d, i) => {
+      const owner = people.find((p) => p.display_name === d.person)!;
+      return {
+        key: `m${i + 1}`, id: `id-m${i + 1}`, person_key: owner.key, kind: d.kind as never, subject_type: "person" as const, statement: d.statement,
+        certainty: (d.certainty ?? "stated") as never, status: "active" as const, user_state: (d.user_state ?? "unreviewed") as never, detail: d.detail ?? {},
+      };
+    }),
   };
 }
 
@@ -50,6 +58,8 @@ function describe(input: ExtractionInput, proposal: ModelProposal | null, outcom
   lines.push(`  model proposed ${proposal.items.length} item(s)${proposal.needs_clarification ? `; model asks: ${JSON.stringify(proposal.needs_clarification)}` : ""}`);
   for (const it of proposal.items) lines.push(`    · [${it.kind}/${it.subject}] ${it.person} "${it.person_mention}" ${it.related_relation ? `(${it.related_relation} ${it.related_name ?? ""}) ` : ""}— ${it.statement}`);
   lines.push(`  pipeline: tier=${outcome.tier}, ${outcome.items.length} planned, ${outcome.dropped.length} dropped${outcome.coverage ? `, coverage ${JSON.stringify(outcome.coverage)}` : ""}`);
+  for (const it of proposal.items) if (it.existing && it.existing.action !== "new") lines.push(`    · model says ${it.existing.action} → ${it.existing.target}: ${it.statement}`);
+  for (const it of outcome.items) if (it.action.type !== "new" || it.detail._replaces) lines.push(`    → ${it.statement}: action ${JSON.stringify(it.action)}${it.detail._replaces ? ` asks about ${JSON.stringify(it.detail._replaces)}` : ""}`);
   for (const it of outcome.items) {
     lines.push(`    ${it.tier === "hold" ? "HELD" : it.tier === "confirm" ? "CONFIRM" : "kept"} [${it.kind}/${it.subject_type}] ${name(it.person_key)}${it.new_person_name ? ` new:${it.new_person_name}` : ""}${it.related ? ` (${it.related.relation} ${it.related.name ?? ""})` : ""} — ${it.statement}${it.flags.length ? `  {${it.flags.join(",")}}` : ""}`);
   }

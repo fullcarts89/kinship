@@ -194,13 +194,34 @@ Deno.test("existing memory: no hedged supersede, no cross-subject merge, no touc
   eq(run(input("Mike left Google.", { dossier: [works] }), [item({ ...base, evidence: ["Mike left Google"], statement: "Mike left Google", existing: { action: "supersede", target: "m1" } })]).items[0].action, { type: "supersede", target_id: "id-m1" });
   // "may leave" never replaces "works at".
   eq(run(input("Mike may leave Google.", { dossier: [works] }), [item({ ...base, kind: "thread", certainty: "tentative", evidence: ["Mike may leave Google"], statement: "Mike may leave Google", existing: { action: "supersede", target: "m1" } })]).items[0].action, { type: "new", target_id: null });
-  // The user's own item is never replaced; the new one waits for review.
+  // The user's own item is never replaced silently, and never silently left beside a second truth either
+  // (CER-1, 31 Oct): a well-formed update to it is held and the user is asked whether this replaces it.
   const mine = run(input("Mike left Google.", { dossier: [{ ...works, user_state: "user_authored" }] }), [item({ ...base, evidence: ["Mike left Google"], statement: "Mike left Google", existing: { action: "supersede", target: "m1" } })]);
   eq(mine.items[0].action, { type: "new", target_id: null });
-  eq(mine.items[0].tier, "confirm");
+  eq(mine.items[0].tier, "hold");
+  ok(mine.items[0].flags.includes("update_check") && mine.items[0].flags.includes("protected_target"), "held for the replace question");
+  eq(mine.items[0].detail._replaces, [{ id: "id-m1", statement: "Mike works at Google" }]);
+  // A hedge never updates anything, so nothing is asked about the user's line either.
+  const hedge = run(input("Mike may leave Google.", { dossier: [{ ...works, user_state: "edited" }] }), [item({ ...base, kind: "thread", certainty: "tentative", evidence: ["Mike may leave Google"], statement: "Mike may leave Google", existing: { action: "supersede", target: "m1" } })]);
+  eq([hedge.items[0].tier, hedge.items[0].flags.includes("update_check")], ["confirm", false]);
   // Sarah's surgery is not her sister's.
   const sisters = { key: "m2", id: "id-m2", person_key: "p2", kind: "event" as const, subject_type: "related" as const, related_key: "r1", statement: "Sarah's sister has surgery", certainty: "stated" as const, status: "active" as const, user_state: "unreviewed" as const, detail: { event_type: "surgery", date: "2026-10-15" } };
   eq(run(input("Sarah's surgery is Thursday.", { dossier: [sisters] }), [item({ kind: "event", person: "p2", person_mention: "Sarah", evidence: ["Sarah's surgery is Thursday"], statement: "Sarah's surgery is Thursday", date_text: "Thursday", existing: { action: "merge", target: "m2" }, detail: { ...item({}).detail, category: null, event_type: "surgery" } })]).items[0].action, { type: "new", target_id: null });
+});
+
+Deno.test("a told-again move beside the user's edited one is asked about, never filed beside it (CER-1, WS-5 journey defect, 31 Oct)", () => {
+  const edited = { key: "m1", id: "id-move", person_key: "p1", kind: "event" as const, subject_type: "person" as const, statement: "Ben moves in on November 22", certainty: "planned" as const, status: "active" as const, user_state: "edited" as const, detail: { event_type: "move", date: "2026-11-22", date_precision: "day" } };
+  // Told from Ben's page, as the founder's repro was (the note itself never says "Ben").
+  const inp = input("Actually the Pilsen move slipped again, it's December 6 now.", { dossier: [edited] });
+  inp.capture = { ...inp.capture, occurred_at: "2026-10-31T17:00:00Z", context_person_key: "p1" };
+  const out = run(inp, [item({ kind: "event", person: "p1", person_mention: null, statement: "Ben's move to Pilsen slipped again; it's now December 6", evidence: ["the Pilsen move slipped again, it's December 6 now"], certainty: "planned", date_text: "December 6", date_direction: "future", existing: { action: "supersede", target: "m1" }, detail: { ...item({}).detail, category: null, event_type: "move" } })]);
+  eq(out.items.length, 1);
+  eq([out.items[0].tier, out.items[0].flags.includes("update_check"), out.items[0].detail._replaces], ["hold", true, [{ id: "id-move", statement: "Ben moves in on November 22" }]]);
+  eq(out.items[0].action, { type: "new", target_id: null }, "nothing replaced until the user says so");
+  eq(out.clarification, null, "the phone asks 'Does this replace…?' from the line; never 'When is it?' for a stated day");
+  // The same move told for the same day (a twin) is asked about too, never merged into the user's words silently.
+  const same = run(input("Ben moves in on November 22.", { dossier: [edited] }), [item({ kind: "event", person: "p1", statement: "Ben moves in on November 22", evidence: ["Ben moves in on November 22"], certainty: "planned", date_text: "November 22", existing: { action: "new", target: null }, detail: { ...item({}).detail, category: null, event_type: "move" } })]);
+  eq([same.items[0].tier, (same.items[0].detail._replaces as unknown[] | undefined)?.length], ["hold", 1]);
 });
 
 Deno.test("spans are code points into the stored text: emoji, CJK, accents, curly quotes, line breaks", () => {

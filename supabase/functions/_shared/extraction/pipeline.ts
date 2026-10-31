@@ -662,9 +662,10 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     statement: said,
   }, flags);
   let action = relation.action;
-  if (relation.transition && action.type !== "new") detail.detail.transition = relation.transition;
+  if (relation.transition && (action.type !== "new" || relation.replaces)) detail.detail.transition = relation.transition;
   if (relation.replaces) {
-    // Two earlier memories fit equally: the user says which one this replaces.
+    // Two earlier memories fit equally, or the one that fits is the user's own edit: the user says
+    // which one this replaces (or that it replaces nothing).
     flags.add("update_check");
     detail.detail._replaces = relation.replaces.map((id) => ({ id, statement: ctx.input.dossier.find((d) => d.id === id)?.statement ?? "" }));
   }
@@ -1916,6 +1917,8 @@ function relate(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>):
   // linked to it (founder H25). "Resolved" stays for a question answered.
   if (byModel.type === "resolves" && transition) return { action: { type: "supersede", target_id: byModel.target_id }, transition };
   if (byModel.type !== "new") return { action: byModel, transition };
+  // The update fits a line the user edited or wrote: asked, never guessed either way (CER-1, 31 Oct).
+  if (askReplace) return { action: byModel, transition: transition ?? null, replaces: [askReplace] };
   if (!transition || !n.person_key || flags.has("protected_target")) return { action: byModel, transition: null };
   // A hedge never updates anything ("might not move after all").
   if (n.certainty === "tentative" || n.certainty === "wished") return { action: byModel, transition: null };
@@ -1934,8 +1937,17 @@ function relate(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>):
   return { action: { type: match.action, target_id: match.target }, transition: match.transition };
 }
 
+/**
+ * A well-formed update whose target is a line the user edited or wrote (CER-1, WS-5 journey defect, 31 Oct
+ * 2026): never written over it silently (trust invariant 4), and never filed silently beside it as a
+ * second truth either. The target is handed back so the line is held and the user is asked "Does this
+ * replace…?"; their yes closes the edited line (the database allows that closure only on that answer).
+ */
+let askReplace: string | null = null;
+
 function relateByModel(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<Flag>, transition: Transition | null): PlannedItem["action"] {
   const none = { type: "new" as const, target_id: null };
+  askReplace = null;
   if (!n.person_key) return none;
   const proposedTarget = raw.existing?.target ? ctx.dossier.get(raw.existing.target) : undefined;
   const sameSubject = (t: DossierItem) =>
@@ -1952,6 +1964,7 @@ function relateByModel(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<
     if (twin) {
       if (protectedItem(twin)) {
         flags.add("protected_target");
+        askReplace = twin.id;
         return none;
       }
       return { type: "merge", target_id: twin.id };
@@ -1962,11 +1975,10 @@ function relateByModel(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<
   if (!proposedTarget || action === "new" || !action) return none;
   // Never across subjects, whatever the model says.
   if (!sameSubject(proposedTarget)) return none;
-  if (protectedItem(proposedTarget)) {
-    flags.add("protected_target");
-    return none;
-  }
+  const guarded = protectedItem(proposedTarget);
+  if (guarded) flags.add("protected_target");
   const firm = n.certainty === "stated" || n.certainty === "planned";
+  const decided = ((): PlannedItem["action"] => {
   switch (action) {
     case "merge": {
       if (proposedTarget.kind !== n.kind) return none;
@@ -2005,6 +2017,12 @@ function relateByModel(ctx: Context, raw: ProposedItem, n: NewShape, flags: Set<
     }
   }
   return none;
+  })();
+  if (guarded) {
+    if (decided.type !== "new") askReplace = proposedTarget.id;
+    return none;
+  }
+  return decided;
 }
 
 // ─── Residence (Phase 4B B3; brief §5, §8, §21) ─────────────────────────────
@@ -2169,9 +2187,11 @@ function chooseClarification(ctx: Context, items: PlannedItem[]): Clarification 
       options: [`Add ${fresh.new_person_name}`, "Someone already here"],
     };
   }
-  // A residence question is the app's own ("Is Susan still in Alameda?", from the
-  // line it asks about): there is no stored question for it.
-  if (held.every((i) => i.flags.includes("residence_conflict") && !i.flags.some((f) => f !== "residence_conflict" && HOLD_FLAGS.includes(f)))) {
+  // A residence question ("Is Susan still in Alameda?") and a replace question ("Does this replace what
+  // you told me?") are the app's own, built from the line they ask about: there is no stored question for
+  // them, and never "When is it?" for a line whose day is known (CER-1, 31 Oct).
+  const ownQuestion: Flag[] = ["residence_conflict", "update_check"];
+  if (held.every((i) => i.flags.some((f) => ownQuestion.includes(f)) && !i.flags.some((f) => !ownQuestion.includes(f) && HOLD_FLAGS.includes(f)))) {
     return null;
   }
   return { about: "date", question: "When is it?", options: ["Pick a date", "No date"] };

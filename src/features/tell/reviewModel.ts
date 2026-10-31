@@ -815,8 +815,8 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
     needs.push({
       type: "replace",
       group: `replace:${offered.map((r) => r.id).join(",")}`,
-      prompt: "Does this replace one of these?",
-      reason: "It sounds like news about something you told me before.",
+      prompt: offered.length === 1 ? "Does this replace what you told me?" : "Does this replace one of these?",
+      reason: offered.length === 1 ? "It sounds like news about a line you edited." : "It sounds like news about something you told me before.",
       choices: [
         ...offered.map((r) => ({ key: `r:${r.id}`, label: r.statement, answer: { replaces: r.id } })),
         { key: "both", label: "No, keep both", answer: { replaces: null } },
