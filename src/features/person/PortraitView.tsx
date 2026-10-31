@@ -67,6 +67,10 @@ export interface PortraitViewProps {
   short?: string | null;
   label: string | null;
   remembered: boolean;
+  /** "Paused" / "Remembered" (D13): the only visual difference of a held person; null for anyone active. */
+  stateLine?: string | null;
+  /** What the line means, read to screen readers with it. */
+  stateExplain?: string | null;
   /** Tapping the name corrects it (H1). */
   onRename?: () => void;
   lately: PortraitLineData[];
@@ -296,7 +300,6 @@ export function PortraitView(props: PortraitViewProps) {
         accessibilityHint={props.onRename ? "Double-tap to change their name" : undefined}
       />
       {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
-      {props.remembered ? <Small style={{ marginTop: space.xs }}>Remembered</Small> : null}
       {/* A visible Edit beside the name (founder I3): the name, and Remove from People; and the user's own photo (FD-30b). */}
       {props.onRename || props.onPhoto ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginLeft: -space.xs }}>
@@ -315,12 +318,24 @@ export function PortraitView(props: PortraitViewProps) {
         </View>
       ) : null}
 
+      {/* The one visual difference of a held person (D13, PER-06): one line, on clear paper below the actions
+          (it sat over the leaf art under the name and could not be read). */}
+      {(props.stateLine ?? (props.remembered ? "Remembered" : null)) ? (
+        <Body
+          tone="ink"
+          style={{ marginTop: space.s, fontFamily: font.sansSemi }}
+          accessibilityLabel={`${props.stateLine ?? "Remembered"}. ${props.stateExplain ?? ""}`.trim()}
+        >
+          {props.stateLine ?? "Remembered"}
+        </Body>
+      ) : null}
+
       {props.afterReturn ? (
         <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
           <MomentText>{props.afterReturn.followUp}</MomentText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
-            <Pill size="small" variant="primary" label="Tell Kinship" onPress={() => props.onRemember?.()} />
-            <Pill size="small" variant="quiet" label="Nothing today" onPress={() => props.onNothing?.()} />
+            <Pill size="small" variant="primary" fixedLabel label="Tell Kinship" onPress={() => props.onRemember?.()} />
+            <Pill size="small" variant="quiet" fixedLabel label="Nothing today" onPress={() => props.onNothing?.()} />
           </View>
         </View>
       ) : props.returnCheck ? (
@@ -328,8 +343,8 @@ export function PortraitView(props: PortraitViewProps) {
           <MomentText>{props.returnCheck.ask}</MomentText>
           {props.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{props.returnCheck.about}</Small> : null}
           <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
-            <Pill size="small" label="Yes" onPress={() => props.onReturn?.("yes")} />
-            <Pill size="small" label="Not yet" onPress={() => props.onReturn?.("not_yet")} />
+            <Pill size="small" fixedLabel label="Yes" onPress={() => props.onReturn?.("yes")} />
+            <Pill size="small" fixedLabel label="Not yet" onPress={() => props.onReturn?.("not_yet")} />
           </View>
         </View>
       ) : null}
@@ -341,8 +356,8 @@ export function PortraitView(props: PortraitViewProps) {
               <Label>{"One thing to check"}</Label>
               <Body tone="ink" style={{ marginTop: space.xs }}>{l.prompt}</Body>
               <View style={{ flexDirection: "row", gap: space.s, marginTop: space.s }}>
-                <Pill size="small" label="Yes" onPress={() => props.onLink?.(l.key, true)} />
-                <Pill size="small" variant="quiet" label="No, someone else" onPress={() => props.onLink?.(l.key, false)} />
+                <Pill size="small" fixedLabel label="Yes" onPress={() => props.onLink?.(l.key, true)} />
+                <Pill size="small" variant="quiet" fixedLabel label="No, someone else" onPress={() => props.onLink?.(l.key, false)} />
               </View>
             </View>
           ))}
