@@ -44,6 +44,20 @@ Tap the line's words → that line on the person's page. Tap "You told Kinship �
 5. **Match.** Each remaining word must be found in the line's own words, its detail (place, topic, goal, attribute, value, category, event or milestone type, season, hints), the related person it is about, or its residence reading. About a named person, when no line has every word and each word is in some line of theirs, lines with any of them, with `why` saying which; otherwise a miss.
 6. **Order.** By person in People's order, quiet people last; within a person current lines newest first, then earlier lines.
 
+## Placing Ask (contract for screens)
+
+`src/features/ask/AskSection.tsx` holds the self-contained pieces; each does its own navigation (a line's words → that line on the person's page, a source → the note, a composed residence line → its notes sheet, whose Edit / Not this go to What Kinship knows). All keep the rules: no chat, no synthesis, no ranking of people, nothing invented.
+
+| Export | Props | Use |
+|---|---|---|
+| `AskSection` | `{ query: string }` | "In your memory" (or the honest-miss line) for those words; draws nothing when the words ask nothing (a name alone, no content words, an empty account). Reads memory itself (`useAsk`, 150 ms after typing settles). |
+| `AskSectionView` | `{ view: AskView }` | The same for a view the screen already read with `useAsk(query)`; People does this so it can also keep the people a question names in its list (`view.asked`, `view.named`, `view.query`). |
+| `AskPanel` | `{ initialQuery?: string; onQuery?(q) }` | An explicit entry: its own field ("Ask about someone's memory") then the section, separate from People's name filter. Place as a route body or sheet content, or behind a row. |
+| `AskResults` | `{ view, onLine(href), onSource(noteId), onComposed(row) }` | The presentational part (styling lives here; WS-2 restyles). Use it when a screen supplies its own navigation. |
+| `useAsk(query)` | returns `AskView` (`query`, `asked`, `named`, `groups`, `birthdays`, `miss`) | The read; `view.query` is the query the view answers, so a screen can hold the last settled view. |
+
+The inline People behaviour (the search field asking when the words say more than a name) stays until People is redesigned: `PeopleView`'s `onQuery` / `memory` props are optional, and a People without them is the plain name filter.
+
 ## Tests
 
 - `src/features/ask/__tests__/retrieve.test.ts`: 47 cases over a fixture world (the CC-25 examples, a place, a gift, a related person, a detail field, plurals and possessives, the word being typed as a prefix and a finished sentence that is not, accents, a stop-word name, an unknown name with a content word, a word no line of theirs has, "Has Sam called?", a sensitive line found plainly, a superseded residence and a superseded chain as Earlier, a plain supersession never, a retracted line never, remembered and paused last, archived and deleted never, no content words → nothing, a name-only question → the named people and nothing asked, birthdays, the disambiguated miss copy, no counts in copy).
