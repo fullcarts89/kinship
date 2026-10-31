@@ -40,7 +40,7 @@ export function MomentDetailSheet({ detail, onDismiss, onMessage, onCall, onPers
               dense
               label="Message"
               accessibilityHint={`Opens a conversation with ${detail.personName}`}
-              style={{ flex: 1 }}
+              style={isLargeText() ? { alignSelf: "stretch" } : { flex: 1 }}
               icon={({ color, size, strokeWidth }) => <MessageCircle color={color} size={size} strokeWidth={strokeWidth} />}
               onPress={onMessage}
             />
@@ -48,7 +48,7 @@ export function MomentDetailSheet({ detail, onDismiss, onMessage, onCall, onPers
               dense
               label="Call"
               accessibilityHint={`Calls ${detail.personName}`}
-              style={{ flex: 1 }}
+              style={isLargeText() ? { alignSelf: "stretch" } : { flex: 1 }}
               icon={({ color, size, strokeWidth }) => <Phone color={color} size={size} strokeWidth={strokeWidth} />}
               onPress={onCall}
             />

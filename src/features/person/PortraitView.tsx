@@ -226,25 +226,29 @@ export function PortraitView(props: PortraitViewProps) {
   const first = props.short?.trim() || props.name.trim().split(/\s+/u)[0];
   // Nothing told about them yet (a birthday from Contacts doesn't count).
   const empty = !props.lately.length && !props.comingUp.some((l) => !l.fixed) && !props.youSaid.length && !props.between.length;
+  // At accessibility text sizes the three actions stack; stacked pills stretch (flex: 1 in a column with no
+  // set height collapses them onto each other, seen on the 17e at the largest size).
+  const stacked = isLargeText();
+  const grow = stacked ? { alignSelf: "stretch" as const } : { flex: 1 };
   const footer = (
     <View style={{ backgroundColor: p.paper }}>
     {props.kept ? <View style={{ paddingHorizontal: GUTTER }}>{props.kept}</View> : null}
     {/* Message · Call · Tell (founder native pass F1): three named actions,
         the same size. Tell adds to what Kinship knows about them; changing
         what's already kept happens on the line itself. */}
-    <View style={{ flexDirection: isLargeText() ? "column" : "row", gap: space.s, paddingHorizontal: GUTTER, paddingTop: space.m, paddingBottom: space.m }}>
+    <View style={{ flexDirection: stacked ? "column" : "row", gap: space.s, paddingHorizontal: GUTTER, paddingTop: space.m, paddingBottom: space.m }}>
       <Pill
         variant="primary"
         dense
         label="Message"
-        style={{ flex: 1 }}
+        style={grow}
         icon={({ color, size: s, strokeWidth }) => <MessageCircle color={color} size={s} strokeWidth={strokeWidth} />}
         onPress={props.onMessage}
       />
       <Pill
         dense
         label="Call"
-        style={{ flex: 1 }}
+        style={grow}
         icon={({ color, size: s, strokeWidth }) => <Phone color={color} size={s} strokeWidth={strokeWidth} />}
         onPress={props.onCall}
       />
@@ -253,7 +257,7 @@ export function PortraitView(props: PortraitViewProps) {
         label="Tell"
         accessibilityLabel={`Tell Kinship about ${first}`}
         accessibilityHint={props.hasDraft ? "Opens your unsent note" : undefined}
-        style={{ flex: 1 }}
+        style={grow}
         icon={({ color, size: s, strokeWidth }) => <PenLine color={color} size={s} strokeWidth={strokeWidth} />}
         onPress={props.onTell}
       />

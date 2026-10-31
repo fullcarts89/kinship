@@ -25,12 +25,12 @@ Tiers reported apart: UNIT · NATIVE-SIMULATOR. Nothing here is FOUNDER-DEVICE. 
 | 17 | Source | The note with the lime underline; a dim leaf | **PASS** (18 Pro) | `19-source.png` |
 | 18 | Settings | Title, rows unchanged | **PASS** (17e) | `20-settings.png` |
 | 19 | Dark: Today, Person, People | Deep green-black paper; the art vivid; the wash quiet; text pairs legible | **PASS** (17e): the art vivid on green-black paper, the wash quiet, lime marks, off-white ink | `21-dark-today.png`, `22-dark-person.png`, `23-dark-people.png` |
-| 20 | Largest accessibility text: Today, Person | The statement reflows, nothing truncates; the poster name stays fitted; labels cap | **FAIL → fixed**: at accessibility XXXL every pill lost its label (iOS fit-to-width left the pill blank); pills now wrap their label at large scales (rebuilt, re-checked below). The statement reflows, nothing truncates, the poster name stays fitted | `24-ax-today.png`, `25-ax-person.png` |
+| 20 | Largest accessibility text: Today, Person | The statement reflows, nothing truncates; the poster name stays fitted; labels cap | **FAIL → fixed**: at accessibility XXXL every pill lost its label (iOS fit-to-width left the pill blank); pills now wrap their label at large scales and rows of actions (the person's Message · Call · Tell, the Moment detail's Message · Call) stack vertically, so a label never breaks mid-word (rebuilt and re-checked: `24-ax-today.png` shows "Message Anna" whole and "Not now" on its own row). The statement reflows, nothing truncates, the poster name stays fitted | `24-ax-today.png`, `25-ax-person.png` |
 | 21 | Reduce Motion | The hero fades instead of rising (settings → Accessibility → Motion) | NOT RUN natively (the setting is not reachable from the simulator tooling without the Settings app walk); UNIT: the hero and every arrive use the 150 ms fade under Reduce Motion by the same hook as before | — |
 
 ## Defects found on the simulator and fixed on the branch
 
-- Pill labels vanished at accessibility text sizes (row 20): labels now wrap to two lines at scales above 1.35 instead of shrinking.
+- Pill labels vanished at accessibility text sizes (row 20): labels now wrap at scales above 1.35 instead of shrinking, and the three-up and two-up action rows stack and stretch (`isLargeText()` in `src/ui/theme.ts`; a first stacked version used `flex: 1` in the column and the pills overlapped, caught on the same pass and fixed, `25-ax-person.png`).
 - The first-use orientation and the welcome promise ran over the bloom; the bloom sits higher and smaller on those two screens. The example's leaf sat under the close control; moved.
 
 - A repeating `Image` (the grain) drew one tile at the top left on this renderer: the grain is now a grid of finer tiles at a lower strength.
