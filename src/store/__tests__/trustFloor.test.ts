@@ -4,7 +4,7 @@
 // what moves, and its journal is undoable for 30 days.
 import { randomUUID } from "crypto";
 import { buildToday, type TodayInput } from "@/features/today/todayModel";
-import { mergeCandidates, mergePreview, mergedAwayIds, nameForms, sameNameMatch, undoableMerges, type MergeRow } from "@/store/peopleMerge";
+import { mergeCandidates, mergeNames, mergePreview, mergedAwayIds, nameForms, sameNameMatch, undoableMerges, type MergeRow } from "@/store/peopleMerge";
 import { HOLD_COPY, isHeld, isInPeople, isProactiveEligible, stateLine } from "@/store/peopleStates";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
@@ -200,5 +200,15 @@ describe("duplicate merge (PER-05)", () => {
     expect(s.appUpdate).toBe(false);
     expect(s.optional).toBe(true);
     expect(writableFields("people_merges", { journal: {} }, "insert")).toEqual({});
+  });
+});
+
+describe("merge preview names", () => {
+  const p = (display_name: string, relationship_label: string | null = null) => ({ display_name, full_name: null, relationship_label, aliases: [] }) as unknown as Person;
+  it("tells two Leos apart by full name, then relationship, then this/the other", () => {
+    expect(mergeNames(p("Leo Marchetti"), p("Leo"))).toEqual({ keep: "Leo Marchetti", source: "Leo" });
+    expect(mergeNames(p("Leo", "brother"), p("Leo", "coworker"))).toEqual({ keep: "Leo (brother)", source: "Leo (coworker)" });
+    expect(mergeNames(p("Leo"), p("Leo"))).toEqual({ keep: "this Leo", source: "the other Leo" });
+    expect(mergeNames(p("Anthony"), p("Anthony Lopez"))).toEqual({ keep: "Anthony", source: "Anthony Lopez" });
   });
 });

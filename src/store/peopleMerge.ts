@@ -199,3 +199,23 @@ export function supabaseMergeTransport(client: SupabaseClient): MergeTransport {
 export function sayName(p: Person): string {
   return shortName(p) || p.display_name;
 }
+
+/**
+ * The two names for the preview, said so they can be told apart: the short names when they differ, else the full
+ * names, else with the relationship label, and only then "this Leo" / "the other Leo".
+ */
+export function mergeNames(keep: Person, source: Person): { keep: string; source: string } {
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const tries: ((p: Person) => string)[] = [
+    sayName,
+    (p) => p.display_name,
+    (p) => (p.relationship_label ? `${p.display_name} (${p.relationship_label})` : p.display_name),
+  ];
+  for (const say of tries) {
+    const a = say(keep);
+    const b = say(source);
+    if (!same(a, b)) return { keep: a, source: b };
+  }
+  const first = sayName(keep);
+  return { keep: `this ${first}`, source: `the other ${first}` };
+}
