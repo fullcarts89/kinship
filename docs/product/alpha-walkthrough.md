@@ -98,3 +98,19 @@ Fresh install, fresh local account, live model through the harness proxy, iPhone
 Observations from this walk: (1) with an undated-time promise "this afternoon", the live model files it as the user's promise **and** an event, but `date_precision: "unknown"`, so no Moment is made for it (nothing to say about an afternoon with no day); (2) a promise told for "tonight" after the same person was already reached today makes no second Moment ("Call Sam tonight about the soup recipe she asked for" sat quietly in This week), which is the rule, not a defect; (3) the send arrow in the redesigned Tell dock is a round control that is clearly reachable above the keyboard.
 
 Still NOT RUN on the final head: row 16's "No, keep both" (blocked by the WS-1 defect on #72), the RSN-07 thread check-in, Paused / Remembered / Resume and merge on the redesigned person page, dark mode and large text and the iPhone 17e on the redesigned screens, and Delete account.
+
+## Fourth walk: the told-again question, both routes, on the final head (31 Oct, integration `0e9e3bb`; screens `r4-*`, `r5-*`)
+
+Fresh account, live model through the harness proxy, Release build of `0e9e3bb` (WS-1 `181eb5b`). Evidence tier NATIVE-SIMULATOR (live model). The first Tell is the Leo paragraph (5 lines kept in 9.8 s); the move line is then edited by hand to "November 22" ("Edited by you").
+
+| Route | Steps | Result | Screens |
+|---|---|---|---|
+| **(b) told from Today, no page** (earlier head `edf93d8`) | "Who is this about?" → Leo → straight to "Here's what I'll remember": both Nov 22 and Dec 6 active, nothing asked | **FAIL** (routed to WS-1, fixed in `181eb5b`) | r4-02, r4-03 |
+| **(b) on the fixed head** | *"Actually the Pilsen move slipped again, it's December 6 now."* → "Who is this about?" → Leo → **"Does this replace what you told me?"** ("It sounds like news about a line you edited.", the edited line as the one-tap yes, No, keep both, Don't keep this) | **PASS** | r5-01 |
+| (b) **No, keep both** | Both lines stand (server: Nov 22 active, Dec 6 active); Undo retracts only the Dec 6 line | **PASS** | — |
+| (b) **Yes** | Kept card shows "Replaces: ~~Leo signed the lease … November 22~~"; server: the edited line `superseded`, the new line `active`; **Undo** restores the edited line exactly (active, original date) and retracts the new one | **PASS** | r5-02 |
+| **(a) told from Leo's page** | *"Actually the Pilsen move slipped again, it's December 6 now."* → "Who is this about?" (Leo offered, because the model's mention was "Leo's move…") → Leo → **replace question** → Yes → "Replaces: ~~…~~"; Undo restores exactly | **PASS** | r5-04, r5-05 |
+
+Two observations: (1) the first send of the same unnamed note from Today once returned **"Nothing to remember in that one."** in 1.3 s (the live model proposed nothing; the note stays saved and nothing is silently kept or lost, but a user could read it as "kept"); the retry went through. (2) Leo's redesigned person page on this head shows the poster-size name over a bloom, Coming up with the edited line marked "EDITED BY YOU", Lately and Message / Call / Tell (r5-03).
+
+Still NOT RUN on the final head: the open-thread check-in, Paused / Remembered / merge on the redesigned person page, dark mode, large text and the iPhone 17e on the redesigned screens, and Delete account.

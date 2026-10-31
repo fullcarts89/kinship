@@ -255,6 +255,12 @@ Native: `docs/product/alpha-walkthrough.md` second walk. Row 16 (told-again over
 
 Readiness: **NOT READY** (open WS-1 defect, un-walked rows above).
 
+### Pass 10 (31 Oct, midday): the told-again defect is fixed, both routes pass natively
+
+WS-1 `181eb5b` merged (integration `0e9e3bb`, no new migration beyond `20261031100000`, which was edited in place and reapplied to the local stack with psql). Offline checks: tsc and eslint clean, Jest 114 / 1108, Deno 485. Native (fresh account, live model, Release build of that head): route (a) told from the person's page and route (b) told from Today after "Who is this about?" both reach "Does this replace what you told me?"; **Yes** closes the edited line with "Replaces: ~~…~~" and an exact Undo; **No, keep both** keeps both lines. See `alpha-walkthrough.md`, fourth walk. Open observations: a live-model "Nothing to remember in that one." on the first send of an unnamed update; the person-page poster name overlapping its bloom.
+
+**Still open before READY FOR FOUNDER NATIVE PASS:** the rows not walked on the final head (thread check-in, Paused / Remembered / merge on the redesigned person page, dark / large text / iPhone 17e, Delete), a final black-box sweep on the last head, and the final acceptance scenarios against the redesigned UI. Readiness: **NOT READY** until those pass.
+
 ### Open in WS-5
 
 The Release-simulator journey with the live model (after WS-4 leaves the iPhone 18 Pro); the walkthrough and screenshots; the serialized black-box set and the live-probe re-run after `5557dae`; WS-3/WS-6 heads when they land, WS-2 last; the PR description after each pass.
