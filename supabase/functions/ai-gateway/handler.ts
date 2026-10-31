@@ -385,7 +385,9 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
     } catch (err) {
       if (claimed) await deps.service.release(claimed.userId, claimed.captureId, "failed").catch(() => undefined);
       // Never log content: the error class and message only (ours, not the note's).
-      console.error(`ai-gateway: request failed: ${err instanceof Error ? err.name : "error"}`);
+      // Our own fixed messages only ("write failed (23514)"): never anything that could echo a note.
+      const own = err instanceof Error && /^[a-z][a-z ]{2,40}( \([0-9A-Za-z?]{1,6}\))?$/u.test(err.message) ? err.message : null;
+      console.error(`ai-gateway: request failed: ${err instanceof ServiceError ? `database ${err.code}` : own ?? (err instanceof Error ? err.name : "error")}`);
       return json({ error: "internal_error" }, 500, cors);
     }
   };
