@@ -20,7 +20,7 @@ import { font, height, maxScale, press, radius, shadow, size, space, TOUCH, type
 import { looksLikeName } from "@/features/ask/retrieve";
 import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
 import { Pressable } from "@/ui/Pressable";
-import { Body, Botanical, DawnWash, IconButton, Italic, KeyboardBar, Label, type NavKey, Pill, Screen, SectionDot, Small, Sprig, Title, useKeyboardBarId, usePalette } from "@/ui";
+import { Body, Botanical, DawnWash, IconButton, isLargeText, Italic, KeyboardBar, Label, type NavKey, Pill, Screen, SectionDot, Small, Sprig, Title, useKeyboardBarId, usePalette } from "@/ui";
 
 export interface PersonRowData {
   id: string;
@@ -225,7 +225,7 @@ export function PeopleView({
                   <Sprig personId={r.id} width={size.sprig.row} remembered={r.remembered} />
                   <View style={{ flex: 1 }}>
                     <Body tone="ink" style={{ fontFamily: font.sansMedium }}>{r.label}</Body>
-                    {r.line ? <Italic numberOfLines={2}>{r.line}</Italic> : null}
+                    {r.line ? <Italic numberOfLines={isLargeText() ? undefined : 2}>{r.line}</Italic> : null}
                   </View>
                 </Pressable>
               ))}

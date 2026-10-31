@@ -5,7 +5,7 @@ import { View } from "react-native";
 import { Pressable } from "./Pressable";
 import { font as type, height, press, space, TOUCH } from "@/design/tokens";
 import { Body, Italic, Small } from "./Text";
-import { usePalette } from "./theme";
+import { isLargeText, usePalette } from "./theme";
 
 export function Row({
   title,
@@ -49,7 +49,7 @@ export function Row({
       {leading}
       <View style={{ flex: 1 }}>
         <Body tone={selected ? "markText" : "ink"} style={{ fontFamily: type.sansMedium }}>{title}</Body>
-        {subtitle ? (serifSubtitle ? <Italic numberOfLines={2}>{subtitle}</Italic> : <Small numberOfLines={2}>{subtitle}</Small>) : null}
+        {subtitle ? (serifSubtitle ? <Italic numberOfLines={isLargeText() ? undefined : 2}>{subtitle}</Italic> : <Small numberOfLines={isLargeText() ? undefined : 2}>{subtitle}</Small>) : null}
       </View>
       {trailing}
     </View>

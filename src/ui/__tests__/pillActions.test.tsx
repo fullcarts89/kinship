@@ -35,6 +35,10 @@ it("at accessibility text sizes the person page's three actions stack and stretc
     expect(style.flex).toBeUndefined();
     expect(style.alignSelf).toBe("stretch");
   }
+  // They follow the last line inside the scroll view rather than being pinned over it.
+  const { ScrollView } = jest.requireActual("react-native") as typeof import("react-native");
+  const scroll = r.root.findByType(ScrollView);
+  expect(scroll.findAll((n) => n.props.accessibilityLabel === "Message" || n.props.accessibilityLabel === "Call").length).toBeGreaterThan(0);
 });
 
 it("at accessibility text sizes a pill's label wraps to two lines instead of shrinking (the label never vanishes)", () => {
