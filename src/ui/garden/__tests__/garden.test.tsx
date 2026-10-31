@@ -61,6 +61,7 @@ const moment = (type: string): TodayData["moment"] => ({
   reasonId: "r1", type: type as never, personId: "p1", personName: "Ben", itemId: "m1", memory: "Ben runs Chicago Sunday", day: "2026-10-11",
   statement: "Ben runs Chicago tomorrow.", context: "Chicago Marathon · Sun, Oct 11", provenance: "From your note · Oct 8", noteId: "c1", score: 90,
   primary: { label: "Wish Ben luck", hint: "" }, heading: "Wish Ben luck", mention: [], opener: null, ask: "", followUp: "", hope: "He was hoping to break four hours.",
+  suggestion: null,
 });
 
 describe("the kind of day", () => {
