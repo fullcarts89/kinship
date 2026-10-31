@@ -45,3 +45,19 @@ it("a local test build delivers today's Moment, privately, in ten seconds; the p
   expect(await m.previewMomentNotification(fake("denied").s, ben, false)).toBe("no_permission");
   expect(scheduled).toHaveLength(1);
 });
+
+it("the preview replaces rather than stacks: two presses leave one pending and clear what was already delivered", async () => {
+  const m = load("1");
+  const pending: { id: string; data: Record<string, unknown> }[] = [];
+  let cleared = 0;
+  const s: MomentScheduler = {
+    permission: async () => "granted", request: async () => "granted",
+    scheduled: async () => [...pending], cancel: async (id) => { pending.splice(pending.findIndex((n) => n.id === id), 1); },
+    clearDelivered: async () => { cleared++; },
+    schedule: async (content) => { pending.push({ id: `n${pending.length + cleared + 1}-${Math.random()}`, data: content.data }); return ""; },
+  };
+  expect(await m.previewMomentNotification(s, ben, false)).toBe("sent");
+  expect(await m.previewMomentNotification(s, ben, false)).toBe("sent");
+  expect(pending).toHaveLength(1);
+  expect(cleared).toBe(2);
+});

@@ -28,6 +28,8 @@ export interface HandoffSheetProps {
   onDismiss: () => void;
   /** Whether returning brings the "Did you reach…?" line (a reason's hand-off). */
   returnCheck: boolean;
+  /** The question the return check will really ask (the reason's own ask); falls back to the generic line. */
+  returnAsk?: string | null;
   /** SUA-1 (FD-30d, WS-3): one quiet "You could…" line under the channels, or none; a tap opens Messages. */
   suggestion?: Suggestion | null;
   onSuggestion?: () => void;
@@ -82,7 +84,7 @@ export function HandoffSheet(props: HandoffSheetProps) {
       )}
 
       {props.returnCheck && first ? (
-        <Small style={{ textAlign: "center", marginTop: space.l }}>{`When you come back: “Did you reach ${props.personName}?”`}</Small>
+        <Small style={{ textAlign: "center", marginTop: space.l }}>{`When you come back: “${props.returnAsk ?? `Did you reach ${props.personName}?`}”`}</Small>
       ) : null}
     </Sheet>
   );

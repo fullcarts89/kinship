@@ -166,6 +166,8 @@ export interface MomentScheduler {
   /** Every scheduled notification with its payload. */
   scheduled(): Promise<{ id: string; data: Record<string, unknown> }[]>;
   cancel(id: string): Promise<void>;
+  /** Removes Kinship's Moment notifications already shown (lock screen, Notification Centre). */
+  clearDelivered?(): Promise<void>;
   schedule(content: { title: string; body: string; data: Record<string, unknown> }, at: Date): Promise<string>;
 }
 
@@ -214,6 +216,13 @@ export function expoScheduler(): MomentScheduler {
     },
     async cancel(id) {
       await expo()?.cancelScheduledNotificationAsync(id);
+    },
+    async clearDelivered() {
+      const N = expo();
+      if (!N) return;
+      for (const n of await N.getPresentedNotificationsAsync()) {
+        if (n.request.content.data?.type === MOMENT_NOTIFICATION_TYPE) await N.dismissNotificationAsync(n.request.identifier);
+      }
     },
     async schedule(content, at) {
       const N = expo();
@@ -337,6 +346,10 @@ export async function previewMomentNotification(
   if ((await scheduler.permission()) !== "granted") return "no_permission";
   if (!moment || (moment.person !== undefined && !isProactiveEligible(moment.person))) return "no_moment";
   const at = new Date(Date.now() + seconds * 1000);
+  // Replace, never stack: any pending Moment notification (this hook's earlier one or the planner's) goes first,
+  // and whatever is already on the lock screen is cleared, so the badge and the list show exactly one.
+  for (const n of (await scheduler.scheduled()).filter((s) => s.data.type === MOMENT_NOTIFICATION_TYPE)) await scheduler.cancel(n.id);
+  await scheduler.clearDelivered?.();
   await scheduler.schedule({
     title: NOTIFICATION_COPY.title,
     body: moment.sensitive ? NOTIFICATION_COPY.bodyPrivate : NOTIFICATION_COPY.body(moment.personName),

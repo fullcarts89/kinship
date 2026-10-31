@@ -121,6 +121,7 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
       onChooseContact={() => void choose()}
       onDismiss={close}
       returnCheck={!!req.reason}
+      returnAsk={req.reason?.ask ?? null}
       suggestion={req.suggestion ?? null}
       onSuggestion={() => void suggest()}
     />

@@ -832,7 +832,8 @@ export function buildToday(input: TodayInput): TodayView {
     view.quietDay = false;
     view.unknown = true;
   }
-  view.bringBack = input.dataKnown === false ? null : bringBackFor(input, live, activePerson);
+  // The orientation never sits under a real question (a live return check): it waits for a quiet moment.
+  view.bringBack = input.dataKnown === false || view.returnCheck ? null : bringBackFor(input, live, activePerson);
   return view;
 }
 
