@@ -82,7 +82,7 @@ Open in WS-1: re-run k19 and today black-box alone at normal load; a failed pass
 
 ## WS-2 · Electric Garden
 
-**Branch** `claude/ws2-electric-garden-5ec0d5` · **PR** #71 (draft, against `main`; do not merge) · **commit** see the PR's head. Worktree session WS-2, started 30 Oct.
+**Branch** `claude/ws2-electric-garden-5ec0d5` · **PR** #71 (draft, against `main`; do not merge) · **head** 087dcc4 and later (see the PR). Worktree session WS-2, started 30 Oct.
 
 **Built (FD-30b):**
 - `src/design/tokens.ts` rewritten for Electric Garden: warm paper, leaf-green ink, a lime `mark` / `markText` for everything understood (the ochre tokens are gone from the 2.0 shell), the five art accents, a night set that keeps the art vivid; the poster type scale (Archivo Black names / statement / titles, Newsreader italic for the user's words, Instrument Sans 400–700 for the machine); motion (hero 520 ms, arrive 320, sheets 360, Reduce Motion → 150 ms fades), depth (sheet and field lifts), art tokens. Contrast gates updated; every pair passes.
@@ -97,7 +97,9 @@ Open in WS-1: re-run k19 and today black-box alone at normal load; a failed pass
 
 **Not built / known defects:** see the PR's evidence section, kept current. The poster split (the name at 120 pt, the statement's remainder under it) applies only when the statement opens with the person's name followed by a space; otherwise the whole statement sits under the name. The e2e black-box helpers that look for a statement as one Text node will see the split for such statements; the accessibility label is always the whole statement.
 
-**Evidence:** UNIT: `TZ=UTC npx jest` 964 / 964, `tsc` and `eslint` clean at each push. NATIVE-SIMULATOR: the Release simulator walk and its screenshots under `docs/product/screens/electric-garden/`, reported row by row in the PR. Readiness: **NOT READY** (the integrated candidate decides).
+**Evidence (31 Oct):** UNIT: `TZ=UTC npx jest` 102 suites / 975 tests, `tsc` and `eslint` clean at each push. NATIVE-SIMULATOR: `docs/product/electric-garden-simulator-evidence.md`, 21 rows, screenshots under `docs/product/screens/electric-garden/` (iPhone 18 Pro and iPhone 17e, light, dark, largest text). Four defects found on the pass and fixed on the branch (grain tile, person-page leaf, pill labels at accessibility sizes, text over the bloom on Welcome / first use). Not seen natively: the review sheet and a kept card with lines (the local stack's understanding failed for the test notes on 31 Oct; a gateway / stub matter, not the app) and Reduce Motion (unit only). Readiness: **NOT READY** (the integrated candidate decides).
+
+**Simulator hygiene learned on this pass:** with two simulators booted, `simctl … booted` is ambiguous and twice landed another session's install on the device WS-2 was driving; address devices by UDID (18 Pro `D32566F4-C041-4535-81AF-0ADB99356787`, 17e `F1EF2B5A-0E3F-462F-AE20-1B04F946B275`).
 
 ## WS-3 · Showing up
 

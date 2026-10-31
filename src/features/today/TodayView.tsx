@@ -136,7 +136,8 @@ export function TodayView(props: TodayViewProps) {
   const art = (
     <>
       <DawnWash kind={kind} />
-      {moment || (view.firstUse && !props.afterReturn) ? <Botanical art="bloom" width={330} top={-6} right={-26} /> : null}
+      {moment ? <Botanical art="bloom" width={330} top={-6} right={-26} /> : null}
+      {!moment && view.firstUse && !props.afterReturn ? <Botanical art="bloom" width={270} top={-90} right={-60} /> : null}
       {moment && !photo ? <Botanical art="leaves" width={230} top={150} left={-92} rotate={-24} flip /> : null}
       {quietDay ? <Botanical art="bud" width={170} bottom={-8} right={-14} /> : null}
     </>

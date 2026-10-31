@@ -210,7 +210,7 @@ export function HowItWorksView({ step, onNext, onClose, initialPhase = 0 }: {
   return (
     <View style={{ flex: 1, backgroundColor: p.paper, paddingTop: insets.top }}>
       <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
-        <Botanical art="leaf" width={170} top={-40} right={-70} rotate={26} dim />
+        <Botanical art="leaf" width={170} top={30} right={-110} rotate={26} dim />
       </View>
       <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: space.m }}>
         <IconButton label={HOW_COPY.close} onPress={onClose}>

@@ -16,7 +16,7 @@ import React from "react";
 import { ActivityIndicator, Text, View, type ViewStyle } from "react-native";
 import { Pressable } from "./Pressable";
 import { height as H, maxScale, press, radius, size as SIZE, space, TOUCH, type } from "@/design/tokens";
-import { usePalette } from "./theme";
+import { isLargeText, usePalette } from "./theme";
 
 export type PillVariant = "primary" | "ghost" | "quiet" | "danger";
 
@@ -59,6 +59,10 @@ export function Pill({
 }) {
   const p = usePalette();
   const h = size === "regular" ? H.button : H.small;
+  // At accessibility text sizes the label wraps to a second line instead of shrinking: iOS's fit-to-width
+  // can leave a one-line label blank when the scaled text is wider than the pill (seen on the Electric
+  // Garden simulator pass at the largest size, "Message Anna" drawn as an empty pill).
+  const large = isLargeText();
   const fg = variant === "primary" ? p.onInk : variant === "quiet" ? p.inkQuiet : variant === "danger" ? p.brick : p.ink;
   return (
     <Pressable
@@ -74,6 +78,7 @@ export function Pill({
       <View
         style={{
           minHeight: variant === "quiet" ? TOUCH : h,
+          paddingVertical: large ? space.s : 0,
           paddingHorizontal: variant === "quiet" ? space.xs : dense ? space.s : size === "regular" ? space.xl : space.l,
           borderRadius: radius.pill(h),
           flexDirection: "row",
@@ -92,11 +97,11 @@ export function Pill({
         ) : null}
         {icon && !busy ? icon({ color: fg, size: SIZE.icon, strokeWidth: 1.8 }) : null}
         <Text
-          numberOfLines={1}
-          adjustsFontSizeToFit={variant !== "quiet" && !fixedLabel}
+          numberOfLines={large ? 2 : 1}
+          adjustsFontSizeToFit={!large && variant !== "quiet" && !fixedLabel}
           minimumFontScale={0.8}
           maxFontSizeMultiplier={maxScale.label}
-          style={[type.button, { color: fg, opacity: busy ? 0 : 1 }]}
+          style={[type.button, { color: fg, opacity: busy ? 0 : 1, flexShrink: 1, textAlign: "center" }]}
         >
           {label}
         </Text>

@@ -6,7 +6,7 @@ import React from "react";
 import { View } from "react-native";
 import { MessageCircle, Phone } from "lucide-react-native";
 import { space } from "@/design/tokens";
-import { Body, Label, Pill, Provenance, Quote, Sheet, Small, Title } from "@/ui";
+import { Body, isLargeText, Label, Pill, Provenance, Quote, Sheet, Small, Title } from "@/ui";
 import type { MomentDetail } from "./momentDetail";
 import { SuggestionLine } from "./SuggestionLine";
 
@@ -37,13 +37,13 @@ export function MomentDetailSheet({ detail, onDismiss, onMessage, onCall, onPers
               <Provenance line={detail.provenance} onPress={detail.noteId ? () => onSource(detail.noteId as string) : undefined} />
             </View>
           ) : null}
-          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.xxl }}>
+          <View style={{ flexDirection: isLargeText() ? "column" : "row", gap: space.s, marginTop: space.xxl }}>
             <Pill
               variant="primary"
               dense
               label="Message"
               accessibilityHint={`Opens a conversation with ${detail.personName}`}
-              style={{ flex: 1 }}
+              style={isLargeText() ? { alignSelf: "stretch" } : { flex: 1 }}
               icon={({ color, size, strokeWidth }) => <MessageCircle color={color} size={size} strokeWidth={strokeWidth} />}
               onPress={onMessage}
             />
@@ -51,7 +51,7 @@ export function MomentDetailSheet({ detail, onDismiss, onMessage, onCall, onPers
               dense
               label="Call"
               accessibilityHint={`Calls ${detail.personName}`}
-              style={{ flex: 1 }}
+              style={isLargeText() ? { alignSelf: "stretch" } : { flex: 1 }}
               icon={({ color, size, strokeWidth }) => <Phone color={color} size={size} strokeWidth={strokeWidth} />}
               onPress={onCall}
             />
