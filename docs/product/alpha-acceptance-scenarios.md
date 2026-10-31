@@ -1,6 +1,6 @@
 # Alpha acceptance scenarios (founder native pass)
 
-**Written 30 Oct 2026 by WS-5 (integration) for the release candidate on `claude/alpha-integration` (PR #74).**
+**Written 30 Oct 2026 by WS-5 (integration) for the release candidate on `claude/alpha-integration` (PR #74); revised 31 Oct against the Electric Garden redesign, WS-1's told-again question and the behaviour walked on the final head.**
 Status of the candidate when you read this: see the WS-5 section of `docs/agent-loop/PRODUCT_DELIVERY_HANDOFF.md`.
 Readiness labels are the contract's only three; nothing below changes a label on its own.
 
@@ -128,3 +128,30 @@ Rules for the pass:
 3. If offered, tap Tell the rest and say only: *"plays chess on Thursdays"* → kept for Mina, understood with the earlier note as context, never "Nothing to remember".
 
 **Pass:** nothing from the note is silently missing from Mina's page.
+
+
+---
+
+## Revision, 31 Oct 2026: what changed in the scenarios after the redesign and the told-again fix
+
+Each scenario above still stands; these are the precise differences a founder will see on the final head, taken from what was walked natively (`alpha-walkthrough.md`, walks 3 to 5).
+
+- **The look.** Every screen is Electric Garden: a poster-weight name over a bloom on Today and the person page, a lettered People directory with two explicit doors ("Find someone" and "Ask your memory"), the Tell field as a compact pill with a round send arrow, and sheets that carry their own leaf art. Judge the *feel* with the question each scenario asks (would the other person feel remembered?), not against the old herbarium.
+- **Scenario 2 (a correction and an Undo) is now three steps, and has two routes.** After editing a line by hand ("Edited by you"), tell the update, either from the person's page (route a) or from Today with no page (route b):
+  - Route (b): Kinship first asks **"Who is this about?"** (Leo is offered), then **"Does this replace what you told me?"** with the edited line as the one-tap Yes, **No, keep both**, and Don't keep this.
+  - Yes: the Kept card shows "Replaces: ~~the edited line~~"; Undo restores the edited line exactly.
+  - No, keep both: both lines stand; Undo removes only the new one.
+  - Route (a), from the page: the same replace question (the "Who is this about?" step appears only when the model could not tell).
+  - Pass: the user's edited line is never overwritten without a question, and Undo is exact.
+- **Scenario 3 (a promise becomes a Moment).** Today's Moment is the promise itself ("You said you'd bring Sam soup."), not a quiet line, and the Kept card sits under it; the return check is "Did you bring Sam soup?" with Yes · Not yet · Didn't happen. The notification permission is asked after the first hand-off, not before.
+- **Scenario 4 (an open thread).** Stage it as WS-3's handoff describes (a thread told 42 days ago), or wait 42 days. Today shows **"Did Leo decide?"** with the thread in your words; the hand-off is **Ask Leo**; the return check is **"Did you ask Leo about it?"** with Yes · Not yet only. A Yes records one conversation and the check-in does not return.
+- **Scenario 5 (the private notification).** In a local build, Settings › Notifications › "Test: send today's notification in 10 s" shows the lock-screen text **"Kinship" · "Something worth knowing about <Name> today."**; the real 09:00 planner is proven at UNIT only and the banner tap is not drivable on the simulator (cover it on the phone).
+- **Scenario 6 (Ask).** Open "Ask your memory" in People. "Who do I know in Pilsen?" lists the line with its source; an unknown name plus a topic ("What is Marcus into?") says "Nothing about that in your memory yet." and shows nobody else's lines.
+- **Scenario 7 (Paused and Remembered).** In Edit: Pause, Hold as remembered, Merge with someone, Remove from People, each with a plain sentence. Settings › Paused and remembered lists them with Resume; Resume from "remembered" asks once more.
+- **New scenario 9: an unnamed update.** From Today (no page), tell *"Actually the Pilsen move slipped again, it's December 6 now."* with Leo's earlier move on record. Pass: Kinship asks "Who is this about?" and then the replace question; it never says "Nothing to remember in that one." (WS-1 `57863f4`) and never files a second line beside an edited one.
+
+### Known gaps the founder should expect (so they are not mistaken for new defects)
+- Delete account is proven in black-box and pgTAP; the local stack's Storage containers are stopped, so a native Delete shows the honest failure there. It needs a stack with Storage or the real project.
+- On a second device's first render, Today can show a Moment for a paused person for a few seconds until the people pull completes (WS-4: a founder call).
+- The person page's poster name and the Today thread headline can overlap the bloom art where the petals cross the text (WS-2).
+- "You could ask if they'd like company." can win over "invite them to dinner" when a milestone and an event are both current (WS-3: a founder copy question).
