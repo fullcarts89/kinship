@@ -59,3 +59,21 @@ Screenshots: `docs/product/screens/alpha-rc/` (JPEG, 1000 px tall; numbered in w
 Proves (NATIVE-SIMULATOR, live model, real gateway and database): the whole first-session journey of the contract §10 from a fresh install to a confirmed conversation, with the Electric Garden design, natural paragraphs understood without questions, exact correction and Undo, a promise becoming Today's Moment on its day, the hand-off and return check recording exactly one conversation, the SUA-1 line and its one outcome question, Ask v1 retrieval with honest misses, Paused / Remembered / Resume honoured on Today, and a complete export.
 
 Does not prove: the lock-screen notification delivery; the open-thread check-in on its day; merge and delete through the screens; anything on a real iPhone; the told-again replacement (which failed). Timings above are the gateway's own (proxy log), on a Mac under light load.
+
+## Second walk: the structural redesign build (31 Oct, integration `df32d24`, rebuilt once)
+
+Same method (Release simulator, live model through the harness proxy, fresh local account, iPhone 18 Pro), after WS-2's five structural commits (Moment Detail, Today, Person, People, Tell/review/hand-off), WS-1's user-edited-line question (`8985610`, migration `20261031100000`), WS-6's reviewed Ask v1 and WS-3's bounded nudge. Screens `r2-*.jpg` in `docs/product/screens/alpha-rc/`. Evidence tier NATIVE-SIMULATOR (live model).
+
+| Step | What happened | Result | Screens |
+|---|---|---|---|
+| Fresh install → sign in → name → consent → pick Sam and Leo → Already worth knowing → first Tell | The new Welcome, setup and consent screens; the first Tell (the Leo paragraph) understood in 9.7 s by the live model, no question | PASS | r2-00 |
+| Kept card | "Kept for Leo Marchetti": the dinner, the Pilsen move, Carla's wedding, "and 2 more"; Correct this · Undo; Got it right · Not quite | PASS | r2-01 |
+| People (redesign 4/5) | A lettered directory (L, S) with two explicit doors, **Find someone** and **Ask your memory**; one live line per person | PASS | — |
+| Ask your memory | "Who do I know in Pilsen?" → Leo's lease line, sourced "You told Kinship · Oct 31". "What is Marcus into?" (unknown name + word) → **"Nothing about that in your memory yet."**, no other person's lines (WS-6's review finding holds natively) | PASS | r2-02, r2-03 |
+| Person page (redesign 3/5) | A portrait: the name over a bloom, Coming up and Lately sections, Message / Call / Tell. The surname overlaps the leaf art and "Leo" is partly under it | PASS; legibility note → WS-2 | r2-04 |
+| **Row 16: told again over a user-edited line** | Line edited by hand ("Edited by you · was: …"); then *"Actually the Pilsen move slipped again, it's December 6 now."* → **"Does this replace what you told me?"** with the edited line as the one-tap yes, No, keep both, Don't keep this, Undo | **PASS** | r2-05 |
+| Yes, then Undo | "Here's what I'll remember." with the Dec 6 line and "Replaces: ~~…~~"; server: old line `superseded`, new active. **Undo** restores the edited line exactly and retracts the Dec 6 line | **PASS** | r2-06 |
+| No, keep both | Telling the same note a second time from Leo's page right after the Undo asked **"Who is this about?"** instead of the replace question (capture `needs_review`, page person set) | **NOT WALKED; defect → WS-1 (#72)** | r2-07 |
+| Today after setup | Bring-back orientation with the user's own Nov 15 line as the example; "This week · Sam's birthday" | PASS | — |
+
+Still NOT RUN on this build: the promise Moment → hand-off → return check and the SUA-1 line in the redesigned sheet (passed on the earlier build; black-box `k20`/`k28`/`showingup` pass on the redesigned head), WS-3's "Test: send today's notification in 10 s" hook, the open-thread check-in staged by SQL, Paused/Remembered/Export on the redesigned Settings, dark mode and large text on the redesigned screens, the iPhone 17e width, and Delete account. A third walk should cover those once WS-1's "who is this about" follow-up is fixed.

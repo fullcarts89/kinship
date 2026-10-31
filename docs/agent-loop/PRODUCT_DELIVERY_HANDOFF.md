@@ -245,6 +245,16 @@ Integration head after pass 7: every workstream's latest head merged (WS-1 `8a42
 
 Native journey on the final head: the walk of row 16 (told-again → "Does this replace what you told me?", Yes and No-keep-both), the Kept card and review sheet, Ask with the CC-25 queries, WS-2's two styling fixes, and WS-3's notification hook is **not done**: it was blocked by the stack failure.
 
+### Pass 8–9 (31 Oct, afternoon): stack restored, all five redesign surfaces merged, second native walk
+
+The founder approved emptying the 47 GB database log and the stack came back (disk 18%, log stays under 15 KB through every suite since). Integration head `b5221a8` (pushed): WS-1 `8a42e78`/`bcaa791`+, WS-2 `bb7aea0` (redesign 1–5 + fixes), WS-3 `bbcb03f`, WS-4 `bd50459`, WS-6 `1834939`. tsc and eslint clean, Jest 114 / 1106, Deno 482. Migrations through `20261031100000` applied locally; **both `20261031090000_v2_many_items_per_note` and `20261031100000_v2_user_chosen_closure` must reach production before the gateway deploy.**
+
+Black-box on the final head, one suite at a time on the branch's own gateway: `k28` 3/3, `k20` 22/22, `showingup` 2/2, `narrative` 3/3, `k27` 2/2, `removal` 3/3, `k4` 36/36 (earlier head). `trustfloor` passes Pause, Merge and Export and fails only at Delete (local Storage containers stopped: environment). Open: the Option A `narratives` suite still asserts the eight-item cap's copy (stale after FD-30c; routed to WS-1 on #72).
+
+Native: `docs/product/alpha-walkthrough.md` second walk. Row 16 (told-again over a user-edited line) PASSES natively (question, Yes, Replaces, exact Undo). Ask v1 and the redesigned People pass natively. Open defect routed to WS-1 (#72): after the Undo, the same note told again from the page asks "Who is this about?" instead of the replace question, so "No, keep both" is not walked. Not walked on the final build: the promise Moment / hand-off / return check / SUA-1 in the redesigned sheet, the notification test hook, the thread check-in, Settings trust floor, dark/large text/17e on the redesigned screens, Delete.
+
+Readiness: **NOT READY** (open WS-1 defect, un-walked rows above).
+
 ### Open in WS-5
 
 The Release-simulator journey with the live model (after WS-4 leaves the iPhone 18 Pro); the walkthrough and screenshots; the serialized black-box set and the live-probe re-run after `5557dae`; WS-3/WS-6 heads when they land, WS-2 last; the PR description after each pass.
