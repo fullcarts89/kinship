@@ -310,7 +310,7 @@ export function PortraitView(props: PortraitViewProps) {
     </>
   );
   return (
-    <Screen onBack={props.onBack} footer={footer} scrollRef={scroll} art={pageArt}>
+    <Screen onBack={props.onBack} footer={stacked ? undefined : footer} scrollRef={scroll} art={pageArt}>
       {photo ? (
         // The name sits just under the photo's edge, never across it (ink on a dark photo did not read).
         <View style={{ height: photoH - 6 * k, marginTop: -TOUCH, alignItems: "flex-end", marginRight: -GUTTER / 2 }}>
@@ -470,6 +470,9 @@ export function PortraitView(props: PortraitViewProps) {
         </Pressable>
       ) : null}
       {props.children}
+      {/* At accessibility sizes the three stacked actions would fill most of the screen if pinned, leaving
+          almost no room to scroll: they follow the last line instead, so everything is reachable. */}
+      {stacked ? <View style={{ marginHorizontal: -GUTTER, marginTop: space.x3 }}>{footer}</View> : null}
     </Screen>
   );
 }
