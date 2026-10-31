@@ -5,7 +5,8 @@
 // draft and come back the next time the sheet opens here, and only here.
 import React, { useRef } from "react";
 import { space } from "@/design/tokens";
-import { Heading, Sheet, Small, TellField } from "@/ui";
+import { Botanical, DawnWash, Sheet, Small, TellField, Title } from "@/ui";
+import { View } from "react-native";
 import { trackStarted, useTellFlow } from "./TellFlow";
 
 export const TELL_SHEET_COPY = {
@@ -25,8 +26,18 @@ export function TellSheet({ person, onClose }: { person: { id: string; name: str
   // rest of; keeping the draft links the new note to it, as Today's dock does. Nothing once it is answered.
   const continues = person && flow.focusRequest?.personId === person.id ? flow.focusRequest.continues ?? null : null;
   return (
-    <Sheet visible={!!person} onDismiss={onClose} label={person ? `Tell Kinship about ${person.name}` : "Tell Kinship"}>
-      <Heading>{person ? `About ${person.name}` : ""}</Heading>
+    <Sheet
+      visible={!!person}
+      onDismiss={onClose}
+      label={person ? `Tell Kinship about ${person.name}` : "Tell Kinship"}
+      bleed={(
+        <View style={{ height: 84 }}>
+          <DawnWash kind="warm" height={150} />
+          <Botanical art="leaf" width={130} top={-36} right={-56} rotate={24} dim />
+        </View>
+      )}
+    >
+      <Title>{person ? `About ${person.name}` : ""}</Title>
       <Small style={{ marginTop: space.xs, marginBottom: space.l }}>
         {opened.current?.hadDraft && draft.trim() ? TELL_SHEET_COPY.draft : TELL_SHEET_COPY.body}
       </Small>
