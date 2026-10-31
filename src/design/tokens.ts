@@ -282,7 +282,7 @@ export const shadow = {
  * The wash is the kind of day, as a soft radial light fading into the paper.
  */
 export const art = {
-  grain: { opacity: 0.32, night: 0.14, tile: 192 },
+  grain: { opacity: 0.2, night: 0.1, tile: 128 },
   wash: { height: 560, opacity: 0.9, night: 0.5 },
   /** The photo's fluid mask, as a share of the page width, and its height to width. */
   photo: { width: 0.64, aspect: 1.07, small: 92 },
