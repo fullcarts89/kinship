@@ -114,3 +114,19 @@ Fresh account, live model through the harness proxy, Release build of `0e9e3bb` 
 Two observations: (1) the first send of the same unnamed note from Today once returned **"Nothing to remember in that one."** in 1.3 s (the live model proposed nothing; the note stays saved and nothing is silently kept or lost, but a user could read it as "kept"); the retry went through. (2) Leo's redesigned person page on this head shows the poster-size name over a bloom, Coming up with the edited line marked "EDITED BY YOU", Lately and Message / Call / Tell (r5-03).
 
 Still NOT RUN on the final head: the open-thread check-in, Paused / Remembered / merge on the redesigned person page, dark mode, large text and the iPhone 17e on the redesigned screens, and Delete account.
+
+## Fifth walk: the open-thread check-in and the final sweep (31 Oct, integration `4274345`; screens `r6-*`)
+
+Same account as the fourth walk (fresh, live model, Release build of `0e9e3bb`; the later WS-1 commit `57863f4` is gateway-only and ran on the restarted gateway). A thread for Leo ("Leo is thinking about whether to take the job in Denver", `followup_after_days: 42`) was staged in the local database exactly as WS-3's handoff describes (insert, `created_at` backdated 42 days with `session_replication_role = replica`, then `updated_at` touched so the phone's pull reaches it).
+
+| Step | What happened | Result | Screens |
+|---|---|---|---|
+| RSN-07 on its day | After a relaunch, Today leads with a poster-size "Leo" and **"Did Leo decide?"**, the thread in the user's words, "What you've told Kinship" beneath it (the edited move line and the dinner, context only, no second primary action), **Ask Leo** · Not now | PASS; the headline sits over the bloom and is hard to read where the petals cross it → WS-2 | r6-01 |
+| Hand-off | "Ask Leo", You could mention (two lines), Open Messages, Call · FaceTime · WhatsApp, the quiet SUA-1 line "You could offer to help.", "When you come back: 'Did you reach Leo?'" | PASS | — |
+| Messages → back | The notification permission was asked here (this account had not been asked yet, after the first useful Moment), Allow; back on Today: **"Did you ask Leo about it?"** · Yes · Not yet (no "Didn't happen" for a thread) | PASS | r6-02 |
+| Yes | "Anything worth remembering from talking with Leo?" · Tell Kinship · Nothing today; server: one `contact_events` row `thread` / `return_check`; the thread stays active; the check-in does not come back | PASS | — |
+| Edit sheet | Their name, Save, Pause, **Hold as remembered**, **Merge with someone**, Remove from People, each with its plain-words explanation | PASS (controls present); Pause / Remembered / Resume / Export walked on the earlier build | r6-03 |
+
+**Final black-box sweep on `4274345`** (own gateway :8010, stub :8793, one suite at a time, database log 129 KB throughout): `k28` 3/3, `k20` 22/22, `narrative` 3/3, `showingup` 2/2, `k27` 2/2, `removal` 3/3, `k4` 36/36; `trustfloor` passes Pause, Merge and Export and fails only at Delete (the local Storage containers are stopped: environment, not product).
+
+**Not walked natively on the final head (and why):** Merge-with-someone through the screens (the control is present; `trustfloor` proves the merge and its Undo through the real screens in black-box), Pause / Remembered / Resume on the redesigned person page (walked on the pre-redesign build; the redesigned page was seen with the controls), dark mode, large text and the iPhone 17e on the redesigned screens, Delete account, and the lock-screen banner tap. These are the rows the founder's own native pass should cover first.
