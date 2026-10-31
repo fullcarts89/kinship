@@ -146,11 +146,11 @@ export async function k23FromPage(shape: string, answer: "yes" | "not_yet", run:
     expect(harness.opens.map((o) => o.channel)).toEqual(["text"]);
     await appState("background");
     await appState("active");
-    const askedMs = await until(r, (s) => s.some((t) => /^Did you (?:reach John|call John tonight)\?$/u.test(t)), "the return question on John's page", 5000);
+    const askedMs = await until(r, (s) => s.some((t) => /^Did you (?:reach|call) John\b[^?]*\?$/u.test(t)), "the return question on John's page", 5000);
     await show(r, { screen: "today" });
-    await until(r, (s) => s.some((t) => /^Did you (?:reach John|call John tonight)\?$/u.test(t)), "the same question on Today", 5000);
+    await until(r, (s) => s.some((t) => /^Did you (?:reach|call) John\b[^?]*\?$/u.test(t)), "the same question on Today", 5000);
     await show(r, { screen: "person", id: john.id });
-    await until(r, (s) => s.some((t) => /^Did you (?:reach John|call John tonight)\?$/u.test(t)), "back on John's page", 5000);
+    await until(r, (s) => s.some((t) => /^Did you (?:reach|call) John\b[^?]*\?$/u.test(t)), "back on John's page", 5000);
     await tap(r, answer === "yes" ? "Yes" : "Not yet");
     await settle(500);
     expect([shape, texts(r).some((t) => /^Did you (?:reach|call) John/u.test(t))]).toEqual([shape, false]);

@@ -21,6 +21,7 @@
 
 import type { LocalReason, ReasonType } from "@/features/today/todayModel";
 import { track } from "@/platform/analytics";
+import { isProactiveEligible } from "@/store/peopleStates";
 import { getMeta, setMeta } from "@/store/schema";
 import type { UserStore } from "@/store/userStore";
 
@@ -70,6 +71,8 @@ export interface MomentSummary {
   personId: string;
   personName: string;
   type: ReasonType;
+  /** The person's state at planning time: anyone held (paused, remembered; D13) gets nothing, whatever Today said. */
+  person?: { state: unknown; deleted_at?: unknown } | null;
   /** True for a kind whose person should stay off the lock screen (none today). */
   sensitive?: boolean;
 }
@@ -124,7 +127,7 @@ export function planMomentNotification(input: PlanInput): Plan {
   if (input.permission !== "granted") return { action: "none", why: "no_permission" };
   if (at.getTime() <= now.getTime()) return { action: "none", why: "past" };
   if (inQuietHours(at.getHours())) return { action: "none", why: "quiet_hours" };
-  if (!moment) return { action: "none", why: "no_moment" };
+  if (!moment || (moment.person !== undefined && !isProactiveEligible(moment.person))) return { action: "none", why: "no_moment" };
   const existing = log.find((e) => e.day === day);
   if (existing && existing.reasonId === moment.reasonId) return { action: "keep", entry: existing };
   // The seven days ending on `day`, the entry being replaced aside.
