@@ -7,7 +7,7 @@
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import { size, space } from "@/design/tokens";
-import { MERGE_COPY, type MergePreview, sayName } from "@/store/peopleMerge";
+import { MERGE_COPY, type MergePreview, mergeNames, sayName } from "@/store/peopleMerge";
 import type { Person } from "@/store/repositories";
 import { Body, Label, Line, Pill, Row, Sheet, Small, Sprig, Title } from "@/ui";
 
@@ -48,6 +48,7 @@ export function MergeSheet(props: {
   const me = props.person;
   if (!me) return null;
   const keep = sayName(me);
+  const said = source ? mergeNames(me, source) : null;
   const list = all ? props.everyone : props.candidates;
   const merge = async () => {
     if (!source || busy) return;
@@ -70,7 +71,7 @@ export function MergeSheet(props: {
       footer={source ? (
         <View style={{ flexDirection: "row", gap: space.s }}>
           <Pill variant="quiet" label={MERGE_COPY.cancel} onPress={() => setSource(null)} />
-          <Pill variant="primary" label={MERGE_COPY.confirm} accessibilityLabel={`${MERGE_COPY.confirm} ${sayName(source)} into ${keep}`} busy={busy} disabled={!preview} onPress={() => void merge()} />
+          <Pill variant="primary" label={MERGE_COPY.confirm} accessibilityLabel={`${MERGE_COPY.confirm} ${said?.source ?? sayName(source)} into ${said?.keep ?? keep}`} busy={busy} disabled={!preview} onPress={() => void merge()} />
         </View>
       ) : undefined}
     >
@@ -92,10 +93,10 @@ export function MergeSheet(props: {
         </View>
       ) : (
         <View>
-          <Title>{MERGE_COPY.previewTitle(sayName(source), keep)}</Title>
-          <Body style={{ marginTop: space.s }}>{MERGE_COPY.previewLead(sayName(source), keep)}</Body>
-          <Small style={{ marginTop: space.xs }}>{MERGE_COPY.keepOther(sayName(source))}</Small>
-          {preview ? <PreviewLines keep={keep} preview={preview} /> : <Small style={{ marginTop: space.l }}>{"Reading what moves…"}</Small>}
+          <Title>{MERGE_COPY.previewTitle(said?.source ?? sayName(source), said?.keep ?? keep)}</Title>
+          <Body style={{ marginTop: space.s }}>{MERGE_COPY.previewLead(said?.source ?? sayName(source), said?.keep ?? keep)}</Body>
+          <Small style={{ marginTop: space.xs }}>{MERGE_COPY.keepOther(said?.source ?? sayName(source))}</Small>
+          {preview ? <PreviewLines keep={said?.keep ?? keep} preview={preview} /> : <Small style={{ marginTop: space.l }}>{"Reading what moves…"}</Small>}
           {problem ? <Body tone="ink" style={{ marginTop: space.l }}>{problem}</Body> : null}
         </View>
       )}
