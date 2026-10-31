@@ -1,18 +1,26 @@
-// The relationship page (Electric Garden, FD-30b; Stage 1 "Ben's page"): the
-// lavender bloom cut by the page's top left, the person's photo in the fluid
-// mask with a leaf crossing in front (or the leaf alone), their name at poster
-// scale, then only the sections that have something to say, each with its
-// coloured dot: Lately, Coming up, You said you'd, Between you, as open paper
-// with a source under every line. Tap a line to correct it, its provenance
-// for the note. Message, Call and Tell sit at the bottom.
+// The relationship page (Electric Garden, FD-30b; recomposed after the founder's review of PR #71 as a
+// portrait and a continuing story rather than a name over four identical sections):
+//
+//   the hero        the lavender bloom from the page's top left; their photo in the fluid mask with a
+//                   leaf crossing it, or the leaf alone; their name at poster scale; Edit · Add a photo
+//   what's next     Coming up as a dated ledger: the day in caps down a column, the line beside it, a
+//                   lime rule (the same vocabulary as Today's week, so the two pages read as one)
+//   the story       Lately as running serif lines, each with its source
+//   your word       You said you'd in the user's own serif italic behind a sunset rule: the user's
+//                   intentions, set apart from what they know
+//   between you     shared lines, then the conversations as a dated ledger behind a lavender rule
+//   ways to connect Message · Call · Tell pinned below; "What Kinship knows about Ben →" closes the page
+//
+// Every stored memory stays findable (What Kinship knows), correctable (tap a line) and inspectable
+// (tap its source). Nothing counts, ranks or scores; a held person differs by one line.
 import React, { useRef } from "react";
 import { type ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
 import { art, font, GUTTER, height, press, space, TOUCH } from "@/design/tokens";
 import {
-  Body, Botanical, DawnWash, Emphasis, FluidPhoto, isLargeText, Label, Line, MomentText, Pill, PosterName, Provenance, QuietLine, Screen, SectionLabel,
-  type SectionKey, Small, useLineFocus, usePalette,
+  Body, Botanical, DawnWash, Emphasis, FluidPhoto, isLargeText, Label, Line, MomentText, Pill, PosterName, Provenance, QuietLine, Quote, Screen,
+  SectionLabel, type SectionKey, Small, useLineFocus, usePalette, Week,
 } from "@/ui";
 
 export interface PortraitLineData {
@@ -148,9 +156,13 @@ function withWhen(l: PortraitLineData, leading = false): string {
  * step darker. "You told Kinship · Oct 5" is shown once per run of lines that
  * share it, not under every line (the line's sheet always has it).
  */
-function Section({ title, section, lines, leadWithWhen, onLine, onSource, focusItemId, focus, after }: {
+type SectionVariant = "ledger" | "story" | "intent" | "between";
+
+function Section({ title, section, variant, lines, leadWithWhen, onLine, onSource, focusItemId, focus, after }: {
   title: string;
   section: SectionKey;
+  /** How the section is composed: a dated ledger, running story lines, the user's own intentions, or shared lines. */
+  variant: SectionVariant;
   lines: PortraitLineData[];
   leadWithWhen?: boolean;
   onLine: (id: string) => void;
@@ -160,12 +172,18 @@ function Section({ title, section, lines, leadWithWhen, onLine, onSource, focusI
   /** More of the section after its lines (Between you's conversations, founder I2). */
   after?: React.ReactNode;
 }) {
+  const p = usePalette();
   if (!lines.length && !after) return null;
+  const rule = variant === "ledger" ? p.mark : variant === "intent" ? p.sunset : variant === "between" ? p.lavender : null;
+  const Words = variant === "intent" ? Quote : Line;
   return (
     <View onLayout={(e) => focus?.onGroup(title, e.nativeEvent.layout.y)} style={{ marginTop: space.x3 }}>
       <SectionLabel section={section}>{title}</SectionLabel>
+      <View style={rule ? { marginTop: space.xs, borderLeftWidth: 2, borderLeftColor: rule, paddingLeft: space.l } : undefined}>
       {lines.map((l, i) => {
-        const text = withWhen(l, leadWithWhen);
+        // A dated ledger says the day in its own column; the other sections say it with the line.
+        const dated = variant === "ledger" && !!l.when && l.when !== "No date yet";
+        const text = dated ? l.statement : withWhen(l, leadWithWhen);
         // One source line for several memories only when they came from the
         // very same note; neighbours from different notes each say their own
         // (founder H14, H19b).
@@ -174,17 +192,18 @@ function Section({ title, section, lines, leadWithWhen, onLine, onSource, focusI
         return (
           <View key={l.itemId} onLayout={(e) => focus?.onLine(title, l.itemId, e.nativeEvent.layout.y)} style={{ marginTop: i === 0 ? space.m : space.l }}>
             <Emphasis on={!!focusItemId && focusItemId === l.itemId}>
+            {dated ? <Week style={{ marginBottom: space.xs }}>{l.when}</Week> : null}
             {l.fixed ? (
-              <Line>{text}</Line>
+              <Words>{text}</Words>
             ) : (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={text}
+                accessibilityLabel={dated ? `${l.when} · ${text}` : text}
                 accessibilityHint="Double-tap to correct it"
                 onPress={() => onLine(l.itemId)}
                 style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
               >
-                <Line>{text}</Line>
+                <Words>{text}</Words>
               </Pressable>
             )}
             {l.was ? (
@@ -204,6 +223,7 @@ function Section({ title, section, lines, leadWithWhen, onLine, onSource, focusI
         );
       })}
       {after}
+      </View>
     </View>
   );
 }
@@ -213,7 +233,7 @@ function Trail({ lines, first }: { lines: TrailLineData[]; first: boolean }) {
   return (
     <>
       {lines.map((t, i) => (
-        <View key={t.id} accessible accessibilityLabel={t.about ? `${t.label}. ${t.about}` : t.label} style={{ marginTop: first && i === 0 ? space.m : space.s }}>
+        <View key={t.id} accessible accessibilityLabel={t.about ? `${t.label}. ${t.about}` : t.label} style={{ marginTop: first && i === 0 ? space.m : space.l }}>
           <Line>{t.label}</Line>
           {t.about ? <Small style={{ marginTop: space.xs }}>{t.about}</Small> : null}
         </View>
@@ -402,12 +422,14 @@ export function PortraitView(props: PortraitViewProps) {
       ) : null}
 
 
-      <Section title="Lately" section="lately" lines={props.lately} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
-      <Section title="Coming up" section="comingUp" lines={props.comingUp} leadWithWhen onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
-      <Section title="You said you'd" section="youSaid" lines={props.youSaid} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      {/* What's next first (Stage 1's order), then the story, the user's own word, and what's between you. */}
+      <Section title="Coming up" section="comingUp" variant="ledger" lines={props.comingUp} leadWithWhen onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      <Section title="Lately" section="lately" variant="story" lines={props.lately} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
+      <Section title="You said you'd" section="youSaid" variant="intent" lines={props.youSaid} onLine={props.onLine} onSource={props.onSource} focusItemId={props.focusItemId} focus={focus} />
       <Section
         title="Between you"
         section="between"
+        variant="between"
         lines={props.between}
         onLine={props.onLine}
         onSource={props.onSource}
