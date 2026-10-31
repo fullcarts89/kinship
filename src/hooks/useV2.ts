@@ -24,7 +24,7 @@ import { parseDrafts, withDraft, type Drafts } from "@/features/tell/drafts";
 import { misfiledOn, voiced } from "@/features/memory/statements";
 import { linkSuggestions, type LinkSuggestion } from "@/features/person/links";
 import { AI_CONSENT_VERSION, setAIEnabled } from "@/lib/aiPreferences";
-import { askNotificationPermissionOnce, expoScheduler, notificationPermissionAsked, scheduleMomentNotification, type MomentSummary } from "@/lib/momentNotification";
+import { askNotificationPermissionOnce, expoScheduler, notificationPermissionAsked, previewMomentNotification, scheduleMomentNotification, type MomentSummary } from "@/lib/momentNotification";
 import type { ReasonLocal } from "@/store/reasonLocal";
 import { getMeta, setMeta } from "@/store/schema";
 import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, smallCount, track } from "@/platform/analytics";
@@ -593,6 +593,16 @@ export async function momentFor(store: UserStore, reasonLocal: ReasonLocal, day:
   if (!v.moment) return null;
   const person = base.people.find((p) => p.id === v.moment!.personId) ?? null;
   return { reasonId: v.moment.reasonId, personId: v.moment.personId, personName: v.moment.personName, type: v.moment.type, person };
+}
+
+/** Dev-only (local test builds, see DEV_NOTIFICATION_HOOK): today's Moment notification in 10 seconds, for a simulator pass. */
+export function usePreviewNotification(): () => Promise<string> {
+  const { store, reasonLocal } = useV2Session();
+  return async () => {
+    const repos = repositoriesFor(store);
+    const now = new Date();
+    return previewMomentNotification(expoScheduler(), await momentFor(store, reasonLocal, todayIso(now), now), (await repos.settings.get())?.push_enabled !== true);
+  };
 }
 
 /** Settings › Notifications: on, or paused (user_settings.push_enabled; CC-25's global pause). */

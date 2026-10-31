@@ -10,7 +10,7 @@ import type { RecordLine } from "@/features/person/PersonRecordView";
 import { afterSheets } from "@/ui/sheetStack";
 import { PeopleView } from "@/features/people/PeopleView";
 import { SettingsSheet } from "@/features/people/SettingsSheet";
-import { useHeldPeople, useNotificationSetting, usePeopleRows, useRemovedPeople, useTrustActions, useUnderstandingConsent, useV2Actions } from "@/hooks/useV2";
+import { useHeldPeople, useNotificationSetting, usePeopleRows, usePreviewNotification, useRemovedPeople, useTrustActions, useUnderstandingConsent, useV2Actions } from "@/hooks/useV2";
 import { sameNameMatch } from "@/store/peopleMerge";
 import { isHeld } from "@/store/peopleStates";
 import { aliasesOf, shortName } from "../../../supabase/functions/_shared/extraction/names";
@@ -51,6 +51,7 @@ export default function PeopleScreen() {
   };
   const consent = useUnderstandingConsent();
   const notifications = useNotificationSetting();
+  const previewNotification = usePreviewNotification();
   const { signOut } = useAuth();
   const [settings, setSettings] = useState(false);
   // Ask Kinship v1 (WS-6): what the search field's words find in memory.
@@ -107,6 +108,7 @@ export default function PeopleScreen() {
         setUnderstanding={consent.set}
         notifications={notifications.on}
         setNotifications={notifications.set}
+        previewNotification={previewNotification}
         signOut={signOut}
         onAddFromContacts={() => router.push("/v2/people/add")}
         removed={removed.map((p) => ({ id: p.id, name: p.display_name }))}

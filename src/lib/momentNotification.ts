@@ -319,6 +319,32 @@ export async function notificationPermissionAsked(store: UserStore): Promise<boo
   return !!(await getMeta(store.db, ASKED));
 }
 
+/** True only in a build made for the local test stack (EXPO_PUBLIC_E2E_LOCAL=1, e2e/README.md); never in a release build. */
+export const DEV_NOTIFICATION_HOOK = process.env.EXPO_PUBLIC_E2E_LOCAL === "1";
+
+/**
+ * Dev-only (guarded by DEV_NOTIFICATION_HOOK at every call site): delivers the notification Today's selection
+ * would produce for today, in `seconds` seconds, with the real content, so the lock-screen text and the tap
+ * can be seen on a simulator without waiting for 09:00. Ignores the budget and quiet hours (it records
+ * nothing in the device log); respects the pause, the permission and Today's own selection. Returns what it
+ * did, for a one-line status.
+ */
+export async function previewMomentNotification(
+  scheduler: MomentScheduler, moment: MomentSummary | null, paused: boolean, seconds = 10,
+): Promise<"sent" | "no_moment" | "paused" | "no_permission"> {
+  if (!DEV_NOTIFICATION_HOOK) throw new Error("the notification preview exists only in local test builds");
+  if (paused) return "paused";
+  if ((await scheduler.permission()) !== "granted") return "no_permission";
+  if (!moment || (moment.person !== undefined && !isProactiveEligible(moment.person))) return "no_moment";
+  const at = new Date(Date.now() + seconds * 1000);
+  await scheduler.schedule({
+    title: NOTIFICATION_COPY.title,
+    body: moment.sensitive ? NOTIFICATION_COPY.bodyPrivate : NOTIFICATION_COPY.body(moment.personName),
+    data: { type: MOMENT_NOTIFICATION_TYPE, day: `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}` },
+  }, at);
+  return "sent";
+}
+
 /** Where a tapped 2.0 notification leads: Today. Null for anything else. */
 export function momentNotificationRoute(data: Record<string, unknown>): string | null {
   return data.type === MOMENT_NOTIFICATION_TYPE ? "/v2" : null;
