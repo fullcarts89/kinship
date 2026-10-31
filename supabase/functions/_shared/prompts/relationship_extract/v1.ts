@@ -169,7 +169,13 @@ export function captureClock(occurredAt: string, timeZone: string | null): Captu
 }
 
 /** The user turn: trusted context first, the untrusted note last. */
-export function buildUserContent(input: ExtractionInput): string {
+export interface Passage {
+  /** Code-point offsets into the note, as `spans.ts` counts them. */
+  start: number;
+  end: number;
+}
+
+export function buildUserContent(input: ExtractionInput, passage: Passage | null = null): string {
   const c = input.capture;
   const clock = captureClock(c.occurred_at, c.time_zone);
   const lines: string[] = [];
@@ -199,6 +205,15 @@ export function buildUserContent(input: ExtractionInput): string {
       lines.push(`${m.key}: ${m.kind} · ${about} · ${m.certainty}${m.status === "resolved" ? " · resolved" : ""} — ${clean(m.statement)}`);
     }
     lines.push("</existing_memories>");
+  }
+  if (c.earlier_text?.trim()) {
+    // The note this one continues (CER-1): context for a fragment or a pronoun, never evidence.
+    lines.push(`<earlier_part>\n${c.earlier_text.replace(/<\/earlier_part/gi, "<\\/earlier_part")}\n</earlier_part>`);
+  }
+  if (passage) {
+    const chars = Array.from(c.raw_text);
+    const words = chars.slice(Math.max(0, passage.start), Math.min(chars.length, passage.end)).join("").trim();
+    if (words) lines.push(`<passage>\n${words.replace(/<\/passage/gi, "<\\/passage")}\n</passage>`);
   }
   lines.push(`<note>\n${c.raw_text.replace(/<\/note/gi, "<\\/note")}\n</note>`);
   return lines.join("\n");

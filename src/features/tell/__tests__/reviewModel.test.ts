@@ -449,3 +449,21 @@ describe("Phase 4B B3: the residence question (case E; founder CC-19, CC-24)", (
     expect(v.questions.map((q) => q.type)).toEqual(["residence", "date"]);
   });
 });
+
+// CER-1 (31 Oct, WS-5's native journey): a told-again move against a line the user edited is held, and the
+// user is asked whether it replaces that line; the answer is the line itself or "keep both".
+it("a later note that updates the user's edited line asks 'Does this replace what you told me?', with that line and Keep both", () => {
+  const edited = "Ben signed the lease on the apartment in Pilsen and moves in on November 22";
+  const note = "Actually the Pilsen move slipped again, it's December 6 now.";
+  const h = held({
+    kind: "event", person_id: "ben", statement: "Ben's move to Pilsen slipped again; it's now December 6",
+    detail: { date: "2026-12-06", date_precision: "day", event_type: "move", _replaces: [{ id: "m-edited", statement: edited }] },
+    flags: ["protected_target", "update_check"], spans: [{ start: 9, end: 59, quote: note.slice(9, 59) }],
+  });
+  const v = view(note, row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], undefined,
+    { capture: { id: "c1", raw_text: note, context_person_id: "ben", status: "needs_review" } });
+  const q = v.questions.find((x) => x.type === "replace")!;
+  expect(q.prompt).toBe("Does this replace what you told me?");
+  expect(q.choices.map((c) => [c.label, "answer" in c ? c.answer : null])).toEqual([[edited, { replaces: "m-edited" }], ["No, keep both", { replaces: null }]]);
+  expect(v.questions.some((x) => /When is it/u.test(x.prompt))).toBe(false);
+});

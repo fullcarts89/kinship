@@ -90,9 +90,18 @@ export class FakeGateway implements GatewayTransport {
   }
 
   /** Reads this note with the real pipeline, given the model's reply. */
-  propose(note: string, reply: (input: ExtractionInput) => ModelProposal): void {
+  propose(note: string, reply: (input: ExtractionInput) => ModelProposal, opts: { lost?: string[]; unlocated?: number } = {}): void {
     this.proposals.set(note, reply);
+    if (opts.lost?.length || opts.unlocated) this.lost.set(note, opts);
+    else this.lost.delete(note);
   }
+
+  /**
+   * What a note's understanding did not get to (FD-30c: a passage whose model call failed), scripted as
+   * the words of each lost passage (one span each, in the note's order) and a count that could not be
+   * placed: the real pipeline is handed the spans, as run.ts hands it a failed passage's.
+   */
+  private readonly lost = new Map<string, { lost?: string[]; unlocated?: number }>();
 
   private rows<T>(table: "people" | "related_people" | "memory_items" | "memory_item_facets"): T[] {
     return [...this.server.table(table).values()].filter((r) => r.user_id === this.userId && !r.deleted_at) as unknown as T[];
@@ -113,10 +122,19 @@ export class FakeGateway implements GatewayTransport {
       ...buildInput(capture, people, this.rows<RelatedRow>("related_people"), this.rows<ItemRow>("memory_items"), facets),
       ...(this.places ? { places: this.places } : {}),
     };
-    const outcome = planExtraction(input, reply(input));
+    const script = this.lost.get(String(c.raw_text));
+    const text = String(c.raw_text);
+    const unprocessed = (script?.lost ?? []).map((words) => {
+      const at = text.indexOf(words);
+      return at < 0 ? null : { start: Array.from(text.slice(0, at)).length, end: Array.from(text.slice(0, at)).length + Array.from(words).length };
+    }).filter((sp): sp is { start: number; end: number } => sp !== null);
+    const outcome = planExtraction(input, reply(input), unprocessed.length ? { unprocessed } : {});
+    const coverage = outcome.coverage || script?.unlocated
+      ? { unprocessed: outcome.coverage?.unprocessed ?? [], unlocated: (outcome.coverage?.unlocated ?? 0) + (script?.unlocated ?? 0) }
+      : null;
     return {
       items: [], clarification: outcome.clarification, planned: outcome.items as unknown as Record<string, unknown>[], known: outcome.known,
-      ...(outcome.coverage ? { coverage: outcome.coverage } : {}),
+      ...(coverage ? { coverage } : {}),
     };
   }
 
@@ -217,7 +235,7 @@ export class FakeGateway implements GatewayTransport {
     const coverage = "coverage" in script && script.coverage ? { v: 1, ...script.coverage } : null;
     this.write("captures", captureId, {
       status: tier === "auto" || tier === "nothing" ? "extracted" : "needs_review",
-      extraction_version: "relationship_extract/v6+model",
+      extraction_version: "relationship_extract/v7+model",
       coverage,
     });
     let createdAt: string | null = null;

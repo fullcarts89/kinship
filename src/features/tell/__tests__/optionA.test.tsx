@@ -48,7 +48,12 @@ jest.mock("expo-router", () => ({ router: { push: () => undefined } }));
 jest.mock("../ReviewSheet", () => ({ ReviewSheet: () => null }));
 jest.mock("react-native-safe-area-context", () => jest.requireActual("react-native-safe-area-context/jest/mock").default);
 
-/** Ten plain things about Priya, one a sentence: the model proposes every one, the understanding takes eight. */
+/**
+ * Ten plain things about Priya, one a sentence. Since FD-30c (30 Oct 2026) every proposal is judged, so a
+ * partial note is one whose understanding could not get to a passage (a failed model call, run.ts): the
+ * fake gateway is told which words were lost (`lost`), and the real pipeline records them as the
+ * gateway would. The first eight are proposed; the ninth and tenth are the passage not got to.
+ */
 const THINGS = [
   "Priya loves jazz", "Priya took up pottery", "Priya started trail running", "Priya is learning Italian", "Priya joined a choir",
   "Priya bought a kayak", "Priya reads Russian novels", "Priya collects stamps", "Priya plays chess on Tuesdays", "Priya grows tomatoes",
@@ -98,8 +103,8 @@ async function world() {
 type World = Awaited<ReturnType<typeof world>>;
 
 /** Keeps a note and lets the understanding run; `run: false` keeps it told and waiting. */
-async function tell(w: World, note: string, things: (string | Spec)[], opts: { context?: Person | null; continues?: string; run?: boolean } = {}): Promise<string> {
-  w.gateway.propose(note, proposals(things));
+async function tell(w: World, note: string, things: (string | Spec)[], opts: { context?: Person | null; continues?: string; run?: boolean; lost?: string[]; unlocated?: number } = {}): Promise<string> {
+  w.gateway.propose(note, proposals(things), { lost: opts.lost, unlocated: opts.unlocated });
   const c = await w.repos.captures.tell(note, { aiEnabled: true, timeZone: TZ, contextPersonId: opts.context?.id, continuesCaptureId: opts.continues ?? null });
   await w.understanding.told(c.id);
   if (opts.run !== false) await w.understanding.run();
@@ -107,10 +112,10 @@ async function tell(w: World, note: string, things: (string | Spec)[], opts: { c
 }
 
 /** "Tell the rest" as the flow does it: the words still not got to, kept as a linked note, understood. */
-async function tellRest(w: World, first: string, things: (string | Spec)[], opts: { text?: string; run?: boolean } = {}): Promise<string> {
+async function tellRest(w: World, first: string, things: (string | Spec)[], opts: { text?: string; run?: boolean; lost?: string[] } = {}): Promise<string> {
   const rest = (await w.understanding.restOf(first))!;
   const person = rest.personId ? (await w.repos.people.list()).find((p) => p.id === rest.personId) ?? null : null;
-  return tell(w, opts.text ?? rest.text, things, { context: person, continues: first, run: opts.run });
+  return tell(w, opts.text ?? rest.text, things, { context: person, continues: first, run: opts.run, lost: opts.lost });
 }
 
 async function review(w: World, id: string): Promise<ReviewView> {
@@ -137,7 +142,7 @@ const span = (text: string, words: string) => ({ start: text.indexOf(words), end
 describe("a note the understanding could not take whole (Option A)", () => {
   it("keeps eight, says so, and marks the rest in the note; nothing is lost in silence", async () => {
     const w = await world();
-    const id = await tell(w, TEN, THINGS, { context: w.priya });
+    const id = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
 
     const lines = await liveLines(w);
     expect(lines.length).toBe(8);
@@ -173,7 +178,7 @@ describe("a note the understanding could not take whole (Option A)", () => {
 
   it("telling the rest, read and kept, is the one state that answers the note: everywhere, and nothing twice", async () => {
     const w = await world();
-    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    const first = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
     const second = await tellRest(w, first, THINGS.slice(8));
 
     expect((await w.repos.captures.get(second))!.continues_capture_id).toBe(first);
@@ -213,7 +218,7 @@ describe("a note the understanding could not take whole (Option A)", () => {
 
   it("a reply lost on the way back comes back as what was kept and what was left out, never as nothing", async () => {
     const w = await world();
-    w.gateway.propose(TEN, proposals(THINGS));
+    w.gateway.propose(TEN, proposals(THINGS.slice(0, 8)), { lost: THINGS.slice(8) });
     const c = await w.repos.captures.tell(TEN, { aiEnabled: true, timeZone: TZ, contextPersonId: w.priya.id });
     await w.understanding.told(c.id);
     w.gateway.loseNextReply = true;
@@ -279,7 +284,7 @@ describe("a note the understanding could not take whole (Option A)", () => {
 
   it("Undo on a partial note forgets it whole, as on any note", async () => {
     const w = await world();
-    const id = await tell(w, TEN, THINGS, { context: w.priya });
+    const id = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
     expect((await liveLines(w)).length).toBe(8);
     await w.understanding.undo(id);
     expect((await liveLines(w)).length).toBe(0);
@@ -370,7 +375,7 @@ describe("a note the understanding could not take whole (Option A)", () => {
 describe("what a later note did, from the evidence only (founder review of PR #58)", () => {
   it("told but not read yet: the note says so, keeps its marks, and does not offer Tell the rest again", async () => {
     const w = await world();
-    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    const first = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
     await tellRest(w, first, THINGS.slice(8), { run: false });
     expect((await liveLines(w)).length).toBe(8);
 
@@ -394,7 +399,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
   it("the later note's understanding failed: said so, nothing claimed; Undo on it brings Tell the rest back", async () => {
     const w = await world();
     const uh = new Understanding(w.store, () => w.engine.sync(), new Gateway(w.gateway), { maxAttempts: 1, clock: () => w.server.clock });
-    w.gateway.propose(TEN, proposals(THINGS));
+    w.gateway.propose(TEN, proposals(THINGS.slice(0, 8)), { lost: THINGS.slice(8) });
     const c = await w.repos.captures.tell(TEN, { aiEnabled: true, timeZone: TZ, contextPersonId: w.priya.id });
     await uh.told(c.id);
     await uh.run();
@@ -425,11 +430,11 @@ describe("what a later note did, from the evidence only (founder review of PR #5
 
   it("the later note was read but was itself partial: only the passage a kept line rests on is answered", async () => {
     const w = await world();
-    const first = await tell(w, TEN, THINGS, { context: w.priya });
-    // The rest, understood with nine proposals on its first passage and the tomatoes past the limit.
+    const first = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
+    // The rest, understood with eight proposals on its first passage and the tomatoes' passage not got to.
     const chessEight = ["is good at chess", "plays on Tuesdays", "likes chess", "keeps Tuesdays for chess", "has a chess night", "plays chess weekly", "enjoys chess", "plays chess"]
       .map((t) => ({ statement: `Priya ${t}`, evidence: THINGS[8] }));
-    await tellRest(w, first, [...chessEight, THINGS[9]]);
+    await tellRest(w, first, chessEight, { lost: [THINGS[9]] });
 
     const v = await review(w, first);
     expect(v.status).toBe(COPY.partialSome);
@@ -443,7 +448,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
 
   it("the later note was read but holds other words: nothing is answered, and it says so", async () => {
     const w = await world();
-    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    const first = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
     await tellRest(w, first, ["Priya got a dog"], { text: "Priya got a dog." });
     expect((await liveLines(w)).length).toBe(9);
 
@@ -458,7 +463,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
 
   it("the later note said the words but kept nothing on them: not answered", async () => {
     const w = await world();
-    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    const first = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
     // The model proposes nothing for the rest (as it may): read, nothing kept, nothing recovered.
     await tellRest(w, first, []);
     expect((await liveLines(w)).length).toBe(8);
@@ -468,7 +473,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
 
   it("Undo on the later note after it answered the first: the first is unfinished again, with its own lines intact", async () => {
     const w = await world();
-    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    const first = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
     const second = await tellRest(w, first, THINGS.slice(8));
     expect((await review(w, first)).partial!.resolved).toBe(true);
 
@@ -489,7 +494,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
     const w = await world();
     const nine = THINGS.slice(0, 9).map((t) => `${t}.`).join(" ");
     // The model's tenth proposal quotes words the note does not have.
-    const first = await tell(w, nine, [...THINGS.slice(0, 9), { statement: "Priya runs marathons" }], { context: w.priya });
+    const first = await tell(w, nine, THINGS.slice(0, 8), { context: w.priya, lost: [THINGS[8]], unlocated: 1 });
     expect((await w.repos.captures.get(first))!.coverage).toEqual({ v: 1, unprocessed: [span(nine, THINGS[8])], unlocated: 1 });
     expect(await w.understanding.restOf(first)).toEqual({ text: THINGS[8], personId: w.priya.id });
 
@@ -508,7 +513,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
     const w = await world();
     const sentence = "Priya loves jazz and plays chess on Tuesdays";
     const text = [...THINGS.slice(1, 8), sentence].map((t) => `${t}.`).join(" ");
-    const first = await tell(w, text, [...THINGS.slice(1, 8), { statement: "Priya loves jazz", evidence: sentence }, { statement: "Priya plays chess on Tuesdays", evidence: sentence }], { context: w.priya });
+    const first = await tell(w, text, [...THINGS.slice(1, 8), { statement: "Priya loves jazz", evidence: sentence }], { context: w.priya, lost: [sentence] });
     expect((await liveLines(w)).map((l) => l.statement)).toContain("Priya loves jazz");
     expect((await liveLines(w)).map((l) => l.statement)).not.toContain("Priya plays chess on Tuesdays");
     expect((await w.repos.captures.get(first))!.coverage).toEqual({ v: 1, unprocessed: [span(text, sentence)], unlocated: 0 });
@@ -535,7 +540,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
     const w = await world();
     const mixed = [...THINGS.slice(0, 8), "Ben runs marathons", "Priya grows tomatoes"];
     const text = mixed.map((t) => `${t}.`).join(" ");
-    const first = await tell(w, text, mixed.map((t) => ({ statement: t, person: t.startsWith("Ben") ? "Ben" : "Priya" })), { context: null });
+    const first = await tell(w, text, THINGS.slice(0, 8).map((t) => ({ statement: t, person: "Priya" })), { context: null, lost: ["Ben runs marathons", "Priya grows tomatoes"] });
     expect(await w.understanding.restOf(first)).toEqual({ text: "Ben runs marathons Priya grows tomatoes", personId: null });
 
     // Ben's part alone first: one passage answered, the other still marked and still Priya's to tell.
@@ -556,7 +561,7 @@ describe("what a later note did, from the evidence only (founder review of PR #5
     const w = await world();
     const things = [...THINGS.slice(0, 9), "She grows tomatoes"];
     const text = things.map((t) => `${t}.`).join(" ");
-    const first = await tell(w, text, things.map((t) => (t.startsWith("She") ? { statement: t, person: "unknown", mention: "She" } : t)), { context: w.priya });
+    const first = await tell(w, text, THINGS.slice(0, 8), { context: w.priya, lost: [THINGS[8], "She grows tomatoes"] });
     expect(await w.understanding.restOf(first)).toEqual({ text: `${THINGS[8]} She grows tomatoes`, personId: w.priya.id });
 
     // The model files "She" as unknown: the line is held for "who?", not kept; the first note is not answered by it.
@@ -587,7 +592,7 @@ describe("repeating a passage is not remembering what was missed (founder, final
 
   /** The first note: seven plain things and the compound sentence; jazz kept from it, chess lost to the limit. */
   async function compoundFirst(w: World): Promise<string> {
-    const first = await tell(w, compound, [...THINGS.slice(1, 8), jazz, chess], { context: w.priya });
+    const first = await tell(w, compound, [...THINGS.slice(1, 8), jazz], { context: w.priya, lost: [sentence] });
     expect((await liveLines(w)).map((l) => l.statement)).toContain("Priya loves jazz");
     expect((await liveLines(w)).map((l) => l.statement)).not.toContain("Priya plays chess on Tuesdays");
     expect(await w.understanding.restOf(first)).toEqual({ text: sentence, personId: w.priya.id });
@@ -634,7 +639,7 @@ describe("repeating a passage is not remembering what was missed (founder, final
     const w = await world();
     const two = "Priya plays chess on Tuesdays and grows tomatoes";
     const text = [...THINGS.slice(0, 8), two].map((t) => `${t}.`).join(" ");
-    const first = await tell(w, text, [...THINGS.slice(0, 8), { statement: "Priya plays chess on Tuesdays", evidence: two }, { statement: "Priya grows tomatoes", evidence: two }], { context: w.priya });
+    const first = await tell(w, text, THINGS.slice(0, 8), { context: w.priya, lost: [two, two] });
     // The record keeps one span per lost proposal: two things were lost on these words.
     expect((await w.repos.captures.get(first))!.coverage).toEqual({ v: 1, unprocessed: [span(text, two), span(text, two)], unlocated: 0 });
     expect((await review(w, first)).partial!.unprocessed).toEqual([span(text, two)]);
@@ -652,7 +657,7 @@ describe("repeating a passage is not remembering what was missed (founder, final
 
   it("a new line on the passage that is one of the first note's lines from elsewhere is not recovery either", async () => {
     const w = await world();
-    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    const first = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
     // The later note says the two passages; the model keeps "Priya loves jazz" (the first note's first line) resting on them.
     await tellRest(w, first, [{ statement: "Priya loves jazz", evidence: THINGS[8] }]);
     const v = await review(w, first);
@@ -661,7 +666,7 @@ describe("repeating a passage is not remembering what was missed (founder, final
 
   it("ordinary recovery stands: a plain passage, lost once, with a new line on its words in a read later note", async () => {
     const w = await world();
-    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    const first = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
     await tellRest(w, first, THINGS.slice(8));
     const v = await review(w, first);
     expect([v.partial!.resolved, v.partial!.recovered, v.partial!.uncertain, v.status]).toEqual([true, 2, 0, null]);
@@ -680,7 +685,7 @@ describe("the Tell flow (Option A)", () => {
 
   it("Tell the rest puts the words not got to in the field, about the note's person, and the next Keep links back", async () => {
     const w = await world();
-    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    const first = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
     let r: TestRenderer.ReactTestRenderer | null = null;
     await act(async () => {
       r = TestRenderer.create(<TellFlowProvider><Probe /></TellFlowProvider>);
@@ -707,7 +712,7 @@ describe("the Tell flow (Option A)", () => {
 
   it("a person's page tells the rest through its own sheet: the link is carried once, then answered (simulator finding, 19 Oct)", async () => {
     const w = await world();
-    const first = await tell(w, TEN, THINGS, { context: w.priya });
+    const first = await tell(w, TEN, THINGS.slice(0, 8), { context: w.priya, lost: THINGS.slice(8) });
     let r: TestRenderer.ReactTestRenderer | null = null;
     const person = { id: w.priya.id, name: "Priya" };
     await act(async () => {

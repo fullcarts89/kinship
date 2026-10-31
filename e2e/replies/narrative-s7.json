@@ -1,0 +1,167 @@
+{
+ "note": "Felix is considering moving to Denver next spring. He's still in Oakland and hasn't decided whether to take the offer.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s7 page, on the page; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "thread",
+      "person": "@Felix",
+      "person_mention": "Felix",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Felix is considering moving to Denver next spring and hasn't decided whether to take the offer",
+      "evidence": [
+       "Felix is considering moving to Denver next spring.",
+       "hasn't decided whether to take the offer"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "next spring",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "moving to Denver",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Felix",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Felix lives in Oakland",
+      "evidence": [
+       "He's still in Oakland"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "home",
+       "attribute": "lives in",
+       "value": "Oakland",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s7 general; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "thread",
+      "person": "@Felix",
+      "person_mention": "Felix",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Felix is considering moving to Denver next spring and hasn't decided whether to take the offer",
+      "evidence": [
+       "Felix is considering moving to Denver next spring.",
+       "hasn't decided whether to take the offer"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "next spring",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "moving to Denver",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Felix",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Felix lives in Oakland",
+      "evidence": [
+       "He's still in Oakland"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "home",
+       "attribute": "lives in",
+       "value": "Oakland",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

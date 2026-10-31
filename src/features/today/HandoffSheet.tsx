@@ -7,6 +7,8 @@ import { View } from "react-native";
 import { space } from "@/design/tokens";
 import { CHANNEL_LABEL, type HandoffChannel } from "@/platform/handoff";
 import { Body, Heading, Label, Pill, Sheet, Small } from "@/ui";
+import { SuggestionLine } from "./SuggestionLine";
+import type { Suggestion } from "./suggestions";
 
 export interface HandoffSheetProps {
   visible: boolean;
@@ -24,6 +26,9 @@ export interface HandoffSheetProps {
   onDismiss: () => void;
   /** Whether returning brings the "Did you reach…?" line (a reason's hand-off). */
   returnCheck: boolean;
+  /** SUA-1 (FD-30d, WS-3): one quiet "You could…" line under the channels, or none; a tap opens Messages. */
+  suggestion?: Suggestion | null;
+  onSuggestion?: () => void;
 }
 
 export function HandoffSheet(props: HandoffSheetProps) {
@@ -61,6 +66,7 @@ export function HandoffSheet(props: HandoffSheetProps) {
               ))}
             </View>
           ) : null}
+          <SuggestionLine suggestion={props.suggestion} personName={props.personName} onPress={props.onSuggestion} />
         </>
       ) : (
         <View style={{ marginTop: space.xl }}>

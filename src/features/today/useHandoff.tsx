@@ -2,12 +2,14 @@
 // them from their contact on this phone (choosing the contact once if it
 // isn't linked yet), opens the channel, and, for a reason, remembers it for
 // the return check.
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { usePeople, useTodayActions } from "@/hooks/useV2";
+import { track } from "@/platform/analytics";
 import { handoffFor, type HandoffReason } from "@/store/returnLoop";
 import { channelsFor, openChannel, pickContact, routesFor, type ContactRoutes, type HandoffChannel } from "@/platform/handoff";
 import { HandoffSheet } from "./HandoffSheet";
+import type { Suggestion } from "./suggestions";
 
 export interface HandoffRequest {
   personId: string;
@@ -17,6 +19,8 @@ export interface HandoffRequest {
   opener?: string | null;
   /** Present when the hand-off acts on a reason (it gets a return check, with the reason). */
   reason?: HandoffReason;
+  /** SUA-1 (FD-30d): one quiet "You could…" line on the sheet, or none. */
+  suggestion?: Suggestion | null;
 }
 
 /**
@@ -35,6 +39,10 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
   const opening = useRef(false);
 
   const close = () => setReq(null);
+  // What Kinship suggested, content-free (SUA-1): once per sheet shown with a line on it.
+  useEffect(() => {
+    if (req?.suggestion) track("gesture_shown", { kind: req.suggestion.kind, surface: "handoff" });
+  }, [req]);
 
   const openWith = useCallback(async (r: HandoffRequest, rt: ContactRoutes, channel: HandoffChannel): Promise<boolean> => {
     if (opening.current) return false;
@@ -80,6 +88,18 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
     if (await openWith(req, routes, channel)) close();
   };
 
+  // The "You could…" line tapped: the same hand-off, into Messages, nothing pre-written; what the user
+  // initiated travels with the reason so a Yes can ask its one optional question (kept apart from the
+  // suggestion itself, and from what the user then confirms).
+  const suggest = async () => {
+    if (!req || !routes || !req.suggestion) return;
+    track("gesture_tapped", { kind: req.suggestion.kind, surface: "handoff" });
+    const withGesture: HandoffRequest = req.reason ? { ...req, reason: { ...req.reason, gesture: req.suggestion.kind } } : req;
+    const channel: HandoffChannel = channelsFor(routes).includes("text") ? "text" : channelsFor(routes)[0];
+    if (!channel) return;
+    if (await openWith(withGesture, routes, channel)) close();
+  };
+
   const choose = async () => {
     if (!req) return;
     const picked = await pickContact();
@@ -101,6 +121,8 @@ export function useHandoff(): { sheet: React.ReactNode; start: (r: HandoffReques
       onChooseContact={() => void choose()}
       onDismiss={close}
       returnCheck={!!req.reason}
+      suggestion={req.suggestion ?? null}
+      onSuggestion={() => void suggest()}
     />
   ) : null;
   return { sheet, start };

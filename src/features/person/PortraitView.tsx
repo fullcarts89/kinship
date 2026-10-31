@@ -71,6 +71,9 @@ export interface PortraitViewProps {
   stateLine?: string | null;
   /** What the line means, read to screen readers with it. */
   stateExplain?: string | null;
+  /** People merged into them that can still be undone (PER-05), each as one quiet line. */
+  merged?: { id: string; line: string }[];
+  onUndoMerge?: (mergeId: string) => void;
   /** Tapping the name corrects it (H1). */
   onRename?: () => void;
   lately: PortraitLineData[];
@@ -108,8 +111,12 @@ export interface PortraitViewProps {
    * Back from a conversation Kinship opened with them, from here or from Today (founder K23): the same
    * return question Today asks, "Did you reach John?", with what it was about.
    */
-  returnCheck?: { ask: string; about: string | null } | null;
-  onReturn?: (answer: "yes" | "not_yet") => void;
+  returnCheck?: { ask: string; about: string | null; type?: string } | null;
+  /** "put_aside" is "Didn't happen", offered only on a promise's return check (RSN-06, WS-3). */
+  onReturn?: (answer: "yes" | "not_yet" | "put_aside") => void;
+  /** After a Yes that followed a "You could…" tap (SUA-1, FD-30d; WS-3): one optional question, Yes · Not yet. */
+  afterGesture?: { ask: string } | null;
+  onGesture?: (answer: "yes" | "not_yet") => void;
   /**
    * After a Yes (founder I2, K28): "Anything worth remembering from talking with Susan?", optional and never
    * blocking, as Today asks it. Tell Kinship opens Tell about them; Nothing today changes nothing.
@@ -300,6 +307,13 @@ export function PortraitView(props: PortraitViewProps) {
         accessibilityHint={props.onRename ? "Double-tap to change their name" : undefined}
       />
       {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
+      {/* Someone merged into them (PER-05): said once, with Undo while it can be undone. */}
+      {props.merged?.map((m) => (
+        <View key={m.id} style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: space.xs, marginLeft: -space.xs }}>
+          <Small style={{ marginLeft: space.xs }}>{m.line}</Small>
+          {props.onUndoMerge ? <Pill variant="quiet" size="small" label="Undo" accessibilityLabel={`Undo: ${m.line}`} onPress={() => props.onUndoMerge?.(m.id)} /> : null}
+        </View>
+      ))}
       {/* A visible Edit beside the name (founder I3): the name, and Remove from People; and the user's own photo (FD-30b). */}
       {props.onRename || props.onPhoto ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginLeft: -space.xs }}>
@@ -330,7 +344,15 @@ export function PortraitView(props: PortraitViewProps) {
         </Body>
       ) : null}
 
-      {props.afterReturn ? (
+      {props.afterGesture ? (
+        <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
+          <MomentText>{props.afterGesture.ask}</MomentText>
+          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+            <Pill size="small" fixedLabel label="Yes" onPress={() => props.onGesture?.("yes")} />
+            <Pill size="small" fixedLabel label="Not yet" onPress={() => props.onGesture?.("not_yet")} />
+          </View>
+        </View>
+      ) : props.afterReturn ? (
         <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
           <MomentText>{props.afterReturn.followUp}</MomentText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
@@ -342,9 +364,10 @@ export function PortraitView(props: PortraitViewProps) {
         <View style={{ marginTop: space.xl }} accessibilityLiveRegion="polite">
           <MomentText>{props.returnCheck.ask}</MomentText>
           {props.returnCheck.about ? <Small style={{ marginTop: space.xs }}>{props.returnCheck.about}</Small> : null}
-          <View style={{ flexDirection: "row", gap: space.s, marginTop: space.m }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
             <Pill size="small" fixedLabel label="Yes" onPress={() => props.onReturn?.("yes")} />
             <Pill size="small" fixedLabel label="Not yet" onPress={() => props.onReturn?.("not_yet")} />
+            {props.returnCheck.type === "promise" ? <Pill size="small" variant="quiet" label="Didn't happen" onPress={() => props.onReturn?.("put_aside")} /> : null}
           </View>
         </View>
       ) : null}

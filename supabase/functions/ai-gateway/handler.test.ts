@@ -20,6 +20,9 @@ import {
   type WriteItem,
 } from "./handler.ts";
 
+function ok(cond: unknown, msg: string): void {
+  if (!cond) throw new Error(msg);
+}
 function eq<T>(actual: T, expected: T, msg = ""): void {
   const a = JSON.stringify(actual);
   const e = JSON.stringify(expected);
@@ -84,6 +87,9 @@ function world(opts: {
   savedIds?: string[];
   /** The capture row's stored coverage (Option A). */
   coverage?: unknown;
+  /** The note this capture tells the rest of (CER-1): its id, words and page; `savedPeople` its kept lines' people. */
+  parent?: { id: string; note: string; context_person_id?: string | null };
+  savedPeople?: string[];
   resolveResult?: Awaited<ReturnType<ServiceOps["resolve"]>> | ServiceError;
   closes?: boolean;
   /** Memory already kept, per person (loadItems answers for the ids asked). */
@@ -115,11 +121,16 @@ function world(opts: {
       return Promise.resolve(opts.quota ?? true);
     },
     flagEnabled: (key) => Promise.resolve(key === "ai_extraction" && (opts.flag ?? true)),
-    loadCapture: (id) =>
-      Promise.resolve(opts.capture === false || id !== CAPTURE ? null : {
+    loadCapture: (id) => {
+      if (opts.parent && id === opts.parent.id) {
+        return Promise.resolve({ id, raw_text: opts.parent.note, occurred_at: "2026-10-09T01:00:00Z", time_zone: "America/Chicago", context_person_id: opts.parent.context_person_id ?? null });
+      }
+      return Promise.resolve(opts.capture === false || id !== CAPTURE ? null : {
         id, raw_text: opts.note ?? NOTE, occurred_at: "2026-10-09T02:14:00Z", time_zone: "America/Chicago", context_person_id: null,
         ...(opts.coverage !== undefined ? { coverage: opts.coverage } : {}),
-      }),
+        ...(opts.parent ? { continues_capture_id: opts.parent.id } : {}),
+      });
+    },
     loadPeople: () => Promise.resolve({
       people: opts.people ?? [{ id: "person-ben", display_name: "Ben", full_name: "Ben Ortiz", nicknames: [], relationship_label: "college roommate", state: "active" }],
       related: [],
@@ -139,6 +150,7 @@ function world(opts: {
     loadFacets: (ids) => Promise.resolve(opts.facets === null ? null : (opts.facets ?? []).filter((f) => ids.includes(f.memory_item_id))),
     loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
     loadSavedIds: () => Promise.resolve(opts.savedIds ?? []),
+    loadSavedPeople: () => Promise.resolve(opts.savedPeople ?? []),
     closeReview: (id) => {
       w.closes.push(id);
       return Promise.resolve(opts.closes ?? true);
@@ -267,7 +279,7 @@ Deno.test("the vertical slice end to end: model → pipeline → one write → c
   eq(body.saved[0].id, "item-0");
   eq(w.writes.length, 1);
   eq(w.writes[0].needsReview, false);
-  eq(w.writes[0].version, "relationship_extract/v6+claude-opus-5-5");
+  eq(w.writes[0].version, "relationship_extract/v7+claude-opus-5-5");
   eq(w.writes[0].items[0].spans, [{ start: 0, end: 23 }, { start: 25, end: 56 }]);
   eq(w.writes[0].items[0].person_id, "person-ben");
   // The model saw the server's data, never the request body's.
@@ -868,21 +880,79 @@ const nineProposal = (n = 9) => ({
   needs_clarification: null,
 });
 
-Deno.test("Option A: a note with more than the understanding takes is told so, with the words left out, before its lines are written", async () => {
+Deno.test("FD-30c: a note with nine things keeps nine; nothing is lost to a count and the note is whole", async () => {
   const w = world({ note: NINE_NOTE, model: { output: nineProposal() } });
   const { status, body } = await call(w, post(extract));
   eq(status, 200);
-  eq((body.saved as unknown[]).length, 8, "eight lines kept, as before");
-  const ninth = { start: NINE_NOTE.indexOf(NINE[8]), end: NINE_NOTE.indexOf(NINE[8]) + NINE[8].length };
-  eq(body.coverage, { state: "partial", unprocessed: [ninth], unlocated: 0 }, "the reply says what was left out, as the note's own words");
-  eq(w.coverages, [{ v: 1, unprocessed: [ninth], unlocated: 0 }], "the capture carries it, for every phone");
-  eq(w.ops.indexOf("setCoverage") < w.ops.indexOf("write"), true, "recorded before the lines, never a whole note by mistake");
-  eq(w.logs[0].items_dropped, 1);
-  eq(JSON.stringify(w.coverages).includes("tomatoes"), false, "offsets only, never words");
+  eq((body.saved as unknown[]).length, 9, "every proposal judged, every one kept");
+  eq(body.coverage, { state: "complete", unprocessed: [], unlocated: 0 });
+  eq(w.coverages, [], "a whole note never touches coverage");
+  eq(w.logs[0].items_dropped, 0);
+});
+
+Deno.test("FD-30c: a long note is understood in passages, each call seeing the whole note; a failed passage is recorded as not got to, never silent", async () => {
+  // Twenty things said at length, past LONG_NOTE_CHARS: three passages. The second passage's call times out.
+  const HOBBIES = ["loves jazz", "took up pottery", "started cycling", "is learning Italian", "joined a choir", "bought a kayak", "reads Russian novels", "collects stamps", "grows tomatoes", "plays chess on Tuesdays", "runs on Saturdays", "bakes sourdough", "paints landscapes", "studies astronomy", "restores furniture", "keeps bees", "writes haiku", "brews kombucha", "climbs on Thursdays", "plays the cello"];
+  const THINGS = HOBBIES.map((h) => `Ben ${h} and talks about it whenever we meet up`);
+  const note = THINGS.map((t) => `${t}.`).join(" ");
+  const proposalsFor = (content: string) => {
+    const passage = content.match(/<passage>\n([\s\S]*?)\n<\/passage>/u)?.[1] ?? "";
+    return {
+      items: THINGS.filter((t) => passage.includes(t)).map((t) => ({
+        ...BEN_PROPOSAL.items[0], kind: "fact", statement: t, evidence: [t], date_text: null, date_direction: "unclear",
+        detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "interest", topic: t },
+      })),
+      needs_clarification: null,
+    };
+  };
+  const w = world({ note });
+  let n = 0;
+  w.deps.model = (req) => {
+    w.modelCalls.push(req);
+    n++;
+    if (n === 2) return Promise.resolve({ outcome: "timeout", output: null, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, latencyMs: 45_000, errorKind: "timeout" } as StructuredResult);
+    return Promise.resolve({ outcome: "ok", output: proposalsFor(req.content), usage: { input: 2100, output: 900, cacheRead: 1800, cacheWrite: 0 }, latencyMs: 9000, errorKind: null } as StructuredResult);
+  };
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200);
+  eq(w.modelCalls.length, 3, "three passages, three calls");
+  ok(w.modelCalls.every((c) => c.content.includes(`<note>\n${note}\n</note>`)), "every call sees the whole note");
+  ok(w.modelCalls.every((c) => /<passage>\n[\s\S]+\n<\/passage>/u.test(c.content)), "and its own passage");
+  const saved = body.saved as { statement: string }[];
+  ok(saved.length >= 12 && saved.length < 20, `the two answered passages' things are kept (${saved.length})`);
+  const cov = body.coverage as { state: string; unprocessed: { start: number; end: number }[] };
+  eq(cov.state, "partial");
+  eq(cov.unprocessed.length, 1, "the one passage that got no answer");
+  const words = Array.from(note).slice(cov.unprocessed[0].start, cov.unprocessed[0].end).join("");
+  ok(THINGS.some((t) => words.includes(t)), `the passage's own words: ${words.slice(0, 60)}`);
+  eq(w.coverages.length, 1, "the capture carries it, for every phone");
+  eq(JSON.stringify(w.coverages).includes("Ben"), false, "offsets only, never words");
+  eq(w.logs[0].input_tokens, 4200, "usage is the sum over the passages");
+});
+
+Deno.test("CER-1: a note that tells the rest of an earlier one carries that note as context, and its person when told from no page", async () => {
+  const parent = { id: "00000000-0000-0000-0000-000000000c00", note: "Mina collects records, loves jazz and plays chess on Thursdays." };
+  const w = world({
+    note: "plays chess on Thursdays", parent, savedPeople: ["person-mina"],
+    people: [{ id: "person-mina", display_name: "Mina", full_name: "Mina Haddad", nicknames: [], relationship_label: "friend", state: "active" }],
+    model: { output: { items: [{
+      ...BEN_PROPOSAL.items[0], kind: "tradition", person: "p1", person_mention: null, statement: "Mina plays chess on Thursdays", evidence: ["plays chess on Thursdays"],
+      date_text: null, date_direction: "unclear", detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: null, recurrence: null, anchor: "Thursdays" },
+    }], needs_clarification: null } },
+  });
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200);
+  const content = w.modelCalls[0].content;
+  ok(content.includes(`<earlier_part>\n${parent.note}\n</earlier_part>`), "the earlier note goes to the model as context");
+  ok(content.includes("<opened_from>p1 Mina"), "the earlier note's one person stands in for the page");
+  ok(content.includes("<note>\nplays chess on Thursdays\n</note>"), "the note itself is only its own words");
+  eq((body.saved as unknown[]).length + (body.held as unknown[]).length, 1, "kept, never 'nothing to remember'");
+  const line = ((body.saved as { person_id: string }[])[0] ?? (body.held as { person_id: string }[])[0]);
+  eq(line.person_id, "person-mina");
 });
 
 Deno.test("Option A: a note taken whole clears an earlier coverage, and writes none when there was none", async () => {
-  const stale = world({ note: NINE_NOTE, model: { output: nineProposal(8) }, coverage: { v: 1, unprocessed: [{ start: 0, end: 5 }], unlocated: 0 } });
+  const stale = world({ note: NINE_NOTE, model: { output: nineProposal(9) }, coverage: { v: 1, unprocessed: [{ start: 0, end: 5 }], unlocated: 0 } });
   const { body } = await call(stale, post(extract));
   eq(body.coverage, { state: "complete", unprocessed: [], unlocated: 0 });
   eq(stale.coverages, [null], "the earlier record is cleared");

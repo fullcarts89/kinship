@@ -230,7 +230,7 @@ export function KeptCard({
       ))}
 
       {/* 2b. The note held more than the understanding could take (Option A): the rest is in the note,
-          marked, and the user can tell it again. Not "Try again": the same note would meet the same limit. */}
+          marked, and the user can tell it again (since FD-30c only a passage whose understanding failed). */}
       {kept && card.partial?.tellRest && onTellRest ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginTop: space.m }}>
           <Pill size="small" label={KEPT_COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to back in the Tell field, to tell again" onPress={onTellRest} />
