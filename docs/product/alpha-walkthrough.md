@@ -130,3 +130,23 @@ Same account as the fourth walk (fresh, live model, Release build of `0e9e3bb`; 
 **Final black-box sweep on `4274345`** (own gateway :8010, stub :8793, one suite at a time, database log 129 KB throughout): `k28` 3/3, `k20` 22/22, `narrative` 3/3, `showingup` 2/2, `k27` 2/2, `removal` 3/3, `k4` 36/36; `trustfloor` passes Pause, Merge and Export and fails only at Delete (the local Storage containers are stopped: environment, not product).
 
 **Not walked natively on the final head (and why):** Merge-with-someone through the screens (the control is present; `trustfloor` proves the merge and its Undo through the real screens in black-box), Pause / Remembered / Resume on the redesigned person page (walked on the pre-redesign build; the redesigned page was seen with the controls), dark mode, large text and the iPhone 17e on the redesigned screens, Delete account, and the lock-screen banner tap. These are the rows the founder's own native pass should cover first.
+
+## Sixth walk: the last build (31 Oct, integration `5f3ea55`; screen `r7-01`)
+
+Release build of the final head (WS-1 `bd9bfb1` incl. migration `20261031110000_v2_many_held_items`, WS-2 `00fa683` text scrim), installed over the previous app so the account and its data stayed. Gateways restarted on this code.
+
+| Step | What happened | Result | Screens |
+|---|---|---|---|
+| **The unnamed note, re-sent from Today** | *"Actually the Pilsen move slipped again, it's December 6 now."* with Leo's move already on record → in 2.0 s the sheet **"Who is this about?"** (the whole note quoted, Choose who · Don't keep this); never "Nothing to remember in that one." | **PASS** (WS-1 `57863f4`) | r7-01 |
+
+**Final status of the rows the coordinator asked for, honestly:**
+
+| Row | Status |
+|---|---|
+| Native re-send of the unnamed note | **PASS** (above) |
+| Pause / Remembered / Resume / merge on the REDESIGNED person page | **NOT RUN natively on the final build.** Walked on the pre-redesign build (walk 2: Paused line, Today silent about the person, Settings › Paused and remembered › Resume, Remembered's second confirmation, export). On the redesigned page the controls were seen (Edit sheet: Pause, Hold as remembered, Merge with someone, Remove from People, r6-03); merge and Undo are proven through the real screens in black-box (`trustfloor`) |
+| Dark mode, large text, iPhone 17e on the redesigned screens | **NOT RUN on the final build.** WS-2 walked these natively on its own 17e (light, dark, largest text; `13-person-no-photo`, `22-dark-person`, `25-ax-person` on PR #71) and the scrim commit `00fa683` is the fix for the overlap I reported; I did not re-confirm it on my build |
+| Delete account | **NOT RUN natively, environment:** the local Storage containers are stopped and starting them would be a shared-stack change; proven in black-box and pgTAP |
+| Lock-screen banner tap | NOT RUN (the simulator lock screen does not route it) |
+
+These five are the first things the founder's native pass (FOUNDER-DEVICE) should cover. Nothing in them is a known failure; they are simply not evidenced on the final build.

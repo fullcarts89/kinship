@@ -261,6 +261,10 @@ WS-1 `181eb5b` merged (integration `0e9e3bb`, no new migration beyond `202610311
 
 **Still open before READY FOR FOUNDER NATIVE PASS:** the rows not walked on the final head (thread check-in, Paused / Remembered / merge on the redesigned person page, dark / large text / iPhone 17e, Delete), a final black-box sweep on the last head, and the final acceptance scenarios against the redesigned UI. Readiness: **NOT READY** until those pass.
 
+### Pass 11 (31 Oct, afternoon): final head `5f3ea55`
+
+WS-1 `bd9bfb1` (migration `20261031110000_v2_many_held_items`, applied locally; held items past eight no longer fail a note) and WS-2 `00fa683` (a text scrim behind the poster name and Today's statement) merged; WS-1's `57863f4` earlier. tsc / eslint clean, Jest 114 / 1108, Deno 486; `narrative` 3/3 and the now-current Option A `narratives` 4/4 on a restarted gateway; the previous sweep (k28, k20, showingup, k27, removal, k4) was green on `4274345`. Final Release build installed over the existing account; the unnamed-note re-send passes natively. **Migrations that must reach production before the gateway deploy: `20261031090000_v2_many_items_per_note`, `20261031100000_v2_user_chosen_closure`, `20261031110000_v2_many_held_items`** (plus WS-4's `20261030090000_v2_trust_floor` and WS-3's `20261030120000_v2_showing_up_moment_types`, which reach production on merge). Not evidenced on the final build: Pause/Remembered/Resume/merge on the redesigned page, dark / large text / 17e, Delete (environment). Readiness: **NOT READY** until the founder's native pass covers those.
+
 ### Open in WS-5
 
 The Release-simulator journey with the live model (after WS-4 leaves the iPhone 18 Pro); the walkthrough and screenshots; the serialized black-box set and the live-probe re-run after `5557dae`; WS-3/WS-6 heads when they land, WS-2 last; the PR description after each pass.
