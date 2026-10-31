@@ -13,7 +13,7 @@ import { press, radius, size, space, TOUCH } from "@/design/tokens";
 import type { HeldAnswer } from "@/store/gateway";
 import type { SwitchableKind } from "@/store/memoryDetail";
 import type { Person } from "@/store/repositories";
-import { Body, Label, Line, Pill, Sheet, Small, Title, Token, TokenRow, usePalette } from "@/ui";
+import { Body, Label, Line, Pill, SectionDot, Sheet, Small, Title, Token, TokenRow, usePalette } from "@/ui";
 import { DatePane, KindPane, namedChoices, PersonPane, WordsPane } from "./Pickers";
 import { answersFor, COPY, type ItemLine, type Question, type ReviewView } from "./reviewModel";
 
@@ -151,7 +151,12 @@ export function ReviewSheet(props: ReviewSheetProps) {
     const waiting = !!question && !view.answering;
     body = (
       <View>
-        {label && !questionOnly ? <Label>{label}</Label> : null}
+        {label && !questionOnly ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
+            <SectionDot accent="mark" />
+            <Label>{label}</Label>
+          </View>
+        ) : null}
         {questionOnly ? null : view.lines.length ? (
           <Title style={{ marginTop: label ? space.m : 0 }}>{`${COPY.remember}.`}</Title>
         ) : view.mode === "nothing" ? (
@@ -167,8 +172,9 @@ export function ReviewSheet(props: ReviewSheetProps) {
           </View>
         ) : null}
         {view.notice ? <Body tone="markText" style={{ marginTop: space.s }}>{view.notice}</Body> : null}
+        {/* What was kept, as a ledger behind the lime rule: the mark of something understood. */}
         {view.lines.length ? (
-          <View style={{ marginTop: space.xl, borderTopWidth: 1, borderTopColor: p.hairline }}>
+          <View style={{ marginTop: space.xl, borderLeftWidth: 2, borderLeftColor: p.mark, paddingLeft: space.l }}>
             {view.lines.map((line) => (
               <ReviewLine
                 key={line.id}
@@ -217,7 +223,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
             ) : null}
           </View>
           {!waiting ? (
-            <View style={{ marginTop: space.s }}>
+            <View style={{ marginTop: space.l }}>
               <Pill variant="primary" label="Done" onPress={act(props.onDone)} />
             </View>
           ) : null}
@@ -245,7 +251,7 @@ function ReviewLine({
 }) {
   const p = usePalette();
   return (
-    <View style={{ paddingVertical: space.m, borderBottomWidth: 1, borderBottomColor: p.hairline, flexDirection: "row", gap: space.m }}>
+    <View style={{ paddingVertical: space.m, flexDirection: "row", gap: space.m }}>
       <View style={{ flex: 1 }}>
         <Pressable
           style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.surface : 1 })}
@@ -336,7 +342,10 @@ function QuestionBlock({
   if (!boxed) {
     return (
       <View accessibilityLabel={q.prompt}>
-        <Label>{COPY.check}</Label>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
+          <SectionDot accent="butter" />
+          <Label>{COPY.check}</Label>
+        </View>
         <Title style={{ marginTop: space.m }}>{q.prompt}</Title>
         {about}
         {choices}
@@ -349,9 +358,12 @@ function QuestionBlock({
   return (
     <View
       accessibilityLabel={q.prompt}
-      style={{ marginTop: space.l, borderRadius: radius.inline, backgroundColor: p.paper, borderWidth: 1, borderColor: p.hairline, padding: space.l }}
+      style={{ marginTop: space.xl, borderLeftWidth: 2, borderLeftColor: p.butter, paddingLeft: space.l, paddingVertical: space.xs }}
     >
-      <Label>{COPY.check}</Label>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
+        <SectionDot accent="butter" />
+        <Label>{COPY.check}</Label>
+      </View>
       <Body tone="ink" style={{ marginTop: space.s }}>{q.prompt}</Body>
       {about}
       {choices}
