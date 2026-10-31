@@ -1,22 +1,31 @@
-// Today (Electric Garden, FD-30b): the date, a greeting, and the one moment
-// at poster scale: a dawn wash for the kind of day, the hero bloom cut by the
-// page's top right, the person's photo in the fluid mask with leaves crossing
-// in front (or, without a photo, their name filled with the bloom), the name,
-// the statement, the event, what they hoped for in the user's words, where it
-// came from, one primary action and "Not now"; then the week as quiet lines.
-// Or a quiet day: cooler, lower light, a bud from the page's edge, and one
-// sentence. The Tell field and the bar sit below (the tab layout). From plain
-// data: app/v2/(main)/index.tsx supplies it.
+// Today (Electric Garden, FD-30b; redesigned after the founder's review of PR #71): a relationship-led
+// page, composed rather than listed.
+//
+//   the masthead   the date in caps, the greeting in the user's serif
+//   the moment     at poster scale: the wash for the kind of day, the hero bloom cut by the page's
+//                  top right, the person (their photo in the fluid mask with leaves in front, or their
+//                  name as a window onto the bloom), the statement, the event, what they hoped for in
+//                  the user's own words, the source, then the human context: one or two things the
+//                  user has told Kinship about them that bear on it; one primary action and Not now
+//   the week       a dated ledger (the day in caps down a column, the line beside it), never
+//                  label-over-line rows; a question or a note to look at sits in the same ledger with
+//                  its quiet action
+//   a quiet day    its own composition: the greeting is the headline, one serif sentence says the
+//                  day is quiet, the week follows at once, a bud from the page's bottom edge
+//   first use      orientation under the same light, one clear next step
+//
+// The Tell field and the bar sit below (the tab layout). From plain data: app/v2/(main)/index.tsx
+// supplies it. Nothing here counts, ranks or scores; nothing sensitive reaches Today.
 import React from "react";
 import { useWindowDimensions, View } from "react-native";
 import { MessageCircle } from "lucide-react-native";
-import { art as artTokens, motion, press, space } from "@/design/tokens";
-import { Pressable } from "@/ui/Pressable";
+import { art as artTokens, motion, press, space, TOUCH } from "@/design/tokens";
 import {
-  Body, Botanical, Context, DawnWash, type DayKind, Display, FluidPhoto, Greeting, Label, MomentText, Pill, PosterName, Provenance, QuietLine, Quote,
-  Screen, Small, Statement, useReduceMotion, usePalette,
+  Body, Botanical, Context, DawnWash, type DayKind, Display, FluidPhoto, Greeting, Label, Line, MomentText, Pill, PosterName, Provenance, Quote,
+  Screen, SectionDot, SectionLabel, Small, Statement, useReduceMotion, usePalette, Week,
 } from "@/ui";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { Pressable } from "@/ui/Pressable";
 import type { QuietView, TodayView as TodayData } from "./todayModel";
 
 export interface TodayViewProps {
@@ -69,6 +78,13 @@ export interface TodayViewProps {
 /** The return check's third answer for a promise (RSN-06; copy a proposal, WS-3). */
 export const RETURN_COPY = {
   putAside: "Didn't happen",
+} as const;
+
+/** The week's and the context block's labels (copy a proposal). */
+export const TODAY_COPY = {
+  week: "This week",
+  context: "What you've told Kinship",
+  quiet: "Nothing needs you today.",
 } as const;
 
 export const FIRST_USE_COPY = {
@@ -145,9 +161,10 @@ export function TodayView(props: TodayViewProps) {
 
   return (
     <Screen footer={props.footer} art={art}>
+      {/* The masthead. On a quiet day the greeting is the headline. */}
       <View style={{ paddingTop: space.m }}>
         <Label>{view.dateLabel}</Label>
-        <Greeting style={{ marginTop: space.s }}>{view.greeting}</Greeting>
+        {quietDay ? <Display style={{ marginTop: space.m }}>{view.greeting}</Display> : <Greeting style={{ marginTop: space.s }}>{view.greeting}</Greeting>}
       </View>
 
       {props.afterGesture ? (
@@ -188,6 +205,7 @@ export function TodayView(props: TodayViewProps) {
           context={moment.context}
           hope={moment.hope ?? null}
           provenance={moment.provenance}
+          context2={moment.mention.filter((m) => m !== moment.statement && m !== moment.context && m !== (moment.hope ?? "")).slice(0, 2)}
           photoUri={photo}
           onOpen={props.onOpenMoment}
           onProvenance={props.onProvenance}
@@ -230,8 +248,8 @@ export function TodayView(props: TodayViewProps) {
           <Display>{view.waiting === "one" ? "One thing to check." : "A few things to check."}</Display>
         </View>
       ) : quietDay ? (
-        <View style={{ marginTop: space.x4 }}>
-          <Display>Nothing needs you today.</Display>
+        <View style={{ marginTop: space.l }}>
+          <MomentText tone="inkBody">{TODAY_COPY.quiet}</MomentText>
         </View>
       ) : null}
       {/* While a note just told is on screen (being understood, asked about or kept), the Tell dock alone
@@ -239,19 +257,60 @@ export function TodayView(props: TodayViewProps) {
           and a quiet day's headline waits until the note settles. */}
 
       {quiet.length ? (
-        <View style={{ marginTop: space.x3, borderTopWidth: 1, borderTopColor: p.hairline, paddingTop: space.l, gap: space.l }}>
-          {quiet.map((q, i) => (
-            <QuietLine
-              key={`${q.kind}${i}`}
-              label={q.label}
-              text={q.text}
-              action={q.kind === "question" || q.kind === "look" ? { label: q.action, onPress: () => props.onQuiet(q) } : undefined}
-              onPress={() => (q.kind === "more" ? setAllComing(true) : props.onQuiet(q))}
-            />
-          ))}
-        </View>
+        <WeekLedger
+          quiet={quiet}
+          spaced={!quietDay}
+          onOpen={(q) => (q.kind === "more" ? setAllComing(true) : props.onQuiet(q))}
+        />
       ) : null}
     </Screen>
+  );
+}
+
+/**
+ * The week as a dated ledger: the day in caps down a left column, the line beside it, each entry its
+ * own touch; a question or a note to look at keeps its quiet action at the end. Entries are set apart
+ * by space, never by hairlines. "and 2 more" opens the rest in place.
+ */
+function WeekLedger({ quiet, spaced, onOpen }: { quiet: QuietView[]; spaced: boolean; onOpen: (q: QuietView) => void }) {
+  const p = usePalette();
+  return (
+    <View style={{ marginTop: spaced ? space.x4 : space.xxl }}>
+      <SectionLabel section="comingUp">{TODAY_COPY.week}</SectionLabel>
+      <View style={{ marginTop: space.m, borderLeftWidth: 2, borderLeftColor: p.hairline, paddingLeft: space.l, gap: space.l }}>
+        {quiet.map((q, i) => {
+          const action = q.kind === "question" || q.kind === "look" ? q.action : null;
+          const waiting = q.kind === "question" || q.kind === "look" || q.kind === "understanding" || q.kind === "waiting";
+          return (
+            <View key={`${q.kind}${i}`} style={{ flexDirection: "row", alignItems: "flex-start", gap: space.m }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${q.label}: ${q.text}`}
+                onPress={() => onOpen(q)}
+                style={({ pressed }) => ({ flex: 1, minHeight: TOUCH, opacity: pressed ? press.surface : 1 })}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
+                  {waiting ? <SectionDot accent="butter" small /> : null}
+                  <Week tone={waiting ? "inkQuiet" : "ink"}>{q.label}</Week>
+                </View>
+                <Line style={{ marginTop: space.xs }}>{q.text}</Line>
+              </Pressable>
+              {action ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={action}
+                  onPress={() => onOpen(q)}
+                  hitSlop={space.s}
+                  style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.link : 1 })}
+                >
+                  <Small tone="ink">{action}</Small>
+                </Pressable>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -260,18 +319,21 @@ export function TodayView(props: TodayViewProps) {
  * photo → leaves → name. It arrives by rising and fading in; with Reduce
  * Motion, a 150 ms fade.
  */
-function Hero({ width, name, statement, context, hope, provenance, photoUri, onOpen, onProvenance, actions }: {
+function Hero({ width, name, statement, context, hope, provenance, context2, photoUri, onOpen, onProvenance, actions }: {
   width: number;
   name: string;
   statement: string;
   context: string | null;
   hope: string | null;
   provenance: string | null;
+  /** The human context: what the user has told Kinship about them that bears on this (at most two lines). */
+  context2: string[];
   photoUri: string | null;
   onOpen?: () => void;
   onProvenance: () => void;
   actions: React.ReactNode;
 }) {
+  const p = usePalette();
   const reduce = useReduceMotion();
   const rise = useSharedValue(reduce ? 0 : motion.hero.rise);
   const fade = useSharedValue(0);
@@ -319,6 +381,12 @@ function Hero({ width, name, statement, context, hope, provenance, photoUri, onO
       {provenance ? (
         <View style={{ marginTop: space.m }}>
           <Provenance line={provenance} onPress={onProvenance} />
+        </View>
+      ) : null}
+      {context2.length ? (
+        <View style={{ marginTop: space.xl, borderLeftWidth: 2, borderLeftColor: p.lavender, paddingLeft: space.l }} accessible accessibilityLabel={`${TODAY_COPY.context}: ${context2.join(". ")}`}>
+          <Label>{TODAY_COPY.context}</Label>
+          {context2.map((c) => <Line key={c} style={{ marginTop: space.xs }}>{c}</Line>)}
         </View>
       ) : null}
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.m, marginTop: space.xl }}>{actions}</View>

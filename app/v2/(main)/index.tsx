@@ -93,6 +93,8 @@ export default function TodayScreen() {
     return p ? shortName(p) || p.display_name : null;
   };
   const detail = view && detailKey ? detailFor(view, detailKey, today, nameOf) : null;
+  // The detail's person may differ from the moment's (a Coming up line): their own photo, if the user chose one.
+  const detailPortrait = usePersonPortrait(detail?.personId ?? null);
   useEffect(() => {
     if (detailKey && view && !detail) setDetailKey(null);
   }, [detailKey, view, detail]);
@@ -163,6 +165,7 @@ export default function TodayScreen() {
       />
       <MomentDetailSheet
         detail={detail}
+        photoUri={detailPortrait.uri}
         onDismiss={() => setDetailKey(null)}
         onMessage={() => detail && fromDetail(() => handoff.start({
           personId: detail.personId, personName: detail.personName, heading: detail.heading, mention: detail.mention, opener: detail.opener, reason: detail.reason,

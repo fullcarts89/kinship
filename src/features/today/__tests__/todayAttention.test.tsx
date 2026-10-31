@@ -54,6 +54,6 @@ it("K24: with something on Today, it stays while a note is read", () => {
     ...quiet, quietDay: false,
     quiet: [{ kind: "coming", label: "Tomorrow", text: "Call Matt", personId: "matt", itemId: "m", day: "2026-10-07", due: true, hope: null, provenance: null, noteId: null }],
   };
-  expect(shown(busy, true)).toEqual(["Tuesday, 6 October", "Good morning.", "Tomorrow", "Call Matt"]);
+  expect(shown(busy, true)).toEqual(["Tuesday, 6 October", "Good morning.", "This week", "Tomorrow", "Call Matt"]);
   expect(shown(busy, true).filter((t) => /Understanding/u.test(t))).toEqual([]);
 });
