@@ -34,6 +34,7 @@ export function Pill({
   style,
   fixedLabel = false,
   selected,
+  wrap = false,
 }: {
   label: string;
   onPress: () => void;
@@ -59,6 +60,8 @@ export function Pill({
   fixedLabel?: boolean;
   /** One of a few choices, the current one (read to screen readers as selected). */
   selected?: boolean;
+  /** A long label (a choice) wraps to several lines at full size; it never shrinks. Still 44 pt at least. */
+  wrap?: boolean;
 }) {
   const p = usePalette();
   const h = size === "regular" ? H.button : H.small;
@@ -76,12 +79,12 @@ export function Pill({
       disabled={disabled || busy}
       onPress={onPress}
       hitSlop={variant === "quiet" ? space.s : space.xs}
-      style={({ pressed }) => [{ opacity: disabled ? press.disabled : pressed ? press.surface : 1 }, variant === "quiet" || fixedLabel ? { flexShrink: 0 } : null, style]}
+      style={({ pressed }) => [{ opacity: disabled ? press.disabled : pressed ? press.surface : 1 }, variant === "quiet" || fixedLabel ? { flexShrink: 0 } : wrap ? { flexShrink: 1, maxWidth: "100%" } : null, style]}
     >
       <View
         style={{
           minHeight: variant === "quiet" ? TOUCH : h,
-          paddingVertical: large ? space.s : 0,
+          paddingVertical: large || wrap ? space.s : 0,
           paddingHorizontal: variant === "quiet" ? space.xs : dense ? space.s : size === "regular" ? space.xl : space.l,
           borderRadius: radius.pill(h),
           flexDirection: "row",
@@ -100,8 +103,8 @@ export function Pill({
         ) : null}
         {icon && !busy ? icon({ color: fg, size: SIZE.icon, strokeWidth: 1.8 }) : null}
         <Text
-          numberOfLines={large ? 2 : 1}
-          adjustsFontSizeToFit={!large && variant !== "quiet" && !fixedLabel}
+          numberOfLines={wrap ? 4 : large ? 2 : 1}
+          adjustsFontSizeToFit={!large && !wrap && variant !== "quiet" && !fixedLabel}
           minimumFontScale={0.8}
           maxFontSizeMultiplier={maxScale.label}
           style={[type.button, { color: fg, opacity: busy ? 0 : 1, flexShrink: 1, textAlign: "center" }]}

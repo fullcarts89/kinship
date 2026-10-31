@@ -334,6 +334,7 @@ function QuestionBlock({
         <Pill
           key={c.key}
           size="small"
+          wrap
           variant={!boxed && i === 0 && "answer" in c ? "primary" : "ghost"}
           label={c.label}
           onPress={() => ("answer" in c ? onChoose(c.answer, c.restore) : onPick(c.pick))}
