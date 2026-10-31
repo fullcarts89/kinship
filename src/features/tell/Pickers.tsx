@@ -268,26 +268,26 @@ export function NamePane({ initial, onSave, onCancel, onRemove, state, short, on
         <Pill variant="primary" label="Save" disabled={!name.trim() || name.trim() === initial} onPress={() => onSave(name)} />
       </View>
       {state && held && onResume ? (
-        <View style={{ marginTop: space.xl }}>
-          <Small>{`${HOLD_COPY[state].line} · ${HOLD_COPY[state].explain(who)}`}</Small>
-          <View style={{ alignItems: "flex-start", marginTop: space.s, marginLeft: -space.xs }}>
+        <View style={{ marginTop: space.xl, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline }}>
+          <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
             <Pill variant="quiet" size="small" label={HOLD_COPY[state].resume} accessibilityLabel={`${HOLD_COPY[state].resume} ${who}`} onPress={onResume} />
           </View>
+          <Small style={{ marginTop: space.xs }}>{`${HOLD_COPY[state].line} · ${HOLD_COPY[state].explain(who)}`}</Small>
         </View>
       ) : null}
       {state === "active" && onHold ? (
-        <View style={{ marginTop: space.xl, gap: space.m }}>
+        <View style={{ marginTop: space.xl, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline, gap: space.l }}>
           <View>
-            <Small>{HOLD_COPY.paused.explain(who)}</Small>
-            <View style={{ alignItems: "flex-start", marginTop: space.xs, marginLeft: -space.xs }}>
+            <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
               <Pill variant="quiet" size="small" label={HOLD_COPY.paused.action} accessibilityLabel={`${HOLD_COPY.paused.action} ${who}`} onPress={() => onHold("paused")} />
             </View>
+            <Small style={{ marginTop: space.xs }}>{HOLD_COPY.paused.explain(who)}</Small>
           </View>
           <View>
-            <Small>{HOLD_COPY.remembered.explain(who)}</Small>
-            <View style={{ alignItems: "flex-start", marginTop: space.xs, marginLeft: -space.xs }}>
+            <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
               <Pill variant="quiet" size="small" label={HOLD_COPY.remembered.action} accessibilityLabel={`${HOLD_COPY.remembered.action}: ${who}`} onPress={() => onHold("remembered")} />
             </View>
+            <Small style={{ marginTop: space.xs }}>{HOLD_COPY.remembered.explain(who)}</Small>
           </View>
         </View>
       ) : null}

@@ -8,6 +8,8 @@ import { Pressable } from "@/ui/Pressable";
 import { press, space } from "@/design/tokens";
 import type { Correction } from "@/features/tell/ReviewSheet";
 import { DatePane, KindPane, namedChoices, PersonPane, WordsPane } from "@/features/tell/Pickers";
+import { deviceZone, proposedDay } from "@/features/tell/wordsDate";
+import { dayLabel } from "@/features/memory/format";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { Person } from "@/store/repositories";
 import { MomentText, Pill, Provenance, Sheet, Small, Token, TokenRow, usePalette } from "@/ui";
@@ -34,11 +36,19 @@ export interface ItemSheetProps {
 
 export function ItemSheet(props: ItemSheetProps) {
   const [pane, setPane] = useState<Pane>(props.initialPane ?? "item");
+  // After a words edit that names another day: the day to ask about (never applied silently).
+  const [proposed, setProposed] = useState<string | null>(null);
   useEffect(() => {
-    if (!props.visible) setPane("item");
+    if (!props.visible) {
+      setPane("item");
+      setProposed(null);
+    }
   }, [props.visible]);
   const it = props.item;
-  const back = () => setPane("item");
+  const back = () => {
+    setProposed(null);
+    setPane("item");
+  };
   let body: React.ReactNode = null;
   if (it) {
     const { line } = it;
@@ -48,14 +58,22 @@ export function ItemSheet(props: ItemSheetProps) {
         onPick={(id) => { props.onCorrect(line.id, { person_id: id }); back(); }}
         onAdd={(name, bringBack) => { props.onCorrect(line.id, { new_person: name, ...(bringBack ? { bring_back: bringBack } : {}) }); back(); }} />;
     } else if (pane === "date") {
-      body = <DatePane title="When is it?" initial={line.when?.value ?? null} today={props.today} allowNone onCancel={back}
+      body = <DatePane title={proposed ? `Is it now ${dayLabel(proposed, props.today)}?` : "When is it?"} initial={proposed ?? line.when?.value ?? null} today={props.today} allowNone={!proposed} onCancel={back}
         onPick={(day) => { props.onCorrect(line.id, { date: day }); back(); }} />;
     } else if (pane === "kind") {
       body = <KindPane current={line.kind.value} owner={line.kind.owner} onCancel={back}
         onPick={(k) => { props.onCorrect(line.id, { kind: k }); back(); }}
         onOwner={(o) => { props.onCorrect(line.id, { owner: o }); back(); }} />;
     } else if (pane === "words") {
-      body = <WordsPane initial={line.statement} onCancel={back} onSave={(w) => { props.onCorrect(line.id, { statement: w }); back(); }} />;
+      body = <WordsPane initial={line.statement} onCancel={back} onSave={(w) => {
+        props.onCorrect(line.id, { statement: w });
+        // The words name another day: ask, in this sheet, before the line says two (never a silent change).
+        const day = proposedDay(line, w, new Date().toISOString(), deviceZone());
+        if (day) {
+          setProposed(day);
+          setPane("date");
+        } else back();
+      }} />;
     } else {
       body = (
         <View>

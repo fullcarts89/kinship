@@ -13,6 +13,8 @@ import { withoutForgotten } from "@/features/person/composedRecord";
 import { sectionsFor } from "@/features/person/recordSections";
 import { FORGET_COPY, PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
 import { DatePane, KindPane, NamePane, namedChoices, PersonPane, WordsPane } from "@/features/tell/Pickers";
+import { deviceZone, proposedDay } from "@/features/tell/wordsDate";
+import { dayLabel } from "@/features/memory/format";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import { todayIso, usePeople, usePersonRecord, useTrail, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { Sheet } from "@/ui";
@@ -31,10 +33,15 @@ export default function KnowsScreen() {
   // Every conversation the user confirmed with them (founder I2).
   const trail = useTrail(String(id));
   const [pane, setPane] = useState<Pane | null>(null);
+  // After a words edit that names another day: the day to ask about (never applied silently).
+  const [proposed, setProposed] = useState<string | null>(null);
   const today = todayIso();
   const fail = (what: Promise<unknown>) =>
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
-  const close = () => setPane(null);
+  const close = () => {
+    setProposed(null);
+    setPane(null);
+  };
   // "Not this" takes the line off the screen at once, never brought back by a read that started before it;
   // it comes back, with the alert, only if it couldn't be removed (founder K14: within 300 ms, not seconds).
   const [forgotten, setForgotten] = useState<ReadonlySet<string>>(() => new Set());
@@ -125,7 +132,7 @@ export default function KnowsScreen() {
               close();
             }} />
         ) : pane?.kind === "date" ? (
-          <DatePane title="When is it?" initial={pane.line.when?.value ?? null} today={today} allowNone onCancel={close}
+          <DatePane title={proposed ? `Is it now ${dayLabel(proposed, today)}?` : "When is it?"} initial={proposed ?? pane.line.when?.value ?? null} today={today} allowNone={!proposed} onCancel={close}
             onPick={(day) => {
               fail(u.correct(pane.line.id, { date: day }));
               close();
@@ -141,7 +148,12 @@ export default function KnowsScreen() {
         ) : pane?.kind === "words" ? (
           <WordsPane initial={pane.line.statement} onCancel={close} onSave={(w) => {
             fail(u.correct(pane.line.id, { statement: w }));
-            close();
+            // The words name another day: ask, in this sheet, before the line says two (never a silent change).
+            const day = proposedDay(pane.line, w, new Date().toISOString(), deviceZone());
+            if (day) {
+              setProposed(day);
+              setPane({ kind: "date", line: pane.line });
+            } else close();
           }} />
         ) : null}
       </Sheet>

@@ -129,17 +129,16 @@ export function WelcomeView(props: WelcomeViewProps) {
       <StatusBar style={night ? "light" : "dark"} />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: GUTTER, paddingTop: insets.top + space.x5 + space.x5, paddingBottom: space.xl }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: GUTTER, paddingTop: insets.top + space.x5 + space.x3, paddingBottom: space.xxl }}
       >
         <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
           <DawnWash kind="joyful" />
           <Botanical art="bloom" width={300} top={-90} right={-70} />
-          <Botanical art="leaves" width={190} top={220} left={-120} rotate={-28} flip dim />
         </View>
         <Label>{WELCOME_COPY.label}</Label>
         <Display style={{ marginTop: space.m, maxWidth: "88%" }}>{WELCOME_COPY.promise}</Display>
         <Body style={{ marginTop: space.m }}>{WELCOME_COPY.sub}</Body>
-        <View style={{ marginTop: space.xxl }}><ExampleCard onPress={props.onHowItWorks} /></View>
+        <View style={{ marginTop: space.xl }}><ExampleCard onPress={props.onHowItWorks} /></View>
       </ScrollView>
 
       <View style={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + space.xl, gap: space.m }}>

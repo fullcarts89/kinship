@@ -8,7 +8,7 @@ import Svg, { Defs, Ellipse, RadialGradient, Stop } from "react-native-svg";
 import { GUTTER, space } from "@/design/tokens";
 import { usePalette } from "../theme";
 
-export function TextScrim({ strength = 0.88, bleed = GUTTER, center = 0.5 }: {
+export function TextScrim({ strength = 0.88, bleed = GUTTER + space.xl, center = 0.5 }: {
   strength?: number;
   /** How far it reaches past the content box on each side. */
   bleed?: number;
@@ -23,17 +23,17 @@ export function TextScrim({ strength = 0.88, bleed = GUTTER, center = 0.5 }: {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       testID="text-scrim"
-      style={{ position: "absolute", top: -space.l, bottom: -space.l, left: -bleed, right: -bleed }}
+      style={{ position: "absolute", top: -space.xl, bottom: -space.xl, left: -bleed, right: -bleed }}
     >
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
         <Defs>
           <RadialGradient id={id} cx="50%" cy="50%" rx="50%" ry="50%">
             <Stop offset="0" stopColor={p.paper} stopOpacity={strength} />
-            <Stop offset="0.6" stopColor={p.paper} stopOpacity={strength * 0.9} />
+            <Stop offset="0.7" stopColor={p.paper} stopOpacity={strength * 0.9} />
             <Stop offset="1" stopColor={p.paper} stopOpacity={0} />
           </RadialGradient>
         </Defs>
-        <Ellipse cx={`${center * 100}%`} cy="50%" rx="62%" ry="62%" fill={`url(#${id})`} />
+        <Ellipse cx={`${center * 100}%`} cy="50%" rx="50%" ry="50%" fill={`url(#${id})`} />
       </Svg>
     </View>
   );

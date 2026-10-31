@@ -15,6 +15,8 @@ import type { SwitchableKind } from "@/store/memoryDetail";
 import type { Person } from "@/store/repositories";
 import { Body, Label, Line, Pill, SectionDot, Sheet, Small, Title, Token, TokenRow, usePalette } from "@/ui";
 import { DatePane, KindPane, namedChoices, PersonPane, WordsPane } from "./Pickers";
+import { deviceZone, proposedDay } from "./wordsDate";
+import { dayLabel } from "@/features/memory/format";
 import { answersFor, COPY, type ItemLine, type Question, type ReviewView } from "./reviewModel";
 
 export type Correction =
@@ -67,6 +69,8 @@ export function ReviewSheet(props: ReviewSheetProps) {
   const p = usePalette();
   const [pane, setPane] = useState<Pane>({ kind: "review" });
   const [picks, setPicks] = useState<Record<string, Omit<HeldAnswer, "index"> | "skip">>({});
+  // After a words edit that names another day: the day to ask about (never applied silently).
+  const [proposed, setProposed] = useState<string | null>(null);
   // A new question (or "choose again") starts its picks over.
   const signature = `${view.questions.map((q) => `${q.key}:${q.items.join(",")}:${q.prompt}`).join("|")}#${view.notice ?? ""}`;
   useEffect(() => setPicks({}), [signature]);
@@ -86,7 +90,10 @@ export function ReviewSheet(props: ReviewSheetProps) {
     const answers = answersFor(view.questions, next);
     if (answers) props.onAnswer(answers);
   };
-  const back = () => setPane({ kind: "review" });
+  const back = () => {
+    setProposed(null);
+    setPane({ kind: "review" });
+  };
 
   let body: React.ReactNode;
   if (pane.kind === "person") {
@@ -117,10 +124,10 @@ export function ReviewSheet(props: ReviewSheetProps) {
   } else if (pane.kind === "date") {
     body = (
       <DatePane
-        title={pane.question ? (pane.question.type === "keep" ? "Which day?" : pane.question.prompt) : "When is it?"}
-        initial={pane.line?.when?.value ?? null}
+        title={proposed ? `Is it now ${dayLabel(proposed, props.today)}?` : pane.question ? (pane.question.type === "keep" ? "Which day?" : pane.question.prompt) : "When is it?"}
+        initial={proposed ?? pane.line?.when?.value ?? null}
         today={props.today}
-        allowNone={!pane.question}
+        allowNone={!pane.question && !proposed}
         onCancel={back}
         onPick={(day) => {
           if (pane.question) choose(pane.question, { date: day });
@@ -140,7 +147,12 @@ export function ReviewSheet(props: ReviewSheetProps) {
   } else if (pane.kind === "words") {
     body = <WordsPane initial={pane.line.statement} onCancel={back} onSave={(w) => {
       props.onCorrect(pane.line.id, { statement: w });
-      back();
+      // The words name another day: ask, in this sheet, before the line says two (never a silent change).
+      const day = proposedDay(pane.line, w, new Date().toISOString(), deviceZone());
+      if (day) {
+        setProposed(day);
+        setPane({ kind: "date", line: pane.line });
+      } else back();
     }} />;
   } else {
     // Gate D: what was kept ("Kept for Ben", the lines), then, apart and
