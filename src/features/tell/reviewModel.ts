@@ -817,8 +817,11 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       group: `replace:${offered.map((r) => r.id).join(",")}`,
       prompt: offered.length === 1 ? "Does this replace what you told me?" : "Does this replace one of these?",
       reason: offered.length === 1 ? "It sounds like news about a line you edited." : "It sounds like news about something you told me before.",
+      // What the user said (never the statement's paraphrase, which would sit in quotation marks as if it were
+      // theirs), and a choice that says what tapping it does: the old line is named as what is replaced.
+      about: item.spans[0]?.quote?.trim() || undefined,
       choices: [
-        ...offered.map((r) => ({ key: `r:${r.id}`, label: r.statement, answer: { replaces: r.id } })),
+        ...offered.map((r) => ({ key: `r:${r.id}`, label: offered.length === 1 ? `Yes, replace: ${r.statement}` : `Replace: ${r.statement}`, answer: { replaces: r.id } })),
         { key: "both", label: "No, keep both", answer: { replaces: null } },
       ],
     });

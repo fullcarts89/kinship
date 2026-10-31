@@ -464,7 +464,9 @@ it("a later note that updates the user's edited line asks 'Does this replace wha
     { capture: { id: "c1", raw_text: note, context_person_id: "ben", status: "needs_review" } });
   const q = v.questions.find((x) => x.type === "replace")!;
   expect(q.prompt).toBe("Does this replace what you told me?");
-  expect(q.choices.map((c) => [c.label, "answer" in c ? c.answer : null])).toEqual([[edited, { replaces: "m-edited" }], ["No, keep both", { replaces: null }]]);
+  expect(q.choices.map((c) => [c.label, "answer" in c ? c.answer : null])).toEqual([[`Yes, replace: ${edited}`, { replaces: "m-edited" }], ["No, keep both", { replaces: null }]]);
+  // The question quotes what the user said, never the statement's paraphrase.
+  expect(q.about).toEqual([note.slice(9, 59)]);
   expect(v.questions.some((x) => /When is it/u.test(x.prompt))).toBe(false);
 });
 
