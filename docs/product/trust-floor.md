@@ -65,8 +65,8 @@ Both are confirmed before they take effect. Neither changes a memory, a source o
 
 | Tier | What | Result |
 |---|---|---|
-| UNIT | `src/store/__tests__/trustFloor.test.ts` (13), `src/lib/__tests__/exportData.test.ts` (4), Deno `delete-account/handler.test.ts` (10) | PASS |
+| UNIT | `src/store/__tests__/trustFloor.test.ts` (14), `src/lib/__tests__/exportData.test.ts` (4), Deno `delete-account/handler.test.ts` (11) | PASS |
 | INTEGRATION | pgTAP `72_v2_trust_floor.test.sql` (49), `40_delete_account` (22, extended), `61`, `64`, `68` re-run | PASS |
-| BLACK-BOX | `e2e/blackbox/trustfloor.blackbox.tsx` | see the WS-4 handoff section |
-| NATIVE-SIMULATOR | Release build, iPhone 18 Pro, local stack | see the WS-4 handoff section |
+| BLACK-BOX | `e2e/blackbox/trustfloor.blackbox.tsx`: Pause → Resume, Merge → Undo, Export, Delete, against the local stack (`DELETE_ACCOUNT_URL`, local runner) | PASS (30 Oct) |
+| NATIVE-SIMULATOR | Covered by WS-5's integrated journey (coordinator rule, 30 Oct); steps in `docs/agent-loop/ws4-trust-floor-handoff.md`; one screenshot in `docs/product/screens/ws4/` | NOT RUN here |
 | FOUNDER-DEVICE | — | NOT RUN |

@@ -2,7 +2,7 @@
 
 _For the coordinator to paste into `docs/agent-loop/PRODUCT_DELIVERY_HANDOFF.md` under "## WS-4 · Trust floor" (that file lives on the coordinator's branch; this copy travels with PR #70)._
 
-**Branch / PR.** `claude/ws4-trust-floor-176a4a`, PR #70 (draft, base `main`). Head: see the PR. Nothing merged by this session. Semantics: `docs/product/trust-floor.md`. Coverage rows 23 and 34: BUILT (native pending) under FD-30e.
+**Branch / PR.** `claude/ws4-trust-floor-176a4a`, PR #70 (draft, base `main`). Head 8bcb0ae and after. Nothing merged by this session. Semantics: `docs/product/trust-floor.md`. Coverage rows 23 and 34: BUILT (native pending) under FD-30e.
 
 **Migrations added (forward-only, additive; applied to the shared local stack only).**
 `20261030090000_v2_trust_floor.sql`: `person_proactive(person_id, user_id)`; `people_merges` (journal; RLS owner-read; row guard; pull-only on the phone); `merge_people(target, source)` and `undo_merge_people(merge)` (SECURITY DEFINER, owner-checked, 30-day undo); `merge_repoint_mentions`; the `memory_items → related_people` FK made `DEFERRABLE INITIALLY IMMEDIATE`; `memory_items_facet_tombstone` redefined so a merge's own re-pointing keeps a line's residence reading. pgTAP `40_delete_account` now expects 28 user-owned tables: any new table with `user_id` must be seeded there.
@@ -13,7 +13,7 @@ _For the coordinator to paste into `docs/agent-loop/PRODUCT_DELIVERY_HANDOFF.md`
 |---|---|---|
 | UNIT | Jest: `src/store/__tests__/trustFloor.test.ts` (14: states, hold/resume sync both ways, Today honours Paused/Remembered, merge candidates/preview/undo window, insert follow-up update), `src/lib/__tests__/exportData.test.ts` (4); whole suite 103 suites. Deno: `delete-account/handler.test.ts` (11, incl. the deployed path failing loudly on unreachable Storage) | PASS |
 | INTEGRATION | pgTAP `72_v2_trust_floor.test.sql` (49: D13 on the server, merge, undo, RLS, deletion leaves no row incl. the journal), `40` (28 tables), `61`, `64`, `68` re-run on a throwaway Postgres 16 with every migration | PASS |
-| BLACK-BOX | `e2e/blackbox/trustfloor.blackbox.tsx` against the local stack: Pause → Today silent, server reasons suppressed, forced refresh makes none, Resume → Today speaks again; Merge Anthony → Anthony Lopez through the picker and preview, every memory on the survivor with every source row byte-identical, Anthony archived and off "Removed from People", Undo exact, merge again; Export through the share sheet (one file in the app cache, no ids); Delete account through both confirms, no row in any table, auth user gone, phone wipe called, local sign-out | see PR #70's latest run note |
+| BLACK-BOX | `e2e/blackbox/trustfloor.blackbox.tsx` against the local stack: Pause → Today silent, server reasons suppressed, forced refresh makes none, Resume → Today speaks again; Merge Anthony → Anthony Lopez through the picker and preview, every memory on the survivor with every source row byte-identical, Anthony archived and off "Removed from People", Undo exact, merge again; Export through the share sheet (one file in the app cache, no ids); Delete account through both confirms, no row in any table, auth user gone, phone wipe called, local sign-out | PASS (30 Oct, head 8bcb0ae) |
 | NATIVE-SIMULATOR | Covered by WS-5's journey (coordinator rule, 30 Oct). One screenshot taken before the rule: `docs/product/screens/ws4/01-settings-your-data-delete.png` (Settings with Your data and Delete account) | NOT RUN here |
 | FOUNDER-DEVICE | — | NOT RUN |
 
