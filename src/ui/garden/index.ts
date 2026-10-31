@@ -6,3 +6,4 @@ export { blobPath, FluidPhoto } from "./FluidPhoto";
 export { Grain, useReduceTransparency } from "./Grain";
 export { fitPoster, PosterName, posterStyle } from "./PosterName";
 export { SectionDot, SectionLabel, type SectionKey } from "./SectionDot";
+export { TextScrim } from "./TextScrim";

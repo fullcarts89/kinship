@@ -20,7 +20,7 @@ import { MessageCircle, PenLine, Phone } from "lucide-react-native";
 import { art, font, GUTTER, height, press, space, TOUCH } from "@/design/tokens";
 import {
   Body, Botanical, DawnWash, Emphasis, FluidPhoto, isLargeText, Label, Line, MomentText, Pill, PosterName, Provenance, QuietLine, Quote, Screen,
-  SectionLabel, type SectionKey, Small, useLineFocus, usePalette, Week,
+  SectionLabel, type SectionKey, Small, TextScrim, useLineFocus, usePalette, Week,
 } from "@/ui";
 
 export interface PortraitLineData {
@@ -320,13 +320,17 @@ export function PortraitView(props: PortraitViewProps) {
       ) : (
         <View style={{ height: 196 * k }} />
       )}
-      <PosterName
-        name={props.name}
-        max={104}
-        onPress={props.onRename}
-        accessibilityLabel={props.name ?? ""}
-        accessibilityHint={props.onRename ? "Double-tap to change their name" : undefined}
-      />
+      {/* The name sits on a soft paper scrim so petals and leaves crossing it never cost legibility. */}
+      <View>
+        <TextScrim />
+        <PosterName
+          name={props.name}
+          max={104}
+          onPress={props.onRename}
+          accessibilityLabel={props.name ?? ""}
+          accessibilityHint={props.onRename ? "Double-tap to change their name" : undefined}
+        />
+      </View>
       {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
       {/* Someone merged into them (PER-05): said once, with Undo while it can be undone. */}
       {props.merged?.map((m) => (

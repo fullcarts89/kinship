@@ -22,7 +22,7 @@ import { MessageCircle } from "lucide-react-native";
 import { art as artTokens, motion, press, space, TOUCH } from "@/design/tokens";
 import {
   Body, Botanical, Context, DawnWash, type DayKind, Display, FluidPhoto, Greeting, Label, Line, MomentText, Pill, PosterName, Provenance, Quote,
-  Screen, SectionDot, SectionLabel, Small, Statement, useReduceMotion, usePalette, Week,
+  Screen, SectionDot, SectionLabel, Small, Statement, TextScrim, useReduceMotion, usePalette, Week,
 } from "@/ui";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Pressable } from "@/ui/Pressable";
@@ -353,7 +353,11 @@ function Hero({ width, name, statement, context, hope, provenance, context2, pho
   const words = (
     <>
       <PosterName name={poster} fill={photoUri ? "ink" : "bloom"} />
-      <Statement style={{ marginTop: space.s }}>{rest}</Statement>
+      {/* The statement sits on a soft paper scrim so petals and leaves crossing it never cost legibility. */}
+      <View style={{ marginTop: space.s }}>
+        <TextScrim center={0.38} />
+        <Statement>{rest}</Statement>
+      </View>
     </>
   );
   return (
