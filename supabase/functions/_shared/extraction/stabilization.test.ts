@@ -131,6 +131,30 @@ Deno.test("E: after \"which Sam?\", the answer is compared with that Sam's memor
   eq(r.items[0].detail.transition, "completed");
 });
 
+Deno.test("CER-1: held for 'Who is this about?' and 'Does this replace…?': one answer carries the person and the user's chosen line", () => {
+  const held: HeldItem = {
+    kind: "event", person_id: null, new_person_name: null, subject_type: "person", related: null,
+    statement: "Sam's move to Pilsen slipped again; it's now December 6", detail: { event_type: "move", date: "2026-12-06", date_precision: "day", _replaces: [{ id: "edited-move", statement: "Sam moves in on November 22" }] },
+    certainty: "planned", sensitivity: "none", confidence: 0.9, action: { type: "new", target_id: null }, tier: "hold", flags: ["person_ambiguous", "update_check", "protected_target"],
+    spans: [{ start: 9, end: 59, quote: "the Pilsen move slipped again, it's December 6 now" }],
+  };
+  const ctx = {
+    note: "Actually the Pilsen move slipped again, it's December 6 now.",
+    people: ROSTER.map((p) => ({ id: p.id, display_name: p.display_name, state: "active" })),
+    related: [],
+    existing: [{ id: "edited-move", person_id: "sam-eden", kind: "event", subject_type: "person", subject_related_id: null, statement: "Sam moves in on November 22", status: "active", user_state: "edited" }],
+  };
+  const yes = resolveHeld([held], [{ index: 0, person_id: "sam-eden", replaces: "edited-move" }], ctx);
+  if ("fail" in yes) throw new Error(yes.fail);
+  eq([yes.items[0].person_id, yes.items[0].action], ["sam-eden", { type: "supersede", target_id: "edited-move" }]);
+  const keep = resolveHeld([held], [{ index: 0, person_id: "sam-eden", replaces: null }], ctx);
+  if ("fail" in keep) throw new Error(keep.fail);
+  eq(keep.items[0].action, { type: "new", target_id: null });
+  // The person alone, with the replace question unanswered, is not an answer.
+  const half = resolveHeld([held], [{ index: 0, person_id: "sam-eden" }], ctx);
+  eq("fail" in half && half.fail, "bad_answer");
+});
+
 Deno.test("F: 'John and Ben are brothers' is kept (no longer dropped for 'brother'), on both, and says what they are to you", () => {
   eq(inventedRelations("John is Ben's brother", "John and Ben are brothers", []), []);
   const out = run(input("John and Ben are my brothers."), [item({

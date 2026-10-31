@@ -467,3 +467,23 @@ it("a later note that updates the user's edited line asks 'Does this replace wha
   expect(q.choices.map((c) => [c.label, "answer" in c ? c.answer : null])).toEqual([[edited, { replaces: "m-edited" }], ["No, keep both", { replaces: null }]]);
   expect(v.questions.some((x) => /When is it/u.test(x.prompt))).toBe(false);
 });
+
+it("a told-again update from no page: 'Who is this about?' first with the candidate offered, then 'Does this replace what you told me?'; one answer carries both", () => {
+  const edited = "Ben signed the lease on the apartment in Pilsen and moves in on November 22";
+  const note = "Actually the Pilsen move slipped again, it's December 6 now.";
+  const h = held({
+    kind: "event", person_id: null, statement: "Ben's move to Pilsen slipped again; it's now December 6",
+    detail: { date: "2026-12-06", date_precision: "day", event_type: "move", _replaces: [{ id: "m-edited", statement: edited }] },
+    flags: ["person_ambiguous", "update_check", "protected_target"], candidate_ids: ["ben"], spans: [{ start: 9, end: 59, quote: note.slice(9, 59) }],
+  });
+  const v = view(note, row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }));
+  expect(v.questions.map((q) => q.type)).toEqual(["which_person", "replace"]);
+  const [who, replace] = v.questions;
+  expect(who.prompt).toBe("Who is this about?");
+  const ben = who.choices.find((c) => "answer" in c && c.answer.person_id === "ben")!;
+  expect(ben).toBeTruthy();
+  const yes = replace.choices.find((c) => "answer" in c && c.answer.replaces === "m-edited")!;
+  expect(answersFor(v.questions, { [who.key]: "answer" in ben ? ben.answer : {} })).toBeNull();
+  expect(answersFor(v.questions, { [who.key]: "answer" in ben ? ben.answer : {}, [replace.key]: "answer" in yes ? yes.answer : {} }))
+    .toEqual([{ index: 0, person_id: "ben", replaces: "m-edited" }]);
+});

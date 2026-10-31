@@ -412,7 +412,9 @@ BEGIN
   -- this review, with the same person and words, offered exactly that line under _replaces, and the
   -- user chose it. Only then may the answer close a line the user edited or wrote (trust invariant 4:
   -- the user's edit wins, and here the user is the one replacing it). write_extraction reads the list
-  -- for this capture, in this transaction only.
+  -- for this capture, in this transaction only. A line held for "Who is this about?" has no person until
+-- answered; its replace answer then counts when the answered person is the closed line's own (write_extraction
+-- compares the person: a mismatch is a new line, never a closure).
   v_chosen := '[]'::jsonb;
   FOR it IN SELECT value FROM jsonb_array_elements(v_items) LOOP
     CONTINUE WHEN it -> 'action' ->> 'type' IS DISTINCT FROM 'supersede' OR it -> 'action' ->> 'target_id' IS NULL;
@@ -421,7 +423,7 @@ BEGIN
                   AND jsonb_typeof(h -> 'detail' -> '_replaces') = 'array'
                   AND EXISTS (SELECT 1 FROM jsonb_array_elements(h -> 'detail' -> '_replaces') o
                                WHERE o ->> 'id' = it -> 'action' ->> 'target_id')
-                  AND h ->> 'person_id' IS NOT DISTINCT FROM it ->> 'person_id'
+                  AND (h ->> 'person_id' IS NULL OR h ->> 'person_id' = it ->> 'person_id')
                   AND public.span_signature(h -> 'spans') = public.span_signature(it -> 'spans')) THEN
       v_chosen := v_chosen || jsonb_build_object('target', it -> 'action' ->> 'target_id',
                                                  'spans', public.span_signature(it -> 'spans'));
