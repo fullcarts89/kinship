@@ -57,6 +57,14 @@ function render(el: React.ReactElement): TestRenderer.ReactTestRenderer {
   return r;
 }
 
+it("the hand-off sheet previews the question the return check will really ask (the reason's own), the generic one only as a fallback", () => {
+  const sheet = (extra: object) => render(<HandoffSheet visible heading="Bring Sam soup" personName="Sam" mention={[]} channels={["text"]} ready onOpen={noop} onChooseContact={noop} onDismiss={noop} returnCheck {...extra} />);
+  const own = texts(sheet({ returnAsk: "Did you bring Sam soup?" }));
+  expect(own).toContain("When you come back: “Did you bring Sam soup?”");
+  expect(own.some((t) => /Did you reach Sam/u.test(t))).toBe(false);
+  expect(texts(sheet({}))).toContain("When you come back: “Did you reach Sam?”");
+});
+
 it("the hand-off sheet: one quiet line under the channels, a link and never a pill; nothing when there is none", () => {
   const onSuggestion = jest.fn();
   const r = render(<HandoffSheet visible heading="Message Susan" personName="Susan" mention={[]} channels={["text", "call"]} ready onOpen={noop} onChooseContact={noop} onDismiss={noop} returnCheck suggestion={plan} onSuggestion={onSuggestion} />);

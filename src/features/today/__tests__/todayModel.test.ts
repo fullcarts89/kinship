@@ -404,6 +404,14 @@ describe("H4: once the first Tell is memory, Today shows how Kinship brings thin
     expect(view([soon], { activatedAt: ACTIVATED, seen: false })).toMatchObject({ kind: "own", when: "Around Wednesday" });
   });
 
+  it("never under a real question: a live return check hides the orientation until it is answered", () => {
+    const h = { reasonId: "news:n1", personId: "ben", channel: "text" as const, at: new Date(NOW.getTime() - 60_000).toISOString(), ask: "Did you bring Ben soup?", about: null, followUp: "Anything?" };
+    const v = buildToday(input({ items: [job], people: [...people, maya], reasons: [], bringBack: { activatedAt: ACTIVATED, seen: false }, handoff: h }));
+    expect(v.returnCheck?.ask).toBe("Did you bring Ben soup?");
+    expect(v.bringBack).toBeNull();
+    expect(buildToday(input({ items: [job], people: [...people, maya], reasons: [], bringBack: { activatedAt: ACTIVATED, seen: false } })).bringBack).toMatchObject({ kind: "own" });
+  });
+
   it("else the one grounded example: a first Tell with no day, a past day, or lines told long before", () => {
     expect(view([fact], { activatedAt: ACTIVATED, seen: false })).toEqual({ kind: "example" });
     expect(view([{ ...job, detail: { ...job.detail, date: "2026-10-01" } }], { activatedAt: ACTIVATED, seen: false })).toEqual({ kind: "example" });

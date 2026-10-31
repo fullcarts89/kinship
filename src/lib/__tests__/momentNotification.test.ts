@@ -164,6 +164,18 @@ it("schedules once for the day and records it; a second run keeps it; a changed 
   expect(await readNotificationLog(store)).toEqual([]);
 });
 
+it("one per day however often it runs: ten launches and focuses leave exactly one pending notification and one record", async () => {
+  const store = await device();
+  const os = fakeScheduler();
+  for (let i = 0; i < 10; i++) {
+    await scheduleMomentNotification({ store, scheduler: os, momentFor: async () => ben, local: async () => ({}), paused: async () => false, now: () => new Date(NOW.getTime() + i * 60_000) });
+  }
+  expect(os.scheduled$).toHaveLength(1);
+  expect(os.cancelled).toEqual([]);
+  expect(await readNotificationLog(store)).toHaveLength(1);
+  expect(sent.filter(([e]) => e === "push_sent")).toHaveLength(1);
+});
+
 it("the pause and a missing permission schedule nothing and never ask", async () => {
   const store = await device();
   const os = fakeScheduler("undetermined");
