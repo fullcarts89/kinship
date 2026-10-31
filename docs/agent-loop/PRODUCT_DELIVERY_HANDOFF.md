@@ -274,6 +274,10 @@ WS-5's budget was spent; WS-6 took the integration pass in WS-5's worktree. Noth
 
 WS-2's long-label fix (Pill `wrap`) merged into the integration branch with WS-4 `b0c6ac9` already in; checks: tsc clean, eslint 0 errors, Jest 116 suites / 1118, Deno 486. One Release rebuild on the iPhone 18 Pro (the 17e was left alone, it holds WS-2's own build). Native, screens `r10-*`: the "Yes, replace: …" label wraps at full size, light and dark; Pause / Resume on the redesigned page legible in both appearances; Merge with someone again PASS; dark and largest text on Today, Person, People and the replace sheet (the sheet scrolls so every choice is reachable). Observations for WS-2: People rows do not follow the largest text size; the Message / Call / Tell stack is tall at that size. Not run: the 17e width, Delete, the lock-screen banner tap. Readiness still NOT READY.
 
+### Pass 14 (31 Oct, afternoon): WS-4 `bf98556` merged, ninth walk, final status
+
+The merge preview now tells same-named people apart ("Merge Leo Marchetti into Leo?", native `r10-merge-title-disambiguated`). Remembered and Resume walked on the redesigned page (`r10-remembered-*`). Checks on the head: tsc clean, eslint 0 errors, Jest 116 suites / 1119, Deno 486. The final list of what is and is not natively evidenced is in `docs/product/alpha-walkthrough.md`, "Ninth walk". Not evidenced: Delete (environment), the lock-screen banner tap, the 17e width on this head, the told-again Yes confirmation on this head, FOUNDER-DEVICE. Readiness NOT READY (the founder's native pass decides the next label).
+
 ### Open in WS-5
 
 The Release-simulator journey with the live model (after WS-4 leaves the iPhone 18 Pro); the walkthrough and screenshots; the serialized black-box set and the live-probe re-run after `5557dae`; WS-3/WS-6 heads when they land, WS-2 last; the PR description after each pass.

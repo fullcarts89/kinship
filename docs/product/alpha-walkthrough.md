@@ -188,3 +188,31 @@ Release rebuild of the head with WS-2 `3222c1f` merged (long choice labels wrap;
 | Largest text (accessibility XXXL) | Replace sheet: wraps, and **scrolls** so Yes, No keep both, Don't keep this, Undo, See the note, Not now are all reachable (the first screen shows "No, keep both" clipped until scrolled). People: pills, header and tab bar scale. Person: name, buttons and question scale; the three stacked buttons (Message, Call, Tell) leave about a line and a half of scroll area above them. | PASS with two observations | `r10-ax-replace-sheet`, `-scrolled`, `r10-ax-people`, `r10-ax-person`, `r10-ax-today` |
 
 **Observations for WS-2:** (1) at the largest text size the People rows (names and one-line summaries) keep their normal size while the pills and tab bar grow (`r10-ax-people-rows-do-not-scale`); (2) the Person page's fixed Message / Call / Tell stack takes most of the screen at that size. Neither blocks use. **Not run:** the iPhone 17e width, delete account, the lock-screen banner tap, the "Yes, replace" confirmation itself.
+
+## Ninth walk and the final status of the integrated head (31 Oct; screens `r10-*.png`)
+
+WS-4 `bf98556` (the merge preview tells same-named people apart) merged with WS-2 `3222c1f`; Release rebuild installed on the iPhone 18 Pro. Checks: tsc clean, eslint 0 errors, Jest **116 suites, 1119 tests**, Deno 486 (no server file changed).
+
+| Row | What happened | Result | Screen |
+|---|---|---|---|
+| Merge title | From the "Leo" page, Merge with someone → Leo Marchetti → **"Merge Leo Marchetti into Leo?"** with the body naming each by full name | PASS | `r10-merge-title-disambiguated` |
+| Remembered | Leo, Edit → Hold as remembered → confirm ("Everything you've told Kinship about Leo stays… won't bring Leo up on Today or mention a birthday") → the page shows a legible **"Remembered"** line with the lines kept; Edit now offers **Resume** ("Remembered · Kinship keeps Leo's memories and never brings them back.") → "Resume Leo?" → the page returns to normal | PASS | `r10-remembered-confirm`, `-remembered-page`, `-remembered-edit-sheet`, `-remembered-resume-confirm`, `-resumed-page` |
+
+### Natively evidenced on the final head (Release, iPhone 18 Pro; live model for the Tell rows)
+- Replace question: "Yes, replace: …" with the user's own quoted words, wrapping at full size, light, dark and largest text (the sheet scrolls).
+- A words edit that names a new day: continues to "Is it now …?", Back keeps the words and leaves the date, confirming updates the token, Coming up and Today.
+- Scrim on the poster name and Today statement, light and dark.
+- Lettered People directory, light and dark; Ask your memory door; greeting with the account's name.
+- SUA-1 line in the redesigned hand-off sheet and the real return question.
+- Merge with someone (sheet opens, preview, Merge, Undo, page keeps taking taps) and its disambiguated title.
+- Pause and Resume, Remembered and Resume, on the redesigned page; dark mode and largest text on Today, Person, People and the replace sheet.
+
+### Not natively evidenced on the final head
+- **Delete account** (environment: local Storage stopped; proven in black-box and pgTAP).
+- **Lock-screen banner tap** (the simulator lock screen does not route it).
+- **iPhone 17e width** on this head (the 17e carries WS-2's own build; WS-2 walked its screens there on an earlier head).
+- The confirmation of "Yes, replace" itself on the final head (the question and its label were walked; the told-again Yes route was walked on earlier heads).
+- Review sheet with several lines, quiet-day Today, Reduce Motion, the same-day milestone as a Today Moment (held by the one-primary-per-person-per-7-days cap, per WS-3, not a defect).
+- FOUNDER-DEVICE: not run.
+
+Observations for WS-2 (non-blocking): at the largest text size the People rows do not scale and the Person page's Message / Call / Tell stack is tall.
