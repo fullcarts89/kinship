@@ -75,6 +75,15 @@ function line(id: string, statement: string, replaces: string[] = []): ItemLine 
   };
 }
 
+it("a choice pill (wrap) with a long label wraps at full size and never shrinks", () => {
+  const label = "Yes, replace: Susan lives in Alameda, near the old bakery on Park Street";
+  const r = render(<Pill size="small" wrap variant="ghost" label={label} onPress={noop} />);
+  const { text, pressable } = pill(r, label);
+  expect(text.props.adjustsFontSizeToFit).toBe(false);
+  expect(text.props.numberOfLines).toBeGreaterThan(1);
+  expect(styleOf(pressable).flexShrink).toBe(1);
+});
+
 describe("the action pills beside a line's provenance", () => {
   it("a quiet pill never shrinks its type and never its width; a primary keeps the last-resort shrink", () => {
     const r = render(<><Pill variant="quiet" label="Not this" onPress={noop} /><Pill variant="primary" label="Continue with 14 people" onPress={noop} /></>);
