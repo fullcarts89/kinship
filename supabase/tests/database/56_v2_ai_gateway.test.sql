@@ -2,7 +2,7 @@
 -- are service-role only; write_extraction re-checks every target, so a
 -- user-written item is never superseded, and nothing crosses users.
 BEGIN;
-SELECT plan(40);
+SELECT plan(43);
 
 \set A '''aaaaaaaa-1616-1616-1616-161616161616'''
 \set B '''bbbbbbbb-1616-1616-1616-161616161616'''
@@ -182,6 +182,29 @@ SELECT ok((SELECT bool_and('search_path=""' = ANY (proconfig) AND prosecdef) FRO
       AND NOT has_function_privilege('authenticated', 'public.write_extraction(uuid, uuid, text, boolean, jsonb)', 'EXECUTE')
       AND NOT has_function_privilege('anon', 'public.claim_capture_extraction(uuid, uuid)', 'EXECUTE'),
   'DEFINER functions pin an empty search_path and are not executable by the app');
+
+
+-- ── FD-30c (31 Oct 2026): a note may write more than eight lines; only a runaway list is refused ──
+SELECT tests.as_user(:A);
+INSERT INTO public.captures (id, source, raw_text, time_zone) VALUES
+  ('00000000-0000-0000-0000-000000001615', 'text', 'Ben likes jazz. Ben took up pottery. Ben started cycling. Ben is learning Italian. Ben joined a choir. Ben bought a kayak. Ben reads Russian novels. Ben collects stamps. Ben plays chess on Tuesdays.', 'America/Chicago');
+SELECT tests.reset_role();
+SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000001615'), 'claimed', 'claimed');
+SELECT lives_ok($$ SELECT pg_temp.at_commit($s$ SELECT public.write_extraction(
+  'aaaaaaaa-1616-1616-1616-161616161616', '00000000-0000-0000-0000-000000001615', 'relationship_extract/v7+claude-opus-5-5', false,
+  '[{"kind": "fact", "person_id": "00000000-0000-0000-0000-000000001601", "subject_type": "person", "related": null, "statement": "Ben likes jazz", "certainty": "stated", "sensitivity": "none", "confidence": 0.9, "detail": {"category": "interest"}, "spans": [{"start": 0, "end": 14}], "action": {"type": "new", "target_id": null}},
+    {"kind": "fact", "person_id": "00000000-0000-0000-0000-000000001601", "subject_type": "person", "related": null, "statement": "Ben took up pottery", "certainty": "stated", "sensitivity": "none", "confidence": 0.9, "detail": {"category": "interest"}, "spans": [{"start": 16, "end": 35}], "action": {"type": "new", "target_id": null}},
+    {"kind": "fact", "person_id": "00000000-0000-0000-0000-000000001601", "subject_type": "person", "related": null, "statement": "Ben started cycling", "certainty": "stated", "sensitivity": "none", "confidence": 0.9, "detail": {"category": "interest"}, "spans": [{"start": 37, "end": 56}], "action": {"type": "new", "target_id": null}},
+    {"kind": "fact", "person_id": "00000000-0000-0000-0000-000000001601", "subject_type": "person", "related": null, "statement": "Ben is learning Italian", "certainty": "stated", "sensitivity": "none", "confidence": 0.9, "detail": {"category": "interest"}, "spans": [{"start": 58, "end": 81}], "action": {"type": "new", "target_id": null}},
+    {"kind": "fact", "person_id": "00000000-0000-0000-0000-000000001601", "subject_type": "person", "related": null, "statement": "Ben joined a choir", "certainty": "stated", "sensitivity": "none", "confidence": 0.9, "detail": {"category": "interest"}, "spans": [{"start": 83, "end": 101}], "action": {"type": "new", "target_id": null}},
+    {"kind": "fact", "person_id": "00000000-0000-0000-0000-000000001601", "subject_type": "person", "related": null, "statement": "Ben bought a kayak", "certainty": "stated", "sensitivity": "none", "confidence": 0.9, "detail": {"category": "interest"}, "spans": [{"start": 103, "end": 121}], "action": {"type": "new", "target_id": null}},
+    {"kind": "fact", "person_id": "00000000-0000-0000-0000-000000001601", "subject_type": "person", "related": null, "statement": "Ben reads Russian novels", "certainty": "stated", "sensitivity": "none", "confidence": 0.9, "detail": {"category": "interest"}, "spans": [{"start": 123, "end": 147}], "action": {"type": "new", "target_id": null}},
+    {"kind": "fact", "person_id": "00000000-0000-0000-0000-000000001601", "subject_type": "person", "related": null, "statement": "Ben collects stamps", "certainty": "stated", "sensitivity": "none", "confidence": 0.9, "detail": {"category": "interest"}, "spans": [{"start": 149, "end": 168}], "action": {"type": "new", "target_id": null}},
+    {"kind": "fact", "person_id": "00000000-0000-0000-0000-000000001601", "subject_type": "person", "related": null, "statement": "Ben plays chess on Tuesdays", "certainty": "stated", "sensitivity": "none", "confidence": 0.9, "detail": {"category": "interest"}, "spans": [{"start": 170, "end": 197}], "action": {"type": "new", "target_id": null}}]') $s$) $$,
+  'nine things in one note are nine lines (the eight-item ceiling is gone, FD-30c)');
+SELECT throws_ok($$ SELECT public.write_extraction('aaaaaaaa-1616-1616-1616-161616161616', '00000000-0000-0000-0000-000000001615', 'relationship_extract/v7+claude-opus-5-5', false,
+  (SELECT jsonb_agg('{"kind": "fact"}'::jsonb) FROM generate_series(1, 201))) $$,
+  '22023', NULL, 'a runaway list of more than 200 is still refused');
 
 SELECT * FROM finish();
 ROLLBACK;

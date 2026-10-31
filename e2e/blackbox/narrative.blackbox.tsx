@@ -92,7 +92,8 @@ describe("CER-1: natural stories are understood as people tell them", () => {
     // Nineteen proposals; the mom's knee (sensitive) and any ambiguous-day event wait for the user, the rest is saved.
     expect(lines.length).toBeGreaterThanOrEqual(14);
     const all = lines.map((l) => l.statement).join(" | ");
-    for (const words of [/Pilsen/u, /Carla/u, /Pentax/u, /10K/u, /contractor/u, /December 3/u]) expect(all).toMatch(words);
+    // (The 10K "last weekend" and the vet "on Friday" may be held for a day question on some weekdays: C-4.)
+    for (const words of [/Pilsen/u, /Carla/u, /Pentax/u, /contractor/u, /December 3/u]) expect(all).toMatch(words);
     const related = (await serverRows<Related>("related_people", a.acct.userId)).filter((x) => !x.deleted_at);
     expect(related.some((x) => x.person_id === a.id("Leo") && x.relation === "sister" && x.name === "Carla")).toBe(true);
     expect((await a.acct.repos.people.list()).map((p) => p.display_name).sort()).toEqual([...PEOPLE].sort());
