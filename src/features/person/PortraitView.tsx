@@ -312,7 +312,8 @@ export function PortraitView(props: PortraitViewProps) {
   return (
     <Screen onBack={props.onBack} footer={footer} scrollRef={scroll} art={pageArt}>
       {photo ? (
-        <View style={{ height: photoH - 40 * k, marginTop: -TOUCH, alignItems: "flex-end", marginRight: -GUTTER / 2 }}>
+        // The name sits just under the photo's edge, never across it (ink on a dark photo did not read).
+        <View style={{ height: photoH - 6 * k, marginTop: -TOUCH, alignItems: "flex-end", marginRight: -GUTTER / 2 }}>
           <FluidPhoto uri={photo} width={photoW} height={photoH} label={`Photo of ${first}`} />
           <Botanical art="leaf" width={128} top={134} left={58} rotate={-34} />
         </View>

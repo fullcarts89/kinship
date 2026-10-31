@@ -81,7 +81,7 @@ export function MomentDetailSheet({ detail, onDismiss, onMessage, onCall, onPers
   const photoW = Math.round(width * 0.46);
   const photoH = Math.round(photoW * artTokens.photo.aspect);
   const bleed = detail ? (
-    <View style={{ height: photoUri ? photoH + space.l : 150 }}>
+    <View style={{ height: photoUri ? photoH + space.l : 150, overflow: "hidden" }}>
       <DawnWash kind={kind} height={photoUri ? photoH + space.x3 : 220} />
       {kind === "joyful" ? <Botanical art="bloom" width={240} top={-70} right={-60} /> : null}
       {kind === "quiet" ? <Botanical art="leaf" width={150} top={-20} right={-50} rotate={24} dim /> : null}

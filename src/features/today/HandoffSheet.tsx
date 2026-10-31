@@ -37,7 +37,7 @@ export function HandoffSheet(props: HandoffSheetProps) {
   const p = usePalette();
   const [first, ...others] = props.channels;
   const bleed = (
-    <View style={{ height: 96 }}>
+    <View style={{ height: 96, overflow: "hidden" }}>
       <DawnWash kind="quiet" height={160} />
       <Botanical art="leaf" width={140} top={-30} right={-50} rotate={24} dim />
     </View>
