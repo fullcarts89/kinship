@@ -72,12 +72,20 @@ const itemsOf = async (a: Account, personId: string) => (await serverRows<Item>(
  * to drop a request: "Thread killed by timeout manager", a 504), sync and run the understanding again.
  * Never more often than the app would; nothing is injected.
  */
-async function nudgeUntilUnderstood(a: Account, maxTries = 8): Promise<void> {
-  for (let i = 0; i < maxTries; i++) {
-    await settle(3000);
-    const pending = (await a.acct.store.pendingOps()).some((o) => o.tbl === "captures");
+async function nudgeUntilUnderstood(a: Account): Promise<void> {
+  // At most four nudges, sleeping 3, 6, 12 and 24 s before each: never a tight loop, and never more than
+  // one sync and one run per nudge. A write the server refused or found in conflict (the outbox records it
+  // in last_error) is not retried by the harness at all: the engine's own bounded rebase owns that, and a
+  // harness that kept asking would only repeat the same stale version.
+  for (let i = 0; i < 4; i++) {
+    await settle(3000 * 2 ** i);
+    const ops = await a.acct.store.pendingOps();
+    const pending = ops.some((o) => o.tbl === "captures");
     const open = await harness.session!.understanding.open();
     if (!pending && open.every((o) => o.state !== "waiting")) return;
+    if (ops.some((o) => /conflict|rejected/iu.test(String((o as unknown as { last_error?: unknown }).last_error ?? "")))) {
+      throw new Error(`a write is in conflict; not retrying from the harness: ${JSON.stringify(ops.map((o) => [o.tbl, o.kind, (o as unknown as { last_error?: unknown }).last_error]))}`);
+    }
     await a.acct.engine.sync().catch(() => undefined);
     await harness.session!.understanding.run().catch(() => undefined);
   }
