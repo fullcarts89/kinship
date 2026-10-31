@@ -6,7 +6,7 @@ import type { PlaceIndex } from "../_shared/semantic/placeIndex.ts";
 import type { FacetWrite, LineToRead } from "../_shared/semantic/rederive.ts";
 import type { ReportItem, ReportRow } from "../_shared/semantic/report.ts";
 import { placeIndex } from "../_shared/semantic/places/dataset.ts";
-import type { ResolvedItem } from "../_shared/extraction/resolve.ts";
+import type { HeldItem, ResolvedItem } from "../_shared/extraction/resolve.ts";
 import {
   type CallLog,
   createGateway,
@@ -69,6 +69,8 @@ interface World {
   quoteIds: string[];
   /** Every coverage write (Option A), in order: what the understanding did not get to, or null to clear. */
   coverages: (StoredCoverage | null)[];
+  /** Every re-hold of a review (CER-1): the answered question needs one more. */
+  reholds: { createdAt: string; items: HeldItem[] }[];
 }
 
 function world(opts: {
@@ -87,6 +89,8 @@ function world(opts: {
   savedIds?: string[];
   /** The capture row's stored coverage (Option A). */
   coverage?: unknown;
+  /** reholdReview finds the review changed (CER-1). */
+  reholdChanged?: boolean;
   /** The note this capture tells the rest of (CER-1): its id, words and page; `savedPeople` its kept lines' people. */
   parent?: { id: string; note: string; context_person_id?: string | null };
   savedPeople?: string[];
@@ -110,7 +114,7 @@ function world(opts: {
   reportThrows?: boolean;
 } = {}): World {
   const w: World = {
-    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [], ops: [], reports: [], runs: new Map(), pages: [], quoteIds: [], coverages: [],
+    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [], ops: [], reports: [], runs: new Map(), pages: [], quoteIds: [], coverages: [], reholds: [],
     deps: undefined as unknown as GatewayDeps,
   };
   const caller: GatewayCaller = {
@@ -161,6 +165,10 @@ function world(opts: {
     release: (_u, _c, status) => {
       w.releases.push(status);
       return Promise.resolve();
+    },
+    reholdReview: (_u, _c, createdAt, items) => {
+      w.reholds.push({ createdAt, items });
+      return Promise.resolve(opts.reholdChanged ? null : "2026-10-31T18:00:00.000000+00:00");
     },
     setCoverage: (_u, _c, coverage) => {
       w.coverages.push(coverage);
@@ -396,6 +404,36 @@ Deno.test("an answer is checked, written and closed in one step, with no model c
   eq(w.resolves[0].createdAt, STORED_AT);
   eq(w.resolves[0].items[0].spans, [{ start: 0, end: 15, quote: "Sam got the job" }]);
   eq([w.modelCalls.length, w.quota, w.logs.length], [0, 0, 0], "no model, no quota, nothing to log");
+});
+
+Deno.test("CER-1: an answer that settles who a line is about, when that person has a line the user edited that it plainly updates, writes nothing and asks the replace question", async () => {
+  const note = "Actually the Pilsen move slipped again, it's December 6 now.";
+  const quote = "the Pilsen move slipped again, it's December 6 now";
+  const at = note.indexOf(quote);
+  const review: StoredReview = {
+    items: [{
+      kind: "event", person_id: null, new_person_name: null, subject_type: "person", related: null,
+      statement: "The Pilsen move slipped again; it's now December 6", detail: { event_type: "move", date: "2026-12-06", date_precision: "day" }, certainty: "planned",
+      sensitivity: "none", confidence: 0.9, action: { type: "new", target_id: null }, tier: "hold", flags: ["person_ambiguous"],
+      spans: [{ start: at, end: at + quote.length, quote }],
+    }],
+    clarification: { about: "person", question: "Who is this about?", options: ["Someone else"] },
+    created_at: STORED_AT,
+  };
+  const edited = { id: "item-move", person_id: "person-sam-lee", kind: "event", subject_type: "person", subject_related_id: null,
+    statement: "Sam moves in on November 22", certainty: "planned", status: "active", user_state: "edited", detail: { event_type: "move", date: "2026-11-22", date_precision: "day" } } as unknown as ItemRow;
+  const w = world({ note, people: SAMS, review, items: [edited] });
+  const { status, body } = await call(w, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }])));
+  eq(status, 200);
+  eq(body.status, "asked_again");
+  eq(w.resolves.length, 0, "nothing is written until the user says whether it replaces");
+  eq(w.reholds.length, 1);
+  const held = body.held[0];
+  eq([held.person_id, held.flags.includes("update_check"), held.flags.includes("person_ambiguous"), held.detail._replaces], ["person-sam-lee", true, false, [{ id: "item-move", statement: "Sam moves in on November 22" }]]);
+  eq(body.review_created_at, "2026-10-31T18:00:00.000000+00:00");
+  // The review changed under the answer: shown again, never half applied.
+  const changed = world({ note, people: SAMS, review, items: [edited], reholdChanged: true });
+  eq((await call(changed, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }])))).status, 409);
 });
 
 Deno.test("I10: the answer to a held mirror's 'which Sam' joins the line kept for its twin (loaded for the answer), never a second copy", async () => {

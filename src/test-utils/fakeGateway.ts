@@ -326,6 +326,9 @@ export class FakeGateway implements GatewayTransport {
       .map((m) => ({ person_id: String(m.person_id), statement: String(m.statement) }));
   }
 
+  /** The lines the user chose to replace in this answer ("Does this replace what you told me?"), as resolve_capture_review records them. */
+  private userChose = new Set<string>();
+
   private realAnswer(captureId: string, note: string, review: StoredReview, answers: HeldAnswer[]): TransportReply {
     const people = withLineNames(this.rows<PersonRow & { state: string }>("people"), this.rows<{ person_mentions?: unknown }>("memory_items"));
     const r = resolveHeld(review.items as unknown as ResolveHeldItem[], answers as never, {
@@ -345,6 +348,12 @@ export class FakeGateway implements GatewayTransport {
       removed: this.removedFrom(captureId),
     });
     if ("fail" in r) return refuse(400, "invalid_answer", r.fail);
+    // As resolveReview (CER-1): the answer settled who it is about and one more question follows; nothing is written.
+    if (r.askAgain) {
+      const createdAt = this.server.tick(1);
+      this.reviews.set(captureId, { items: [r.askAgain as unknown as Record<string, unknown>], clarification: null, created_at: createdAt } as never);
+      return ok({ status: "asked_again", held: [r.askAgain], clarification: null, review_created_at: createdAt });
+    }
     const created: Record<string, string> = {};
     for (const np of r.newPeople) {
       created[np.ref] = this.writeNew("people", { display_name: np.display_name, state: "active", relationship_label: np.relationship_label ?? null });
@@ -357,6 +366,12 @@ export class FakeGateway implements GatewayTransport {
         (h.still_in as { target_id?: string } | undefined)?.target_id === it.action.target_id && h.person_id === it.person_id &&
         sig(h.spans) === sig(it.spans)))
       .map((it) => it.action.target_id!);
+    this.userChose = new Set(r.items.filter((it) => it.action.type === "supersede" && review.items.some((h) =>
+      Array.isArray(h.flags) && (h.flags as string[]).includes("update_check") &&
+      Array.isArray((h.detail as { _replaces?: { id: string }[] } | undefined)?._replaces) &&
+      (h.detail as { _replaces: { id: string }[] })._replaces.some((o) => o.id === it.action.target_id) &&
+      (h.person_id === null || h.person_id === it.person_id) && sig(h.spans) === sig(it.spans)))
+      .map((it) => it.action.target_id!));
     const out: Record<string, unknown>[] = [];
     for (const it of r.items) {
       const personId = it.person_id.startsWith("new:") ? created[it.person_id] : it.person_id;
@@ -365,6 +380,7 @@ export class FakeGateway implements GatewayTransport {
       const resolved = { ...it, person_id: personId, ...(words.length ? { person_mentions: words } : {}) };
       out.push({ ...resolved, id: this.writeItem(captureId, resolved as unknown as Record<string, unknown>, answered), action: it.action.type });
     }
+    this.userChose = new Set();
     this.reviews.delete(captureId);
     this.settle(captureId);
     return ok({ status: "resolved", saved: out, new_people: Object.values(created), skipped: r.skipped });
@@ -467,7 +483,7 @@ export class FakeGateway implements GatewayTransport {
     let type = action.type ?? "new";
     if (type !== "new" && (!target || target.deleted_at || target.user_id !== this.userId
       || (["edited", "user_authored"].includes(String(target.user_state)) &&
-        !(type === "supersede" && this.editedLineClosure(captureId, p, target, answered)))
+        !(type === "supersede" && (this.editedLineClosure(captureId, p, target, answered) || this.userChose.has(String(target.id)))))
       || target.person_id !== p.person_id
       || target.subject_type !== p.subject_type
       || (type === "merge" && (target.kind !== p.kind || target.status !== "active"))

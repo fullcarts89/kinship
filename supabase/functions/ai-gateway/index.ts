@@ -209,6 +209,13 @@ function serviceOps(db: SupabaseClient): ServiceOps {
       const { error } = await db.rpc("release_capture_extraction", { p_user_id: userId, p_capture_id: captureId, p_status: status });
       if (error) throw new Error("release failed");
     },
+    async reholdReview(userId, captureId, createdAt, items) {
+      const now = new Date().toISOString();
+      const { data, error } = await service.from("capture_reviews").update({ items, created_at: now })
+        .eq("capture_id", captureId).eq("user_id", userId).eq("created_at", createdAt).select("created_at");
+      if (error) throw new Error("review write failed");
+      return (data ?? []).length ? now : null;
+    },
     async setCoverage(userId, captureId, coverage) {
       const { error } = await db.rpc("set_capture_coverage", { p_user_id: userId, p_capture_id: captureId, p_coverage: coverage });
       if (error) throw new Error(`coverage write failed (${error.code ?? "?"})`);

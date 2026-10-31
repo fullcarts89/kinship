@@ -177,6 +177,12 @@ export interface ServiceOps {
    * null clears an earlier record. Written before the lines, so a note is never shown whole by mistake.
    */
   setCoverage(userId: string, captureId: string, coverage: StoredCoverage | null): Promise<void>;
+  /**
+   * An answered question needs one more (CER-1: the person was just settled and has a line the user edited
+   * that this one plainly updates): the stored review becomes these held items under a new version, if it
+   * is still the one the user answered. Returns the new version's created_at, or null when it changed.
+   */
+  reholdReview(userId: string, captureId: string, createdAt: string, items: HeldItem[]): Promise<string | null>;
   /** Saved items, plus the held items and question when something waits on the user, in one transaction. */
   write(
     userId: string,
@@ -622,6 +628,13 @@ async function resolveReview(
     removed,
   });
   if ("fail" in resolution) return json({ error: "invalid_answer", reason: resolution.fail }, 400, cors);
+  // The answer settled who it is about, and that person has a line the user edited which it plainly updates:
+  // nothing is written; the question comes back with the replace choice (the phone shows it as any question).
+  if (resolution.askAgain) {
+    const newCreatedAt = await deps.service.reholdReview(caller.userId, captureId, review.created_at, [resolution.askAgain]);
+    if (!newCreatedAt) return json({ error: "review_changed" }, 409, cors);
+    return json({ status: "asked_again", held: [resolution.askAgain], clarification: null, review_created_at: newCreatedAt }, 200, cors);
+  }
 
   try {
     const out = await deps.service.resolve(caller.userId, captureId, review.created_at, resolution.items, resolution.newPeople);
