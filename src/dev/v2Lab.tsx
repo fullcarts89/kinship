@@ -216,34 +216,34 @@ const askViews: Record<string, AskView> = {
   ask: {
     ...EMPTY_ASK, query: "Who do I know in Alameda?", asked: true, named: [ASK_ID.susan, ASK_ID.dana],
     groups: [
-      { personId: ASK_ID.susan, name: "Susan", quiet: false, conversations: [], rows: [{
+      { personId: ASK_ID.susan, name: "Susan", href: `/v2/person/${ASK_ID.susan}`, quiet: false, conversations: [], rows: [{
         key: "composed", earlier: false, href: `/v2/person/${ASK_ID.susan}`,
         row: askLine("s-ala", ASK_ID.susan, "Susan lives in Alameda", "You told Kinship · Oct 2 · and 1 other note", {
           display: "Lives in Alameda, California", composed: { text: "Lives in Alameda, California", memberIds: ["s-ala", "s-ca"], members: [] },
         }),
       }] },
-      { personId: ASK_ID.dana, name: "Dana", quiet: true, conversations: [], rows: [{
+      { personId: ASK_ID.dana, name: "Dana", href: `/v2/person/${ASK_ID.dana}`, quiet: true, conversations: [], rows: [{
         key: "d", earlier: false, href: `/v2/person/${ASK_ID.dana}`, row: askLine("d-ala", ASK_ID.dana, "Dana lives in Alameda", "You told Kinship · Sep 14"),
       }] },
     ],
   },
   "ask-earlier": {
     ...EMPTY_ASK, query: "Who do I know in Oakland?", asked: true, named: [],
-    groups: [{ personId: ASK_ID.susan, name: "Susan", quiet: false, conversations: [], rows: [{
+    groups: [{ personId: ASK_ID.susan, name: "Susan", href: `/v2/person/${ASK_ID.susan}`, quiet: false, conversations: [], rows: [{
       key: "e", earlier: true, href: `/v2/person/${ASK_ID.susan}/knows`,
       row: askLine("s-oak", ASK_ID.susan, "Susan lives in Oakland", "You told Kinship · Oct 9", { display: "Previously lived in Oakland", history: { when: null } }),
     }] }],
   },
   "ask-sam": {
     ...EMPTY_ASK, query: "When did I last see Sam?", asked: true, named: [ID.sam1, ID.sam2],
-    groups: [{ personId: ID.sam1, name: "Sam", quiet: false, rows: [], conversations: [
+    groups: [{ personId: ID.sam1, name: "Sam", href: `/v2/person/${ID.sam1}`, quiet: false, rows: [], conversations: [
       { id: "ce2", label: "You messaged · Oct 6", about: "Sam got the Stripe job" },
       { id: "ce1", label: "You saw Sam · Sep 20", about: null },
     ] }],
   },
   "ask-into": {
     ...EMPTY_ASK, query: "What is Ben into?", asked: true, named: [ID.ben],
-    groups: [{ personId: ID.ben, name: "Ben", quiet: false, conversations: [], rows: [
+    groups: [{ personId: ID.ben, name: "Ben", href: `/v2/person/${ID.ben}`, quiet: false, conversations: [], rows: [
       { key: "m8", earlier: false, href: `/v2/person/${ID.ben}`, row: record[2] },
       { key: "m7", earlier: false, href: `/v2/person/${ID.ben}`, row: { line: itemLine(trail, { people, related: [], today: TODAY }), provenance: "You told Kinship · Sep 20", noteId: "c3", conflict: null } },
     ] }],
@@ -256,7 +256,7 @@ function AskLab({ state }: { state: string }) {
   return (
     <Phone nav="people">
       <PeopleView rows={askRows} onOpen={noop} onAdd={async () => undefined} onSettings={noop} initialQuery={view.query}
-        memory={{ asked: view.asked, named: view.named, node: <AskResults view={view} onLine={noop} onSource={noop} onComposed={noop} /> }} />
+        memory={{ query: view.query, asked: view.asked, named: view.named, node: <AskResults view={view} onLine={noop} onSource={noop} onComposed={noop} /> }} />
     </Phone>
   );
 }

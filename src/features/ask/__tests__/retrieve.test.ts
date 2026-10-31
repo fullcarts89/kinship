@@ -2,7 +2,7 @@
 // the user's own lines. Every answer is a line that exists, filed on its
 // person; a question nothing answers is an honest miss; nothing is ranked,
 // counted, suggested or invented. Pure: no store, no model.
-import { ask, ASK_COPY, parse, words } from "../retrieve";
+import { ask, ASK_COPY, looksLikeName, parse, words } from "../retrieve";
 import type { ContactEventRow } from "@/features/person/trail";
 import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 
@@ -23,6 +23,8 @@ const P = {
   alex: person("alex", "Alex", { state: "paused" }),
   zed: person("zed", "Zed", { state: "archived" }),
   jose: person("jose", "José"),
+  will: person("will", "Will"),
+  samantha: person("samantha", "Samantha", { full_name: "Samantha Reyes" } as Partial<Person>),
   gone: person("gone", "Gone", { deleted_at: "2026-10-01T00:00:00Z" } as Partial<Person>),
 };
 const people = Object.values(P);
@@ -45,6 +47,7 @@ const items: MemoryItem[] = [
   item("s-ala", "susan", "Susan lives in Alameda", { detail: { category: "home", transition: "changed" }, supersedes_id: "s-oak" }),
   item("s-gift", "susan", "Susan said she'd love a pottery wheel as a gift", { detail: { category: "other", topic: "gift" } }),
   item("s-cats", "susan", "Susan is allergic to cats", { status: "retracted", deleted_at: "2026-10-20T00:00:00Z" } as Partial<MemoryItem>),
+  item("s-knee", "susan", "Susan has knee surgery next month", { kind: "event", sensitivity: "health", detail: { event_type: "medical", date_precision: "unknown" } } as Partial<MemoryItem>),
   item("j-pottery", "john", "John loves pottery", { detail: { category: "interest" } }),
   item("j-meta", "john", "John works at Meta", { detail: { category: "work" } }),
   item("j-run", "john", "John is into trail running", { detail: { category: "interest" } }),
@@ -60,6 +63,8 @@ const items: MemoryItem[] = [
   item("z-pottery", "zed", "Zed loves pottery", { detail: { category: "interest" } }),
   item("jo-sev", "jose", "José lives in Sevilla", { detail: { category: "home" } }),
   item("g-line", "gone", "Gone loves pottery", { detail: { category: "interest" } }),
+  item("w-chess", "will", "Will loves chess", { detail: { category: "interest" } }),
+  item("sa-yoga", "samantha", "Samantha is into yoga", { detail: { category: "interest" } }),
 ];
 
 const facets = new Map<string, { value_text: string; deleted_at?: unknown }>([
@@ -88,9 +93,19 @@ describe("words", () => {
     expect(words("Chris likes")).toEqual(["chris", "like"]);
   });
   it("drops question and function words, keeps the content, reads the steer", () => {
-    expect(parse("What is John into?")).toEqual({ content: ["john"], steers: new Set(["interest"]) });
-    expect(parse("Who do I know in Alameda?")).toEqual({ content: ["alameda"], steers: new Set(["residence"]) });
-    expect(parse("When did I last see Sam?")).toEqual({ content: ["sam"], steers: new Set(["conversation"]) });
+    expect(parse("What is John into?")).toMatchObject({ content: ["john"], steers: new Set(["interest"]), typing: false });
+    expect(parse("Who do I know in Alameda?")).toMatchObject({ content: ["alameda"], steers: new Set(["residence"]) });
+    expect(parse("When did I last see Sam?")).toMatchObject({ content: ["sam"], steers: new Set(["conversation"]) });
+    expect(parse("Has Sam called?")).toMatchObject({ steers: new Set(["conversation"]) });
+    expect(parse("What is Sam")).toMatchObject({ typing: true });
+  });
+  it("a name is kept even when it is a question word, when the caller says it names someone", () => {
+    expect(parse("What does Will like?", (w) => w === "will")).toMatchObject({ content: ["will"], nameTokens: new Set(["will"]), steers: new Set(["interest"]) });
+    expect(parse("What does Will like?")).toMatchObject({ content: [] });
+  });
+  it("a name, not a sentence, is what People offers to add", () => {
+    expect(["Zelda", "Sam Eden", "Aunt Linda"].map(looksLikeName)).toEqual([true, true, true]);
+    expect(["What do I know about Dana", "Has Sam called?", "Who have I talked to lately?", "gifts for Susan"].map(looksLikeName)).toEqual([false, false, false, false]);
   });
 });
 
@@ -98,13 +113,17 @@ describe("nothing asked", () => {
   it.each(["", "   ", "what did", "did I ever", "?"])("no content words → nothing (%j)", (s) => {
     expect(q(s)).toEqual({ asked: false, named: [], groups: [], birthdays: [], miss: null });
   });
-  it("a name alone is People's own filter, not a question", () => {
-    expect(q("John").asked).toBe(false);
+  it("a name alone is People's own filter, not a question; the people named still go back for the list", () => {
+    expect(q("John")).toMatchObject({ asked: false, named: [P.john] });
     expect(q("Sam").asked).toBe(false);
     expect(q("Sam Eden").asked).toBe(false);
   });
-  it("a steer with no one it is about asks nothing", () => {
-    expect(q("what do they like").asked).toBe(false);
+  it("a question that only names someone keeps them for the list and asks nothing (never 'Add What do I know about Dana')", () => {
+    expect(q("What do I know about Dana")).toMatchObject({ asked: false, named: [P.dana] });
+  });
+  it("a steer with no one it is about is a question nothing answers, never a list across people", () => {
+    expect(q("what do they like")).toMatchObject({ asked: true, groups: [], miss: ASK_COPY.nothing });
+    expect(q("Who have I talked to lately?")).toMatchObject({ asked: true, groups: [], miss: ASK_COPY.nothing });
   });
   it("a lone word that names no one and finds nothing is not a question (People says 'No one called … yet')", () => {
     expect(q("Zelda").asked).toBe(false);
@@ -183,10 +202,36 @@ describe("places, people and details", () => {
   it("'Who likes pottery?' → everyone whose line says so, in People's order, paused last; archived and deleted never", () => {
     expect(ids(q("Who likes pottery?"))).toEqual([["aaron", ["a-pottery"]], ["john", ["j-pottery"]], ["alex", ["x-pottery"]]]);
   });
-  it("every word, else any of them: 'Ben marathon Chicago' still finds the Chicago line and says which word did", () => {
-    const a = q("Ben marathon Chicago");
+  it("about a named person, every word in one line, else any of them when each word is in some line of theirs: 'Ben Chicago four hours'", () => {
+    const a = q("Ben Chicago four hours");
     expect(ids(a)).toEqual([["ben", ["b-race"]]]);
-    expect(a.groups[0].matches[0].why.words).toEqual(["chicago"]);
+    expect(a.groups[0].matches[0].why.words).toEqual(["chicago", "four", "hour"]);
+    const any = q("Ben Chicago Sunday hours");
+    expect(ids(any)).toEqual([["ben", ["b-race"]]]);
+    expect(any.groups[0].matches[0].why.words).toEqual(["chicago", "sunday", "hour"]);
+  });
+  it("a word no line of theirs has is an honest miss, never a partial match read as the answer", () => {
+    expect(q("Ben marathon Chicago")).toMatchObject({ groups: [], miss: ASK_COPY.nothingFor("Ben") });
+    expect(q("Did Susan mention a gift for her sister")).toMatchObject({ groups: [], miss: ASK_COPY.nothingFor("Susan") });
+  });
+  it("an unknown name with a content word never falls through to other people's lines", () => {
+    expect(q("Does Zelda like pottery?")).toMatchObject({ asked: true, groups: [], miss: ASK_COPY.nothing });
+  });
+  it("a person whose name is a question word can be asked about: 'What does Will like?'", () => {
+    expect(ids(q("What does Will like?"))).toEqual([["will", ["w-chess"]]]);
+  });
+  it("'Has Sam called?' steers to the conversations", () => {
+    const a = q("Has Sam called?");
+    expect(a.groups.map((g) => [g.person.id, g.conversations.map((t) => t.label)])).toEqual([["sam-eden", ["You messaged · Oct 6", "You saw Sam · Sep 20"]]]);
+  });
+  it("a finished sentence names the Sams, never Samantha; the word still being typed may be her start", () => {
+    expect(q("What is Sam into?").named.map((p) => p.id)).toEqual(["sam-doughty", "sam-eden"]);
+    expect(q("What is Sam").named.map((p) => p.id)).toEqual(["sam-doughty", "sam-eden", "samantha"]);
+  });
+  it("a sensitive line is found like any other, shown plainly (the user's own memory), with no mark of its own", () => {
+    const a = q("surgery");
+    expect(ids(a)).toEqual([["susan", ["s-knee"]]]);
+    expect(Object.keys(a.groups[0].matches[0])).toEqual(["item", "person", "why", "earlier"]);
   });
   it("a steer never hides what the words found: 'Who likes Chicago' (no interest line says it)", () => {
     expect(ids(q("Who likes Chicago"))).toEqual([["ben", ["b-race"]]]);
@@ -197,6 +242,18 @@ describe("what is current, earlier, and gone", () => {
   it("a superseded residence the page shows under Before is found only as earlier", () => {
     const a = q("Who do I know in Oakland?");
     expect(ids(a)).toEqual([["susan", ["s-oak~"]]]);
+  });
+  it("a superseded chain (California, Alameda) closed by one move is found as earlier, each line", () => {
+    const chain = [
+      item("c-ca", "susan", "Susan lives in California", { detail: { category: "home" }, status: "superseded" }),
+      item("c-ala", "susan", "Susan lives in Alameda", { detail: { category: "home" }, status: "superseded" }),
+      item("c-move", "susan", "Susan moved to Colorado", { kind: "event", detail: { event_type: "move", transition: "changed", date_precision: "unknown" }, supersedes_id: "c-ala", closes_ids: ["c-ca"] }),
+    ];
+    const f = new Map([["c-ca", { value_text: "California" }], ["c-ala", { value_text: "Alameda" }], ["c-move", { value_text: "Colorado" }]]);
+    const at = (query: string) => ids(ask({ query, people, related, items: chain, facets: f, contacts, now: NOW }));
+    expect(at("Who do I know in California?")).toEqual([["susan", ["c-ca~"]]]);
+    expect(at("Alameda")).toEqual([["susan", ["c-ala~"]]]);
+    expect(at("Where does Susan live?")).toEqual([["susan", ["c-move", "c-ala~", "c-ca~"]]]);
   });
   it("a superseded line with no recorded change is never found", () => {
     const plain = items.map((m) => (m.id === "s-ala" ? { ...m, detail: { category: "home" } } : m));
@@ -221,8 +278,8 @@ describe("honest misses", () => {
     expect(a.groups).toEqual([]);
     expect(a.miss).toBe(ASK_COPY.nothingFor("John"));
   });
-  it("two people named: 'Have Sam and Chris been skiing'", () => {
-    expect(q("Did Sam and Chris go skiing").miss).toBe(ASK_COPY.nothingFor("Chris, Sam and Sam"));
+  it("two people of one name are told apart as People tells them apart: 'Chris, Sam Doughty and Sam Eden'", () => {
+    expect(q("Did Sam and Chris go skiing").miss).toBe(ASK_COPY.nothingFor("Chris, Sam Doughty and Sam Eden"));
   });
   it("no one named, nothing found: a question or statement gets the one quiet line", () => {
     const a = q("purple elephants");

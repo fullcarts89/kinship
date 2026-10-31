@@ -4,13 +4,14 @@
 // store exactly as What Kinship knows reads them (recordFor: the same words,
 // composed residence line, provenance and note), so a found line is the page's
 // line, never a second rendering of it. No model, no server.
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { dayMonth } from "@/features/setup/setupModel";
 import { voiced } from "@/features/memory/statements";
 import type { RecordLine } from "@/features/person/PersonRecordView";
 import type { TrailLine } from "@/features/person/portraitModel";
 import type { ContactEventRow } from "@/features/person/trail";
-import { personFocusHref, recordFor } from "@/hooks/useV2";
+import { portraitShows } from "@/features/person/portraitModel";
+import { portraitFor, recordFor } from "@/hooks/useV2";
 import { useStoreQuery } from "@/hooks/useStoreQuery";
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { type MemoryItem, type Person, repositoriesFor } from "@/store/repositories";
@@ -31,6 +32,8 @@ export interface AskRowView {
 export interface AskGroupView {
   personId: string;
   name: string;
+  /** The person's page (a conversation taps through to it). */
+  href: string;
   /** Remembered or paused: shown last, nothing proactive. */
   quiet: boolean;
   rows: AskRowView[];
@@ -44,6 +47,8 @@ export interface AskBirthdayView {
   text: string;
   /** "From Contacts" / "You told Kinship" */
   provenance: string;
+  /** The note a told birthday came from, when there is one to open. */
+  noteId: string | null;
   href: string;
 }
 
@@ -88,7 +93,11 @@ export async function askView(store: UserStore, query: string, now: Date): Promi
 
   const groups: AskGroupView[] = [];
   for (const g of answer.groups) {
+    const base = `/v2/person/${g.person.id}`;
     const record = await recordFor(repos, g.person.id, now);
+    // Where a line's words lead (the "View Ben" rule, personFocusHref): the portrait when it shows the line,
+    // else What Kinship knows. One portrait read per person, not per line.
+    const portrait = g.matches.some((m) => !m.earlier) ? await portraitFor(repos, g.person, now) : null;
     const rows: AskRowView[] = [];
     const seen = new Set<string>();
     for (const m of g.matches) {
@@ -98,29 +107,47 @@ export async function askView(store: UserStore, query: string, now: Date): Promi
       const key = line.composed ? `composed:${line.composed.memberIds.join(",")}` : `line:${line.line.id}:${m.earlier ? "earlier" : "now"}`;
       if (seen.has(key)) continue; // two members of one composed line: one row
       seen.add(key);
-      const href = m.earlier
-        ? `/v2/person/${g.person.id}/knows?item=${encodeURIComponent(m.item.id)}`
-        : await personFocusHref(repos, g.person.id, line.composed ? line.composed.memberIds[0] : m.item.id, now);
+      const itemId = line.composed ? line.composed.memberIds[0] : m.item.id;
+      const href = !m.earlier && portrait && portraitShows(portrait, itemId)
+        ? `${base}?item=${encodeURIComponent(itemId)}`
+        : `${base}/knows?item=${encodeURIComponent(itemId)}`;
       rows.push({ key, row: line, earlier: m.earlier, href });
     }
     if (!rows.length && !g.conversations.length) continue;
-    groups.push({ personId: g.person.id, name: shortName(g.person) || g.person.display_name, quiet: g.quiet, rows, conversations: g.conversations });
+    groups.push({ personId: g.person.id, name: shortName(g.person) || g.person.display_name, href: base, quiet: g.quiet, rows, conversations: g.conversations });
   }
   const birthdays: AskBirthdayView[] = answer.birthdays.map((p) => ({
     personId: p.id,
     text: `${shortName(p) || p.display_name}'s birthday · ${dayMonth(String(p.birthday))}`,
     provenance: birthdayProvenance(p.birthday_source),
+    noteId: typeof p.birthday_capture_id === "string" && p.birthday_capture_id ? p.birthday_capture_id : null,
     href: `/v2/person/${p.id}`,
   }));
   // Lines that changed under us can leave nothing to show: then the honest line, as retrieval says it.
-  const miss = answer.miss ?? (groups.length || birthdays.length ? null : answer.named.length ? ASK_COPY.nothingFor(listNames(answer.named)) : ASK_COPY.nothing);
+  const miss = answer.miss ?? (groups.length || birthdays.length ? null : answer.named.length ? ASK_COPY.nothingFor(listNames(answer.named, people)) : ASK_COPY.nothing);
   return { query, asked: true, named: answer.named.map((p) => p.id), groups, birthdays, miss };
 }
 
-/** What the People search field's query finds in memory; re-read whenever the store changes. */
+/** How long typing settles before memory is asked (a read per keystroke would be wasted work). */
+export const ASK_DEBOUNCE_MS = 150;
+
+/**
+ * What the People search field's query finds in memory; re-read whenever the
+ * store changes. The answer carries the query it answers, so the view can
+ * tell a settled answer from one still being read.
+ */
 export function useAsk(query: string): AskView {
   const { store } = useV2Session();
-  const q = useStoreQuery(store, useCallback(() => (store ? askView(store, query, new Date()) : Promise.resolve(EMPTY_ASK)), [store, query]), [query]);
+  const [settled, setSettled] = useState(query);
+  useEffect(() => {
+    if (!query.trim()) {
+      setSettled(query);
+      return;
+    }
+    const t = setTimeout(() => setSettled(query), ASK_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query]);
+  const q = useStoreQuery(store, useCallback(() => (store ? askView(store, settled, new Date()) : Promise.resolve(EMPTY_ASK)), [store, settled]), [settled]);
   // While a new query is being read, the last answer stays (never a flash of "nothing" between keystrokes).
-  return q.data ?? { ...EMPTY_ASK, query };
+  return q.data ?? { ...EMPTY_ASK, query: settled };
 }

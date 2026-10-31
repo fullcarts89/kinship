@@ -33,7 +33,8 @@
 //              filter; a named person with no matching line → an honest miss,
 //              never a guess.
 import { categoryOf } from "../../../supabase/functions/_shared/semantic/categories";
-import { aliasesOf, shortName } from "../../../supabase/functions/_shared/extraction/names";
+import { aliasesOf } from "../../../supabase/functions/_shared/extraction/names";
+import { personLabel } from "@/features/tell/reviewModel";
 import { historyKind } from "@/features/person/recordSections";
 import { type ContactEventRow, trailFor } from "@/features/person/trail";
 import type { TrailLine } from "@/features/person/portraitModel";
@@ -153,20 +154,44 @@ const BIRTHDAY = new Set(["birthday", "bday", "born"].map(stem));
 
 export type Steer = "interest" | "conversation" | "residence" | "birthday";
 
-/** The query's words that carry its meaning, and the way it steers. */
-export function parse(query: string): { content: string[]; steers: Set<Steer> } {
-  const raw = words(query);
-  const steers = new Set<Steer>();
-  const has = (set: Set<string>) => raw.some((w) => set.has(w));
-  if (has(INTEREST)) steers.add("interest");
-  if (has(CONTACT) && raw.some((w) => w === "when" || w === "last" || w === "time" || w === "did" || w === "have" || w === "ha")) steers.add("conversation");
-  if (has(RESIDENCE) || (raw.includes("who") && raw.some((w) => PLACE_PREPOSITION.has(w)))) steers.add("residence");
-  if (has(BIRTHDAY)) steers.add("birthday");
-  const content = raw.filter((w) => !STOP.has(w) && !INTEREST.has(w) && !CONTACT.has(w) && !RESIDENCE.has(w) && w.length > 1);
-  return { content, steers };
+/** The user is still typing the last word: the query ends in a letter or digit (no space, no "?"). */
+export function stillTyping(query: string): boolean {
+  return /[\p{L}\p{N}]$/u.test(query);
 }
 
-/** A query word is found among a text's words: the same word, or (the last word typed) the start of one. */
+/**
+ * The query's words that carry its meaning, and the way it steers. A word
+ * that names someone (`isName`, checked on every word before question words
+ * are dropped, so Will and May can be asked about) is always content.
+ */
+export function parse(query: string, isName?: (word: string, prefix: boolean) => boolean): { content: string[]; steers: Set<Steer>; nameTokens: Set<string>; typing: boolean } {
+  const raw = words(query);
+  const typing = stillTyping(query);
+  const last = raw.length - 1;
+  const nameTokens = new Set<string>();
+  if (isName) raw.forEach((w, i) => { if (isName(w, typing && i === last)) nameTokens.add(w); });
+  const steers = new Set<Steer>();
+  const has = (set: Set<string>) => raw.some((w) => !nameTokens.has(w) && set.has(w));
+  if (has(INTEREST)) steers.add("interest");
+  if (has(CONTACT) && raw.some((w) => w === "when" || w === "last" || w === "time" || w === "did" || w === "have" || w === "has")) steers.add("conversation");
+  if (has(RESIDENCE) || (raw.includes("who") && raw.some((w) => PLACE_PREPOSITION.has(w)))) steers.add("residence");
+  if (has(BIRTHDAY)) steers.add("birthday");
+  const content = raw.filter((w) => nameTokens.has(w) || (!STOP.has(w) && !INTEREST.has(w) && !CONTACT.has(w) && !RESIDENCE.has(w) && w.length > 1));
+  return { content, steers, nameTokens, typing };
+}
+
+/**
+ * Whether the search field holds a name rather than a question (People's own
+ * "No one called … yet" offer): one word, or up to three with no question word.
+ */
+export function looksLikeName(query: string): boolean {
+  const raw = words(query);
+  if (!raw.length || raw.length > 3) return false;
+  if (raw.length === 1) return true;
+  return raw.every((w) => !STOP.has(w) && !INTEREST.has(w) && !CONTACT.has(w) && !RESIDENCE.has(w) && !BIRTHDAY.has(w));
+}
+
+/** A query word is found among a text's words: the same word, or (the word still being typed) the start of one. */
 function hit(text: readonly string[], q: string, prefix: boolean): boolean {
   return text.some((t) => t === q || (prefix && q.length >= 3 && t.startsWith(q)));
 }
@@ -231,9 +256,9 @@ function newestFirst(a: MemoryItem, b: MemoryItem): number {
   return String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")) || a.id.localeCompare(b.id);
 }
 
-/** Several named people, as a sentence: "Sam", "Sam and Chris", "Sam, Chris and Ben". */
-export function listNames(people: readonly Person[]): string {
-  const names = people.map((p) => shortName(p) || p.display_name);
+/** Several named people, as a sentence, each as the People list tells them apart: "Sam Doughty and Sam Eden". */
+export function listNames(people: readonly Person[], all: readonly Person[]): string {
+  const names = people.map((p) => personLabel(p, all as Person[]));
   if (names.length <= 1) return names[0] ?? "";
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
@@ -246,31 +271,31 @@ const NOTHING: AskAnswer = { asked: false, named: [], groups: [], birthdays: [],
  * the conversations; nothing here reads a store or calls a model.
  */
 export function ask(input: AskInput): AskAnswer {
-  const { content, steers } = parse(input.query);
   const people = input.people.filter((p) => !p.deleted_at && p.state !== "archived");
   const byId = new Map(people.map((p) => [p.id, p]));
   const quotesOf = input.quotesOf ?? (() => []);
 
-  // Who the question names: a word that is one of someone's names (the last word may be its start).
-  const last = content.length - 1;
+  // Who the question names: a word that is one of someone's names, checked before question words are
+  // dropped (Will, May). Only the word still being typed may be the start of a name ("Sam" asks about the
+  // Sams once the sentence is finished, never about Samantha).
   const names = people.map((p) => ({ p, words: nameWords(p) }));
-  const nameTokens = new Set<string>();
+  const { content, steers, nameTokens, typing } = parse(input.query, (w, prefix) => names.some((n) => hit(n.words, w, prefix)));
+  const last = content.length - 1;
   const named: Person[] = [];
   content.forEach((w, i) => {
-    const hits = names.filter((n) => hit(n.words, w, i === last));
-    if (!hits.length) return;
-    nameTokens.add(w);
-    for (const h of hits) if (!named.includes(h.p)) named.push(h.p);
+    if (!nameTokens.has(w)) return;
+    for (const n of names) if (hit(n.words, w, typing && i === last) && !named.includes(n.p)) named.push(n.p);
   });
   named.sort(personOrder);
   const rest = content.filter((w) => !nameTokens.has(w));
-  // Only the word still being typed may be the start of one: the last word, when it is not a name.
-  const restLast = rest.length > 0 && !nameTokens.has(content[last]);
+  const restLast = typing && rest.length > 0 && !nameTokens.has(content[last]);
   const prefix = (i: number) => restLast && i === rest.length - 1;
 
-  // Nothing asked: no words beyond a name, or a steer with no one it is about.
-  if (!rest.length && !steers.size) return NOTHING;
-  if (!rest.length && !named.length) return NOTHING;
+  // Nothing asked: no words beyond a name (People's own filter; the people named still go back so the
+  // list keeps them). A steer with no one it is about ("who have I talked to lately") is a question
+  // nothing answers, never a list across people.
+  if (!rest.length && !steers.size) return { ...NOTHING, named };
+  if (!rest.length && !named.length) return { ...NOTHING, asked: true, miss: ASK_COPY.nothing };
 
   const scope = new Set(named.map((p) => p.id));
   const indexed: Indexed[] = [];
@@ -289,7 +314,7 @@ export function ask(input: AskInput): AskAnswer {
       statement: words(item.statement),
       detail: detailWords(item.detail),
       related: rel ? words([rel.relation, rel.name ?? ""].join(" ")) : [],
-      residence: facet && !facet.deleted_at ? words(facet.value_text) : [],
+      residence: facet && !facet.deleted_at && typeof facet.value_text === "string" ? words(facet.value_text) : [],
     });
   }
 
@@ -314,13 +339,18 @@ export function ask(input: AskInput): AskAnswer {
     return { item: x.item, person: x.person, why: { words: found, where: [...where] }, earlier: x.earlier };
   };
 
-  // The lines the question's own words find: every word, else (two or more words) any of them.
+  // The lines the question's own words find: every word in one line; else, about a named person only,
+  // any of them, and only when each word is in some line of theirs (a word no line of theirs has, or an
+  // unknown name, is an honest miss, never other people's lines).
   let matches: AskMatch[];
   if (!rest.length) {
     matches = indexed.map((x) => ({ item: x.item, person: x.person, why: { words: [], where: [] }, earlier: x.earlier }));
   } else {
     matches = indexed.map((x) => matchOn(x, true)).filter((m): m is AskMatch => !!m);
-    if (!matches.length && rest.length > 1) matches = indexed.map((x) => matchOn(x, false)).filter((m): m is AskMatch => !!m);
+    const eachSomewhere = rest.every((w, i) => indexed.some((x) => whereOf(x, w, prefix(i)).length > 0));
+    if (!matches.length && rest.length > 1 && named.length && eachSomewhere) {
+      matches = indexed.map((x) => matchOn(x, false)).filter((m): m is AskMatch => !!m);
+    }
   }
 
   // A steer narrows; it never hides what the user's own words found.
@@ -378,7 +408,7 @@ export function ask(input: AskInput): AskAnswer {
   let miss: string | null = null;
   if (!found) {
     miss = named.length
-      ? steers.has("conversation") && !rest.length ? ASK_COPY.noConversations(listNames(named)) : ASK_COPY.nothingFor(listNames(named))
+      ? steers.has("conversation") && !rest.length ? ASK_COPY.noConversations(listNames(named, people)) : ASK_COPY.nothingFor(listNames(named, people))
       : ASK_COPY.nothing;
   }
   return { asked: true, named, groups, birthdays, miss };

@@ -58,6 +58,7 @@ export default function PeopleScreen() {
         }}
         onQuery={setQuery}
         memory={{
+          query: memory.query,
           asked: memory.asked,
           named: memory.named,
           node: (
