@@ -78,6 +78,8 @@ Later on 30 Oct: WS-5's integration probe found three deviations from the ledger
 
 **31 Oct, morning:** the `narrative.blackbox` failures were the database, not the replay: `write_extraction` and `resolve_capture_review` still refused more than eight items (Checkpoint C's ceiling), so the gateway threw on the eleven-item and nineteen-item notes. Migration **`20261031090000_v2_many_items_per_note.sql`** re-creates both functions with the ceiling at 200 items (the pipeline's `MAX_PROPOSALS`) and 50 new people; forward-only, no data change; applied to the shared local stack by psql (WS-5's `migration up` on the integration branch will record it). This migration must reach production (merge to `main`) **before** the gateway is deployed from this work, like Option A's.
 
+**31 Oct, later:** `narrative.blackbox` 3/3 after the migration. k19 and today: the first case in each file times out at ~31 s when the machine is busy (load 20+) and passes alone (k19 "hand: on Chris" 6.9 s; today 2/2 in 3 s on the shared gateway, a control run): a harness cold-start flake, not a product defect; re-run a first-case timeout alone before counting it.
+
 Open in WS-1: re-run k19 and today black-box alone at normal load; a failed passage retold is judged by Option A's recovery accounting (ledger K31 note); review and integrate WS-6 (Ask v1) as WS-1's deliverable (FD-30g); a `narrative.blackbox.tsx` suite over the saved replies.
 
 ## WS-2 · Electric Garden
