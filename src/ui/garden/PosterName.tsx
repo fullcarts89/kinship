@@ -5,10 +5,11 @@
 // thing on the page). Without a photo it can be filled with the bloom.
 import React, { useState } from "react";
 import { Text, useWindowDimensions, View, type TextStyle } from "react-native";
-import { GUTTER, posterMetrics, press, type } from "@/design/tokens";
+import { GUTTER, posterMetrics, press, space, type } from "@/design/tokens";
 import { Pressable } from "../Pressable";
 import { usePalette } from "../theme";
 import { BloomName } from "./BloomName";
+import { TextScrim } from "./TextScrim";
 
 /** Archivo Black's average advance, as a share of the size, for mixed-case names. */
 const ADVANCE = 0.66;
@@ -64,7 +65,13 @@ export function PosterName({ name, max = type.poster.fontSize, min = 44, fill = 
   const style = posterStyle(fontSize);
   const height = (style.lineHeight as number) * lines.length;
   const body = fill === "bloom"
-    ? <BloomName lines={lines} textStyle={style} width={width} height={height} />
+    ? (
+      <View>
+        {/* Pink name on the pink bloom was near-illegible: a soft paper ground under it (the art stays around it). */}
+        <TextScrim strength={0.9} bleed={GUTTER} />
+        <BloomName lines={lines} textStyle={style} width={width} height={height} />
+      </View>
+    )
     : (
       <Text accessibilityRole="header" maxFontSizeMultiplier={1} style={[style, { color: p.ink, width }]}>
         {lines.join("\n")}

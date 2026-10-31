@@ -437,7 +437,7 @@ export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to
         onGo(to);
       }}
       inputRef={input}
-      typing={typing}
+      typing={typing || open}
       about={aboutName}
       autoFocus={focusNow}
       collapsed={!open && draft.trim() ? {
