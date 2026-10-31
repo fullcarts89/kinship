@@ -36,6 +36,7 @@ export function Sheet({
   children,
   label,
   footer,
+  bleed,
 }: {
   visible: boolean;
   onDismiss: () => void;
@@ -44,6 +45,11 @@ export function Sheet({
   label: string;
   /** Pinned under the scrolling content (the sheet's main action). */
   footer?: React.ReactNode;
+  /**
+   * Full-bleed content at the sheet's top, under the grabber and clipped by the sheet's corners (Electric
+   * Garden: a wash, a botanical cut by the edge, a person's presence). Scrolls with the content.
+   */
+  bleed?: React.ReactNode;
 }) {
   const p = usePalette();
   const insets = useSafeAreaInsets();
@@ -147,9 +153,10 @@ export function Sheet({
           style={[shadow.sheet, {
             maxHeight: "88%", backgroundColor: p.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet,
             paddingBottom: space.m + insets.bottom, opacity: fade, transform: [{ translateY: rise }],
+            overflow: bleed ? "hidden" : undefined,
           }]}
         >
-          <View style={{ paddingTop: space.m, paddingBottom: space.xl }}>
+          <View style={{ paddingTop: space.m, paddingBottom: bleed ? 0 : space.xl, zIndex: 2 }}>
             <View
               accessibilityElementsHidden
               importantForAccessibility="no"
@@ -168,9 +175,10 @@ export function Sheet({
             }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: space.s }}
+            contentContainerStyle={{ paddingBottom: space.s }}
           >
-            {children}
+            {bleed ? <View style={{ marginTop: -(space.m + size.grabber.height) }}>{bleed}</View> : null}
+            <View style={{ paddingHorizontal: GUTTER }}>{children}</View>
           </ScrollView>
           {footer ? <View style={{ paddingHorizontal: GUTTER, paddingTop: space.m }}>{footer}</View> : null}
         </Animated.View>
