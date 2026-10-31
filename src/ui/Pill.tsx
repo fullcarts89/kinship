@@ -33,6 +33,7 @@ export function Pill({
   accessibilityHint,
   style,
   fixedLabel = false,
+  selected,
 }: {
   label: string;
   onPress: () => void;
@@ -56,6 +57,8 @@ export function Pill({
    * "Tell the rest" on the look-over sheet). The pill keeps its width instead.
    */
   fixedLabel?: boolean;
+  /** One of a few choices, the current one (read to screen readers as selected). */
+  selected?: boolean;
 }) {
   const p = usePalette();
   const h = size === "regular" ? H.button : H.small;
@@ -69,7 +72,7 @@ export function Pill({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled: disabled || busy, busy }}
+      accessibilityState={{ disabled: disabled || busy, busy, ...(selected !== undefined ? { selected } : {}) }}
       disabled={disabled || busy}
       onPress={onPress}
       hitSlop={variant === "quiet" ? space.s : space.xs}
