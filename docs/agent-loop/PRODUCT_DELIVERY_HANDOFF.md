@@ -76,7 +76,9 @@ Later on 30 Oct: WS-5's integration probe found three deviations from the ledger
 
 **Coordinator thread paused at the usage limit (30 Oct, ~16:10 PDT).** Last WS-1 result: `narrative.blackbox` (d529b24) against this branch's gateway: the #63 Pablo case PASSES through the real screens; the Mina (s12) and Leo (s13) cases FAIL with "Couldn't understand this yet" on the card, i.e. the gateway returned an error for those replayed notes (the live-model runs of the same notes passed), so the fault is in the replay path, most likely the stub's reply mapping for the saved `@Name` keys or the passage calls each receiving the full 19-item proposal; to diagnose, run that suite alone and read the branch gateway's log (`ai-gateway: request failed`) and the stub's output. Sessions WS-2 (PR #71), WS-3 (#69), WS-4 (#70), WS-5 (#74, integration) and WS-6 (Ask v1) were running at the pause; WS-5 had merged WS-1 through 5557dae and WS-4 f4a8819 and was waiting for a build window. The next coordinator thread: read this file, `list_sessions {linked: true}`, then message WS-5 to re-merge WS-1 (ec2dbad) and continue the journey walk.
 
-Open in WS-1: the `narrative.blackbox` replay failures above; re-run k19 and today black-box alone at normal load; a failed passage retold is judged by Option A's recovery accounting (ledger K31 note); review and integrate WS-6 (Ask v1) as WS-1's deliverable (FD-30g); a `narrative.blackbox.tsx` suite over the saved replies.
+**31 Oct, morning:** the `narrative.blackbox` failures were the database, not the replay: `write_extraction` and `resolve_capture_review` still refused more than eight items (Checkpoint C's ceiling), so the gateway threw on the eleven-item and nineteen-item notes. Migration **`20261031090000_v2_many_items_per_note.sql`** re-creates both functions with the ceiling at 200 items (the pipeline's `MAX_PROPOSALS`) and 50 new people; forward-only, no data change; applied to the shared local stack by psql (WS-5's `migration up` on the integration branch will record it). This migration must reach production (merge to `main`) **before** the gateway is deployed from this work, like Option A's.
+
+Open in WS-1: re-run k19 and today black-box alone at normal load; a failed passage retold is judged by Option A's recovery accounting (ledger K31 note); review and integrate WS-6 (Ask v1) as WS-1's deliverable (FD-30g); a `narrative.blackbox.tsx` suite over the saved replies.
 
 ## WS-2 · Electric Garden
 
@@ -88,7 +90,7 @@ _Section owned by the WS-3 session._
 
 ## WS-4 · Trust floor
 
-_Section owned by the WS-4 session._
+_Section owned by the WS-4 session; its full record is `docs/agent-loop/ws4-trust-floor-handoff.md` on `claude/ws4-trust-floor-176a4a` (PR #70, head 909907e, 31 Oct): branch, migrations, tiers (Jest 103 suites, Deno 11, pgTAP 72/40/61/64/68, black-box trustfloor PASS), the exact native steps for WS-5, caveats, and the one-line Today hook (`isProactiveEligible` from `src/store/peopleStates.ts`; server `person_proactive(person_id, user_id)`). The "absent Storage counts as empty" tolerance lives only in the local runner `e2e/serve-delete-account.ts`; the deployed function fails loudly (Deno test). Readiness NOT READY._
 
 ## WS-5 · Integration
 
