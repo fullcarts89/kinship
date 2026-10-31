@@ -21,6 +21,7 @@ import { shortName } from "../../../supabase/functions/_shared/extraction/names"
 import { dayLabel, whenLabel } from "@/features/memory/format";
 import { nextBirthday } from "@/features/setup/setupModel";
 import { firmEnough, MILESTONE_DAYS_BEFORE, MILESTONE_WEIGHT, milestoneOf, type MilestoneType } from "./milestones";
+import { isProactiveEligible } from "@/store/peopleStates";
 import type { MemoryItem, Person } from "@/store/repositories";
 
 export type ReasonType = "upcoming_event" | "event_followup" | "birthday" | "good_news" | "starts_today"
@@ -488,9 +489,10 @@ export function buildToday(input: TodayInput): TodayView {
   const live = (m: MemoryItem | undefined): m is MemoryItem =>
     !!m && m.status === "active" && !m.deleted_at &&
     (m.sensitivity === "none" || (m.sensitivity === "health" && aboutAnimalHealth(m.statement)));
+  // One answer to "may Kinship bring this person up?" (D13, WS-4's peopleStates): paused and remembered never.
   const activePerson = (id: string) => {
     const p = people.get(id);
-    return p && p.state === "active" && !p.deleted_at ? p : null;
+    return p && isProactiveEligible(p) ? p : null;
   };
 
   const view: TodayView = {
@@ -865,7 +867,7 @@ function bringBackFor(input: TodayInput, live: (m: MemoryItem | undefined) => m 
  * no longer active.
  */
 export function returnViewFor(h: Handoff | null, p: Person | null, now: Date): ReturnView | null {
-  if (!h || h.answered || !p || p.state !== "active" || p.deleted_at) return null;
+  if (!h || h.answered || !p || !isProactiveEligible(p)) return null;
   // A hand-off stamped after this view's clock was read (Message tapped since Today last recomputed) is one
   // just made: asked at once, never held until the clock's next minute (founder K13: up to a minute's wait).
   const since = Math.max(0, now.getTime() - Date.parse(h.at));
@@ -928,7 +930,7 @@ export function pageReasonFor(items: MemoryItem[], person: Person, today: string
  * someone remembered or paused (D13), and never about someone removed.
  */
 export function pageHandoffFor(items: MemoryItem[], person: Person, today: string): PageHandoffReason | null {
-  if (person.state !== "active" || person.deleted_at) return null;
+  if (!isProactiveEligible(person)) return null;
   const actionable = pageReasonFor(items, person, today);
   if (actionable) return actionable;
   const name = firstName(person);

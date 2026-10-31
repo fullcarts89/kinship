@@ -24,6 +24,7 @@ import { milestoneIn, type MilestoneType } from "./milestones";
 import { current, timeOf } from "./mentions";
 import { GOOD_NEWS, NOT_NEWS } from "./goodNews";
 import { wordingSensitivities } from "../../../supabase/functions/_shared/extraction/lexicon";
+import { isProactiveEligible } from "@/store/peopleStates";
 import type { MemoryItem, Person } from "@/store/repositories";
 
 export type GestureKind = "plan" | "help" | "company" | "note" | "activity";
@@ -160,7 +161,8 @@ function make(kind: GestureKind, interest?: string): Suggestion {
  */
 export function suggestionFor(input: SuggestionInput): Suggestion | null {
   const { person, today } = input;
-  if (person.state !== "active" || person.deleted_at) return null;
+  // The same gate as everything that speaks of someone (D13, WS-4): paused and remembered get no line.
+  if (!isProactiveEligible(person)) return null;
   const about = input.about ?? null;
   // An open promise of the user's own: the promise is the action; nothing is added to it.
   if (about && about.kind === "promise") return null;

@@ -581,7 +581,9 @@ export function useToday(
 export async function momentFor(store: UserStore, reasonLocal: ReasonLocal, day: string, at: Date): Promise<MomentSummary | null> {
   const base = await todayInputFor(store, reasonLocal, at);
   const v = buildToday({ ...base, today: day, questions: 0, toLookAt: 0, activated: true, dataKnown: true });
-  return v.moment ? { reasonId: v.moment.reasonId, personId: v.moment.personId, personName: v.moment.personName, type: v.moment.type } : null;
+  if (!v.moment) return null;
+  const person = base.people.find((p) => p.id === v.moment!.personId) ?? null;
+  return { reasonId: v.moment.reasonId, personId: v.moment.personId, personName: v.moment.personName, type: v.moment.type, person };
 }
 
 /** Settings › Notifications: on, or paused (user_settings.push_enabled; CC-25's global pause). */
