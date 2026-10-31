@@ -81,6 +81,8 @@ Later on 30 Oct: WS-5's integration probe found three deviations from the ledger
 
 **31 Oct, later:** `narrative.blackbox` 3/3 after the migration. k19 and today: the first case in each file times out at ~31 s when the machine is busy (load 20+) and passes alone (k19 "hand: on Chris" 6.9 s; today 2/2 in 3 s on the shared gateway, a control run): a harness cold-start flake, not a product defect; re-run a first-case timeout alone before counting it.
 
+**31 Oct, midday:** WS-5's native journey (28 of 33 rows PASS on the integration build with the live model; `docs/product/alpha-walkthrough.md` on `claude/alpha-integration`) found one WS-1 defect: a told-again move was kept beside the user-edited one. Fixed at `8985610`: such an update is held and the phone asks "Does this replace what you told me?"; migration **`20261031100000_v2_user_chosen_closure.sql`** lets exactly the user's yes close the edited line (pgTAP 59 plan 34). Both 31 Oct migrations must reach production before the gateway deploy. Model allocation (FD-30i) applied: WS-2/3/4/5/6 on Sonnet 5.5 at medium effort.
+
 Open in WS-1: re-run k19 and today black-box alone at normal load; a failed passage retold is judged by Option A's recovery accounting (ledger K31 note); review and integrate WS-6 (Ask v1) as WS-1's deliverable (FD-30g); a `narrative.blackbox.tsx` suite over the saved replies.
 
 ## WS-2 · Electric Garden
