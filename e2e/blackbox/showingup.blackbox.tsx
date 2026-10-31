@@ -15,8 +15,30 @@ import { canTap, mount, setUp, settle, show, signedIn, tap, tell, texts, until }
 import { appState, N6 } from "./k20flow";
 import { earlierLine, serverRows, useReply as chooseReply } from "./localStack";
 import { harness } from "./state";
+import { execFileSync } from "child_process";
+
+/**
+ * Rows seeded as an earlier day's lines keep that day as updated_at, which the phone's pull (updated_at past
+ * its cursor) never reaches: touching them lets the row guard stamp updated_at now, created_at untouched.
+ * Local database container only.
+ */
+function touchSeeded(userId: string, backdate: { statement: string; at: string }[] = []): void {
+  if (!/^[0-9a-f-]{36}$/u.test(userId)) throw new Error("ids only");
+  const q = (t: string) => `$q$${t.replace(/\$q\$/gu, "")}$q$`;
+  // The row guard stamps created_at on insert; a line told 42 days ago is backdated with the guard skipped
+  // for this one connection (session_replication_role), never for anyone else's writes.
+  const dated = backdate.map((b) => `update public.memory_items set created_at = ${q(b.at)} where user_id = '${userId}' and statement = ${q(b.statement)};`).join("\n");
+  const sql = `begin; set local session_replication_role = replica; ${dated} commit;
+    update public.memory_items set statement = statement where user_id = '${userId}';
+    update public.memory_item_sources set span_start = span_start where user_id = '${userId}';
+    update public.captures set status = status where user_id = '${userId}';`;
+  execFileSync("docker", ["exec", "-i", "supabase_db_kinship", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], { input: sql, stdio: ["pipe", "ignore", "pipe"] });
+}
 
 const PEOPLE = ["Anthony", "Anthony Lopez", "Sam Eden", "Sam Doughty", "Chris", "Ben", "John", "Felix"];
+/** The promise as the stub's reply words it ("You need to call John", with or without "tonight"), said back by Today. */
+const MOMENT = /^You said you'd call John\b.*\.$/u;
+const ASK = /^Did you call John\b.*\?$/u;
 
 type Contact = { id: string; person_id: string; channel: string; source: string; reason_id: string | null; moment_type: string | null; memory_item_id: string | null; deleted_at: string | null };
 type Item = { id: string; kind: string; person_id: string; statement: string; status: string; deleted_at: string | null; detail: Record<string, unknown> };
@@ -44,6 +66,23 @@ type Account = Awaited<ReturnType<typeof account>>;
 const contactsOf = async (a: Account, personId: string) => (await serverRows<Contact>("contact_events", a.acct.userId)).filter((c) => c.person_id === personId && !c.deleted_at);
 const itemsOf = async (a: Account, personId: string) => (await serverRows<Item>("memory_items", a.acct.userId)).filter((m) => m.person_id === personId && !m.deleted_at);
 
+/**
+ * What the app's own 30-second tick does (V2SessionProvider), which the harness has no provider for: while
+ * the first note's push is still in the outbox (the local PostgREST under the integration runs has been seen
+ * to drop a request: "Thread killed by timeout manager", a 504), sync and run the understanding again.
+ * Never more often than the app would; nothing is injected.
+ */
+async function nudgeUntilUnderstood(a: Account, maxTries = 8): Promise<void> {
+  for (let i = 0; i < maxTries; i++) {
+    await settle(3000);
+    const pending = (await a.acct.store.pendingOps()).some((o) => o.tbl === "captures");
+    const open = await harness.session!.understanding.open();
+    if (!pending && open.every((o) => o.state !== "waiting")) return;
+    await a.acct.engine.sync().catch(() => undefined);
+    await harness.session!.understanding.run().catch(() => undefined);
+  }
+}
+
 /** Back from the other app, as iOS does it. */
 async function back() {
   await appState("background");
@@ -56,17 +95,19 @@ describe("RSN-06 through the real screens: a promise of the user's own, told tod
     const john = a.person("John");
     // 1. Told: "I need to call John tonight" (the founder's K20 note), kept as a promise of the user's due today.
     await tell(a.r, N6);
-    await until(a.r, (s) => s.includes("You said you'd call John tonight."), "the promise as Today's Moment", 120000);
+    await nudgeUntilUnderstood(a);
+    await until(a.r, (s) => s.some((t) => MOMENT.test(t)), "the promise as Today's Moment", 60000);
     if (canTap(a.r, "Got it right")) await tap(a.r, "Got it right");
     await settle(300);
     const today = texts(a.r);
-    expect(today).toContain("You said you'd call John tonight.");
+    expect(today.some((t) => MOMENT.test(t))).toBe(true);
+    const momentLine = today.find((t) => MOMENT.test(t))!;
     expect(today.some((t) => /^Today · /u.test(t))).toBe(true);
     expect(canTap(a.r, "Message John")).toBe(true);
     expect(canTap(a.r, "Not now")).toBe(true);
     expect(today).not.toContain("Nothing needs you today.");
     // Never a second line about it: the Moment's own promise is not also a Coming up line.
-    expect(canTap(a.r, "Today: Call John tonight")).toBe(false);
+    expect(a.r.root.findAll((n) => /^Today: Call John/u.test(String(n.props.accessibilityLabel ?? ""))).length).toBe(0);
     await a.acct.engine.sync();
     const promise = (await itemsOf(a, john.id)).find((m) => m.kind === "promise");
     expect(promise).toBeTruthy();
@@ -76,12 +117,12 @@ describe("RSN-06 through the real screens: a promise of the user's own, told tod
     // 2. On John's page: under "You said you'd", in the page's words.
     await show(a.r, { screen: "person", id: john.id });
     await until(a.r, (s) => s.includes("You said you'd"), "John's page", 10000);
-    expect(texts(a.r)).toContain("Call John tonight");
+    expect(texts(a.r).some((t) => /^Call John/u.test(t))).toBe(true);
 
     // 3. The detail: why now, no suggestion line (the promise is the action); Message straight into Messages.
     await show(a.r, { screen: "today" });
-    await until(a.r, () => canTap(a.r, "You said you'd call John tonight."), "the Moment", 10000);
-    await tap(a.r, "You said you'd call John tonight.");
+    await until(a.r, () => canTap(a.r, momentLine), "the Moment", 10000);
+    await tap(a.r, momentLine);
     await until(a.r, (s) => s.includes("It's due today."), "the Moment detail", 5000);
     expect(texts(a.r).some((t) => /^You could/u.test(t))).toBe(false);
     await tap(a.r, "Message");
@@ -90,7 +131,7 @@ describe("RSN-06 through the real screens: a promise of the user's own, told tod
 
     // 4. Back: the promise's own question, with its quiet third answer; Not yet keeps the Moment.
     await back();
-    await until(a.r, (s) => s.includes("Did you call John tonight?"), "the return question", 5000);
+    await until(a.r, (s) => s.some((t) => ASK.test(t)), "the return question", 5000);
     expect(canTap(a.r, RETURN_COPY.putAside)).toBe(true);
     await tap(a.r, "Not yet");
     await until(a.r, () => canTap(a.r, "Message John"), "the Moment again after Not yet", 5000);
@@ -107,7 +148,7 @@ describe("RSN-06 through the real screens: a promise of the user's own, told tod
     await settle(300);
     expect(harness.opens).toHaveLength(2);
     await back();
-    await until(a.r, (s) => s.includes("Did you call John tonight?"), "the return question again", 5000);
+    await until(a.r, (s) => s.some((t) => ASK.test(t)), "the return question again", 5000);
     await tap(a.r, "Yes");
     await settle(500);
     // A promise's logistics: nothing more is asked (I2); the Moment is done.
@@ -123,7 +164,7 @@ describe("RSN-06 through the real screens: a promise of the user's own, told tod
     await until(a.r, (s) => s.includes("John"), "John's page", 10000);
     expect(texts(a.r)).not.toContain("You said you'd");
     await show(a.r, { screen: "knows", id: john.id });
-    await until(a.r, (s) => s.includes("Call John tonight"), "the kept promise in What Kinship knows", 10000);
+    await until(a.r, (s) => s.some((t) => /^Call John/u.test(t)), "the kept promise in What Kinship knows", 10000);
   }, 240000);
 });
 
@@ -133,8 +174,12 @@ describe("RSN-07 and SUA-1 through the real screens: an open thread's one check-
     const a = await account("hand: plan");
     const felix = a.person("Felix");
     await tell(a.r, N6);
-    await until(a.r, (s) => s.some((t) => /call John/iu.test(t) && t !== N6), "the first note understood", 120000);
+    await nudgeUntilUnderstood(a);
+    await until(a.r, (s) => s.some((t) => /call John/iu.test(t) && t !== N6), "the first note understood", 60000);
     if (canTap(a.r, "Got it right")) await tap(a.r, "Got it right");
+    // The first note's own sync settles before anything is seeded (a sync in flight is reused, not repeated).
+    await a.acct.engine.sync();
+    await settle(300);
     // Told 42 days ago: an open thread about Felix; and his wedding, ten days ahead (a current line, no Moment).
     const told = daysAgoNoon(42);
     earlierLine(a.acct.userId, {
@@ -146,6 +191,9 @@ describe("RSN-07 and SUA-1 through the real screens: an open thread's one check-
       kind: "milestone", personId: felix.id, subject: "person", statement: "Felix is getting married next month",
       detail: { milestone_type: "wedding", anniversary: false, date: isoDay(wedding), date_precision: "day" }, at: daysAgoNoon(3).toISOString(),
     });
+    touchSeeded(a.acct.userId, [{ statement: "Felix is considering moving to Denver", at: told.toISOString() }]);
+    await a.acct.engine.sync();
+    await settle(300);
     await a.acct.engine.sync();
     const thread = (await itemsOf(a, felix.id)).find((m) => m.kind === "thread")!;
 
@@ -186,7 +234,8 @@ describe("RSN-07 and SUA-1 through the real screens: an open thread's one check-
     await until(a.r, (s) => s.includes("Anything worth remembering from talking with Felix?"), "the usual question after", 5000);
     await tap(a.r, "Nothing today");
     await settle(300);
-    expect(texts(a.r).some((t) => /^Did you|^Anything worth|^Did Felix decide/u.test(t))).toBe(false);
+    // Felix's loop is complete (the H4 bring-back's own "Did you reach John?" example may still be on a first-use Today).
+    expect(texts(a.r).some((t) => /^Did you ask Felix|^Anything worth remembering from talking with Felix|^Did Felix decide/u.test(t))).toBe(false);
 
     // 5. The server: one conversation, about the thread, naming its kind; the thread itself untouched (a Tell may answer it).
     await a.acct.engine.sync();
