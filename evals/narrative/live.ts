@@ -12,7 +12,7 @@ import { runExtraction } from "../../supabase/functions/_shared/extraction/run.t
 import type { ExtractionInput, ExtractionOutcome, ModelProposal, RosterPerson } from "../../supabase/functions/_shared/extraction/types.ts";
 
 const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
-const args = parseArgs(Deno.args, { string: ["ids", "save", "replay"], boolean: ["page", "general"], default: {} });
+const args = parseArgs(Deno.args, { string: ["ids", "save", "replay", "repeat"], boolean: ["page", "general", "gateway-roster"], default: {} });
 
 interface Person { key: string; name: string; full?: string; nick?: string[]; label?: string }
 interface Dossier { person: string; kind: string; statement: string; certainty?: string; user_state?: string; detail?: Record<string, unknown> }
@@ -27,9 +27,13 @@ if (args.ids) {
 const modes: ("page" | "general")[] = args.page && !args.general ? ["page"] : args.general && !args.page ? ["general"] : ["page", "general"];
 
 function inputFor(s: Scenario, mode: "page" | "general"): ExtractionInput {
-  const people: RosterPerson[] = roster.map((p) => ({
+  const all: RosterPerson[] = roster.map((p) => ({
     key: p.key, id: `id-${p.key}`, display_name: p.name, full_name: p.full ?? null, nicknames: p.nick ?? [], relationship_label: p.label ?? null,
   }));
+  // The gateway's own roster (context.ts, D2 minimal context): only the page's person and people the note names.
+  const named = (p: RosterPerson) => new RegExp(`(^|[^\\p{L}])${p.display_name}([^\\p{L}]|$)`, "u").test(s.note) ||
+    (mode === "page" && p.display_name === s.page);
+  const people: RosterPerson[] = args["gateway-roster"] ? all.filter(named).map((p, i) => ({ ...p, key: `p${i + 1}` })) : all;
   const page = mode === "page" && s.page ? people.find((p) => p.display_name === s.page) : undefined;
   // A continuation (Tell the rest): the earlier note is context, and its person stands in for the page (as the gateway does).
   const earlierPerson = s.earlier && s.earlier_person ? people.find((p) => p.display_name === s.earlier_person) : undefined;
@@ -42,7 +46,7 @@ function inputFor(s: Scenario, mode: "page" | "general"): ExtractionInput {
     related: [],
     // Memory Kinship already holds, as the gateway would load it (a user-edited line keeps its state).
     dossier: (s.dossier ?? []).map((d, i) => {
-      const owner = people.find((p) => p.display_name === d.person)!;
+      const owner = people.find((p) => p.display_name === d.person) ?? all.find((p) => p.display_name === d.person)!;
       return {
         key: `m${i + 1}`, id: `id-m${i + 1}`, person_key: owner.key, kind: d.kind as never, subject_type: "person" as const, statement: d.statement,
         certainty: (d.certainty ?? "stated") as never, status: "active" as const, user_state: (d.user_state ?? "unreviewed") as never, detail: d.detail ?? {},
@@ -72,7 +76,8 @@ const key = Deno.env.get("ANTHROPIC_API_KEY");
 const call = anthropicCaller(key, { maxRetries: 0 });
 const cap = CAPABILITIES.relationship_extract;
 const saved: Record<string, unknown> = {};
-for (const s of scenarios) {
+const repeat = Math.max(1, Number(args.repeat ?? 1));
+for (const s of scenarios.flatMap((x) => Array.from({ length: repeat }, () => x))) {
   for (const mode of modes) {
     if (mode === "page" && !s.page) continue; // a continuation (earlier text, no page) runs once, as "general"
     const input = inputFor(s, mode);

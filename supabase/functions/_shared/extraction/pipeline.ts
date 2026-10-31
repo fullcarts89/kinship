@@ -1200,17 +1200,28 @@ function oneSentenceOneMemory(input: ExtractionInput, text: string, proposed: Pr
     return input.roster.filter((p) => namesFor(p).some((n) => nameKey(n) === k || nameKey(n).split(/\s+/u)[0] === k));
   };
   const said = (statement: string, mention: string) => saysWord(statement, mention);
+  const heldSentence = (sentence: string, mention: string | null): ProposedItem => ({
+    kind: "fact", person: "unknown", person_mention: mention, subject: "person", related_relation: null, related_name: null,
+    statement: sentence, evidence: [sentence], certainty: "stated", sensitivity: "none", confidence: 0.5, date_text: null,
+    date_direction: "future", existing: { action: "new", target: null },
+    detail: { event_type: null, event_goal: null, category: null, attribute: null, value: null, firmness: null, topic: null,
+      place: null, milestone_type: null, recurrence: null, anchor: null, aspect: null, time_of_day: null },
+  } as ProposedItem);
   if (!proposed.length && asked?.about === "person" && asked.mention && fold(text).includes(fold(asked.mention))) {
     const at = fold(text).indexOf(fold(asked.mention));
     const sentence = sentenceAround(text, at, at + asked.mention.length).trim().replace(/[.!?]+$/u, "");
-    if (sentence && !wordsOf(fold(sentence)).some((w) => SELF_WORDS.has(w))) {
-      return [{
-        kind: "fact", person: "unknown", person_mention: asked.mention, subject: "person", related_relation: null, related_name: null,
-        statement: sentence, evidence: [sentence], certainty: "stated", sensitivity: "none", confidence: 0.5, date_text: null,
-        date_direction: "future", existing: { action: "new", target: null },
-        detail: { event_type: null, event_goal: null, category: null, attribute: null, value: null, firmness: null, topic: null,
-          place: null, milestone_type: null, recurrence: null, anchor: null, aspect: null, time_of_day: null },
-      } as ProposedItem];
+    if (sentence && !wordsOf(fold(sentence)).some((w) => SELF_WORDS.has(w))) return [heldSentence(sentence, asked.mention)];
+  }
+  // The model keeps nothing but asks who it is about, and names no one (CER-1, WS-5: "Actually the Pilsen
+  // move slipped again, it's December 6 now." told from Today answered "Nothing to remember" in half the
+  // live runs): a note of up to three sentences is kept, each in its own words, held for "Who is this about?".
+  // Never for a note about the user (first person) or that looks like an instruction: those are dropped as
+  // before. Silence is a wrong answer here: the user said something about someone.
+  if (!proposed.length && asked?.about === "person" && !(asked.mention && asked.mention.trim())) {
+    const sentences = text.split(/(?<=[.!?])\s+|\n+/u).map((x) => x.trim().replace(/[.!?]+$/u, "")).filter((x) => x.length > 8);
+    if (sentences.length > 0 && sentences.length <= 3 &&
+        sentences.every((x) => !wordsOf(fold(x)).some((w) => SELF_WORDS.has(w)) && !looksLikeInstruction(x))) {
+      return sentences.map((x) => heldSentence(x, null));
     }
   }
   const bySentence = new Map<string, number[]>();
