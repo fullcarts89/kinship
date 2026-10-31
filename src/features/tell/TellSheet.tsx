@@ -31,7 +31,7 @@ export function TellSheet({ person, onClose }: { person: { id: string; name: str
       onDismiss={onClose}
       label={person ? `Tell Kinship about ${person.name}` : "Tell Kinship"}
       bleed={(
-        <View style={{ height: 84 }}>
+        <View style={{ height: 84, overflow: "hidden" }}>
           <DawnWash kind="warm" height={150} />
           <Botanical art="leaf" width={130} top={-36} right={-56} rotate={24} dim />
         </View>

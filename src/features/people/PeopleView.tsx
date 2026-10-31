@@ -135,7 +135,8 @@ export function PeopleView({
     <Screen art={art}>
       {/* The masthead. */}
       <View style={{ flexDirection: "row", alignItems: "center", paddingTop: space.m }}>
-        <Title style={{ flex: 1 }}>{PEOPLE_COPY.title}</Title>
+        {/* In its own box: a Text given flex in a row clips at the largest text sizes. */}
+        <View style={{ flex: 1 }}><Title>{PEOPLE_COPY.title}</Title></View>
         <IconButton label="Add someone" onPress={() => setAdding(query.trim())}>
           <Plus color={p.ink} size={size.iconLarge} strokeWidth={1.8} />
         </IconButton>
