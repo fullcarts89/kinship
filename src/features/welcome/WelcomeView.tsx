@@ -133,8 +133,8 @@ export function WelcomeView(props: WelcomeViewProps) {
       >
         <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
           <DawnWash kind="joyful" />
-          <Botanical art="bloom" width={330} top={-30} right={-40} />
-          <Botanical art="leaves" width={200} top={150} left={-110} rotate={-28} flip />
+          <Botanical art="bloom" width={300} top={-90} right={-70} />
+          <Botanical art="leaves" width={190} top={220} left={-120} rotate={-28} flip dim />
         </View>
         <Label>{WELCOME_COPY.label}</Label>
         <Display style={{ marginTop: space.m, maxWidth: "88%" }}>{WELCOME_COPY.promise}</Display>

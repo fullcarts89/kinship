@@ -6,7 +6,7 @@
 // provenance's box may shrink and wrap. Buttons that need the last-resort
 // shrink (a primary with a long label) keep it.
 import React from "react";
-import { StyleSheet, Text } from "react-native";
+import { PixelRatio, StyleSheet, Text } from "react-native";
 import TestRenderer, { act } from "react-test-renderer";
 import { Pill } from "@/ui/Pill";
 import { PersonRecordView, type RecordLine } from "@/features/person/PersonRecordView";
@@ -14,6 +14,21 @@ import { sectionsFor } from "@/features/person/recordSections";
 import type { ItemLine } from "@/features/tell/reviewModel";
 
 jest.mock("react-native-safe-area-context", () => jest.requireActual("react-native-safe-area-context/jest/mock").default);
+// The default text size: the test environment's dimensions mock reports a doubled font scale, at which a pill
+// wraps its label instead of shrinking it (the accessibility-size behaviour, tested below).
+beforeEach(() => jest.spyOn(PixelRatio, "getFontScale").mockReturnValue(1));
+afterEach(() => jest.restoreAllMocks());
+
+it("at accessibility text sizes a pill's label wraps to two lines instead of shrinking (the label never vanishes)", () => {
+  jest.spyOn(PixelRatio, "getFontScale").mockReturnValue(3.1);
+  let r!: TestRenderer.ReactTestRenderer;
+  act(() => {
+    r = TestRenderer.create(<Pill variant="primary" label="Message Anna" onPress={() => undefined} />);
+  });
+  const text = r.root.findAllByType(Text).find((t) => t.props.children === "Message Anna")!;
+  expect(text.props.numberOfLines).toBe(2);
+  expect(text.props.adjustsFontSizeToFit).toBe(false);
+});
 
 const noop = () => undefined;
 

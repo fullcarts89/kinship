@@ -18,5 +18,5 @@ export { Body, Context, Display, Greeting, Heading, Italic, Label, Line, MomentT
 export { sprigAccent } from "./Sprig";
 export * from "./garden";
 export { Token, TokenRow } from "./Token";
-export { useNight, usePalette, useReduceMotion } from "./theme";
+export { isLargeText, useNight, usePalette, useReduceMotion } from "./theme";
 export { Waiting, WAITING_DELAY_MS } from "./Waiting";

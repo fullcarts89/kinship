@@ -11,8 +11,8 @@ import { Pressable } from "@/ui/Pressable";
 import { MessageCircle, PenLine, Phone } from "lucide-react-native";
 import { art, font, GUTTER, height, press, space, TOUCH } from "@/design/tokens";
 import {
-  Body, Botanical, DawnWash, Emphasis, FluidPhoto, Label, Line, MomentText, Pill, PosterName, Provenance, QuietLine, Screen, SectionLabel, type SectionKey, Small,
-  useLineFocus, usePalette,
+  Body, Botanical, DawnWash, Emphasis, FluidPhoto, isLargeText, Label, Line, MomentText, Pill, PosterName, Provenance, QuietLine, Screen, SectionLabel,
+  type SectionKey, Small, useLineFocus, usePalette,
 } from "@/ui";
 
 export interface PortraitLineData {
@@ -232,7 +232,7 @@ export function PortraitView(props: PortraitViewProps) {
     {/* Message · Call · Tell (founder native pass F1): three named actions,
         the same size. Tell adds to what Kinship knows about them; changing
         what's already kept happens on the line itself. */}
-    <View style={{ flexDirection: "row", gap: space.s, paddingHorizontal: GUTTER, paddingTop: space.m, paddingBottom: space.m }}>
+    <View style={{ flexDirection: isLargeText() ? "column" : "row", gap: space.s, paddingHorizontal: GUTTER, paddingTop: space.m, paddingBottom: space.m }}>
       <Pill
         variant="primary"
         dense

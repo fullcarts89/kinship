@@ -57,11 +57,13 @@ describe("the statement split", () => {
 const base: TodayData = {
   dateLabel: "Tuesday, 6 October", greeting: "Good morning.", returnCheck: null, moment: null, quiet: [], quietDay: true, waiting: null, firstUse: null,
 };
+// Cast: WS-3's MomentView adds `suggestion` (null here) on the integration branch; the fixture carries it so it types on both.
 const moment = (type: string): TodayData["moment"] => ({
-  reasonId: "r1", type: type as never, personId: "p1", personName: "Ben", itemId: "m1", memory: "Ben runs Chicago Sunday", day: "2026-10-11",
+  reasonId: "r1", type, personId: "p1", personName: "Ben", itemId: "m1", memory: "Ben runs Chicago Sunday", day: "2026-10-11",
   statement: "Ben runs Chicago tomorrow.", context: "Chicago Marathon · Sun, Oct 11", provenance: "From your note · Oct 8", noteId: "c1", score: 90,
   primary: { label: "Wish Ben luck", hint: "" }, heading: "Wish Ben luck", mention: [], opener: null, ask: "", followUp: "", hope: "He was hoping to break four hours.",
-});
+  suggestion: null,
+}) as unknown as TodayData["moment"];
 
 describe("the kind of day", () => {
   it("is joyful for a birthday, good news, a big day or how it went; warm for a promise; quiet with nothing", () => {
