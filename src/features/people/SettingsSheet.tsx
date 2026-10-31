@@ -8,6 +8,7 @@ import { contactsAccess, openAppSettings, requestContactsAccess, shareMoreContac
 import { Alert, AppState, Switch, View } from "react-native";
 import { space } from "@/design/tokens";
 import { CONSENT_COPY } from "@/features/tell/ConsentSheet";
+import { DEV_NOTIFICATION_HOOK } from "@/lib/momentNotification";
 import { Body, Label, Pill, Sheet, Small, Title, usePalette } from "@/ui";
 import { PLACE_ATTRIBUTION } from "../../../supabase/functions/_shared/semantic/attribution";
 
@@ -40,6 +41,8 @@ export function SettingsSheetView(props: {
   /** Notifications on or paused (null while unknown, or when the phone can't notify). */
   notifications?: boolean | null;
   onNotifications?: (on: boolean) => void;
+  /** Dev-only (local test builds): deliver today's Moment notification in 10 seconds. Absent in a release build. */
+  onPreviewNotification?: () => void;
   /** What Kinship can see of the contacts on this phone (null while checking). */
   contacts?: ContactsAccess | null;
   onAddFromContacts?: () => void;
@@ -104,6 +107,11 @@ export function SettingsSheetView(props: {
           </View>
         </View>
       ) : null}
+      {props.onPreviewNotification ? (
+        <View style={{ alignItems: "flex-start", paddingVertical: space.s }}>
+          <Pill variant="quiet" size="small" label="Test: send today's notification in 10 s" onPress={props.onPreviewNotification} />
+        </View>
+      ) : null}
       {props.removed?.length && props.onBringBack ? (
         <View style={{ paddingVertical: space.l, borderBottomWidth: 1, borderColor: p.hairline }}>
           <Body tone="ink">Removed from People</Body>
@@ -147,7 +155,7 @@ function contactsActions(props: Parameters<typeof SettingsSheetView>[0]): { labe
   return out;
 }
 
-export function SettingsSheet({ visible, onDismiss, understanding, setUnderstanding, notifications, setNotifications, signOut, onAddFromContacts, removed, onBringBack }: {
+export function SettingsSheet({ visible, onDismiss, understanding, setUnderstanding, notifications, setNotifications, previewNotification, signOut, onAddFromContacts, removed, onBringBack }: {
   visible: boolean;
   onDismiss: () => void;
   understanding: boolean | null;
@@ -155,6 +163,8 @@ export function SettingsSheet({ visible, onDismiss, understanding, setUnderstand
   /** Notifications on or paused, and the way to change it (absent where the phone can't notify). */
   notifications?: boolean | null;
   setNotifications?: (on: boolean) => Promise<void>;
+  /** Dev-only (local test builds): the preview's action, returning a one-word status. */
+  previewNotification?: () => Promise<string>;
   signOut: () => Promise<void>;
   onAddFromContacts: () => void;
   removed?: { id: string; name: string }[];
@@ -183,6 +193,9 @@ export function SettingsSheet({ visible, onDismiss, understanding, setUnderstand
       onOpenSettings={openAppSettings}
       removed={removed}
       onBringBack={onBringBack}
+      onPreviewNotification={previewNotification && DEV_NOTIFICATION_HOOK ? () => {
+        previewNotification().then((r) => Alert.alert("Test notification", r === "sent" ? "Background the app: it arrives in about 10 seconds." : `Not sent: ${r.replace("_", " ")}.`), () => undefined);
+      } : undefined}
       notifications={notifications}
       onNotifications={setNotifications ? (on) => {
         setNotifications(on).catch(() => Alert.alert("That wasn't saved", "Try again when you're online."));

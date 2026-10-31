@@ -4,7 +4,7 @@ import { Alert } from "react-native";
 import { router } from "expo-router";
 import { PeopleView } from "@/features/people/PeopleView";
 import { SettingsSheet } from "@/features/people/SettingsSheet";
-import { useNotificationSetting, usePeopleRows, useRemovedPeople, useUnderstandingConsent, useV2Actions } from "@/hooks/useV2";
+import { useNotificationSetting, usePeopleRows, usePreviewNotification, useRemovedPeople, useUnderstandingConsent, useV2Actions } from "@/hooks/useV2";
 import { aliasesOf } from "../../../supabase/functions/_shared/extraction/names";
 import { useAuth } from "@/providers";
 
@@ -29,6 +29,7 @@ export default function PeopleScreen() {
   };
   const consent = useUnderstandingConsent();
   const notifications = useNotificationSetting();
+  const previewNotification = usePreviewNotification();
   const { signOut } = useAuth();
   const [settings, setSettings] = useState(false);
   return (
@@ -50,6 +51,7 @@ export default function PeopleScreen() {
         setUnderstanding={consent.set}
         notifications={notifications.on}
         setNotifications={notifications.set}
+        previewNotification={previewNotification}
         signOut={signOut}
         onAddFromContacts={() => router.push("/v2/people/add")}
         removed={removed.map((p) => ({ id: p.id, name: p.display_name }))}
