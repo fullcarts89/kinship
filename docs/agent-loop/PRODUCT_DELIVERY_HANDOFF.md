@@ -111,3 +111,15 @@ _Section owned by the WS-6 session._
 ## Continuation prompt (for a new coordinator thread)
 
 > Read `docs/agent-loop/PRODUCT_DELIVERY_HANDOFF.md` on `origin/claude/kinship-end-to-end-completion-67e702` first, then `CLAUDE.md` and the contract. Check each workstream branch's state (`git fetch --all`; the PRs listed in the handoff), continue the open WS-1 items on this branch, and run the integration step when WS-2..4 report. Do not restart the analysis; the decisions above govern.
+
+## Readiness call — 31 Oct 2026 (coordinator)
+
+**READY FOR FOUNDER NATIVE PASS** on `claude/alpha-integration` @ `a0f7b0a` (PR #74). Contains WS-1 #72, WS-2 #71 (e2a98c4), WS-3 #69, WS-4 #70 (bf98556), WS-6 #73. Not merged to `main`.
+
+Evidence (see alpha-walkthrough "Tenth walk" + FINAL table): tsc clean, eslint 0 errors, Jest 116/1119, Deno 486/0, pgTAP 56/57/59; NATIVE-SIMULATOR (18 Pro, Release, live model): replace question and label, date follow-up, scrim, People + Ask door, greeting, SUA-1 line and return question, Merge/Undo and title, Pause/Resume, Remembered/Resume, dark and XXXL on People/Person/replace sheet.
+
+NOT evidenced: Delete account (local Storage stopped); lock-screen banner tap; 17e on late WS-2 changes; "Yes, replace" confirmation on the final head; review sheet with several lines, quiet-day Today, Reduce Motion; same-day milestone as a Moment (WS-3 cap); FOUNDER-DEVICE. Cosmetic: scrolled far down on Person, the fixed back chevron overlaps the Edit row.
+
+Release order (all need the founder's explicit yes): migrations 20261030090000, 20261030120000, 20261031090000, 20261031100000, 20261031110000 reach production first (by merging to `main`), then the gateway deploy from merged code only, then the device build (`kinship-local-ios-build.md`).
+
+Open founder questions: same-day celebration vs one-primary-per-person-per-7-days cap (default: as built); WS-4 second-device first render of a paused person's Moment; WS-3 company-vs-plan copy; K26 "You could mention" state-vs-topic copy; Colima log-cap config.
