@@ -670,6 +670,28 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     detail.detail._replaces = relation.replaces.map((id) => ({ id, statement: ctx.input.dossier.find((d) => d.id === id)?.statement ?? "" }));
   }
 
+  // A note that names no one, told from no page, whose update the model aims at a line the user edited or
+  // wrote (CER-1, WS-5 journey, 31 Oct: "Actually the Pilsen move slipped again, it's December 6 now."
+  // after Undo, told from Today): who it is about is asked, as always (the note does not say, and the
+  // model's guess from an earlier memory is not evidence); and the replace question is asked after it, so
+  // the answer can still replace the user's line, never file beside it. The model's candidate person is
+  // offered first among the choices; the database closes the line only if the answered person is the
+  // line's own (write_extraction compares them).
+  if (!who.person_key && WHO_AMBIGUITY.some((f) => flags.has(f)) && !relation.replaces) {
+    const target = raw.existing?.target ? ctx.dossier.get(raw.existing.target) : undefined;
+    const owner = target ? ctx.byKey.get(target.person_key) : undefined;
+    const protectedTarget = !!target && (target.user_state === "edited" || target.user_state === "user_authored");
+    if (target && owner && protectedTarget && raw.existing?.action === "supersede" && raw.person === owner.key &&
+        (n_certainty(certainty) >= CERTAINTY_RANK.planned) && target.subject_type === subject) {
+      flags.add("update_check");
+      flags.add("protected_target");
+      detail.detail._replaces = [{ id: target.id, statement: target.statement }];
+      const tr = transitionOf(said);
+      if (tr) detail.detail.transition = tr;
+      (who as { candidate_ids?: string[] }).candidate_ids = [owner.id];
+    }
+  }
+
   // ── Confidence and tier ──
   let confidence = clamp01(Number(raw.confidence));
   if (flags.has("certainty_lowered") || flags.has("sensitivity_raised") || flags.has("person_disagreement")) {
@@ -1368,6 +1390,11 @@ function clauseAroundSpan(text: string, span: PlannedSpan): string {
   return text.slice(Math.min(a, from), Math.max(b, to));
 }
 
+/** The certainty's rank, for comparing a line's firmness with a threshold. */
+function n_certainty(c: keyof typeof CERTAINTY_RANK): number {
+  return CERTAINTY_RANK[c] ?? 0;
+}
+
 function clamp01(n: number): number {
   return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0;
 }
@@ -1380,6 +1407,8 @@ const ALWAYS_OK = new Set([
   "i", "i'm", "i've", "i'll", "i'd", "the", "a", "an", "he", "she", "they", "his", "her", "their", "we", "our",
   "you", "you're", "you've", "you'll", "you'd", "your", "yours", "yourself", "user", "writer", "writer's", "it", "this", "that", "there", "on", "in", "at", "for", "and", "but", "or", "to",
   "mom", "dad", "mum",
+  // A sentence's first word is capitalised without being a name.
+  "actually", "oh", "well", "okay", "ok", "yes", "no", "hey", "so", "just", "also", "anyway", "apparently", "lately", "recently", "still", "then", "now",
 ]);
 
 /**

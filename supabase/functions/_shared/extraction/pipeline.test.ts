@@ -224,6 +224,21 @@ Deno.test("a told-again move beside the user's edited one is asked about, never 
   eq([same.items[0].tier, (same.items[0].detail._replaces as unknown[] | undefined)?.length], ["hold", 1]);
 });
 
+Deno.test("the same told-again move from no page: asked who, and offered the replace question after, never filed beside the user's line (WS-5, after Undo)", () => {
+  const edited = { key: "m1", id: "id-move", person_key: "p1", kind: "event" as const, subject_type: "person" as const, statement: "Ben moves in on November 22", certainty: "planned" as const, status: "active" as const, user_state: "edited" as const, detail: { event_type: "move", date: "2026-11-22", date_precision: "day" } };
+  const inp = input("Actually the Pilsen move slipped again, it's December 6 now.", { dossier: [edited] });
+  inp.capture = { ...inp.capture, occurred_at: "2026-10-31T17:00:00Z" };
+  const out = run(inp, [item({ kind: "event", person: "p1", person_mention: null, statement: "Ben's move to Pilsen slipped again; it's now December 6", evidence: ["the Pilsen move slipped again, it's December 6 now"], certainty: "planned", date_text: "December 6", date_direction: "future", existing: { action: "supersede", target: "m1" }, detail: { ...item({}).detail, category: null, event_type: "move" } })]);
+  const held = out.items[0];
+  eq([held.tier, held.person_id, held.flags.includes("person_ambiguous"), held.flags.includes("update_check")], ["hold", null, true, true]);
+  eq(held.detail._replaces, [{ id: "id-move", statement: "Ben moves in on November 22" }]);
+  eq(held.candidate_ids, ["id-p1"], "the model's candidate is offered, never taken");
+  ok(out.clarification?.about === "person" && !/Actually/u.test(out.clarification.question), "a sentence's first word is never the name asked about");
+  // The model aiming at a line of someone else, or a hedge, adds nothing.
+  const hedge = run(inp, [item({ kind: "event", person: "p1", person_mention: null, statement: "Ben's move to Pilsen may slip", evidence: ["the Pilsen move slipped again"], certainty: "tentative", existing: { action: "supersede", target: "m1" }, detail: { ...item({}).detail, category: null, event_type: "move" } })]);
+  eq(hedge.items.every((i) => !i.flags.includes("update_check")), true);
+});
+
 Deno.test("spans are code points into the stored text: emoji, CJK, accents, curly quotes, line breaks", () => {
   const note = "🎉 李明’s café opens Saturday!\nJosé is thrilled 👩‍👦.";
   const nfc = note.normalize("NFC");
