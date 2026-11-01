@@ -4,6 +4,8 @@
 
 **The canvas:** <https://claude.ai/artifact/EjaKVc9DDD9mPsKVgboByC> (private until shared). An Overview page holds the problem, a side-by-side comparison, the research and the assets. Each option has its own page of six phone screens, linked for Play. The canvas source is in [`canvas/`](canvas/), and stills of every screen are in [`screens/`](screens/) (`overview-*.jpg` shows each option's six screens in one row).
 
+> **Second layer (1 Nov 2026):** a competitive-intelligence and differentiation study, which reassesses this page's recommendation, is in [`competitive-2026-11/`](competitive-2026-11/README.md). This page is unchanged, so it stays the record of the 31 Oct thinking. Where the two disagree, the second layer's §G explains what changed and why.
+
 ## For reviewers
 
 The canvas link is private, so review from the stills in [`screens/`](screens/). Each option has one row image showing its six screens in this order: Today, People, a person, Tell with its review, the option's signature state, and first run on a fresh account. Every screen is also available as its own file. The canvas source in [`canvas/`](canvas/) has the exact copy and layout.
