@@ -59,7 +59,7 @@ export const OUTCOME_ASK: Record<GestureKind, string> = {
 };
 
 /** Which milestones ahead call for a plan, and which for help (a proposal). */
-const MILESTONE_GESTURE: Record<MilestoneType, "plan" | "help"> = {
+export const MILESTONE_GESTURE: Record<MilestoneType, "plan" | "help"> = {
   wedding: "plan", engagement: "plan", graduation: "plan", retirement: "plan", promotion: "plan", new_job: "plan",
   new_home: "help", move: "help", baby: "help",
 };
@@ -89,20 +89,20 @@ function daysFrom(today: string, day: string): number {
 }
 
 /** Theirs, or shared with them; never a relative's, never the user's own line. */
-function theirs(m: MemoryItem, person: Person): boolean {
+export function theirs(m: MemoryItem, person: Person): boolean {
   const subject = m.subject_type;
   if (subject !== undefined && subject !== "person" && subject !== "shared") return false;
   return m.person_id === person.id || (Array.isArray(m.with_person_ids) && m.with_person_ids.includes(person.id));
 }
 
-function usable(m: MemoryItem, person: Person, today: string): boolean {
+export function usable(m: MemoryItem, person: Person, today: string): boolean {
   return m.status === "active" && !m.deleted_at && theirs(m, person) &&
     (m.sensitivity ?? "none") === "none" && wordingSensitivities(m.statement).length === 0 &&
     m.statement.trim().length > 0 && current(m, today);
 }
 
 /** A milestone still ahead (its day, or a season or month not yet over, or no day at all). */
-function milestoneAhead(m: MemoryItem, today: string): MilestoneType | null {
+export function milestoneAhead(m: MemoryItem, today: string): MilestoneType | null {
   if (m.kind !== "milestone" && m.kind !== "event" && m.kind !== "plan") return null;
   const d = detailOf(m);
   const named = typeof d.milestone_type === "string" && d.milestone_type in MILESTONE_GESTURE ? (d.milestone_type as MilestoneType) : milestoneIn(m.statement);
@@ -113,18 +113,18 @@ function milestoneAhead(m: MemoryItem, today: string): MilestoneType | null {
 }
 
 /** An event ahead, the person's own (tomorrow or later), that the user knows about. */
-function eventAhead(m: MemoryItem, today: string): boolean {
+export function eventAhead(m: MemoryItem, today: string): boolean {
   if (m.kind !== "event") return false;
   const { day, coarse } = timeOf(m);
   return !!day && !coarse && daysFrom(today, day) >= 1;
 }
 
-function goodNews(m: MemoryItem): boolean {
+export function goodNews(m: MemoryItem): boolean {
   return ["fact", "milestone", "event", "moment"].includes(m.kind) && GOOD_NEWS.test(m.statement) && !NOT_NEWS.test(m.statement);
 }
 
 /** An interest of theirs, in the user's own words (the note's quote must say it), short and plain. */
-function interestOf(m: MemoryItem, quotes: string[]): string | null {
+export function interestOf(m: MemoryItem, quotes: string[]): string | null {
   if (m.kind !== "fact") return null;
   const d = detailOf(m);
   if (d.category !== "interest" && d.category !== "preference") return null;

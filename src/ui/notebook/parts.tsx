@@ -13,11 +13,13 @@ import { useNotebookPalette } from "./theme";
 /** Where a line came from, by kind: a note (green), Contacts (sky), your own word (sunset), private (magenta). */
 export type SourceKind = "note" | "contacts" | "yours" | "held" | "onPhoto";
 
-export function NSource({ kind = "note", label, onPress, tone, chevron = false, style }: {
+export function NSource({ kind = "note", label, onPress, tone, color, chevron = false, style }: {
   kind?: SourceKind;
   label: string;
   onPress?: () => void;
   tone?: NTone;
+  /** Text drawn on a person's colour takes their ink. */
+  color?: string;
   /** The full-width source row of the expanded moment (hairlines above and below, a chevron). */
   chevron?: boolean;
   style?: ViewStyle;
@@ -28,7 +30,7 @@ export function NSource({ kind = "note", label, onPress, tone, chevron = false, 
   const row = (
     <View style={[{ flexDirection: "row", alignItems: "center", gap: space.s - 1 }, chevron ? { flex: 1 } : null]}>
       <View style={{ width: size.dot, height: size.dot, borderRadius: size.dot / 2, backgroundColor: dot }} />
-      <NText v="source" tone={tone ?? (kind === "onPhoto" ? "onPhotoQuiet" : "ink2")} style={{ flexShrink: 1 }}>{label}</NText>
+      <NText v="source" tone={tone ?? (kind === "onPhoto" ? "onPhotoQuiet" : "ink2")} color={color} style={{ flexShrink: 1, opacity: color ? 0.85 : 1 }}>{label}</NText>
     </View>
   );
   if (chevron) {
