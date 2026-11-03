@@ -40,9 +40,10 @@ return loop. An intention is written on existing paths: a note kept exactly as w
 
 | Tier | Result |
 |---|---|
-| UNIT / INTEGRATION (`TZ=UTC npx jest`) | see §4 |
+| UNIT / INTEGRATION (`TZ=UTC npx jest`) | **PASS**: 127 suites, 1243 tests (incl. `app/__tests__/firstRun.test.tsx`), plus 1 mentions test added after; ~170 new tests across the five surfaces |
+| BLACK-BOX regression, flag off (replayed model, this branch's gateway) | **PASS**: showingup 2/2, today 2/2, k28 3/3, k19 2/2, trustfloor 1/1 |
 | TYPES / LINT | `npx tsc --noEmit` clean; `npx eslint app src` 0 errors |
-| BLACK-BOX + LIVE-MODEL (`e2e/blackbox/notebook.blackbox.tsx`, this branch's gateway with the model key) | see §4 |
+| BLACK-BOX + LIVE-MODEL (`e2e/blackbox/notebook.blackbox.tsx`, this branch's gateway with the model key) | **PASS** 4/4 in one run (38.5 s), all six journeys; see §4 |
 | NATIVE-SIMULATOR (Release, iOS 27, this branch's gateway, live model) | see §5 |
 | FOUNDER-DEVICE | **NOT RUN** |
 
@@ -78,7 +79,12 @@ can't be measured; the poster no longer puts Kinship's "was hoping to" sentence 
 
 ## 5. Native simulator
 
-Filled in below as run.
+A Release build (iOS 27 simulator, `EXPO_PUBLIC_SUPABASE_URL` at a harness proxy that sends the gateway to this
+branch's live-model gateway) built and launched on a dedicated "Kinship Notebook 18 Pro" simulator with a local
+test account (36 fictional people, earlier notes like the prototype's, `notebook_deck` on for it alone). The
+walk itself and the visual comparison with PR #77's stills are **NOT RUN**: driving the simulator needs the
+founder's "Let Claude use it" approval in the simulator panel, which was requested and not answered. Nothing
+here claims visual fidelity yet.
 
 ## 6. Known limitations and open decisions
 
