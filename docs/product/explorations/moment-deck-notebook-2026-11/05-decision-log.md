@@ -64,3 +64,33 @@
 - No voice UI (D5): no mic until on-device voice exists.
 - No new data sources: no calendar, no message reading, no location.
 - No Garden or Landscape, and no flower that grows with contact.
+
+## F. Founder decision, 2 Nov 2026: direction approved, implementation authorised
+
+The founder reviewed PR #77 and approved the overall direction in the directive "Implement the Approved
+Prototype End to End" (2 Nov 2026). What that directive decides, row by row. Where it is silent, the
+safe, contract-preserving choice was built and the row says so.
+
+| # | Decision | Status after 2 Nov | Where it's built |
+|---|---|---|---|
+| DN-1 | Adopt Moment Deck × Notebook × Showing Up | **APPROVED** (directive §1–2) | the whole `notebook_deck` experience |
+| DN-2 | T4 → People as equal tiles A–Z + date-only band + one search | **APPROVED** ("authorises pursuing the proposed People presentation"); recorded as a contract §6 override in `approved-design-coverage.md` | `src/features/people/notebook/` |
+| DN-3 | Person page as three lenses | **APPROVED** (directive §3C "Now / Pages / Knows") | `src/features/person/notebook/` |
+| DN-4 | Pages | **APPROVED** ("Notebook Pages"); coverage row 13 moves to PARTIAL via Pages | `src/features/person/notebook/`, `src/hooks/usePages.ts` |
+| DN-5 | Ideas behind an explicit control, in the moment and on Now; never on the card or in a push | **APPROVED** (directive §4) | `src/features/showingup/` |
+| DN-6 | Idea titles | **Option A APPROVED** ("start with deterministic, source-grounded templates"); Option B not built | `ideas.ts` `ideaTitle` |
+| DN-7 | Keep it in mind (Intentions v0) | **APPROVED** ("lightweight user-authored Intentions"); coverage row 33 moves for Intentions v0 only | `src/hooks/useShowingUp.ts` |
+| DN-8 | Help me start (openers) | **DEFERRED** (directive §4, "AI-generated conversation openers") — no control shown | — |
+| DN-9 | Hard-time (tender) promise moments | **DEFERRED** (directive §4, RSN-09) — Today eligibility unchanged; the tender poster is not built | — |
+| DN-10 | "I did this" on the user's own promise | Built as the evidence ladder's "confirmed the action occurred" step (directive §4): resolves the promise, records no contact. **Founder to confirm the copy** | `useShowingUp().keptIt`, poster, moment, line sheet |
+| DN-11 | SUA-1 outcome question after a Yes that followed an idea | Kept as built in alpha (FD-30d); an idea's hand-off carries its SUA-1 kind | `PersonIdeas`, `MomentFull` |
+| DN-12 | Review with your words, mapping, inline edit; auto-save unchanged | **APPROVED** (directive §3E) | `src/features/tell/notebook/` |
+| DN-13 | Poster photo only when the user chose one | **APPROVED** (photo-optional) | `MomentPoster` |
+| DN-14 | Flowers as identity marks | **APPROVED**; `sprig_marks` stays off; flowers chosen from the id alone | `src/ui/notebook/look.ts` |
+| DN-15 | Deck size | Quiet-line limits kept (no change to Today rules) | `deckModel.ts` |
+| DN-16 | Find it | **DEFERRED** (directive §4, commerce) — no control shown | — |
+
+Also deferred by the directive and not shown anywhere: automatic drafting or sending, voice capture,
+passive message ingestion, new cadence or elapsed-time reasons. "Write a card" (a PROPOSED way) is not
+built: it needs a clipboard dependency and a founder call on whether a card draft is "drafting"; no
+control is shown for it.

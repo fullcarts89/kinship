@@ -123,7 +123,7 @@ Not destinations: Garden, Landscape, Activity, Garden Walk, Seasons, Reach Out, 
 |---|---|---|
 | **Sprigs are identity-only in V1** (D8) | Design Direction "a leaf for each shared moment, a bud for coming up, a flower for a milestone" | History never makes a sprig larger, taller, fuller, brighter, healthier or more mature. `sprig_marks` stays OFF. The CI area test stays permanently |
 | **Garden / Landscape are not destinations** (D7, plan §34) | Board 3's List/Garden toggle and season plate | Future hypotheses only, behind a design checkpoint |
-| **People is search-first and alphabetical** (T4) | "Sorted by recent relevance" | No importance, neglect, health or closeness ordering |
+| **People is search-first and alphabetical** (T4) | "Sorted by recent relevance" | No importance, neglect, health or closeness ordering. **Presentation updated (DN-2, founder directive 2 Nov 2026, behind `notebook_deck`):** one search over names and the user's words, a "Coming up for them" band ordered by date only, then everyone as equal tiles A–Z. Still alphabetical; still no ranking, groups, pins or counts |
 | **Trust-required memory needs a yes** (§8, D1 trust checks) | "Auto-dismiss if untouched" for everything | Sensitive or genuinely ambiguous readings are not memory until the user confirms. Friction is never reduced by guessing identity, sensitive meaning, ambiguous dates or protected edits |
 | **Account before first Tell** (D1) | "Account created only when sync is chosen" | Sign in with Apple primary; Google/email secondary; no anonymous path |
 | **Consent is explicit, server-side, once** (D2, D3) | — | The approved D2 sentence appears in the consent step and in Settings |

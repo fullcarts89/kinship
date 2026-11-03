@@ -7,7 +7,7 @@
 // history under Background; computed every time, never stored.
 import React, { useMemo, useState } from "react";
 import { Alert } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { ComposedSheet } from "@/features/person/ComposedSheet";
 import { withoutForgotten } from "@/features/person/composedRecord";
 import { sectionsFor } from "@/features/person/recordSections";
@@ -17,13 +17,24 @@ import { deviceZone, proposedDay } from "@/features/tell/wordsDate";
 import { dayLabel } from "@/features/memory/format";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import { todayIso, usePeople, usePersonRecord, useTrail, useUnderstanding, useV2Actions } from "@/hooks/useV2";
+import { useNotebook } from "@/hooks/useNotebook";
 import { Sheet } from "@/ui";
 import { afterSheets } from "@/ui/sheetStack";
 import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
 type Pane = { kind: "person" | "date" | "kind" | "words"; line: ItemLine } | { kind: "name" };
 
-export default function KnowsScreen() {
+/** Behind `notebook_deck`, this link opens the person notebook on its Knows lens (at the line, if any). */
+export default function KnowsRoute() {
+  const notebook = useNotebook();
+  const { id, item } = useLocalSearchParams<{ id: string; item?: string }>();
+  if (notebook) {
+    return <Redirect href={{ pathname: "/v2/person/[id]", params: { id: String(id), lens: "knows", ...(typeof item === "string" && item ? { item } : {}) } }} />;
+  }
+  return <KnowsScreen />;
+}
+
+function KnowsScreen() {
   // `item`: "View Ben" from a Moment whose line isn't on Ben's page lands on it here (founder I1).
   const { id, item: focusItem } = useLocalSearchParams<{ id: string; item?: string }>();
   const { person, lines, history, loading } = usePersonRecord(String(id));

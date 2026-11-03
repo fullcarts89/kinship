@@ -71,7 +71,7 @@ export const MomentPoster = forwardRef<View, {
         accessibilityHint="Opens the moment"
         onPress={onOpen}
         testID="moment-poster"
-        style={({ pressed }) => ({ opacity: pressed ? 0.94 : 1 })}
+        style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
       >
         <View style={{ minHeight: notebook.poster.height, borderRadius: notebook.poster.radius, overflow: "hidden", backgroundColor: photo ? "#0F2A1D" : look.color, justifyContent: "flex-end" }}>
           {photo ? (
