@@ -24,7 +24,8 @@ export function posterFor(m: MomentView, today: string): PosterData {
     when: m.day && !m.toldDay ? whenChip(m.day, today) : m.type === "birthday" ? "Today" : null,
     headline: m.statement,
     memory,
-    hope: m.hope ? m.hope.replace(/^[“"]|[”"]$/gu, "") : null,
+    // Kinship's sentence about what they hoped (hopeLine), never dressed as the user's quote.
+    hope: m.hope ?? null,
     source: m.provenance ?? (m.type === "birthday" ? "From Contacts" : null),
     sourceKind: contacts || m.type === "birthday" ? "contacts" : "note",
     primary: m.primary.label,

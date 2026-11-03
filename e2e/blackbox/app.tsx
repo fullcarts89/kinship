@@ -33,7 +33,7 @@ import { openSqlJsDb } from "@/test-utils/sqljsDb";
 import { harness } from "./state";
 import { localAccount } from "./localStack";
 
-export type Where = { screen: "setup" } | { screen: "today" } | { screen: "people" } | { screen: "person"; id: string } | { screen: "knows"; id: string };
+export type Where = { screen: "setup" } | { screen: "today" } | { screen: "people" } | { screen: "person"; id: string; params?: Record<string, string> } | { screen: "knows"; id: string };
 
 let go: (w: Where) => void = () => undefined;
 let start: Where = { screen: "setup" };
@@ -41,14 +41,14 @@ let start: Where = { screen: "setup" };
 function Root() {
   const [where, setWhere] = useState<Where>(start);
   go = setWhere;
-  harness.params = where.screen === "person" || where.screen === "knows" ? { id: where.id } : {};
+  harness.params = where.screen === "person" ? { id: where.id, ...(where.params ?? {}) } : where.screen === "knows" ? { id: where.id } : {};
   // As app/v2/_layout.tsx and app/v2/(main)/_layout.tsx compose them.
   return (
     <TellFlowProvider>
       {where.screen === "setup" ? <Setup /> : (
         <>
           <ConsentSheet />
-          {where.screen === "today" ? <TodayScreen /> : where.screen === "people" ? <PeopleScreen /> : where.screen === "person" ? <PersonScreen key={`p:${where.id}`} /> : <KnowsScreen key={`k:${where.id}`} />}
+          {where.screen === "today" ? <TodayScreen /> : where.screen === "people" ? <PeopleScreen /> : where.screen === "person" ? <PersonScreen key={`p:${where.id}:${JSON.stringify(where.params ?? {})}`} /> : <KnowsScreen key={`k:${where.id}`} />}
           <TellDock current="today" onGo={() => undefined} />
         </>
       )}

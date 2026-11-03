@@ -94,6 +94,17 @@ export function MomentFull({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, detail?.key]);
+  // Closed from outside (a hand-off, the moment gone from Today): leave the same way, without calling back.
+  useEffect(() => {
+    if (visible || !shown) return;
+    const gone = () => setShown(null);
+    if (reduce || !from) fade.value = withTiming(0, { duration: reduce ? 150 : 200 }, (ok) => ok && runOnJS(gone)());
+    else t.value = withTiming(0, { duration: 320, easing: EASE }, (ok) => ok && runOnJS(gone)());
+    // A test renderer or a paused animation never finishes: never leave a stale moment on screen.
+    const timer = setTimeout(gone, 400);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
   const close = () => {
     const done = () => {
       setShown(null);
@@ -153,7 +164,7 @@ export function MomentFull({
               {whenLabel ? <NText v="cap" tone="ink2">{whenLabel}</NText> : null}
               <NText v="moment" style={{ marginTop: space.m - 2, marginBottom: space.l - 2 }}>{headline}</NText>
               {d.line && d.line !== headline ? <NText v="serif20" style={{ marginBottom: space.xs + 2 }}>{d.line}</NText> : null}
-              {d.hope ? <NText v="quote19" tone="ink2" style={{ marginBottom: space.m - 2 }}>{`“${d.hope}”`}</NText> : null}
+              {d.hope ? <NText v="quote19" tone="ink2" style={{ marginBottom: space.m - 2 }}>{d.hope}</NText> : null}
               <NText v="body15" tone="ink2" style={{ marginBottom: space.m }}>{d.why}</NText>
               {d.provenance ? (
                 <NSource chevron kind={sourceKind} label={d.provenance} onPress={d.noteId ? () => onSource(d.noteId as string) : undefined} style={{ marginTop: space.xs + 2, marginBottom: space.xs }} />

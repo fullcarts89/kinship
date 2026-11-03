@@ -62,7 +62,7 @@ export const MomentPoster = forwardRef<View, {
   const look = personLook(data.personId);
   const photo = !!photoUri;
   const ink = photo ? n.onPhoto : look.on;
-  const label = [data.personName, data.headline, data.memory, data.hope ? `“${data.hope}”` : null, data.source].filter(Boolean).join(". ");
+  const label = [data.personName, data.headline, data.memory, data.hope, data.source].filter(Boolean).join(". ");
   return (
     <View ref={ref} collapsable={false} style={[{ borderRadius: notebook.poster.radius, ...notebookShadow.poster }, style]}>
       <Pressable
@@ -105,7 +105,7 @@ export const MomentPoster = forwardRef<View, {
           <View style={{ paddingHorizontal: 22, paddingBottom: 22, paddingTop: 96 }}>
             <NText v="poster" color={ink} style={{ marginBottom: space.m }}>{data.headline}</NText>
             {data.memory ? <NText v="serif19" color={photo ? n.onPhoto : look.on} style={{ marginBottom: space.xs + 2 }}>{data.memory}</NText> : null}
-            {data.hope ? <NText v="quote18" color={photo ? n.onPhotoQuiet : look.on} style={{ marginBottom: space.m }}>{`“${data.hope}”`}</NText> : null}
+            {data.hope ? <NText v="quote18" color={photo ? n.onPhotoQuiet : look.on} style={{ marginBottom: space.m }}>{data.hope}</NText> : null}
             {data.source ? (
               <NSource
                 kind={photo ? "onPhoto" : data.sourceKind}

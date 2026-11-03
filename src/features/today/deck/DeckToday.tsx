@@ -31,10 +31,21 @@ export interface DeckTodayProps extends Omit<TodayViewProps, "onOpenMoment" | "o
   onDid?: () => void;
 }
 
+/** Where the card is, for the expand; if the measurement doesn't come back promptly, the moment opens with a fade. */
 function measure(ref: React.RefObject<View | null>, then: (r: Rect | null) => void) {
   const v = ref.current;
   if (!v || typeof v.measureInWindow !== "function") return then(null);
-  v.measureInWindow((x, y, width, height) => then(width > 0 && height > 0 ? { x, y, width, height } : null));
+  let done = false;
+  const once = (r: Rect | null) => {
+    if (done) return;
+    done = true;
+    then(r);
+  };
+  const t = setTimeout(() => once(null), 120);
+  v.measureInWindow((x, y, width, height) => {
+    clearTimeout(t);
+    once(width > 0 && height > 0 ? { x, y, width, height } : null);
+  });
 }
 
 export function DeckToday(props: DeckTodayProps) {

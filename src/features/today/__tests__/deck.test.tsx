@@ -19,7 +19,7 @@ const ben: MomentView = {
   memory: "Ben ran the New York Marathon on Sun, Nov 1", day: "2026-11-01", statement: "How did it go for Ben?",
   context: "Ben ran the New York Marathon on Sun, Nov 1 · Sun, Nov 1", provenance: "From your note · Oct 8", noteId: "c1", score: 80,
   primary: { label: "Ask how it went", hint: "" }, heading: "Ask Ben how it went", mention: [], opener: null, suggestion: null,
-  ask: "Did you ask Ben how it went?", followUp: "Anything worth remembering from asking Ben?", hope: "He's hoping to break four hours.",
+  ask: "Did you ask Ben how it went?", followUp: "Anything worth remembering from asking Ben?", hope: "Ben was hoping to break four hours.",
 };
 const maya: QuietView = { kind: "coming", label: "Saturday", text: "Maya's birthday", personId: "maya", itemId: null, day: "2026-11-07", due: false, hope: null, provenance: "From Contacts", noteId: null };
 const josh: QuietView = { kind: "coming", label: "Thursday", text: "Josh's interview, 10:00", personId: "josh", itemId: "m2", day: "2026-11-05", due: false, hope: null, provenance: "From your note · Oct 20", noteId: "c2" };
@@ -51,7 +51,7 @@ describe("the poster's words are the Moment's", () => {
   it("when, headline, the memory in the user's words, what they hoped, the source, one action and Not now", () => {
     expect(posterFor(ben, TODAY)).toEqual({
       personId: "ben", personName: "Ben", when: "Yesterday · Sun, Nov 1", headline: "How did it go for Ben?",
-      memory: "Ben ran the New York Marathon on Sun, Nov 1", hope: "He's hoping to break four hours.",
+      memory: "Ben ran the New York Marathon on Sun, Nov 1", hope: "Ben was hoping to break four hours.",
       source: "From your note · Oct 8", sourceKind: "note", primary: "Ask how it went", promise: false,
     });
     expect(whenChip("2026-11-07", TODAY)).toBe("Saturday · Sat, Nov 7");
@@ -66,7 +66,7 @@ describe("the poster's words are the Moment's", () => {
 
   it("renders the poster, then Also coming up, then the end card", () => {
     const t = texts(deck(view()));
-    const order = ["How did it go for Ben?", "Ben ran the New York Marathon on Sun, Nov 1", "“He's hoping to break four hours.”", "From your note · Oct 8", "Ask how it went", DECK_COPY.notNow, DECK_COPY.also, DECK_COPY.end];
+    const order = ["How did it go for Ben?", "Ben ran the New York Marathon on Sun, Nov 1", "Ben was hoping to break four hours.", "From your note · Oct 8", "Ask how it went", DECK_COPY.notNow, DECK_COPY.also, DECK_COPY.end];
     const idx = order.map((s) => t.indexOf(s));
     expect(idx.every((i) => i >= 0)).toBe(true);
     expect([...idx].sort((a, b) => a - b)).toEqual(idx);
