@@ -3,7 +3,7 @@
 //
 // Closing the sheet never throws the words away: they wait as this person's
 // draft and come back the next time the sheet opens here, and only here.
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { space } from "@/design/tokens";
 import { Botanical, DawnWash, Sheet, Small, TellField, Title } from "@/ui";
 import { View } from "react-native";
@@ -15,6 +15,27 @@ export const TELL_SHEET_COPY = {
 } as const;
 
 export function TellSheet({ person, onClose }: { person: { id: string; name: string } | null; onClose: () => void }) {
+  const flow = useTellFlow();
+  // The notebook (flag `notebook_deck`): the full-height Tell page, about them, in the flow's one surface.
+  if (flow.notebook) return <NotebookTellSheet person={person} onClose={onClose} />;
+  return <AlphaTellSheet person={person} onClose={onClose} />;
+}
+
+/** Opens the notebook Tell page about this person; its close is this sheet's close. Draws nothing itself. */
+function NotebookTellSheet({ person, onClose }: { person: { id: string; name: string } | null; onClose: () => void }) {
+  const flow = useTellFlow();
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    if (!person) return;
+    flow.openTell?.(person.id, { onClose: () => close.current() });
+    // Once per opening, about this person.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [person?.id]);
+  return null;
+}
+
+function AlphaTellSheet({ person, onClose }: { person: { id: string; name: string } | null; onClose: () => void }) {
   const flow = useTellFlow();
   const draft = person ? flow.draft(person.id) : "";
   // A draft from before this opening is said to be one.

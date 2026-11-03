@@ -24,6 +24,21 @@ export function dayNamedIn(words: string, nowIso: string, timeZone: string | nul
   return null;
 }
 
+/**
+ * "A day you wrote" (notebook review, PR #77 §7): the one exact day the user's own words for a line
+ * name ("the 15th I think", "Thursday"), and those words, read from when the note was told. Null when
+ * the words name no day Kinship can read. Offered as a choice, never applied by itself.
+ */
+export function dayWrittenIn(words: string, toldAtIso: string, timeZone: string | null): { date: string; words: string } | null {
+  for (const re of [...PATTERNS, /\b(?:on )?the \d{1,2}(?:st|nd|rd|th)\b/iu]) {
+    const m = words.match(re);
+    if (!m) continue;
+    const r = resolveDate(m[0], toldAtIso, timeZone, "future");
+    if (r.date && r.precision === "day" && !r.date_end) return { date: r.date, words: m[0] };
+  }
+  return null;
+}
+
 /** The day to ask about after a words edit: only when the line has a day and the words name another. */
 export function proposedDay(line: { when?: { value?: string | null } | null }, words: string, nowIso: string, timeZone: string | null): string | null {
   const current = line.when?.value ?? null;
