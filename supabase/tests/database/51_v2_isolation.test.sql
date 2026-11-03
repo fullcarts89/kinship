@@ -63,7 +63,7 @@ SELECT is(
   + (SELECT count(*)::int FROM public.devices) + (SELECT count(*)::int FROM public.notification_log)
   + (SELECT count(*)::int FROM public.user_flag_overrides),
   0, 'B sees no 2.0 row of A in any table');
-SELECT is((SELECT count(*)::int FROM public.feature_flags), 19, 'flags (no user data) are readable');
+SELECT is((SELECT count(*)::int FROM public.feature_flags), 20, 'flags (no user data) are readable');
 
 -- ── B can't change A's rows (0 rows affected) ──────────────────────────
 UPDATE public.people SET display_name = 'pwned';

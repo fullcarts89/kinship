@@ -290,3 +290,185 @@ export const art = {
 
 /** Sprig rendering: one ink line, a wash in the person's accent. Identity-only; never varies with history. */
 export const sprigStyle = { stroke: 1.2, wash: 0.35 } as const;
+
+/**
+ * The Moment Deck × Notebook experience (founder directive 2 Nov 2026, approving PR #77's
+ * prototype; behind the `notebook_deck` flag). Colours the prototype adds to Electric Garden:
+ * a second paper for wells and the end card, raised white cards, notebook paper with a blue
+ * rule and a pink margin, and the meaning colours that always come with a word ("You said
+ * you'd" sunset, "Needs your yes" magenta, "From Contacts" sky, understood green). Text pairs
+ * are checked in src/design/__tests__/tokens.test.ts.
+ */
+export interface NotebookPalette {
+  /** Wells: the lens control, the deck's end card, a tag. */
+  paper2: string;
+  /** Raised cards (ideas, questions, review lines, the Tell field). */
+  card: string;
+  /** Notebook paper (Tell, Pages, Source, Your words) and its rule and margin. */
+  sheet: string;
+  sheetRule: string;
+  sheetMargin: string;
+  /** Text one step under ink, on paper and cards. */
+  ink2: string;
+  /** Quiet text on paper and cards. */
+  quiet: string;
+  /** The lime of a primary action on a poster (ink text on it). */
+  lime: string;
+  /** Understood: provenance dots and icons only, never text. */
+  green: string;
+  /** "You said you'd": the dot and edge, and its text. */
+  yours: string;
+  yoursText: string;
+  yoursTint: string;
+  /** "Needs your yes": a question waiting on the user. */
+  held: string;
+  /** "From Contacts". */
+  contacts: string;
+  /** "Replaces" / told-again, as text on its tint. */
+  replaceText: string;
+  replaceTint: string;
+  /** "Already known" / understood, as text on its tint. */
+  knownText: string;
+  greenTint: string;
+  /** The found word in search and Pages. */
+  find: string;
+  /** Kept spans in Pages and Source: understood, and private. */
+  keptSpan: string;
+  privateSpan: string;
+  /** The tender poster's paper. */
+  tender: string;
+  /** Under a photo's words. */
+  photoScrim: string;
+  /** Text and outlines on a photo. */
+  onPhoto: string;
+  onPhotoQuiet: string;
+  onPhotoRule: string;
+}
+
+export const notebookColor: { light: NotebookPalette; night: NotebookPalette } = {
+  light: {
+    paper2: "#EAE3D6",
+    card: "#FFFFFF",
+    sheet: "#FFFDF8",
+    sheetRule: "rgba(56, 120, 200, 0.13)",
+    sheetMargin: "rgba(255, 61, 154, 0.32)",
+    ink2: "#3C5246",
+    quiet: "#57645C",
+    lime: "#A6E22E",
+    green: "#3B8A1C",
+    yours: "#FF6B1A",
+    yoursText: "#A9430A",
+    yoursTint: "#FFF1E6",
+    held: "#C8146B",
+    contacts: "#8CC8FF",
+    replaceText: "#1D4E89",
+    replaceTint: "#EAF2FF",
+    knownText: "#2B6A12",
+    greenTint: "#E9F7CF",
+    find: "#FFE05A",
+    keptSpan: "rgba(166, 226, 46, 0.62)",
+    privateSpan: "rgba(183, 164, 255, 0.5)",
+    tender: "#EFE8F6",
+    photoScrim: "rgba(8, 22, 15, 0.94)",
+    onPhoto: "#FFFFFF",
+    onPhotoQuiet: "rgba(255, 255, 255, 0.86)",
+    onPhotoRule: "rgba(255, 255, 255, 0.55)",
+  },
+  // Night: the papers go to the night garden; meaning colours lighten to keep their contrast.
+  night: {
+    paper2: "#15291D",
+    card: "#16291E",
+    sheet: "#112218",
+    sheetRule: "rgba(140, 200, 255, 0.10)",
+    sheetMargin: "rgba(255, 61, 154, 0.40)",
+    ink2: "#C9D6CC",
+    quiet: "#A3B4A8",
+    lime: "#A6E22E",
+    green: "#8FD45A",
+    yours: "#FF8A4A",
+    yoursText: "#FFB27F",
+    yoursTint: "#2E1D12",
+    held: "#FF7DBE",
+    contacts: "#8CC8FF",
+    replaceText: "#A9CBFF",
+    replaceTint: "#15243A",
+    knownText: "#B6EC86",
+    greenTint: "#1C3317",
+    find: "#7A6400",
+    keptSpan: "rgba(166, 226, 46, 0.38)",
+    privateSpan: "rgba(183, 164, 255, 0.38)",
+    tender: "#231C30",
+    photoScrim: "rgba(4, 12, 8, 0.94)",
+    onPhoto: "#FFFFFF",
+    onPhotoQuiet: "rgba(255, 255, 255, 0.86)",
+    onPhotoRule: "rgba(255, 255, 255, 0.55)",
+  },
+};
+
+/**
+ * A person's identity colour and the ink that reads on it (PR #77's people palette). Chosen
+ * from the id alone, never from history (D8); an art colour, the same at night.
+ */
+export const personColors: readonly { color: string; on: string }[] = [
+  { color: "#FF6B1A", on: "#1B0A00" },
+  { color: "#FF3D9A", on: "#2A0016" },
+  { color: "#8CC8FF", on: "#0A1F33" },
+  { color: "#16264A", on: "#FFFFFF" },
+  { color: "#FF8A5C", on: "#2A0D00" },
+  { color: "#B7A4FF", on: "#160A3A" },
+  { color: "#FFE05A", on: "#2A2000" },
+  { color: "#A6E22E", on: "#0F2A1D" },
+  { color: "#CDBDF2", on: "#1E1238" },
+];
+
+/** An idea's category tint (the words always say the category). */
+export const ideaTint = {
+  gesture: "#FFD6EA",
+  celebrate: "#FFD6EA",
+  together: "#DCEBFF",
+  help: "#FFE9DA",
+  followThrough: "#FFF2B8",
+  message: "#E9F7CF",
+  checkIn: "#E9F7CF",
+} as const;
+
+/** The notebook's sizes (PR #77 proto.css), on the 4-pt grid where it allows. */
+export const notebook = {
+  /** Today's poster. */
+  poster: { height: 470, radius: 30, gutter: 14, initial: 230 },
+  /** A deck card. */
+  card: { width: 214, minHeight: 232, radius: 26, face: 64, flower: 104 },
+  /** The expanded moment's media, and the sheet that rises over it. */
+  momentMedia: { photo: 340, tender: 250, overlap: 30 },
+  /** The person page's media. */
+  personMedia: 360,
+  /** People tiles: three columns, 4:5. */
+  tile: { columns: 3, aspect: 5 / 4, radius: 20, gap: 10, rowGap: 16 },
+  /** The date band's portraits. */
+  band: 84,
+  /** Raised cards and their soft lift. */
+  raised: { radius: 20, large: 24 },
+  /** The notebook paper's line height. */
+  ruled: { tell: 34, pages: 30, words: 28 },
+  /** Above this many people, letter breaks and the A–Z rail. */
+  railAbove: 25,
+  /** Small buttons in the notebook are 40 tall (44 with their touch slop). */
+  smallButton: 40,
+} as const;
+
+export const notebookShadow = {
+  card: {
+    shadowColor: "#0B2A1D",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  poster: {
+    shadowColor: "#0B2A1D",
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.18,
+    shadowRadius: 40,
+    elevation: 10,
+  },
+} as const;
