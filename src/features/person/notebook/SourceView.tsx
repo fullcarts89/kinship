@@ -25,9 +25,12 @@ export const SOURCE_COPY = {
   delete: "Delete this note",
 } as const;
 
-/** A person's colour as a highlighter (60% on the paper, as the prototype marks it). */
+/**
+ * A person's colour as a highlighter. The prototype draws a 65% stroke under the lower third of the
+ * line; React Native can only fill the whole line, so the tint is lighter to keep the same weight.
+ */
 function marker(color: string): string {
-  return /^#[0-9a-f]{6}$/iu.test(color) ? `${color}99` : color;
+  return /^#[0-9a-f]{6}$/iu.test(color) ? `${color}57` : color;
 }
 
 export function NotebookSourceView({ note, page, focusItemId, now = new Date(), onBack, onLine, onPerson, onDelete, onTellRest, faceFor }: {

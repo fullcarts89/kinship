@@ -62,6 +62,9 @@ export const MomentPoster = forwardRef<View, {
   const look = personLook(data.personId);
   const photo = !!photoUri;
   const ink = photo ? n.onPhoto : look.on;
+  // PR #77's chip and action are lime; on a lime person's own colour they would vanish, so ink there.
+  const onLime = !photo && look.lime;
+  const action = onLime ? "ink" : "lime";
   const label = [data.personName, data.headline, data.memory, data.hope, data.source].filter(Boolean).join(". ");
   return (
     <View ref={ref} collapsable={false} style={[{ borderRadius: notebook.poster.radius, ...notebookShadow.poster }, style]}>
@@ -101,7 +104,7 @@ export const MomentPoster = forwardRef<View, {
               />
             </>
           )}
-          {data.when ? <View style={{ position: "absolute", top: 18, left: 18 }}><Chip label={data.when} variant={photo ? "lime" : "white"} /></View> : null}
+          {data.when ? <View style={{ position: "absolute", top: 18, left: 18 }}><Chip label={data.when} variant={onLime ? "white" : "lime"} /></View> : null}
           <View style={{ paddingHorizontal: 22, paddingBottom: 22, paddingTop: 96 }}>
             <NText v="poster" color={ink} style={{ marginBottom: space.m }}>{data.headline}</NText>
             {data.memory ? <NText v="serif19" color={photo ? n.onPhoto : look.on} style={{ marginBottom: space.xs + 2 }}>{data.memory}</NText> : null}
@@ -118,20 +121,21 @@ export const MomentPoster = forwardRef<View, {
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.m - 2, marginTop: space.l }}>
               {data.promise && onDid ? (
                 <>
-                  <NButton small variant="lime" label={DECK_COPY.did} onPress={onDid} icon={({ color, size }) => <Check color={color} size={size} strokeWidth={2} />} testID="poster-did" />
-                  <NButton small variant={photo ? "onPhoto" : "ghost"} label={data.primary} onPress={onPrimary} testID="poster-primary" />
+                  <NButton small variant={action} on={photo ? undefined : look.on} label={DECK_COPY.did} onPress={onDid} icon={({ color, size }) => <Check color={color} size={size} strokeWidth={2} />} testID="poster-did" />
+                  <NButton small variant={photo ? "onPhoto" : "ghost"} on={photo ? undefined : look.on} label={data.primary} onPress={onPrimary} testID="poster-primary" />
                 </>
               ) : (
                 <>
                   <NButton
                     small
-                    variant="lime"
+                    variant={action}
+                    on={photo ? undefined : look.on}
                     label={data.primary}
                     onPress={onPrimary}
                     testID="poster-primary"
                     icon={({ color, size }) => (data.call ? <Phone color={color} size={size} strokeWidth={1.8} /> : <MessageCircle color={color} size={size} strokeWidth={1.8} />)}
                   />
-                  <NButton small variant={photo ? "onPhoto" : "ghost"} label={DECK_COPY.notNow} onPress={onNotNow} testID="poster-notnow" />
+                  <NButton small variant={photo ? "onPhoto" : "ghost"} on={photo ? undefined : look.on} label={DECK_COPY.notNow} onPress={onNotNow} testID="poster-notnow" />
                 </>
               )}
             </View>

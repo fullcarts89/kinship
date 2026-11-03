@@ -68,7 +68,7 @@ export function NSource({ kind = "note", label, onPress, tone, color, chevron = 
 
 export type NButtonVariant = "ink" | "lime" | "ghost" | "onPhoto" | "white";
 
-export function NButton({ label, onPress, variant = "ink", small = false, icon, full = false, flex, disabled, accessibilityLabel, accessibilityHint, testID }: {
+export function NButton({ label, onPress, variant = "ink", small = false, icon, full = false, flex, disabled, accessibilityLabel, accessibilityHint, testID, on }: {
   label?: string;
   onPress: () => void;
   variant?: NButtonVariant;
@@ -80,13 +80,19 @@ export function NButton({ label, onPress, variant = "ink", small = false, icon, 
   accessibilityLabel?: string;
   accessibilityHint?: string;
   testID?: string;
+  /**
+   * The ink of a coloured surface it sits on (a person's poster): ink and ghost buttons take it, so they
+   * read the same in Night as by day (the page's ink turns light at night; the person's colour doesn't).
+   */
+  on?: string;
 }) {
   const p = usePalette();
   const n = useNotebookPalette();
   const h = small ? notebook.smallButton : 50;
-  const bg = { ink: p.ink, lime: n.lime, ghost: "transparent", onPhoto: "transparent", white: n.card }[variant];
-  const fg = { ink: p.onInk, lime: "#0F2A1D", ghost: p.ink, onPhoto: n.onPhoto, white: p.ink }[variant];
-  const border = variant === "ghost" ? p.rule : variant === "onPhoto" ? n.onPhotoRule : null;
+  const ink = on ?? p.ink;
+  const bg = { ink, lime: n.lime, ghost: "transparent", onPhoto: "transparent", white: n.card }[variant];
+  const fg = { ink: on ? "#FFFFFF" : p.onInk, lime: "#0F2A1D", ghost: ink, onPhoto: n.onPhoto, white: p.ink }[variant];
+  const border = variant === "ghost" ? (on ? `${on}55` : p.rule) : variant === "onPhoto" ? n.onPhotoRule : null;
   const large = isLargeText();
   return (
     <Pressable
@@ -101,7 +107,9 @@ export function NButton({ label, onPress, variant = "ink", small = false, icon, 
       style={({ pressed }) => [
         { opacity: disabled ? press.disabled : pressed ? press.surface : 1 },
         full ? { alignSelf: "stretch" } : null,
-        flex ? { flex } : null,
+        // Sized to its words first, then sharing what's left: equal shares broke "Message" in two
+        // on a 402 pt phone (native pass, 3 Nov 2026).
+        flex ? { flexGrow: flex, flexShrink: 1, flexBasis: "auto" } : null,
       ]}
     >
       <View
@@ -235,7 +243,7 @@ export function LensTabs<K extends string>({ lenses, current, onChange }: {
           >
             <View style={[
               { minHeight: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", paddingVertical: space.xs },
-              on ? { backgroundColor: n.card, ...notebookShadow.card } : null,
+              on ? { backgroundColor: n.raisedInWell, ...notebookShadow.card } : null,
             ]}>
               <NText v="strong14" color={on ? p.ink : n.ink2}>{l.label}</NText>
             </View>

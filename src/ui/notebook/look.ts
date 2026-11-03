@@ -21,6 +21,8 @@ export interface PersonLook {
   /** Text and marks drawn on the colour. */
   on: string;
   flower: FlowerKey;
+  /** The colour is lime: what is lime elsewhere (the poster's chip and action) is drawn otherwise on it. */
+  lime: boolean;
 }
 
 function hash(id: string, seed: number): number {
@@ -33,7 +35,7 @@ function hash(id: string, seed: number): number {
 export function personLook(personId: string): PersonLook {
   const c = personColors[hash(personId, 2166136261) % personColors.length];
   const flower = FLOWER_KEYS[hash(personId, 374761393) % FLOWER_KEYS.length];
-  return { color: c.color, on: c.on, flower };
+  return { color: c.color, on: c.on, flower, lime: !!c.lime };
 }
 
 /** The first letter a type poster or tile is set in. */

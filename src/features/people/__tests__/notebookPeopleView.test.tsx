@@ -226,7 +226,14 @@ describe("People as an index", () => {
     const r = render(<NotebookPeopleView {...props({}, many)} />);
     const headers = r.root.findAll((x) => x.type === Text && x.props.accessibilityRole === "header").map((x) => x.props.children);
     expect(headers).toEqual(expect.arrayContaining(["A", "B"]));
+    // The rail sits beside Everyone (people-dense.jpg), so it waits for the masthead and band to be measured.
+    expect(r.root.findAll((x) => x.props.testID === "letter-rail")).toHaveLength(0);
+    const header = r.root.findAll((x) => typeof x.type === "string" && typeof x.props.onLayout === "function" && x.props.style?.paddingTop !== undefined)[0];
+    act(() => header.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 402, height: 430 } } }));
     const rail = r.root.findByProps({ testID: "letter-rail" });
+    // The tiles leave the rail its own gutter: it never sits over the third column.
+    const row = r.root.findAll((x) => typeof x.type === "string" && x.props.style?.flexDirection === "row" && x.props.style?.marginBottom !== undefined && x.props.style?.paddingRight !== undefined)[0];
+    expect(row.props.style.paddingRight).toBeGreaterThan(row.props.style.paddingLeft);
     expect(rail.findAllByType(Text).map((t) => t.props.children)).toEqual(names.map((nm) => nm[0]).filter((l, i, a) => a.indexOf(l) === i));
     expect(rail.props.accessibilityRole).toBe("adjustable");
     const list = r.root.findByType(SectionList).instance as { scrollToLocation: (p: unknown) => void };
@@ -236,6 +243,16 @@ describe("People as an index", () => {
     // At 25, no breaks and no rail.
     const few = render(<NotebookPeopleView {...props({}, many.slice(0, 25))} />);
     expect(few.root.findAll((x) => x.props.testID === "letter-rail")).toHaveLength(0);
+  });
+
+  it("a tile with no photo draws its initial and its flower, the flower sized on both sides (iOS draws nothing from aspectRatio alone)", () => {
+    const r = render(<NotebookPeopleView {...props()} />);
+    const tile = r.root.findAll((x) => x.props.testID === "tile-elena" && typeof x.type === "string")[0];
+    const flower = tile.findAll((x) => typeof x.type === "string" && x.props.source !== undefined && x.props.style?.position === "absolute")[0];
+    expect(flower).toBeDefined();
+    const style = Array.isArray(flower.props.style) ? Object.assign({}, ...flower.props.style) : flower.props.style;
+    expect(style.width).toBeDefined();
+    expect(style.height).toBeDefined();
   });
 
   it("stays virtualized for 500 people: a few rows mounted, not five hundred tiles", () => {

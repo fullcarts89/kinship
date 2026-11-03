@@ -9,6 +9,7 @@ import { MomentFull } from "@/features/today/deck/MomentFull";
 import type { MomentDetail } from "@/features/today/momentDetail";
 import type { Idea } from "@/features/showingup/ideas";
 import { SHOWING_UP_COPY } from "@/features/showingup/IdeasViews";
+import { afterSheets, openSheets } from "@/ui/sheetStack";
 
 jest.mock("react-native-safe-area-context", () => jest.requireActual("react-native-safe-area-context/jest/mock").default);
 let mockIdeas: Idea[] = [];
@@ -27,13 +28,18 @@ const book: Idea = {
   grounds: [{ itemId: "m1", quote: "Keeps talking about getting his new one, Comfort.", source: "From your note · Sep 12", noteId: "c1", line: "Maya keeps talking about getting Ottolenghi's Comfort" }],
 };
 
+const mounted: TestRenderer.ReactTestRenderer[] = [];
 function render(el: React.ReactElement) {
   let r!: TestRenderer.ReactTestRenderer;
   act(() => {
     r = TestRenderer.create(el);
   });
+  mounted.push(r);
   return r;
 }
+afterEach(() => {
+  for (const r of mounted.splice(0)) act(() => r.unmount());
+});
 const texts = (r: TestRenderer.ReactTestRenderer) => r.root.findAllByType(Text).map((t) => [t.props.children].flat().join("")).filter((s) => s.trim());
 const byId = (r: TestRenderer.ReactTestRenderer, id: string) => r.root.findAll((n) => n.props.testID === id && typeof n.props.onPress === "function" && n.parent?.props.testID !== id);
 const full = (over: Partial<React.ComponentProps<typeof MomentFull>> = {}) => render(
@@ -95,4 +101,30 @@ it("Message and Call are the moment's hand-offs; an idea's carry its kind", () =
   act(() => byId(r, "moment-call")[0].props.onPress());
   expect(message).toHaveBeenCalledWith();
   expect(call).toHaveBeenCalledWith();
+});
+
+it("counts as a sheet until it has left, so a hand-off waits (native pass: a sheet presented over it was dropped); its words stay while it leaves", () => {
+  jest.useFakeTimers();
+  try {
+    const props = {
+      from: null, photoUri: null, whenLabel: "Saturday · Sat, Nov 7", headline: "Maya's birthday is Saturday.", today: "2026-11-02",
+      onClose: noop, onMessage: noop, onCall: noop, onPerson: noop, onSource: noop,
+      onKeep: async () => ({ undo: async () => undefined }), onBringBack: async () => undefined,
+    };
+    const r = render(<MomentFull detail={maya} {...props} />);
+    expect(openSheets()).toBe(1);
+    const next = jest.fn();
+    // Closed from outside (Message): Today's words for it are gone, the moment still says them while it leaves.
+    act(() => r.update(<MomentFull detail={null} {...props} whenLabel={null} headline="" />));
+    afterSheets(next);
+    expect(texts(r)).toEqual(expect.arrayContaining(["Saturday · Sat, Nov 7", "Maya's birthday is Saturday."]));
+    expect(next).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(450);
+    });
+    expect(openSheets()).toBe(0);
+    expect(next).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
 });

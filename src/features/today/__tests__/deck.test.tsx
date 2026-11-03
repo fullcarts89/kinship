@@ -126,3 +126,19 @@ it("never quantifies: no counts, scores or overdue words anywhere on Today", () 
   const t = texts(deck(view({ quiet: [josh, maya, question, elena] }))).join(" ");
   expect(t).not.toMatch(/overdue|streak|score|\bstill\b|you haven't|it's been|\d+ (people|moments|reminders)/iu);
 });
+
+it("on a lime person's own colour, the poster's chip and action are never lime (they would vanish)", () => {
+  const { personLook } = jest.requireActual("@/ui/notebook") as typeof import("@/ui/notebook");
+  const limeId = Array.from({ length: 400 }, (_, i) => `p${i}`).find((id) => personLook(id).lime) as string;
+  const otherId = Array.from({ length: 400 }, (_, i) => `p${i}`).find((id) => !personLook(id).lime) as string;
+  const variantOf = (id: string) => {
+    const r = deck(view({ moment: { ...ben, personId: id } }));
+    return r.root.findAll((x) => x.props.testID === "poster-primary" && x.props.variant !== undefined)[0]?.props.variant;
+  };
+  expect(variantOf(limeId)).toBe("ink");
+  expect(variantOf(otherId)).toBe("lime");
+  // Its buttons take the person's own ink, never the page's (which turns light at Night).
+  const r = deck(view({ moment: { ...ben, personId: limeId } }));
+  const notNow = r.root.findAll((x) => x.props.testID === "poster-notnow" && x.props.variant !== undefined)[0];
+  expect(notNow.props.on).toBe(personLook(limeId).on);
+});

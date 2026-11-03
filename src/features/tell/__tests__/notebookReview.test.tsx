@@ -27,7 +27,7 @@ const NOTE = "Lunch with Priya today, she's back from Lisbon for good!! Moving i
 const people = [
   { id: "priya", display_name: "Priya", full_name: "Priya Shah", state: "active", relationship_label: "Friend from your Lisbon year" },
   { id: "josh", display_name: "Josh", state: "active" },
-  { id: "lee", display_name: "Sam", state: "active", relationship_label: "pottery studio" },
+  { id: "lee", display_name: "Sam", full_name: "Sam Delgado", state: "active", relationship_label: "pottery studio" },
   { id: "diaz", display_name: "Sam", state: "active", relationship_label: "Josh's friend from work" },
 ] as unknown as Person[];
 
@@ -151,7 +151,8 @@ it("composes as the prototype: who it was kept for and one question each, the ti
 
 it("two people a name can mean: one question, the people with their faces and how they know them; the pick is the answer", () => {
   const { tree, props } = render([samHeld]);
-  expect(texts(tree)).toEqual(expect.arrayContaining(["Sam", "pottery studio", "Josh's friend from work"]));
+  // Two Sams read by their full names where there is one (PR #77 review-j2.jpg), with how they know them.
+  expect(texts(tree)).toEqual(expect.arrayContaining(["Sam Delgado", "pottery studio", "Sam", "Josh's friend from work"]));
   press(tree, "Sam (pottery studio)");
   expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, person_id: "lee" }]);
   // Answered says so, in the user's words.

@@ -304,6 +304,8 @@ export interface NotebookPalette {
   paper2: string;
   /** Raised cards (ideas, questions, review lines, the Tell field). */
   card: string;
+  /** The current lens raised in its well: card by day; a step lighter at night, where card and well meet. */
+  raisedInWell: string;
   /** Notebook paper (Tell, Pages, Source, Your words) and its rule and margin. */
   sheet: string;
   sheetRule: string;
@@ -349,6 +351,7 @@ export const notebookColor: { light: NotebookPalette; night: NotebookPalette } =
   light: {
     paper2: "#EAE3D6",
     card: "#FFFFFF",
+    raisedInWell: "#FFFFFF",
     sheet: "#FFFDF8",
     sheetRule: "rgba(56, 120, 200, 0.13)",
     sheetMargin: "rgba(255, 61, 154, 0.32)",
@@ -366,8 +369,8 @@ export const notebookColor: { light: NotebookPalette; night: NotebookPalette } =
     knownText: "#2B6A12",
     greenTint: "#E9F7CF",
     find: "#FFE05A",
-    keptSpan: "rgba(166, 226, 46, 0.62)",
-    privateSpan: "rgba(183, 164, 255, 0.5)",
+    keptSpan: "rgba(166, 226, 46, 0.34)",
+    privateSpan: "rgba(183, 164, 255, 0.34)",
     tender: "#EFE8F6",
     photoScrim: "rgba(8, 22, 15, 0.94)",
     onPhoto: "#FFFFFF",
@@ -378,6 +381,7 @@ export const notebookColor: { light: NotebookPalette; night: NotebookPalette } =
   night: {
     paper2: "#15291D",
     card: "#16291E",
+    raisedInWell: "#2A4433",
     sheet: "#112218",
     sheetRule: "rgba(140, 200, 255, 0.10)",
     sheetMargin: "rgba(255, 61, 154, 0.40)",
@@ -395,8 +399,8 @@ export const notebookColor: { light: NotebookPalette; night: NotebookPalette } =
     knownText: "#B6EC86",
     greenTint: "#1C3317",
     find: "#7A6400",
-    keptSpan: "rgba(166, 226, 46, 0.38)",
-    privateSpan: "rgba(183, 164, 255, 0.38)",
+    keptSpan: "rgba(166, 226, 46, 0.26)",
+    privateSpan: "rgba(183, 164, 255, 0.26)",
     tender: "#231C30",
     photoScrim: "rgba(4, 12, 8, 0.94)",
     onPhoto: "#FFFFFF",
@@ -409,7 +413,7 @@ export const notebookColor: { light: NotebookPalette; night: NotebookPalette } =
  * A person's identity colour and the ink that reads on it (PR #77's people palette). Chosen
  * from the id alone, never from history (D8); an art colour, the same at night.
  */
-export const personColors: readonly { color: string; on: string }[] = [
+export const personColors: readonly { color: string; on: string; lime?: true }[] = [
   { color: "#FF6B1A", on: "#1B0A00" },
   { color: "#FF3D9A", on: "#2A0016" },
   { color: "#8CC8FF", on: "#0A1F33" },
@@ -417,7 +421,8 @@ export const personColors: readonly { color: string; on: string }[] = [
   { color: "#FF8A5C", on: "#2A0D00" },
   { color: "#B7A4FF", on: "#160A3A" },
   { color: "#FFE05A", on: "#2A2000" },
-  { color: "#A6E22E", on: "#0F2A1D" },
+  // Lime itself: a lime button or chip on it would disappear (native pass, 3 Nov 2026).
+  { color: "#A6E22E", on: "#0F2A1D", lime: true },
   { color: "#CDBDF2", on: "#1E1238" },
 ];
 

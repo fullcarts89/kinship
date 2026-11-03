@@ -113,7 +113,7 @@ export function timeOf(m: MemoryItem): { day: string | null; end: string | null;
  * The day it was told, in the user's own calendar (as `today` is): a line told on a Pacific evening is
  * tomorrow in UTC, and read in UTC it would not be "lately" until midnight UTC.
  */
-function toldDay(m: MemoryItem): string | null {
+export function toldDay(m: MemoryItem): string | null {
   const raw = String(m.created_at ?? "");
   const t = Date.parse(raw);
   if (Number.isNaN(t)) return /^\d{4}-\d{2}-\d{2}$/u.test(raw.slice(0, 10)) ? raw.slice(0, 10) : null;

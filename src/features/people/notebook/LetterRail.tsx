@@ -8,6 +8,8 @@ import { NText, useNotebookPalette } from "@/ui/notebook";
 import { INDEX_COPY } from "./peopleIndexModel";
 
 const LETTER_HEIGHT = 15;
+/** The rail's width; the tiles beside it leave this much room. */
+export const RAIL_WIDTH = TOUCH / 2 + space.s;
 
 export function LetterRail({ letters, onLetter }: { letters: string[]; onLetter: (letter: string) => void }) {
   const n = useNotebookPalette();
@@ -51,7 +53,7 @@ export function LetterRail({ letters, onLetter }: { letters: string[]; onLetter:
       onResponderMove={at}
       onResponderRelease={() => setCurrent(null)}
       testID="letter-rail"
-      style={{ width: TOUCH / 2 + space.s, paddingVertical: space.xs, alignItems: "center" }}
+      style={{ width: RAIL_WIDTH, paddingVertical: space.xs, alignItems: "center" }}
     >
       {letters.map((l) => (
         <NText key={l} v="dayCap" allowFontScaling={false} color={n.knownText} style={{ height: LETTER_HEIGHT, lineHeight: LETTER_HEIGHT, letterSpacing: 0 }}>{l}</NText>

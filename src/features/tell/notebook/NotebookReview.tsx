@@ -740,7 +740,9 @@ function Option({ c, people, onPress }: { c: Choice; people: Person[]; onPress: 
   const id = "answer" in c && !c.restore && typeof c.answer.person_id === "string" && !c.answer.also_person_ids ? c.answer.person_id : null;
   const person = id ? people.find((x) => x.id === id) ?? null : null;
   const relation = person && typeof person.relationship_label === "string" && person.relationship_label ? person.relationship_label : null;
-  const name = person && relation && c.label === `${person.display_name} (${relation})` ? person.display_name : c.label;
+  // Split "Sam (From the pottery studio)" into a name and how they know them; two Sams read by their full names (PR #77).
+  const full = person && typeof person.full_name === "string" && person.full_name ? person.full_name : null;
+  const name = person && relation && c.label === `${person.display_name} (${relation})` ? full ?? person.display_name : c.label;
   const icon = "pick" in c
     ? c.pick === "contact" ? <Contact color={p.ink} size={20} strokeWidth={1.8} /> : <Plus color={p.ink} size={22} strokeWidth={1.8} />
     : "restore" in c && c.restore ? <RotateCcw color={p.ink} size={20} strokeWidth={1.8} />

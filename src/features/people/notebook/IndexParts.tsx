@@ -49,7 +49,8 @@ export const PeopleTile = memo(function PeopleTile({ tile, onOpen }: { tile: Til
             <Image
               source={flowers[look.flower]}
               resizeMode="contain"
-              style={{ position: "absolute", width: "82%", aspectRatio: 1, right: "-14%", bottom: "-10%", transform: [{ rotate: "-8deg" }] }}
+              // Both sides given: an absolute image sized by aspectRatio alone draws nothing on iOS.
+              style={{ position: "absolute", width: "82%", height: `${Math.round(82 / notebook.tile.aspect)}%` as `${number}%`, right: "-14%", bottom: "-10%", transform: [{ rotate: "-8deg" }] }}
             />
           </>
         )}
@@ -60,10 +61,10 @@ export const PeopleTile = memo(function PeopleTile({ tile, onOpen }: { tile: Til
   );
 });
 
-/** A row of tiles; a short last row keeps every tile the same width. */
-export function TileRow({ tiles, columns, onOpen }: { tiles: TileData[]; columns: number; onOpen: (id: string) => void }) {
+/** A row of tiles; a short last row keeps every tile the same width. `gutter` leaves room for the A–Z rail. */
+export function TileRow({ tiles, columns, onOpen, gutter = 0 }: { tiles: TileData[]; columns: number; onOpen: (id: string) => void; gutter?: number }) {
   return (
-    <View style={{ flexDirection: "row", gap: notebook.tile.gap, paddingHorizontal: space.l, marginBottom: notebook.tile.rowGap }}>
+    <View style={{ flexDirection: "row", gap: notebook.tile.gap, paddingLeft: space.l, paddingRight: gutter ? gutter + space.xs : space.l, marginBottom: notebook.tile.rowGap }}>
       {tiles.map((t) => <PeopleTile key={t.id} tile={t} onOpen={onOpen} />)}
       {Array.from({ length: Math.max(0, columns - tiles.length) }, (_, i) => <View key={`gap${i}`} style={{ flex: 1 }} />)}
     </View>

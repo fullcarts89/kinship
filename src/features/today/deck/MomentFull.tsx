@@ -17,6 +17,7 @@ import { usePersonIdeas } from "@/hooks/useIdeas";
 import { smallCount, track } from "@/platform/analytics";
 import { Pressable } from "@/ui/Pressable";
 import { Sheet, usePalette, useReduceMotion } from "@/ui";
+import { sheetClosed, sheetOpened } from "@/ui/sheetStack";
 import { flowers, initialOf, Lbl, NButton, NSource, NText, personLook, useNotebookPalette } from "@/ui/notebook";
 import { DECK_COPY } from "./DeckParts";
 
@@ -68,8 +69,23 @@ export function MomentFull({
   const [idea, setIdea] = useState<Idea | null>(null);
   const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
   const last = useRef(detail);
-  if (detail) last.current = detail;
+  // What it said when it opened stays while it leaves (Today may have moved on underneath).
+  const words = useRef({ whenLabel, headline });
+  if (detail) {
+    last.current = detail;
+    words.current = { whenLabel, headline };
+  }
   const d = detail ?? shown ?? last.current;
+  // Counted as a sheet from the moment it's up until it has fully left (sheetStack.ts): iOS drops a
+  // modal presented while another is on screen, so a hand-off from here waits for this to go.
+  const up = visible || !!shown;
+  useEffect(() => {
+    if (!up) return;
+    sheetOpened();
+    return () => sheetClosed();
+  }, [up]);
+  const when = detail ? whenLabel : words.current.whenLabel;
+  const title = detail ? headline : words.current.headline;
   const { ideas } = usePersonIdeas(d?.personId ?? null, d ? { itemId: d.itemId, birthday: d.type === "birthday" || (d.type === "coming" && d.itemId === null) } : null);
 
   // The reveal: a window that grows from the card to the screen, the moment drawn in place behind it.
@@ -161,9 +177,9 @@ export function MomentFull({
               )}
             </View>
             <View style={{ marginTop: -notebook.momentMedia.overlap, backgroundColor: p.paper, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingTop: space.xxl, paddingHorizontal: space.xl + 4 }}>
-              {whenLabel ? <NText v="cap" tone="ink2">{whenLabel}</NText> : null}
-              <NText v="moment" style={{ marginTop: space.m - 2, marginBottom: space.l - 2 }}>{headline}</NText>
-              {d.line && d.line !== headline ? <NText v="serif20" style={{ marginBottom: space.xs + 2 }}>{d.line}</NText> : null}
+              {when ? <NText v="cap" tone="ink2">{when}</NText> : null}
+              <NText v="moment" style={{ marginTop: space.m - 2, marginBottom: space.l - 2 }}>{title}</NText>
+              {d.line && d.line !== title ? <NText v="serif20" style={{ marginBottom: space.xs + 2 }}>{d.line}</NText> : null}
               {d.hope ? <NText v="quote19" tone="ink2" style={{ marginBottom: space.m - 2 }}>{d.hope}</NText> : null}
               <NText v="body15" tone="ink2" style={{ marginBottom: space.m }}>{d.why}</NText>
               {d.provenance ? (

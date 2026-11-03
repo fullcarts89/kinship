@@ -13,7 +13,7 @@
 //
 // No sort, no groups, no pins, no counts. Paused and remembered people look like anyone else (D13).
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, ScrollView, SectionList, TextInput, View } from "react-native";
+import { Animated, Platform, ScrollView, SectionList, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Plus, Search, Settings2 } from "lucide-react-native";
 import { maxScale, notebook, notebookShadow, size, space } from "@/design/tokens";
@@ -24,7 +24,7 @@ import type { Person } from "@/store/repositories";
 import { Grain, IconButton, isLargeText, KeyboardBar, type NavKey, useKeyboardBarId, usePalette, useReduceMotion } from "@/ui";
 import { Lbl, NButton, NT, NText, useNotebookPalette } from "@/ui/notebook";
 import { BandPerson, HitRow, TileRow } from "./IndexParts";
-import { LetterRail } from "./LetterRail";
+import { LetterRail, RAIL_WIDTH } from "./LetterRail";
 import { type BandEntry, type Hit, hitsOf, INDEX_COPY, nameMatches, showsLetters, type TileData, tileSections } from "./peopleIndexModel";
 
 type Item =
@@ -81,6 +81,10 @@ export function NotebookPeopleView({
   const list = useRef<SectionList<Item, Section>>(null);
   const [query, setQuery] = useState(initialQuery);
   const [adding, setAdding] = useState<string | null>(initialAdding);
+  // The rail sits beside Everyone (people-dense.jpg): it starts where the list does and stays in
+  // view once the masthead and the band have scrolled away.
+  const [headerH, setHeaderH] = useState(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     onQuery?.(query);
   }, [query, onQuery]);
@@ -138,12 +142,12 @@ export function NotebookPeopleView({
   }, [sections, reduceMotion]);
 
   const renderItem = useCallback(({ item }: { item: Item }) => {
-    if (item.kind === "tiles") return <TileRow tiles={item.tiles} columns={columns} onOpen={onOpen} />;
+    if (item.kind === "tiles") return <TileRow tiles={item.tiles} columns={columns} onOpen={onOpen} gutter={letters ? RAIL_WIDTH : 0} />;
     if (item.kind === "hit") {
       return <HitRow hit={item.hit} name={nameOf.get(item.hit.personId) ?? ""} query={query} names={names} onPress={onHit} />;
     }
     return <NText v="serif19" tone="ink2" style={{ paddingHorizontal: space.l + space.xs, paddingVertical: space.xl }}>{item.text}</NText>;
-  }, [columns, onOpen, nameOf, query, names, onHit]);
+  }, [columns, onOpen, nameOf, query, names, onHit, letters]);
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }) => {
     if (section.letter) {
@@ -159,7 +163,7 @@ export function NotebookPeopleView({
   }, []);
 
   const header = (
-    <View style={{ paddingTop: insets.top + space.l }}>
+    <View style={{ paddingTop: insets.top + space.l }} onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
       {/* The masthead. */}
       <View style={{ flexDirection: "row", alignItems: "center", paddingLeft: 22, paddingRight: space.m }}>
         {/* In its own box: a Text given flex in a row clips at the largest text sizes. */}
@@ -259,12 +263,26 @@ export function NotebookPeopleView({
             if (at >= 0) list.current?.scrollToLocation({ sectionIndex: at, itemIndex: 0, viewOffset: 0, animated: false });
           }, 60);
         }}
+        onScroll={railLetters.length ? (e) => scrollY.setValue(e.nativeEvent.contentOffset.y) : undefined}
+        scrollEventThrottle={16}
         style={{ flex: 1 }}
       />
-      {railLetters.length ? (
-        <View pointerEvents="box-none" style={{ position: "absolute", right: 2, top: insets.top, bottom: 0, justifyContent: "center" }}>
+      {railLetters.length && headerH ? (
+        <Animated.View
+          pointerEvents="box-none"
+          style={{
+            position: "absolute", right: 2, top: 0,
+            transform: [{
+              translateY: scrollY.interpolate({
+                inputRange: [0, Math.max(1, headerH - insets.top - space.s)],
+                outputRange: [headerH, insets.top + space.s],
+                extrapolate: "clamp",
+              }),
+            }],
+          }}
+        >
           <LetterRail letters={railLetters} onLetter={toLetter} />
-        </View>
+        </Animated.View>
       ) : null}
       <Grain />
       <AddByNameSheet

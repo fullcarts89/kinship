@@ -72,7 +72,7 @@ it.each(["light", "night"] as const)("%s notebook text pairs are at least 4.5:1"
     ["quiet on card", n.quiet, n.card], ["quiet on paper2", n.quiet, n.paper2], ["ink on sheet", p.ink, n.sheet],
     ["yoursText on tint", n.yoursText, n.yoursTint], ["yoursText on paper", n.yoursText, p.paper], ["held on card", n.held, n.card],
     ["replace on tint", n.replaceText, n.replaceTint], ["known on tint", n.knownText, n.greenTint], ["ink on tender", p.ink, n.tender],
-    ["ink2 on tender", n.ink2, n.tender], ["ink on paper2", p.ink, n.paper2],
+    ["ink2 on tender", n.ink2, n.tender], ["ink on paper2", p.ink, n.paper2], ["ink on the raised lens", p.ink, n.raisedInWell],
   ];
   for (const [what, fg, bg] of pairs) expect([mode, what, contrast(fg, bg) >= 4.5]).toEqual([mode, what, true]);
   // White words over the photo's scrim at its densest.
