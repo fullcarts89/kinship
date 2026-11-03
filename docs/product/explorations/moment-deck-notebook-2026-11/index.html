@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship Moment Deck × Notebook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="proto.css">
+<style>
+  body.shot { background: #F4EFE6; }
+  body.shot .top, body.shot .rail, body.shot .notes { display: none !important; }
+  body.shot .stage { display: block; padding: 0; max-width: none; }
+  body.shot .phone { box-shadow: none; margin: 0; transform: none !important; }
+  body.shot .phone-wrap { justify-content: flex-start; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <div class="brand">Kinship · Moment Deck × Notebook<small>Design prototype · founder review gate · NOT READY</small></div>
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" aria-selected="true" data-tab="proto">Prototype</button>
+    <button role="tab" aria-selected="false" data-tab="01-rationale.md">Rationale</button>
+    <button role="tab" aria-selected="false" data-tab="02-comparison.md">Before / after</button>
+    <button role="tab" aria-selected="false" data-tab="03-interaction-spec.md">Interaction spec</button>
+    <button role="tab" aria-selected="false" data-tab="04-implementation.md">Implementation</button>
+    <button role="tab" aria-selected="false" data-tab="05-decision-log.md">Decisions</button>
+    <button role="tab" aria-selected="false" data-tab="06-evaluation.md">Evaluation</button>
+  </nav>
+</div></header>
+
+<section class="view on" id="v-proto">
+  <div class="stage">
+    <aside class="rail" id="rail" aria-label="Journeys and states"></aside>
+    <div class="phone-wrap"><div class="phone" id="phone"><div class="device" id="device"></div></div></div>
+    <aside class="notes" id="notes" aria-live="polite"></aside>
+  </div>
+</section>
+<section class="view" id="v-doc"><article class="doc" id="doc"></article></section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="notes.js"></script>
+<script>
+  const cache = {};
+  const TOK = { rationale: '01-rationale.md', compare: '02-comparison.md', spec: '03-interaction-spec.md', build: '04-implementation.md', decisions: '05-decision-log.md', evaluation: '06-evaluation.md' };
+  const TOK_OF = Object.fromEntries(Object.entries(TOK).map(([k, v]) => [v, k]));
+  async function showTab(name) {
+    document.querySelectorAll('#tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+    document.getElementById('v-proto').classList.toggle('on', name === 'proto');
+    document.getElementById('v-doc').classList.toggle('on', name !== 'proto');
+    try { history.replaceState(null, '', name === 'proto' ? location.pathname + location.search : '#' + TOK_OF[name]); } catch (e) {}
+    if (name === 'proto') return;
+    const doc = document.getElementById('doc');
+    try {
+      if (!cache[name]) { const r = await fetch(name); if (!r.ok) throw new Error(r.status); cache[name] = await r.text(); }
+      doc.innerHTML = window.marked ? marked.parse(cache[name]) : '<pre>' + cache[name].replace(/</g, '&lt;') + '</pre>';
+      window.scrollTo(0, 0);
+    } catch (e) { doc.innerHTML = '<div class="err">Couldn’t load ' + name + '. It is in the same folder as this page.</div>'; }
+  }
+  document.getElementById('tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) showTab(b.dataset.tab); });
+  const tok = location.hash.slice(1); if (TOK[tok]) showTab(TOK[tok]);
+</script>
+</body>
+</html>
