@@ -142,3 +142,17 @@ it("on a lime person's own colour, the poster's chip and action are never lime (
   const notNow = r.root.findAll((x) => x.props.testID === "poster-notnow" && x.props.variant !== undefined)[0];
   expect(notNow.props.on).toBe(personLook(limeId).on);
 });
+
+// Native pass at 375 × 667 (3 Nov 2026): a 470 pt floor put the poster's buttons under the Tell bar.
+it("on a short phone the poster's floor leaves its buttons above the Tell bar; on a tall one it is the design's", () => {
+  const { Dimensions } = jest.requireActual("react-native") as typeof import("react-native");
+  const floorAt = (height: number) => {
+    const spy = jest.spyOn(Dimensions, "get").mockReturnValue({ width: 375, height, scale: 2, fontScale: 1 });
+    const r = deck(view());
+    spy.mockRestore();
+    const floors = r.root.findAll((x) => typeof x.props.style?.minHeight === "number" && x.props.style.borderRadius === 30).map((x) => x.props.style.minHeight);
+    return floors[0];
+  };
+  expect(floorAt(667)).toBe(414);
+  expect(floorAt(874)).toBe(470);
+});

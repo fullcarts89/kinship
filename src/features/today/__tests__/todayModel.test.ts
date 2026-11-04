@@ -472,3 +472,12 @@ it("the day a line was told is the user's calendar day, never the UTC one", () =
   const today = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
   expect(threadWindow(told, today)).toEqual({ day: "2026-11-02", told: true });
 });
+
+// Native pass at 375 pt (3 Nov 2026): undated good news told on a Pacific evening opened as
+// "You told Kinship today." beside "You told Kinship · Nov 2". Its day is the user's own too.
+it("undated good news is dated by the user's calendar day it was told", () => {
+  const evening = new Date(2026, 9, 11, 23, 30); // local 23:30 on Sun Oct 11
+  const news = item("g1", { kind: "fact", statement: "Ben was promoted", detail: { category: "work" }, created_at: evening.toISOString() });
+  const v = buildToday(input({ items: [news], reasons: [] }));
+  expect(v.moment).toMatchObject({ type: "good_news", day: "2026-10-11", toldDay: true });
+});

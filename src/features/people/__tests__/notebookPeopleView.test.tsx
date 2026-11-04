@@ -100,7 +100,13 @@ describe("People as an index", () => {
     const r = render(<NotebookPeopleView {...props()} />);
     const texts = textsOf(r);
     expect(texts.slice(0, 1)).toEqual([INDEX_COPY.title]);
-    expect(r.root.findByProps({ testID: "people-search" }).props.placeholder).toBe("Find someone, or something you told Kinship");
+    expect(r.root.findByProps({ testID: "people-search" }).props.accessibilityLabel).toBe("Find someone, or something you told Kinship");
+    // The prompt shrinks to fit rather than clip (375 pt native pass), and leaves once there is a query.
+    const prompt = r.root.findByProps({ testID: "people-search-prompt" });
+    expect([prompt.props.children, prompt.props.adjustsFontSizeToFit, prompt.props.numberOfLines]).toEqual(["Find someone, or something you told Kinship", true, 1]);
+    type(r, "flour");
+    expect(r.root.findAllByProps({ testID: "people-search-prompt" })).toHaveLength(0);
+    type(r, "");
     expect(texts).toEqual(expect.arrayContaining([INDEX_COPY.band, INDEX_COPY.everyone]));
     // The band: Josh's Contacts birthday tomorrow, the dark chip.
     expect(byTestId(r, "band-josh").props.accessibilityLabel).toBe("Josh, tomorrow");

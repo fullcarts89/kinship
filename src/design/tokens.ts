@@ -440,7 +440,8 @@ export const ideaTint = {
 /** The notebook's sizes (PR #77 proto.css), on the 4-pt grid where it allows. */
 export const notebook = {
   /** Today's poster. */
-  poster: { height: 470, radius: 30, gutter: 14, initial: 230 },
+  /** `screen`: the most of the screen's height the poster's floor may take, so its buttons clear the Tell bar on a 667 pt phone. */
+  poster: { height: 470, screen: 0.62, radius: 30, gutter: 14, initial: 230 },
   /** A deck card. */
   card: { width: 214, minHeight: 232, radius: 26, face: 64, flower: 104 },
   /** The expanded moment's media, and the sheet that rises over it. */

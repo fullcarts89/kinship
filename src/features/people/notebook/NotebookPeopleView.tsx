@@ -186,20 +186,38 @@ export function NotebookPeopleView({
         }}
       >
         <Search color={n.quiet} size={20} strokeWidth={1.8} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder={INDEX_COPY.search}
-          placeholderTextColor={n.quiet}
-          accessibilityLabel={INDEX_COPY.search}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-          autoCorrect={false}
-          inputAccessoryViewID={bar}
-          maxFontSizeMultiplier={maxScale.text}
-          testID="people-search"
-          style={[NT.body16, { flex: 1, color: p.ink, paddingVertical: space.m }]}
-        />
+        <View style={{ flex: 1, justifyContent: "center" }}>
+          {/* The prompt is drawn, not the field's placeholder: a placeholder can only clip, and at 375 pt
+              (or large text) "…something you told Kinship" lost its last word. This one shrinks to fit. */}
+          {query ? null : (
+            <NText
+              v="body16"
+              color={n.quiet}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+              maxFontSizeMultiplier={maxScale.text}
+              importantForAccessibility="no"
+              accessibilityElementsHidden
+              style={{ position: "absolute", left: 0, right: 0 }}
+              testID="people-search-prompt"
+            >
+              {INDEX_COPY.search}
+            </NText>
+          )}
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            accessibilityLabel={INDEX_COPY.search}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+            autoCorrect={false}
+            inputAccessoryViewID={bar}
+            maxFontSizeMultiplier={maxScale.text}
+            testID="people-search"
+            style={[NT.body16, { color: p.ink, paddingVertical: space.m }]}
+          />
+        </View>
         <KeyboardBar id={bar} nav={onGo ? { current: "people", onGo } : undefined} />
       </View>
 

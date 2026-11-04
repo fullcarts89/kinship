@@ -2,7 +2,7 @@
 // Moment that clears the existing threshold, and the finite deck of what the quiet-line rules already let
 // through, ending in "That's today." Pure views over Today's own model: nothing is made up to fill them.
 import React, { forwardRef } from "react";
-import { Image, View, type ViewStyle } from "react-native";
+import { Image, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, MessageCircle, Phone } from "lucide-react-native";
 import { gardenArt } from "@/ui/garden";
@@ -66,6 +66,7 @@ export const MomentPoster = forwardRef<View, {
   const onLime = !photo && look.lime;
   const action = onLime ? "ink" : "lime";
   const label = [data.personName, data.headline, data.memory, data.hope, data.source].filter(Boolean).join(". ");
+  const floor = Math.min(notebook.poster.height, Math.round(useWindowDimensions().height * notebook.poster.screen));
   return (
     <View ref={ref} collapsable={false} style={[{ borderRadius: notebook.poster.radius, ...notebookShadow.poster }, style]}>
       <Pressable
@@ -76,7 +77,7 @@ export const MomentPoster = forwardRef<View, {
         testID="moment-poster"
         style={({ pressed }) => ({ opacity: pressed ? press.surface : 1 })}
       >
-        <View style={{ minHeight: notebook.poster.height, borderRadius: notebook.poster.radius, overflow: "hidden", backgroundColor: photo ? "#0F2A1D" : look.color, justifyContent: "flex-end" }}>
+        <View style={{ minHeight: floor, borderRadius: notebook.poster.radius, overflow: "hidden", backgroundColor: photo ? "#0F2A1D" : look.color, justifyContent: "flex-end" }}>
           {photo ? (
             <>
               <Image source={{ uri: photoUri as string }} resizeMode="cover" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} accessibilityIgnoresInvertColors />
