@@ -1,8 +1,9 @@
 # Moment Deck × Notebook × Showing Up — implementation record (2 Nov 2026)
 
 **Readiness: READY FOR FOUNDER NATIVE PASS.** All six journeys pass with the live model in the black-box suite and
-again by hand on a Release iOS simulator build (§5), where the walk found and fixed eight defects. Nothing has
-run on a phone; the narrow width and Reduce Motion are not yet checked natively.
+again by hand on a Release iOS simulator build (§5), where the walk found and fixed eight defects; a second walk
+at 375 × 667 pt with Reduce Motion (§5a) found and fixed four more. Nothing has run on a phone. §5a also records a
+pre-existing trust gap in the shared review path (on main, not this prototype) that needs its own fix.
 
 **What this is.** The founder approved PR #77's prototype on 2 Nov 2026 ("Implement the Approved Prototype
 End to End"). This branch builds it in the real app, on the stabilized alpha (PR #74 + PR #75), behind one
@@ -121,13 +122,55 @@ the review (`review-j2.jpg`), People (`people.jpg`, `people-dense.jpg`, `people-
 people have photos (the test account has none, so every face is the colour-initial-flower form); the iOS
 hand-off is the system's own Messages screen, not the prototype's mock; the platform adaptations in §6.
 
-**Not checked natively:** the narrow width (a 375 pt simulator was set up; driving it needed a separate
-simulator approval that was not answered, so it was removed unrun); Reduce Motion; VoiceOver; performance with
-hundreds of people; Source from a line; a phone.
+**Not checked natively:** VoiceOver; performance with hundreds of people; Source from a line; a phone. (The
+narrow width and Reduce Motion: §5a.)
 
 **Also seen (pre-existing, not changed):** after the review's Done, the alpha Kept card returns with "Did Kinship
 get this right?" (the built Gate D behaviour, kept on purpose, but it repeats what the review just showed; a
-decision for the founder). At the largest text the People search placeholder is capped smaller than the rest.
+decision for the founder). At the largest text the People search placeholder was capped smaller than the rest
+(now drawn to fit, §5a).
+
+## 5a. Narrow width and Reduce Motion (3–4 Nov 2026)
+
+**Setup.** The same Release build and harness on a second simulator, "Kinship Notebook SE" (iPhone SE 3rd
+generation, **375 × 667 pt**, the smallest current phone), signed in to the same local test account. Walked: Today,
+the expanded moment, Ideas, an idea, Keep it in mind with the keyboard up, the person page (Now, Pages), People,
+search with the keyboard up, the Tell page, and a short Tell through the live model to the review (which Sam,
+answered), then Undo (all three lines and the note retracted, read back from the database). Stills 27–39 in
+`native/`.
+
+**At 375 pt, as designed:** the moment and its sheets; Keep it in mind's sentence and button above the keyboard
+(the §5 fix holds on the smaller screen); the person page's three buttons on one line and the lenses; Pages; People
+in three columns with the rail beside them; the Tell page with Keep above the keyboard; the review, both Sams by
+full name.
+
+**Defects found and fixed** (each with a test; rebuilt and seen again on the SE):
+9. Today: on a 667 pt screen the poster's 470 pt floor put Congratulate and Not now under the Tell bar until
+   scrolled (still 27). The floor is now at most 62% of the screen's height (414 pt there; 470 on every taller
+   phone), so the actions show at rest (28).
+10. The expanded moment said "You told Kinship today." beside "You told Kinship · Nov 2" for good news told on
+   a Pacific evening: the good-news day read the UTC date, the case §5 fix 7 missed. It uses the local told day.
+11. People: the search placeholder lost its last word at 375 pt ("…something you told l", 32). The prompt is now
+   drawn, not a placeholder, and shrinks to fit; it also cures the largest-text cap above (33).
+12. People: searching raised the Tell pill and the tabs over the results while the keyboard's own bar showed
+   Today · People · Done too, leaving room for about one result (34). The notebook's dock has no field of its
+   own, so it now stays under a keyboard that is up for something else (35). The alpha dock is unchanged.
+
+**Reduce Motion.** Turned on in the SE simulator's accessibility settings and the app relaunched; the same poster
+tap recorded at 30 fps with it on and off (38, 39). Off: the moment grows out of the poster (the frame after the
+tap shows it inset and rounded, Today's header still behind). On: no growth; the next frame is the moment in
+place (the 150 ms fade, no movement). Other motion (sheets, the review's underlines) was not frame-checked.
+
+**A trust gap found, not fixed here (pre-existing on main).** The short Tell was "Had coffee with Sam — she's
+nervous about the promotion, and her dad's surgery is next Friday." The live model marked all three lines
+sensitive (health) and held them on "Which Sam?". Answering Sam Delgado **wrote all three as memory with no
+"Remember this?"** (still 37; `memory_items`: active, sensitivity `health`). Cause, in shared code identical on
+main: `resolve.ts` requires the yes only when nothing else is asked (`if (!asksSomething && a.accept !== true)`),
+so a who-answer stands in for it, though the comment beside it says "Which Sam is never a yes to the memory
+itself"; and `reviewModel.needsOf` asks "Remember this?" only for a line whose person is already known. The
+participant case ("Ben went climbing with Sam") is handled; a line whose own person is in question is not. It
+reaches the alpha with the flag off, so it needs its own change on main with gateway and review tests; this PR
+does not touch it.
 
 ## 6. Known limitations and open decisions
 
@@ -145,8 +188,8 @@ Native can't draw a 60–92% band); the review's underlines fade in phrase by ph
 right; lens swipe is not built (tabs only) so it never fights the iOS back-swipe; the A–Z rail is 28 pt wide
 (an index, as iOS's; one VoiceOver adjustable control, with letter headers in the rotor).
 
-**Not verified:** anything on a phone; Reduce Motion natively; the narrow width natively; performance with 500+
-people natively (virtualized; unit-tested).
+**Not verified:** anything on a phone; VoiceOver; motion other than the moment's open under Reduce Motion;
+performance with 500+ people natively (virtualized; unit-tested).
 
 ## 7. Founder walkthrough (once a build is on your phone, or on the simulator)
 

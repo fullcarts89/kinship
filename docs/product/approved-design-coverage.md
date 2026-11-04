@@ -501,7 +501,8 @@ Intentions (DN-7), with Option A idea titles (DN-6). Decisions row by row: PR #7
 **No approved surface is removed.** Each is recomposed in the prototype's structure on the same models.
 **Native:** walked on a Release iOS simulator build on 3 Nov 2026 (all six journeys, Night, the largest text);
 screens in `docs/product/explorations/moment-deck-notebook-2026-11/native/`, evidence by tier in
-`docs/product/moment-deck-implementation.md`. Not yet on a phone, at the narrow width, or with Reduce Motion.
+`docs/product/moment-deck-implementation.md`. Walked again at 375 × 667 pt with Reduce Motion on 3–4 Nov (§5a there:
+four fixes). Not yet on a phone or with VoiceOver.
 
 | # | Surface | Was (alpha) | Now (notebook_deck) | Rules it keeps | Status |
 |---|---|---|---|---|---|
