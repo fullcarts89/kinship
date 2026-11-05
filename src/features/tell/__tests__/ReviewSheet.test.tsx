@@ -134,6 +134,19 @@ it("'Which Sam?' → Someone else never offers 'Add'; 'Who is this about?' → S
   expect(texts(owner.tree)).toContain("Add Josh");
 });
 
+it("a sensitive line: 'Which Sam?' is answered, then 'Remember this?'; nothing is sent until the yes", () => {
+  const surgery: HeldItem = { ...sam, statement: "Sam's dad has surgery next Friday", sensitivity: "health", flags: ["person_ambiguous", "sensitive"],
+    spans: [{ start: 0, end: 32, quote: "Sam's dad has surgery next Friday" }] };
+  const { tree, props } = render("Sam's dad has surgery next Friday.", row({ tier: "clarify", held: [surgery] }), []);
+  expect(texts(tree)).toContain("Which Sam do you mean?");
+  press(tree, "Sam (neighbor)");
+  expect(props.onAnswer).not.toHaveBeenCalled();
+  expect(texts(tree)).toContain("Remember this?");
+  expect(texts(tree)).toContain("This sounds personal, so I keep it only if you say so.");
+  press(tree, "Remember");
+  expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, person_id: "lee", accept: true }]);
+});
+
 it("a name asked on its own beside a line already kept says 'Not sure', never 'Don't keep this' (N15)", () => {
   const twin: HeldItem = { ...sam, statement: "Ben went climbing with Sam", spans: [{ start: 0, end: 26, quote: "Ben went climbing with Sam" }], twin_person_id: "ben", mention: "Sam" };
   const { props } = render("Ben went climbing with Sam.", row({ tier: "clarify", held: [twin] }), []);

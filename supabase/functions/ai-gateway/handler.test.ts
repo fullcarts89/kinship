@@ -508,6 +508,25 @@ Deno.test("a sensitive reading is held for the user's yes, never saved because a
   eq(w2.resolves[0].items.map((i) => [i.person_id, i.statement, i.sensitivity]), [["person-sarah", "Sarah has surgery", "health"]]);
 });
 
+Deno.test("a sensitive line held on which Sam: the answer alone writes nothing; with the user's yes it is written", async () => {
+  const note = "Sam's dad has surgery";
+  const sams = ["lee", "diaz"].map((id) => ({ id: `person-${id}`, display_name: "Sam", full_name: null, nicknames: [], relationship_label: null, state: "active" }));
+  const review: StoredReview = {
+    items: [{
+      kind: "fact", person_id: null, new_person_name: null, subject_type: "person", related: null, statement: "Sam's dad has surgery", detail: { category: "health" },
+      certainty: "stated", sensitivity: "health", confidence: 0.9, action: { type: "new", target_id: null }, tier: "hold",
+      flags: ["person_ambiguous", "sensitive"], spans: [{ start: 0, end: 21, quote: note }],
+    }] as unknown as StoredReview["items"],
+    clarification: null, created_at: STORED_AT,
+  };
+  const w = world({ note, review, people: sams });
+  eq(await call(w, post(resolveBody([{ index: 0, person_id: "person-lee" }]))), { status: 400, body: { error: "invalid_answer", reason: "bad_answer" } });
+  eq(w.resolves.length, 0);
+  const yes = await call(w, post(resolveBody([{ index: 0, person_id: "person-lee", accept: true }])));
+  eq(yes.body.status, "resolved");
+  eq(w.resolves[0].items.map((i) => [i.person_id, i.sensitivity]), [["person-lee", "health"]]);
+});
+
 Deno.test("every answer says how long the gateway took (Server-Timing), and nothing else about the request", async () => {
   for (const req of [post(extract), post(extract, null), post("{not json")]) {
     const res = await createGateway(world().deps)(req);

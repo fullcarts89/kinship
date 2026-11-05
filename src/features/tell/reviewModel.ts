@@ -27,6 +27,7 @@ import { closedBy, type MemoryItem, type Person, type RelatedPerson } from "@/st
 import type { FollowUpState, Recovery } from "@/store/followUp";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
+import { needsAcceptance } from "../../../supabase/functions/_shared/extraction/acceptance";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
 import { aliasesOf, mentionsOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
 import { residenceQuestion } from "../../../supabase/functions/_shared/semantic/questions";
@@ -856,9 +857,9 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
     });
   }
   // Held for the user's yes: asked even when a name in it is asked too ("Which Sam?" is never a yes to the memory).
-  if (needs.every((n) => n.slot !== undefined) && item.person_id && !PERSON_FLAGS.some((f) => item.flags.includes(f))) {
-    // Held only for the user's yes: sensitive, or a day that reads two ways.
-    const person = input.people.find((p) => p.id === item.person_id);
+  if (personInQuestion ? needsAcceptance(item) : needs.every((n) => n.slot !== undefined)) {
+    // Held only for the user's yes: sensitive, or a day that reads two ways. Never the name of a guess while who is still asked.
+    const person = personInQuestion ? undefined : input.people.find((p) => p.id === item.person_id);
     const when = whenLabel(item.kind, item.detail ?? {}, input.today);
     // A promise's day is its due date: one that reads two ways can be chosen too (founder K10).
     const ambiguousDay = item.flags.includes("date_ambiguous") && (typeof item.detail?.date === "string" || typeof item.detail?.due_date === "string");

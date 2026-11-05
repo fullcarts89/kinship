@@ -23,6 +23,7 @@
 // word that is nobody's name ("Liz", answered Elizabeth) stays the user's own
 // word for them. Two lines the answer makes the same on one person are one.
 
+import { needsAcceptance } from "./acceptance.ts";
 import { fold, kinshipReference, mirrorBag, relationKey, selfRelationPhrase, statedSelfRelations, wordsOf } from "./lexicon.ts";
 import { withSpokenName, withSpokenNames } from "./voice.ts";
 import {
@@ -240,11 +241,12 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     // written on silence or on an empty answer.
     const openNames = Array.isArray(item.open_names) ? item.open_names.filter((o) => o && typeof o.text === "string" && o.text.trim()) : [];
     // Which Sam is never a yes to the memory itself: a line waiting for the
-    // user's yes (sensitive, say) still needs it, whatever else is asked (reviewer A).
+    // user's yes (sensitive, say) still needs it after who it is about is answered.
     const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive") || flags.has("update_check") ||
       flags.has("promise_owner") || flags.has("residence_conflict");
     if (a.accept !== undefined && a.accept !== true) return { fail: "bad_answer" };
-    if (!asksSomething && a.accept !== true) return { fail: "bad_answer" };
+    const needsYes = !asksSomething || (needsPerson && needsAcceptance({ sensitivity: item.sensitivity, flags: item.flags ?? [] }));
+    if (needsYes && a.accept !== true) return { fail: "bad_answer" };
 
     // ── Who ──
     let personId: string;

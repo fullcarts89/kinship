@@ -149,9 +149,31 @@ Deno.test("held for the user's yes: only an explicit yes writes it; a skip write
   const no = resolveHeld([held], [{ index: 0, skip: true }], ctx({ note }));
   if ("fail" in no) throw new Error(no.fail);
   eq([no.items.length, no.skipped], [0, 1]);
-  // Answering the question an item was held for is itself the user's explicit choice.
-  const sam = resolveHeld([{ ...samHeld, sensitivity: "health", flags: ["person_ambiguous", "sensitive"] }], [{ index: 0, person_id: "sam-lee" }], ctx());
-  if ("fail" in sam) throw new Error(sam.fail);
+});
+
+Deno.test("a sensitive line and which Sam: saying who is never the yes; nothing is written without it", () => {
+  const sensitive: HeldItem = { ...samHeld, sensitivity: "health", flags: ["person_ambiguous", "sensitive"] };
+  eq(resolveHeld([sensitive], [{ index: 0, person_id: "sam-lee" }], ctx()), { fail: "bad_answer" }, "who alone writes nothing");
+  const yes = resolveHeld([sensitive], [{ index: 0, person_id: "sam-lee", accept: true }], ctx());
+  if ("fail" in yes) throw new Error(yes.fail);
+  eq(yes.items.map((i) => [i.person_id, i.sensitivity]), [["sam-lee", "health"]]);
+  const no = resolveHeld([sensitive], [{ index: 0, skip: true }], ctx());
+  if ("fail" in no) throw new Error(no.fail);
+  eq([no.items.length, no.skipped], [0, 1]);
+  // Raised by the wording, or a day that reads two ways: the same yes.
+  for (const flags of [["person_ambiguous", "sensitivity_raised"], ["person_ambiguous", "date_ambiguous"]] as HeldItem["flags"][]) {
+    eq(resolveHeld([{ ...samHeld, flags }], [{ index: 0, person_id: "sam-lee" }], ctx()), { fail: "bad_answer" }, flags.join());
+  }
+  // Someone new: adding them is not a yes to the line either, and nobody is added without it.
+  const newcomer: HeldItem = { ...samHeld, person_id: null, new_person_name: "Sam", sensitivity: "health", flags: ["new_person", "sensitive"] };
+  eq(resolveHeld([newcomer], [{ index: 0, new_person: true }], ctx()), { fail: "bad_answer" });
+  const added = resolveHeld([newcomer], [{ index: 0, new_person: true, accept: true }], ctx());
+  if ("fail" in added) throw new Error(added.fail);
+  eq(added.newPeople.map((n) => n.display_name), ["Sam"]);
+  // A line that is not waiting for a yes still needs only who.
+  const plain = resolveHeld([samHeld], [{ index: 0, person_id: "sam-lee" }], ctx());
+  if ("fail" in plain) throw new Error(plain.fail);
+  eq(plain.items.length, 1);
 });
 
 Deno.test("an ambiguous day: the user's yes keeps it, or they pick the right day", () => {
