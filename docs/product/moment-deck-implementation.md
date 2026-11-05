@@ -172,6 +172,12 @@ participant case ("Ben went climbing with Sam") is handled; a line whose own per
 reaches the alpha with the flag off, so it needs its own change on main with gateway and review tests; this PR
 does not touch it.
 
+**Update, 5 Nov.** The fix is PR #79. The founder also decided that no other question counts as the yes: not "When
+is it?", "Is this about…", "Whose promise?", "Does this replace…" or the residence question. That is on #79 too.
+Walking it found that "Don't keep this" on one question left "Keep it / Don't keep" waiting for the same line, and
+"Keep it" there did nothing. This branch and #79 both carry that fix (`openQuestions`), because the notebook review
+is only here; the two merge without a conflict.
+
 ## 6. Known limitations and open decisions
 
 **Decisions for the founder** (none of these is enabled):
