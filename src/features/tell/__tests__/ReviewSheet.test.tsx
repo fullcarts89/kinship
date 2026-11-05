@@ -159,6 +159,15 @@ it("a sensitive line: 'When is it?' is answered, then 'Remember this?'; nothing 
   expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, date: null, accept: true }]);
 });
 
+it("a sensitive line declined at 'Which Sam?' is declined: 'Remember this?' isn't asked as well", () => {
+  const surgery: HeldItem = { ...sam, statement: "Sam's dad has surgery next Friday", sensitivity: "health", flags: ["person_ambiguous", "sensitive"],
+    spans: [{ start: 0, end: 32, quote: "Sam's dad has surgery next Friday" }] };
+  const { tree, props } = render("Sam's dad has surgery next Friday.", row({ tier: "clarify", held: [surgery] }), []);
+  press(tree, "Don't keep this");
+  expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, skip: true }]);
+  expect(texts(tree)).not.toContain("Remember this?");
+});
+
 it("a name asked on its own beside a line already kept says 'Not sure', never 'Don't keep this' (N15)", () => {
   const twin: HeldItem = { ...sam, statement: "Ben went climbing with Sam", spans: [{ start: 0, end: 26, quote: "Ben went climbing with Sam" }], twin_person_id: "ben", mention: "Sam" };
   const { props } = render("Ben went climbing with Sam.", row({ tier: "clarify", held: [twin] }), []);
