@@ -479,6 +479,14 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   }
 
   // ── Person ──
+  // "Ben's cousin Zoe" with a Zoe in People: the model can't tell if she's that Zoe, and says so low enough
+  // to lose the line. The words say whose cousin she is, so she is kept as that, as any other name is. Her
+  // own page asks whether she is the Zoe in People ("Is this Ben's cousin, Zoe?"). Never over a confident reading.
+  const namedRelative = (subject === "person" || subject === "related") && (raw.confidence ?? 0) < DROP_BELOW_CONFIDENCE ? relativeNamedIn(ctx, sentence) : null;
+  if (namedRelative) {
+    subject = "related";
+    raw = { ...raw, subject, ...namedRelative };
+  }
   // A relationship the note never says, for someone's related person ("Alex
   // got a raise" read as Ben's boyfriend Alex): the inferred relationship is
   // stripped, never a reason to lose the memory (founder J4). The line is
@@ -735,7 +743,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // be unsure: when code independently finds the same ambiguity, the item is
   // held for one question (never saved) instead of silently dropped.
   const heldForWho = WHO_AMBIGUITY.some((f) => flags.has(f));
-  if (confidence < (heldForWho ? HOLD_FLOOR_CONFIDENCE : DROP_BELOW_CONFIDENCE)) return { drop: "low_confidence" };
+  if (confidence < (heldForWho || namedRelative ? HOLD_FLOOR_CONFIDENCE : DROP_BELOW_CONFIDENCE)) return { drop: "low_confidence" };
   if (confidence < AUTO_SAVE_CONFIDENCE) flags.add("mid_confidence");
 
   // ── Who else it is about, and what they are to the user ──
@@ -1449,6 +1457,22 @@ function inventedNumber(statement: string, text: string): boolean {
 }
 
 const POSSESSED_RELATION = "mom|mother|mum|dad|father|sister|brother|son|daughter|kid|kids|wife|husband|partner|boyfriend|girlfriend|fianc\\S*|grandma|grandmother|grandpa|grandfather|aunt|uncle|cousin|niece|nephew|boss|roommate|friend|baby|parents?";
+
+/** "Ben's cousin Zoe" in the sentence, with a Zoe in People: the proposal the words make. */
+function relativeNamedIn(ctx: Context, sentence: string): Pick<ProposedItem, "person" | "person_mention" | "related_relation" | "related_name"> | null {
+  const said = /(?<![\p{L}'’-])(\p{Lu}[\p{L}-]*)(?:['’]s|(?<=s)['’])\s+([\p{L}-]+)\s+(\p{Lu}[\p{L}-]*)(?![\p{L}])/gu;
+  for (const [, owner, relation, name] of sentence.matchAll(said)) {
+    if (!kinshipReference(relation) || nameKey(owner) === nameKey(name) || ctx.candidatesFor(name).length === 0) continue;
+    const owners = ctx.candidatesFor(owner);
+    return {
+      person: owners.length === 1 ? owners[0].key : owners.length ? "unknown" : "new",
+      person_mention: `${owner}'s`,
+      related_relation: relation,
+      related_name: name,
+    };
+  }
+  return null;
+}
 
 function possessiveRelation(sentence: string, person: RosterPerson): boolean {
   const s = fold(sentence);
