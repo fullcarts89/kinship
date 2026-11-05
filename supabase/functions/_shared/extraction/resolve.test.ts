@@ -110,6 +110,16 @@ Deno.test("which Sam, and the relative was read under the other one: the chosen 
     ["sam-diaz", "person", null, "new", "Ana is in town this week"], "kept, in the user's words, about the person chosen");
 });
 
+Deno.test("the relative went while the line was waiting (\"Not this\" on their last line, or Undo): a new one from the note, never \"Choose again\"", () => {
+  const held: HeldItem = {
+    ...samHeld, kind: "fact", person_id: "sam-lee", subject_type: "related", statement: "Sam's dad is in town this week", detail: { category: "other" },
+    related: { id: "lee-dad", relation: "dad", name: "Robert" }, flags: ["person_ambiguous"], spans: [{ start: 0, end: 30, quote: "Sam's dad is in town this week" }],
+  };
+  const r = resolveHeld([held], [{ index: 0, person_id: "sam-lee" }], ctx({ note: "Sam's dad is in town this week.", related: [] }));
+  if ("fail" in r) throw new Error(r.fail);
+  eq([r.items[0].person_id, r.items[0].subject_type, r.items[0].related], ["sam-lee", "related", { id: null, relation: "dad", name: null }]);
+});
+
 Deno.test("Sarah or Sarah's sister: the relation must be the user's own word", () => {
   const note = "Sarah's sister has surgery Thursday.";
   const held: HeldItem = {
