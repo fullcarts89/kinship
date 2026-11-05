@@ -1,8 +1,7 @@
--- Undo is exact for a relative: when a note goes, a relative one of its lines
--- was about goes too, unless a line about them is left or the user made a
--- person of them.
+-- A relative goes with the last line about them, by Undo or by "Not this", unless
+-- the user made a person of them.
 BEGIN;
-SELECT plan(14);
+SELECT plan(23);
 
 \set A '''aaaaaaaa-7272-7272-7272-727272727272'''
 SELECT tests.create_user(:A);
@@ -31,6 +30,12 @@ CREATE FUNCTION pg_temp.undo(capture uuid) RETURNS void LANGUAGE sql AS $$
   UPDATE public.captures SET deleted_at = now(), version = version + 1 WHERE id = capture;
 $$;
 
+-- "Not this", as the app does it.
+CREATE FUNCTION pg_temp.not_this(line text) RETURNS void LANGUAGE sql AS $$
+  UPDATE public.memory_items SET status = 'retracted', deleted_at = now(), version = version + 1
+   WHERE statement = line AND deleted_at IS NULL;
+$$;
+
 CREATE FUNCTION pg_temp.relative(rel text) RETURNS uuid LANGUAGE sql AS $$
   SELECT id FROM public.related_people WHERE relation = rel ORDER BY created_at DESC LIMIT 1
 $$;
@@ -46,7 +51,7 @@ INSERT INTO public.people (id, display_name) VALUES
   ('00000000-0000-0000-0000-000000007202', 'Ana');
 INSERT INTO public.captures (id, source, raw_text)
   SELECT ('00000000-0000-0000-0000-0000000072' || n)::uuid, 'text', 'Note ' || n
-    FROM generate_series(10, 21) n;
+    FROM generate_series(10, 29) n;
 SELECT tests.reset_role();
 
 -- ── The note added them, and nothing else says them ──
@@ -66,11 +71,9 @@ SELECT tests.as_service();
 SELECT pg_temp.tell('00000000-0000-0000-0000-000000007211', 'Sam''s mom is visiting', 'mom');
 SELECT tests.reset_role();
 SELECT tests.as_user(:A);
-UPDATE public.memory_items SET status = 'retracted', deleted_at = now(), version = version + 1
- WHERE statement = 'Sam''s mom is visiting' AND deleted_at IS NULL;
-SELECT is(pg_temp.state('mom'), 'live', '"Not this" alone takes a line, not the relative');
+SELECT pg_temp.not_this('Sam''s mom is visiting');
 SELECT pg_temp.undo('00000000-0000-0000-0000-000000007211');
-SELECT is(pg_temp.state('mom'), 'gone', 'Undo after it does');
+SELECT is(pg_temp.state('mom'), 'gone', 'Undo after the lines have gone');
 SELECT tests.reset_role();
 
 -- ── Another line still says them, in either order ──
@@ -130,6 +133,62 @@ SELECT pg_temp.undo('00000000-0000-0000-0000-000000007220');
 SELECT is(pg_temp.state('uncle'), 'live', 'a note with no line about them leaves them');
 SELECT pg_temp.undo('00000000-0000-0000-0000-000000007219');
 SELECT is(pg_temp.state('uncle'), 'gone', 'the note that was about them takes them');
+SELECT tests.reset_role();
+
+-- ── "Not this" on the last line ──
+SELECT tests.as_service();
+SELECT pg_temp.tell('00000000-0000-0000-0000-000000007221', 'Sam''s dad is visiting', 'grandad');
+SELECT tests.reset_role();
+SELECT tests.as_user(:A);
+SELECT pg_temp.not_this('Sam''s dad is visiting');
+SELECT is(pg_temp.state('grandad'), 'gone', '"Not this" on their last line takes them');
+SELECT tests.reset_role();
+SELECT is((SELECT version FROM public.related_people WHERE relation = 'grandad'), 2,
+  'and the row moved on, so the going reaches the phone');
+SELECT is((SELECT count(*)::int FROM public.captures WHERE id = '00000000-0000-0000-0000-000000007221' AND deleted_at IS NULL), 1,
+  'and the note is still there');
+
+-- Told again later, they come back as a new row.
+SELECT tests.as_service();
+SELECT pg_temp.tell('00000000-0000-0000-0000-000000007222', 'Sam''s dad is back', 'grandad');
+SELECT tests.reset_role();
+SELECT is(pg_temp.state('grandad'), 'live', 'told again, they are there again');
+SELECT is((SELECT count(*)::int FROM public.related_people WHERE relation = 'grandad'), 2, 'a new row, not the old one brought back');
+
+-- ── "Not this" with another line left ──
+SELECT tests.as_service();
+SELECT pg_temp.tell('00000000-0000-0000-0000-000000007223', 'Sam''s niece is moving', 'niece');
+SELECT pg_temp.tell('00000000-0000-0000-0000-000000007224', 'Sam''s niece got the job', 'niece', pg_temp.relative('niece'));
+SELECT tests.reset_role();
+SELECT tests.as_user(:A);
+SELECT pg_temp.not_this('Sam''s niece is moving');
+SELECT is(pg_temp.state('niece'), 'live', 'another line still says them');
+SELECT pg_temp.not_this('Sam''s niece got the job');
+SELECT is(pg_temp.state('niece'), 'gone', 'then the last one takes them');
+SELECT tests.reset_role();
+
+-- A line that replaced an earlier one about them: the earlier one comes back, and it says them.
+SELECT tests.as_service();
+SELECT pg_temp.tell('00000000-0000-0000-0000-000000007225', 'Sam''s nephew lives in Lisbon', 'nephew');
+SELECT pg_temp.tell('00000000-0000-0000-0000-000000007226', 'Sam''s nephew lives in Porto', 'nephew', pg_temp.relative('nephew'));
+SELECT tests.reset_role();
+UPDATE public.memory_items SET supersedes_id = (SELECT id FROM public.memory_items WHERE statement = 'Sam''s nephew lives in Lisbon')
+ WHERE statement = 'Sam''s nephew lives in Porto';
+SELECT tests.as_user(:A);
+SELECT pg_temp.not_this('Sam''s nephew lives in Porto');
+SELECT is(pg_temp.state('nephew'), 'live', 'the line it replaced still says them');
+SELECT tests.reset_role();
+SELECT is((SELECT status FROM public.memory_items WHERE statement = 'Sam''s nephew lives in Lisbon'), 'active', 'and that line is back');
+
+-- ── The user made a person of them ──
+SELECT tests.as_service();
+SELECT pg_temp.tell('00000000-0000-0000-0000-000000007227', 'Sam''s friend Ana is moving', 'friend', NULL, 'Ana');
+SELECT tests.reset_role();
+SELECT tests.as_user(:A);
+UPDATE public.related_people SET promoted_person_id = '00000000-0000-0000-0000-000000007202', version = version + 1
+ WHERE id = pg_temp.relative('friend');
+SELECT pg_temp.not_this('Sam''s friend Ana is moving');
+SELECT is(pg_temp.state('friend'), 'live', 'the user''s yes to who they are stays');
 SELECT tests.reset_role();
 
 SELECT * FROM finish();
