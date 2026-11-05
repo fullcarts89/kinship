@@ -11,6 +11,7 @@
 // name in a line they answered or corrected never reopens the question.
 import { mentionsOf, shortName } from "../../../supabase/functions/_shared/extraction/names";
 import { leadingName, statementNames } from "../../../supabase/functions/_shared/extraction/voice";
+import { apartKey } from "@/store/linksAnswered";
 import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 
 export interface LinkSuggestion {
@@ -51,6 +52,7 @@ export function linkSuggestions(input: {
   for (const r of input.related) {
     if (r.person_id === person.id || !r.name || fold(first(r.name)) !== fold(name)) continue;
     if (typeof r.promoted_person_id === "string" && r.promoted_person_id) continue;
+    if (input.answered.has(apartKey(r.person_id, r.name, person.id))) continue;
     const key = `related:${r.id}:${person.id}`;
     if (input.answered.has(key)) continue;
     out.push({ key, kind: "related", targetId: r.id, prompt: `Is this ${nameOf(r.person_id)}'s ${r.relation}, ${r.name}?` });
@@ -58,6 +60,9 @@ export function linkSuggestions(input: {
   // A memory on someone else that names them ("Sam is married to Michelle").
   for (const m of input.items) {
     if (m.person_id === person.id || m.status !== "active" || m.deleted_at) continue;
+    // A line about a relative the user already said isn't them.
+    const about = m.subject_related_id ? input.related.find((r) => r.id === m.subject_related_id) : undefined;
+    if (about?.name && input.answered.has(apartKey(about.person_id, about.name, person.id))) continue;
     const involved = [m.person_id, ...(Array.isArray(m.with_person_ids) ? m.with_person_ids : [])];
     if (involved.includes(person.id)) continue;
     if (!statementNames(m.statement, [name])) continue;

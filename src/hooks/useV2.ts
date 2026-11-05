@@ -29,6 +29,7 @@ import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { followUpsOf, keptLinesOf, recoveryOf, type Recovery } from "@/store/followUp";
 import { isOn } from "@/store/flags";
+import { linksAnswered, rememberLinks } from "@/store/linksAnswered";
 import { closedBy, peopleOf, repositoriesFor, type Capture, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
 import type { HeldItem } from "@/store/gateway";
 import { questionWaiting } from "@/store/understanding";
@@ -690,8 +691,6 @@ export function usePersonReturn(personId: string, now: Date): { returnCheck: Ret
 
 // ─── Someone added after they were mentioned (G20) ──────────────────────
 
-const LINKS_ANSWERED = "person_links_answered";
-
 /** Yes to "Is this the Josh in …?": the same memory is about them too, or the related person is them; never a copy. */
 export async function acceptLink(store: UserStore, personId: string, s: LinkSuggestion): Promise<void> {
   if (s.kind === "related") {
@@ -711,15 +710,14 @@ export function usePersonLinks(personId: string) {
     const people = await repos.people.list();
     const person = people.find((p) => p.id === personId && !p.deleted_at);
     if (!person) return [];
-    const answered = new Set<string>(JSON.parse((await getMeta(store.db, LINKS_ANSWERED)) ?? "[]") as string[]);
+    const answered = await linksAnswered(store.db);
     // Never asked about memories that left with someone removed from People (I3).
     const removed = new Set(people.filter((p) => p.state === "archived").map((p) => p.id));
     const items = ((await store.list("memory_items")) as MemoryItem[]).filter((m) => !removed.has(m.person_id)).map((m) => voiced(m, people));
     return linkSuggestions({ person, people, items, related: await repos.people.related(), answered });
   }, [personId]);
   const remember = async (key: string) => {
-    const answered = JSON.parse((await getMeta(store.db, LINKS_ANSWERED)) ?? "[]") as string[];
-    await setMeta(store.db, LINKS_ANSWERED, JSON.stringify([...new Set([...answered, key])]));
+    await rememberLinks(store.db, [key]);
     store.notify();
   };
   return {

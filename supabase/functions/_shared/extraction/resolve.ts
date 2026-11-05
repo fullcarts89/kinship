@@ -289,6 +289,12 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     // ── About whom ──
     let subjectType = item.subject_type;
     let related = item.related;
+    // "Which Zoe?" answered with the Zoe in People: the line is about her, never a cousin of her own.
+    const named = needsPerson && related?.name && personId !== item.person_id ? ctx.people.find((p) => p.id === personId) : undefined;
+    if (named && goesBy(named, related!.name!, named.mention_names ?? [])) {
+      subjectType = "person";
+      related = null;
+    }
     if (flags.has("subject_check")) {
       if (a.subject === "person") {
         if (a.relation !== undefined) return { fail: "bad_answer" };

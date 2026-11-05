@@ -56,6 +56,7 @@ import {
 } from "../../supabase/functions/_shared/extraction/names";
 import { peopleOf, repositoriesFor, type Capture, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
 import { followUpsOf, keptLinesOf, recoveryOf } from "./followUp";
+import { apartKey, rememberLinks } from "./linksAnswered";
 import { getMeta, setMeta } from "./schema";
 import type { SyncReport } from "./syncEngine";
 import { StoreWriteError, type Data, type UserStore } from "./userStore";
@@ -337,6 +338,14 @@ export class Understanding {
       const type = questionType(reading.held[a.index]);
       if (type) track(a.skip ? "clarification_dismissed" : "clarification_answered", { type });
     }
+    // "Priya's friend Ana", chosen over the Ana in People: her page doesn't ask it again.
+    const apart = answers.flatMap((a) => {
+      const h = reading.held[a.index];
+      const name = h?.subject_type === "related" ? h.related?.name : null;
+      if (!h?.person_id || !name || a.person_id !== h.person_id || !Array.isArray(h.candidate_ids)) return [];
+      return h.candidate_ids.filter((id) => id !== h.person_id).map((id) => apartKey(h.person_id!, name, id));
+    });
+    if (apart.length) await rememberLinks(this.store.db, apart);
     this.kick();
   }
 
