@@ -22,7 +22,7 @@ import { dayLabel } from "@/features/memory/format";
 import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 import { DatePane, KindPane, namedChoices, PersonPane } from "../Pickers";
 import type { Correction, ReviewSheetProps } from "../ReviewSheet";
-import { answersFor, COPY, personLabel, type Choice, type ItemLine, type Question } from "../reviewModel";
+import { answersFor, COPY, openQuestions, personLabel, type Choice, type ItemLine, type Question } from "../reviewModel";
 import { dayWrittenIn, deviceZone, proposedDay } from "../wordsDate";
 import type { NoteWords } from "./useNoteWords";
 import { dayInSentence, groupLines, isAsSaid, reviewCap, toldOn, type WordMark } from "./words";
@@ -201,7 +201,7 @@ export function NotebookReview(props: NotebookReviewProps) {
 
   // ── The review ──
   const words = props.words && props.words.captureId === view.captureId ? props.words : null;
-  const waiting = view.questions.filter((q) => picks[q.key] === undefined);
+  const waiting = openQuestions(view.questions, picks);
   const liveIds = new Set(view.lines.map((l) => l.id));
   const gone = removed.filter((l) => !liveIds.has(l.id));
   const groups = groupLines([...view.lines, ...gone]);
@@ -302,6 +302,7 @@ export function NotebookReview(props: NotebookReviewProps) {
             <View style={{ marginTop: space.l + 2, marginHorizontal: space.m + 2, gap: space.s + 2 }}>
               {view.questions.map((q) => {
                 const done = picks[q.key] !== undefined ? answered.find((a) => a.key === q.key) : null;
+                if (!done && !waiting.includes(q)) return null;
                 return done ? <AnsweredCard key={q.key} a={done} /> : (
                   <Spot key={q.key} register={register(`q:${q.key}`)} pulse={(fn) => { pulses.current[`q:${q.key}`] = fn; }} radius={22}>
                     <QuestionCard

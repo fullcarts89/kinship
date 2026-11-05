@@ -352,19 +352,35 @@ export function buildReview(input: ReviewInput): ReviewView {
   return { ...base, mode: "card", summary: summaryFor(lines) };
 }
 
+/** The lines the user declined. "Not sure" about one name in a line isn't declining the line. */
+function declinedItems(questions: Question[], picks: Record<string, Omit<HeldAnswer, "index"> | "skip">): Set<number> {
+  return new Set(questions.filter((q) => picks[q.key] === "skip").flatMap((q) => q.items.filter((i) => q.slots?.[i] === undefined)));
+}
+
+/** The questions still waiting. One about only lines the user declined isn't asked: "Don't keep this" is never followed by "Remember this?". */
+export function openQuestions(
+  questions: Question[],
+  picks: Record<string, Omit<HeldAnswer, "index"> | "skip">,
+): Question[] {
+  const declined = declinedItems(questions, picks);
+  return questions.filter((q) => picks[q.key] === undefined && !q.items.every((i) => declined.has(i)));
+}
+
 /**
  * The user's picks, one per question, as the gateway's answers (one per
- * held item). Null until every question has a pick. A skip on any question
- * about an item means that item isn't kept.
+ * held item). Null until every open question has a pick. A skip on any
+ * question about an item means that item isn't kept.
  */
 export function answersFor(
   questions: Question[],
   picks: Record<string, Omit<HeldAnswer, "index"> | "skip">,
 ): HeldAnswer[] | null {
-  const byItem = new Map<number, HeldAnswer>();
+  if (openQuestions(questions, picks).length) return null;
+  const declined = declinedItems(questions, picks);
+  const byItem = new Map<number, HeldAnswer>([...declined].map((index) => [index, { index, skip: true }]));
   for (const q of questions) {
     const pick = picks[q.key];
-    if (pick === undefined) return null;
+    if (pick === undefined) continue;
     for (const index of q.items) {
       const prev = byItem.get(index) ?? { index };
       if (prev.skip) continue;

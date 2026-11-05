@@ -173,6 +173,18 @@ it("a personal reading is memory only on Keep it; Don't keep keeps nothing; both
   expect(texts(no.tree)).toContain("You said don’t keep it.");
 });
 
+it("a line declined at one question is declined: its other question goes, and the rest still wait", () => {
+  const maya: HeldItem = { ...samHeld, kind: "event", new_person_name: "Maya", statement: "Maya has surgery", sensitivity: "health", detail: { date_precision: "unknown" },
+    flags: ["new_person", "date_unresolved_sensitive", "sensitive"], spans: [span("Her mom's knee surgery went fine.")] };
+  const { tree, props } = render([maya, samHeld]);
+  expect(texts(tree)).toEqual(expect.arrayContaining(["Who is Maya?", "When is it?"]));
+  press(tree, "Sam (pottery studio)");
+  expect(props.onAnswer).not.toHaveBeenCalled();
+  press(tree, "Don't keep this");
+  expect(texts(tree)).not.toContain("When is it?");
+  expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, skip: true }, { index: 1, person_id: "lee" }]);
+});
+
 it("× is Not this: the line stays, struck through and not kept, with no way to pretend it's back", () => {
   const { tree, props } = render([]);
   press(tree, "Not this: Priya is back from Lisbon for good");
