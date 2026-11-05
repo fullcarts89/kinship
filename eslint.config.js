@@ -46,7 +46,7 @@ const nativePressable = {
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*", "node_modules/*", ".expo/*"],
+    ignores: ["dist/*", "node_modules/*", ".expo/*", "docs/product/explorations/**"],
   },
   {
     // P0-08: Kinship never writes to the user's calendar.
