@@ -240,12 +240,12 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     // Held only for the user's yes (a sensitive or ambiguous reading): nothing is
     // written on silence or on an empty answer.
     const openNames = Array.isArray(item.open_names) ? item.open_names.filter((o) => o && typeof o.text === "string" && o.text.trim()) : [];
-    // Which Sam is never a yes to the memory itself: a line waiting for the
-    // user's yes (sensitive, say) still needs it after who it is about is answered.
+    // No other question is a yes to the memory itself: a line waiting for the
+    // user's yes (sensitive, say) still needs it after every other answer.
     const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive") || flags.has("update_check") ||
       flags.has("promise_owner") || flags.has("residence_conflict");
     if (a.accept !== undefined && a.accept !== true) return { fail: "bad_answer" };
-    const needsYes = !asksSomething || (needsPerson && needsAcceptance({ sensitivity: item.sensitivity, flags: item.flags ?? [] }));
+    const needsYes = !asksSomething || needsAcceptance({ sensitivity: item.sensitivity, flags: item.flags ?? [] });
     if (needsYes && a.accept !== true) return { fail: "bad_answer" };
 
     // ── Who ──

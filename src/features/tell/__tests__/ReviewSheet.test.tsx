@@ -147,6 +147,18 @@ it("a sensitive line: 'Which Sam?' is answered, then 'Remember this?'; nothing i
   expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, person_id: "lee", accept: true }]);
 });
 
+it("a sensitive line: 'When is it?' is answered, then 'Remember this?'; nothing is sent until the yes", () => {
+  const surgery: HeldItem = { ...sam, person_id: "lee", kind: "event", statement: "Sam has surgery", sensitivity: "health", detail: { event_type: "surgery", date_precision: "unknown" },
+    flags: ["date_unresolved_sensitive", "sensitive"], spans: [{ start: 0, end: 15, quote: "Sam has surgery" }] };
+  const { tree, props } = render("Sam has surgery.", row({ tier: "clarify", held: [surgery] }), []);
+  expect(texts(tree)).toContain("When is it?");
+  press(tree, "No date");
+  expect(props.onAnswer).not.toHaveBeenCalled();
+  expect(texts(tree)).toContain("This sounds personal, so I keep it only if you say so.");
+  press(tree, "Remember");
+  expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, date: null, accept: true }]);
+});
+
 it("a name asked on its own beside a line already kept says 'Not sure', never 'Don't keep this' (N15)", () => {
   const twin: HeldItem = { ...sam, statement: "Ben went climbing with Sam", spans: [{ start: 0, end: 26, quote: "Ben went climbing with Sam" }], twin_person_id: "ben", mention: "Sam" };
   const { props } = render("Ben went climbing with Sam.", row({ tier: "clarify", held: [twin] }), []);

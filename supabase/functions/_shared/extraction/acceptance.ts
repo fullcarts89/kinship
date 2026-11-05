@@ -16,8 +16,9 @@
 //     `companion_matched` (a known pet or related someone named, founder K27).
 //
 // Held ("hold" tier) items are always pending: they wait for an answer. One
-// that is also blocking needs the yes as well: saying who a line is about
-// never accepts it (resolve.ts, the review's "Remember this?").
+// that is also blocking needs the yes as well: saying who a line is about, or
+// when, or whose promise, never accepts it (resolve.ts, the review's
+// "Remember this?"; founder, 5 Nov 2026).
 // Plain TypeScript with no imports, shared by the gateway and the app.
 
 export const BLOCKING_FLAGS = ["sensitive", "sensitivity_raised", "date_ambiguous"] as const;

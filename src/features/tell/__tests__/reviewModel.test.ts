@@ -4,7 +4,7 @@
 // whose choices are the user's own people. No system vocabulary, ever.
 import { answersFor, buildReview, COPY, type ReviewInput, type ReviewView } from "@/features/tell/reviewModel";
 import { dayLabel, provenanceLine, whenLabel } from "@/features/memory/format";
-import type { HeldItem } from "@/store/gateway";
+import type { HeldAnswer, HeldItem } from "@/store/gateway";
 import type { MemoryItem, Person } from "@/store/repositories";
 import type { Reading, UnderstandingRow } from "@/store/understanding";
 
@@ -121,6 +121,34 @@ it("someone new, with no real date for a health event: three questions, one answ
   expect(answersFor(v.questions, { q0: { new_person: true }, q1: { date: null } })).toBeNull();
   expect(answersFor(v.questions, { q0: { new_person: true }, q1: { date: null }, q2: {} })).toEqual([{ index: 0, new_person: true, date: null, accept: true }]);
   expect(answersFor(v.questions, { q0: "skip", q1: { date: "2026-10-15" }, q2: {} })).toEqual([{ index: 0, skip: true }]);
+});
+
+describe("a sensitive line: no other question is the yes (founder, 5 Nov 2026)", () => {
+  const anna = person("anna", "Anna");
+  const known = { person_id: "anna", statement: "Anna's sister has surgery", sensitivity: "health" as const, spans: [{ start: 0, end: 25, quote: "Anna's sister has surgery" }] };
+  const earlier = [{ id: "m-old", statement: "Anna's sister is waiting on results" }];
+  const cases: [string, Partial<HeldItem>, string, Omit<HeldAnswer, "index">][] = [
+    ["date", { ...known, kind: "event", flags: ["date_unresolved_sensitive", "sensitive"] }, "Remember this about Anna?", { date: null }],
+    ["about_whom", { ...known, kind: "event", flags: ["subject_check", "sensitive"] }, "Remember this?", { subject: "person" }],
+    ["owner", { ...known, kind: "promise", flags: ["promise_owner", "sensitive"] }, "Remember this about Anna?", { owner: "user" }],
+    ["replace", { ...known, kind: "fact", detail: { _replaces: earlier }, flags: ["update_check", "sensitive"] }, "Remember this about Anna?", { replaces: null }],
+    ["residence", { ...known, kind: "fact", flags: ["residence_conflict", "sensitive"], still_in: { target_id: "alameda", words: "Alameda", stay: "facet" } }, "Remember this about Anna?", { moved: false }],
+  ];
+  const sheet = (h: HeldItem) => view("Anna's sister has surgery.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], [anna, BEN]);
+
+  it.each(cases)("%s, then 'Remember this?'; nothing is answered until the yes", (type, over, prompt, answer) => {
+    const v = sheet(held(over));
+    expect(v.questions.map((q) => [q.type, q.type === "keep" ? q.prompt : null])).toEqual([[type, null], ["keep", prompt]]);
+    expect(v.questions[1].reason).toBe("This sounds personal, so I keep it only if you say so.");
+    expect(answersFor(v.questions, { q0: answer })).toBeNull();
+    expect(answersFor(v.questions, { q0: answer, q1: {} })).toEqual([{ index: 0, ...answer, accept: true }]);
+    expect(answersFor(v.questions, { q0: "skip", q1: {} })).toEqual([{ index: 0, skip: true }]);
+  });
+
+  it.each(cases)("%s on a line that isn't waiting for a yes is still the one question", (type, over) => {
+    const v = sheet(held({ ...over, sensitivity: "none", flags: over.flags!.filter((f) => f !== "sensitive") }));
+    expect(v.questions.map((q) => q.type)).toEqual([type]);
+  });
 });
 
 it("a light confirmation is the same Kept card (one contract); corrections show as the user's", () => {
