@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship · creative reset · checkpoint A (exploratory, unapproved)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&family=Instrument+Serif:ital@0;1&family=Archivo:ital,wdth,wght@0,62..125,400..900;1,62..125,400..900&family=Courier+Prime:wght@400;700&family=Alfa+Slab+One&family=Fredoka:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<link rel="stylesheet" href="overgrown.css">
+<link rel="stylesheet" href="fragments.css">
+<link rel="stylesheet" href="rings.css">
+<script src="fixtures.js"></script>
+<script src="photos.js"></script>
+<script src="overgrown.js"></script>
+<script src="fragments.js"></script>
+<script src="rings.js"></script>
+</head>
+<body>
+<div class="review">
+  <h1>Two Today experiences, refined, side by side</h1>
+  <p><b>Checkpoint A, refined · visual direction only.</b> Overgrown and Fragments, rebuilt around the person after the founder's review (Rings is set aside; add <code>?rings=1</code> to see it). The same grounded content in both: a Moment without a photo, with a person photo the user chose, with a memory photo and the user's own caption (photos are a <b>proposed</b> capability, not built), the same Moment on a busy week, a birthday, a quiet day. Photos shown are drawn stand-ins: no photograph of a real person is in this repository.</p>
+  <span class="banner">EXPLORATORY · UNAPPROVED · stop for founder feedback before checkpoint B</span>
+  <div class="controls">
+    <button data-dark="0" class="on">Light</button><button data-dark="1">Dark</button>
+    <label><input id="reduce" type="checkbox"> Reduce Motion</label>
+    <span style="width:12px"></span>
+    <button data-row="all" class="on">All states</button><button data-row="moment">Moment</button><button data-row="photo">Person photo</button><button data-row="memory">Memory photo</button><button data-row="dense">Busy week</button><button data-row="birthday">Celebration</button><button data-row="quiet">Quiet day</button>
+  </div>
+</div>
+<div class="grid" id="grid"></div>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  if (q.get("capture")) { document.body.classList.add("capture"); if (!q.get("concept")) document.body.classList.add("capture-grid"); }
+  const ALL = [["overgrown", "1 · Overgrown", "the electric garden, with the person at its centre", window.OVERGROWN], ["fragments", "2 · Fragments", "the living scrapbook, grown up: the person is the picture", window.FRAGMENTS], ["rings", "3 · Rings (set aside)", "kept for reference at the founder's request; not advancing", window.RINGS]];
+  const C = ALL.filter((c) => c[0] !== "rings" || q.get("rings"));
+  const ROWS = [["moment", "A meaningful Moment · no photo (the default)", {}], ["photo", "The same Moment · with a person photo the user chose (proposed)", { state: "moment", personPhoto: true }], ["memory", "The same Moment · with a memory photo and the user's caption (proposed)", { state: "moment", memoryPhoto: true }], ["dense", "A busy week · the same Moment, a Waiting line, three Coming up lines, and 2 more", { state: "dense" }], ["birthday", "A celebration · Maya's birthday, with a person photo (proposed)", { state: "birthday", personPhoto: true }], ["quiet", "A quiet day · Monday, Oct 12", { state: "quiet" }]];
+  let dark = q.get("dark") === "1", reduce = !!q.get("reduce"), row = q.get("state") || "all", only = q.get("concept");
+  const grid = document.getElementById("grid");
+  function build() {
+    grid.innerHTML = "";
+    const cs = C.filter((c) => !only || c[0] === only);
+    grid.style.gridTemplateColumns = `repeat(${cs.length}, 393px)`;
+    if (!only) for (const c of cs) grid.insertAdjacentHTML("beforeend", `<div class="colhead">${c[1]}<small>${c[2]}</small></div>`);
+    for (const [key, label, o] of ROWS) {
+      if (row !== "all" && row !== key) continue;
+      if (!only) grid.insertAdjacentHTML("beforeend", `<div class="rowlabel">${label}</div>`);
+      for (const c of cs) { const d = document.createElement("div"); d.innerHTML = c[3] ? c[3].render(o.state || key, Object.assign({ dark, reduce }, o)) : `<div class="phone" style="background:#222"></div>`; grid.appendChild(d.firstElementChild); }
+    }
+    document.querySelectorAll("[data-dark]").forEach((b) => b.classList.toggle("on", (b.dataset.dark === "1") === dark));
+    document.querySelectorAll("[data-row]").forEach((b) => b.classList.toggle("on", b.dataset.row === row));
+    document.getElementById("reduce").checked = reduce;
+  }
+  document.querySelectorAll("[data-dark]").forEach((b) => b.addEventListener("click", () => { dark = b.dataset.dark === "1"; build(); }));
+  document.querySelectorAll("[data-row]").forEach((b) => b.addEventListener("click", () => { row = b.dataset.row; build(); }));
+  document.getElementById("reduce").addEventListener("change", (e) => { reduce = e.target.checked; build(); });
+  build();
+})();
+</script>
+</body>
+</html>
