@@ -68,6 +68,58 @@ Deno.test("someone new: only the name the note gave, created once", () => {
   eq([mapped.items[0].person_id, mapped.newPeople], ["sarah", []]);
 });
 
+Deno.test("which Sam, and the relative was read under the other one: the chosen Sam's own, never the first Sam's row", () => {
+  const note = "Sam's dad is in town this week.";
+  const held: HeldItem = {
+    ...samHeld, kind: "fact", person_id: "sam-lee", subject_type: "related", statement: "Sam's dad is in town this week", detail: { category: "other" },
+    related: { id: "lee-dad", relation: "dad", name: "Robert" }, flags: ["person_ambiguous"], spans: [{ start: 0, end: 30, quote: "Sam's dad is in town this week" }],
+    action: { type: "supersede", target_id: "m-old" },
+  };
+  const leeDad = { id: "lee-dad", person_id: "sam-lee", relation: "dad", name: "Robert" };
+  const of = (r: ReturnType<typeof resolveHeld>) => {
+    if ("fail" in r) throw new Error(r.fail);
+    return [r.items[0].person_id, r.items[0].subject_type, r.items[0].related, r.items[0].action.type, r.items[0].statement];
+  };
+  const answer = (person_id: string, c: ResolveContext) => of(resolveHeld([held], [{ index: 0, person_id }], c));
+
+  eq(answer("sam-lee", ctx({ note, related: [leeDad] })), ["sam-lee", "related", held.related, "supersede", held.statement], "the Sam it was read under: as read");
+  eq(answer("sam-diaz", ctx({ note, related: [leeDad] })), ["sam-diaz", "related", { id: null, relation: "dad", name: null }, "new", held.statement],
+    "a new dad for the Sam chosen, without the first dad's name or the merge worked out for him");
+  eq(answer("sam-diaz", ctx({ note, related: [leeDad, { id: "diaz-dad", person_id: "sam-diaz", relation: "father", name: "Luis" }] })),
+    ["sam-diaz", "related", { id: "diaz-dad", relation: "father", name: "Luis" }, "new", held.statement], "the dad the chosen Sam already has, whichever word it was kept under");
+  const twoDads = [leeDad, { id: "diaz-a", person_id: "sam-diaz", relation: "dad", name: "Luis" }, { id: "diaz-b", person_id: "sam-diaz", relation: "dad", name: "Tom" }];
+  eq(answer("sam-diaz", ctx({ note, related: twoDads })), ["sam-diaz", "related", { id: null, relation: "dad", name: null }, "new", held.statement], "two who fit: never a guess between them");
+  eq(of(resolveHeld([{ ...held, flags: ["new_person"] }], [{ index: 0, new_person: true, new_person_name: "Sam" }], ctx({ note, related: [leeDad] }))),
+    ["new:0", "related", { id: null, relation: "dad", name: null }, "new", held.statement], "someone new has no rows yet");
+
+  // The note says the word another way, and the row's word is never the user's for the Sam chosen.
+  const fatherRow = { ...leeDad, relation: "father" };
+  eq(answer("sam-diaz", ctx({ note, related: [fatherRow] })), ["sam-diaz", "related", { id: null, relation: "dad", name: null }, "new", held.statement], "the note's own word");
+
+  // The note names the relative: the name is the note's, so it comes along, and picks among those who fit.
+  const named = "Sam's dad Luis is in town this week.";
+  const luis = { ...held, related: { id: "lee-dad", relation: "dad", name: "Luis" } };
+  const namedAnswer = (related: ResolveContext["related"]) => of(resolveHeld([luis], [{ index: 0, person_id: "sam-diaz" }], ctx({ note: named, related })));
+  eq(namedAnswer([{ ...leeDad, name: "Luis" }])[2], { id: null, relation: "dad", name: "Luis" }, "named in the note");
+  eq(namedAnswer([{ ...leeDad, name: "Luis" }, ...twoDads.slice(1)])[2], { id: "diaz-a", relation: "dad", name: "Luis" }, "the one of that name");
+
+  // The relation was only ever the first Sam's row: nothing in the note says the chosen Sam has a sister.
+  const anaNote = "Ana is in town this week.";
+  const ana: HeldItem = { ...held, statement: "Ana is in town this week", related: { id: "lee-ana", relation: "sister", name: "Ana" }, flags: ["person_disagreement"], spans: [{ start: 0, end: 24, quote: "Ana is in town this week" }] };
+  eq(of(resolveHeld([ana], [{ index: 0, person_id: "sam-diaz" }], ctx({ note: anaNote, related: [{ id: "lee-ana", person_id: "sam-lee", relation: "sister", name: "Ana" }] }))),
+    ["sam-diaz", "person", null, "new", "Ana is in town this week"], "kept, in the user's words, about the person chosen");
+});
+
+Deno.test("the relative went while the line was waiting (\"Not this\" on their last line, or Undo): a new one from the note, never \"Choose again\"", () => {
+  const held: HeldItem = {
+    ...samHeld, kind: "fact", person_id: "sam-lee", subject_type: "related", statement: "Sam's dad is in town this week", detail: { category: "other" },
+    related: { id: "lee-dad", relation: "dad", name: "Robert" }, flags: ["person_ambiguous"], spans: [{ start: 0, end: 30, quote: "Sam's dad is in town this week" }],
+  };
+  const r = resolveHeld([held], [{ index: 0, person_id: "sam-lee" }], ctx({ note: "Sam's dad is in town this week.", related: [] }));
+  if ("fail" in r) throw new Error(r.fail);
+  eq([r.items[0].person_id, r.items[0].subject_type, r.items[0].related], ["sam-lee", "related", { id: null, relation: "dad", name: null }]);
+});
+
 Deno.test("Sarah or Sarah's sister: the relation must be the user's own word", () => {
   const note = "Sarah's sister has surgery Thursday.";
   const held: HeldItem = {

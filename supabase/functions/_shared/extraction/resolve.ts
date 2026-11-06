@@ -214,6 +214,23 @@ export type ResolveFailure =
 const PERSON_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "person_archived"];
 const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+/**
+ * Who a line's relative is once the user chose someone other than the person it was read under: that
+ * person's own, when one fits, or a new one. Only what the note itself says carries over, never the first
+ * person's row: their relative's name, or a relation only that row knew ("Ana", the first Sam's sister).
+ * With no relation in the note, null: the line is about the person chosen (founder J4, never a lost memory).
+ */
+function relativeOfChosen(read: { relation: string; name: string | null }, personId: string, ctx: ResolveContext): HeldItem["related"] {
+  const key = relationKey(read.relation);
+  const word = wordsOf(ctx.note).find((w) => relationKey(w) === key);
+  if (!word) return null;
+  const name = read.name && new RegExp(`(^|[^\\p{L}])${escapeRe(read.name)}([^\\p{L}]|$)`, "u").test(ctx.note) ? read.name : null;
+  const rows = personId.startsWith("new:") ? [] : ctx.related.filter((r) =>
+    r.person_id === personId && relationKey(r.relation) === key && (!name || !r.name || fold(r.name) === fold(name))
+  );
+  return rows.length === 1 ? { id: rows[0].id, relation: rows[0].relation, name: rows[0].name ?? name } : { id: null, relation: word, name };
+}
+
 export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: ResolveContext): Resolution | { fail: ResolveFailure } {
   if (!Array.isArray(answers) || answers.length !== held.length) return { fail: answers?.length < held.length ? "unanswered" : "bad_answer" };
   const byIndex = new Map<number, HeldAnswer>();
@@ -322,6 +339,10 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       }
     } else if (a.subject !== undefined || a.relation !== undefined) {
       return { fail: "bad_answer" };
+    } else if (subjectType === "related" && related?.id && !ctx.related.some((r) => r.id === related!.id && r.person_id === personId)) {
+      // "Which Sam?" answered with the other Sam: the dad it was read with is the first Sam's.
+      related = relativeOfChosen(related, personId, ctx);
+      if (!related) subjectType = "person";
     }
 
     // ── Whose promise (founder J11) ──
