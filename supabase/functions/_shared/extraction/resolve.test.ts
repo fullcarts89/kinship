@@ -68,6 +68,58 @@ Deno.test("someone new: only the name the note gave, created once", () => {
   eq([mapped.items[0].person_id, mapped.newPeople], ["sarah", []]);
 });
 
+Deno.test("which Sam, and the relative was read under the other one: the chosen Sam's own, never the first Sam's row", () => {
+  const note = "Sam's dad is in town this week.";
+  const held: HeldItem = {
+    ...samHeld, kind: "fact", person_id: "sam-lee", subject_type: "related", statement: "Sam's dad is in town this week", detail: { category: "other" },
+    related: { id: "lee-dad", relation: "dad", name: "Robert" }, flags: ["person_ambiguous"], spans: [{ start: 0, end: 30, quote: "Sam's dad is in town this week" }],
+    action: { type: "supersede", target_id: "m-old" },
+  };
+  const leeDad = { id: "lee-dad", person_id: "sam-lee", relation: "dad", name: "Robert" };
+  const of = (r: ReturnType<typeof resolveHeld>) => {
+    if ("fail" in r) throw new Error(r.fail);
+    return [r.items[0].person_id, r.items[0].subject_type, r.items[0].related, r.items[0].action.type, r.items[0].statement];
+  };
+  const answer = (person_id: string, c: ResolveContext) => of(resolveHeld([held], [{ index: 0, person_id }], c));
+
+  eq(answer("sam-lee", ctx({ note, related: [leeDad] })), ["sam-lee", "related", held.related, "supersede", held.statement], "the Sam it was read under: as read");
+  eq(answer("sam-diaz", ctx({ note, related: [leeDad] })), ["sam-diaz", "related", { id: null, relation: "dad", name: null }, "new", held.statement],
+    "a new dad for the Sam chosen, without the first dad's name or the merge worked out for him");
+  eq(answer("sam-diaz", ctx({ note, related: [leeDad, { id: "diaz-dad", person_id: "sam-diaz", relation: "father", name: "Luis" }] })),
+    ["sam-diaz", "related", { id: "diaz-dad", relation: "father", name: "Luis" }, "new", held.statement], "the dad the chosen Sam already has, whichever word it was kept under");
+  const twoDads = [leeDad, { id: "diaz-a", person_id: "sam-diaz", relation: "dad", name: "Luis" }, { id: "diaz-b", person_id: "sam-diaz", relation: "dad", name: "Tom" }];
+  eq(answer("sam-diaz", ctx({ note, related: twoDads })), ["sam-diaz", "related", { id: null, relation: "dad", name: null }, "new", held.statement], "two who fit: never a guess between them");
+  eq(of(resolveHeld([{ ...held, flags: ["new_person"] }], [{ index: 0, new_person: true, new_person_name: "Sam" }], ctx({ note, related: [leeDad] }))),
+    ["new:0", "related", { id: null, relation: "dad", name: null }, "new", held.statement], "someone new has no rows yet");
+
+  // The note says the word another way, and the row's word is never the user's for the Sam chosen.
+  const fatherRow = { ...leeDad, relation: "father" };
+  eq(answer("sam-diaz", ctx({ note, related: [fatherRow] })), ["sam-diaz", "related", { id: null, relation: "dad", name: null }, "new", held.statement], "the note's own word");
+
+  // The note names the relative: the name is the note's, so it comes along, and picks among those who fit.
+  const named = "Sam's dad Luis is in town this week.";
+  const luis = { ...held, related: { id: "lee-dad", relation: "dad", name: "Luis" } };
+  const namedAnswer = (related: ResolveContext["related"]) => of(resolveHeld([luis], [{ index: 0, person_id: "sam-diaz" }], ctx({ note: named, related })));
+  eq(namedAnswer([{ ...leeDad, name: "Luis" }])[2], { id: null, relation: "dad", name: "Luis" }, "named in the note");
+  eq(namedAnswer([{ ...leeDad, name: "Luis" }, ...twoDads.slice(1)])[2], { id: "diaz-a", relation: "dad", name: "Luis" }, "the one of that name");
+
+  // The relation was only ever the first Sam's row: nothing in the note says the chosen Sam has a sister.
+  const anaNote = "Ana is in town this week.";
+  const ana: HeldItem = { ...held, statement: "Ana is in town this week", related: { id: "lee-ana", relation: "sister", name: "Ana" }, flags: ["person_disagreement"], spans: [{ start: 0, end: 24, quote: "Ana is in town this week" }] };
+  eq(of(resolveHeld([ana], [{ index: 0, person_id: "sam-diaz" }], ctx({ note: anaNote, related: [{ id: "lee-ana", person_id: "sam-lee", relation: "sister", name: "Ana" }] }))),
+    ["sam-diaz", "person", null, "new", "Ana is in town this week"], "kept, in the user's words, about the person chosen");
+});
+
+Deno.test("the relative went while the line was waiting (\"Not this\" on their last line, or Undo): a new one from the note, never \"Choose again\"", () => {
+  const held: HeldItem = {
+    ...samHeld, kind: "fact", person_id: "sam-lee", subject_type: "related", statement: "Sam's dad is in town this week", detail: { category: "other" },
+    related: { id: "lee-dad", relation: "dad", name: "Robert" }, flags: ["person_ambiguous"], spans: [{ start: 0, end: 30, quote: "Sam's dad is in town this week" }],
+  };
+  const r = resolveHeld([held], [{ index: 0, person_id: "sam-lee" }], ctx({ note: "Sam's dad is in town this week.", related: [] }));
+  if ("fail" in r) throw new Error(r.fail);
+  eq([r.items[0].person_id, r.items[0].subject_type, r.items[0].related], ["sam-lee", "related", { id: null, relation: "dad", name: null }]);
+});
+
 Deno.test("Sarah or Sarah's sister: the relation must be the user's own word", () => {
   const note = "Sarah's sister has surgery Thursday.";
   const held: HeldItem = {
@@ -76,22 +128,22 @@ Deno.test("Sarah or Sarah's sister: the relation must be the user's own word", (
     flags: ["subject_check", "sensitive"], spans: [{ start: 0, end: 35, quote: "Sarah's sister has surgery Thursday" }],
     action: { type: "supersede", target_id: "m-old" },
   };
-  const sister = resolveHeld([held], [{ index: 0, subject: "related", relation: "sister" }], ctx({ note }));
+  const sister = resolveHeld([held], [{ index: 0, subject: "related", relation: "sister", accept: true }], ctx({ note }));
   if ("fail" in sister) throw new Error(sister.fail);
   eq([sister.items[0].subject_type, sister.items[0].related, sister.items[0].action], ["related", { id: null, relation: "sister", name: null }, { type: "new", target_id: null }],
     "a new related row; the supersede was worked out for Sarah, so it no longer applies");
-  const known = resolveHeld([held], [{ index: 0, subject: "related", relation: "sister" }],
+  const known = resolveHeld([held], [{ index: 0, subject: "related", relation: "sister", accept: true }],
     ctx({ note, related: [{ id: "rel-sis", person_id: "sarah", relation: "sister", name: "Ana" }] }));
   if ("fail" in known) throw new Error(known.fail);
   eq(known.items[0].related, { id: "rel-sis", relation: "sister", name: "Ana" }, "the sister the user already has");
-  const herself = resolveHeld([held], [{ index: 0, subject: "person" }], ctx({ note }));
+  const herself = resolveHeld([held], [{ index: 0, subject: "person", accept: true }], ctx({ note }));
   if ("fail" in herself) throw new Error(herself.fail);
   eq([herself.items[0].subject_type, herself.items[0].related, herself.items[0].action], ["person", null, { type: "supersede", target_id: "m-old" }],
     "unchanged person and subject keep the proposal; the database checks the target again");
-  eq(resolveHeld([held], [{ index: 0, subject: "related", relation: "brother" }], ctx({ note })), { fail: "relation_not_in_note" });
-  eq(resolveHeld([held], [{ index: 0, subject: "related", relation: "Thursday" }], ctx({ note })), { fail: "relation_not_in_note" }, "not a relation");
-  eq(resolveHeld([held], [{ index: 0 }], ctx({ note })), { fail: "bad_answer" }, "the question needs an answer");
-  eq(resolveHeld([held], [{ index: 0, subject: "person", person_id: "sam-lee" }], ctx({ note })), { fail: "bad_answer" }, "the person wasn't in question");
+  eq(resolveHeld([held], [{ index: 0, subject: "related", relation: "brother", accept: true }], ctx({ note })), { fail: "relation_not_in_note" });
+  eq(resolveHeld([held], [{ index: 0, subject: "related", relation: "Thursday", accept: true }], ctx({ note })), { fail: "relation_not_in_note" }, "not a relation");
+  eq(resolveHeld([held], [{ index: 0, accept: true }], ctx({ note })), { fail: "bad_answer" }, "the question needs an answer");
+  eq(resolveHeld([held], [{ index: 0, subject: "person", person_id: "sam-lee", accept: true }], ctx({ note })), { fail: "bad_answer" }, "the person wasn't in question");
 });
 
 Deno.test("a held health event without a date: a real day, or no date", () => {
@@ -101,15 +153,15 @@ Deno.test("a held health event without a date: a real day, or no date", () => {
     detail: { event_type: "surgery", followup_policy: "both", date_precision: "unknown" },
     flags: ["date_unresolved_sensitive", "sensitive"], spans: [{ start: 0, end: 36, quote: "Grandma goes in for surgery next week" }],
   };
-  const dated = resolveHeld([held], [{ index: 0, date: "2026-10-15" }], ctx({ note }));
+  const dated = resolveHeld([held], [{ index: 0, date: "2026-10-15", accept: true }], ctx({ note }));
   if ("fail" in dated) throw new Error(dated.fail);
   eq(dated.items[0].detail, { event_type: "surgery", followup_policy: "both", date_precision: "day", date: "2026-10-15" });
-  const none = resolveHeld([held], [{ index: 0, date: null }], ctx({ note }));
+  const none = resolveHeld([held], [{ index: 0, date: null, accept: true }], ctx({ note }));
   if ("fail" in none) throw new Error(none.fail);
   eq(none.items[0].detail, { event_type: "surgery", followup_policy: "both", date_precision: "unknown" });
-  eq(resolveHeld([held], [{ index: 0, date: "2026-02-30" }], ctx({ note })), { fail: "bad_date" });
-  eq(resolveHeld([held], [{ index: 0, date: "next week" }], ctx({ note })), { fail: "bad_date" });
-  eq(resolveHeld([held], [{ index: 0 }], ctx({ note })), { fail: "bad_answer" });
+  eq(resolveHeld([held], [{ index: 0, date: "2026-02-30", accept: true }], ctx({ note })), { fail: "bad_date" });
+  eq(resolveHeld([held], [{ index: 0, date: "next week", accept: true }], ctx({ note })), { fail: "bad_date" });
+  eq(resolveHeld([held], [{ index: 0, accept: true }], ctx({ note })), { fail: "bad_answer" });
   eq(resolveHeld([samHeld], [{ index: 0, person_id: "sam-lee", date: "2026-10-15" }], ctx()), { fail: "bad_answer" }, "no date was in question");
 });
 
@@ -149,9 +201,64 @@ Deno.test("held for the user's yes: only an explicit yes writes it; a skip write
   const no = resolveHeld([held], [{ index: 0, skip: true }], ctx({ note }));
   if ("fail" in no) throw new Error(no.fail);
   eq([no.items.length, no.skipped], [0, 1]);
-  // Answering the question an item was held for is itself the user's explicit choice.
-  const sam = resolveHeld([{ ...samHeld, sensitivity: "health", flags: ["person_ambiguous", "sensitive"] }], [{ index: 0, person_id: "sam-lee" }], ctx());
-  if ("fail" in sam) throw new Error(sam.fail);
+});
+
+Deno.test("a sensitive line and which Sam: saying who is never the yes; nothing is written without it", () => {
+  const sensitive: HeldItem = { ...samHeld, sensitivity: "health", flags: ["person_ambiguous", "sensitive"] };
+  eq(resolveHeld([sensitive], [{ index: 0, person_id: "sam-lee" }], ctx()), { fail: "bad_answer" }, "who alone writes nothing");
+  const yes = resolveHeld([sensitive], [{ index: 0, person_id: "sam-lee", accept: true }], ctx());
+  if ("fail" in yes) throw new Error(yes.fail);
+  eq(yes.items.map((i) => [i.person_id, i.sensitivity]), [["sam-lee", "health"]]);
+  const no = resolveHeld([sensitive], [{ index: 0, skip: true }], ctx());
+  if ("fail" in no) throw new Error(no.fail);
+  eq([no.items.length, no.skipped], [0, 1]);
+  // Raised by the wording, or a day that reads two ways: the same yes.
+  for (const flags of [["person_ambiguous", "sensitivity_raised"], ["person_ambiguous", "date_ambiguous"]] as HeldItem["flags"][]) {
+    eq(resolveHeld([{ ...samHeld, flags }], [{ index: 0, person_id: "sam-lee" }], ctx()), { fail: "bad_answer" }, flags.join());
+  }
+  // Someone new: adding them is not a yes to the line either, and nobody is added without it.
+  const newcomer: HeldItem = { ...samHeld, person_id: null, new_person_name: "Sam", sensitivity: "health", flags: ["new_person", "sensitive"] };
+  eq(resolveHeld([newcomer], [{ index: 0, new_person: true }], ctx()), { fail: "bad_answer" });
+  const added = resolveHeld([newcomer], [{ index: 0, new_person: true, accept: true }], ctx());
+  if ("fail" in added) throw new Error(added.fail);
+  eq(added.newPeople.map((n) => n.display_name), ["Sam"]);
+  // A line that is not waiting for a yes still needs only who.
+  const plain = resolveHeld([samHeld], [{ index: 0, person_id: "sam-lee" }], ctx());
+  if ("fail" in plain) throw new Error(plain.fail);
+  eq(plain.items.length, 1);
+});
+
+Deno.test("a sensitive line: when, about whom, whose promise, replace or moved is never the yes either (founder, 5 Nov 2026)", () => {
+  const known = { ...samHeld, person_id: "sarah", statement: "Sarah's sister has surgery", sensitivity: "health" as const };
+  const update = { ...known, detail: { ...known.detail, _replaces: [{ id: "m-old", statement: "Sarah's sister is waiting on results" }] } };
+  const cases: [string, HeldItem, Omit<HeldAnswer, "index">][] = [
+    ["when", { ...known, kind: "event", detail: { event_type: "surgery", date_precision: "unknown" }, flags: ["date_unresolved_sensitive", "sensitive"] }, { date: null }],
+    ["about whom", { ...known, flags: ["subject_check", "sensitive"] }, { subject: "person" }],
+    ["whose promise", { ...known, kind: "promise", flags: ["promise_owner", "sensitive"] }, { owner: "user" }],
+    ["replace", { ...update, flags: ["update_check", "sensitive"] }, { replaces: "m-old" }],
+    ["keep both", { ...update, flags: ["update_check", "sensitive"] }, { replaces: null }],
+    ["moved", { ...homeHeld("facet"), person_id: "sarah", sensitivity: "health", flags: ["residence_conflict", "sensitive"] }, { moved: true }],
+  ];
+  for (const [name, held, answer] of cases) {
+    const c = ctx({ note: "Sarah's sister has surgery. Susan lives in Colorado", existing: [] });
+    eq(resolveHeld([held], [{ index: 0, ...answer }], c), { fail: "bad_answer" }, `${name} alone writes nothing`);
+    const yes = resolveHeld([held], [{ index: 0, ...answer, accept: true }], c);
+    if ("fail" in yes) throw new Error(`${name}: ${yes.fail}`);
+    eq(yes.items.length, 1, `${name} with the yes`);
+    // Raised by the wording: the same yes. A day that reads two ways: the same yes.
+    for (const extra of ["sensitivity_raised", "date_ambiguous"] as HeldItem["flags"]) {
+      const flags = [...held.flags.filter((f) => f !== "sensitive"), extra] as HeldItem["flags"];
+      eq(resolveHeld([{ ...held, sensitivity: "none", flags }], [{ index: 0, ...answer }], c), { fail: "bad_answer" }, `${name}, ${extra}`);
+    }
+    // Not waiting for a yes: the one answer still keeps it.
+    const plain = resolveHeld([{ ...held, sensitivity: "none", flags: held.flags.filter((f) => f !== "sensitive") }], [{ index: 0, ...answer }], c);
+    if ("fail" in plain) throw new Error(`${name}, plain: ${plain.fail}`);
+    eq(plain.items.length, 1, `${name}, plain`);
+    // Declining writes nothing, whichever question it came from.
+    const no = resolveHeld([held], [{ index: 0, skip: true }], c);
+    if ("fail" in no) throw new Error(no.fail);
+    eq([no.items.length, no.skipped], [0, 1]);
+  }
 });
 
 Deno.test("an ambiguous day: the user's yes keeps it, or they pick the right day", () => {

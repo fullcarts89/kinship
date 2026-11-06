@@ -26,6 +26,11 @@ const SAT = "2026-10-10T16:00:00Z";
 const SUN = "2026-10-11T17:00:00Z";
 
 const vectors: Vector[] = [
+  // A stated date beside a relative weekday (CER-1 s5, Fri 30 Oct 2026 in Los Angeles): the date decides, unambiguous.
+  { expr: "next Thursday, November 5", at: "2026-10-30T18:00:00Z", tz: "America/Los_Angeles", dir: "future", date: "2026-11-05", precision: "day", ambiguous: false },
+  { expr: "this Thursday November 5", at: "2026-10-30T18:00:00Z", tz: "America/Los_Angeles", dir: "future", date: "2026-11-05", precision: "day", ambiguous: false },
+  // …and a weekday that does not match the stated date is flagged (Nov 5 2026 is a Thursday).
+  { expr: "next Friday, November 5", at: "2026-10-30T18:00:00Z", tz: "America/Los_Angeles", dir: "future", date: "2026-11-05", precision: "day", ambiguous: true },
   // The vertical slice: "Ben runs Chicago Sunday", written Thursday night.
   { expr: "Sunday", at: THU, tz: CHI, dir: "future", date: "2026-10-11", precision: "day" },
   { expr: "Sunday", at: THU, tz: CHI, dir: "past", date: "2026-10-04", precision: "day" },

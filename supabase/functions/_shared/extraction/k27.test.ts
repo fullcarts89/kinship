@@ -86,6 +86,18 @@ Deno.test("K27 (1): a pet named outright is kept as the person's related someone
   eq([first(f)?.subject, first(f)?.related], ["person", null]);
 });
 
+Deno.test("K27 (1): a pet named elsewhere in the same sentence never takes another line (alpha stabilization, live model)", () => {
+  // The live model's own split of one sentence: the move is Chris's line, the adoption names the dog.
+  const note = "Chris just moved to Denver with his partner Leo, and they adopted a rescue dog named Biscuit.";
+  const out = run(input(note), [
+    item({ statement: "Chris moved to Denver with his partner Leo", evidence: ["Chris just moved to Denver with his partner Leo"], detail: { ...item({}).detail, category: "home" } }),
+    item({ statement: "Chris and Leo adopted a rescue dog named Biscuit", evidence: ["they adopted a rescue dog named Biscuit"] }),
+  ]);
+  const lines = out.items.map((it) => ({ statement: it.statement, subject: it.subject_type, related: it.related }));
+  eq(lines[0], { statement: "Chris moved to Denver with his partner Leo", subject: "person", related: null });
+  eq([lines[1]?.subject, lines[1]?.related], ["related", { id: null, relation: "dog", name: "Biscuit" }]);
+});
+
 // ─── 2. "Fluffy will make a full recovery", told about Chris ─────────────────
 
 const NOTE = "Fluffy will make a full recovery";

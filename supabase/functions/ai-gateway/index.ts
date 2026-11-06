@@ -72,10 +72,18 @@ async function authenticate(token: string): Promise<GatewayCaller | null> {
     },
     async loadCapture(id) {
       const { data, error } = await db.from("captures")
-        .select("id, raw_text, occurred_at, time_zone, context_person_id, coverage")
+        .select("id, raw_text, occurred_at, time_zone, context_person_id, coverage, continues_capture_id")
         .eq("id", id).is("deleted_at", null).not("raw_text", "is", null).maybeSingle();
       if (error) throw new Error("capture read failed");
       return (data as CaptureRow | null) ?? null;
+    },
+    async loadSavedPeople(captureId) {
+      const { data, error } = await db.from("memory_item_sources")
+        .select("memory_items!inner(id, person_id, status, deleted_at)")
+        .eq("capture_id", captureId).is("memory_items.deleted_at", null).in("memory_items.status", ["active", "resolved"]);
+      if (error) throw new Error("saved people read failed");
+      const rows = (data ?? []) as { memory_items: { person_id: string } | { person_id: string }[] | null }[];
+      return [...new Set(rows.flatMap((r) => (Array.isArray(r.memory_items) ? r.memory_items : r.memory_items ? [r.memory_items] : []).map((m) => m.person_id)).filter(Boolean))];
     },
     async loadSavedIds(captureId) {
       const { data, error } = await db.from("memory_item_sources")
@@ -200,6 +208,13 @@ function serviceOps(db: SupabaseClient): ServiceOps {
     async release(userId, captureId, status) {
       const { error } = await db.rpc("release_capture_extraction", { p_user_id: userId, p_capture_id: captureId, p_status: status });
       if (error) throw new Error("release failed");
+    },
+    async reholdReview(userId, captureId, createdAt, items) {
+      const now = new Date().toISOString();
+      const { data, error } = await service.from("capture_reviews").update({ items, created_at: now })
+        .eq("capture_id", captureId).eq("user_id", userId).eq("created_at", createdAt).select("created_at");
+      if (error) throw new Error("review write failed");
+      return (data ?? []).length ? now : null;
     },
     async setCoverage(userId, captureId, coverage) {
       const { error } = await db.rpc("set_capture_coverage", { p_user_id: userId, p_capture_id: captureId, p_coverage: coverage });

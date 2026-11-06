@@ -4,12 +4,14 @@
 // follows the system's light or night appearance, and shares one Tell flow.
 import React, { useEffect } from "react";
 import { View } from "react-native";
-import { Redirect, Stack } from "expo-router";
+import { Redirect, router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GUTTER } from "@/design/tokens";
 import { TellFlowProvider } from "@/features/tell/TellFlow";
 import { useLaunchShell } from "@/hooks/useFlags";
-import { cancelLegacyNotifications } from "@/lib/notificationService";
+import { momentNotificationRoute } from "@/lib/momentNotification";
+import { addNotificationResponseListener, cancelLegacyNotifications } from "@/lib/notificationService";
+import { track } from "@/platform/analytics";
 import { useAuth } from "@/providers";
 import { V2SessionProvider } from "@/providers/V2SessionProvider";
 import { Body, useNight, usePalette, Waiting } from "@/ui";
@@ -29,9 +31,19 @@ export default function V2Layout() {
   }, [shell]);
 
   // 1.0's notifications still scheduled on this phone would each open a 1.0
-  // screen: 2.0 drops them (founder I8). 2.0 schedules none of its own.
+  // screen: 2.0 drops them (founder I8). 2.0's own (one private Moment
+  // notification, src/lib/momentNotification.ts; FD-30e) is left alone, and a
+  // tap on it opens Today.
   useEffect(() => {
-    if (shell === "v2") void cancelLegacyNotifications().catch(() => undefined);
+    if (shell !== "v2") return;
+    void cancelLegacyNotifications().catch(() => undefined);
+    const sub = addNotificationResponseListener((response) => {
+      const href = momentNotificationRoute(response.notification.request.content.data);
+      if (!href) return;
+      track("push_opened", { tier: "normal" });
+      router.replace(href as never);
+    });
+    return () => sub?.remove();
   }, [shell]);
 
   if (isLoading || shell === null) return <View style={{ flex: 1, backgroundColor: p.paper }} />;

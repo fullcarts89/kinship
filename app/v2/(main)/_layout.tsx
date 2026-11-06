@@ -6,6 +6,7 @@ import { Redirect, Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ConsentSheet } from "@/features/tell/ConsentSheet";
 import { TellDock } from "@/features/tell/TellDock";
+import { useTellNotebookMode } from "@/features/tell/TellFlow";
 import { useSetupGate } from "@/hooks/useV2";
 import { space } from "@/design/tokens";
 import { usePalette, Waiting } from "@/ui";
@@ -17,7 +18,10 @@ export default function MainLayout() {
   // The dock rises by exactly the part of it the keyboard covers; while
   // typing, the field sits just above the keyboard and the bar stays under it.
   const dock = useRef<View>(null);
-  const lift = useKeyboardInset(dock);
+  const keyboard = useKeyboardInset(dock);
+  // The notebook's dock is a pill that opens the Tell page: no field of its own, so a keyboard up for
+  // something else (People's search) leaves it under the keyboard, whose bar keeps Today · People (I6).
+  const lift = useTellNotebookMode() ? 0 : keyboard;
   // A new account sets up first; it never lands on an empty Today (contract §8).
   const gate = useSetupGate();
   if (gate === "checking") return <Waiting />;

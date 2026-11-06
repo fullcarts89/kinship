@@ -1,0 +1,237 @@
+{
+ "note": "Ari has been reading a lot of mysteries on the train. She picked up watercolor painting last month and wants to try a class if work settles down.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s2 page, on the page; 3 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Ari",
+      "person_mention": "Ari",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ari has been reading a lot of mysteries on the train",
+      "evidence": [
+       "Ari has been reading a lot of mysteries on the train."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "reading",
+       "value": "mysteries on the train",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ari",
+      "person_mention": "She",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ari picked up watercolor painting last month",
+      "evidence": [
+       "She picked up watercolor painting last month"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "last month",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "hobby",
+       "value": "watercolor painting",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Ari",
+      "person_mention": "She",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ari wants to try a watercolor class if work settles down",
+      "evidence": [
+       "wants to try a class if work settles down"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": null,
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "try a class if work settles down",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s2 general; 3 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Ari",
+      "person_mention": "Ari",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ari has been reading a lot of mysteries on the train",
+      "evidence": [
+       "Ari has been reading a lot of mysteries on the train."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "reading",
+       "value": "mysteries",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Ari",
+      "person_mention": "She",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ari picked up watercolor painting",
+      "evidence": [
+       "She picked up watercolor painting last month"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "last month",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "hobby",
+       "value": "watercolor painting",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Ari",
+      "person_mention": "She",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Ari wants to try a watercolor class if work settles down",
+      "evidence": [
+       "wants to try a class if work settles down"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.75,
+      "date_text": null,
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "try a class",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

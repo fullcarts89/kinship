@@ -6,7 +6,7 @@ import type { PlaceIndex } from "../_shared/semantic/placeIndex.ts";
 import type { FacetWrite, LineToRead } from "../_shared/semantic/rederive.ts";
 import type { ReportItem, ReportRow } from "../_shared/semantic/report.ts";
 import { placeIndex } from "../_shared/semantic/places/dataset.ts";
-import type { ResolvedItem } from "../_shared/extraction/resolve.ts";
+import type { HeldItem, ResolvedItem } from "../_shared/extraction/resolve.ts";
 import {
   type CallLog,
   createGateway,
@@ -20,6 +20,9 @@ import {
   type WriteItem,
 } from "./handler.ts";
 
+function ok(cond: unknown, msg: string): void {
+  if (!cond) throw new Error(msg);
+}
 function eq<T>(actual: T, expected: T, msg = ""): void {
   const a = JSON.stringify(actual);
   const e = JSON.stringify(expected);
@@ -66,6 +69,8 @@ interface World {
   quoteIds: string[];
   /** Every coverage write (Option A), in order: what the understanding did not get to, or null to clear. */
   coverages: (StoredCoverage | null)[];
+  /** Every re-hold of a review (CER-1): the answered question needs one more. */
+  reholds: { createdAt: string; items: HeldItem[] }[];
 }
 
 function world(opts: {
@@ -84,6 +89,11 @@ function world(opts: {
   savedIds?: string[];
   /** The capture row's stored coverage (Option A). */
   coverage?: unknown;
+  /** reholdReview finds the review changed (CER-1). */
+  reholdChanged?: boolean;
+  /** The note this capture tells the rest of (CER-1): its id, words and page; `savedPeople` its kept lines' people. */
+  parent?: { id: string; note: string; context_person_id?: string | null };
+  savedPeople?: string[];
   resolveResult?: Awaited<ReturnType<ServiceOps["resolve"]>> | ServiceError;
   closes?: boolean;
   /** Memory already kept, per person (loadItems answers for the ids asked). */
@@ -104,7 +114,7 @@ function world(opts: {
   reportThrows?: boolean;
 } = {}): World {
   const w: World = {
-    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [], ops: [], reports: [], runs: new Map(), pages: [], quoteIds: [], coverages: [],
+    modelCalls: [], writes: [], resolves: [], closes: [], releases: [], logs: [], quota: 0, facetWrites: [], ops: [], reports: [], runs: new Map(), pages: [], quoteIds: [], coverages: [], reholds: [],
     deps: undefined as unknown as GatewayDeps,
   };
   const caller: GatewayCaller = {
@@ -115,11 +125,16 @@ function world(opts: {
       return Promise.resolve(opts.quota ?? true);
     },
     flagEnabled: (key) => Promise.resolve(key === "ai_extraction" && (opts.flag ?? true)),
-    loadCapture: (id) =>
-      Promise.resolve(opts.capture === false || id !== CAPTURE ? null : {
+    loadCapture: (id) => {
+      if (opts.parent && id === opts.parent.id) {
+        return Promise.resolve({ id, raw_text: opts.parent.note, occurred_at: "2026-10-09T01:00:00Z", time_zone: "America/Chicago", context_person_id: opts.parent.context_person_id ?? null });
+      }
+      return Promise.resolve(opts.capture === false || id !== CAPTURE ? null : {
         id, raw_text: opts.note ?? NOTE, occurred_at: "2026-10-09T02:14:00Z", time_zone: "America/Chicago", context_person_id: null,
         ...(opts.coverage !== undefined ? { coverage: opts.coverage } : {}),
-      }),
+        ...(opts.parent ? { continues_capture_id: opts.parent.id } : {}),
+      });
+    },
     loadPeople: () => Promise.resolve({
       people: opts.people ?? [{ id: "person-ben", display_name: "Ben", full_name: "Ben Ortiz", nicknames: [], relationship_label: "college roommate", state: "active" }],
       related: [],
@@ -139,6 +154,7 @@ function world(opts: {
     loadFacets: (ids) => Promise.resolve(opts.facets === null ? null : (opts.facets ?? []).filter((f) => ids.includes(f.memory_item_id))),
     loadReview: () => Promise.resolve(opts.review === undefined ? (w.writes.at(-1)?.review ? { ...w.writes.at(-1)!.review!, created_at: STORED_AT } as StoredReview : null) : opts.review),
     loadSavedIds: () => Promise.resolve(opts.savedIds ?? []),
+    loadSavedPeople: () => Promise.resolve(opts.savedPeople ?? []),
     closeReview: (id) => {
       w.closes.push(id);
       return Promise.resolve(opts.closes ?? true);
@@ -149,6 +165,10 @@ function world(opts: {
     release: (_u, _c, status) => {
       w.releases.push(status);
       return Promise.resolve();
+    },
+    reholdReview: (_u, _c, createdAt, items) => {
+      w.reholds.push({ createdAt, items });
+      return Promise.resolve(opts.reholdChanged ? null : "2026-10-31T18:00:00.000000+00:00");
     },
     setCoverage: (_u, _c, coverage) => {
       w.coverages.push(coverage);
@@ -267,7 +287,7 @@ Deno.test("the vertical slice end to end: model → pipeline → one write → c
   eq(body.saved[0].id, "item-0");
   eq(w.writes.length, 1);
   eq(w.writes[0].needsReview, false);
-  eq(w.writes[0].version, "relationship_extract/v6+claude-opus-5-5");
+  eq(w.writes[0].version, "relationship_extract/v7+claude-opus-5-5");
   eq(w.writes[0].items[0].spans, [{ start: 0, end: 23 }, { start: 25, end: 56 }]);
   eq(w.writes[0].items[0].person_id, "person-ben");
   // The model saw the server's data, never the request body's.
@@ -384,6 +404,36 @@ Deno.test("an answer is checked, written and closed in one step, with no model c
   eq(w.resolves[0].createdAt, STORED_AT);
   eq(w.resolves[0].items[0].spans, [{ start: 0, end: 15, quote: "Sam got the job" }]);
   eq([w.modelCalls.length, w.quota, w.logs.length], [0, 0, 0], "no model, no quota, nothing to log");
+});
+
+Deno.test("CER-1: an answer that settles who a line is about, when that person has a line the user edited that it plainly updates, writes nothing and asks the replace question", async () => {
+  const note = "Actually the Pilsen move slipped again, it's December 6 now.";
+  const quote = "the Pilsen move slipped again, it's December 6 now";
+  const at = note.indexOf(quote);
+  const review: StoredReview = {
+    items: [{
+      kind: "event", person_id: null, new_person_name: null, subject_type: "person", related: null,
+      statement: "The Pilsen move slipped again; it's now December 6", detail: { event_type: "move", date: "2026-12-06", date_precision: "day" }, certainty: "planned",
+      sensitivity: "none", confidence: 0.9, action: { type: "new", target_id: null }, tier: "hold", flags: ["person_ambiguous"],
+      spans: [{ start: at, end: at + quote.length, quote }],
+    }],
+    clarification: { about: "person", question: "Who is this about?", options: ["Someone else"] },
+    created_at: STORED_AT,
+  };
+  const edited = { id: "item-move", person_id: "person-sam-lee", kind: "event", subject_type: "person", subject_related_id: null,
+    statement: "Sam moves in on November 22", certainty: "planned", status: "active", user_state: "edited", detail: { event_type: "move", date: "2026-11-22", date_precision: "day" } } as unknown as ItemRow;
+  const w = world({ note, people: SAMS, review, items: [edited] });
+  const { status, body } = await call(w, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }])));
+  eq(status, 200);
+  eq(body.status, "asked_again");
+  eq(w.resolves.length, 0, "nothing is written until the user says whether it replaces");
+  eq(w.reholds.length, 1);
+  const held = body.held[0];
+  eq([held.person_id, held.flags.includes("update_check"), held.flags.includes("person_ambiguous"), held.detail._replaces], ["person-sam-lee", true, false, [{ id: "item-move", statement: "Sam moves in on November 22" }]]);
+  eq(body.review_created_at, "2026-10-31T18:00:00.000000+00:00");
+  // The review changed under the answer: shown again, never half applied.
+  const changed = world({ note, people: SAMS, review, items: [edited], reholdChanged: true });
+  eq((await call(changed, post(resolveBody([{ index: 0, person_id: "person-sam-lee" }])))).status, 409);
 });
 
 Deno.test("I10: the answer to a held mirror's 'which Sam' joins the line kept for its twin (loaded for the answer), never a second copy", async () => {
@@ -506,6 +556,44 @@ Deno.test("a sensitive reading is held for the user's yes, never saved because a
   const yes = await call(w2, post(resolveBody([{ index: 0, accept: true }])));
   eq(yes.body.status, "resolved");
   eq(w2.resolves[0].items.map((i) => [i.person_id, i.statement, i.sensitivity]), [["person-sarah", "Sarah has surgery", "health"]]);
+});
+
+Deno.test("a sensitive line held on which Sam: the answer alone writes nothing; with the user's yes it is written", async () => {
+  const note = "Sam's dad has surgery";
+  const sams = ["lee", "diaz"].map((id) => ({ id: `person-${id}`, display_name: "Sam", full_name: null, nicknames: [], relationship_label: null, state: "active" }));
+  const review: StoredReview = {
+    items: [{
+      kind: "fact", person_id: null, new_person_name: null, subject_type: "person", related: null, statement: "Sam's dad has surgery", detail: { category: "health" },
+      certainty: "stated", sensitivity: "health", confidence: 0.9, action: { type: "new", target_id: null }, tier: "hold",
+      flags: ["person_ambiguous", "sensitive"], spans: [{ start: 0, end: 21, quote: note }],
+    }] as unknown as StoredReview["items"],
+    clarification: null, created_at: STORED_AT,
+  };
+  const w = world({ note, review, people: sams });
+  eq(await call(w, post(resolveBody([{ index: 0, person_id: "person-lee" }]))), { status: 400, body: { error: "invalid_answer", reason: "bad_answer" } });
+  eq(w.resolves.length, 0);
+  const yes = await call(w, post(resolveBody([{ index: 0, person_id: "person-lee", accept: true }])));
+  eq(yes.body.status, "resolved");
+  eq(w.resolves[0].items.map((i) => [i.person_id, i.sensitivity]), [["person-lee", "health"]]);
+});
+
+Deno.test("a sensitive line held on when: the day alone writes nothing; with the user's yes it is written", async () => {
+  const note = "Sarah has surgery soon";
+  const review: StoredReview = {
+    items: [{
+      kind: "event", person_id: "person-sarah", new_person_name: null, subject_type: "person", related: null, statement: "Sarah has surgery",
+      detail: { event_type: "surgery", followup_policy: "both", date_precision: "unknown" },
+      certainty: "stated", sensitivity: "health", confidence: 0.9, action: { type: "new", target_id: null }, tier: "hold",
+      flags: ["date_unresolved_sensitive", "sensitive"], spans: [{ start: 0, end: 22, quote: note }],
+    }] as unknown as StoredReview["items"],
+    clarification: null, created_at: STORED_AT,
+  };
+  const w = world({ note, review, people: [{ id: "person-sarah", display_name: "Sarah", full_name: null, nicknames: [], relationship_label: null, state: "active" }] });
+  eq(await call(w, post(resolveBody([{ index: 0, date: null }]))), { status: 400, body: { error: "invalid_answer", reason: "bad_answer" } });
+  eq(w.resolves.length, 0);
+  const yes = await call(w, post(resolveBody([{ index: 0, date: null, accept: true }])));
+  eq(yes.body.status, "resolved");
+  eq(w.resolves[0].items.map((i) => [i.person_id, i.sensitivity]), [["person-sarah", "health"]]);
 });
 
 Deno.test("every answer says how long the gateway took (Server-Timing), and nothing else about the request", async () => {
@@ -868,21 +956,79 @@ const nineProposal = (n = 9) => ({
   needs_clarification: null,
 });
 
-Deno.test("Option A: a note with more than the understanding takes is told so, with the words left out, before its lines are written", async () => {
+Deno.test("FD-30c: a note with nine things keeps nine; nothing is lost to a count and the note is whole", async () => {
   const w = world({ note: NINE_NOTE, model: { output: nineProposal() } });
   const { status, body } = await call(w, post(extract));
   eq(status, 200);
-  eq((body.saved as unknown[]).length, 8, "eight lines kept, as before");
-  const ninth = { start: NINE_NOTE.indexOf(NINE[8]), end: NINE_NOTE.indexOf(NINE[8]) + NINE[8].length };
-  eq(body.coverage, { state: "partial", unprocessed: [ninth], unlocated: 0 }, "the reply says what was left out, as the note's own words");
-  eq(w.coverages, [{ v: 1, unprocessed: [ninth], unlocated: 0 }], "the capture carries it, for every phone");
-  eq(w.ops.indexOf("setCoverage") < w.ops.indexOf("write"), true, "recorded before the lines, never a whole note by mistake");
-  eq(w.logs[0].items_dropped, 1);
-  eq(JSON.stringify(w.coverages).includes("tomatoes"), false, "offsets only, never words");
+  eq((body.saved as unknown[]).length, 9, "every proposal judged, every one kept");
+  eq(body.coverage, { state: "complete", unprocessed: [], unlocated: 0 });
+  eq(w.coverages, [], "a whole note never touches coverage");
+  eq(w.logs[0].items_dropped, 0);
+});
+
+Deno.test("FD-30c: a long note is understood in passages, each call seeing the whole note; a failed passage is recorded as not got to, never silent", async () => {
+  // Twenty things said at length, past LONG_NOTE_CHARS: three passages. The second passage's call times out.
+  const HOBBIES = ["loves jazz", "took up pottery", "started cycling", "is learning Italian", "joined a choir", "bought a kayak", "reads Russian novels", "collects stamps", "grows tomatoes", "plays chess on Tuesdays", "runs on Saturdays", "bakes sourdough", "paints landscapes", "studies astronomy", "restores furniture", "keeps bees", "writes haiku", "brews kombucha", "climbs on Thursdays", "plays the cello"];
+  const THINGS = HOBBIES.map((h) => `Ben ${h} and talks about it whenever we meet up`);
+  const note = THINGS.map((t) => `${t}.`).join(" ");
+  const proposalsFor = (content: string) => {
+    const passage = content.match(/<passage>\n([\s\S]*?)\n<\/passage>/u)?.[1] ?? "";
+    return {
+      items: THINGS.filter((t) => passage.includes(t)).map((t) => ({
+        ...BEN_PROPOSAL.items[0], kind: "fact", statement: t, evidence: [t], date_text: null, date_direction: "unclear",
+        detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "interest", topic: t },
+      })),
+      needs_clarification: null,
+    };
+  };
+  const w = world({ note });
+  let n = 0;
+  w.deps.model = (req) => {
+    w.modelCalls.push(req);
+    n++;
+    if (n === 2) return Promise.resolve({ outcome: "timeout", output: null, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, latencyMs: 45_000, errorKind: "timeout" } as StructuredResult);
+    return Promise.resolve({ outcome: "ok", output: proposalsFor(req.content), usage: { input: 2100, output: 900, cacheRead: 1800, cacheWrite: 0 }, latencyMs: 9000, errorKind: null } as StructuredResult);
+  };
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200);
+  eq(w.modelCalls.length, 3, "three passages, three calls");
+  ok(w.modelCalls.every((c) => c.content.includes(`<note>\n${note}\n</note>`)), "every call sees the whole note");
+  ok(w.modelCalls.every((c) => /<passage>\n[\s\S]+\n<\/passage>/u.test(c.content)), "and its own passage");
+  const saved = body.saved as { statement: string }[];
+  ok(saved.length >= 12 && saved.length < 20, `the two answered passages' things are kept (${saved.length})`);
+  const cov = body.coverage as { state: string; unprocessed: { start: number; end: number }[] };
+  eq(cov.state, "partial");
+  eq(cov.unprocessed.length, 1, "the one passage that got no answer");
+  const words = Array.from(note).slice(cov.unprocessed[0].start, cov.unprocessed[0].end).join("");
+  ok(THINGS.some((t) => words.includes(t)), `the passage's own words: ${words.slice(0, 60)}`);
+  eq(w.coverages.length, 1, "the capture carries it, for every phone");
+  eq(JSON.stringify(w.coverages).includes("Ben"), false, "offsets only, never words");
+  eq(w.logs[0].input_tokens, 4200, "usage is the sum over the passages");
+});
+
+Deno.test("CER-1: a note that tells the rest of an earlier one carries that note as context, and its person when told from no page", async () => {
+  const parent = { id: "00000000-0000-0000-0000-000000000c00", note: "Mina collects records, loves jazz and plays chess on Thursdays." };
+  const w = world({
+    note: "plays chess on Thursdays", parent, savedPeople: ["person-mina"],
+    people: [{ id: "person-mina", display_name: "Mina", full_name: "Mina Haddad", nicknames: [], relationship_label: "friend", state: "active" }],
+    model: { output: { items: [{
+      ...BEN_PROPOSAL.items[0], kind: "tradition", person: "p1", person_mention: null, statement: "Mina plays chess on Thursdays", evidence: ["plays chess on Thursdays"],
+      date_text: null, date_direction: "unclear", detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: null, recurrence: null, anchor: "Thursdays" },
+    }], needs_clarification: null } },
+  });
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200);
+  const content = w.modelCalls[0].content;
+  ok(content.includes(`<earlier_part>\n${parent.note}\n</earlier_part>`), "the earlier note goes to the model as context");
+  ok(content.includes("<opened_from>p1 Mina"), "the earlier note's one person stands in for the page");
+  ok(content.includes("<note>\nplays chess on Thursdays\n</note>"), "the note itself is only its own words");
+  eq((body.saved as unknown[]).length + (body.held as unknown[]).length, 1, "kept, never 'nothing to remember'");
+  const line = ((body.saved as { person_id: string }[])[0] ?? (body.held as { person_id: string }[])[0]);
+  eq(line.person_id, "person-mina");
 });
 
 Deno.test("Option A: a note taken whole clears an earlier coverage, and writes none when there was none", async () => {
-  const stale = world({ note: NINE_NOTE, model: { output: nineProposal(8) }, coverage: { v: 1, unprocessed: [{ start: 0, end: 5 }], unlocated: 0 } });
+  const stale = world({ note: NINE_NOTE, model: { output: nineProposal(9) }, coverage: { v: 1, unprocessed: [{ start: 0, end: 5 }], unlocated: 0 } });
   const { body } = await call(stale, post(extract));
   eq(body.coverage, { state: "complete", unprocessed: [], unlocated: 0 });
   eq(stale.coverages, [null], "the earlier record is cleared");

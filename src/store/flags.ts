@@ -19,7 +19,9 @@ export type FlagKey =
   | "tell"
   | "ai_extraction"
   | "relationship_page_v2"
-  | "voice_capture";
+  | "voice_capture"
+  /** The Moment Deck × Notebook × Showing Up experience (PR #77 direction; founder directive 2 Nov 2026). */
+  | "notebook_deck";
 
 export type Flags = Readonly<Record<string, boolean>>;
 

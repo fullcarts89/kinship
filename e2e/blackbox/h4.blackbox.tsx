@@ -15,12 +15,16 @@ it("H4 (a first Tell with a day to come): their own words, when it comes back, a
   await signedIn();
   let r = await mount();
   await setUp(r, PEOPLE, JOHN);
+  // Said for today, it is already back: a Moment (RSN-06, WS-3). The orientation waits until that's answered.
+  await until(r, (s) => s.includes("You said you'd call John."), "the promise as today's Moment", 30000);
+  expect(texts(r)).not.toContain(BRING_BACK_COPY.title);
+  await settle(500);
+  if (canTap(r, "Done")) await tapLast(r, "Done");
+  await tap(r, "Not now");
   await until(r, (s) => s.includes(BRING_BACK_COPY.title), "how Kinship brings things back", 30000);
   const s = texts(r);
   expect(s).toEqual(expect.arrayContaining([BRING_BACK_COPY.told, "Call John", "Today", BRING_BACK_COPY.back, BRING_BACK_COPY.ask("John")]));
   expect(s).not.toContain(BRING_BACK_COPY.example);
-  // The real line is on Today under it, and it's never the quiet day.
-  expect(canTap(r, "Today: Call John")).toBe(true);
   expect(s).not.toContain("Nothing needs you today.");
   await tap(r, BRING_BACK_COPY.done);
   await settle(300);

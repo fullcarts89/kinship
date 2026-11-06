@@ -2,9 +2,9 @@
 // consistent Kept card for whatever was kept, a sheet only when something
 // needs the user ("One thing to check", and why), and one question at a time
 // whose choices are the user's own people. No system vocabulary, ever.
-import { answersFor, buildReview, COPY, type ReviewInput, type ReviewView } from "@/features/tell/reviewModel";
+import { answersFor, buildReview, COPY, openQuestions, type ReviewInput, type ReviewView } from "@/features/tell/reviewModel";
 import { dayLabel, provenanceLine, whenLabel } from "@/features/memory/format";
-import type { HeldItem } from "@/store/gateway";
+import type { HeldAnswer, HeldItem } from "@/store/gateway";
 import type { MemoryItem, Person } from "@/store/repositories";
 import type { Reading, UnderstandingRow } from "@/store/understanding";
 
@@ -110,16 +110,74 @@ it("Sarah or her sister: the relation offered is only ever the user's own word",
   expect(vague.questions[0].choices.map((c) => c.label)).toEqual(["Yes, Sarah"]);
 });
 
-it("someone new, with no real date for a health event: two questions, one answer per item", () => {
+it("someone new, with no real date for a health event: three questions, one answer per item", () => {
   const h = held({ kind: "event", new_person_name: "Maya", statement: "Maya has surgery", sensitivity: "health",
     flags: ["new_person", "date_unresolved_sensitive", "sensitive"], spans: [{ start: 0, end: 16, quote: "Maya has surgery" }] });
   const v = view("Maya has surgery sometime soon.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }));
-  expect(v.questions.map((q) => [q.type, q.prompt])).toEqual([["new_person", "Who is Maya?"], ["date", "When is it?"]]);
+  expect(v.questions.map((q) => [q.type, q.prompt])).toEqual([["new_person", "Who is Maya?"], ["date", "When is it?"], ["keep", "Remember this?"]]);
   expect(v.questions[0].choices.map((c) => c.label)).toEqual(["Choose from Contacts", "Add Maya", "Someone already here"]);
   expect(v.questions[1].choices.map((c) => c.label)).toEqual(["Pick a date", "No date"]);
   expect(answersFor(v.questions, { q0: { new_person: true } })).toBeNull();
-  expect(answersFor(v.questions, { q0: { new_person: true }, q1: { date: null } })).toEqual([{ index: 0, new_person: true, date: null }]);
-  expect(answersFor(v.questions, { q0: "skip", q1: { date: "2026-10-15" } })).toEqual([{ index: 0, skip: true }]);
+  expect(answersFor(v.questions, { q0: { new_person: true }, q1: { date: null } })).toBeNull();
+  expect(answersFor(v.questions, { q0: { new_person: true }, q1: { date: null }, q2: {} })).toEqual([{ index: 0, new_person: true, date: null, accept: true }]);
+  expect(answersFor(v.questions, { q0: "skip", q1: { date: "2026-10-15" }, q2: {} })).toEqual([{ index: 0, skip: true }]);
+});
+
+describe("a sensitive line: no other question is the yes (founder, 5 Nov 2026)", () => {
+  const anna = person("anna", "Anna");
+  const known = { person_id: "anna", statement: "Anna's sister has surgery", sensitivity: "health" as const, spans: [{ start: 0, end: 25, quote: "Anna's sister has surgery" }] };
+  const earlier = [{ id: "m-old", statement: "Anna's sister is waiting on results" }];
+  const cases: [string, Partial<HeldItem>, string, Omit<HeldAnswer, "index">][] = [
+    ["date", { ...known, kind: "event", flags: ["date_unresolved_sensitive", "sensitive"] }, "Remember this about Anna?", { date: null }],
+    ["about_whom", { ...known, kind: "event", flags: ["subject_check", "sensitive"] }, "Remember this?", { subject: "person" }],
+    ["owner", { ...known, kind: "promise", flags: ["promise_owner", "sensitive"] }, "Remember this about Anna?", { owner: "user" }],
+    ["replace", { ...known, kind: "fact", detail: { _replaces: earlier }, flags: ["update_check", "sensitive"] }, "Remember this about Anna?", { replaces: null }],
+    ["residence", { ...known, kind: "fact", flags: ["residence_conflict", "sensitive"], still_in: { target_id: "alameda", words: "Alameda", stay: "facet" } }, "Remember this about Anna?", { moved: false }],
+  ];
+  const sheet = (h: HeldItem) => view("Anna's sister has surgery.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], [anna, BEN]);
+
+  it.each(cases)("%s, then 'Remember this?'; nothing is answered until the yes", (type, over, prompt, answer) => {
+    const v = sheet(held(over));
+    expect(v.questions.map((q) => [q.type, q.type === "keep" ? q.prompt : null])).toEqual([[type, null], ["keep", prompt]]);
+    expect(v.questions[1].reason).toBe("This sounds personal, so I keep it only if you say so.");
+    expect(answersFor(v.questions, { q0: answer })).toBeNull();
+    expect(answersFor(v.questions, { q0: answer, q1: {} })).toEqual([{ index: 0, ...answer, accept: true }]);
+    expect(answersFor(v.questions, { q0: "skip", q1: {} })).toEqual([{ index: 0, skip: true }]);
+  });
+
+  it.each(cases)("%s declined: 'Remember this?' isn't asked as well, whichever came first", (_type, over) => {
+    const { questions } = sheet(held(over));
+    expect(openQuestions(questions, { q0: "skip" })).toEqual([]);
+    expect(answersFor(questions, { q0: "skip" })).toEqual([{ index: 0, skip: true }]);
+    expect(openQuestions(questions, { q1: "skip" })).toEqual([]);
+    expect(answersFor(questions, { q1: "skip" })).toEqual([{ index: 0, skip: true }]);
+  });
+
+  it("two lines: declining one leaves the other's questions, and only its own go", () => {
+    const one = held({ ...cases[0][1], statement: "Anna has surgery", spans: [{ start: 0, end: 16, quote: "Anna has surgery" }] });
+    const two = held({ ...cases[0][1], statement: "Anna's mom is visiting", spans: [{ start: 20, end: 42, quote: "Anna's mom is visiting" }] });
+    const { questions } = view("Anna has surgery and Anna's mom is visiting.", row("review", { tier: "clarify", held: [one, two], settled: false, review_created_at: "t" }), [], [anna, BEN]);
+    expect(questions.map((q) => [q.type, q.items])).toEqual([["date", [0]], ["date", [1]], ["keep", [0]], ["keep", [1]]]);
+    const declined = { q1: "skip" as const };
+    expect(openQuestions(questions, declined).map((q) => q.key)).toEqual(["q0", "q2"]);
+    expect(answersFor(questions, declined)).toBeNull();
+    expect(answersFor(questions, { ...declined, q0: { date: null }, q2: {} })).toEqual([{ index: 0, date: null, accept: true }, { index: 1, skip: true }]);
+  });
+
+  it("'Not sure' about one name in a line doesn't decline the line", () => {
+    const sams = [person("s1", "Sam Lee"), person("s2", "Sam Diaz")];
+    const h = held({ ...known, kind: "fact", flags: ["sensitive", "participant_ambiguous"], open_names: [{ text: "Sam", candidate_ids: ["s1", "s2"] }] });
+    const { questions } = view("Anna's sister has surgery.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], [anna, ...sams]);
+    expect(questions.map((q) => q.type)).toEqual(["which_person", "keep"]);
+    expect(openQuestions(questions, { q0: "skip" }).map((q) => q.type)).toEqual(["keep"]);
+    expect(answersFor(questions, { q0: "skip" })).toBeNull();
+    expect(answersFor(questions, { q0: "skip", q1: {} })).toEqual([{ index: 0, accept: true }]);
+  });
+
+  it.each(cases)("%s on a line that isn't waiting for a yes is still the one question", (type, over) => {
+    const v = sheet(held({ ...over, sensitivity: "none", flags: over.flags!.filter((f) => f !== "sensitive") }));
+    expect(v.questions.map((q) => q.type)).toEqual([type]);
+  });
 });
 
 it("a light confirmation is the same Kept card (one contract); corrections show as the user's", () => {
@@ -214,6 +272,23 @@ it("a sensitive reading waits for the user's yes: one question, their own words,
   expect(answersFor(v.questions, {})).toBeNull();
   expect(answersFor(v.questions, { q0: {} })).toEqual([{ index: 0, accept: true }]);
   expect(answersFor(v.questions, { q0: "skip" })).toEqual([{ index: 0, skip: true }]);
+});
+
+it("a sensitive line and which Sam: who first, then the user's yes, never the name of a guess", () => {
+  const h = held({ kind: "fact", person_id: "lee", statement: "Sam's dad has surgery next Friday", sensitivity: "health",
+    flags: ["person_ambiguous", "sensitive"], spans: [{ start: 0, end: 32, quote: "Sam's dad has surgery next Friday" }] });
+  const v = view("Sam's dad has surgery next Friday.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }));
+  expect(v.questions.map((q) => [q.type, q.prompt, q.skip.label])).toEqual([
+    ["which_person", "Which Sam do you mean?", "Don't keep this"], ["keep", "Remember this?", "Don't keep this"],
+  ]);
+  expect(v.questions[1].reason).toBe("This sounds personal, so I keep it only if you say so.");
+  expect(v.questions[1].detail).toBeNull();
+  expect(answersFor(v.questions, { q0: { person_id: "lee" } })).toBeNull();
+  expect(answersFor(v.questions, { q0: { person_id: "lee" }, q1: {} })).toEqual([{ index: 0, person_id: "lee", accept: true }]);
+  expect(answersFor(v.questions, { q0: { person_id: "lee" }, q1: "skip" })).toEqual([{ index: 0, skip: true }]);
+  // A line that isn't waiting for a yes is still one question.
+  const plain = view("Sam is redoing his kitchen.", row("review", { tier: "clarify", held: [held({ flags: ["person_ambiguous"] })], settled: false, review_created_at: "t" }));
+  expect(plain.questions.map((q) => q.type)).toEqual(["which_person"]);
 });
 
 it("an ambiguous day: Remember, or pick the right day", () => {
@@ -475,4 +550,44 @@ describe("Phase 4B B3: the residence question (case E; founder CC-19, CC-24)", (
     const v = view("Susan moved to California.", row("review", { tier: "clarify", held: [both], settled: false, review_created_at: "t" }), [], [SUSAN]);
     expect(v.questions.map((q) => q.type)).toEqual(["residence", "date"]);
   });
+});
+
+// CER-1 (31 Oct, WS-5's native journey): a told-again move against a line the user edited is held, and the
+// user is asked whether it replaces that line; the answer is the line itself or "keep both".
+it("a later note that updates the user's edited line asks 'Does this replace what you told me?', with that line and Keep both", () => {
+  const edited = "Ben signed the lease on the apartment in Pilsen and moves in on November 22";
+  const note = "Actually the Pilsen move slipped again, it's December 6 now.";
+  const h = held({
+    kind: "event", person_id: "ben", statement: "Ben's move to Pilsen slipped again; it's now December 6",
+    detail: { date: "2026-12-06", date_precision: "day", event_type: "move", _replaces: [{ id: "m-edited", statement: edited }] },
+    flags: ["protected_target", "update_check"], spans: [{ start: 9, end: 59, quote: note.slice(9, 59) }],
+  });
+  const v = view(note, row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], undefined,
+    { capture: { id: "c1", raw_text: note, context_person_id: "ben", status: "needs_review" } });
+  const q = v.questions.find((x) => x.type === "replace")!;
+  expect(q.prompt).toBe("Does this replace what you told me?");
+  expect(q.choices.map((c) => [c.label, "answer" in c ? c.answer : null])).toEqual([[`Yes, replace: ${edited}`, { replaces: "m-edited" }], ["No, keep both", { replaces: null }]]);
+  // The question quotes what the user said, never the statement's paraphrase.
+  expect(q.about).toEqual([note.slice(9, 59)]);
+  expect(v.questions.some((x) => /When is it/u.test(x.prompt))).toBe(false);
+});
+
+it("a told-again update from no page: 'Who is this about?' first with the candidate offered, then 'Does this replace what you told me?'; one answer carries both", () => {
+  const edited = "Ben signed the lease on the apartment in Pilsen and moves in on November 22";
+  const note = "Actually the Pilsen move slipped again, it's December 6 now.";
+  const h = held({
+    kind: "event", person_id: null, statement: "Ben's move to Pilsen slipped again; it's now December 6",
+    detail: { date: "2026-12-06", date_precision: "day", event_type: "move", _replaces: [{ id: "m-edited", statement: edited }] },
+    flags: ["person_ambiguous", "update_check", "protected_target"], candidate_ids: ["ben"], spans: [{ start: 9, end: 59, quote: note.slice(9, 59) }],
+  });
+  const v = view(note, row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }));
+  expect(v.questions.map((q) => q.type)).toEqual(["which_person", "replace"]);
+  const [who, replace] = v.questions;
+  expect(who.prompt).toBe("Who is this about?");
+  const ben = who.choices.find((c) => "answer" in c && c.answer.person_id === "ben")!;
+  expect(ben).toBeTruthy();
+  const yes = replace.choices.find((c) => "answer" in c && c.answer.replaces === "m-edited")!;
+  expect(answersFor(v.questions, { [who.key]: "answer" in ben ? ben.answer : {} })).toBeNull();
+  expect(answersFor(v.questions, { [who.key]: "answer" in ben ? ben.answer : {}, [replace.key]: "answer" in yes ? yes.answer : {} }))
+    .toEqual([{ index: 0, person_id: "ben", replaces: "m-edited" }]);
 });

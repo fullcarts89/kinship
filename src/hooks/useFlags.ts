@@ -120,3 +120,25 @@ export function useFlags(userId: string | null): Flags {
   }, [userId]);
   return userId && live?.userId === userId ? live.flags : {};
 }
+
+/**
+ * The Moment Deck × Notebook × Showing Up experience (founder directive 2 Nov 2026): on only for an
+ * account with the `notebook_deck` override. Decided at launch like the shell, so a screen never
+ * switches experience under the user. Unknown is off.
+ */
+export function notebookDeckFor(flags: Flags | null): boolean {
+  return flags?.notebook_deck === true;
+}
+
+export function useNotebookDeck(userId: string | null): boolean {
+  const [on, setOn] = useState<boolean>(() => notebookDeckFor(userId && launch?.userId === userId ? launch.flags : null));
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    launchFlags(userId).then((f) => !cancelled && setOn(notebookDeckFor(f)), () => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+  return on;
+}

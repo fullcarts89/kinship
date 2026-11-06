@@ -55,7 +55,12 @@ interface NoteStep {
   };
   model?: { action: "new" | "merge" | "supersede"; target?: number };
   protect?: boolean;
-  answer?: "still_there" | "she_moved";
+  /**
+   * The user's answer to the question the step asks: a CONFLICT's
+   * still_there / she_moved, or, for an update to a line the user edited
+   * ("Does this replace what you told me?", CER-1), keep_both / replaces.
+   */
+  answer?: "still_there" | "she_moved" | "keep_both" | "replaces";
   expect: {
     facet?: boolean;
     outcome?: string;
@@ -67,6 +72,8 @@ interface NoteStep {
     resolved?: boolean;
     candidates?: number;
     after_answer?: { facet: boolean };
+    /** The steps whose lines "Does this replace what you told me?" offers (CER-1). */
+    offers?: number[];
   };
 }
 interface UndoStep {
@@ -202,8 +209,10 @@ class World {
    * target re-checked, an edited line closed only on the user's own
    * evidence, every other closure (closes, B4) re-checked the same way and
    * applied with it, the reading kept only on a new line, in its own words.
+   * `chosen` is the line the user said this replaces (user_chose_closure,
+   * 20261031100000): the one other way an edited line may be its target.
    */
-  write(step: number, it: PlannedItem | ResolvedItem, answered: string | null): { id: string; action: string; closes: string[] } {
+  write(step: number, it: PlannedItem | ResolvedItem, answered: string | null, chosen: string | null = null): { id: string; action: string; closes: string[] } {
     const note = this.notes.get(step)!;
     const relatedId = this.relatedFor(it);
     let action = it.action.type;
@@ -212,7 +221,7 @@ class World {
       const protectedTarget = target && (target.user_state === "edited" || target.user_state === "user_authored");
       if (!target || target.deleted || target.person_id !== it.person_id || target.subject_type !== it.subject_type ||
           target.subject_related_id !== relatedId ||
-          (protectedTarget && !(action === "supersede" && this.editedLineClosure(note, it, target, answered))) ||
+          (protectedTarget && !(action === "supersede" && (this.editedLineClosure(note, it, target, answered) || chosen === target.id))) ||
           (action === "merge" && (target.kind !== it.kind || target.status !== "active")) ||
           (action === "supersede" && !["active", "resolved"].includes(target.status))) action = "new";
     }
@@ -502,6 +511,15 @@ function run(f: Fixture): Result {
     }
     if (facet && item.certainty !== "stated") metric("certainty_upgrade", `${tag}: a reading on a ${item.certainty} line`);
     if (CERTAINTY_RANK[item.certainty] > CERTAINTY_RANK[step.item.certainty ?? "stated"]) metric("certainty_upgrade", tag);
+    const asksReplace = item.tier === "hold" && item.flags.includes("update_check");
+    const offered = Array.isArray(item.detail?._replaces) ? (item.detail._replaces as { id: string }[]).map((r) => r.id) : [];
+    if (e.offers !== undefined) {
+      if (!asksReplace) fail(`${tag}: not held to ask whether it replaces a line`);
+      const want = e.offers.map((s) => w.wrote.get(s) ?? "");
+      if (JSON.stringify(offered) !== JSON.stringify(want)) {
+        fail(`${tag}: offers ${JSON.stringify(offered.map((id) => w.row(id)?.statement))}, expected steps ${JSON.stringify(e.offers)}`);
+      }
+    }
     if (e.question !== undefined || e.choices !== undefined) {
       const person = w.people.find((p) => p.id === item.person_id);
       const q = item.still_in && person ? residenceQuestion(shortName(person), item.still_in.words) : null;
@@ -515,7 +533,24 @@ function run(f: Fixture): Result {
     // ── Written (or answered), as the database writes it ──
     let written: { id: string; action: string; closes: string[] } | null = null;
     let closer: PlannedItem | ResolvedItem = item;
-    if (item.tier === "hold") {
+    let chosen: string | null = null;
+    if (asksReplace) {
+      // Nothing is written until the user answers, so a fixture must say what they answer: never skipped.
+      if (step.answer !== "keep_both" && step.answer !== "replaces") {
+        return fail(`${tag}: asks whether it replaces ${JSON.stringify(offered.map((id) => w.row(id)?.statement))}; the fixture needs answer keep_both or replaces`);
+      }
+      if (step.answer === "replaces" && offered.length !== 1) return fail(`${tag}: "replaces" needs exactly one offered line, got ${offered.length}`);
+      chosen = step.answer === "replaces" ? offered[0] : null;
+      const r = resolveHeld([heldOf(item)], [{ index: 0, replaces: chosen }], {
+        note: step.note,
+        people: w.people.map((p) => ({ id: p.id, display_name: p.display_name, state: p.state })),
+        related: w.related,
+        existing: [],
+      });
+      if ("fail" in r) return fail(`${tag}: the answer was refused (${r.fail})`);
+      closer = r.items[0];
+      written = w.write(at, closer, null, chosen);
+    } else if (item.tier === "hold") {
       if (!step.answer) return;
       const r = resolveHeld([heldOf(item)], [{ index: 0, moved: step.answer === "she_moved" }], {
         note: step.note,
@@ -540,6 +575,8 @@ function run(f: Fixture): Result {
     const expected = (e.closes ?? []).map((s) => w.wrote.get(s) ?? "");
     const allowed = e.outcome === "CONFLICT"
       ? (step.answer === "she_moved" && item.still_in ? [item.still_in.target_id, ...(item.still_in.closes ?? [])] : [])
+      : asksReplace
+      ? (chosen ? [chosen] : [])
       : expected;
     for (const id of closed) {
       if (!allowed.includes(id)) metric("incorrect_supersession", `${tag}: closed ${w.row(id)?.statement}`);

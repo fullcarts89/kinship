@@ -27,6 +27,7 @@ import { closedBy, type MemoryItem, type Person, type RelatedPerson } from "@/st
 import type { FollowUpState, Recovery } from "@/store/followUp";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
+import { needsAcceptance } from "../../../supabase/functions/_shared/extraction/acceptance";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
 import { aliasesOf, mentionsOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
 import { residenceQuestion } from "../../../supabase/functions/_shared/semantic/questions";
@@ -352,19 +353,35 @@ export function buildReview(input: ReviewInput): ReviewView {
   return { ...base, mode: "card", summary: summaryFor(lines) };
 }
 
+/** The lines the user declined. "Not sure" about one name in a line isn't declining the line. */
+function declinedItems(questions: Question[], picks: Record<string, Omit<HeldAnswer, "index"> | "skip">): Set<number> {
+  return new Set(questions.filter((q) => picks[q.key] === "skip").flatMap((q) => q.items.filter((i) => q.slots?.[i] === undefined)));
+}
+
+/** The questions still waiting. One about only lines the user declined isn't asked: "Don't keep this" is never followed by "Remember this?". */
+export function openQuestions(
+  questions: Question[],
+  picks: Record<string, Omit<HeldAnswer, "index"> | "skip">,
+): Question[] {
+  const declined = declinedItems(questions, picks);
+  return questions.filter((q) => picks[q.key] === undefined && !q.items.every((i) => declined.has(i)));
+}
+
 /**
  * The user's picks, one per question, as the gateway's answers (one per
- * held item). Null until every question has a pick. A skip on any question
- * about an item means that item isn't kept.
+ * held item). Null until every open question has a pick. A skip on any
+ * question about an item means that item isn't kept.
  */
 export function answersFor(
   questions: Question[],
   picks: Record<string, Omit<HeldAnswer, "index"> | "skip">,
 ): HeldAnswer[] | null {
-  const byItem = new Map<number, HeldAnswer>();
+  if (openQuestions(questions, picks).length) return null;
+  const declined = declinedItems(questions, picks);
+  const byItem = new Map<number, HeldAnswer>([...declined].map((index) => [index, { index, skip: true }]));
   for (const q of questions) {
     const pick = picks[q.key];
-    if (pick === undefined) return null;
+    if (pick === undefined) continue;
     for (const index of q.items) {
       const prev = byItem.get(index) ?? { index };
       if (prev.skip) continue;
@@ -829,10 +846,13 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
     needs.push({
       type: "replace",
       group: `replace:${offered.map((r) => r.id).join(",")}`,
-      prompt: "Does this replace one of these?",
-      reason: "It sounds like news about something you told me before.",
+      prompt: offered.length === 1 ? "Does this replace what you told me?" : "Does this replace one of these?",
+      reason: offered.length === 1 ? "It sounds like news about a line you edited." : "It sounds like news about something you told me before.",
+      // What the user said (never the statement's paraphrase, which would sit in quotation marks as if it were
+      // theirs), and a choice that says what tapping it does: the old line is named as what is replaced.
+      about: item.spans[0]?.quote?.trim() || undefined,
       choices: [
-        ...offered.map((r) => ({ key: `r:${r.id}`, label: r.statement, answer: { replaces: r.id } })),
+        ...offered.map((r) => ({ key: `r:${r.id}`, label: offered.length === 1 ? `Yes, replace: ${r.statement}` : `Replace: ${r.statement}`, answer: { replaces: r.id } })),
         { key: "both", label: "No, keep both", answer: { replaces: null } },
       ],
     });
@@ -869,10 +889,10 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
       ],
     });
   }
-  // Held for the user's yes: asked even when a name in it is asked too ("Which Sam?" is never a yes to the memory).
-  if (needs.every((n) => n.slot !== undefined) && item.person_id && !PERSON_FLAGS.some((f) => item.flags.includes(f))) {
-    // Held only for the user's yes: sensitive, or a day that reads two ways.
-    const person = input.people.find((p) => p.id === item.person_id);
+  // Held for the user's yes: asked after any other question, none of which is a yes to the memory ("Which Sam?", "When is it?").
+  if (needsAcceptance(item) || needs.every((n) => n.slot !== undefined)) {
+    // Sensitive, or a day that reads two ways. Never the name of a guess while who, or about whom, is still asked.
+    const person = personInQuestion || item.flags.includes("subject_check") ? undefined : input.people.find((p) => p.id === item.person_id);
     const when = whenLabel(item.kind, item.detail ?? {}, input.today);
     // A promise's day is its due date: one that reads two ways can be chosen too (founder K10).
     const ambiguousDay = item.flags.includes("date_ambiguous") && (typeof item.detail?.date === "string" || typeof item.detail?.due_date === "string");

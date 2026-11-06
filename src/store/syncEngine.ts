@@ -132,6 +132,19 @@ export class SyncEngine {
         row = await this.remote.insertMemoryItem(
           op.row_id, writableFields(op.tbl, op.patch, "insert"), op.patch[SOURCES_FIELD] as Data[],
         );
+        // What the insert didn't carry (write_memory_item takes a fixed set of
+        // columns; an edit coalesced into the insert while it waited, say a
+        // "with" person or a mention, is not among them): continue as an
+        // update on the row the server made, never dropped on the floor.
+        const { [SOURCES_FIELD]: _sources, ...sent } = op.patch;
+        const unapplied = differingFields(sent, row, writableFields(op.tbl, sent, "update"));
+        if (Object.keys(unapplied).length) {
+          await this.afterSuccess(op, row, { convertTo: unapplied });
+          report.pushed++;
+          const next = await this.reloadOp(op.op_id);
+          if (next) await this.pushOp(next, report, rebases);
+          return;
+        }
       } else if (op.kind === "insert") {
         row = await this.remote.insert(op.tbl, op.row_id, writableFields(op.tbl, op.patch, "insert"));
         // An existing row (e.g. settings created by the server first) that

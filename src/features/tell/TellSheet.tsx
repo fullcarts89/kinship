@@ -3,9 +3,10 @@
 //
 // Closing the sheet never throws the words away: they wait as this person's
 // draft and come back the next time the sheet opens here, and only here.
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { space } from "@/design/tokens";
-import { Heading, Sheet, Small, TellField } from "@/ui";
+import { Botanical, DawnWash, Sheet, Small, TellField, Title } from "@/ui";
+import { View } from "react-native";
 import { trackStarted, useTellFlow } from "./TellFlow";
 
 export const TELL_SHEET_COPY = {
@@ -14,6 +15,27 @@ export const TELL_SHEET_COPY = {
 } as const;
 
 export function TellSheet({ person, onClose }: { person: { id: string; name: string } | null; onClose: () => void }) {
+  const flow = useTellFlow();
+  // The notebook (flag `notebook_deck`): the full-height Tell page, about them, in the flow's one surface.
+  if (flow.notebook) return <NotebookTellSheet person={person} onClose={onClose} />;
+  return <AlphaTellSheet person={person} onClose={onClose} />;
+}
+
+/** Opens the notebook Tell page about this person; its close is this sheet's close. Draws nothing itself. */
+function NotebookTellSheet({ person, onClose }: { person: { id: string; name: string } | null; onClose: () => void }) {
+  const flow = useTellFlow();
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    if (!person) return;
+    flow.openTell?.(person.id, { onClose: () => close.current() });
+    // Once per opening, about this person.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [person?.id]);
+  return null;
+}
+
+function AlphaTellSheet({ person, onClose }: { person: { id: string; name: string } | null; onClose: () => void }) {
   const flow = useTellFlow();
   const draft = person ? flow.draft(person.id) : "";
   // A draft from before this opening is said to be one.
@@ -25,8 +47,18 @@ export function TellSheet({ person, onClose }: { person: { id: string; name: str
   // rest of; keeping the draft links the new note to it, as Today's dock does. Nothing once it is answered.
   const continues = person && flow.focusRequest?.personId === person.id ? flow.focusRequest.continues ?? null : null;
   return (
-    <Sheet visible={!!person} onDismiss={onClose} label={person ? `Tell Kinship about ${person.name}` : "Tell Kinship"}>
-      <Heading>{person ? `About ${person.name}` : ""}</Heading>
+    <Sheet
+      visible={!!person}
+      onDismiss={onClose}
+      label={person ? `Tell Kinship about ${person.name}` : "Tell Kinship"}
+      bleed={(
+        <View style={{ height: 84, overflow: "hidden" }}>
+          <DawnWash kind="warm" height={150} />
+          <Botanical art="leaf" width={130} top={-36} right={-56} rotate={24} dim />
+        </View>
+      )}
+    >
+      <Title>{person ? `About ${person.name}` : ""}</Title>
       <Small style={{ marginTop: space.xs, marginBottom: space.l }}>
         {opened.current?.hadDraft && draft.trim() ? TELL_SHEET_COPY.draft : TELL_SHEET_COPY.body}
       </Small>

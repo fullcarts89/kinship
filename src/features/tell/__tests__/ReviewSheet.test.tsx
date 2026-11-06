@@ -134,6 +134,40 @@ it("'Which Sam?' → Someone else never offers 'Add'; 'Who is this about?' → S
   expect(texts(owner.tree)).toContain("Add Josh");
 });
 
+it("a sensitive line: 'Which Sam?' is answered, then 'Remember this?'; nothing is sent until the yes", () => {
+  const surgery: HeldItem = { ...sam, statement: "Sam's dad has surgery next Friday", sensitivity: "health", flags: ["person_ambiguous", "sensitive"],
+    spans: [{ start: 0, end: 32, quote: "Sam's dad has surgery next Friday" }] };
+  const { tree, props } = render("Sam's dad has surgery next Friday.", row({ tier: "clarify", held: [surgery] }), []);
+  expect(texts(tree)).toContain("Which Sam do you mean?");
+  press(tree, "Sam (neighbor)");
+  expect(props.onAnswer).not.toHaveBeenCalled();
+  expect(texts(tree)).toContain("Remember this?");
+  expect(texts(tree)).toContain("This sounds personal, so I keep it only if you say so.");
+  press(tree, "Remember");
+  expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, person_id: "lee", accept: true }]);
+});
+
+it("a sensitive line: 'When is it?' is answered, then 'Remember this?'; nothing is sent until the yes", () => {
+  const surgery: HeldItem = { ...sam, person_id: "lee", kind: "event", statement: "Sam has surgery", sensitivity: "health", detail: { event_type: "surgery", date_precision: "unknown" },
+    flags: ["date_unresolved_sensitive", "sensitive"], spans: [{ start: 0, end: 15, quote: "Sam has surgery" }] };
+  const { tree, props } = render("Sam has surgery.", row({ tier: "clarify", held: [surgery] }), []);
+  expect(texts(tree)).toContain("When is it?");
+  press(tree, "No date");
+  expect(props.onAnswer).not.toHaveBeenCalled();
+  expect(texts(tree)).toContain("This sounds personal, so I keep it only if you say so.");
+  press(tree, "Remember");
+  expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, date: null, accept: true }]);
+});
+
+it("a sensitive line declined at 'Which Sam?' is declined: 'Remember this?' isn't asked as well", () => {
+  const surgery: HeldItem = { ...sam, statement: "Sam's dad has surgery next Friday", sensitivity: "health", flags: ["person_ambiguous", "sensitive"],
+    spans: [{ start: 0, end: 32, quote: "Sam's dad has surgery next Friday" }] };
+  const { tree, props } = render("Sam's dad has surgery next Friday.", row({ tier: "clarify", held: [surgery] }), []);
+  press(tree, "Don't keep this");
+  expect(props.onAnswer).toHaveBeenCalledWith([{ index: 0, skip: true }]);
+  expect(texts(tree)).not.toContain("Remember this?");
+});
+
 it("a name asked on its own beside a line already kept says 'Not sure', never 'Don't keep this' (N15)", () => {
   const twin: HeldItem = { ...sam, statement: "Ben went climbing with Sam", spans: [{ start: 0, end: 26, quote: "Ben went climbing with Sam" }], twin_person_id: "ben", mention: "Sam" };
   const { props } = render("Ben went climbing with Sam.", row({ tier: "clarify", held: [twin] }), []);

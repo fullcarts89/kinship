@@ -101,21 +101,28 @@ function dayField(d: Record<string, unknown>, key: string): string | null {
   return typeof v === "string" && /^\d{4}-\d{2}-\d{2}/u.test(v) ? v.slice(0, 10) : null;
 }
 
-/** The line's day, and whether it is only a season, a month, a week or a year. */
-function timeOf(m: MemoryItem): { day: string | null; end: string | null; coarse: boolean } {
+/** The line's day, and whether it is only a season, a month, a week or a year (shared with suggestions.ts). */
+export function timeOf(m: MemoryItem): { day: string | null; end: string | null; coarse: boolean } {
   const d = detailOf(m);
   const day = dayField(d, "date") ?? dayField(d, "due_date");
   const precision = typeof d.date_precision === "string" ? d.date_precision : null;
   return { day, end: dayField(d, "date_end"), coarse: !!day && !!precision && COARSE.has(precision) };
 }
 
-function toldDay(m: MemoryItem): string | null {
-  const c = String(m.created_at ?? "").slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/u.test(c) ? c : null;
+/**
+ * The day it was told, in the user's own calendar (as `today` is): a line told on a Pacific evening is
+ * tomorrow in UTC, and read in UTC it would not be "lately" until midnight UTC.
+ */
+export function toldDay(m: MemoryItem): string | null {
+  const raw = String(m.created_at ?? "");
+  const t = Date.parse(raw);
+  if (Number.isNaN(t)) return /^\d{4}-\d{2}-\d{2}$/u.test(raw.slice(0, 10)) ? raw.slice(0, 10) : null;
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Whether the line is still something to talk about today (its own time, in its own precision). */
-function current(m: MemoryItem, today: string): boolean {
+/** Whether the line is still something to talk about today (its own time, in its own precision; shared with suggestions.ts). */
+export function current(m: MemoryItem, today: string): boolean {
   const R = MENTION_RULES;
   const { day, end, coarse } = timeOf(m);
   const told = toldDay(m);

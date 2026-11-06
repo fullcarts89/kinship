@@ -71,6 +71,9 @@ Priority order: (1) help the user remember what matters; (2) surface it when use
 
 ## 4. The Quiet Herbarium (approved design principles)
 
+> **Superseded as the visual system by FD-30b (founder directive, 30 Oct 2026): Electric Garden, Direction A of the creative reset (PR #57 Stage 1), is the look to build. The token table, the type scale, "no gradients" and "typographic before graphic" below are history; the tokens are now in `src/design/tokens.ts` (Electric Garden) and every surface's new treatment is recorded in `approved-design-coverage.md` under "Electric Garden (FD-30b)". The experience rules in this section stand unchanged: a source on every statement, one primary action, hairline rows where boxes add nothing, quiet sensitive states, nothing that counts or scores, sprigs identity-only, the "remove the logo" test. The lime mark takes the ochre's two jobs.**
+
+
 > A well-kept herbarium in a quiet room: paper, ink, and one pressed sprig for each person you love. It knows a great deal and shows almost none of it. Most days the whole app is one sentence and one door out of it.
 
 - **Typographic before graphic.** People are spoken about in a warm serif (Newsreader); the machine runs in a plain sans (Instrument Sans). Italic serif only for places and seasons.
@@ -120,7 +123,7 @@ Not destinations: Garden, Landscape, Activity, Garden Walk, Seasons, Reach Out, 
 |---|---|---|
 | **Sprigs are identity-only in V1** (D8) | Design Direction "a leaf for each shared moment, a bud for coming up, a flower for a milestone" | History never makes a sprig larger, taller, fuller, brighter, healthier or more mature. `sprig_marks` stays OFF. The CI area test stays permanently |
 | **Garden / Landscape are not destinations** (D7, plan §34) | Board 3's List/Garden toggle and season plate | Future hypotheses only, behind a design checkpoint |
-| **People is search-first and alphabetical** (T4) | "Sorted by recent relevance" | No importance, neglect, health or closeness ordering |
+| **People is search-first and alphabetical** (T4) | "Sorted by recent relevance" | No importance, neglect, health or closeness ordering. **Presentation updated (DN-2, founder directive 2 Nov 2026, behind `notebook_deck`):** one search over names and the user's words, a "Coming up for them" band ordered by date only, then everyone as equal tiles A–Z. Still alphabetical; still no ranking, groups, pins or counts |
 | **Trust-required memory needs a yes** (§8, D1 trust checks) | "Auto-dismiss if untouched" for everything | Sensitive or genuinely ambiguous readings are not memory until the user confirms. Friction is never reduced by guessing identity, sensitive meaning, ambiguous dates or protected edits |
 | **Account before first Tell** (D1) | "Account created only when sync is chosen" | Sign in with Apple primary; Google/email secondary; no anonymous path |
 | **Consent is explicit, server-side, once** (D2, D3) | — | The approved D2 sentence appears in the consent step and in Settings |
