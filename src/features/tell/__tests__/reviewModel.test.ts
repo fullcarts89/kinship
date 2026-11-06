@@ -2,9 +2,9 @@
 // consistent Kept card for whatever was kept, a sheet only when something
 // needs the user ("One thing to check", and why), and one question at a time
 // whose choices are the user's own people. No system vocabulary, ever.
-import { answersFor, buildReview, COPY, type ReviewInput, type ReviewView } from "@/features/tell/reviewModel";
+import { answersFor, buildReview, COPY, openQuestions, type ReviewInput, type ReviewView } from "@/features/tell/reviewModel";
 import { dayLabel, provenanceLine, whenLabel } from "@/features/memory/format";
-import type { HeldItem } from "@/store/gateway";
+import type { HeldAnswer, HeldItem } from "@/store/gateway";
 import type { MemoryItem, Person } from "@/store/repositories";
 import type { Reading, UnderstandingRow } from "@/store/understanding";
 
@@ -110,16 +110,74 @@ it("Sarah or her sister: the relation offered is only ever the user's own word",
   expect(vague.questions[0].choices.map((c) => c.label)).toEqual(["Yes, Sarah"]);
 });
 
-it("someone new, with no real date for a health event: two questions, one answer per item", () => {
+it("someone new, with no real date for a health event: three questions, one answer per item", () => {
   const h = held({ kind: "event", new_person_name: "Maya", statement: "Maya has surgery", sensitivity: "health",
     flags: ["new_person", "date_unresolved_sensitive", "sensitive"], spans: [{ start: 0, end: 16, quote: "Maya has surgery" }] });
   const v = view("Maya has surgery sometime soon.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }));
-  expect(v.questions.map((q) => [q.type, q.prompt])).toEqual([["new_person", "Who is Maya?"], ["date", "When is it?"]]);
+  expect(v.questions.map((q) => [q.type, q.prompt])).toEqual([["new_person", "Who is Maya?"], ["date", "When is it?"], ["keep", "Remember this?"]]);
   expect(v.questions[0].choices.map((c) => c.label)).toEqual(["Choose from Contacts", "Add Maya", "Someone already here"]);
   expect(v.questions[1].choices.map((c) => c.label)).toEqual(["Pick a date", "No date"]);
   expect(answersFor(v.questions, { q0: { new_person: true } })).toBeNull();
-  expect(answersFor(v.questions, { q0: { new_person: true }, q1: { date: null } })).toEqual([{ index: 0, new_person: true, date: null }]);
-  expect(answersFor(v.questions, { q0: "skip", q1: { date: "2026-10-15" } })).toEqual([{ index: 0, skip: true }]);
+  expect(answersFor(v.questions, { q0: { new_person: true }, q1: { date: null } })).toBeNull();
+  expect(answersFor(v.questions, { q0: { new_person: true }, q1: { date: null }, q2: {} })).toEqual([{ index: 0, new_person: true, date: null, accept: true }]);
+  expect(answersFor(v.questions, { q0: "skip", q1: { date: "2026-10-15" }, q2: {} })).toEqual([{ index: 0, skip: true }]);
+});
+
+describe("a sensitive line: no other question is the yes (founder, 5 Nov 2026)", () => {
+  const anna = person("anna", "Anna");
+  const known = { person_id: "anna", statement: "Anna's sister has surgery", sensitivity: "health" as const, spans: [{ start: 0, end: 25, quote: "Anna's sister has surgery" }] };
+  const earlier = [{ id: "m-old", statement: "Anna's sister is waiting on results" }];
+  const cases: [string, Partial<HeldItem>, string, Omit<HeldAnswer, "index">][] = [
+    ["date", { ...known, kind: "event", flags: ["date_unresolved_sensitive", "sensitive"] }, "Remember this about Anna?", { date: null }],
+    ["about_whom", { ...known, kind: "event", flags: ["subject_check", "sensitive"] }, "Remember this?", { subject: "person" }],
+    ["owner", { ...known, kind: "promise", flags: ["promise_owner", "sensitive"] }, "Remember this about Anna?", { owner: "user" }],
+    ["replace", { ...known, kind: "fact", detail: { _replaces: earlier }, flags: ["update_check", "sensitive"] }, "Remember this about Anna?", { replaces: null }],
+    ["residence", { ...known, kind: "fact", flags: ["residence_conflict", "sensitive"], still_in: { target_id: "alameda", words: "Alameda", stay: "facet" } }, "Remember this about Anna?", { moved: false }],
+  ];
+  const sheet = (h: HeldItem) => view("Anna's sister has surgery.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], [anna, BEN]);
+
+  it.each(cases)("%s, then 'Remember this?'; nothing is answered until the yes", (type, over, prompt, answer) => {
+    const v = sheet(held(over));
+    expect(v.questions.map((q) => [q.type, q.type === "keep" ? q.prompt : null])).toEqual([[type, null], ["keep", prompt]]);
+    expect(v.questions[1].reason).toBe("This sounds personal, so I keep it only if you say so.");
+    expect(answersFor(v.questions, { q0: answer })).toBeNull();
+    expect(answersFor(v.questions, { q0: answer, q1: {} })).toEqual([{ index: 0, ...answer, accept: true }]);
+    expect(answersFor(v.questions, { q0: "skip", q1: {} })).toEqual([{ index: 0, skip: true }]);
+  });
+
+  it.each(cases)("%s declined: 'Remember this?' isn't asked as well, whichever came first", (_type, over) => {
+    const { questions } = sheet(held(over));
+    expect(openQuestions(questions, { q0: "skip" })).toEqual([]);
+    expect(answersFor(questions, { q0: "skip" })).toEqual([{ index: 0, skip: true }]);
+    expect(openQuestions(questions, { q1: "skip" })).toEqual([]);
+    expect(answersFor(questions, { q1: "skip" })).toEqual([{ index: 0, skip: true }]);
+  });
+
+  it("two lines: declining one leaves the other's questions, and only its own go", () => {
+    const one = held({ ...cases[0][1], statement: "Anna has surgery", spans: [{ start: 0, end: 16, quote: "Anna has surgery" }] });
+    const two = held({ ...cases[0][1], statement: "Anna's mom is visiting", spans: [{ start: 20, end: 42, quote: "Anna's mom is visiting" }] });
+    const { questions } = view("Anna has surgery and Anna's mom is visiting.", row("review", { tier: "clarify", held: [one, two], settled: false, review_created_at: "t" }), [], [anna, BEN]);
+    expect(questions.map((q) => [q.type, q.items])).toEqual([["date", [0]], ["date", [1]], ["keep", [0]], ["keep", [1]]]);
+    const declined = { q1: "skip" as const };
+    expect(openQuestions(questions, declined).map((q) => q.key)).toEqual(["q0", "q2"]);
+    expect(answersFor(questions, declined)).toBeNull();
+    expect(answersFor(questions, { ...declined, q0: { date: null }, q2: {} })).toEqual([{ index: 0, date: null, accept: true }, { index: 1, skip: true }]);
+  });
+
+  it("'Not sure' about one name in a line doesn't decline the line", () => {
+    const sams = [person("s1", "Sam Lee"), person("s2", "Sam Diaz")];
+    const h = held({ ...known, kind: "fact", flags: ["sensitive", "participant_ambiguous"], open_names: [{ text: "Sam", candidate_ids: ["s1", "s2"] }] });
+    const { questions } = view("Anna's sister has surgery.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], [anna, ...sams]);
+    expect(questions.map((q) => q.type)).toEqual(["which_person", "keep"]);
+    expect(openQuestions(questions, { q0: "skip" }).map((q) => q.type)).toEqual(["keep"]);
+    expect(answersFor(questions, { q0: "skip" })).toBeNull();
+    expect(answersFor(questions, { q0: "skip", q1: {} })).toEqual([{ index: 0, accept: true }]);
+  });
+
+  it.each(cases)("%s on a line that isn't waiting for a yes is still the one question", (type, over) => {
+    const v = sheet(held({ ...over, sensitivity: "none", flags: over.flags!.filter((f) => f !== "sensitive") }));
+    expect(v.questions.map((q) => q.type)).toEqual([type]);
+  });
 });
 
 it("a light confirmation is the same Kept card (one contract); corrections show as the user's", () => {
@@ -214,6 +272,23 @@ it("a sensitive reading waits for the user's yes: one question, their own words,
   expect(answersFor(v.questions, {})).toBeNull();
   expect(answersFor(v.questions, { q0: {} })).toEqual([{ index: 0, accept: true }]);
   expect(answersFor(v.questions, { q0: "skip" })).toEqual([{ index: 0, skip: true }]);
+});
+
+it("a sensitive line and which Sam: who first, then the user's yes, never the name of a guess", () => {
+  const h = held({ kind: "fact", person_id: "lee", statement: "Sam's dad has surgery next Friday", sensitivity: "health",
+    flags: ["person_ambiguous", "sensitive"], spans: [{ start: 0, end: 32, quote: "Sam's dad has surgery next Friday" }] });
+  const v = view("Sam's dad has surgery next Friday.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }));
+  expect(v.questions.map((q) => [q.type, q.prompt, q.skip.label])).toEqual([
+    ["which_person", "Which Sam do you mean?", "Don't keep this"], ["keep", "Remember this?", "Don't keep this"],
+  ]);
+  expect(v.questions[1].reason).toBe("This sounds personal, so I keep it only if you say so.");
+  expect(v.questions[1].detail).toBeNull();
+  expect(answersFor(v.questions, { q0: { person_id: "lee" } })).toBeNull();
+  expect(answersFor(v.questions, { q0: { person_id: "lee" }, q1: {} })).toEqual([{ index: 0, person_id: "lee", accept: true }]);
+  expect(answersFor(v.questions, { q0: { person_id: "lee" }, q1: "skip" })).toEqual([{ index: 0, skip: true }]);
+  // A line that isn't waiting for a yes is still one question.
+  const plain = view("Sam is redoing his kitchen.", row("review", { tier: "clarify", held: [held({ flags: ["person_ambiguous"] })], settled: false, review_created_at: "t" }));
+  expect(plain.questions.map((q) => q.type)).toEqual(["which_person"]);
 });
 
 it("an ambiguous day: Remember, or pick the right day", () => {

@@ -286,7 +286,9 @@ export class FakeGateway implements GatewayTransport {
       const flags = (item.flags as string[]) ?? [];
       const asks = !item.person_id || flags.some((f) => ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple",
         "subject_check", "date_unresolved_sensitive"].includes(f));
-      if (!asks && a.accept !== true) return refuse(400, "invalid_answer", "bad_answer");
+      // As the gateway: no other question is the yes to a line waiting for one.
+      const waiting = needsAcceptance(item as unknown as { sensitivity: string; flags: string[] });
+      if ((!asks || waiting) && a.accept !== true) return refuse(400, "invalid_answer", "bad_answer");
       let personId = (item.person_id as string | null) ?? null;
       if (a.person_id) {
         const p = this.server.table("people").get(a.person_id);

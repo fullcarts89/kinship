@@ -464,7 +464,7 @@ describe("a light confirmation", () => {
 });
 
 describe("sensitive notes are handled conservatively", () => {
-  it("a health event without a real date is held until the user says when, or that there's no date", async () => {
+  it("a health event without a real date is held until the user says when, or that there's no date, and says yes", async () => {
     const { server, gateway, d } = await world();
     const grandma = await d.repos.people.add({ display_name: "Grandma" });
     await d.engine.sync();
@@ -478,7 +478,7 @@ describe("sensitive notes are handled conservatively", () => {
     const captureId = await tell(d, note);
     await d.understanding.run();
     expect(serverItems(server)).toEqual([]);
-    await d.understanding.answer(captureId, [{ index: 0, date: null }]);
+    await d.understanding.answer(captureId, [{ index: 0, date: null, accept: true }]);
     await d.understanding.run();
     const [surgery] = await d.repos.memory.forPerson(grandma.id);
     expect(surgery).toMatchObject({ sensitivity: "health" });
