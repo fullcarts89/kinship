@@ -20,6 +20,7 @@ import { ChevronRight, MessageCircle, PenLine, Phone, Search, Sprout } from "luc
 import { font, maxScale, motion, notebook, notebookShadow, press, size, space, TOUCH } from "@/design/tokens";
 import { Pressable } from "@/ui/Pressable";
 import { Emphasis, isLargeText, useLineFocus, usePalette, useReduceMotion } from "@/ui";
+import { PAUSE_COPY } from "@/store/peopleStates";
 import { Face, flowers, initialOf, LensTabs, Lbl, NButton, NSource, NText, Raised, RuledPaper, useNotebookPalette, personLook } from "@/ui/notebook";
 import type { PortraitLineData, TrailLineData } from "@/features/person/PortraitView";
 import { IN_TOUCH, PHOTO_ACTION } from "@/features/person/PortraitView";
@@ -52,6 +53,7 @@ export interface PersonNotebookProps {
   loading?: boolean;
   short?: string | null;
   label: string | null;
+  pronouns?: string | null;
   /** The note behind their relation, when one is known: the relation opens it. */
   labelNoteId?: string | null;
   remembered: boolean;
@@ -198,11 +200,14 @@ function useNestedFocus(focusId: string | null | undefined, scroll: React.RefObj
 
 type Focus = ReturnType<typeof useNestedFocus>;
 
+/** One section of the page: its own card, with a title that reads as one (founder, 5 Nov 2026). */
 function Section({ title, dot, group, focus, children }: { title: string; dot?: string; group: string; focus: Focus; children: React.ReactNode }) {
   return (
-    <View onLayout={(e) => focus.onGroup(group, e.nativeEvent.layout.y)}>
-      <Lbl dot={dot} style={{ marginTop: 24, marginBottom: 10 }}>{title}</Lbl>
-      {children}
+    <View onLayout={(e) => focus.onGroup(group, e.nativeEvent.layout.y)} style={{ marginTop: space.m }}>
+      <Raised large>
+        <Lbl section dot={dot} style={{ marginBottom: space.s }}>{title}</Lbl>
+        {children}
+      </Raised>
     </View>
   );
 }
@@ -219,7 +224,7 @@ function ComingRow({ l, fact, first, onLine, onSource }: { l: PortraitLineData; 
   const text = l.itemId === "birthday" ? NOTEBOOK_COPY.birthday(first) : l.statement;
   const body = (
     <View style={{ flexDirection: isLargeText() ? "column" : "row", gap: 14, paddingVertical: 10, alignItems: "flex-start" }}>
-      <View style={{ width: 54, borderRadius: 14, backgroundColor: n.card, paddingTop: space.s, paddingBottom: 7, alignItems: "center" }}>
+      <View style={{ width: 54, borderRadius: 14, backgroundColor: p.paper, paddingTop: space.s, paddingBottom: 7, alignItems: "center" }}>
         <NText v="dayCap" tone="quiet">{block.weekday}</NText>
         <Text maxFontSizeMultiplier={maxScale.display} style={{ fontFamily: font.poster, fontSize: 22, lineHeight: 22, color: p.ink, marginTop: space.xs, textAlign: "center" }}>{block.date}</Text>
       </View>
@@ -437,7 +442,7 @@ export function PersonNotebookView(props: PersonNotebookProps) {
   const sparse = props.total === 0 && !(props.trail?.length);
   const stacked = isLargeText();
   const grow = stacked ? undefined : 1;
-  const state = props.stateLine ?? (props.remembered ? "Remembered" : null);
+  const state = props.stateLine ?? (props.remembered ? PAUSE_COPY.line : null);
 
   const loop = props.afterGesture ? (
     <Panel personId={props.personId} name={props.name}>
@@ -489,10 +494,11 @@ export function PersonNotebookView(props: PersonNotebookProps) {
               </Pressable>
             ) : <NText v="quote18" tone="ink2" style={{ marginTop: 10 }}>{props.label}</NText>
           ) : null}
-          {/* Edit (name, Pause / Hold / Resume, Merge, Remove) and the user's own photo: quiet, under the relation. */}
+          {props.pronouns ? <NText v="small" tone="ink2" style={{ marginTop: space.xs }}>{props.pronouns}</NText> : null}
+          {/* Edit (name, pronouns, Pause reminders, Merge, Remove) and the user's own photo: quiet, under the relation. */}
           {props.onRename || props.onPhoto ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.l, marginTop: space.xs }}>
-              {props.onRename ? <QuietControl label={NOTEBOOK_COPY.edit} hint={`Change ${first}'s name, pause them, merge or remove them from People`} onPress={props.onRename} /> : null}
+              {props.onRename ? <QuietControl label={NOTEBOOK_COPY.edit} hint={`Change ${first}'s name or pronouns, pause reminders, merge or remove from People`} onPress={props.onRename} /> : null}
               {props.onPhoto ? <QuietControl label={props.photoUri ? PHOTO_ACTION.change : PHOTO_ACTION.add} hint={`A photo of ${first} from your library. It stays on this phone`} onPress={props.onPhoto} /> : null}
             </View>
           ) : null}
@@ -568,13 +574,13 @@ export function PersonNotebookView(props: PersonNotebookProps) {
             </View>
             <LensMotion lens={props.lens} onLayoutY={focus.onInner}>
               {props.lens === "now" ? (
-                <View style={{ paddingHorizontal: 24, paddingTop: 6 }}>
+                <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
                   <NowLens {...props} first={first} focus={focus} />
                 </View>
               ) : props.lens === "pages" ? (
                 <PagesLens {...props} first={first} focus={focus} now={now} />
               ) : (
-                <View style={{ paddingHorizontal: 24, paddingTop: 6 }}>{props.knows?.({ onLayoutGroup: focus.onGroup, onLayoutLine: focus.onLine })}</View>
+                <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>{props.knows?.({ onLayoutGroup: focus.onGroup, onLayoutLine: focus.onLine })}</View>
               )}
             </LensMotion>
           </View>

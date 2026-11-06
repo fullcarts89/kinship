@@ -173,6 +173,14 @@ export function canTap(r: TestRenderer.ReactTestRenderer, label: string): boolea
   return !!pressable(r, label);
 }
 
+/** Turns a switch by its label. */
+export async function toggle(r: TestRenderer.ReactTestRenderer, label: string, on: boolean) {
+  const target = r.root.findAll((n) => n.props.accessibilityLabel === label && typeof n.props.onValueChange === "function")[0];
+  if (!target) throw new Error(`no switch called "${label}". On screen: ${JSON.stringify(texts(r))}`);
+  await act(async () => { await target.props.onValueChange(on); });
+  await settle();
+}
+
 /** Types into a field by its label. */
 export async function type(r: TestRenderer.ReactTestRenderer, label: RegExp, text: string) {
   const field = r.root.findAll((n) => n.type === TextInput && label.test(String(n.props.accessibilityLabel ?? n.props.placeholder ?? "")))[0];

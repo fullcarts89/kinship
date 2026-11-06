@@ -44,6 +44,7 @@ export function Sheet({
   label,
   footer,
   bleed,
+  header,
 }: {
   visible: boolean;
   onDismiss: () => void;
@@ -57,6 +58,8 @@ export function Sheet({
    * Garden: a wash, a botanical cut by the edge, a person's presence). Scrolls with the content.
    */
   bleed?: React.ReactNode;
+  /** Pinned above the scrolling content in place of the bar, for a sheet with its own way out (an X). */
+  header?: React.ReactNode;
 }) {
   const p = usePalette();
   const insets = useSafeAreaInsets();
@@ -184,16 +187,20 @@ export function Sheet({
             overflow: bleed ? "hidden" : undefined,
           }]}
         >
-          <View style={{ paddingTop: space.m, paddingBottom: bleed ? 0 : space.xl, zIndex: 2 }}>
-            <View
-              accessibilityElementsHidden
-              importantForAccessibility="no"
-              style={{
-                alignSelf: "center", width: size.grabber.width, height: size.grabber.height, borderRadius: radius.grabber,
-                backgroundColor: p.rule,
-              }}
-            />
-          </View>
+          {header ? (
+            <View style={{ paddingTop: space.l, paddingBottom: space.s, paddingHorizontal: GUTTER }}>{header}</View>
+          ) : (
+            <View style={{ paddingTop: space.m, paddingBottom: bleed ? 0 : space.xl, zIndex: 2 }}>
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+                style={{
+                  alignSelf: "center", width: size.grabber.width, height: size.grabber.height, borderRadius: radius.grabber,
+                  backgroundColor: p.rule,
+                }}
+              />
+            </View>
+          )}
           <ScrollView
             ref={scroll}
             // At the top, a downward drag is the sheet's, never an overscroll.

@@ -5,7 +5,7 @@
 import { randomUUID } from "crypto";
 import { buildToday, type TodayInput } from "@/features/today/todayModel";
 import { mergeCandidates, mergeNames, mergePreview, mergedAwayIds, nameForms, sameNameMatch, undoableMerges, type MergeRow } from "@/store/peopleMerge";
-import { HOLD_COPY, isHeld, isInPeople, isProactiveEligible, stateLine } from "@/store/peopleStates";
+import { PAUSE_COPY, isHeld, isInPeople, isProactiveEligible, stateLine } from "@/store/peopleStates";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
 import { SyncEngine } from "@/store/syncEngine";
@@ -42,11 +42,31 @@ describe("person states (D13)", () => {
     expect(isInPeople(person("ben", { state: "paused" }))).toBe(true);
     expect(isInPeople(person("ben", { state: "remembered" }))).toBe(true);
     expect(isInPeople(person("ben", { state: "archived" }))).toBe(false);
-    expect(stateLine(person("ben", { state: "paused" }))).toBe("Paused");
-    expect(stateLine(person("ben", { state: "remembered" }))).toBe("Remembered");
+    expect(stateLine(person("ben", { state: "paused" }))).toBe("Reminders paused");
+    expect(stateLine(person("ben", { state: "remembered" }))).toBe("Reminders paused");
     expect(stateLine(person("ben"))).toBeNull();
-    expect(HOLD_COPY.remembered.explain("Chris")).toBe("Kinship keeps Chris's memories and never brings them back.");
-    expect(HOLD_COPY.paused.explain("Chris")).toBe("Kinship keeps what it knows about Chris and brings nothing back for now.");
+    expect(PAUSE_COPY.action).toBe("Pause reminders");
+    expect(PAUSE_COPY.explain("Chris")).toBe("Kinship keeps everything about Chris, but won't bring Chris up on Today or mention a birthday until you turn this off.");
+  });
+
+  it("pronouns are the user's words: trimmed, cleared when empty, synced, and unchanged writes nothing", async () => {
+    const { server, repos, engine, store } = await setup();
+    const chris = await repos.people.add({ display_name: "Chris" });
+    await engine.sync();
+    await repos.people.setPronouns(chris.id, "  she/her ");
+    await engine.sync();
+    expect(server.table("people").get(chris.id)?.pronouns).toBe("she/her");
+    await repos.people.setPronouns(chris.id, "she/her");
+    expect(await store.pendingOps()).toHaveLength(0);
+    await repos.people.setPronouns(chris.id, "x".repeat(60));
+    expect((await repos.people.get(chris.id))?.pronouns).toHaveLength(40);
+    await repos.people.setPronouns(chris.id, "");
+    await engine.sync();
+    expect(server.table("people").get(chris.id)?.pronouns).toBeNull();
+    // Another phone sets them: this one sees it after a pull.
+    server.serverWrite("people", chris.id, A, { pronouns: "they/them" });
+    await engine.sync();
+    expect((await repos.people.get(chris.id))?.pronouns).toBe("they/them");
   });
 
   it("the repository holds and resumes, syncs the state both ways, and never holds someone removed", async () => {

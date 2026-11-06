@@ -1,22 +1,23 @@
 // Person states (D13, PER-06): one answer, for everything that speaks on its
 // own, to "may Kinship bring this person up?" Today's moments and Coming up
 // lines, birthdays, notifications and the server's candidates all ask here,
-// so a person the user paused or holds as remembered is never surfaced by
-// any of them. Pure; no store, no time.
+// so a person whose reminders are paused is never surfaced by any of them.
+// Pure; no store, no time.
 //
 //   active       in People; Kinship may bring them back when it matters
 //   paused       in People; Kinship keeps what it knows and brings nothing
-//                back for now ("not now", estrangement). Reversible: Resume
-//   remembered   in People; Kinship keeps their memories and never brings
-//                them back (grief, an ex). Reversible, asked once more
+//                back until the user turns reminders on again
+//   remembered   the same, and no longer offered (founder, 5 Nov 2026: one
+//                "Pause reminders" control replaced Pause and Hold as
+//                remembered). An older row can still hold it, and reads the same
 //   archived     removed from People (founder I3); restorable from Settings
 //
-// Only the user sets paused and remembered, from the person's page. Nothing
-// here, in extraction or on the server ever sets them (contract §7.10).
+// Only the user pauses reminders, from the person's page. Nothing here, in
+// extraction or on the server ever sets them (contract §7.10).
 
 import type { PersonState } from "./repositories";
 
-/** The two states the user sets to hold someone (D13). */
+/** The states that hold someone (D13); the user sets only `paused` now. */
 export type HoldState = Extract<PersonState, "paused" | "remembered">;
 
 /** What the helpers read of a person: the state, and whether the row is deleted. */
@@ -30,7 +31,7 @@ export function isProactiveEligible(person: StateLike | null | undefined): boole
   return !!person && person.state === "active" && !person.deleted_at;
 }
 
-/** Someone the user is holding: paused or remembered (both still in People). */
+/** Someone whose reminders are paused (still in People). */
 export function isHeld<T extends StateLike>(person: T | null | undefined): person is T & { state: HoldState } {
   return !!person && !person.deleted_at && (person.state === "paused" || person.state === "remembered");
 }
@@ -41,35 +42,17 @@ export function isInPeople(person: StateLike | null | undefined): boolean {
 }
 
 /**
- * What each control says, in Kinship's words. `name` is how Kinship says the
+ * What the control says, in Kinship's words. `name` is how Kinship says the
  * person's name (names.ts shortName). No counts, no scores: one line.
  */
-export const HOLD_COPY = {
-  paused: {
-    action: "Pause",
-    line: "Paused",
-    explain: (name: string) => `Kinship keeps what it knows about ${name} and brings nothing back for now.`,
-    confirmTitle: (name: string) => `Pause ${name}?`,
-    confirmBody: (name: string) => `${name} stays in People. Nothing about ${name} will come up on Today, and no birthday will be mentioned, until you resume.`,
-    confirm: "Pause",
-    resume: "Resume",
-  },
-  remembered: {
-    action: "Hold as remembered",
-    line: "Remembered",
-    explain: (name: string) => `Kinship keeps ${name}'s memories and never brings them back.`,
-    confirmTitle: (name: string) => `Hold ${name} as remembered?`,
-    confirmBody: (name: string) => `Everything you've told Kinship about ${name} stays, and ${name}'s page stays. Kinship won't bring ${name} up on Today or mention a birthday. You can change this later.`,
-    confirm: "Hold as remembered",
-    resume: "Resume",
-    // Leaving the state is asked once more (grief deserves a second thought).
-    resumeTitle: (name: string) => `Resume ${name}?`,
-    resumeBody: (name: string) => `Kinship would bring ${name} up again when there's a reason to. ${name}'s memories don't change either way.`,
-  },
-  cancel: "Cancel",
+export const PAUSE_COPY = {
+  action: "Pause reminders",
+  line: "Reminders paused",
+  explain: (name: string) => `Kinship keeps everything about ${name}, but won't bring ${name} up on Today or mention a birthday until you turn this off.`,
+  resume: "Resume",
 } as const;
 
-/** The quiet line on a held person's page ("Paused", "Remembered"), or null. */
+/** The quiet line on a held person's page, or null. */
 export function stateLine(person: StateLike | null | undefined): string | null {
-  return isHeld(person) ? HOLD_COPY[person.state].line : null;
+  return isHeld(person) ? PAUSE_COPY.line : null;
 }
