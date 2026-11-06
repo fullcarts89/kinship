@@ -289,13 +289,22 @@ describe("notebook journeys", () => {
         answered.push("which Sam");
         continue;
       }
+      // The model sometimes also asks who a "she" or "her" is: Sam for the promotion and the Thai place, else Priya.
+      const whoIs = texts(a.r).findIndex((t) => /^Who is /u.test(t));
+      if (whoIs >= 0) {
+        const about = texts(a.r).slice(whoIs, whoIs + 2).join(" ");
+        await tap(a.r, /Thai|promotion|celebrate/u.test(about) ? "Sam Delgado" : "Priya");
+        answered.push("who is");
+        continue;
+      }
       if (canTap(a.r, "Keep it")) {
         await tap(a.r, "Keep it");
         answered.push("keep it");
         continue;
       }
       const s = texts(a.r);
-      if (s.includes("Here's what I'll remember.") || s.some((t) => /^Kept for/u.test(t))) break;
+      // The review can be up with a question still open: nothing of the note's held lines is saved until the last answer.
+      if (!s.some((t) => /· .*question/u.test(t)) && (s.includes("Here's what I'll remember.") || s.some((t) => /^Kept for/u.test(t)))) break;
       await harness.session!.understanding.run().catch(() => undefined);
       await a.acct.engine.sync().catch(() => undefined);
       await settle(3000);
