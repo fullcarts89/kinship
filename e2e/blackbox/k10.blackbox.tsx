@@ -36,11 +36,14 @@ it("K10: '…yesterday' then '…last Friday': what is remembered, and on which 
   await show(r, { screen: "person", id: ben.id });
   const page = texts(r).filter((t) => /photos|By |Waiting|Oct/u.test(t));
   console.log(`K10\n  first review: ${JSON.stringify(first)}\n  second review: ${JSON.stringify(second)}\n  stored: ${JSON.stringify(rows)}\n  Ben's page: ${JSON.stringify(page)}`);
-  // What the review promised for "last Friday" is what's kept: Fri 9 Oct, its own line, never merged into Mon 12.
-  expect(second).toContain("Ben · By Fri, Oct 9");
+  // What the review promised for "last Friday" is what's kept: that Friday, its own line, never merged into yesterday.
+  const friday = new Date(Date.now() - (((new Date().getDay() + 2) % 7 || 7) * 86_400_000));
+  const fridayDay = `${friday.getFullYear()}-${String(friday.getMonth() + 1).padStart(2, "0")}-${String(friday.getDate()).padStart(2, "0")}`;
+  const fridayLabel = friday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  expect(second).toContain(`Ben · By Fri, ${fridayLabel}`);
   const live = rows.filter((x) => x[1] === "active" && !x[2]);
   // "Yesterday" is the day before the run (the test was written on 13 Oct, when it was Mon 12 Oct).
   const y = new Date(Date.now() - 86_400_000);
   const yesterday = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, "0")}-${String(y.getDate()).padStart(2, "0")}`;
-  expect(live.map((x) => [x[3], x[4]]).sort()).toEqual([["2026-10-09", "last Friday"], [yesterday, "yesterday"]].sort());
+  expect(live.map((x) => [x[3], x[4]]).sort()).toEqual([[fridayDay, "last Friday"], [yesterday, "yesterday"]].sort());
 });

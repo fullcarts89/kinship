@@ -13,7 +13,7 @@
 // and a date label computed from the event's day. There is no model and no
 // event-type vocabulary in it.
 
-import { mentionsFor, type Mentions } from "./mentions";
+import { mentionsFor, type Mentions, toldDay } from "./mentions";
 import { GOOD_NEWS, NOT_NEWS } from "./goodNews";
 import { suggestionFor, type Suggestion } from "./suggestions";
 import { aboutAnimalHealth, wordingSensitivities } from "../../../supabase/functions/_shared/extraction/lexicon";
@@ -87,9 +87,9 @@ export function threadReasonId(itemId: string, day: string): string {
   return `thread:${itemId}:${day}`;
 }
 
+/** The day it was told, in the user's own calendar (mentions.ts): never the UTC day, which on a Pacific evening is tomorrow. */
 function toldDayOf(m: MemoryItem): string | null {
-  const c = String(m.created_at ?? "").slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/u.test(c) ? c : null;
+  return toldDay(m);
 }
 
 /**
@@ -595,8 +595,8 @@ export function buildToday(input: TodayInput): TodayView {
       day = exact;
     } else if (["fact", "milestone", "event", "moment"].includes(m.kind) && GOOD_NEWS.test(m.statement) && !NOT.test(m.statement)) {
       // N7: the day the note gave it, to the day; the day it was told only
-      // when the note gave no date at all ("promoted in 2024" is old news).
-      day = exact ?? (typeof detail.date === "string" ? null : String(m.created_at ?? "").slice(0, 10) || null);
+      // when the note gave no date at all ("promoted in 2024" is old news), on the user's own calendar.
+      day = exact ?? (typeof detail.date === "string" ? null : toldDayOf(m));
       if (day && daysBetween(day, today) >= 0 && daysBetween(day, today) <= GOOD_NEWS_DAYS) type = "good_news";
     }
     if (!type || !day) continue;

@@ -60,6 +60,9 @@ From plan §23, defined in `AnalyticsEvents`:
 | `reason_dismissed` | `reason_type`, `mode` (not_now/not_helpful/put_aside: "Didn't happen" on a promise's return check) |
 | `handoff_opened` | `reason_type` (optional), `channel` (text/call/facetime/whatsapp/email/in_person/other) |
 | `return_check_answered` | `answer` (yes/not_yet/put_aside), `minutes_since_handoff_bucket` (<15/15-60/1-6h/6h+) |
+| `ideas_opened`, `idea_opened` | `surface` (moment/person), `ideas_n` (bucket) or `category` (gesture/celebrate/together/help/follow_through/message/check_in): "Ideas for showing up" opened by the user and one idea opened (PR #77, considered); never the idea, the person or the memory |
+| `intention_saved` | `mode` (new/day_added): "Keep it in mind" saved as the user's own promise, or a day added to one (intended) |
+| `promise_kept` | `surface` (moment/line/today): "I did this" on the user's own promise (did the thing; never contact) |
 | `gesture_shown`, `gesture_tapped` | `kind` (plan/help/company/note/activity), `surface` (handoff/detail): the SUA-1 "You could…" line (FD-30d), what Kinship suggested and what the user initiated, kept apart; never the line, the person or the memory |
 | `gesture_outcome` | `kind` (plan/help/company/note/activity), `answer` (yes/not_yet): the one optional question after a Yes that followed a tap; never counted back to the user |
 | `reason_marked_done` | `reason_type` |

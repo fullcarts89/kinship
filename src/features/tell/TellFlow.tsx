@@ -24,16 +24,22 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { router } from "expo-router";
-import { ReviewSheet, type Correction } from "@/features/tell/ReviewSheet";
+import { ReviewSheet, type Correction, type ReviewSheetProps } from "@/features/tell/ReviewSheet";
 import { todayIso, useOpenNotes, usePending, usePeople, useReview, useTell, useTellDrafts, useUnderstanding, type PendingNote } from "@/hooks/useV2";
 import { draftKey } from "./drafts";
 import type { ReviewMode, ReviewView } from "./reviewModel";
 import type { FeedbackOff } from "@/store/repositories";
 import { useActivation } from "@/hooks/useActivation";
 import { charsBucket, track } from "@/platform/analytics";
-import { onSheetsChange, openSheets } from "@/ui/sheetStack";
+import { afterSheets, onSheetsChange, openSheets } from "@/ui/sheetStack";
 import { chooseOneContact } from "@/platform/deviceContacts";
 import { birthdayIso } from "@/features/setup/setupModel";
+import { useV2Session } from "@/providers/V2SessionProvider";
+import { shortName } from "../../../supabase/functions/_shared/extraction/names";
+import { NotebookHost, NotebookTellPage } from "./notebook/NotebookTell";
+import { NotebookReview } from "./notebook/NotebookReview";
+import { useNoteWords } from "./notebook/useNoteWords";
+import { useTellNotebook } from "./notebook/useTellNotebook";
 
 /** The Kept card: what happened to the note just told (Gate D). */
 export interface KeptCardState {
@@ -129,6 +135,16 @@ export interface TellFlow {
   /** The unsent words for a Tell about someone (or the general one). */
   draft: (personId?: string | null) => string;
   setDraft: (personId: string | null | undefined, text: string) => void;
+  /**
+   * The Moment Deck × Notebook experience is on (the `notebook_deck` flag): Tell is a full-height page
+   * and the review a notebook page. Absent or false: the alpha's Tell field and review sheet.
+   */
+  notebook?: boolean;
+  /**
+   * Notebook only: opens the Tell page, about someone or anyone. `onClose` runs when the page closes
+   * (a person page's own "telling" state). The words are that person's draft (or the general one).
+   */
+  openTell?: (personId?: string | null, opts?: { onClose?: () => void }) => void;
 }
 
 const Ctx = createContext<TellFlow | null>(null);
@@ -137,6 +153,20 @@ export function useTellFlow(): TellFlow {
   const v = useContext(Ctx);
   if (!v) throw new Error("useTellFlow is only available inside the 2.0 shell");
   return v;
+}
+
+/** Whether Tell takes the notebook look here; false outside the 2.0 shell (the lab, tests). */
+export function useTellNotebookMode(): boolean {
+  return useContext(Ctx)?.notebook === true;
+}
+
+/** The notebook Tell page while it's open: who it's about, what it continues, and its words once kept. */
+interface TellPage {
+  personId: string | null;
+  continues: string | null;
+  onClose?: () => void;
+  /** Kept: the words stay on the page, frozen, while Kinship understands them. */
+  kept?: { captureId: string | null; text: string };
 }
 
 /** Views a sheet can show; anything else is a passing state it rides over. */
@@ -192,6 +222,12 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   // The first Tell that becomes memory activates the account (recovery Gate 3).
   const activation = useActivation();
   const activate = activation.activated ? null : activation.activate;
+  // The notebook experience (flag `notebook_deck`): decided for this account, like the shell.
+  const session = useV2Session();
+  const notebook = useTellNotebook(session?.userId);
+  const [page, setPage] = useState<TellPage | null>(null);
+  const pageRef = useRef(page);
+  pageRef.current = page;
 
   const openSheet = useCallback((id: string, report = true) => {
     setShowing(id);
@@ -207,7 +243,8 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!wanted) return;
     const tryOpen = () => {
-      const ours = showingRef.current ? 1 : 0;
+      // Ours: the review sheet, or the notebook's one surface (the Tell page, whose place the review takes).
+      const ours = showingRef.current || pageRef.current ? 1 : 0;
       if (openSheets() - ours > 0) return;
       setWanted(null);
       openSheet(wanted);
@@ -222,6 +259,13 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!showing) setLastSheet(null);
   }, [showing]);
+
+  // The sheet shows its own view, or the last one while the next arrives.
+  const shown = sheetView && SHEET_CONTENT.includes(sheetView.mode)
+    ? sheetView
+    : lastSheet && sheetView?.mode === "understanding"
+      ? { ...lastSheet, answering: true, questions: [], status: sheetView.status }
+      : lastSheet;
 
   // The note just told, once there's something to say: the card, or the sheet.
   useEffect(() => {
@@ -262,8 +306,8 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     if (how === "done") setDismissed((d) => ({ ...d, [id]: true }));
   }, [showing, fromCard, u, sheetView, activate]);
 
-  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text", continues?: string | null) => {
-    if (!text.trim()) return false;
+  const keepNoted = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text", continues?: string | null): Promise<string | null> => {
+    if (!text.trim()) return null;
     // When Send was tapped, before anything is saved (CC-18 telemetry, content-free).
     const tapped = u.now();
     try {
@@ -277,12 +321,80 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
       setCurrent(id);
       // Without understanding, the note is kept exactly as written (and that's the account's first memory).
       if (!ai) void activate?.();
-      return true;
+      return id;
     } catch {
       Alert.alert("That wasn't kept", "Something went wrong saving it on this phone. Your words are still here.");
-      return false;
+      return null;
     }
   }, [keepNote, ai, activate, current, dismissed, currentView?.mode, finishCard, u, setFocusRequest]);
+  const keep = useCallback(
+    async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text", continues?: string | null) =>
+      !!(await keepNoted(text, contextPersonId, source, continues)),
+    [keepNoted],
+  );
+
+  // ── The notebook Tell page (PR #77 §7) ──
+  const openTell = useCallback((personId?: string | null, opts?: { onClose?: () => void; continues?: string | null }) => {
+    const next = { personId: personId ?? null, continues: opts?.continues ?? null, onClose: opts?.onClose };
+    // Our own surface is up (the review, or the page): the page takes its place there, never a second one.
+    if (showingRef.current || pageRef.current) setPage(next);
+    // Never a sheet on a sheet: otherwise the page waits for any other to be gone (it is one itself).
+    else afterSheets(() => setPage(next));
+  }, []);
+  const closePage = useCallback(() => {
+    const was = pageRef.current;
+    setPage(null);
+    was?.onClose?.();
+  }, []);
+  // "Anything worth remembering?" and "Tell the rest" open the page, about that person (notebook only;
+  // the alpha's dock focuses its field instead).
+  useEffect(() => {
+    if (!notebook || !focusRequest) return;
+    openTell(focusRequest.personId, { continues: focusRequest.continues ?? null });
+  }, [notebook, focusRequest, openTell]);
+  const keepFromPage = useCallback(async () => {
+    const at = pageRef.current;
+    if (!at || at.kept) return;
+    const text = drafts.drafts[draftKey(at.personId)] ?? "";
+    if (!text.trim()) return;
+    drafts.set(draftKey(at.personId), "");
+    setPage({ ...at, kept: { captureId: null, text } });
+    const id = await keepNoted(text, at.personId, "text", at.continues);
+    if (!id) {
+      // Not kept: the words go back to being the draft, on the page, as they were.
+      drafts.set(draftKey(at.personId), text);
+      setPage((pg) => (pg && pg.kept ? { ...pg, kept: undefined } : pg));
+      return;
+    }
+    // Without understanding there is nothing to wait for: the note is kept as written, and the page closes.
+    if (!ai) {
+      closePage();
+      return;
+    }
+    setPage((pg) => (pg && pg.kept ? { ...pg, kept: { captureId: id, text } } : pg));
+  }, [drafts, keepNoted, ai, closePage]);
+
+  // The page is still open when the result arrives: the review takes its place (a fade). Something to
+  // ask opens by itself as always (above); kept lines open as "Correct this" would. Anything else
+  // ("Nothing to remember", kept as written, couldn't understand) closes the page: the Kept card says it.
+  useEffect(() => {
+    const at = page?.kept?.captureId;
+    if (!notebook || !at || at !== current || !currentView || currentView.captureId !== at) return;
+    const mode = currentView.mode;
+    if (mode === "understanding" || mode === "none") return;
+    if (mode === "card") {
+      if (showing === at) return;
+      setFromCard(at);
+      openSheet(at, false);
+    } else if (mode !== "sheet") closePage();
+  }, [notebook, page, current, currentView, showing, openSheet, closePage]);
+  const reviewReady = !!showing && !!shown;
+  // The note's own words, for the notebook review's "Your words" (nothing is read with the flag off).
+  const words = useNoteWords(notebook ? showing : null);
+  useEffect(() => {
+    // Once the review shows the note told on the page (never a blank in between), the page has done its work.
+    if (notebook && reviewReady && pageRef.current?.kept?.captureId === showing) closePage();
+  }, [notebook, reviewReady, showing, closePage]);
 
   const fail = (what: Promise<unknown>) => {
     what.catch(() => Alert.alert("That couldn't be changed", "Nothing was lost. Try again in a moment."));
@@ -336,7 +448,9 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
         // be placed (the user tells the rest in their own words). The card stays until they do.
         const personId = rest?.personId ?? null;
         drafts.set(draftKey(personId), rest?.text ?? "");
-        setFocusRequest({ at: Date.now(), personId, continues: captureId });
+        // The notebook: the Tell page opens with them, about that person, linked to this note.
+        if (notebook) openTell(personId, { continues: captureId });
+        else setFocusRequest({ at: Date.now(), personId, continues: captureId });
       });
     },
     retryCard: () => {
@@ -359,63 +473,96 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     focusRequest,
     draft: (personId) => drafts.drafts[draftKey(personId)] ?? "",
     setDraft: (personId, text) => drafts.set(draftKey(personId), text),
+    notebook,
+    openTell: (personId, opts) => openTell(personId, { onClose: opts?.onClose }),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), asking, showing, toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked]);
+  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), asking, showing, toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked, notebook, openTell]);
 
-  // The sheet shows its own view, or the last one while the next arrives.
-  const shown = sheetView && SHEET_CONTENT.includes(sheetView.mode)
-    ? sheetView
-    : lastSheet && sheetView?.mode === "understanding"
-      ? { ...lastSheet, answering: true, questions: [], status: sheetView.status }
-      : lastSheet;
+  // The review's actions, whichever look it takes: the same calls, the same order (D1, Gate D).
+  const reviewProps = shown && showing ? {
+    view: shown,
+    people,
+    today,
+    onDismiss: () => close("dismissed"),
+    onDone: () => close("done"),
+    onUndo: () => {
+      const id = showing;
+      setShowing(null);
+      setFromCard(null);
+      setDismissed((d) => ({ ...d, [id]: true }));
+      void u.undo(id);
+    },
+    onReject: (itemId: string) => fail(u.reject(itemId, showing)),
+    onCorrect: (itemId: string, change: Correction) => fail(u.correct(itemId, change)),
+    onAddPerson: (itemId: string, name: string) => fail(u.addParticipant(itemId, name).then(() => undefined)),
+    onRestore: (personId: string) => fail(u.restorePerson(personId)),
+    onAnswer: (answers: Parameters<ReviewSheetProps["onAnswer"]>[0]) => fail(u.answer(showing, answers)),
+    onChooseContact: async () => {
+      // "Who is Matt?" → the user's own contact (founder K25): the system picker, no Contacts permission.
+      const c = await chooseOneContact();
+      if (!c) return null;
+      const b = birthdayIso(c.birthday);
+      return u.personFromContact({ contactId: c.id, name: c.name, birthday: b?.iso ?? null, birthdayYearKnown: b?.yearKnown ?? false });
+    },
+    onOpenNote: () => {
+      // Looking at the note never decides anything: the sheet steps
+      // aside and comes back, question and all, on the way back.
+      const id = showing;
+      setParked(id);
+      setShowing(null);
+      u.hidden(id);
+      router.push(`/v2/source/${id}`);
+    },
+    onTellRest: () => {
+      // The look-over is done (what it kept stays kept); the rest goes back to the field (Option A).
+      const id = showing;
+      if (notebook) {
+        // The notebook: the Tell page takes the review's place, with the words not got to, in one step.
+        void u.restOf(id).then((rest) => {
+          const personId = rest?.personId ?? null;
+          drafts.set(draftKey(personId), rest?.text ?? "");
+          close("done");
+          setPage({ personId, continues: id });
+        });
+        return;
+      }
+      close("done");
+      value.tellRest(id);
+    },
+    onActivity: () => undefined,
+  } : null;
+
+  const hostKind = !notebook ? null : reviewProps ? "review" : page ? "page" : null;
+  const pagePerson = page?.personId ? people.find((x) => x.id === page.personId) : undefined;
+  const pageStatus = page?.kept?.captureId && currentView?.captureId === page.kept.captureId && currentView.mode === "understanding"
+    ? currentView.status
+    : null;
 
   return (
     <Ctx.Provider value={value}>
       {children}
-      {shown && showing ? (
-        <ReviewSheet
-          view={shown}
-          visible
-          people={people}
-          today={today}
-          onDismiss={() => close("dismissed")}
-          onDone={() => close("done")}
-          onUndo={() => {
-            const id = showing;
-            setShowing(null);
-            setFromCard(null);
-            setDismissed((d) => ({ ...d, [id]: true }));
-            void u.undo(id);
-          }}
-          onReject={(itemId) => fail(u.reject(itemId, showing))}
-          onCorrect={(itemId: string, change: Correction) => fail(u.correct(itemId, change))}
-          onAddPerson={(itemId: string, name: string) => fail(u.addParticipant(itemId, name).then(() => undefined))}
-          onRestore={(personId) => fail(u.restorePerson(personId))}
-          onAnswer={(answers) => fail(u.answer(showing, answers))}
-          onChooseContact={async () => {
-            // "Who is Matt?" → the user's own contact (founder K25): the system picker, no Contacts permission.
-            const c = await chooseOneContact();
-            if (!c) return null;
-            const b = birthdayIso(c.birthday);
-            return u.personFromContact({ contactId: c.id, name: c.name, birthday: b?.iso ?? null, birthdayYearKnown: b?.yearKnown ?? false });
-          }}
-          onOpenNote={() => {
-            // Looking at the note never decides anything: the sheet steps
-            // aside and comes back, question and all, on the way back.
-            const id = showing;
-            setParked(id);
-            setShowing(null);
-            u.hidden(id);
-            router.push(`/v2/source/${id}`);
-          }}
-          onTellRest={() => {
-            // The look-over is done (what it kept stays kept); the rest goes back to the field (Option A).
-            const id = showing;
-            close("done");
-            value.tellRest(id);
-          }}
-          onActivity={() => undefined}
-        />
+      {!notebook && reviewProps ? <ReviewSheet {...reviewProps} visible /> : null}
+      {notebook ? (
+        <NotebookHost kind={hostKind} onRequestClose={() => (reviewProps ? reviewProps.onDismiss() : closePage())}>
+          {reviewProps ? (
+            <NotebookReview {...reviewProps} words={words} />
+          ) : page ? (
+            <NotebookTellPage
+              about={pagePerson ? shortName(pagePerson) : null}
+              draft={drafts.drafts[draftKey(page.personId)] ?? ""}
+              onDraft={(t) => {
+                const key = draftKey(page.personId);
+                if (!(drafts.drafts[key] ?? "").trim() && t.trim()) trackStarted();
+                drafts.set(key, t);
+              }}
+              onKeep={() => void keepFromPage()}
+              onClose={closePage}
+              frozen={page.kept?.text ?? null}
+              status={pageStatus}
+              ai={ai}
+            />
+          ) : null}
+        </NotebookHost>
       ) : null}
     </Ctx.Provider>
   );

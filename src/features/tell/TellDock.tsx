@@ -12,7 +12,8 @@ import { press, radius, shadow, size, space, TOUCH } from "@/design/tokens";
 import { Body, KEYBOARD_BAR, Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
 import { Replaces } from "./ReviewSheet";
-import { trackStarted, useTellFlow, type KeptCardState } from "./TellFlow";
+import { trackStarted, useTellFlow, useTellNotebookMode, type KeptCardState } from "./TellFlow";
+import { NotebookDock, NotebookKeptCard } from "./notebook/NotebookDock";
 
 /** A quiet one-line status (offline, and older callers). */
 export function KeptLine({
@@ -98,7 +99,28 @@ export const KEPT_COPY = {
  * "Couldn't understand this one". No timer: it stays until the user is done
  * with it.
  */
-export function KeptCard({
+export function KeptCard(props: KeptCardProps) {
+  // The notebook (flag `notebook_deck`): the same card, behaviour and words, on a raised white card.
+  const notebook = useTellNotebookMode();
+  return notebook ? <NotebookKeptCard {...props} /> : <AlphaKeptCard {...props} />;
+}
+
+export interface KeptCardProps {
+  card: KeptCardState;
+  onOpen: () => void;
+  onUndo: () => void;
+  onDismiss: () => void;
+  /** "Got it right / Not quite" (H6): quiet, after what was kept. */
+  onRate?: (verdict: "right" | "not_quite", off?: FeedbackOff) => void;
+  /** "Add Pedro" (founder I4). */
+  onAddNewcomer?: (name: string, itemIds: string[]) => void;
+  /** "Tell the rest" of a note the understanding could not take whole (Option A). */
+  onTellRest?: () => void;
+  /** "Try again" on a note whose understanding kept failing (Option A). */
+  onRetry?: () => void;
+}
+
+function AlphaKeptCard({
   card,
   onOpen,
   onUndo,
@@ -346,6 +368,13 @@ export function TellDockView(props: TellDockViewProps) {
 }
 
 export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: NavKey) => void; typing?: boolean }) {
+  const flow = useTellFlow();
+  // The notebook (flag `notebook_deck`): the white Tell pill above the bar; a tap opens the Tell page.
+  if (flow.notebook) return <NotebookDock current={current} onGo={onGo} />;
+  return <AlphaTellDock current={current} onGo={onGo} typing={typing} />;
+}
+
+function AlphaTellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: NavKey) => void; typing?: boolean }) {
   const flow = useTellFlow();
   const people = usePeople();
   // Who the Tell is about: no one (the general Tell), or the person

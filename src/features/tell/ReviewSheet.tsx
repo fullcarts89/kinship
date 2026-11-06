@@ -14,10 +14,10 @@ import type { HeldAnswer } from "@/store/gateway";
 import type { SwitchableKind } from "@/store/memoryDetail";
 import type { Person } from "@/store/repositories";
 import { Body, Label, Line, Pill, SectionDot, Sheet, Small, Title, Token, TokenRow, usePalette } from "@/ui";
-import { DatePane, KindPane, namedChoices, PersonPane, WordsPane } from "./Pickers";
-import { deviceZone, proposedDay } from "./wordsDate";
 import { dayLabel } from "@/features/memory/format";
-import { answersFor, COPY, type ItemLine, type Question, type ReviewView } from "./reviewModel";
+import { deviceZone, proposedDay } from "./wordsDate";
+import { DatePane, KindPane, namedChoices, PersonPane, WordsPane } from "./Pickers";
+import { answersFor, COPY, openQuestions, type ItemLine, type Question, type ReviewView } from "./reviewModel";
 
 export type Correction =
   | { statement: string }
@@ -78,7 +78,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
     if (!props.visible) setPane({ kind: "review" });
   }, [props.visible]);
 
-  const question = view.questions.find((q) => picks[q.key] === undefined) ?? null;
+  const question = openQuestions(view.questions, picks)[0] ?? null;
   const act = (fn: () => void) => () => {
     props.onActivity();
     fn();

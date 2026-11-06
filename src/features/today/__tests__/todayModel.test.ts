@@ -2,7 +2,7 @@
 // a valid answer; quiet lines are at most two, from different people; the
 // return check is there as soon as the user is back, with its reason; copy is
 // templates plus the user's own words.
-import { buildToday, evidenceOf, isLocalReason, pageHandoffFor, pageReasonFor, promiseReasonId, relativeDay, returnViewFor, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
+import { buildToday, evidenceOf, isLocalReason, pageHandoffFor, pageReasonFor, promiseReasonId, relativeDay, returnViewFor, THREAD_FOLLOWUP_DAYS, threadWindow, THRESHOLD, type ReasonRow, type TodayInput } from "../todayModel";
 import type { MemoryItem, Person } from "@/store/repositories";
 
 const NOW = new Date(2026, 9, 12, 9, 0); // Monday Oct 12, 9am local
@@ -461,4 +461,23 @@ describe("K28: Message or Call from a person's page with nothing to act on (foun
     expect(v.moment?.personId).not.toBe("susan"); // a season is never a Moment (H16: a day is needed)
     expect(returnViewFor({ ...h, answered: "yes" }, susan, NOW)).toBeNull();
   });
+});
+
+// Native pass (3 Nov 2026): a note told on a Pacific evening read as told "today" the next morning
+// ("You told Kinship today." beside "You told Kinship · Nov 2"). The day it was told is the user's own.
+it("the day a line was told is the user's calendar day, never the UTC one", () => {
+  const evening = new Date(2026, 10, 2, 23, 30); // local 23:30 on Nov 2
+  const told = item("t1", { kind: "fact", statement: "Sam is up for a promotion", detail: { category: "work" }, created_at: evening.toISOString() } as Partial<MemoryItem>);
+  const due = new Date(2026, 10, 2 + THREAD_FOLLOWUP_DAYS);
+  const today = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+  expect(threadWindow(told, today)).toEqual({ day: "2026-11-02", told: true });
+});
+
+// Native pass at 375 pt (3 Nov 2026): undated good news told on a Pacific evening opened as
+// "You told Kinship today." beside "You told Kinship · Nov 2". Its day is the user's own too.
+it("undated good news is dated by the user's calendar day it was told", () => {
+  const evening = new Date(2026, 9, 11, 23, 30); // local 23:30 on Sun Oct 11
+  const news = item("g1", { kind: "fact", statement: "Ben was promoted", detail: { category: "work" }, created_at: evening.toISOString() });
+  const v = buildToday(input({ items: [news], reasons: [] }));
+  expect(v.moment).toMatchObject({ type: "good_news", day: "2026-10-11", toldDay: true });
 });

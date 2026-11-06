@@ -23,6 +23,8 @@ export type CaptureSource =
   | "post_encounter"
   | "photo"
   | "onboarding";
+/** An idea for showing up's category (PR #77 §4; CC-28). */
+export type IdeaCategoryName = "gesture" | "celebrate" | "together" | "help" | "follow_through" | "message" | "check_in";
 export type CharsBucket = "0-50" | "51-200" | "201+";
 export type LatencyBucket = "<1s" | "1-3s" | "3-10s" | "10s+";
 /** Finer duration buckets for performance telemetry (p50/p90 without exact values). */
@@ -171,6 +173,16 @@ export interface AnalyticsEvents {
   gesture_shown: { kind: GestureKind; surface: "handoff" | "detail" };
   gesture_tapped: { kind: GestureKind; surface: "handoff" | "detail" };
   gesture_outcome: { kind: GestureKind; answer: "yes" | "not_yet" };
+  /**
+   * Showing Up (PR #77; founder directive 2 Nov 2026), the evidence ladder kept apart and content-free:
+   * ideas shown when the user opened them (considered), an idea opened, an intention saved (a new one, or a
+   * day added to the user's own promise), and a promise the user said they kept ("I did this"). A closed
+   * category or mode, never the idea's words, the person or the memory.
+   */
+  ideas_opened: { surface: "moment" | "person"; ideas_n: SmallCount };
+  idea_opened: { category: IdeaCategoryName; surface: "moment" | "person" };
+  intention_saved: { mode: "new" | "day_added" };
+  promise_kept: { surface: "moment" | "line" | "today" };
   reason_marked_done: { reason_type: ReasonType };
   reason_feedback: { useful: "yes" | "no" };
   incorrect_report: { what: "person" | "fact" | "date" };

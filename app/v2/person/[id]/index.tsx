@@ -1,12 +1,17 @@
 // A person's page: the portrait (board 2). Tap a line to correct it, its
 // provenance for the note; Message and Call open the real conversation;
 // Tell adds something about them (an unsent note about them waits here).
+// Behind `notebook_deck` the same page is the person notebook (PR #77 §8):
+// the same data, loop and actions, with the lenses Now · Pages · Knows.
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, AppState, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { reachedSomeone } from "@/platform/haptics";
 import { ItemSheet } from "@/features/person/ItemSheet";
-import { IN_TOUCH, PortraitView, removeCopy } from "@/features/person/PortraitView";
+import { IN_TOUCH, PortraitView, removeCopy, type PortraitViewProps } from "@/features/person/PortraitView";
+import { LineSheet } from "@/features/person/notebook/LineSheet";
+import { NotebookPerson } from "@/features/person/notebook/NotebookPerson";
+import { useNotebook } from "@/hooks/useNotebook";
 import { KeptCard } from "@/features/tell/TellDock";
 import { useTellFlow } from "@/features/tell/TellFlow";
 import { TellSheet } from "@/features/tell/TellSheet";
@@ -25,9 +30,14 @@ import { afterSheets } from "@/ui/sheetStack";
 import { space } from "@/design/tokens";
 import { shortName } from "../../../../supabase/functions/_shared/extraction/names";
 
-export default function PersonScreen() {
-  // `item`: "View Ben" from a Moment lands on that memory (founder I1).
-  const { id, item: focusItem } = useLocalSearchParams<{ id: string; item?: string }>();
+export default function PersonRoute() {
+  return <PersonScreen notebook={useNotebook()} />;
+}
+
+function PersonScreen({ notebook }: { notebook: boolean }) {
+  // `item`: "View Ben" from a Moment lands on that memory (founder I1). In the notebook, `lens` opens a
+  // lens (now · pages · knows) and `note` opens Pages at that note (People's search).
+  const { id, item: focusItem, lens: lensParam, note: noteParam } = useLocalSearchParams<{ id: string; item?: string; lens?: string; note?: string }>();
   const personId = String(id);
   const portrait = usePortrait(personId);
   const people = usePeople();
@@ -50,7 +60,8 @@ export default function PersonScreen() {
   const trust = useTrustActions();
   const merges = useMerges(personId);
   const [merging, setMerging] = useState<{ candidates: Person[]; everyone: Person[] } | null>(null);
-  const item = useItemLine(itemId);
+  // The notebook's line sheet reads its own line.
+  const item = useItemLine(notebook ? null : itemId);
   const name = portrait.person?.display_name ?? null;
   // Said the way Kinship says their name everywhere (founder I12).
   const first = portrait.person ? shortName(portrait.person) : "";
@@ -123,101 +134,10 @@ export default function PersonScreen() {
       );
   };
 
-  return (
-    <PortraitView
-      personId={personId}
-      name={name}
-      loading={portrait.loading}
-      short={first}
-      label={portrait.label}
-      remembered={portrait.person?.state === "remembered"}
-      stateLine={stateLine(portrait.person)}
-      stateExplain={state === "paused" || state === "remembered" ? HOLD_COPY[state].explain(first) : null}
-      merged={merges.map((m) => ({ id: m.id, line: MERGE_COPY.mergedLine(m.sourceName) }))}
-      onUndoMerge={(id) => {
-        const m = merges.find((x) => x.id === id);
-        trust.undoMerge(id).then(
-          () => Alert.alert(MERGE_COPY.undone(m?.sourceName ?? "They")),
-          (e: unknown) => Alert.alert("That couldn't be undone", e instanceof Error && e.message ? e.message : "Try again in a moment."),
-        );
-      }}
-      lately={portrait.lately}
-      comingUp={portrait.comingUp}
-      youSaid={portrait.youSaid}
-      between={portrait.between}
-      trail={portrait.trail}
-      onInTouch={portrait.person?.state === "active" ? () => setInTouch(true) : undefined}
-      total={portrait.total}
-      onBack={() => router.back()}
-      onLine={setItemId}
-      onSource={(noteId) => router.push(`/v2/source/${noteId}`)}
-      onKnows={() => router.push(`/v2/person/${personId}/knows`)}
-      onMessage={reachOut}
-      onCall={reachOut}
-      onTell={() => setTelling(true)}
-      onRename={() => setRenaming(true)}
-      photoUri={photo.uri}
-      onPhoto={choosePhoto}
-      hasDraft={!!flow.draft(personId).trim()}
-      focusItemId={typeof focusItem === "string" ? focusItem : null}
-      returnCheck={back.returnCheck}
-      onReturn={(answer) => {
-        const rc = back.returnCheck;
-        if (answer === "yes") void reachedSomeone();
-        void today.returned(answer).then((h) => {
-          // Optional, never blocking, never after a promise's logistics (followUp ""); "nothing" undoes nothing.
-          const next = answer === "yes" && h && rc?.followUp ? { followUp: rc.followUp } : null;
-          // A Yes that followed a "You could…" tap asks its one optional question first (SUA-1).
-          if (answer === "yes" && h?.gesture) setAfterGesture({ kind: h.gesture, ask: OUTCOME_ASK[h.gesture], next });
-          else if (next) setAfterReturn(next);
-        }, () => Alert.alert("That couldn't be saved", "Nothing was lost. Try again in a moment."));
-      }}
-      afterGesture={afterGesture}
-      onGesture={(answer) => {
-        if (!afterGesture) return;
-        track("gesture_outcome", { kind: afterGesture.kind, answer });
-        setAfterReturn(afterGesture.next);
-        setAfterGesture(null);
-      }}
-      afterReturn={afterReturn}
-      onRemember={() => {
-        setAfterReturn(null);
-        setTelling(true);
-      }}
-      onNothing={() => setAfterReturn(null)}
-      // The note just told about them, and only about them (never another person's card).
-      kept={flow.card && flow.card.personIds.includes(personId)
-        ? (
-          <KeptCard
-            card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} onRate={flow.rateCard} onAddNewcomer={flow.addNewcomer}
-            onTellRest={() => flow.tellRest(flow.card!.captureId)} onRetry={flow.retryCard}
-          />
-        )
-        : null}
-      waiting={flow.pending.filter((n) => n.personIds.includes(personId))}
-      onWaiting={(captureId) => flow.openNote(captureId)}
-      links={links.suggestions.map((l) => ({ key: l.key, prompt: l.prompt }))}
-      onLink={(key, yes) => {
-        const s = links.suggestions.find((l) => l.key === key);
-        if (s) fail(yes ? links.yes(s) : links.no(s));
-      }}
-    >
-      <ItemSheet
-        item={item}
-        visible={!!itemId}
-        people={people}
-        today={todayIso()}
-        onCorrect={(iid, change) => fail(u.correct(iid, change))}
-        onForget={(iid) => {
-          setItemId(null);
-          fail(u.reject(iid));
-        }}
-        onSource={(noteId) => {
-          setItemId(null);
-          router.push(`/v2/source/${noteId}`);
-        }}
-        onDismiss={() => setItemId(null)}
-      />
+  // The shared sheets: the hand-off, the name (with Pause / Hold / Resume / Merge / Remove), merge, a
+  // conversation Kinship couldn't know about, and Tell about them.
+  const sheets = (
+    <>
       {handoff.sheet}
       <Sheet visible={renaming} onDismiss={() => setRenaming(false)} label="Their name">
         {renaming && name ? (
@@ -265,6 +185,133 @@ export default function PersonScreen() {
         ) : null}
       </Sheet>
       <TellSheet person={telling && name ? { id: personId, name: first } : null} onClose={() => setTelling(false)} />
+    </>
+  );
+  // The page's data and actions, the same in both looks.
+  const page: Omit<PortraitViewProps, "onKnows"> = {
+    personId,
+    name,
+    loading: portrait.loading,
+    short: first,
+    label: portrait.label,
+    remembered: portrait.person?.state === "remembered",
+    stateLine: stateLine(portrait.person),
+    stateExplain: state === "paused" || state === "remembered" ? HOLD_COPY[state].explain(first) : null,
+    merged: merges.map((m) => ({ id: m.id, line: MERGE_COPY.mergedLine(m.sourceName) })),
+    onUndoMerge: (id) => {
+      const m = merges.find((x) => x.id === id);
+      trust.undoMerge(id).then(
+        () => Alert.alert(MERGE_COPY.undone(m?.sourceName ?? "They")),
+        (e: unknown) => Alert.alert("That couldn't be undone", e instanceof Error && e.message ? e.message : "Try again in a moment."),
+      );
+    },
+    lately: portrait.lately,
+    comingUp: portrait.comingUp,
+    youSaid: portrait.youSaid,
+    between: portrait.between,
+    trail: portrait.trail,
+    onInTouch: portrait.person?.state === "active" ? () => setInTouch(true) : undefined,
+    total: portrait.total,
+    onBack: () => router.back(),
+    onLine: setItemId,
+    onSource: (noteId) => router.push(`/v2/source/${noteId}`),
+    onMessage: reachOut,
+    onCall: reachOut,
+    onTell: () => setTelling(true),
+    onRename: () => setRenaming(true),
+    photoUri: photo.uri,
+    onPhoto: choosePhoto,
+    hasDraft: !!flow.draft(personId).trim(),
+    focusItemId: typeof focusItem === "string" ? focusItem : null,
+    returnCheck: back.returnCheck,
+    onReturn: (answer) => {
+      const rc = back.returnCheck;
+      if (answer === "yes") void reachedSomeone();
+      void today.returned(answer).then((h) => {
+        // Optional, never blocking, never after a promise's logistics (followUp ""); "nothing" undoes nothing.
+        const next = answer === "yes" && h && rc?.followUp ? { followUp: rc.followUp } : null;
+        // A Yes that followed a "You could…" tap asks its one optional question first (SUA-1).
+        if (answer === "yes" && h?.gesture) setAfterGesture({ kind: h.gesture, ask: OUTCOME_ASK[h.gesture], next });
+        else if (next) setAfterReturn(next);
+      }, () => Alert.alert("That couldn't be saved", "Nothing was lost. Try again in a moment."));
+    },
+    afterGesture,
+    onGesture: (answer) => {
+      if (!afterGesture) return;
+      track("gesture_outcome", { kind: afterGesture.kind, answer });
+      setAfterReturn(afterGesture.next);
+      setAfterGesture(null);
+    },
+    afterReturn,
+    onRemember: () => {
+      setAfterReturn(null);
+      setTelling(true);
+    },
+    onNothing: () => setAfterReturn(null),
+    // The note just told about them, and only about them (never another person's card).
+    kept: flow.card && flow.card.personIds.includes(personId)
+      ? (
+        <KeptCard
+          card={flow.card} onOpen={flow.openCard} onUndo={flow.undoCard} onDismiss={flow.dismissCard} onRate={flow.rateCard} onAddNewcomer={flow.addNewcomer}
+          onTellRest={() => flow.tellRest(flow.card!.captureId)} onRetry={flow.retryCard}
+        />
+      )
+      : null,
+    waiting: flow.pending.filter((n) => n.personIds.includes(personId)),
+    onWaiting: (captureId) => flow.openNote(captureId),
+    links: links.suggestions.map((l) => ({ key: l.key, prompt: l.prompt })),
+    onLink: (key, yes) => {
+      const s = links.suggestions.find((l) => l.key === key);
+      if (s) fail(yes ? links.yes(s) : links.no(s));
+    },
+  };
+  if (notebook) {
+    return (
+      <NotebookPerson
+        {...page}
+        person={portrait.person ?? null}
+        params={{ lens: lensParam, note: noteParam, item: focusItem }}
+        focusNoteId={typeof noteParam === "string" ? noteParam : null}
+      >
+        <LineSheet
+          itemId={itemId}
+          people={people}
+          today={todayIso()}
+          onCorrect={(iid, change) => fail(u.correct(iid, change))}
+          onForget={(iid) => {
+            setItemId(null);
+            fail(u.reject(iid));
+          }}
+          onSource={(noteId, iid) => {
+            setItemId(null);
+            router.push(`/v2/source/${noteId}?item=${encodeURIComponent(iid)}`);
+          }}
+          onDismiss={() => setItemId(null)}
+        />
+        {sheets}
+      </NotebookPerson>
+    );
+  }
+
+  return (
+    <PortraitView {...page} onKnows={() => router.push(`/v2/person/${personId}/knows`)}>
+      <ItemSheet
+        item={item}
+        visible={!!itemId}
+        people={people}
+        today={todayIso()}
+        onCorrect={(iid, change) => fail(u.correct(iid, change))}
+        onForget={(iid) => {
+          setItemId(null);
+          fail(u.reject(iid));
+        }}
+        onSource={(noteId) => {
+          setItemId(null);
+          router.push(`/v2/source/${noteId}`);
+        }}
+        onDismiss={() => setItemId(null)}
+      />
+      {sheets}
     </PortraitView>
   );
 }
