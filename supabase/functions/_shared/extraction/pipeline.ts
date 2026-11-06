@@ -436,6 +436,14 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   }
 
   // ── Person ──
+  // "Ben's cousin Zoe" with a Zoe in People: the words say whose cousin she is, and only the user knows if
+  // she is that Zoe. However sure the model is, never saved on the Zoe in People on a guess, and never lost
+  // because it isn't sure: read as what the words say, and asked below, unless Ben's Zoe is already known.
+  const namedRelative = subject === "person" || subject === "related" ? relativeNamedIn(ctx, sentence) : null;
+  if (namedRelative) {
+    subject = "related";
+    raw = { ...raw, subject, ...namedRelative.reading };
+  }
   // A relationship the note never says, for someone's related person ("Alex
   // got a raise" read as Ben's boyfriend Alex): the inferred relationship is
   // stripped, never a reason to lose the memory (founder J4). The line is
@@ -456,6 +464,10 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     ? knownRelated.who
     : resolvePerson(ctx, raw, flags);
   if ("drop" in who) return who;
+  if (namedRelative?.namesake && who.person_id) {
+    flags.add("person_disagreement");
+    who = { ...who, candidate_ids: [who.person_id, namedRelative.namesake] };
+  }
   if (userNews) {
     // Founder K5: the user's own news ("I got the job, and can't wait to tell
     // Loo Loo") is kept, in the line's own words as already checked above
@@ -716,7 +728,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // be unsure: when code independently finds the same ambiguity, the item is
   // held for one question (never saved) instead of silently dropped.
   const heldForWho = WHO_AMBIGUITY.some((f) => flags.has(f));
-  if (confidence < (heldForWho ? HOLD_FLOOR_CONFIDENCE : DROP_BELOW_CONFIDENCE)) return { drop: "low_confidence" };
+  if (confidence < (heldForWho || namedRelative ? HOLD_FLOOR_CONFIDENCE : DROP_BELOW_CONFIDENCE)) return { drop: "low_confidence" };
   if (confidence < AUTO_SAVE_CONFIDENCE) flags.add("mid_confidence");
 
   // ── Who else it is about, and what they are to the user ──
@@ -1448,6 +1460,34 @@ function inventedNumber(statement: string, text: string): boolean {
 }
 
 const POSSESSED_RELATION = "mom|mother|mum|dad|father|sister|brother|son|daughter|kid|kids|wife|husband|partner|boyfriend|girlfriend|fianc\\S*|grandma|grandmother|grandpa|grandfather|aunt|uncle|cousin|niece|nephew|boss|roommate|friend|baby|parents?";
+
+/**
+ * "Ben's cousin Zoe" in the sentence, with one Zoe in People: the proposal the words make, and who the name
+ * could also mean. No one, once Ben has a Zoe: a note has already said who she is. With two Zoes, "Which Zoe?"
+ * already asks (never a guess, founder K4).
+ */
+function relativeNamedIn(ctx: Context, sentence: string): {
+  reading: Pick<ProposedItem, "person" | "person_mention" | "related_relation" | "related_name">;
+  namesake: string | null;
+} | null {
+  const said = /(?<![\p{L}'’-])(\p{Lu}[\p{L}-]*)(?:['’]s|(?<=s)['’])\s+([\p{L}-]+)\s+(\p{Lu}[\p{L}-]*)(?![\p{L}])/gu;
+  for (const [, owner, relation, name] of sentence.matchAll(said)) {
+    const named = ctx.candidatesFor(name);
+    if (!kinshipReference(relation) || nameKey(owner) === nameKey(name) || named.length !== 1) continue;
+    const owners = ctx.candidatesFor(owner);
+    const known = ctx.input.related.some((r) => owners.some((o) => o.key === r.person_key) && !!r.name && nameKey(r.name) === nameKey(name));
+    return {
+      reading: {
+        person: owners.length === 1 ? owners[0].key : owners.length ? "unknown" : "new",
+        person_mention: `${owner}'s`,
+        related_relation: relation,
+        related_name: name,
+      },
+      namesake: known ? null : named[0].id,
+    };
+  }
+  return null;
+}
 
 function possessiveRelation(sentence: string, person: RosterPerson): boolean {
   const s = fold(sentence);

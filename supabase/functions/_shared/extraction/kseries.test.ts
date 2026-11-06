@@ -544,6 +544,60 @@ Deno.test("A3: the model's 'new' is never overridden by a possessive lead ('Ben'
   }
 });
 
+Deno.test("'Ben's cousin Zoe' with a Zoe in People: asked which, however sure the model is, never lost and never saved on her on a guess", () => {
+  const people = [person("ben", "ben", "Ben"), person("zoe", "zoe", "Zoe")];
+  const note = "Ben's cousin Zoe is moving to Denver.";
+  const told = (over: Partial<ProposedItem> = {}, n = note, roster = people) => planExtraction(input(n, roster), {
+    items: [item({ person: "zoe", person_mention: "Zoe", statement: "Zoe is moving to Denver", evidence: [n.replace(/\.$/u, "")], confidence: 0.55, ...over })],
+    needs_clarification: { about: "person", mention: "Zoe" },
+  } as ModelProposal);
+  const shape = (i: PlannedItem) => [i.person_id, i.subject_type, i.related, i.tier, i.candidate_ids, i.with_person_ids ?? []];
+  const asked = ["ben", "related", { id: null, relation: "cousin", name: "Zoe" }, "hold", ["ben", "zoe"], []];
+
+  const kept = told();
+  eq(kept.dropped, [], "nothing lost");
+  eq(kept.items.map(shape), [asked], "held as what the words say, with who it could also mean");
+  eq(told({ confidence: 0.92 }).items.map(shape), [asked], "a confident reading is asked too: nothing goes on the Zoe in People on a guess");
+  eq(told({ person_mention: "Ben's cousin Zoe", confidence: 0.5 }).items.map(shape), [asked], "however the model named her");
+  eq(told({}, note.replace("Ben's", "Ben’s")).items.map(shape), [asked], "a phone's apostrophe");
+  eq(told({ evidence: ["Zoe is moving to Denver"] }).items.map(shape), [asked], "evidence that starts at her name: the sentence says it");
+  eq(told({ subject: "related", person: "ben", person_mention: "Ben", related_relation: "cousin", related_name: "Zoe" }).items.map(shape), [asked], "read as a relative already");
+
+  // The answer: what the words say, or the Zoe in People.
+  const ctx = { note, people: [{ id: "ben", display_name: "Ben", state: "active" }, { id: "zoe", display_name: "Zoe", state: "active" }], related: [], existing: [] };
+  const answer = (person_id: string) => {
+    const r = resolveHeld([asHeld(kept.items[0])], [{ index: 0, person_id }], ctx);
+    if ("fail" in r) throw new Error(r.fail);
+    return [r.items[0].person_id, r.items[0].subject_type, r.items[0].related, r.items[0].statement];
+  };
+  eq(answer("ben"), ["ben", "related", { id: null, relation: "cousin", name: "Zoe" }, "Zoe is moving to Denver"], "Ben's cousin");
+  eq(answer("zoe"), ["zoe", "person", null, "Zoe is moving to Denver"], "the Zoe in People: about her, never a cousin of her own");
+
+  // Once Ben has a Zoe it isn't asked again.
+  const known = input(note, people);
+  known.related = [{ key: "r1", id: "rel-zoe", person_key: "ben", relation: "cousin", name: "Zoe" }];
+  const again = planExtraction(known, { items: [item({ person: "zoe", person_mention: "Zoe", statement: "Zoe is moving to Denver", evidence: [note.replace(/\.$/u, "")], confidence: 0.55 })], needs_clarification: null } as ModelProposal);
+  eq(again.items.map((i) => [i.person_id, i.related?.id, i.tier]), [["ben", "rel-zoe", "confirm"]], "the cousin he already has");
+
+  // Sensitive: the same question, and nothing written before it.
+  const health = told({ statement: "Zoe has cancer", sensitivity: "health" }, "Ben's cousin Zoe has cancer.");
+  eq(health.items.map((i) => [i.person_id, i.subject_type, i.sensitivity, i.tier]), [["ben", "related", "health", "hold"]]);
+
+  // Which Ben: asked, not lost.
+  const which = told({}, note, [...people, person("ben2", "ben-two", "Ben")]);
+  eq(which.dropped, []);
+  eq(which.items.map((i) => [i.person_id, i.tier, i.flags.includes("person_ambiguous")]), [[null, "hold", true]], "which Ben");
+
+  // Two Zoes: "Which Zoe?" already asks, with both.
+  const twoZoes = told({ person: "unknown", person_mention: "Zoe" }, note, [...people, person("zoe2", "zoe-two", "Zoe")]);
+  eq(twoZoes.items.map((i) => [i.person_id, i.subject_type, i.tier, i.flags.includes("person_ambiguous")]), [[null, "person", "hold", true]]);
+
+  // Only that reading.
+  eq(told({ confidence: 0.8, evidence: ["Ben and Zoe are moving to Denver"], statement: "Ben and Zoe are moving to Denver" }, "Ben and Zoe are moving to Denver.").items.some((i) => i.subject_type === "related"), false, "no possessive, no relative");
+  eq(told({ confidence: 0.8, evidence: ["Ben's plan for Zoe is moving to Denver"], statement: "Zoe is moving to Denver" }, "Ben's plan for Zoe is moving to Denver.").items.some((i) => i.subject_type === "related"), false, "not a relation word");
+  eq(told({ statement: "Zoe's cousin Zoe is moving to Denver" }, "Zoe's cousin Zoe is moving to Denver.").items.some((i) => i.person_id === "zoe" && i.related), false, "never her own cousin");
+});
+
 Deno.test("A3b (reviewer E r2): nor by a plain lead: 'Ben met Josh at the gym', read as someone new, is never auto-saved on Ben", () => {
   for (const note of ["Ben met Josh at the gym.", "Ben and Josh started a band."]) {
     const out = run(input(note, RA), [item({ person: "new", person_mention: null, statement: note.replace(/\.$/u, ""), evidence: [note.replace(/\.$/u, "")] })]);

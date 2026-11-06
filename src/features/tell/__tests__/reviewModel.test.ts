@@ -426,6 +426,33 @@ describe("J4: never 'nothing' for a memory Kinship couldn't place", () => {
   });
 });
 
+describe("'Ben's cousin Zoe' with a Zoe in People: which one, never a guess", () => {
+  const zoe = person("zoe", "Zoe", { full_name: "Zoe Kim" });
+  const cousin = (over: Partial<HeldItem> = {}) => held({
+    kind: "fact", person_id: "ben", subject_type: "related", related: { id: null, relation: "cousin", name: "Zoe" }, statement: "Zoe is moving to Denver",
+    flags: ["person_disagreement"], candidate_ids: ["ben", "zoe"], spans: [{ start: 0, end: 36, quote: "Ben's cousin Zoe is moving to Denver" }], ...over,
+  });
+  const ask = (h: HeldItem, people: Person[]) =>
+    view("Ben's cousin Zoe is moving to Denver.", row("review", { tier: "clarify", held: [h], settled: false, review_created_at: "t" }), [], people);
+
+  it("what the words say, or the Zoe in People, by a name that tells them apart", () => {
+    const [q] = ask(cousin(), [BEN, zoe]).questions;
+    expect(q.prompt).toBe("Which Zoe do you mean?");
+    expect(q.reason).toBe("You already have someone called Zoe.");
+    expect(q.choices.map((c) => c.label)).toEqual(["Ben's cousin Zoe", "Zoe Kim", "Someone else"]);
+    expect(q.choices.map((c) => ("answer" in c ? c.answer : null))).toEqual([{ person_id: "ben" }, { person_id: "zoe" }, null]);
+  });
+
+  it("with no full name to tell her by", () => {
+    expect(ask(cousin(), [BEN, person("zoe", "Zoe")]).questions[0].choices[1].label).toBe("Zoe in your people");
+  });
+
+  it("a held relative without that doubt is asked as before", () => {
+    const [q] = ask(cousin({ candidate_ids: undefined, flags: ["person_ambiguous"], related: { id: null, relation: "cousin", name: null } }), [BEN, zoe]).questions;
+    expect(q.prompt).toBe("Who is this about?");
+  });
+});
+
 describe("J1: 'Who is “he”?' offers exactly who it can mean", () => {
   const john = person("john", "John");
   const pedro = person("pedro", "Pedro");

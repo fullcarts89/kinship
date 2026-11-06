@@ -1,6 +1,7 @@
 // Founder G20/G34: Michelle added after "Sam is married to Michelle" is asked
 // about, never merged silently; a No is remembered.
 import { linkSuggestions } from "../links";
+import { apartKey } from "@/store/linksAnswered";
 import type { MemoryItem, Person, RelatedPerson } from "@/store/repositories";
 
 const p = (id: string, display_name: string) => ({ id, display_name, state: "active" }) as Person;
@@ -51,4 +52,13 @@ describe("J7: once the user has said who a line is about, a name in it never reo
     expect(linkSuggestions({ person: michelle, people, items: [told], related: [], answered: new Set() }).map((s) => s.prompt))
       .toEqual(["Is this the Michelle in “Sam is married to Michelle”?"]);
   });
+});
+
+it("a relative the user said isn't her: neither question on her page, for that relative only", () => {
+  const friend = { id: "r1", person_id: "sam", relation: "friend", name: "Michelle" } as RelatedPerson;
+  const line = { ...married, id: "m2", statement: "Michelle got a job", subject_type: "related", subject_related_id: "r1" } as MemoryItem;
+  const ask = (answered: Set<string>) => linkSuggestions({ person: michelle, people: [sam, michelle], items: [line], related: [friend], answered }).map((s) => s.kind);
+  expect(ask(new Set()).includes("related")).toBe(true);
+  expect(ask(new Set([apartKey("sam", "Michelle", "michelle")]))).toEqual([]);
+  expect(ask(new Set([apartKey("sam", "Michelle", "someone-else")])).includes("related")).toBe(true);
 });

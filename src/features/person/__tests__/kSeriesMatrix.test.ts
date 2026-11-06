@@ -11,6 +11,7 @@ import { voiced } from "@/features/memory/statements";
 import { linkSuggestions } from "@/features/person/links";
 import { answersFor, buildReview, newcomersIn, type Question, type ReviewView } from "@/features/tell/reviewModel";
 import { Gateway, type HeldAnswer } from "@/store/gateway";
+import { linksAnswered } from "@/store/linksAnswered";
 import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
 import { SyncEngine } from "@/store/syncEngine";
@@ -283,6 +284,45 @@ describe("K6 end to end", () => {
 });
 
 // ─── Cross-feature adversarial cases (A–E) ─────────────────────────────────
+
+describe("'Priya's friend Ana' with an Ana in People: asked first (founder, 4 Nov)", () => {
+  const note = "Priya's friend Ana got a new job.";
+  const told = async () => {
+    const w = await world();
+    const [priya, ana] = await typed(w, "Priya", "Ana");
+    const t = await tell(w, note, (i) => ({ needs_clarification: null, items: [
+      item({ kind: "fact", subject: "person", person: key(i, ana.id), person_mention: "Ana", statement: "Ana got a new job", evidence: ["Priya's friend Ana got a new job"], confidence: 0.75 }),
+    ] }));
+    return { w, priya, ana, t };
+  };
+  it("nothing is saved until the answer, on either person", async () => {
+    const { w, priya, ana, t } = await told();
+    expect(t.review.questions.map((q) => [q.prompt, q.choices.map((c) => c.label)])).toEqual([["Which Ana do you mean?", ["Priya's friend Ana", "Ana in your people", "Someone else"]]]);
+    expect(live(w)).toEqual([]);
+    expect([priya.id, ana.id]).toHaveLength(2);
+  });
+
+  it("the Ana in People: on her page, with no relative added", async () => {
+    const { w, ana, t } = await told();
+    await pick(w, t.id, t.review.questions, [{ person_id: ana.id }]);
+    const [line] = live(w);
+    expect([line.person_id, line.subject_type, line.subject_related_id ?? null]).toEqual([ana.id, "person", null]);
+    expect(await w.repos.people.related()).toEqual([]);
+  });
+
+  it("Priya's friend: kept as hers, and Ana's page doesn't ask again what was just answered", async () => {
+    const { w, priya, ana, t } = await told();
+    await pick(w, t.id, t.review.questions, [{ person_id: priya.id }]);
+    const [line] = live(w);
+    expect([line.person_id, line.subject_type]).toEqual([priya.id, "related"]);
+    expect((await w.repos.people.related()).map((r) => [r.person_id, r.relation, r.name])).toEqual([[priya.id, "friend", "Ana"]]);
+    const items = ((await w.store.list("memory_items")) as MemoryItem[]);
+    const asked = linkSuggestions({ person: ana, people: await w.repos.people.list(), items, related: await w.repos.people.related(), answered: await linksAnswered(w.store.db) });
+    expect(asked).toEqual([]);
+    const unanswered = linkSuggestions({ person: ana, people: await w.repos.people.list(), items, related: await w.repos.people.related(), answered: new Set() });
+    expect(unanswered.length).toBeGreaterThan(0);
+  });
+});
 
 describe("adversarial: nothing plausible disappears, no wrong person is chosen, ambiguity is asked narrowly", () => {
   it("A: \"Chris' brother Sam promised Anthony he'd send Josh the contractor number Friday.\" (two Sams, two Anthonys, no Josh)", async () => {

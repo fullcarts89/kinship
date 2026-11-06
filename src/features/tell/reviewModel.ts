@@ -721,6 +721,20 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
           { key: "pick", label: COPY.someoneElse, pick: "person" as const },
         ],
       });
+    } else if (relativeOrNamesake(item, input.people)) {
+      // "Ben's cousin Zoe" with a Zoe in People: what the words say, or the Zoe they may mean.
+      const { owner, name, relation, namesake } = relativeOrNamesake(item, input.people)!;
+      needs.push({
+        type: "which_person",
+        group: `who:relative:${owner.id}:${fold(relation)}:${fold(name)}`,
+        prompt: `Which ${name} do you mean?`,
+        reason: `You already have someone called ${name}.`,
+        choices: [
+          { key: `p:${owner.id}`, label: `${shortName(owner)}'s ${relation} ${name}`, answer: { person_id: owner.id } },
+          { key: `p:${namesake.id}`, label: namesakeLabel(namesake), answer: { person_id: namesake.id } },
+          { key: "pick", label: COPY.someoneElse, pick: "person" as const },
+        ],
+      });
     } else {
       const candidates = candidatesFor(item, note, input.people);
       // Someone removed from People the name also fits (founder I3): asked, offered back.
@@ -909,6 +923,19 @@ function needsOf(item: HeldItem, input: ReviewInput): Need[] {
  * Sam?"); else those whose name is in the item's words, else anyone named in
  * the note.
  */
+/** A line held as someone's named relative, with people here who go by that name. */
+function relativeOrNamesake(item: HeldItem, people: Person[]): { owner: Person; name: string; relation: string; namesake: Person } | null {
+  const name = item.subject_type === "related" ? item.related?.name : null;
+  const owner = item.person_id ? people.find((p) => p.id === item.person_id) : undefined;
+  if (!name || !owner || !Array.isArray(item.candidate_ids)) return null;
+  const namesake = people.find((p) => p.id !== owner.id && p.state !== "archived" && item.candidate_ids!.includes(p.id));
+  return namesake ? { owner, name, relation: item.related!.relation, namesake } : null;
+}
+
+function namesakeLabel(p: Person): string {
+  return typeof p.full_name === "string" && p.full_name && p.full_name !== p.display_name ? p.full_name : `${p.display_name} in your people`;
+}
+
 function candidatesFor(item: HeldItem, note: string, people: Person[]): Person[] {
   const live = people.filter((p) => p.state !== "archived");
   // A held "he" says exactly who it can mean: people named before it, then
