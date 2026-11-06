@@ -14,9 +14,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo-google-fonts/archivo-black": "^0.4.1",
     "@expo-google-fonts/dm-sans": "^0.4.2",
     "@expo-google-fonts/dm-serif-display": "^0.4.2",
     "@expo-google-fonts/instrument-sans": "^0.4.2",
+    "@react-native-masked-view/masked-view": "0.3.2",
     "@sentry/react-native": "~7.2.0",
     "@supabase/supabase-js": "^2.97.0",
     "clsx": "^2.1.1",

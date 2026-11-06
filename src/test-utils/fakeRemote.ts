@@ -16,6 +16,12 @@ export class FakeServer {
   offline = false;
   /** Fail the next write whose fields match, with the given kind/code. */
   rejectNext: { table: MirroredTable; kind: "rejected" | "not_found"; code?: string } | null = null;
+  /**
+   * Columns write_memory_item does not take at insert (20261003090000 lists
+   * them): with_person_ids and person_mentions arrive only by a later
+   * update. On by default, as the real function behaves.
+   */
+  insertIgnores: string[] = ["with_person_ids", "person_mentions"];
   calls: string[] = [];
 
   table(name: MirroredTable): Map<string, Stored> {
@@ -175,7 +181,8 @@ export class FakeRemote implements Remote {
       if (existing.user_id !== this.userId) throw new RemoteError("rejected", "duplicate key", "23505");
       return structuredClone(existing);
     }
-    const row = this.server.serverWrite("memory_items", key, this.userId, item);
+    const taken = Object.fromEntries(Object.entries(item).filter(([k]) => !this.server.insertIgnores.includes(k)));
+    const row = this.server.serverWrite("memory_items", key, this.userId, { with_person_ids: [], person_mentions: [], ...taken });
     for (const s of sources) {
       const id = (s.id as string | undefined) ?? `${key}:${this.server.table("memory_item_sources").size}`;
       this.server.serverWrite("memory_item_sources", id, this.userId, { ...s, memory_item_id: key }, row.updated_at);

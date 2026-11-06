@@ -46,7 +46,7 @@ const nativePressable = {
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*", "node_modules/*", ".expo/*"],
+    ignores: ["dist/*", "node_modules/*", ".expo/*", "docs/product/explorations/**"],
   },
   {
     // P0-08: Kinship never writes to the user's calendar.
@@ -120,7 +120,8 @@ module.exports = defineConfig([
   {
     // Supabase Edge Functions run on Deno, which resolves `npm:`, `jsr:` and
     // URL specifiers itself; `deno check` type-checks these files instead.
-    files: ["supabase/functions/**/*.ts", "evals/**/*.ts"],
+    // The harness's Deno runners too (tsconfig excludes the same files).
+    files: ["supabase/functions/**/*.ts", "evals/**/*.ts", "scripts/semantic/**/*.ts", "e2e/model-stub.ts", "e2e/serve-delete-account.ts"],
     rules: {
       "import/no-unresolved": ["error", { ignore: ["^npm:", "^jsr:", "^https?:"] }],
     },

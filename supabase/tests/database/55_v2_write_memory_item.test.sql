@@ -105,11 +105,12 @@ INSERT INTO public.related_people (id, person_id, relation)
   VALUES ('00000000-0000-0000-0000-000000001514', '00000000-0000-0000-0000-000000001501', 'sister');
 SELECT tests.reset_role();
 SELECT tests.as_user(:B);
-SELECT throws_ok($$ SELECT public.write_memory_item(
+-- The subject check is deferrable (merges), so it is met at commit.
+SELECT throws_ok($$ SELECT pg_temp.at_commit($i$ SELECT public.write_memory_item(
   '{"id": "00000000-0000-0000-0000-000000001515", "kind": "fact", "person_id": "00000000-0000-0000-0000-000000001511",
     "subject_type": "related", "subject_related_id": "00000000-0000-0000-0000-000000001514",
     "statement": "x", "origin": "user", "detail": {"category": "other"}}',
-  '[{"source_kind": "user_edit"}]') $$,
+  '[{"source_kind": "user_edit"}]') $i$) $$,
   '23503', NULL, 'B cannot use A''s related person as the subject');
 SELECT throws_ok($$ SELECT public.write_memory_item(
   '{"id": "00000000-0000-0000-0000-000000001516", "kind": "fact", "person_id": "00000000-0000-0000-0000-000000001511",

@@ -1,0 +1,204 @@
+{
+ "note": "Jun uses they/them pronouns. They're learning to bake bread, although their first sourdough didn't turn out. They thought it was funny and want to try again.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s3 page, on the page; 3 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Jun",
+      "person_mention": "Jun",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Jun uses they/them pronouns",
+      "evidence": [
+       "Jun uses they/them pronouns."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "pronouns",
+       "value": "they/them",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Jun",
+      "person_mention": "They",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Jun is learning to bake bread",
+      "evidence": [
+       "They're learning to bake bread"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "learning",
+       "value": "to bake bread",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Jun",
+      "person_mention": "their",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Jun's first sourdough didn't turn out; they found it funny and want to try again",
+      "evidence": [
+       "their first sourdough didn't turn out",
+       "They thought it was funny and want to try again."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "sourdough",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s3 general; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Jun",
+      "person_mention": "Jun",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Jun uses they/them pronouns",
+      "evidence": [
+       "Jun uses they/them pronouns."
+      ],
+      "certainty": "stated",
+      "sensitivity": "other_private",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "pronouns",
+       "value": "they/them",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Jun",
+      "person_mention": "They",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Jun is learning to bake bread; their first sourdough didn't turn out, and they want to try again",
+      "evidence": [
+       "They're learning to bake bread",
+       "their first sourdough didn't turn out",
+       "want to try again"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.88,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "learning",
+       "value": "to bake bread",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

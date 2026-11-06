@@ -17,7 +17,10 @@ import {
 import {
   InstrumentSans_400Regular,
   InstrumentSans_500Medium,
+  InstrumentSans_600SemiBold,
+  InstrumentSans_700Bold,
 } from "@expo-google-fonts/instrument-sans";
+import { ArchivoBlack_400Regular } from "@expo-google-fonts/archivo-black";
 import { AppProviders } from "@/providers";
 import { GrowthToastOverlay } from "@/components/ui/GrowthToast";
 import {
@@ -49,8 +52,8 @@ SplashScreen.preventAutoHideAsync();
  * Root Layout
  *
  * Responsibilities:
- * 1. Load the fonts: DM Serif Display + DM Sans for 1.0; Newsreader +
- *    Instrument Sans for the 2.0 shell (names match src/design/tokens.ts)
+ * 1. Load the fonts: DM Serif Display + DM Sans for 1.0; Archivo Black,
+ *    Newsreader + Instrument Sans for the 2.0 shell (names match src/design/tokens.ts)
  * 2. Hold splash screen until fonts are ready
  * 3. Wrap app in providers (SafeArea → Theme → Auth)
  * 4. Define primary navigation stack
@@ -71,6 +74,10 @@ export default function RootLayout() {
     NewsreaderTextItalic: require("../assets/fonts/newsreader/NewsreaderText-Italic.ttf"),
     InstrumentSans: InstrumentSans_400Regular,
     "InstrumentSans-Medium": InstrumentSans_500Medium,
+    "InstrumentSans-SemiBold": InstrumentSans_600SemiBold,
+    "InstrumentSans-Bold": InstrumentSans_700Bold,
+    // Electric Garden (FD-30b): the poster voice for names and the Today statement.
+    ArchivoBlack: ArchivoBlack_400Regular,
   });
 
   const onLayoutRootView = useCallback(async () => {

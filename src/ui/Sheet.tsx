@@ -9,7 +9,7 @@
 // from anywhere on it once its content is at the top (founder J5, as iOS
 // sheets do); content scrolled down scrolls back first.
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { Pressable } from "./Pressable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GUTTER, motion, radius, shadow, size, space } from "@/design/tokens";
@@ -19,6 +19,13 @@ import { sheetClosed, sheetOpened } from "./sheetStack";
 /** How far to drag before letting go closes the sheet. */
 const DRAG_CLOSE = 96;
 const OFFSCREEN = 900;
+/** Room kept under a field the keyboard would cover, so the action after it shows too. */
+const FIELD_CLEARANCE = 88;
+
+/** How far to scroll so a field ending at `fieldBottom` clears `visibleBottom` (window points); 0 if it already does. */
+export function revealBy(fieldBottom: number, visibleBottom: number, clearance = FIELD_CLEARANCE): number {
+  return fieldBottom > visibleBottom ? fieldBottom - visibleBottom + clearance : 0;
+}
 
 /** Whether a drag is the sheet's (founder J5): downward, mostly vertical, with its content at the top. */
 export function takesDrag(atTop: boolean, dx: number, dy: number): boolean {
@@ -36,6 +43,7 @@ export function Sheet({
   children,
   label,
   footer,
+  bleed,
 }: {
   visible: boolean;
   onDismiss: () => void;
@@ -44,6 +52,11 @@ export function Sheet({
   label: string;
   /** Pinned under the scrolling content (the sheet's main action). */
   footer?: React.ReactNode;
+  /**
+   * Full-bleed content at the sheet's top, under the grabber and clipped by the sheet's corners (Electric
+   * Garden: a wash, a botanical cut by the edge, a person's presence). Scrolls with the content.
+   */
+  bleed?: React.ReactNode;
 }) {
   const p = usePalette();
   const insets = useSafeAreaInsets();
@@ -57,6 +70,27 @@ export function Sheet({
   dismiss.current = onDismiss;
   // Whether its content is scrolled to the top (founder J5): a sheet opens there.
   const atTop = useRef(true);
+  const scroll = useRef<ScrollView>(null);
+  const offset = useRef(0);
+
+  // The sheet sits above the keyboard (KeyboardAvoidingView), but its content doesn't scroll by itself:
+  // a field low in it would stay under the keyboard. Once the keyboard is up, bring the focused field
+  // (and a little after it) into view; a field already in view is left where it is.
+  useEffect(() => {
+    if (!mounted) return;
+    const sub = Keyboard.addListener("keyboardDidShow", () => {
+      const field = TextInput.State.currentlyFocusedInput?.() as unknown as View | null;
+      const view = scroll.current as unknown as View | null;
+      if (!field?.measureInWindow || !view?.measureInWindow) return;
+      view.measureInWindow((_x, top, _w, height) => {
+        field.measureInWindow((_fx, fy, _fw, fh) => {
+          const by = revealBy(fy + fh, top + height);
+          if (by > 0) scroll.current?.scrollTo({ y: offset.current + by, animated: !reduce });
+        });
+      });
+    });
+    return () => sub.remove();
+  }, [mounted, reduce]);
 
   useEffect(() => {
     if (visible) {
@@ -147,9 +181,10 @@ export function Sheet({
           style={[shadow.sheet, {
             maxHeight: "88%", backgroundColor: p.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet,
             paddingBottom: space.m + insets.bottom, opacity: fade, transform: [{ translateY: rise }],
+            overflow: bleed ? "hidden" : undefined,
           }]}
         >
-          <View style={{ paddingTop: space.m, paddingBottom: space.xl }}>
+          <View style={{ paddingTop: space.m, paddingBottom: bleed ? 0 : space.xl, zIndex: 2 }}>
             <View
               accessibilityElementsHidden
               importantForAccessibility="no"
@@ -160,17 +195,20 @@ export function Sheet({
             />
           </View>
           <ScrollView
+            ref={scroll}
             // At the top, a downward drag is the sheet's, never an overscroll.
             bounces={false}
             scrollEventThrottle={16}
             onScroll={(e) => {
+              offset.current = e.nativeEvent.contentOffset.y;
               atTop.current = e.nativeEvent.contentOffset.y <= 0;
             }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: space.s }}
+            contentContainerStyle={{ paddingBottom: space.s }}
           >
-            {children}
+            {bleed ? <View style={{ marginTop: -(space.m + size.grabber.height) }}>{bleed}</View> : null}
+            <View style={{ paddingHorizontal: GUTTER }}>{children}</View>
           </ScrollView>
           {footer ? <View style={{ paddingHorizontal: GUTTER, paddingTop: space.m }}>{footer}</View> : null}
         </Animated.View>
