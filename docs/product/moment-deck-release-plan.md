@@ -1,12 +1,12 @@
 # Moment Deck release plan: from the draft PRs to the founder's phone
 
-**Status: steps 1–4 ran on 5 Nov 2026, on the founder's yes. The build for step 5 is made and installed on the wife's phone, not yet on the founder's. Steps 6–8 have not run.** Each remaining production step needs the founder's explicit yes. Readiness once all of it has run: READY FOR FOUNDER NATIVE PASS.
+**Status: steps 1–4 ran on 5 Nov 2026, on the founder's yes. The build for step 5 is installed on the founder's and the wife's phones, and opening it there is still to check. Steps 6–8 have not run.** Each remaining production step needs the founder's explicit yes. Readiness once all of it has run: READY FOR FOUNDER NATIVE PASS.
 
 ## What has run
 - **Steps 1–4:** #75, then #74, #78, #79, #80, #81 and #82, each merged with a merge commit after green CI. `main` is `1bbf7bb`, CI green.
 - **Production after step 4:** 41 migrations. The schema fingerprint is 1028 lines, `1db0201fa84485b39f3c74b565f76e0a`, the same as a fresh build of `main`. It also matched after #74 (1024 lines, `fd5ab602…`) and before anything ran (981 lines, `3dfc9740…`).
 - **Unchanged:** `notebook_deck` has no overrides, so it is off for every account. `ai-gateway` is v16 and `delete-account` is v5. No relative was removed by the new trigger.
-- **Step 5:** `dogfood-v2` built locally from `1bbf7bb`. Its bundle holds the production URL and the new surfaces, and no local address or model identifier. The first install on the founder's phone stopped because it was locked. On the founder's request the build went on the wife's phone by cable, 5 Nov; opening it there hasn't been checked. The flag stays off for that account, and this doesn't change the readiness label.
+- **Step 5:** `dogfood-v2` built locally from `1bbf7bb`. Its bundle holds the production URL and the new surfaces, and no local address or model identifier. Installed by cable on the founder's phone and, on the founder's request, the wife's phone, 5 Nov. Opening it on either hasn't been checked. The flag stays off for that account, and this doesn't change the readiness label.
 
 ## What production was before the merges
 Read on 5 Nov, read-only:
