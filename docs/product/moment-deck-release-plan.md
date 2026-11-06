@@ -31,7 +31,7 @@ The app goes before the gateway (step 5 before 6) because of #79: an older app's
 ## Evidence (5 Nov, all drafts merged locally; the merge rehearsal gave the identical tree)
 - **UNIT / INTEGRATION:** 129 suites / 1282 app tests, 494 edge tests, 29 pgTAP suites (852 checks), `tsc` clean, `npx eslint .` 0 errors. One of three app runs had one suite fail, not captured; the next run passed. The edge and pgTAP counts predate the last app-only commit.
 - **BLACK-BOX (replayed model):** 19 of 22 suites passed first time. `h4` and `k10` were stale tests, now updated. `notebook` needs the live model.
-- **LIVE-MODEL:** `notebook`, 4 tests: J2 failed once because the journey stopped with a question open; after the fix it passed three runs in a row. `live.blackbox` not run.
+- **LIVE-MODEL:** `notebook`, 4 tests: J2 failed in two runs because the journey stopped with a question open; after the fix it passed three runs in a row. `live.blackbox` not run.
 - **VERSIONS TOGETHER (7 suites, 90 tests, replayed model, local database with all eight migrations):** new app + v16 gateway, old app + v16 gateway, old app + new gateway: all 90 pass. These suites don't include an old app's answer on a sensitive line, which is refused as above.
 - **NATIVE-SIMULATOR (iPhone SE, live model, the merged build):**
   - A sensitive line's yes, and "Replaces:" shown on that yes.
@@ -39,7 +39,7 @@ The app goes before the gateway (step 5 before 6) because of #79: an older app's
   - Opening a line's source, then deleting the note: the line and the relative went.
   - One fix: the private source line ran off a 375 pt screen; it now wraps.
 - **Production migrations:** the only constraints the new migrations replace are `contact_events_moment_type_check` and `capture_reviews_items_check`. Neither has been run against production's rows, and no clean-apply rehearsal on production's data is possible locally.
-- **Not checked:** a phone; VoiceOver; 500+ people natively; motion other than the moment's open under Reduce Motion. "Is this about…", "Whose promise?" and the residence question on a sensitive line are tests only: the two notes tried with the live model didn't produce them.
+- **Not checked:** a phone; VoiceOver; 500+ people natively; motion other than the moment's open under Reduce Motion. "Is this about…", "Whose promise?" and the residence question on a sensitive line are tests only. One note each for the first two didn't bring them up with the live model; the residence question wasn't tried.
 
 ## Behaviour to expect
 - A first note with something due today ("I need to call John tonight") is already today's Moment, so "This is where Kinship brings things back" waits until that Moment is answered. This has been so since WS-3.
