@@ -3,15 +3,15 @@
 // sheet on top of a sheet.
 
 import React, { useMemo, useState } from "react";
-import { Alert, Text, TextInput, View } from "react-native";
+import { Alert, Switch, Text, TextInput, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { height, maxScale, press, radius, size, space, TOUCH, type } from "@/design/tokens";
 import { kindLabel, monthName, spokenDay } from "@/features/memory/format";
 import { SWITCHABLE_KINDS, type SwitchableKind } from "@/store/memoryDetail";
 import { MERGE_COPY } from "@/store/peopleMerge";
-import { HOLD_COPY, type HoldState } from "@/store/peopleStates";
-import type { Person, PersonState } from "@/store/repositories";
+import { PAUSE_COPY } from "@/store/peopleStates";
+import { PRONOUNS_MAX, type Person, type PersonState } from "@/store/repositories";
 import { Body, Heading, IconButton, KeyboardBar, Pill, Row, Small, Sprig, useKeyboardBarId, usePalette } from "@/ui";
 import { personLabel, type ItemLine } from "./reviewModel";
 
@@ -223,14 +223,17 @@ export function KindPane({
   );
 }
 
+/** The pronouns offered first; anything else is the user's own words. */
+export const PRONOUN_CHOICES = ["she/her", "he/him", "they/them"] as const;
+
 /**
- * "Their name": a correction, never a new person (founder H1). Below it, the
- * person's own controls (the trust floor, FD-30e): Pause and Hold as
- * remembered (D13; Resume while held), Merge with someone who is them
- * (PER-05), and Remove from People (I3). Each is asked to confirm by the
- * screen; this pane only offers them.
+ * "Their name": a correction, never a new person (founder H1). On the person's
+ * page it is their Edit sheet: their pronouns, then their own controls (the
+ * trust floor, FD-30e): Pause reminders (D13, one switch, founder 5 Nov 2026),
+ * Merge with someone who is them (PER-05), and Remove from People (I3). Merge
+ * and Remove are asked to confirm by the screen; this pane only offers them.
  */
-export function NamePane({ initial, onSave, onCancel, onRemove, state, short, onHold, onResume, onMerge }: {
+export function NamePane({ initial, onSave, onCancel, onRemove, state, short, pronouns, onPronouns, onPause, onResume, onMerge }: {
   initial: string;
   onSave: (name: string) => void;
   onCancel: () => void;
@@ -240,55 +243,94 @@ export function NamePane({ initial, onSave, onCancel, onRemove, state, short, on
   state?: PersonState;
   /** How Kinship says their name ("Chris"), for the explanations. */
   short?: string;
-  onHold?: (state: HoldState) => void;
+  pronouns?: string | null;
+  /** Offered only with this; called on Save when they changed. */
+  onPronouns?: (pronouns: string | null) => void;
+  onPause?: () => void;
   onResume?: () => void;
   onMerge?: () => void;
 }) {
   const p = usePalette();
   const [name, setName] = useState(initial);
+  const was = pronouns?.trim() ?? "";
+  const [said, setSaid] = useState(was);
+  const [own, setOwn] = useState(!!was && !(PRONOUN_CHOICES as readonly string[]).includes(was));
   const who = short?.trim() || initial.trim().split(/\s+/u)[0] || initial;
   const held = state === "paused" || state === "remembered";
+  const nameChanged = !!name.trim() && name.trim() !== initial;
+  const pronounsChanged = !!onPronouns && said.trim() !== was;
+  const field = [type.field, {
+    color: p.ink, minHeight: height.search, paddingHorizontal: space.l, borderRadius: radius.inline, borderWidth: 1,
+    borderColor: p.hairline, backgroundColor: p.paper,
+  }];
   return (
     <View>
-      <PaneHeader title="Their name" onCancel={onCancel} />
+      <PaneHeader title={onPronouns ? `Edit ${who}` : "Their name"} onCancel={onCancel} />
+      {onPronouns ? <Small tone="ink" style={{ marginBottom: space.xs }}>Name</Small> : null}
       <TextInput
         value={name}
         onChangeText={setName}
         maxLength={100}
-        autoFocus
+        // The Edit sheet opens on all its controls; a keyboard would cover them.
+        autoFocus={!onPronouns}
         autoCapitalize="words"
         accessibilityLabel="Their name"
         maxFontSizeMultiplier={maxScale.text}
-        style={[type.field, {
-          color: p.ink, minHeight: height.search, paddingHorizontal: space.l, borderRadius: radius.inline, borderWidth: 1,
-          borderColor: p.hairline, backgroundColor: p.paper,
-        }]}
+        style={field}
       />
-      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.m }}>
-        <Pill variant="primary" label="Save" disabled={!name.trim() || name.trim() === initial} onPress={() => onSave(name)} />
-      </View>
-      {state && held && onResume ? (
-        <View style={{ marginTop: space.xl, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline }}>
-          <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
-            <Pill variant="quiet" size="small" label={HOLD_COPY[state].resume} accessibilityLabel={`${HOLD_COPY[state].resume} ${who}`} onPress={onResume} />
+      {onPronouns ? (
+        <View style={{ marginTop: space.l }}>
+          <Small tone="ink" style={{ marginBottom: space.xs }}>Pronouns</Small>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
+            {PRONOUN_CHOICES.map((c) => {
+              const on = !own && said === c;
+              return (
+                <Pill key={c} size="small" variant={on ? "primary" : "ghost"} selected={on} label={c} onPress={() => {
+                  setOwn(false);
+                  setSaid(on ? "" : c);
+                }} />
+              );
+            })}
+            <Pill size="small" variant={own ? "primary" : "ghost"} selected={own} label="Other" onPress={() => {
+              setSaid("");
+              setOwn(!own);
+            }} />
           </View>
-          <Small style={{ marginTop: space.xs }}>{`${HOLD_COPY[state].line} · ${HOLD_COPY[state].explain(who)}`}</Small>
+          {own ? (
+            <TextInput
+              value={said}
+              onChangeText={setSaid}
+              maxLength={PRONOUNS_MAX}
+              autoCapitalize="none"
+              autoCorrect={false}
+              accessibilityLabel="Their pronouns"
+              maxFontSizeMultiplier={maxScale.text}
+              style={[field, { marginTop: space.s }]}
+            />
+          ) : null}
         </View>
       ) : null}
-      {state === "active" && onHold ? (
-        <View style={{ marginTop: space.xl, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline, gap: space.l }}>
-          <View>
-            <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
-              <Pill variant="quiet" size="small" label={HOLD_COPY.paused.action} accessibilityLabel={`${HOLD_COPY.paused.action} ${who}`} onPress={() => onHold("paused")} />
-            </View>
-            <Small style={{ marginTop: space.xs }}>{HOLD_COPY.paused.explain(who)}</Small>
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: space.m }}>
+        <Pill variant="primary" label="Save" disabled={!name.trim() || (!nameChanged && !pronounsChanged)} onPress={() => {
+          if (pronounsChanged) onPronouns?.(said.trim() || null);
+          if (nameChanged) onSave(name);
+        }} />
+      </View>
+      {(state === "active" || held) && onPause && onResume ? (
+        <View style={{ marginTop: space.xl, paddingTop: space.l, borderTopWidth: 1, borderTopColor: p.hairline, flexDirection: "row", alignItems: "center", gap: space.m }}>
+          <View style={{ flex: 1 }}>
+            <Body tone="ink">{PAUSE_COPY.action}</Body>
+            <Small style={{ marginTop: space.xs }}>{PAUSE_COPY.explain(who)}</Small>
           </View>
-          <View>
-            <View style={{ alignItems: "flex-start", marginLeft: -space.xs }}>
-              <Pill variant="quiet" size="small" label={HOLD_COPY.remembered.action} accessibilityLabel={`${HOLD_COPY.remembered.action}: ${who}`} onPress={() => onHold("remembered")} />
-            </View>
-            <Small style={{ marginTop: space.xs }}>{HOLD_COPY.remembered.explain(who)}</Small>
-          </View>
+          <Switch
+            accessibilityLabel={`${PAUSE_COPY.action} for ${who}`}
+            value={held}
+            onValueChange={(on) => (on ? onPause() : onResume())}
+            trackColor={{ true: p.ink, false: p.hairline }}
+            thumbColor={p.surface}
+            ios_backgroundColor={p.hairline}
+            {...({ activeThumbColor: p.surface } as object)}
+          />
         </View>
       ) : null}
       {(onMerge || onRemove) && state !== "archived" ? (

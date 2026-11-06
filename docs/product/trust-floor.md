@@ -6,6 +6,8 @@ Four controls that must hold before anyone outside the household uses Kinship. E
 
 ## 1. Paused and Remembered (D13, PER-06)
 
+> **Superseded for the user, founder 5 Nov 2026:** after using both on the phone, the founder merged them into one **Pause reminders** switch on the Edit sheet, because they did almost the same thing. It takes effect at once. The page's line is "Reminders paused", and Settings lists **Paused reminders** with Resume. Nothing proactive changes ("How it holds" below stands). An older `remembered` row reads the same. The table below is history.
+
 **Where.** The person's page → **Edit** (the name sheet). Below the name: *Pause* and *Hold as remembered*, each with one plain sentence; while held, the sentence and *Resume*. Settings → **Paused and remembered** lists everyone held, each with *Resume*.
 
 **What each means.**

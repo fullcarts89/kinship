@@ -48,7 +48,7 @@ export const TABLES: readonly TableSpec[] = [
   {
     name: "people", key: "id", appInsert: true, appUpdate: true, tombstones: true, personColumn: "id",
     writable: ["display_name", "full_name", "nicknames", "relationship_label", "birthday",
-      "birthday_year_known", "birthday_source", "birthday_capture_id", "state", "contact_ref", "deleted_at"],
+      "birthday_year_known", "birthday_source", "birthday_capture_id", "state", "contact_ref", "pronouns", "deleted_at"],
   },
   {
     name: "related_people", key: "id", appInsert: true, appUpdate: true, tombstones: true, personColumn: "person_id",

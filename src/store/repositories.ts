@@ -21,9 +21,14 @@ export type MemoryKind =
   | "fact" | "event" | "promise" | "plan" | "thread" | "moment" | "milestone" | "tradition" | "context";
 export type Channel = "text" | "call" | "facetime" | "whatsapp" | "email" | "in_person" | "video" | "other";
 
+/** The longest pronouns kept (the column's own limit). */
+export const PRONOUNS_MAX = 40;
+
 export interface Person extends Data {
   id: string;
   display_name: string;
+  /** How they'd like to be spoken of, in the user's words ("she/her"); null when not set. */
+  pronouns?: string | null;
   state: PersonState;
   birthday: string | null;
   birthday_source: "contacts" | "capture" | "user_edit" | null;
@@ -200,13 +205,22 @@ export class PeopleRepo {
     return this.store.update("people", id, patch);
   }
 
+  /** Their pronouns, as the user gave them; empty clears them. */
+  async setPronouns(id: string, pronouns: string | null): Promise<Person> {
+    const person = await this.get(id);
+    if (!person || person.deleted_at) throw new StoreWriteError("that person isn't here any more");
+    const clean = pronouns?.trim().slice(0, PRONOUNS_MAX) || null;
+    if (clean === (person.pronouns ?? null)) return person;
+    return (await this.store.update("people", id, { pronouns: clean })) as Person;
+  }
+
   /** D13: only the user sets remembered/paused, and both are reversible. */
   setState(id: string, state: PersonState): Promise<Data> {
     return this.store.update("people", id, { state });
   }
 
   /**
-   * Pause, or hold as remembered (D13, PER-06): the person stays in People
+   * Pause reminders (D13, PER-06): the person stays in People
    * with everything Kinship knows; nothing about them comes up on its own
    * until the user resumes. Only from the person's page, only by the user;
    * never for someone removed from People (bring them back first).

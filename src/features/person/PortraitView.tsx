@@ -13,6 +13,7 @@
 //
 // Every stored memory stays findable (What Kinship knows), correctable (tap a line) and inspectable
 // (tap its source). Nothing counts, ranks or scores; a held person differs by one line.
+import { PAUSE_COPY } from "@/store/peopleStates";
 import React, { useRef } from "react";
 import { type ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { Pressable } from "@/ui/Pressable";
@@ -74,8 +75,10 @@ export interface PortraitViewProps {
   /** The name Kinship says (names.ts shortName): "Michelle" from Contacts, a chosen "Cutie Pie" whole (founder I12). */
   short?: string | null;
   label: string | null;
+  /** Their pronouns, as the user gave them. */
+  pronouns?: string | null;
   remembered: boolean;
-  /** "Paused" / "Remembered" (D13): the only visual difference of a held person; null for anyone active. */
+  /** "Reminders paused" (D13): the only visual difference of a held person; null for anyone active. */
   stateLine?: string | null;
   /** What the line means, read to screen readers with it. */
   stateExplain?: string | null;
@@ -332,6 +335,7 @@ export function PortraitView(props: PortraitViewProps) {
         />
       </View>
       {props.label ? <Small style={{ marginTop: space.s }}>{props.label}</Small> : null}
+      {props.pronouns ? <Small style={{ marginTop: space.xs }}>{props.pronouns}</Small> : null}
       {/* Someone merged into them (PER-05): said once, with Undo while it can be undone. */}
       {props.merged?.map((m) => (
         <View key={m.id} style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginTop: space.xs, marginLeft: -space.xs }}>
@@ -359,13 +363,13 @@ export function PortraitView(props: PortraitViewProps) {
 
       {/* The one visual difference of a held person (D13, PER-06): one line, on clear paper below the actions
           (it sat over the leaf art under the name and could not be read). */}
-      {(props.stateLine ?? (props.remembered ? "Remembered" : null)) ? (
+      {(props.stateLine ?? (props.remembered ? PAUSE_COPY.line : null)) ? (
         <Body
           tone="ink"
           style={{ marginTop: space.s, fontFamily: font.sansSemi }}
-          accessibilityLabel={`${props.stateLine ?? "Remembered"}. ${props.stateExplain ?? ""}`.trim()}
+          accessibilityLabel={`${props.stateLine ?? PAUSE_COPY.line}. ${props.stateExplain ?? ""}`.trim()}
         >
-          {props.stateLine ?? "Remembered"}
+          {props.stateLine ?? PAUSE_COPY.line}
         </Body>
       ) : null}
 

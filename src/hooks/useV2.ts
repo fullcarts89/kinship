@@ -485,6 +485,8 @@ export function useV2Actions() {
     settleConflict: (id: number, choice: "keep_current" | "use_mine") => repositoriesFor(store).conflicts.resolve(id, choice),
     /** Correct a person's name: same person, same memories (H1). */
     rename: (personId: string, name: string) => repositoriesFor(store).people.rename(personId, name),
+    /** Their pronouns, in the user's words; empty clears them. */
+    setPronouns: (personId: string, pronouns: string | null) => repositoriesFor(store).people.setPronouns(personId, pronouns),
     /** "Remove from People" (founder I3): a soft archive; nothing is deleted. */
     removePerson: (personId: string) => repositoriesFor(store).people.archive(personId),
     /** "Bring back": the same person, with everything they had (I3). */
