@@ -122,7 +122,7 @@ the review (`review-j2.jpg`), People (`people.jpg`, `people-dense.jpg`, `people-
 people have photos (the test account has none, so every face is the colour-initial-flower form); the iOS
 hand-off is the system's own Messages screen, not the prototype's mock; the platform adaptations in §6.
 
-**Not checked natively:** VoiceOver; performance with hundreds of people; Source from a line; a phone. (The
+**Not checked natively (Source from a line since walked, see §6):** VoiceOver; performance with hundreds of people; Source from a line; a phone. (The
 narrow width and Reduce Motion: §5a.)
 
 **Also seen (pre-existing, not changed):** after the review's Done, the alpha Kept card returns with "Did Kinship
@@ -196,6 +196,8 @@ right; lens swipe is not built (tabs only) so it never fights the iOS back-swipe
 
 **Not verified:** anything on a phone; VoiceOver; motion other than the moment's open under Reduce Motion;
 performance with 500+ people natively (virtualized; unit-tested).
+
+**Update, 5 Nov:** Source from a line has now been walked on the merged build. The release proposal and the evidence for all the drafts merged together are in `moment-deck-release-plan.md`.
 
 ## 7. Founder walkthrough (once a build is on your phone, or on the simulator)
 
