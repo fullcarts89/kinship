@@ -746,5 +746,7 @@ describe("the Tell flow (Option A)", () => {
     expect(dog.continues_capture_id ?? null).toBeNull();
     expect((await liveLines(w)).length).toBe(11);
     r!.unmount();
-  });
+    // The first render of the whole TellSheet tree in this file: on a cold transform cache (CI) that alone
+    // runs past Jest's 5 s default (418 ms warm, 1.6 s cold on a fast Mac).
+  }, 20_000);
 });

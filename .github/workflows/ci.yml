@@ -49,6 +49,8 @@ jobs:
           deno-version: v2.x
       - name: Typecheck
         run: deno check --config supabase/functions/deno.json supabase/functions/ai-insight/index.ts supabase/functions/delete-account/index.ts supabase/functions/ai-gateway/index.ts
+      - name: Typecheck the black-box harness's Deno runners
+        run: deno check --config e2e/deno.json e2e/model-stub.ts e2e/serve-delete-account.ts
       - name: Tests
         working-directory: supabase/functions
         run: deno test

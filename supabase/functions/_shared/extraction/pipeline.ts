@@ -542,9 +542,10 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // related someone of his with the row the words justify (the animal word and the name, both the note's
   // own), so a later note can find her. Only the naming statement itself: "Priya's dog Miso is twelve"
   // stays Priya's own line, as the corpus has it (the possessive still makes Miso known, in companions).
-  // Never a person ("a friend named Sam"); never twice.
+  // Never a person ("a friend named Sam"); never twice. The line's own words only: "moved to Denver with
+  // Leo, and they adopted a dog named Biscuit" names Biscuit in the adoption line, not in the move.
   const petNamed = subject === "person" && raw.kind === "fact" && who.person_key && !companion
-    ? petsNamedIn(allEvidence)[0] ?? null
+    ? petsNamedIn(spans.map((s) => s.quote).join(" "))[0] ?? null
     : null;
   if (knownRelated) {
     if (knownRelated.flag) flags.add(knownRelated.flag);

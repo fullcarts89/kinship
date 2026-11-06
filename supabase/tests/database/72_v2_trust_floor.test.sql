@@ -5,7 +5,7 @@
 -- changed; only the owner can merge their own people; and account deletion
 -- leaves no row for the user in any table, the merge journal included.
 BEGIN;
-SELECT plan(49);
+SELECT plan(51);
 
 \set A '''aaaaaaaa-7272-7272-7272-727272727272'''
 \set B '''bbbbbbbb-7272-7272-7272-727272727272'''
@@ -75,9 +75,16 @@ SELECT is((SELECT count(*)::int FROM public.reasons WHERE user_id = :A AND perso
 SELECT tests.reset_role();
 SELECT tests.as_user(:A);
 UPDATE public.people SET state = 'paused', version = version + 1 WHERE id = :CHRIS;
+SELECT tests.reset_role();
+SELECT tests.as_service();
 SELECT is(public.person_proactive(:CHRIS, :A), false, 'person_proactive: a paused person is not proactive');
 SELECT is(public.person_proactive(:ANTHONY, :A), true, 'person_proactive: an active person is');
 SELECT is(public.person_proactive(:CHRIS, :B), false, 'person_proactive: never for someone else''s id');
+SELECT tests.reset_role();
+-- It takes any account's id, so it is for server readers only.
+SELECT tests.as_user(:B);
+SELECT throws_ok(format('SELECT public.person_proactive(%L, %L)', '00000000-0000-0000-0000-000000007204', :A),
+  '42501', NULL, 'a signed-in user cannot ask person_proactive about any account');
 SELECT tests.reset_role();
 SELECT is((SELECT string_agg(DISTINCT state, ',') FROM public.reasons WHERE user_id = :A AND person_id = :CHRIS), 'suppressed', 'pausing Chris silences his open reason at once');
 SELECT tests.as_service();
@@ -160,6 +167,13 @@ UPDATE public.people SET state = 'active', version = version + 1 WHERE id = :SAM
 
 -- ─── Undo: exactly what the merge changed, and nothing since ─────────────────
 UPDATE public.people SET display_name = 'Tony Lopez', version = version + 1 WHERE id = :LOPEZ;
+SELECT row ->> 'id' AS merge_id FROM merged \gset
+SELECT tests.reset_role();
+SELECT tests.as_user(:B);
+SELECT throws_ok(format('SELECT public.undo_merge_people(%L)', :'merge_id'),
+  'P0002', NULL, 'another user cannot undo my merge (it is not there for them)');
+SELECT tests.reset_role();
+SELECT tests.as_user(:A);
 SELECT lives_ok(format('SELECT public.undo_merge_people(%L)', (SELECT row ->> 'id' FROM merged)), 'the owner undoes the merge');
 SELECT is((SELECT array_agg(statement ORDER BY statement) FROM public.memory_items WHERE person_id = :ANTHONY AND deleted_at IS NULL),
   ARRAY['Anthony and Sam love ice skating with Chris', 'Anthony starts his new job Monday', 'Anthony''s sister Maria lives in Reno'],
