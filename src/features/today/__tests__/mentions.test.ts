@@ -2,7 +2,7 @@
 // the first rows of the page. The founder's own case: Susan's wedding "in the fall" is
 // a talking point without a day; Fluffy's own line comes before a shared memory about
 // ice skating when the hand-off is about Fluffy; nothing is offered when nothing is useful.
-import { MENTION_OPENERS, MENTION_RULES, mentionsFor } from "@/features/today/mentions";
+import { current, MENTION_OPENERS, MENTION_RULES, mentionsFor } from "@/features/today/mentions";
 import type { MemoryItem, Person } from "@/store/repositories";
 
 const TODAY = "2026-10-17";
@@ -120,4 +120,12 @@ describe("what is never offered", () => {
     expect(out).toHaveLength(2);
     expect(new Set(out).size).toBe(2);
   });
+});
+
+// Found on the notebook journeys (2 Nov 2026): a line told on a Pacific evening is already tomorrow in UTC.
+// "Lately" is decided in the user's own calendar, as `today` is, so it counts the moment it is told.
+it("a line told this evening is current today, whatever the UTC date says", () => {
+  const evening = new Date(2026, 10, 2, 23, 30); // local 23:30 on Nov 2
+  const m = { id: "e1", kind: "fact", person_id: "p", subject_type: "person", statement: "Rosa loves making ravioli", detail: { category: "interest" }, status: "active", sensitivity: "none", created_at: evening.toISOString() } as never;
+  expect(current(m, "2026-11-02")).toBe(true);
 });

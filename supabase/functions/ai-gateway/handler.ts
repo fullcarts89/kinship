@@ -44,7 +44,7 @@
 import { bearerToken } from "../_shared/auth.ts";
 import type { ModelCaller, StructuredResult } from "../_shared/ai/model.ts";
 import { type Capability, CAPABILITIES } from "../_shared/ai/registry.ts";
-import { buildInput, type CaptureRow, dossierPeople, type FacetRow, type ItemRow, type PersonRow, type RelatedRow } from "../_shared/extraction/context.ts";
+import { buildInput, type CaptureRow, dossierPeople, type EarlierNote, type FacetRow, type ItemRow, type PersonRow, type RelatedRow, withEarlier } from "../_shared/extraction/context.ts";
 import type { PlaceIndex } from "../_shared/semantic/placeIndex.ts";
 import { type FacetWrite, type LineToRead, MAX_REREAD, rederive } from "../_shared/semantic/rederive.ts";
 import { looksResidential, type ReportItem, type ReportRow, residenceReport } from "../_shared/semantic/report.ts";
@@ -89,6 +89,11 @@ export interface GatewayCaller {
    * phone that lost the reply to a timeout learns what was kept, never "nothing".
    */
   loadSavedIds(captureId: string): Promise<string[]>;
+  /**
+   * Under the caller's RLS: the distinct people the live lines this capture saved are filed on (CER-1):
+   * a note that tells the rest of an earlier note told from no page is about that note's one person.
+   */
+  loadSavedPeople(captureId: string): Promise<string[]>;
   /** As the user: dismiss what's held ("not now"); false when nothing was waiting. */
   closeReview(captureId: string): Promise<boolean>;
 }
@@ -172,6 +177,12 @@ export interface ServiceOps {
    * null clears an earlier record. Written before the lines, so a note is never shown whole by mistake.
    */
   setCoverage(userId: string, captureId: string, coverage: StoredCoverage | null): Promise<void>;
+  /**
+   * An answered question needs one more (CER-1: the person was just settled and has a line the user edited
+   * that this one plainly updates): the stored review becomes these held items under a new version, if it
+   * is still the one the user answered. Returns the new version's created_at, or null when it changed.
+   */
+  reholdReview(userId: string, captureId: string, createdAt: string, items: HeldItem[]): Promise<string | null>;
   /** Saved items, plus the held items and question when something waits on the user, in one transaction. */
   write(
     userId: string,
@@ -303,8 +314,13 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
         return json({ error: "daily_limit_reached" }, 429, { ...cors, "Retry-After": String(secondsUntilUtcMidnight()) });
       }
 
+      // A note that tells the rest of an earlier one (Option A's "Tell the rest"; CER-1): the earlier
+      // note's words go to the model as context, never as evidence, and its person stands in for a note
+      // told from no page, so "plays chess on Thursdays" is Mina's, not "nothing to remember".
+      const earlier = await earlierOf(caller, capture);
+      const scope = withEarlier(capture, earlier);
       const { people, related } = await caller.loadPeople();
-      const items = await caller.loadItems(dossierPeople(capture, people, related));
+      const items = await caller.loadItems(dossierPeople(scope, people, related));
       // Residence readings of those lines, when there is place data to read a new one with. Unread, the
       // note is understood without residence (never as though none of those lines had a reading).
       const facets = deps.places && items.length ? await caller.loadFacets(items.map((i) => i.id)) : [];
@@ -316,7 +332,7 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
         const unread = items.map((i) => i.id).filter((id) => !live.has(id));
         if (unread.length) facets.push(...(await reread(deps.places, deps.service, caller, unread).catch(() => [])).flatMap((r) => r.facet));
       }
-      const input = { ...buildInput(capture, people, related, items, facets ?? []), ...(places ? { places } : {}) };
+      const input = { ...buildInput(capture, people, related, items, facets ?? [], earlier), ...(places ? { places } : {}) };
       const run = await runExtraction(input, cap, deps.model);
       const version = `${cap.promptVersion}+${cap.model}`;
 
@@ -369,10 +385,30 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
     } catch (err) {
       if (claimed) await deps.service.release(claimed.userId, claimed.captureId, "failed").catch(() => undefined);
       // Never log content: the error class and message only (ours, not the note's).
-      console.error(`ai-gateway: request failed: ${err instanceof Error ? err.name : "error"}`);
+      // Our own fixed messages only ("write failed (23514)"): never anything that could echo a note.
+      const own = err instanceof Error && /^[a-z][a-z ]{2,40}( \([0-9A-Za-z?]{1,6}\))?$/u.test(err.message) ? err.message : null;
+      console.error(`ai-gateway: request failed: ${err instanceof ServiceError ? `database ${err.code}` : own ?? (err instanceof Error ? err.name : "error")}`);
       return json({ error: "internal_error" }, 500, cors);
     }
   };
+}
+
+/**
+ * The note this one continues, when it does (CER-1): its words, and who it was about (the page it was
+ * told from, else the one person every line it kept is filed on; several people, or none, is no one).
+ * A parent that is gone, or not the caller's, is no context at all.
+ */
+async function earlierOf(caller: GatewayCaller, capture: CaptureRow): Promise<EarlierNote | null> {
+  const parentId = capture.continues_capture_id ?? null;
+  if (!parentId || parentId === capture.id) return null;
+  const parent = await caller.loadCapture(parentId).catch(() => null);
+  if (!parent?.raw_text?.trim()) return null;
+  let personId = parent.context_person_id ?? null;
+  if (!personId) {
+    const people = await caller.loadSavedPeople(parentId).catch(() => [] as string[]);
+    if (people.length === 1) personId = people[0];
+  }
+  return { raw_text: parent.raw_text, person_id: personId };
 }
 
 function toWriteItem(i: PlannedItem): WriteItem {
@@ -594,6 +630,13 @@ async function resolveReview(
     removed,
   });
   if ("fail" in resolution) return json({ error: "invalid_answer", reason: resolution.fail }, 400, cors);
+  // The answer settled who it is about, and that person has a line the user edited which it plainly updates:
+  // nothing is written; the question comes back with the replace choice (the phone shows it as any question).
+  if (resolution.askAgain) {
+    const newCreatedAt = await deps.service.reholdReview(caller.userId, captureId, review.created_at, [resolution.askAgain]);
+    if (!newCreatedAt) return json({ error: "review_changed" }, 409, cors);
+    return json({ status: "asked_again", held: [resolution.askAgain], clarification: null, review_created_at: newCreatedAt }, 200, cors);
+  }
 
   try {
     const out = await deps.service.resolve(caller.userId, captureId, review.created_at, resolution.items, resolution.newPeople);

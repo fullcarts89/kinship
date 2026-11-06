@@ -8,11 +8,12 @@ import { ActivityIndicator, Keyboard, PanResponder, TextInput, View } from "reac
 import { X } from "lucide-react-native";
 import { Pressable } from "@/ui/Pressable";
 import { draftPreview } from "./drafts";
-import { press, radius, size, space, TOUCH } from "@/design/tokens";
+import { press, radius, shadow, size, space, TOUCH } from "@/design/tokens";
 import { Body, KEYBOARD_BAR, Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
 import { Replaces } from "./ReviewSheet";
-import { trackStarted, useTellFlow, type KeptCardState } from "./TellFlow";
+import { trackStarted, useTellFlow, useTellNotebookMode, type KeptCardState } from "./TellFlow";
+import { NotebookDock, NotebookKeptCard } from "./notebook/NotebookDock";
 
 /** A quiet one-line status (offline, and older callers). */
 export function KeptLine({
@@ -98,7 +99,28 @@ export const KEPT_COPY = {
  * "Couldn't understand this one". No timer: it stays until the user is done
  * with it.
  */
-export function KeptCard({
+export function KeptCard(props: KeptCardProps) {
+  // The notebook (flag `notebook_deck`): the same card, behaviour and words, on a raised white card.
+  const notebook = useTellNotebookMode();
+  return notebook ? <NotebookKeptCard {...props} /> : <AlphaKeptCard {...props} />;
+}
+
+export interface KeptCardProps {
+  card: KeptCardState;
+  onOpen: () => void;
+  onUndo: () => void;
+  onDismiss: () => void;
+  /** "Got it right / Not quite" (H6): quiet, after what was kept. */
+  onRate?: (verdict: "right" | "not_quite", off?: FeedbackOff) => void;
+  /** "Add Pedro" (founder I4). */
+  onAddNewcomer?: (name: string, itemIds: string[]) => void;
+  /** "Tell the rest" of a note the understanding could not take whole (Option A). */
+  onTellRest?: () => void;
+  /** "Try again" on a note whose understanding kept failing (Option A). */
+  onRetry?: () => void;
+}
+
+function AlphaKeptCard({
   card,
   onOpen,
   onUndo,
@@ -143,10 +165,10 @@ export function KeptCard({
     // just happened to your note never reads as part of a Coming up line.
     <View
       accessibilityLiveRegion="polite"
-      style={{
-        marginTop: space.m, marginBottom: space.s, paddingHorizontal: space.m, paddingTop: space.s, paddingBottom: space.xs,
-        borderRadius: radius.inline, borderWidth: 1, borderColor: p.hairline, backgroundColor: p.surface,
-      }}
+      style={[shadow.field, {
+        marginTop: space.m, marginBottom: space.s, paddingHorizontal: space.l, paddingTop: space.m, paddingBottom: space.xs,
+        borderRadius: radius.inline, backgroundColor: p.surface,
+      }]}
     >
       {/* 1. What was kept. */}
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.s }}>
@@ -230,7 +252,7 @@ export function KeptCard({
       ))}
 
       {/* 2b. The note held more than the understanding could take (Option A): the rest is in the note,
-          marked, and the user can tell it again. Not "Try again": the same note would meet the same limit. */}
+          marked, and the user can tell it again (since FD-30c only a passage whose understanding failed). */}
       {kept && card.partial?.tellRest && onTellRest ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginTop: space.m }}>
           <Pill size="small" label={KEPT_COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to back in the Tell field, to tell again" onPress={onTellRest} />
@@ -347,6 +369,13 @@ export function TellDockView(props: TellDockViewProps) {
 
 export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: NavKey) => void; typing?: boolean }) {
   const flow = useTellFlow();
+  // The notebook (flag `notebook_deck`): the white Tell pill above the bar; a tap opens the Tell page.
+  if (flow.notebook) return <NotebookDock current={current} onGo={onGo} />;
+  return <AlphaTellDock current={current} onGo={onGo} typing={typing} />;
+}
+
+function AlphaTellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: NavKey) => void; typing?: boolean }) {
+  const flow = useTellFlow();
   const people = usePeople();
   // Who the Tell is about: no one (the general Tell), or the person
   // "Anything worth remembering?" asked about. Each has its own draft.
@@ -437,7 +466,7 @@ export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to
         onGo(to);
       }}
       inputRef={input}
-      typing={typing}
+      typing={typing || open}
       about={aboutName}
       autoFocus={focusNow}
       collapsed={!open && draft.trim() ? {

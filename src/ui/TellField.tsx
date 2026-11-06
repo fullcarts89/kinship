@@ -1,5 +1,6 @@
-// The Tell field (Design Direction §H; boards 1 and System): always a thumb
-// away, pinned above the two-item bar. A 54 pt pill on the raised surface;
+// The Tell field (Electric Garden): always a thumb away, pinned above the
+// two-item bar. A 52 pt pill, the one raised surface on the page (a soft lift,
+// no outline);
 // it grows into a few lines while you type. Say it the way you'd tell a
 // friend, then send: no type to choose, no form.
 //
@@ -11,7 +12,7 @@ import React, { forwardRef } from "react";
 import { Text, TextInput, View } from "react-native";
 import { Pressable } from "./Pressable";
 import { ArrowUp } from "lucide-react-native";
-import { height, maxScale, press, radius, size, space, type } from "@/design/tokens";
+import { height, maxScale, press, radius, shadow, size, space, type } from "@/design/tokens";
 import { IconButton } from "./Screen";
 import { KeyboardBar, useKeyboardBarId } from "./KeyboardBar";
 import type { NavKey } from "./NavBar";
@@ -50,10 +51,10 @@ export const TellField = forwardRef<TextInput, TellFieldProps>(function TellFiel
   if (collapsed && canSend) {
     return (
       <View
-        style={{
-          minHeight: height.tell, borderRadius: radius.pill(height.tell), backgroundColor: p.surface, borderWidth: 1,
-          borderColor: p.hairline, flexDirection: "row", alignItems: "center", paddingLeft: space.xl, paddingRight: space.s,
-        }}
+        style={[shadow.field, {
+          minHeight: height.tell, borderRadius: radius.pill(height.tell), backgroundColor: p.surface,
+          flexDirection: "row", alignItems: "center", paddingLeft: space.xl, paddingRight: space.s,
+        }]}
       >
         <Pressable
           accessibilityRole="button"
@@ -73,18 +74,16 @@ export const TellField = forwardRef<TextInput, TellFieldProps>(function TellFiel
   const multi = value.includes("\n") || value.length > 34;
   return (
     <View
-      style={{
+      style={[shadow.field, {
         minHeight: height.tell,
         borderRadius: multi ? radius.inline : radius.pill(height.tell),
         backgroundColor: p.surface,
-        borderWidth: 1,
-        borderColor: p.hairline,
         flexDirection: "row",
         alignItems: multi ? "flex-end" : "center",
         paddingLeft: space.xl,
         paddingRight: space.s,
         paddingVertical: multi ? space.s : 0,
-      }}
+      }]}
     >
       <TextInput
         ref={ref}

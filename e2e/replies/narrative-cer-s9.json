@@ -1,0 +1,453 @@
+{
+ "note": "Noah loves hiking, bird photography and Thai food, but he hates olives. He just started pottery and is trying to persuade his roommate to join.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s9 page, on the page; 6 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Noah",
+      "person_mention": "Noah",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah loves hiking",
+      "evidence": [
+       "Noah loves hiking"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "loves",
+       "value": "hiking",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Noah",
+      "person_mention": "Noah",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah loves bird photography",
+      "evidence": [
+       "bird photography"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "loves",
+       "value": "bird photography",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Noah",
+      "person_mention": "Noah",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah loves Thai food",
+      "evidence": [
+       "Thai food"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "loves",
+       "value": "Thai food",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Noah",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah hates olives",
+      "evidence": [
+       "he hates olives"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "hates",
+       "value": "olives",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Noah",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah just started pottery",
+      "evidence": [
+       "He just started pottery"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "started",
+       "value": "pottery",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Noah",
+      "person_mention": "his roommate",
+      "subject": "related",
+      "related_relation": "roommate",
+      "related_name": null,
+      "statement": "Noah is trying to persuade his roommate to join pottery",
+      "evidence": [
+       "is trying to persuade his roommate to join"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.75,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "persuade his roommate to join",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s9 general; 6 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Noah",
+      "person_mention": "Noah",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah loves hiking",
+      "evidence": [
+       "Noah loves hiking"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "loves",
+       "value": "hiking",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Noah",
+      "person_mention": "Noah",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah loves bird photography",
+      "evidence": [
+       "bird photography"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "loves",
+       "value": "bird photography",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Noah",
+      "person_mention": "Noah",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah loves Thai food",
+      "evidence": [
+       "Thai food"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "loves",
+       "value": "Thai food",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Noah",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah hates olives",
+      "evidence": [
+       "he hates olives"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "hates",
+       "value": "olives",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Noah",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah just started pottery",
+      "evidence": [
+       "He just started pottery"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.88,
+      "date_text": null,
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "started",
+       "value": "pottery",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Noah",
+      "person_mention": "his",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Noah is trying to persuade his roommate to join pottery",
+      "evidence": [
+       "is trying to persuade his roommate to join"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.75,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "persuade his roommate to join",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

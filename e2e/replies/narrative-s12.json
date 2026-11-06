@@ -1,0 +1,1441 @@
+{
+ "note": "Mina collects records, loves jazz, is learning Portuguese, keeps succulents on her desk, rides a bike to work, plays badminton, makes ceramics, reads fantasy, grows herbs and plays chess on Thursdays. She is also nervous about a job interview next Wednesday.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-19-30 (30 Oct 2026, synthetic roster, s12 page; 7 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina collects records",
+      "evidence": [
+       "Mina collects records"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "hobby",
+       "value": "collects records",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina loves jazz",
+      "evidence": [
+       "loves jazz"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "music",
+       "value": "loves jazz",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina is learning Portuguese",
+      "evidence": [
+       "is learning Portuguese"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "language",
+       "value": "learning Portuguese",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina rides a bike to work",
+      "evidence": [
+       "rides a bike to work"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "other",
+       "attribute": "commute",
+       "value": "rides a bike to work",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina plays badminton, makes ceramics, reads fantasy and grows herbs",
+      "evidence": [
+       "plays badminton, makes ceramics, reads fantasy, grows herbs"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "hobbies",
+       "value": "badminton, ceramics, fantasy, herbs",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "tradition",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina plays chess on Thursdays",
+      "evidence": [
+       "plays chess on Thursdays"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "on Thursdays",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": "Thursdays",
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Mina",
+      "person_mention": "She",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina has a job interview next Wednesday and is nervous about it",
+      "evidence": [
+       "She is also nervous about a job interview next Wednesday."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "next Wednesday",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "interview",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-19-30 (30 Oct 2026, synthetic roster, s12 general; 10 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina collects records",
+      "evidence": [
+       "Mina collects records"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "collects",
+       "value": "records",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina loves jazz",
+      "evidence": [
+       "loves jazz"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "loves",
+       "value": "jazz",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina is learning Portuguese",
+      "evidence": [
+       "is learning Portuguese"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "learning",
+       "value": "Portuguese",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina rides a bike to work",
+      "evidence": [
+       "rides a bike to work"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "other",
+       "attribute": "commute",
+       "value": "rides a bike to work",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina plays badminton",
+      "evidence": [
+       "plays badminton"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "plays",
+       "value": "badminton",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina makes ceramics",
+      "evidence": [
+       "makes ceramics"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "makes",
+       "value": "ceramics",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina reads fantasy",
+      "evidence": [
+       "reads fantasy"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "reads",
+       "value": "fantasy",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina grows herbs",
+      "evidence": [
+       "grows herbs"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "grows",
+       "value": "herbs",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "tradition",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina plays chess on Thursdays",
+      "evidence": [
+       "plays chess on Thursdays"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "on Thursdays",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": "Thursdays",
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Mina",
+      "person_mention": "She",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina has a job interview next Wednesday and is nervous about it",
+      "evidence": [
+       "She is also nervous about a job interview next Wednesday."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "next Wednesday",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "interview",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s12 page, on the page; 11 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina collects records",
+      "evidence": [
+       "Mina collects records"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "collects",
+       "value": "records",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina loves jazz",
+      "evidence": [
+       "loves jazz"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "loves",
+       "value": "jazz",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina is learning Portuguese",
+      "evidence": [
+       "is learning Portuguese"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "learning",
+       "value": "Portuguese",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina keeps succulents on her desk",
+      "evidence": [
+       "keeps succulents on her desk"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "keeps on her desk",
+       "value": "succulents",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina rides a bike to work",
+      "evidence": [
+       "rides a bike to work"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "other",
+       "attribute": "commute",
+       "value": "rides a bike to work",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina plays badminton",
+      "evidence": [
+       "plays badminton"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "plays",
+       "value": "badminton",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina makes ceramics",
+      "evidence": [
+       "makes ceramics"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "makes",
+       "value": "ceramics",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina reads fantasy",
+      "evidence": [
+       "reads fantasy"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "reads",
+       "value": "fantasy",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina grows herbs",
+      "evidence": [
+       "grows herbs"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "grows",
+       "value": "herbs",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "tradition",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina plays chess on Thursdays",
+      "evidence": [
+       "plays chess on Thursdays"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "on Thursdays",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": "Thursdays",
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Mina",
+      "person_mention": "She",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina has a job interview next Wednesday and is nervous about it",
+      "evidence": [
+       "She is also nervous about a job interview next Wednesday."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "next Wednesday",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "interview",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s12 general; 11 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina collects records",
+      "evidence": [
+       "Mina collects records"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "collects",
+       "value": "records",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina loves jazz",
+      "evidence": [
+       "loves jazz"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "loves",
+       "value": "jazz",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina is learning Portuguese",
+      "evidence": [
+       "is learning Portuguese"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "learning",
+       "value": "Portuguese",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina keeps succulents on her desk",
+      "evidence": [
+       "keeps succulents on her desk"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "keeps on her desk",
+       "value": "succulents",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina rides a bike to work",
+      "evidence": [
+       "rides a bike to work"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "other",
+       "attribute": "commute",
+       "value": "rides a bike to work",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina plays badminton",
+      "evidence": [
+       "plays badminton"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "plays",
+       "value": "badminton",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina makes ceramics",
+      "evidence": [
+       "makes ceramics"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "makes",
+       "value": "ceramics",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina reads fantasy",
+      "evidence": [
+       "reads fantasy"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "reads",
+       "value": "fantasy",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina grows herbs",
+      "evidence": [
+       "grows herbs"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "grows",
+       "value": "herbs",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Mina",
+      "person_mention": "Mina",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina plays chess on Thursdays",
+      "evidence": [
+       "plays chess on Thursdays"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "on Thursdays",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "plays",
+       "value": "chess on Thursdays",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Mina",
+      "person_mention": "She",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Mina has a job interview next Wednesday and is nervous about it",
+      "evidence": [
+       "She is also nervous about a job interview next Wednesday."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "next Wednesday",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "interview",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

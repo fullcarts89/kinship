@@ -90,9 +90,18 @@ export class FakeGateway implements GatewayTransport {
   }
 
   /** Reads this note with the real pipeline, given the model's reply. */
-  propose(note: string, reply: (input: ExtractionInput) => ModelProposal): void {
+  propose(note: string, reply: (input: ExtractionInput) => ModelProposal, opts: { lost?: string[]; unlocated?: number } = {}): void {
     this.proposals.set(note, reply);
+    if (opts.lost?.length || opts.unlocated) this.lost.set(note, opts);
+    else this.lost.delete(note);
   }
+
+  /**
+   * What a note's understanding did not get to (FD-30c: a passage whose model call failed), scripted as
+   * the words of each lost passage (one span each, in the note's order) and a count that could not be
+   * placed: the real pipeline is handed the spans, as run.ts hands it a failed passage's.
+   */
+  private readonly lost = new Map<string, { lost?: string[]; unlocated?: number }>();
 
   private rows<T>(table: "people" | "related_people" | "memory_items" | "memory_item_facets"): T[] {
     return [...this.server.table(table).values()].filter((r) => r.user_id === this.userId && !r.deleted_at) as unknown as T[];
@@ -113,10 +122,19 @@ export class FakeGateway implements GatewayTransport {
       ...buildInput(capture, people, this.rows<RelatedRow>("related_people"), this.rows<ItemRow>("memory_items"), facets),
       ...(this.places ? { places: this.places } : {}),
     };
-    const outcome = planExtraction(input, reply(input));
+    const script = this.lost.get(String(c.raw_text));
+    const text = String(c.raw_text);
+    const unprocessed = (script?.lost ?? []).map((words) => {
+      const at = text.indexOf(words);
+      return at < 0 ? null : { start: Array.from(text.slice(0, at)).length, end: Array.from(text.slice(0, at)).length + Array.from(words).length };
+    }).filter((sp): sp is { start: number; end: number } => sp !== null);
+    const outcome = planExtraction(input, reply(input), unprocessed.length ? { unprocessed } : {});
+    const coverage = outcome.coverage || script?.unlocated
+      ? { unprocessed: outcome.coverage?.unprocessed ?? [], unlocated: (outcome.coverage?.unlocated ?? 0) + (script?.unlocated ?? 0) }
+      : null;
     return {
       items: [], clarification: outcome.clarification, planned: outcome.items as unknown as Record<string, unknown>[], known: outcome.known,
-      ...(outcome.coverage ? { coverage: outcome.coverage } : {}),
+      ...(coverage ? { coverage } : {}),
     };
   }
 
@@ -217,7 +235,7 @@ export class FakeGateway implements GatewayTransport {
     const coverage = "coverage" in script && script.coverage ? { v: 1, ...script.coverage } : null;
     this.write("captures", captureId, {
       status: tier === "auto" || tier === "nothing" ? "extracted" : "needs_review",
-      extraction_version: "relationship_extract/v6+model",
+      extraction_version: "relationship_extract/v7+model",
       coverage,
     });
     let createdAt: string | null = null;
@@ -310,6 +328,9 @@ export class FakeGateway implements GatewayTransport {
       .map((m) => ({ person_id: String(m.person_id), statement: String(m.statement) }));
   }
 
+  /** The lines the user chose to replace in this answer ("Does this replace what you told me?"), as resolve_capture_review records them. */
+  private userChose = new Set<string>();
+
   private realAnswer(captureId: string, note: string, review: StoredReview, answers: HeldAnswer[]): TransportReply {
     const people = withLineNames(this.rows<PersonRow & { state: string }>("people"), this.rows<{ person_mentions?: unknown }>("memory_items"));
     const r = resolveHeld(review.items as unknown as ResolveHeldItem[], answers as never, {
@@ -329,6 +350,12 @@ export class FakeGateway implements GatewayTransport {
       removed: this.removedFrom(captureId),
     });
     if ("fail" in r) return refuse(400, "invalid_answer", r.fail);
+    // As resolveReview (CER-1): the answer settled who it is about and one more question follows; nothing is written.
+    if (r.askAgain) {
+      const createdAt = this.server.tick(1);
+      this.reviews.set(captureId, { items: [r.askAgain as unknown as Record<string, unknown>], clarification: null, created_at: createdAt } as never);
+      return ok({ status: "asked_again", held: [r.askAgain], clarification: null, review_created_at: createdAt });
+    }
     const created: Record<string, string> = {};
     for (const np of r.newPeople) {
       created[np.ref] = this.writeNew("people", { display_name: np.display_name, state: "active", relationship_label: np.relationship_label ?? null });
@@ -341,6 +368,12 @@ export class FakeGateway implements GatewayTransport {
         (h.still_in as { target_id?: string } | undefined)?.target_id === it.action.target_id && h.person_id === it.person_id &&
         sig(h.spans) === sig(it.spans)))
       .map((it) => it.action.target_id!);
+    this.userChose = new Set(r.items.filter((it) => it.action.type === "supersede" && review.items.some((h) =>
+      Array.isArray(h.flags) && (h.flags as string[]).includes("update_check") &&
+      Array.isArray((h.detail as { _replaces?: { id: string }[] } | undefined)?._replaces) &&
+      (h.detail as { _replaces: { id: string }[] })._replaces.some((o) => o.id === it.action.target_id) &&
+      (h.person_id === null || h.person_id === it.person_id) && sig(h.spans) === sig(it.spans)))
+      .map((it) => it.action.target_id!));
     const out: Record<string, unknown>[] = [];
     for (const it of r.items) {
       const personId = it.person_id.startsWith("new:") ? created[it.person_id] : it.person_id;
@@ -349,6 +382,7 @@ export class FakeGateway implements GatewayTransport {
       const resolved = { ...it, person_id: personId, ...(words.length ? { person_mentions: words } : {}) };
       out.push({ ...resolved, id: this.writeItem(captureId, resolved as unknown as Record<string, unknown>, answered), action: it.action.type });
     }
+    this.userChose = new Set();
     this.reviews.delete(captureId);
     this.settle(captureId);
     return ok({ status: "resolved", saved: out, new_people: Object.values(created), skipped: r.skipped });
@@ -451,7 +485,7 @@ export class FakeGateway implements GatewayTransport {
     let type = action.type ?? "new";
     if (type !== "new" && (!target || target.deleted_at || target.user_id !== this.userId
       || (["edited", "user_authored"].includes(String(target.user_state)) &&
-        !(type === "supersede" && this.editedLineClosure(captureId, p, target, answered)))
+        !(type === "supersede" && (this.editedLineClosure(captureId, p, target, answered) || this.userChose.has(String(target.id)))))
       || target.person_id !== p.person_id
       || target.subject_type !== p.subject_type
       || (type === "merge" && (target.kind !== p.kind || target.status !== "active"))

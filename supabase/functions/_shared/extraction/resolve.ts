@@ -191,6 +191,13 @@ export interface ResolvedItem {
 }
 
 export interface Resolution {
+  /**
+   * The answer settled who a line is about, and that person has a line the user edited or wrote which this
+   * line plainly updates (the same kind of event, on another day; CER-1, 31 Oct): nothing is written yet;
+   * the line goes back to the user as "Does this replace what you told me?" (the model never saw that
+   * person's memories when the note named no one). Only for a review holding that one line.
+   */
+  askAgain?: HeldItem;
   items: ResolvedItem[];
   /** People to add; relationship_label only when the note states it to the user ("my daughter Kaiya"). */
   newPeople: { ref: string; display_name: string; relationship_label?: string }[];
@@ -219,6 +226,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
   const newPeople: Resolution["newPeople"] = [];
   const stated = statedSelfRelations(ctx.note);
   let skipped = 0;
+  let askAgain: HeldItem | undefined;
   // Mirrors whose kept line is waiting in this same review: joined at the end.
   const joins: { owner: string; bag: string; people: string[]; alone: ResolvedItem }[] = [];
   // Mirrors whose kept line has gone, by kept owner and words: one memory between them, never one each (reviewer A).
@@ -492,6 +500,25 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       if (match && !("ambiguous" in match)) {
         action = { type: match.action, target_id: match.target };
         detail = { ...detail, transition: match.transition };
+      } else if (held.length === 1 && item.kind === "event" && (item.certainty === "stated" || item.certainty === "planned")) {
+        // The same kind of event told for another day, against a line the user edited or wrote: asked,
+        // never filed beside it (CER-1, WS-5 journey, 31 Oct).
+        const type = typeof detail.event_type === "string" ? detail.event_type : null;
+        const mine = type && type !== "other"
+          ? ctx.existing.filter((m) =>
+            m.person_id === personId && m.status === "active" && m.kind === "event" && m.subject_type === subjectType &&
+            (m.subject_related_id ?? null) === (related?.id ?? null) && (m.user_state === "edited" || m.user_state === "user_authored") &&
+            (m.detail as Record<string, unknown> | null)?.event_type === type && !sameDay(m.detail ?? null, detail)
+          ).slice(0, 3)
+          : [];
+        if (mine.length) {
+          askAgain = {
+            ...item, person_id: personId, tier: "hold",
+            flags: [...(item.flags ?? []).filter((f) => !PERSON_FLAGS.includes(f)), "update_check", "protected_target"],
+            detail: { ...detail, _replaces: mine.map((m) => ({ id: m.id, statement: m.statement })) },
+          };
+          delete (askAgain as { candidate_ids?: unknown }).candidate_ids;
+        }
       }
     }
     // ── "Is Susan still in Alameda?" (Phase 4B B3, case E) ──
@@ -629,6 +656,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     }
     line.with_person_ids = [...new Set([...(line.with_person_ids ?? []), ...j.people])].filter((id) => id !== line.person_id);
   }
+  if (askAgain && held.length === 1) return { items: [], newPeople: [], skipped: 0, askAgain };
   return { items: oneEach(items), newPeople, skipped };
 }
 

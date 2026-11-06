@@ -893,6 +893,15 @@ export class Understanding {
     }
     try {
       const reply = await this.gateway.answer(id, pending.review_created_at, pending.answers);
+      if (reply.status === "asked_again") {
+        // The person is settled and one more question follows (does this replace what you edited?): back to
+        // review with that question; nothing was written.
+        await this.save(id, {
+          state: "review", answer: null, notice: null, attempts: 0, next_at: null,
+          reading: { ...reading, held: reply.held, clarification: null, review_created_at: reply.review_created_at, settled: false },
+        });
+        return false;
+      }
       const saved = reply.status === "resolved"
         ? [...reading.saved, ...reply.saved.filter((s) => s.id).map((s) => ({ id: s.id as string, tier: "confirm" as const }))]
         : reading.saved;

@@ -103,7 +103,8 @@ describe("K28 + K26: Susan is getting married to Pedro this fall (the founder's 
     // 3–6. Susan's page → Message: the sheet offers the wedding, in the user's words, with one clear suggestion; Messages opens.
     const first = await messageFromPage(a, susan.id);
     expect(first.sheet).toContain("You could mention");
-    expect(first.sheet).toContain(`•  ${wedding}`);
+    // Electric Garden (FD-30b): the mention lines sit behind a rule, with no bullet.
+    expect(first.sheet).toContain(wedding);
     expect(first.sheet).toContain(MENTION_OPENERS.wedding);
     expect(first.sheet.some((t) => /next week|Oct \d/u.test(t) && /married/u.test(t))).toBe(false); // never given a day it never had
     expect(first.sheet).toContain("When you come back: “Did you reach Susan?”");
@@ -233,8 +234,11 @@ describe("K26: Fluffy before ice skating, about the vet appointment (the founder
     await tap(a.r, "Ask how it went");
     await until(a.r, (s) => s.includes("You could mention"), "the hand-off sheet", 5000);
     const sheet = texts(a.r);
-    const bullets = sheet.filter((t) => t.startsWith("•  "));
-    expect(bullets).toEqual(["•  Chris has a dog named Fluffy", "•  Chris is training for a half marathon"]);
-    expect(sheet.some((t) => /ice skating/u.test(t))).toBe(false);
+    // Electric Garden (FD-30b): the mention lines sit behind a rule, with no bullet; both are on the sheet, in order.
+    // Today's own context block behind the sheet may say the same lines: only the sheet's region, from its label, counts.
+    const onSheet = sheet.slice(sheet.indexOf("You could mention"));
+    const mentions = onSheet.filter((t) => t === "Chris has a dog named Fluffy" || t === "Chris is training for a half marathon");
+    expect(mentions).toEqual(["Chris has a dog named Fluffy", "Chris is training for a half marathon"]);
+    expect(onSheet.some((t) => /ice skating/u.test(t))).toBe(false);
   }, 120000);
 });

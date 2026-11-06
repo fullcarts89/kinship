@@ -13,7 +13,9 @@ import { press, radius, size, space, TOUCH } from "@/design/tokens";
 import type { HeldAnswer } from "@/store/gateway";
 import type { SwitchableKind } from "@/store/memoryDetail";
 import type { Person } from "@/store/repositories";
-import { Body, Label, Line, Pill, Sheet, Small, Title, Token, TokenRow, usePalette } from "@/ui";
+import { Body, Label, Line, Pill, SectionDot, Sheet, Small, Title, Token, TokenRow, usePalette } from "@/ui";
+import { dayLabel } from "@/features/memory/format";
+import { deviceZone, proposedDay } from "./wordsDate";
 import { DatePane, KindPane, namedChoices, PersonPane, WordsPane } from "./Pickers";
 import { answersFor, COPY, openQuestions, type ItemLine, type Question, type ReviewView } from "./reviewModel";
 
@@ -67,6 +69,8 @@ export function ReviewSheet(props: ReviewSheetProps) {
   const p = usePalette();
   const [pane, setPane] = useState<Pane>({ kind: "review" });
   const [picks, setPicks] = useState<Record<string, Omit<HeldAnswer, "index"> | "skip">>({});
+  // After a words edit that names another day: the day to ask about (never applied silently).
+  const [proposed, setProposed] = useState<string | null>(null);
   // A new question (or "choose again") starts its picks over.
   const signature = `${view.questions.map((q) => `${q.key}:${q.items.join(",")}:${q.prompt}`).join("|")}#${view.notice ?? ""}`;
   useEffect(() => setPicks({}), [signature]);
@@ -86,7 +90,10 @@ export function ReviewSheet(props: ReviewSheetProps) {
     const answers = answersFor(view.questions, next);
     if (answers) props.onAnswer(answers);
   };
-  const back = () => setPane({ kind: "review" });
+  const back = () => {
+    setProposed(null);
+    setPane({ kind: "review" });
+  };
 
   let body: React.ReactNode;
   if (pane.kind === "person") {
@@ -117,10 +124,10 @@ export function ReviewSheet(props: ReviewSheetProps) {
   } else if (pane.kind === "date") {
     body = (
       <DatePane
-        title={pane.question ? (pane.question.type === "keep" ? "Which day?" : pane.question.prompt) : "When is it?"}
-        initial={pane.line?.when?.value ?? null}
+        title={proposed ? `Is it now ${dayLabel(proposed, props.today)}?` : pane.question ? (pane.question.type === "keep" ? "Which day?" : pane.question.prompt) : "When is it?"}
+        initial={proposed ?? pane.line?.when?.value ?? null}
         today={props.today}
-        allowNone={!pane.question}
+        allowNone={!pane.question && !proposed}
         onCancel={back}
         onPick={(day) => {
           if (pane.question) choose(pane.question, { date: day });
@@ -140,7 +147,12 @@ export function ReviewSheet(props: ReviewSheetProps) {
   } else if (pane.kind === "words") {
     body = <WordsPane initial={pane.line.statement} onCancel={back} onSave={(w) => {
       props.onCorrect(pane.line.id, { statement: w });
-      back();
+      // The words name another day: ask, in this sheet, before the line says two (never a silent change).
+      const day = proposedDay(pane.line, w, new Date().toISOString(), deviceZone());
+      if (day) {
+        setProposed(day);
+        setPane({ kind: "date", line: pane.line });
+      } else back();
     }} />;
   } else {
     // Gate D: what was kept ("Kept for Ben", the lines), then, apart and
@@ -151,7 +163,12 @@ export function ReviewSheet(props: ReviewSheetProps) {
     const waiting = !!question && !view.answering;
     body = (
       <View>
-        {label && !questionOnly ? <Label>{label}</Label> : null}
+        {label && !questionOnly ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
+            <SectionDot accent="mark" />
+            <Label>{label}</Label>
+          </View>
+        ) : null}
         {questionOnly ? null : view.lines.length ? (
           <Title style={{ marginTop: label ? space.m : 0 }}>{`${COPY.remember}.`}</Title>
         ) : view.mode === "nothing" ? (
@@ -166,9 +183,10 @@ export function ReviewSheet(props: ReviewSheetProps) {
             <Pill size="small" fixedLabel label={COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to back in the Tell field, to tell again" onPress={act(props.onTellRest)} />
           </View>
         ) : null}
-        {view.notice ? <Body tone="ochreText" style={{ marginTop: space.s }}>{view.notice}</Body> : null}
+        {view.notice ? <Body tone="markText" style={{ marginTop: space.s }}>{view.notice}</Body> : null}
+        {/* What was kept, as a ledger behind the lime rule: the mark of something understood. */}
         {view.lines.length ? (
-          <View style={{ marginTop: space.xl, borderTopWidth: 1, borderTopColor: p.hairline }}>
+          <View style={{ marginTop: space.xl, borderLeftWidth: 2, borderLeftColor: p.mark, paddingLeft: space.l }}>
             {view.lines.map((line) => (
               <ReviewLine
                 key={line.id}
@@ -217,7 +235,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
             ) : null}
           </View>
           {!waiting ? (
-            <View style={{ marginTop: space.s }}>
+            <View style={{ marginTop: space.l }}>
               <Pill variant="primary" label="Done" onPress={act(props.onDone)} />
             </View>
           ) : null}
@@ -245,7 +263,7 @@ function ReviewLine({
 }) {
   const p = usePalette();
   return (
-    <View style={{ paddingVertical: space.m, borderBottomWidth: 1, borderBottomColor: p.hairline, flexDirection: "row", gap: space.m }}>
+    <View style={{ paddingVertical: space.m, flexDirection: "row", gap: space.m }}>
       <View style={{ flex: 1 }}>
         <Pressable
           style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.surface : 1 })}
@@ -316,6 +334,7 @@ function QuestionBlock({
         <Pill
           key={c.key}
           size="small"
+          wrap
           variant={!boxed && i === 0 && "answer" in c ? "primary" : "ghost"}
           label={c.label}
           onPress={() => ("answer" in c ? onChoose(c.answer, c.restore) : onPick(c.pick))}
@@ -336,7 +355,10 @@ function QuestionBlock({
   if (!boxed) {
     return (
       <View accessibilityLabel={q.prompt}>
-        <Label>{COPY.check}</Label>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
+          <SectionDot accent="butter" />
+          <Label>{COPY.check}</Label>
+        </View>
         <Title style={{ marginTop: space.m }}>{q.prompt}</Title>
         {about}
         {choices}
@@ -349,9 +371,12 @@ function QuestionBlock({
   return (
     <View
       accessibilityLabel={q.prompt}
-      style={{ marginTop: space.l, borderRadius: radius.inline, backgroundColor: p.paper, borderWidth: 1, borderColor: p.hairline, padding: space.l }}
+      style={{ marginTop: space.xl, borderLeftWidth: 2, borderLeftColor: p.butter, paddingLeft: space.l, paddingVertical: space.xs }}
     >
-      <Label>{COPY.check}</Label>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
+        <SectionDot accent="butter" />
+        <Label>{COPY.check}</Label>
+      </View>
       <Body tone="ink" style={{ marginTop: space.s }}>{q.prompt}</Body>
       {about}
       {choices}
