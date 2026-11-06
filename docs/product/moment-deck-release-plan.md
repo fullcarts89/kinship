@@ -1,12 +1,13 @@
 # Moment Deck release plan: from the draft PRs to the founder's phone
 
-**Status: steps 1–4 ran on 5 Nov 2026, on the founder's yes. The build for step 5 is installed on the founder's and the wife's phones, and opening it there is still to check. Steps 6–8 have not run.** Each remaining production step needs the founder's explicit yes. Readiness once all of it has run: READY FOR FOUNDER NATIVE PASS.
+**Status: steps 1–4 ran on 5 Nov 2026, on the founder's yes. Step 5's build is on the founder's and the wife's phones; the founder opened it on theirs. Step 6 ran on the founder's yes. Steps 7 and 8 have not run.** Each remaining production step needs the founder's explicit yes. Readiness once all of it has run: READY FOR FOUNDER NATIVE PASS.
 
 ## What has run
 - **Steps 1–4:** #75, then #74, #78, #79, #80, #81 and #82, each merged with a merge commit after green CI. `main` is `1bbf7bb`, CI green.
 - **Production after step 4:** 41 migrations. The schema fingerprint is 1028 lines, `1db0201fa84485b39f3c74b565f76e0a`, the same as a fresh build of `main`. It also matched after #74 (1024 lines, `fd5ab602…`) and before anything ran (981 lines, `3dfc9740…`).
-- **Unchanged:** `notebook_deck` has no overrides, so it is off for every account. `ai-gateway` is v16 and `delete-account` is v5. No relative was removed by the new trigger.
-- **Step 5:** `dogfood-v2` built locally from `1bbf7bb`. Its bundle holds the production URL and the new surfaces, and no local address or model identifier. Installed by cable on the founder's phone and, on the founder's request, the wife's phone, 5 Nov. Opening it on either hasn't been checked. The flag stays off for that account, and this doesn't change the readiness label.
+- **Unchanged:** `notebook_deck` has no overrides, so it is off for every account. No relative was removed by the new trigger.
+- **Step 5:** `dogfood-v2` built locally from `1bbf7bb`. Its bundle holds the production URL and the new surfaces, and no local address or model identifier. Installed by cable on the founder's phone and, on the founder's request, the wife's phone, 5 Nov. The founder opened it on their phone and it looked right. Opening it on the wife's phone hasn't been checked. The flag stays off for that account, and this doesn't change the readiness label.
+- **Step 6:** `ai-gateway` v17 and `delete-account` v6, deployed from `1bbf7bb`. `functions download --use-api` and `cmp`: all 31 function files match `main`. Both functions answer 401 without a signed-in user. Neither has yet served a signed-in request on this version, so a real Tell on the phone is the first check of that path.
 
 ## What production was before the merges
 Read on 5 Nov, read-only:
@@ -52,8 +53,7 @@ The app goes before the gateway (step 5 before 6) because of #79: an older app's
 - A kept line later struck with × still shows "Answered · You said keep it" above it. Left as is.
 
 ## Decisions for the founder
-1. Yes to step 6.
-2. The user id for step 7.
-3. Whether to close #72, the one earlier workstream PR still open. All but one docs commit (`1002787`) is on `main`.
+1. The user id for step 7.
+2. Whether to close #72, the one earlier workstream PR still open. All but one docs commit (`1002787`) is on `main`.
 
 Decided: commits merged with their existing model-name trailers, since `main` already held 404 and can't be rewritten. New commits leave them off.
