@@ -5,7 +5,7 @@
 ## What has run
 - **Steps 1–4:** #75, then #74, #78, #79, #80, #81 and #82, each merged with a merge commit after green CI. `main` is `1bbf7bb`, CI green.
 - **Production after step 4:** 41 migrations. The schema fingerprint is 1028 lines, `1db0201fa84485b39f3c74b565f76e0a`, the same as a fresh build of `main`. It also matched after #74 (1024 lines, `fd5ab602…`) and before anything ran (981 lines, `3dfc9740…`).
-- **Step 7:** one `notebook_deck` row for the account the founder picked, 5 Nov. Every other account stays off.
+- **Step 7:** one `notebook_deck` row, 5 Nov, on the founder's yes for that account. It first went on another account by mistake: the phone in use was signed in to a different one. The founder then said to move it, so the row is on the account signed in on the second phone. Every other account stays off.
 - **Unchanged:** no relative was removed by the new trigger, as of the last read before step 7.
 - **Step 5:** `dogfood-v2` built locally from `1bbf7bb`. Its bundle holds the production URL and the new surfaces, and no local address or model identifier. Installed by cable on the founder's phone and, on the founder's request, the wife's phone, 5 Nov. The founder opened it on their phone and it looked right. Opening it on the wife's phone hasn't been checked. The flag stays off for that account, and this doesn't change the readiness label.
 - **Step 6:** `ai-gateway` v17 and `delete-account` v6, deployed from `1bbf7bb`. `functions download --use-api` and `cmp`: all 31 function files match `main`. Both functions answer 401 without a signed-in user. Neither has yet served a signed-in request on this version, so a real Tell on the phone is the first check of that path.
