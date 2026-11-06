@@ -1,0 +1,2775 @@
+{
+ "note": "Had a long dinner with Leo last night and he had a lot going on. He finally signed the lease on the apartment in Pilsen and moves in on November 15, so he's spending every weekend until then packing. His sister Carla is getting married in June and asked him to give a toast, which he's nervous about because he hates public speaking. He mentioned his mom's knee is finally better after the surgery in August and she's walking the dog again. Work-wise he got moved onto the platform team and his new manager is someone he actually likes for once. He's been getting really into film photography, bought an old Pentax, and wants to do a darkroom class in the winter. He is still running, did a 10K last weekend in under fifty minutes, and wants to try a half marathon in the spring. We talked about doing a camping trip to the Dunes together in May. He also asked me to send him the name of the contractor who did our kitchen, so I owe him that. Rocket has been limping a bit and he's taking him to the vet on Friday. Oh, and his birthday is December 3, he wants to do dinner at that Ethiopian place he loves.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s13 page, on the page; 19 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "moment",
+      "person": "@Leo",
+      "person_mention": "Leo",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You had a long dinner with Leo",
+      "evidence": [
+       "Had a long dinner with Leo last night"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "last night",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo signed the lease on an apartment in Pilsen and moves in on November 15",
+      "evidence": [
+       "He finally signed the lease on the apartment in Pilsen and moves in on November 15"
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "November 15",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "move",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "His sister Carla",
+      "subject": "related",
+      "related_relation": "sister",
+      "related_name": "Carla",
+      "statement": "Leo's sister Carla is getting married in June",
+      "evidence": [
+       "His sister Carla is getting married in June"
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "in June",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "wedding",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "him",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo was asked to give a toast at Carla's wedding and is nervous about it",
+      "evidence": [
+       "asked him to give a toast, which he's nervous about"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "give a toast",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo hates public speaking",
+      "evidence": [
+       "he hates public speaking"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "public speaking",
+       "value": "hates",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his mom",
+      "subject": "related",
+      "related_relation": "mother",
+      "related_name": null,
+      "statement": "Leo's mom's knee is finally better after surgery in August and she's walking the dog again",
+      "evidence": [
+       "his mom's knee is finally better after the surgery in August and she's walking the dog again"
+      ],
+      "certainty": "reported",
+      "sensitivity": "health",
+      "confidence": 0.85,
+      "date_text": "in August",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "health",
+       "attribute": "knee",
+       "value": "finally better",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo got moved onto the platform team at work",
+      "evidence": [
+       "Work-wise he got moved onto the platform team"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "work",
+       "attribute": "team",
+       "value": "platform team",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo actually likes his new manager",
+      "evidence": [
+       "his new manager is someone he actually likes for once"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "work",
+       "attribute": "new manager",
+       "value": "someone he actually likes for once",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo has been getting into film photography and bought an old Pentax",
+      "evidence": [
+       "He's been getting really into film photography",
+       "bought an old Pentax"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "hobby",
+       "value": "film photography",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to do a darkroom class in the winter",
+      "evidence": [
+       "wants to do a darkroom class in the winter"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "in the winter",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "darkroom class",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is still running",
+      "evidence": [
+       "He is still running"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "sport",
+       "value": "running",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo ran a 10K in under fifty minutes",
+      "evidence": [
+       "did a 10K last weekend in under fifty minutes"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "race",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to try a half marathon in the spring",
+      "evidence": [
+       "wants to try a half marathon in the spring"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "in the spring",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "half marathon",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "plan",
+      "person": "@Leo",
+      "person_mention": "Leo",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You and Leo talked about a camping trip to the Dunes in May",
+      "evidence": [
+       "We talked about doing a camping trip to the Dunes together in May."
+      ],
+      "certainty": "wished",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "in May",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": "idea",
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "promise",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You owe Leo the name of the contractor who did your kitchen",
+      "evidence": [
+       "He also asked me to send him the name of the contractor who did our kitchen, so I owe him that."
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is taking Rocket to the vet on Friday because he has been limping",
+      "evidence": [
+       "Rocket has been limping a bit and he's taking him to the vet on Friday."
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "on Friday",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "medical",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo's birthday is December 3",
+      "evidence": [
+       "his birthday is December 3"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": "December 3",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "family",
+       "attribute": "birthday",
+       "value": "December 3",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to do birthday dinner at the Ethiopian place he loves",
+      "evidence": [
+       "he wants to do dinner at that Ethiopian place he loves"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "December 3",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "celebration",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo loves an Ethiopian place",
+      "evidence": [
+       "that Ethiopian place he loves"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "loves",
+       "value": "that Ethiopian place",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s13 general; 19 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "moment",
+      "person": "@Leo",
+      "person_mention": "Leo",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You had a long dinner with Leo",
+      "evidence": [
+       "Had a long dinner with Leo last night"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "last night",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo signed the lease on an apartment in Pilsen and moves in on November 15",
+      "evidence": [
+       "He finally signed the lease on the apartment in Pilsen and moves in on November 15"
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "November 15",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "move",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": "Pilsen",
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "His sister Carla",
+      "subject": "related",
+      "related_relation": "sister",
+      "related_name": "Carla",
+      "statement": "Leo's sister Carla is getting married in June",
+      "evidence": [
+       "His sister Carla is getting married in June"
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "in June",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "wedding",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "him",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo was asked to give a toast at Carla's wedding and is nervous about it",
+      "evidence": [
+       "asked him to give a toast, which he's nervous about"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "give a toast",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo hates public speaking",
+      "evidence": [
+       "he hates public speaking"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "public speaking",
+       "value": "hates",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his mom",
+      "subject": "related",
+      "related_relation": "mother",
+      "related_name": null,
+      "statement": "Leo's mom's knee is finally better after surgery in August and she's walking the dog again",
+      "evidence": [
+       "his mom's knee is finally better after the surgery in August and she's walking the dog again"
+      ],
+      "certainty": "reported",
+      "sensitivity": "health",
+      "confidence": 0.85,
+      "date_text": "in August",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "health",
+       "attribute": "knee",
+       "value": "finally better",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo got moved onto the platform team at work",
+      "evidence": [
+       "Work-wise he got moved onto the platform team"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "work",
+       "attribute": "team",
+       "value": "platform team",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo actually likes his new manager",
+      "evidence": [
+       "his new manager is someone he actually likes for once"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "work",
+       "attribute": "new manager",
+       "value": "someone he actually likes",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is getting into film photography and bought an old Pentax",
+      "evidence": [
+       "He's been getting really into film photography, bought an old Pentax"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "hobby",
+       "value": "film photography",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to do a darkroom class in the winter",
+      "evidence": [
+       "wants to do a darkroom class in the winter"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "in the winter",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "darkroom class",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo ran a 10K in under fifty minutes",
+      "evidence": [
+       "did a 10K last weekend in under fifty minutes"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "race",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is still running",
+      "evidence": [
+       "He is still running"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "sport",
+       "value": "running",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to try a half marathon in the spring",
+      "evidence": [
+       "wants to try a half marathon in the spring"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "in the spring",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "half marathon",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "plan",
+      "person": "@Leo",
+      "person_mention": "We",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You and Leo talked about a camping trip to the Dunes in May",
+      "evidence": [
+       "We talked about doing a camping trip to the Dunes together in May."
+      ],
+      "certainty": "wished",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "in May",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": "idea",
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "promise",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You owe Leo the name of the contractor who did your kitchen",
+      "evidence": [
+       "He also asked me to send him the name of the contractor who did our kitchen, so I owe him that."
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is taking Rocket to the vet on Friday because he has been limping",
+      "evidence": [
+       "Rocket has been limping a bit and he's taking him to the vet on Friday."
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "on Friday",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "medical",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo's birthday is December 3",
+      "evidence": [
+       "his birthday is December 3"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "December 3",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "other",
+       "attribute": "birthday",
+       "value": "December 3",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "plan",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to do his birthday dinner at the Ethiopian place he loves",
+      "evidence": [
+       "he wants to do dinner at that Ethiopian place he loves"
+      ],
+      "certainty": "wished",
+      "sensitivity": "none",
+      "confidence": 0.75,
+      "date_text": "December 3",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": "idea",
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he loves",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo loves a particular Ethiopian place",
+      "evidence": [
+       "that Ethiopian place he loves"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.75,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "loves",
+       "value": "that Ethiopian place",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-40-28 (30 Oct 2026, synthetic roster, s13 page, on the page; 19 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "moment",
+      "person": "@Leo",
+      "person_mention": "Leo",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You had a long dinner with Leo",
+      "evidence": [
+       "Had a long dinner with Leo last night"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "last night",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo signed the lease on an apartment in Pilsen and moves in on November 15",
+      "evidence": [
+       "He finally signed the lease on the apartment in Pilsen and moves in on November 15"
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "November 15",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "move",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "His sister Carla",
+      "subject": "related",
+      "related_relation": "sister",
+      "related_name": "Carla",
+      "statement": "Leo's sister Carla is getting married in June",
+      "evidence": [
+       "His sister Carla is getting married in June"
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "in June",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "wedding",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "him",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo was asked to give a toast at Carla's wedding and is nervous about it",
+      "evidence": [
+       "asked him to give a toast, which he's nervous about"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "give a toast",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo hates public speaking",
+      "evidence": [
+       "he hates public speaking"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "public speaking",
+       "value": "hates",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his mom",
+      "subject": "related",
+      "related_relation": "mother",
+      "related_name": null,
+      "statement": "Leo's mom's knee is finally better after the surgery in August and she's walking the dog again",
+      "evidence": [
+       "his mom's knee is finally better after the surgery in August and she's walking the dog again"
+      ],
+      "certainty": "reported",
+      "sensitivity": "health",
+      "confidence": 0.85,
+      "date_text": "in August",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "health",
+       "attribute": "knee",
+       "value": "finally better",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo got moved onto the platform team at work",
+      "evidence": [
+       "Work-wise he got moved onto the platform team"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "work",
+       "attribute": "team",
+       "value": "platform team",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo actually likes his new manager",
+      "evidence": [
+       "his new manager is someone he actually likes for once"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "work",
+       "attribute": "new manager",
+       "value": "someone he actually likes for once",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is getting into film photography and bought an old Pentax",
+      "evidence": [
+       "He's been getting really into film photography, bought an old Pentax"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "hobby",
+       "value": "film photography",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to do a darkroom class in the winter",
+      "evidence": [
+       "wants to do a darkroom class in the winter"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "in the winter",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "darkroom class",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is still running",
+      "evidence": [
+       "He is still running"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "sport",
+       "value": "running",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo ran a 10K in under fifty minutes",
+      "evidence": [
+       "did a 10K last weekend in under fifty minutes"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "race",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to try a half marathon in the spring",
+      "evidence": [
+       "wants to try a half marathon in the spring"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "in the spring",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "half marathon",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "plan",
+      "person": "@Leo",
+      "person_mention": "We",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You and Leo talked about a camping trip to the Dunes in May",
+      "evidence": [
+       "We talked about doing a camping trip to the Dunes together in May."
+      ],
+      "certainty": "wished",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "in May",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": "idea",
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "promise",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You owe Leo the name of the contractor who did your kitchen",
+      "evidence": [
+       "He also asked me to send him the name of the contractor who did our kitchen, so I owe him that."
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is taking Rocket to the vet on Friday because Rocket has been limping a bit",
+      "evidence": [
+       "Rocket has been limping a bit and he's taking him to the vet on Friday."
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "on Friday",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "medical",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo's birthday is December 3",
+      "evidence": [
+       "his birthday is December 3"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.95,
+      "date_text": "December 3",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "other",
+       "attribute": "birthday",
+       "value": "December 3",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to do his birthday dinner at the Ethiopian place he loves",
+      "evidence": [
+       "he wants to do dinner at that Ethiopian place he loves"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "December 3",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "celebration",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo loves an Ethiopian place",
+      "evidence": [
+       "that Ethiopian place he loves"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "loves",
+       "value": "that Ethiopian place",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-40-28 (30 Oct 2026, synthetic roster, s13 general; 19 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "moment",
+      "person": "@Leo",
+      "person_mention": "Leo",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You had a long dinner with Leo",
+      "evidence": [
+       "Had a long dinner with Leo last night"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "last night",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo signed the lease on an apartment in Pilsen and moves in on November 15",
+      "evidence": [
+       "He finally signed the lease on the apartment in Pilsen and moves in on November 15"
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "November 15",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "move",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "His sister Carla",
+      "subject": "related",
+      "related_relation": "sister",
+      "related_name": "Carla",
+      "statement": "Leo's sister Carla is getting married in June",
+      "evidence": [
+       "His sister Carla is getting married in June"
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "in June",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "wedding",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "him",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo was asked to give a toast at Carla's wedding and is nervous about it",
+      "evidence": [
+       "asked him to give a toast, which he's nervous about"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "wedding toast",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo hates public speaking",
+      "evidence": [
+       "he hates public speaking"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "public speaking",
+       "value": "hates",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his mom",
+      "subject": "related",
+      "related_relation": "mother",
+      "related_name": null,
+      "statement": "Leo's mom's knee is finally better after surgery in August; she's walking the dog again",
+      "evidence": [
+       "his mom's knee is finally better after the surgery in August",
+       "she's walking the dog again"
+      ],
+      "certainty": "reported",
+      "sensitivity": "health",
+      "confidence": 0.85,
+      "date_text": "in August",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "health",
+       "attribute": "knee",
+       "value": "finally better",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo got moved onto the platform team at work",
+      "evidence": [
+       "Work-wise he got moved onto the platform team"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "work",
+       "attribute": "team",
+       "value": "platform team",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo actually likes his new manager",
+      "evidence": [
+       "his new manager is someone he actually likes for once"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "work",
+       "attribute": "new manager",
+       "value": "someone he actually likes",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is getting into film photography and bought an old Pentax",
+      "evidence": [
+       "He's been getting really into film photography, bought an old Pentax"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "hobby",
+       "value": "film photography",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to do a darkroom class in the winter",
+      "evidence": [
+       "wants to do a darkroom class in the winter"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "in the winter",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "darkroom class",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is still running",
+      "evidence": [
+       "He is still running"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "interest",
+       "attribute": "sport",
+       "value": "running",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo ran a 10K in under fifty minutes",
+      "evidence": [
+       "did a 10K last weekend in under fifty minutes"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "last weekend",
+      "date_direction": "past",
+      "detail": {
+       "event_type": "race",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "thread",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to try a half marathon in the spring",
+      "evidence": [
+       "wants to try a half marathon in the spring"
+      ],
+      "certainty": "tentative",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "in the spring",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": "half marathon",
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "plan",
+      "person": "@Leo",
+      "person_mention": "We",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You and Leo talked about a camping trip to the Dunes in May",
+      "evidence": [
+       "We talked about doing a camping trip to the Dunes together in May."
+      ],
+      "certainty": "wished",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "in May",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": "idea",
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "promise",
+      "person": "@Leo",
+      "person_mention": "He",
+      "subject": "user",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You owe Leo the name of the contractor who did your kitchen",
+      "evidence": [
+       "He also asked me to send him the name of the contractor who did our kitchen, so I owe him that."
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo is taking Rocket to the vet on Friday because he has been limping",
+      "evidence": [
+       "Rocket has been limping a bit and he's taking him to the vet on Friday."
+      ],
+      "certainty": "planned",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": "on Friday",
+      "date_direction": "future",
+      "detail": {
+       "event_type": "medical",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "his",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo's birthday is December 3",
+      "evidence": [
+       "his birthday is December 3"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "December 3",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "other",
+       "attribute": "birthday",
+       "value": "December 3",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "plan",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo wants to do his birthday dinner at the Ethiopian place he loves",
+      "evidence": [
+       "he wants to do dinner at that Ethiopian place he loves"
+      ],
+      "certainty": "wished",
+      "sensitivity": "none",
+      "confidence": 0.75,
+      "date_text": "December 3",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": "idea",
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "fact",
+      "person": "@Leo",
+      "person_mention": "he",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Leo loves an Ethiopian place",
+      "evidence": [
+       "that Ethiopian place he loves"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.8,
+      "date_text": null,
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "preference",
+       "attribute": "loves",
+       "value": "that Ethiopian place",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

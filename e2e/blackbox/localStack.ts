@@ -26,6 +26,10 @@ const ANON = E.ANON_KEY;
 const STUB = process.env.STUB_URL ?? "http://127.0.0.1:8790";
 const GATEWAY = process.env.GATEWAY_URL;
 if (GATEWAY && !/^http:\/\/(127\.0\.0\.1|localhost):/u.test(GATEWAY)) throw new Error("the harness runs only against a local gateway");
+// The real delete-account function on its own local port (e2e/serve-delete-account.ts): the shared
+// `functions serve` runs ai-gateway alone, so SET-05's black-box path needs this beside it.
+const DELETE_ACCOUNT = process.env.DELETE_ACCOUNT_URL;
+if (DELETE_ACCOUNT && !/^http:\/\/(127\.0\.0\.1|localhost):/u.test(DELETE_ACCOUNT)) throw new Error("the harness runs only against a local function");
 
 async function admin(path: string, init: RequestInit = {}) {
   const res = await fetch(`${API_URL}${path}`, {
@@ -60,12 +64,16 @@ export async function localAccount(opts: { networkMs?: number } = {}): Promise<{
   };
   // A branch's own ai-gateway beside the shared `functions serve` (GATEWAY_URL, e.g. one run with
   // `deno run` from that branch, see e2e/README.md): only the gateway's requests go there.
-  const viaGateway = (f: typeof fetch): typeof fetch => (input, init) =>
-    f(String(input).startsWith(`${API_URL}/functions/v1/`) ? String(input).replace(`${API_URL}/functions/v1`, GATEWAY!) : input, init);
+  const viaGateway = (f: typeof fetch): typeof fetch => (input, init) => {
+    const url = String(input);
+    if (DELETE_ACCOUNT && url.startsWith(`${API_URL}/functions/v1/delete-account`)) return f(url.replace(`${API_URL}/functions/v1/delete-account`, DELETE_ACCOUNT), init);
+    if (GATEWAY && url.startsWith(`${API_URL}/functions/v1/`)) return f(url.replace(`${API_URL}/functions/v1`, GATEWAY), init);
+    return f(input, init);
+  };
   const transport = opts.networkMs ? slowFetch : fetch;
   const client = createClient(API_URL, ANON, {
     auth: { persistSession: false, autoRefreshToken: false },
-    ...(opts.networkMs || GATEWAY ? { global: { fetch: GATEWAY ? viaGateway(transport) : transport } } : {}),
+    ...(opts.networkMs || GATEWAY || DELETE_ACCOUNT ? { global: { fetch: GATEWAY || DELETE_ACCOUNT ? viaGateway(transport) : transport } } : {}),
   });
   const { error } = await client.auth.signInWithPassword({ email, password });
   if (error) throw error;
@@ -76,6 +84,15 @@ export async function localAccount(opts: { networkMs?: number } = {}): Promise<{
 export async function useReply(note: string, label: string): Promise<void> {
   const res = await fetch(`${STUB}/__variant`, { method: "POST", body: JSON.stringify({ note, label }) });
   if (!res.ok) throw new Error(`stub: ${res.status}`);
+}
+
+/** Whether the auth user still exists (service key; for the deletion proof). */
+export async function authUserExists(userId: string): Promise<boolean> {
+  const res = await fetch(`${API_URL}/auth/v1/admin/users/${userId}`, { headers: { apikey: SERVICE, authorization: `Bearer ${SERVICE}` } });
+  if (res.status === 404) return false;
+  if (!res.ok) throw new Error(`auth admin: ${res.status}`);
+  const body = await res.json() as { id?: string };
+  return body.id === userId;
 }
 
 /** Rows as the server holds them (service key; reading, for assertions only). */

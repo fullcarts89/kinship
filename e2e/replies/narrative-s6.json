@@ -1,0 +1,237 @@
+{
+ "note": "I met Sora for coffee yesterday. We played tennis together in college and thought it would be fun to do that again sometime.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s6 page, on the page; 3 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "moment",
+      "person": "@Sora",
+      "person_mention": "Sora",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You met Sora for coffee",
+      "evidence": [
+       "I met Sora for coffee yesterday."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "yesterday",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "context",
+      "person": "@Sora",
+      "person_mention": "Sora",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You and Sora played tennis together in college",
+      "evidence": [
+       "We played tennis together in college"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": null,
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": "shared_interest",
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "plan",
+      "person": "@Sora",
+      "person_mention": "Sora",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You and Sora thought it would be fun to play tennis again sometime",
+      "evidence": [
+       "thought it would be fun to do that again sometime"
+      ],
+      "certainty": "wished",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "sometime",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": "idea",
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s6 general; 3 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "moment",
+      "person": "@Sora",
+      "person_mention": "Sora",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You met Sora for coffee",
+      "evidence": [
+       "I met Sora for coffee yesterday."
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.9,
+      "date_text": "yesterday",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "context",
+      "person": "@Sora",
+      "person_mention": "Sora",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You and Sora played tennis together in college",
+      "evidence": [
+       "We played tennis together in college"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": null,
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": "shared_interest",
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "plan",
+      "person": "@Sora",
+      "person_mention": "Sora",
+      "subject": "shared",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "You and Sora would like to play tennis again sometime",
+      "evidence": [
+       "thought it would be fun to do that again sometime"
+      ],
+      "certainty": "wished",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "sometime",
+      "date_direction": "future",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": "idea",
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

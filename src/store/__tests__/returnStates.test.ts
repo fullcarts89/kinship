@@ -536,7 +536,8 @@ describe("founder 13 Oct native pass: Today has one truth (K11), and the return 
     const p = await phone(new FakeServer());
     const callJohn = { ...promise, id: "j1", person_id: "josh", subject_type: "user", statement: "You need to call Josh tonight", detail: { due_date: "2026-10-12" } } as MemoryItem;
     const v = await today(p, { items: [callJohn] });
-    expect(v.quiet.some((q) => q.kind === "coming")).toBe(true);
+    // The user's own promise on its day is Today's Moment (RSN-06, FD-30e; WS-3): still never a quiet day.
+    expect(v.moment?.type).toBe("promise");
     expect([v.quietDay, v.firstUse]).toEqual([false, null]);
     const waiting = await today(p);
     expect([waitingLine(waiting) !== null, waiting.quietDay]).toEqual([true, false]);

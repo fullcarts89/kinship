@@ -8,7 +8,7 @@ import { ActivityIndicator, Keyboard, PanResponder, TextInput, View } from "reac
 import { X } from "lucide-react-native";
 import { Pressable } from "@/ui/Pressable";
 import { draftPreview } from "./drafts";
-import { press, radius, size, space, TOUCH } from "@/design/tokens";
+import { press, radius, shadow, size, space, TOUCH } from "@/design/tokens";
 import { Body, KEYBOARD_BAR, Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
 import { Replaces } from "./ReviewSheet";
@@ -143,10 +143,10 @@ export function KeptCard({
     // just happened to your note never reads as part of a Coming up line.
     <View
       accessibilityLiveRegion="polite"
-      style={{
-        marginTop: space.m, marginBottom: space.s, paddingHorizontal: space.m, paddingTop: space.s, paddingBottom: space.xs,
-        borderRadius: radius.inline, borderWidth: 1, borderColor: p.hairline, backgroundColor: p.surface,
-      }}
+      style={[shadow.field, {
+        marginTop: space.m, marginBottom: space.s, paddingHorizontal: space.l, paddingTop: space.m, paddingBottom: space.xs,
+        borderRadius: radius.inline, backgroundColor: p.surface,
+      }]}
     >
       {/* 1. What was kept. */}
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.s }}>
@@ -230,7 +230,7 @@ export function KeptCard({
       ))}
 
       {/* 2b. The note held more than the understanding could take (Option A): the rest is in the note,
-          marked, and the user can tell it again. Not "Try again": the same note would meet the same limit. */}
+          marked, and the user can tell it again (since FD-30c only a passage whose understanding failed). */}
       {kept && card.partial?.tellRest && onTellRest ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginTop: space.m }}>
           <Pill size="small" label={KEPT_COPY.tellRest} accessibilityHint="Puts the words Kinship couldn't get to back in the Tell field, to tell again" onPress={onTellRest} />
@@ -437,7 +437,7 @@ export function TellDock({ current, onGo, typing }: { current: NavKey; onGo: (to
         onGo(to);
       }}
       inputRef={input}
-      typing={typing}
+      typing={typing || open}
       about={aboutName}
       autoFocus={focusNow}
       collapsed={!open && draft.trim() ? {

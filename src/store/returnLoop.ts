@@ -17,13 +17,15 @@
 // An answer counts once: a second tap, a retry or a relaunch never records a
 // second conversation.
 
-import { isLocalReason, type Handoff, type ReasonType } from "@/features/today/todayModel";
+import { isLocalReason, type GestureKind, type Handoff, type ReasonType } from "@/features/today/todayModel";
 import type { ReasonEvent } from "./reasons";
 import type { ReasonLocal } from "./reasonLocal";
-import type { ContactRepo } from "./repositories";
+import type { ContactRepo, MemoryRepo } from "./repositories";
 
 /** Which kind of Moment led to a conversation (contact_events.moment_type; content-free). */
-export type MomentType = "birthday" | "good_news" | "starts_today" | "milestone" | "upcoming_event" | "event_followup" | "coming_up" | "waiting";
+export type MomentType = "birthday" | "good_news" | "starts_today" | "milestone" | "upcoming_event" | "event_followup" | "coming_up" | "waiting"
+  /** RSN-06 and RSN-07 (FD-30e; migration 20261030120000). */
+  | "promise" | "thread";
 
 export function momentTypeOf(type: ReasonType | "page" | undefined): MomentType | null {
   // A conversation opened from someone's page with nothing to act on (K28): no Moment led to it.
@@ -35,6 +37,8 @@ export function momentTypeOf(type: ReasonType | "page" | undefined): MomentType 
 export interface ReturnLoopDeps {
   local: ReasonLocal;
   contacts: ContactRepo;
+  /** The user's memories: a Yes to a promise's return check keeps the promise (RSN-06). Optional for older callers. */
+  memory?: Pick<MemoryRepo, "resolve">;
   /** The server's record of the reason (fire and forget; offline, the device's own record governs). */
   record: (reasonId: string, event: ReasonEvent, channel?: string) => void;
   now: () => Date;
@@ -52,6 +56,8 @@ export interface HandoffReason {
   about?: string | null;
   followUp?: string;
   itemId?: string | null;
+  /** The hand-off followed a "You could…" line (SUA-1): the suggestion's kind, nothing else. */
+  gesture?: GestureKind;
 }
 
 /** The hand-off Kinship remembers for a reason, before the other app opens (Today's actions use exactly this). */
@@ -61,6 +67,7 @@ export function handoffFor(personId: string, channel: Handoff["channel"], r: Han
     ask: r.ask || undefined, about: r.about || undefined,
     // "" is an answer: nothing to ask after a Waiting or a due promise's Yes (founder K3).
     followUp: r.followUp,
+    ...(r.gesture ? { gesture: r.gesture } : {}),
   };
 }
 
@@ -96,13 +103,17 @@ export async function cancelHandOff(d: ReturnLoopDeps, reasonId: string): Promis
   if (!isLocalReason(reasonId)) d.record(reasonId, "return_not_yet");
 }
 
-/** The return check's answer. Null when nothing was waiting for one (or it was already answered). */
-export async function answerReturn(d: ReturnLoopDeps, answer: "yes" | "not_yet"): Promise<Handoff | null> {
+/**
+ * The return check's answer. Null when nothing was waiting for one (or it was already answered).
+ * "put_aside" ("Didn't happen" on a promise's return check, RSN-06): nothing is recorded and the promise
+ * is put aside without judgement; it stays "You said you'd" on the page and doesn't come back on Today.
+ */
+export async function answerReturn(d: ReturnLoopDeps, answer: "yes" | "not_yet" | "put_aside"): Promise<Handoff | null> {
   // The conversation is written before the answer is kept (and only once, by its key). A "Not yet"
   // after a Yes that was written but not kept (the app closed in between) takes it back.
   const h = await d.local.answered(answer, d.now().toISOString(), (x) => answer === "yes" ? recordConversation(d, x) : unrecordConversation(d, x));
   if (!h) return null;
-  if (!isLocalReason(h.reasonId)) d.record(h.reasonId, answer === "yes" ? "return_yes" : "return_not_yet");
+  if (!isLocalReason(h.reasonId)) d.record(h.reasonId, answer === "yes" ? "return_yes" : answer === "not_yet" ? "return_not_yet" : "dismissed_not_now");
   return h;
 }
 
@@ -145,4 +156,7 @@ async function recordConversation(d: ReturnLoopDeps, h: Handoff): Promise<void> 
       ...(h.itemId ? { memory_item_id: h.itemId } : {}),
     });
   }
+  // "Did you bring Sam soup?" → Yes: the promise is kept (RSN-06). It leaves "You said you'd"; What
+  // Kinship knows keeps it as written. Safe to run twice.
+  if (h.type === "promise" && h.itemId && d.memory) await d.memory.resolve(h.itemId);
 }

@@ -2,12 +2,21 @@
 -- User A owns data; user B and anonymous visitors try to read it, change it,
 -- forge rows for A, and attach their own rows to A's people and captures.
 BEGIN;
-SELECT plan(27);
+SELECT plan(28);
 
 \set A '''aaaaaaaa-8888-8888-8888-888888888888'''
 \set B '''bbbbbbbb-9999-9999-9999-999999999999'''
 SELECT tests.create_user(:A);
 SELECT tests.create_user(:B);
+
+-- Runs a statement and then the related-subject check its REST request would
+-- meet at commit (the check is deferrable for merges).
+CREATE FUNCTION pg_temp.subject_checked(stmt text) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  EXECUTE stmt;
+  SET CONSTRAINTS public.memory_items_subject_related_id_person_id_user_id_fkey IMMEDIATE;
+  SET CONSTRAINTS public.memory_items_subject_related_id_person_id_user_id_fkey DEFERRED;
+END $$;
 
 -- A's data, created as A through the policies.
 SELECT tests.as_user(:A);
@@ -110,10 +119,19 @@ INSERT INTO public.memory_items (id, kind, person_id, statement, detail, origin,
 SELECT throws_ok($$ INSERT INTO public.memory_item_sources (memory_item_id, capture_id, source_kind, span_start, span_end)
   VALUES ('00000000-0000-0000-0000-0000000009b2', '00000000-0000-0000-0000-0000000008a3', 'capture', 0, 5) $$,
   '23503', NULL, 'B cannot cite A''s capture as a source');
-SELECT throws_ok($$ INSERT INTO public.memory_items (kind, person_id, subject_type, subject_related_id, statement, detail, origin)
+-- The subject check is deferrable (a merge moves a related person and their
+-- lines together), so it is met at commit: the request is refused there.
+SELECT throws_ok($$ SELECT pg_temp.subject_checked($i$ INSERT INTO public.memory_items (kind, person_id, subject_type, subject_related_id, statement, detail, origin)
   VALUES ('fact', '00000000-0000-0000-0000-0000000009b1', 'related', '00000000-0000-0000-0000-0000000008a2',
-          'x', '{"category": "other"}', 'user') $$,
+          'x', '{"category": "other"}', 'user') $i$) $$,
   '23503', NULL, 'B cannot use A''s related person as a subject');
+SELECT tests.reset_role();
+SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint
+            WHERE conrelid = 'public.memory_items'::regclass AND contype = 'f'
+              AND confrelid = 'public.related_people'::regclass),
+  'FOREIGN KEY (subject_related_id, person_id, user_id) REFERENCES related_people(id, person_id, user_id) ON DELETE CASCADE DEFERRABLE',
+  'a related subject must be the same account''s, on the same person (checked by commit at the latest)');
+SELECT tests.as_user(:B);
 SELECT throws_ok($$ UPDATE public.memory_items SET supersedes_id = '00000000-0000-0000-0000-0000000008a4', version = version + 1
   WHERE id = '00000000-0000-0000-0000-0000000009b2' $$,
   '23503', NULL, 'B cannot supersede A''s memory');

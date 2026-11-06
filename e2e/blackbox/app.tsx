@@ -11,6 +11,7 @@ import TestRenderer, { act, type ReactTestInstance } from "react-test-renderer";
 import { Text, TextInput } from "react-native";
 import { randomUUID } from "crypto";
 import TodayScreen from "../../app/v2/(main)/index";
+import PeopleScreen from "../../app/v2/(main)/people";
 import PersonScreen from "../../app/v2/person/[id]/index";
 import KnowsScreen from "../../app/v2/person/[id]/knows";
 import Setup from "../../app/v2/setup";
@@ -32,7 +33,7 @@ import { openSqlJsDb } from "@/test-utils/sqljsDb";
 import { harness } from "./state";
 import { localAccount } from "./localStack";
 
-export type Where = { screen: "setup" } | { screen: "today" } | { screen: "person"; id: string } | { screen: "knows"; id: string };
+export type Where = { screen: "setup" } | { screen: "today" } | { screen: "people" } | { screen: "person"; id: string } | { screen: "knows"; id: string };
 
 let go: (w: Where) => void = () => undefined;
 let start: Where = { screen: "setup" };
@@ -47,7 +48,7 @@ function Root() {
       {where.screen === "setup" ? <Setup /> : (
         <>
           <ConsentSheet />
-          {where.screen === "today" ? <TodayScreen /> : where.screen === "person" ? <PersonScreen key={`p:${where.id}`} /> : <KnowsScreen key={`k:${where.id}`} />}
+          {where.screen === "today" ? <TodayScreen /> : where.screen === "people" ? <PeopleScreen /> : where.screen === "person" ? <PersonScreen key={`p:${where.id}`} /> : <KnowsScreen key={`k:${where.id}`} />}
           <TellDock current="today" onGo={() => undefined} />
         </>
       )}

@@ -2,6 +2,7 @@
 // offline stretches, lost replies and changes made on another device.
 // The gateway is FakeGateway (scripted readings over FakeServer); its real
 // rules are proven by the Deno and pgTAP suites.
+import type { ExtractionInput, ModelProposal } from "../../../supabase/functions/_shared/extraction/types";
 import { randomUUID } from "crypto";
 import { setAnalyticsSink } from "@/platform/analytics";
 import { Gateway } from "@/store/gateway";
@@ -636,6 +637,64 @@ describe("analytics", () => {
         expect(value).toMatch(/^[a-z_<>0-9.+-]{1,16}$/);
         for (const f of forbidden) expect(String(value)).not.toContain(f);
         if (key !== "model_id") expect(`${name}.${key}`).not.toMatch(/text|name|note|statement|quote|person|capture|_id$/);
+      }
+    }
+  });
+});
+
+
+describe("CER-1: an unnamed update to the user's edited line (WS-5, after Undo)", () => {
+  const NOTE = "Actually the Pilsen move slipped again, it's December 6 now.";
+  const QUOTE = "the Pilsen move slipped again, it's December 6 now";
+  const proposal = (input: ExtractionInput): ModelProposal => ({
+    items: [{
+      kind: "event", person: "unknown", person_mention: null, subject: "person", related_relation: null, related_name: null,
+      statement: "The Pilsen move slipped again; it's now December 6", evidence: [QUOTE], certainty: "planned", sensitivity: "none", confidence: 0.9,
+      date_text: "December 6", date_direction: "future",
+      detail: { event_type: "move", event_goal: null, category: null, attribute: null, value: null, firmness: null, topic: null, place: null, milestone_type: null, recurrence: null, anchor: null, aspect: null, time_of_day: null },
+      existing: { action: "new", target: null },
+    }] as ModelProposal["items"],
+    needs_clarification: null,
+    ...(input ? {} : {}),
+  });
+
+  it("asks who, then asks whether it replaces the edited line (nothing written between); Yes replaces it, keep-both leaves both", async () => {
+    for (const choice of ["yes", "both"] as const) {
+      const { server, gateway, d } = await world();
+      gateway.propose(NOTE, proposal);
+      const leo = await d.repos.people.add({ display_name: "Leo" });
+      const edited = await d.repos.memory.remember({
+        kind: "event", person_id: leo.id, statement: "Leo moves in on November 22", certainty: "planned",
+        detail: { event_type: "move", date: "2026-11-22", date_precision: "day" },
+      }, { userAuthored: true });
+      await d.engine.sync();
+      const id = await tell(d, NOTE);
+      await d.understanding.run();
+      let row = await d.understanding.get(id);
+      expect(row?.reading?.held[0].flags).toContain("person_ambiguous");
+
+      await d.understanding.opened(id);
+      await d.understanding.answer(id, [{ index: 0, person_id: leo.id }]);
+      await d.understanding.run();
+      row = await d.understanding.get(id);
+      // The person is settled; one more question; nothing written beside the user's line yet.
+      expect(row?.state).toBe("review");
+      expect(row?.reading?.settled).toBe(false);
+      expect(row?.reading?.held[0].person_id).toBe(leo.id);
+      expect(row?.reading?.held[0].flags).toContain("update_check");
+      expect((row?.reading?.held[0].detail as { _replaces?: { id: string }[] })._replaces?.map((r) => r.id)).toEqual([edited.id]);
+      expect((await d.repos.memory.forPerson(leo.id)).map((m) => m.statement)).toEqual(["Leo moves in on November 22"]);
+
+      await d.understanding.answer(id, [{ index: 0, replaces: choice === "yes" ? edited.id : null }]);
+      await d.understanding.run();
+      await d.engine.sync();
+      const live = [...server.table("memory_items").values()].filter((m) => !m.deleted_at && m.status === "active").map((m) => String(m.statement));
+      if (choice === "yes") {
+        // The user's own line is closed by the user's own answer, and the new line is linked to it as its history.
+        expect(live).toEqual(["The Pilsen move slipped again; it's now December 6"]);
+        expect(server.table("memory_items").get(edited.id)?.status).toBe("superseded");
+      } else {
+        expect(live.sort()).toEqual(["Leo moves in on November 22", "The Pilsen move slipped again; it's now December 6"]);
       }
     }
   });
