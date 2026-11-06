@@ -45,7 +45,7 @@ export function PrivateSource({ suffix, dot = "green", onPress }: { suffix?: str
   if (!onPress) return <View accessible accessibilityLabel={label}>{row}</View>;
   return (
     <Pressable accessibilityRole="link" accessibilityLabel={label} accessibilityHint="Opens where this came from" onPress={onPress}
-      hitSlop={{ top: space.s, bottom: space.s, left: 0, right: space.l }} style={({ pressed }) => ({ alignSelf: "flex-start", opacity: pressed ? press.link : 1 })}>
+      hitSlop={{ top: space.s, bottom: space.s, left: 0, right: space.l }} style={({ pressed }) => ({ alignSelf: "flex-start", maxWidth: "100%", opacity: pressed ? press.link : 1 })}>
       {row}
     </Pressable>
   );
