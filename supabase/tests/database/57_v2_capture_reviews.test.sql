@@ -3,7 +3,7 @@
 -- written only with the extraction, read only by its owner, and cleared on
 -- answer, deletion, text purge or expiry.
 BEGIN;
-SELECT plan(28);
+SELECT plan(31);
 
 \set A '''aaaaaaaa-1717-1717-1717-171717171717'''
 \set B '''bbbbbbbb-1717-1717-1717-171717171717'''
@@ -18,7 +18,8 @@ INSERT INTO public.captures (id, source, raw_text) VALUES
   ('00000000-0000-0000-0000-000000001710', 'text', 'Sam is thinking about moving to Seattle.'),
   ('00000000-0000-0000-0000-000000001712', 'text', 'Sam got the job! 🎉'),
   ('00000000-0000-0000-0000-000000001713', 'text', 'Sam is moving.'),
-  ('00000000-0000-0000-0000-000000001714', 'text', 'Sam is moving to Austin.');
+  ('00000000-0000-0000-0000-000000001714', 'text', 'Sam is moving to Austin.'),
+  ('00000000-0000-0000-0000-000000001715', 'text', 'Sam is thinking about moving to Seattle.');
 INSERT INTO public.captures (id, source, raw_text, retention) VALUES
   ('00000000-0000-0000-0000-000000001711', 'text', 'Sam had a baby.', 'delete_after_extraction');
 SELECT tests.reset_role();
@@ -157,6 +158,17 @@ SELECT ok(has_function_privilege('service_role', 'public.ai_drop_reasons_ok(json
                          AND a.grantee = 'service_role'::regrole AND a.privilege_type = 'EXECUTE')
           AND NOT has_function_privilege('authenticated', 'public.ai_drop_reasons_ok(jsonb)', 'EXECUTE'),
   'the usage log''s CHECK function is granted to the service role explicitly, and not to users');
+
+-- ── FD-30c (31 Oct 2026): a long note may hold more than eight lines for the user's answer ──
+SELECT tests.as_service();
+SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000001715'), 'claimed', 'claimed');
+SELECT lives_ok(format($$ SELECT public.write_extraction_with_review(%L, '00000000-0000-0000-0000-000000001715',
+  'relationship_extract/v7+claude-opus-5-5', true, '[]',
+  jsonb_build_object('items', (SELECT jsonb_agg(pg_temp.review(NULL, 39) -> 'items' -> 0) FROM generate_series(1, 12)), 'clarification', NULL)) $$, :A),
+  'twelve held items are written with the extraction (the eight-item ceiling is gone, FD-30c)');
+SELECT is((SELECT jsonb_array_length(items) FROM public.capture_reviews WHERE capture_id = '00000000-0000-0000-0000-000000001715'), 12,
+  'and the review keeps all twelve');
+SELECT tests.reset_role();
 
 SELECT * FROM finish();
 ROLLBACK;

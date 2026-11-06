@@ -23,6 +23,7 @@
 // word that is nobody's name ("Liz", answered Elizabeth) stays the user's own
 // word for them. Two lines the answer makes the same on one person are one.
 
+import { needsAcceptance } from "./acceptance.ts";
 import { fold, kinshipReference, mirrorBag, relationKey, selfRelationPhrase, statedSelfRelations, wordsOf } from "./lexicon.ts";
 import { withSpokenName, withSpokenNames } from "./voice.ts";
 import {
@@ -190,6 +191,13 @@ export interface ResolvedItem {
 }
 
 export interface Resolution {
+  /**
+   * The answer settled who a line is about, and that person has a line the user edited or wrote which this
+   * line plainly updates (the same kind of event, on another day; CER-1, 31 Oct): nothing is written yet;
+   * the line goes back to the user as "Does this replace what you told me?" (the model never saw that
+   * person's memories when the note named no one). Only for a review holding that one line.
+   */
+  askAgain?: HeldItem;
   items: ResolvedItem[];
   /** People to add; relationship_label only when the note states it to the user ("my daughter Kaiya"). */
   newPeople: { ref: string; display_name: string; relationship_label?: string }[];
@@ -206,6 +214,23 @@ export type ResolveFailure =
 const PERSON_FLAGS: Flag[] = ["new_person", "person_ambiguous", "person_disagreement", "pronoun_multiple", "person_archived"];
 const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+/**
+ * Who a line's relative is once the user chose someone other than the person it was read under: that
+ * person's own, when one fits, or a new one. Only what the note itself says carries over, never the first
+ * person's row: their relative's name, or a relation only that row knew ("Ana", the first Sam's sister).
+ * With no relation in the note, null: the line is about the person chosen (founder J4, never a lost memory).
+ */
+function relativeOfChosen(read: { relation: string; name: string | null }, personId: string, ctx: ResolveContext): HeldItem["related"] {
+  const key = relationKey(read.relation);
+  const word = wordsOf(ctx.note).find((w) => relationKey(w) === key);
+  if (!word) return null;
+  const name = read.name && new RegExp(`(^|[^\\p{L}])${escapeRe(read.name)}([^\\p{L}]|$)`, "u").test(ctx.note) ? read.name : null;
+  const rows = personId.startsWith("new:") ? [] : ctx.related.filter((r) =>
+    r.person_id === personId && relationKey(r.relation) === key && (!name || !r.name || fold(r.name) === fold(name))
+  );
+  return rows.length === 1 ? { id: rows[0].id, relation: rows[0].relation, name: rows[0].name ?? name } : { id: null, relation: word, name };
+}
+
 export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: ResolveContext): Resolution | { fail: ResolveFailure } {
   if (!Array.isArray(answers) || answers.length !== held.length) return { fail: answers?.length < held.length ? "unanswered" : "bad_answer" };
   const byIndex = new Map<number, HeldAnswer>();
@@ -218,6 +243,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
   const newPeople: Resolution["newPeople"] = [];
   const stated = statedSelfRelations(ctx.note);
   let skipped = 0;
+  let askAgain: HeldItem | undefined;
   // Mirrors whose kept line is waiting in this same review: joined at the end.
   const joins: { owner: string; bag: string; people: string[]; alone: ResolvedItem }[] = [];
   // Mirrors whose kept line has gone, by kept owner and words: one memory between them, never one each (reviewer A).
@@ -239,12 +265,13 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     // Held only for the user's yes (a sensitive or ambiguous reading): nothing is
     // written on silence or on an empty answer.
     const openNames = Array.isArray(item.open_names) ? item.open_names.filter((o) => o && typeof o.text === "string" && o.text.trim()) : [];
-    // Which Sam is never a yes to the memory itself: a line waiting for the
-    // user's yes (sensitive, say) still needs it, whatever else is asked (reviewer A).
+    // No other question is a yes to the memory itself: a line waiting for the
+    // user's yes (sensitive, say) still needs it after every other answer.
     const asksSomething = needsPerson || flags.has("subject_check") || flags.has("date_unresolved_sensitive") || flags.has("update_check") ||
       flags.has("promise_owner") || flags.has("residence_conflict");
     if (a.accept !== undefined && a.accept !== true) return { fail: "bad_answer" };
-    if (!asksSomething && a.accept !== true) return { fail: "bad_answer" };
+    const needsYes = !asksSomething || needsAcceptance({ sensitivity: item.sensitivity, flags: item.flags ?? [] });
+    if (needsYes && a.accept !== true) return { fail: "bad_answer" };
 
     // ── Who ──
     let personId: string;
@@ -312,6 +339,10 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       }
     } else if (a.subject !== undefined || a.relation !== undefined) {
       return { fail: "bad_answer" };
+    } else if (subjectType === "related" && related?.id && !ctx.related.some((r) => r.id === related!.id && r.person_id === personId)) {
+      // "Which Sam?" answered with the other Sam: the dad it was read with is the first Sam's.
+      related = relativeOfChosen(related, personId, ctx);
+      if (!related) subjectType = "person";
     }
 
     // ── Whose promise (founder J11) ──
@@ -490,6 +521,25 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
       if (match && !("ambiguous" in match)) {
         action = { type: match.action, target_id: match.target };
         detail = { ...detail, transition: match.transition };
+      } else if (held.length === 1 && item.kind === "event" && (item.certainty === "stated" || item.certainty === "planned")) {
+        // The same kind of event told for another day, against a line the user edited or wrote: asked,
+        // never filed beside it (CER-1, WS-5 journey, 31 Oct).
+        const type = typeof detail.event_type === "string" ? detail.event_type : null;
+        const mine = type && type !== "other"
+          ? ctx.existing.filter((m) =>
+            m.person_id === personId && m.status === "active" && m.kind === "event" && m.subject_type === subjectType &&
+            (m.subject_related_id ?? null) === (related?.id ?? null) && (m.user_state === "edited" || m.user_state === "user_authored") &&
+            (m.detail as Record<string, unknown> | null)?.event_type === type && !sameDay(m.detail ?? null, detail)
+          ).slice(0, 3)
+          : [];
+        if (mine.length) {
+          askAgain = {
+            ...item, person_id: personId, tier: "hold",
+            flags: [...(item.flags ?? []).filter((f) => !PERSON_FLAGS.includes(f)), "update_check", "protected_target"],
+            detail: { ...detail, _replaces: mine.map((m) => ({ id: m.id, statement: m.statement })) },
+          };
+          delete (askAgain as { candidate_ids?: unknown }).candidate_ids;
+        }
       }
     }
     // ── "Is Susan still in Alameda?" (Phase 4B B3, case E) ──
@@ -627,6 +677,7 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     }
     line.with_person_ids = [...new Set([...(line.with_person_ids ?? []), ...j.people])].filter((id) => id !== line.person_id);
   }
+  if (askAgain && held.length === 1) return { items: [], newPeople: [], skipped: 0, askAgain };
   return { items: oneEach(items), newPeople, skipped };
 }
 

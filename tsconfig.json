@@ -25,6 +25,7 @@
     "supabase/functions",
     "evals",
     "scripts/semantic",
-    "e2e/model-stub.ts"
+    "e2e/model-stub.ts",
+    "e2e/serve-delete-account.ts"
   ]
 }

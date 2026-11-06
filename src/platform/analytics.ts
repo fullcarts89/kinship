@@ -23,6 +23,8 @@ export type CaptureSource =
   | "post_encounter"
   | "photo"
   | "onboarding";
+/** An idea for showing up's category (PR #77 §4; CC-28). */
+export type IdeaCategoryName = "gesture" | "celebrate" | "together" | "help" | "follow_through" | "message" | "check_in";
 export type CharsBucket = "0-50" | "51-200" | "201+";
 export type LatencyBucket = "<1s" | "1-3s" | "3-10s" | "10s+";
 /** Finer duration buckets for performance telemetry (p50/p90 without exact values). */
@@ -72,6 +74,8 @@ export type ReasonType =
   | "other";
 export type Channel = "text" | "call" | "facetime" | "whatsapp" | "email" | "in_person" | "other";
 export type PushTier = "quiet" | "normal" | "important";
+/** The closed set of SUA-1 suggestion kinds (plan · help · company · note · activity). */
+export type GestureKind = "plan" | "help" | "company" | "note" | "activity";
 export type SettingKey =
   | "ai_consent"
   | "notifications"
@@ -157,9 +161,28 @@ export interface AnalyticsEvents {
    */
   compose_degraded: { slot: "residence"; lines_n: SmallCount };
   reason_surfaced: { reason_type: ReasonType; surface: "today" | "push" | "brief"; score_bucket: ScoreBucket };
-  reason_dismissed: { reason_type: ReasonType; mode: "not_now" | "not_helpful" };
+  /** "put_aside": "Didn't happen" on a promise's return check (RSN-06). */
+  reason_dismissed: { reason_type: ReasonType; mode: "not_now" | "not_helpful" | "put_aside" };
   handoff_opened: { reason_type?: ReasonType; channel: Channel };
-  return_check_answered: { answer: "yes" | "not_yet"; minutes_since_handoff_bucket: MinutesBucket };
+  return_check_answered: { answer: "yes" | "not_yet" | "put_aside"; minutes_since_handoff_bucket: MinutesBucket };
+  /**
+   * SUA-1 (FD-30d), the three layers kept apart and content-free: what Kinship suggested (shown), what
+   * the user initiated from it (tapped), and what they confirmed afterwards (outcome: "Did you make a
+   * plan?" Yes · Not yet). A closed kind, never the line, the person or the memory.
+   */
+  gesture_shown: { kind: GestureKind; surface: "handoff" | "detail" };
+  gesture_tapped: { kind: GestureKind; surface: "handoff" | "detail" };
+  gesture_outcome: { kind: GestureKind; answer: "yes" | "not_yet" };
+  /**
+   * Showing Up (PR #77; founder directive 2 Nov 2026), the evidence ladder kept apart and content-free:
+   * ideas shown when the user opened them (considered), an idea opened, an intention saved (a new one, or a
+   * day added to the user's own promise), and a promise the user said they kept ("I did this"). A closed
+   * category or mode, never the idea's words, the person or the memory.
+   */
+  ideas_opened: { surface: "moment" | "person"; ideas_n: SmallCount };
+  idea_opened: { category: IdeaCategoryName; surface: "moment" | "person" };
+  intention_saved: { mode: "new" | "day_added" };
+  promise_kept: { surface: "moment" | "line" | "today" };
   reason_marked_done: { reason_type: ReasonType };
   reason_feedback: { useful: "yes" | "no" };
   incorrect_report: { what: "person" | "fact" | "date" };
@@ -245,9 +268,12 @@ export function minutesBucket(ms: number): MinutesBucket {
 
 /** The analytics name for a Today reason type. */
 export function reasonTypeName(
-  type: "upcoming_event" | "event_followup" | "birthday" | "good_news" | "starts_today" | "milestone" | "coming" | "waiting" | "page",
+  type: "upcoming_event" | "event_followup" | "birthday" | "good_news" | "starts_today" | "milestone" | "coming" | "waiting" | "page" | "promise" | "thread",
 ): ReasonType {
   if (type === "birthday") return "birthday";
+  // The user's own promise on its day (RSN-06); an open thread's one check-in (RSN-07).
+  if (type === "promise") return "promise";
+  if (type === "thread") return "check_in";
   // A conversation opened from someone's page with nothing to act on (K28): no reason at all.
   if (type === "good_news" || type === "page") return "other";
   if (type === "starts_today" || type === "milestone" || type === "coming") return "upcoming";

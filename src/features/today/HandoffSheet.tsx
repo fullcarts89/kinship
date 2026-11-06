@@ -1,12 +1,16 @@
-// The follow-up sheet (board 2, "Ask Ben how it went"): what you could
-// mention, in your own words, then one tap into Messages, Phone, FaceTime or
-// WhatsApp. Kinship sends nothing. When you come back, Today asks once
-// whether you reached them.
+// The follow-up sheet (board 2, "Ask Ben how it went"; Electric Garden FD-30b): the door out to the
+// real conversation, composed. A quiet wash and one leaf bleed from the sheet's top edge; the heading
+// at title scale; what you could mention as the user's own lines behind a lavender rule, with the one
+// suggested question under them; the usual way to reach them as the one primary action and the other
+// ways as small choices beside each other; WS-3's "You could…" line (SUA-1) under them; and what
+// happens when you come back. Kinship sends nothing.
 import React from "react";
 import { View } from "react-native";
 import { space } from "@/design/tokens";
 import { CHANNEL_LABEL, type HandoffChannel } from "@/platform/handoff";
-import { Body, Heading, Label, Pill, Sheet, Small } from "@/ui";
+import { Body, Botanical, DawnWash, Label, Line, Pill, Sheet, Small, Title, usePalette } from "@/ui";
+import { SuggestionLine } from "./SuggestionLine";
+import type { Suggestion } from "./suggestions";
 
 export interface HandoffSheetProps {
   visible: boolean;
@@ -24,43 +28,51 @@ export interface HandoffSheetProps {
   onDismiss: () => void;
   /** Whether returning brings the "Did you reach…?" line (a reason's hand-off). */
   returnCheck: boolean;
+  /** The question the return check will really ask (the reason's own ask); falls back to the generic line. */
+  returnAsk?: string | null;
+  /** SUA-1 (FD-30d, WS-3): one quiet "You could…" line under the channels, or none; a tap opens Messages. */
+  suggestion?: Suggestion | null;
+  onSuggestion?: () => void;
 }
 
 export function HandoffSheet(props: HandoffSheetProps) {
-  const [first, second, ...rest] = props.channels;
+  const p = usePalette();
+  const [first, ...others] = props.channels;
+  const bleed = (
+    <View style={{ height: 96, overflow: "hidden" }}>
+      <DawnWash kind="quiet" height={160} />
+      <Botanical art="leaf" width={140} top={-30} right={-50} rotate={24} dim />
+    </View>
+  );
   return (
-    <Sheet visible={props.visible} onDismiss={props.onDismiss} label={props.heading}>
-      <Heading>{props.heading}</Heading>
+    <Sheet visible={props.visible} onDismiss={props.onDismiss} label={props.heading} bleed={bleed}>
+      <Title>{props.heading}</Title>
       {props.mention.length ? (
         <View style={{ marginTop: space.xl }}>
           <Label>You could mention</Label>
-          <View style={{ marginTop: space.s, gap: space.xs }}>
+          <View style={{ marginTop: space.s, borderLeftWidth: 2, borderLeftColor: p.lavender, paddingLeft: space.l, gap: space.s }}>
             {props.mention.map((m) => (
-              <Body key={m}>{`•  ${m}`}</Body>
+              <Line key={m}>{m}</Line>
             ))}
+            {props.opener ? <Small style={{ marginTop: space.xs }}>{props.opener}</Small> : null}
           </View>
-          {props.opener ? <Small style={{ marginTop: space.s }}>{props.opener}</Small> : null}
         </View>
       ) : null}
 
       {!props.ready ? null : first ? (
         <>
-          {/* The usual way, then the others as quiet choices (never a filled-and-outlined pair). */}
-          <View style={{ marginTop: space.xl }}>
+          {/* The usual way as the one primary; the other ways as small choices beside each other. */}
+          <View style={{ marginTop: space.xxl }}>
             <Pill variant="primary" label={CHANNEL_LABEL[first]} onPress={() => props.onOpen(first)} />
           </View>
-          {second ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.s }}>
-              <Pill size="small" variant="quiet" label={CHANNEL_LABEL[second]} onPress={() => props.onOpen(second)} />
-            </View>
-          ) : null}
-          {rest.length ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.s }}>
-              {rest.map((c) => (
-                <Pill key={c} size="small" variant="quiet" label={CHANNEL_LABEL[c]} onPress={() => props.onOpen(c)} />
+          {others.length ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.m }}>
+              {others.map((c) => (
+                <Pill key={c} size="small" variant="ghost" fixedLabel label={CHANNEL_LABEL[c]} onPress={() => props.onOpen(c)} />
               ))}
             </View>
           ) : null}
+          <SuggestionLine suggestion={props.suggestion} personName={props.personName} onPress={props.onSuggestion} />
         </>
       ) : (
         <View style={{ marginTop: space.xl }}>
@@ -72,7 +84,7 @@ export function HandoffSheet(props: HandoffSheetProps) {
       )}
 
       {props.returnCheck && first ? (
-        <Small style={{ textAlign: "center", marginTop: space.l }}>{`When you come back: “Did you reach ${props.personName}?”`}</Small>
+        <Small style={{ textAlign: "center", marginTop: space.l }}>{`When you come back: “${props.returnAsk ?? `Did you reach ${props.personName}?`}”`}</Small>
       ) : null}
     </Sheet>
   );

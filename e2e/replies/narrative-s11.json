@@ -1,0 +1,167 @@
+{
+ "note": "Riley moved from Austin to Portland last summer. This week they're at a conference in Seattle, staying with friends, but Portland is still home.",
+ "variants": [
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s11 page, on the page; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Riley",
+      "person_mention": "Riley",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Riley moved from Austin to Portland last summer; Portland is home",
+      "evidence": [
+       "Riley moved from Austin to Portland last summer.",
+       "but Portland is still home"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.93,
+      "date_text": "last summer",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "home",
+       "attribute": "lives in",
+       "value": "Portland",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Riley",
+      "person_mention": "they",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Riley is at a conference in Seattle this week, staying with friends",
+      "evidence": [
+       "This week they're at a conference in Seattle, staying with friends"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.88,
+      "date_text": "This week",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "trip",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": "Seattle",
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  },
+  {
+   "label": "live 2026-10-30T22-37-51 (30 Oct 2026, synthetic roster, s11 general; 2 proposals)",
+   "output": {
+    "items": [
+     {
+      "kind": "fact",
+      "person": "@Riley",
+      "person_mention": "Riley",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Riley moved from Austin to Portland last summer and Portland is home",
+      "evidence": [
+       "Riley moved from Austin to Portland last summer.",
+       "Portland is still home"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.92,
+      "date_text": "last summer",
+      "date_direction": "past",
+      "detail": {
+       "event_type": null,
+       "event_goal": null,
+       "category": "home",
+       "attribute": "lives in",
+       "value": "Portland",
+       "firmness": null,
+       "topic": null,
+       "place": null,
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     },
+     {
+      "kind": "event",
+      "person": "@Riley",
+      "person_mention": "they",
+      "subject": "person",
+      "related_relation": null,
+      "related_name": null,
+      "statement": "Riley is at a conference in Seattle this week, staying with friends",
+      "evidence": [
+       "This week they're at a conference in Seattle, staying with friends"
+      ],
+      "certainty": "stated",
+      "sensitivity": "none",
+      "confidence": 0.85,
+      "date_text": "This week",
+      "date_direction": "unclear",
+      "detail": {
+       "event_type": "trip",
+       "event_goal": null,
+       "category": null,
+       "attribute": null,
+       "value": null,
+       "firmness": null,
+       "topic": null,
+       "place": "Seattle",
+       "milestone_type": null,
+       "recurrence": null,
+       "anchor": null,
+       "aspect": null,
+       "time_of_day": null
+      },
+      "existing": {
+       "action": "new",
+       "target": null
+      }
+     }
+    ],
+    "needs_clarification": null
+   }
+  }
+ ]
+}

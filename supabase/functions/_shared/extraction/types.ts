@@ -86,6 +86,12 @@ export interface CaptureContext {
   time_zone: string | null;
   /** Tell was opened from this person's page. */
   context_person_key?: string | null;
+  /**
+   * The note this one continues ("Tell the rest", Option A; CER-1): the earlier note's words, shown to
+   * the model only so a fragment or a pronoun in this note can be understood. Never evidence: every
+   * quote is located in this note's own words.
+   */
+  earlier_text?: string | null;
 }
 
 export interface ExtractionInput {
@@ -351,16 +357,13 @@ export interface Clarification {
 }
 
 /**
- * What one note's understanding did not get to (founder, 19 Oct 2026: no silent capacity-based loss).
- * `unprocessed`: the note's own words, as code-point spans, of proposals the pipeline could not take
- * because the note held more than one understanding carries (MAX_ITEMS), and that neither the item rules
- * excluded on their own nor a kept line already says (the same test that folds a repeat inside the
- * limit). Only spans the evidence locator placed reliably; one span per lost proposal (its first quote),
- * never folded, so the same span twice means two things were lost on those words. A span may lie under a
- * kept line's words: one sentence can hold two things, and sharing words proves nothing (founder review
- * of PR #58). `unlocated`:
- * proposals past the limit whose words could not be placed; the note is still partial, with no highlight
- * invented for them. Content-free: offsets and a count, never words.
+ * What one note's understanding did not get to (founder, 19 Oct 2026: no silent capacity-based loss;
+ * 30 Oct 2026, FD-30c: long notes are processed, not pushed back). Since FD-30c every proposal the model
+ * makes is judged by the item rules, so nothing is lost to a count. A long note is understood in passages
+ * (run.ts), and `unprocessed` holds the code-point spans of passages whose model call failed (a timeout,
+ * an error, a refusal), in the note's own words, so the phone can mark them and offer "Tell the rest" or
+ * "Try again". `unlocated` stays for proposals whose words could not be placed when a passage call did
+ * succeed but the pipeline could not take its spans. Content-free: offsets and a count, never words.
  */
 export interface Coverage {
   unprocessed: { start: number; end: number }[];

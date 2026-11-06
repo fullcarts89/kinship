@@ -1,5 +1,5 @@
 // An understood word the user can change (plan §8, §18; System board): who,
-// when, what kind. A solid 1.5 pt ochre underline marks it; the underline is
+// when, what kind. A solid 1.5 pt mark underline marks it; the underline is
 // not the only cue: it is a button with a label and a hint.
 import React from "react";
 import { Text, View } from "react-native";
@@ -25,7 +25,7 @@ export function Token({ value, what, onPress }: { value: string; what: string; o
       hitSlop={{ top: space.m, bottom: space.m, left: space.xs, right: space.xs }}
       style={({ pressed }) => ({ opacity: pressed ? press.link : 1 })}
     >
-      <View style={{ borderBottomWidth: stroke.underline, borderBottomColor: p.ochre, paddingBottom: 1 }}>
+      <View style={{ borderBottomWidth: stroke.underline, borderBottomColor: p.mark, paddingBottom: 1 }}>
         <Text maxFontSizeMultiplier={maxScale.text} style={[type.field, { color: p.inkBody }]}>{value}</Text>
       </View>
     </Pressable>

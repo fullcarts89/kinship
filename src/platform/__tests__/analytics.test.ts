@@ -33,6 +33,10 @@ it("does not compile with free text, unknown props or unknown events", () => {
   track("capture_completed", { source: "text", chars_bucket: note.length, offline: false });
   // @ts-expect-error settings_changed never carries a value
   track("settings_changed", { key: "appearance", value: "dark" });
+  // @ts-expect-error a suggestion's words are never sent (SUA-1): only its closed kind
+  track("gesture_tapped", { kind: "You could invite them to dinner.", surface: "handoff" });
+  // @ts-expect-error a gesture outcome carries no person
+  track("gesture_outcome", { kind: "plan", answer: "yes", person: "Susan" });
   expect(true).toBe(true);
 });
 

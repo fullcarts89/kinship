@@ -3,7 +3,7 @@
 -- extraction, without a second model run; nothing is written twice, and
 -- nothing is written for the wrong user, person, review or words.
 BEGIN;
-SELECT plan(31);
+SELECT plan(36);
 
 \set A '''aaaaaaaa-1919-1919-1919-191919191919'''
 \set B '''bbbbbbbb-1919-1919-1919-191919191919'''
@@ -21,7 +21,9 @@ INSERT INTO public.captures (id, source, raw_text) VALUES
   ('00000000-0000-0000-0000-000000001913', 'text', 'Sam is moving.'),
   ('00000000-0000-0000-0000-000000001914', 'text', 'Sarah left Google.'),
   ('00000000-0000-0000-0000-000000001915', 'text', 'Sam is learning to sail.'),
-  ('00000000-0000-0000-0000-000000001916', 'text', 'Sam lost his keys.');
+  ('00000000-0000-0000-0000-000000001916', 'text', 'Sam lost his keys.'),
+  ('00000000-0000-0000-0000-000000001917', 'text', 'Sarah moved to Meta.'),
+  ('00000000-0000-0000-0000-000000001918', 'text', 'Actually Sam moved to Stripe.');
 INSERT INTO public.captures (id, source, raw_text, retention) VALUES
   ('00000000-0000-0000-0000-000000001911', 'text', 'Maya graduated in 2024.', 'delete_after_extraction');
 -- Sarah's job, written by the user themself: an answer never changes it.
@@ -161,6 +163,48 @@ SELECT is(public.resolve_capture_review(:A, '00000000-0000-0000-0000-00000000191
 SELECT is((SELECT row(status, user_state)::text FROM public.memory_items WHERE id = '00000000-0000-0000-0000-000000001920'),
   '(active,user_authored)', 'the user''s own item is untouched');
 SELECT is((SELECT supersedes_id FROM public.memory_items WHERE statement = 'Sarah left Google'), NULL, 'nothing points at it');
+
+-- ── …unless the user, asked "Does this replace what you told me?", chose that very line (CER-1, 31 Oct) ──
+SELECT public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000001917');
+SELECT public.write_extraction_with_review(:A, '00000000-0000-0000-0000-000000001917', 'relationship_extract/v7+claude-opus-5-5', true, '[]',
+  '{"items": [{"kind": "fact", "person_id": "00000000-0000-0000-0000-000000001903", "new_person_name": null, "subject_type": "person", "related": null,
+     "statement": "Sarah moved to Meta", "certainty": "stated", "sensitivity": "none", "confidence": 0.9,
+     "detail": {"category": "work", "_replaces": [{"id": "00000000-0000-0000-0000-000000001920", "statement": "Sarah works at Google"}]},
+     "spans": [{"start": 0, "end": 19}], "action": {"type": "new", "target_id": null}, "flags": ["update_check", "protected_target"]}],
+    "clarification": null}');
+INSERT INTO r VALUES ('meta', (SELECT created_at FROM public.capture_reviews WHERE capture_id = '00000000-0000-0000-0000-000000001917'));
+SELECT is(public.resolve_capture_review(:A, '00000000-0000-0000-0000-000000001917', (SELECT t FROM r WHERE k = 'meta'),
+  pg_temp.item('00000000-0000-0000-0000-000000001903', 'fact', 'Sarah moved to Meta', 'Sarah moved to Meta', '{"category": "work"}',
+               '{"type": "supersede", "target_id": "00000000-0000-0000-0000-000000001920"}'), NULL) -> 'items' -> 0 ->> 'action',
+  'supersede', 'the line the user chose as replaced is replaced');
+SELECT is((SELECT status FROM public.memory_items WHERE id = '00000000-0000-0000-0000-000000001920'), 'superseded',
+  'the user''s own line is closed by the user''s own answer');
+SELECT is((SELECT supersedes_id FROM public.memory_items WHERE statement = 'Sarah moved to Meta'), '00000000-0000-0000-0000-000000001920'::uuid,
+  'and the new line points at it, as its history');
+
+-- ── A line held for "Who is this about?" (no person yet) that also offers the replace question ──
+SELECT tests.reset_role();
+SELECT tests.as_user(:A);
+SELECT public.write_memory_item(
+  '{"id": "00000000-0000-0000-0000-000000001921", "kind": "fact", "person_id": "00000000-0000-0000-0000-000000001901",
+    "statement": "Sam works at Stripe", "origin": "user", "user_state": "user_authored", "detail": {"category": "work"}}',
+  '[{"source_kind": "user_edit"}]');
+SELECT tests.reset_role();
+SELECT tests.as_service();
+SELECT public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000001918');
+SELECT public.write_extraction_with_review(:A, '00000000-0000-0000-0000-000000001918', 'relationship_extract/v7+claude-opus-5-5', true, '[]',
+  '{"items": [{"kind": "fact", "person_id": null, "new_person_name": null, "subject_type": "person", "related": null,
+     "statement": "Sam moved to Stripe", "certainty": "stated", "sensitivity": "none", "confidence": 0.9,
+     "detail": {"category": "work", "_replaces": [{"id": "00000000-0000-0000-0000-000000001921", "statement": "Sam works at Stripe"}]},
+     "spans": [{"start": 0, "end": 29}], "action": {"type": "new", "target_id": null}, "flags": ["person_ambiguous", "update_check", "protected_target"]}],
+    "clarification": {"about": "person", "question": "Who is this about?", "options": ["Someone else"]}}');
+INSERT INTO r VALUES ('who-replace', (SELECT created_at FROM public.capture_reviews WHERE capture_id = '00000000-0000-0000-0000-000000001918'));
+SELECT is(public.resolve_capture_review(:A, '00000000-0000-0000-0000-000000001918', (SELECT t FROM r WHERE k = 'who-replace'),
+  pg_temp.item('00000000-0000-0000-0000-000000001901', 'fact', 'Sam moved to Stripe', 'Actually Sam moved to Stripe.', '{"category": "work"}',
+               '{"type": "supersede", "target_id": "00000000-0000-0000-0000-000000001921"}'), NULL) -> 'items' -> 0 ->> 'action',
+  'supersede', 'asked who and whether it replaces: the person answered is the line''s own, so the user''s yes closes it');
+SELECT is((SELECT status FROM public.memory_items WHERE id = '00000000-0000-0000-0000-000000001921'), 'superseded',
+  'the user''s own line is closed by the user''s own answer, though the person was unknown when it was held');
 
 -- ── Someone new, explicitly added; delete-after-extraction honoured ──
 SELECT tests.reset_role();

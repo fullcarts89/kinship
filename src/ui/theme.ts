@@ -2,7 +2,7 @@
 // system), and the user's Reduce Motion setting. The 2.0 shell follows the
 // system appearance (app/v2/_layout.tsx); 1.0 is pinned to light.
 import { useEffect, useState } from "react";
-import { AccessibilityInfo, useColorScheme } from "react-native";
+import { AccessibilityInfo, PixelRatio, useColorScheme } from "react-native";
 import { color, type Palette } from "@/design/tokens";
 
 export function useNight(): boolean {
@@ -26,4 +26,12 @@ export function useReduceMotion(): boolean {
     };
   }, []);
   return reduce;
+}
+
+/**
+ * True at the larger Dynamic Type sizes (xxxLarge and the accessibility sizes): rows of actions stack and
+ * pill labels wrap instead of shrinking, so nothing is cut off or left blank.
+ */
+export function isLargeText(): boolean {
+  return PixelRatio.getFontScale() > 1.35;
 }

@@ -119,6 +119,15 @@ export interface CaptureRow {
   context_person_id: string | null;
   /** What an earlier understanding did not get to (Option A); null or absent when none. */
   coverage?: unknown;
+  /** The note this one tells the rest of (Option A); null or absent when none. */
+  continues_capture_id?: string | null;
+}
+
+/** The earlier note a continuation carries on from (CER-1): its words, and who it was about. */
+export interface EarlierNote {
+  raw_text: string;
+  /** The person the earlier note was told about, or the one person all its kept lines were about. */
+  person_id: string | null;
 }
 
 function namedIn(text: string): (p: PersonRow) => boolean {
@@ -175,15 +184,33 @@ export function dossierPeople(capture: CaptureRow, people: PersonRow[], related:
     .map((p) => p.id);
 }
 
+/**
+ * The capture as the roster and dossier should read it when it continues an earlier note (CER-1): the
+ * earlier words count for who is in the conversation, and its person is this note's context person when
+ * this one has none. The note's own text is untouched: evidence is located in it alone.
+ */
+export function withEarlier(capture: CaptureRow, earlier: EarlierNote | null): CaptureRow {
+  if (!earlier) return capture;
+  return {
+    ...capture,
+    raw_text: earlier.raw_text.trim() ? `${earlier.raw_text.normalize("NFC")}\n${capture.raw_text.normalize("NFC")}` : capture.raw_text,
+    context_person_id: capture.context_person_id ?? earlier.person_id ?? null,
+  };
+}
+
 export function buildInput(
   capture: CaptureRow,
   people: PersonRow[],
   related: RelatedRow[],
   items: ItemRow[],
   facets: FacetRow[] = [],
+  earlier: EarlierNote | null = null,
 ): ExtractionInput {
   const text = capture.raw_text.normalize("NFC");
-  const ordered = orderRoster(capture, people, related);
+  // A note that tells the rest of an earlier one (CER-1): the people of both notes are in the
+  // conversation, and the earlier note's person stands in when this one was told from no page.
+  const scope = withEarlier(capture, earlier);
+  const ordered = orderRoster(scope, people, related);
 
   // Removed from People (founder I3): never the model's; code checks names against them.
   const archived = people.filter((p) => p.state === "archived")
@@ -208,7 +235,7 @@ export function buildInput(
     .map((r, i) => ({ key: `r${i + 1}`, id: r.id, person_key: keyOf.get(r.person_id)!, relation: r.relation, name: r.name }));
   const relatedKey = new Map(rosterRelated.map((r) => [r.id, r.key]));
 
-  const candidateIds = new Set(dossierPeople(capture, people, related));
+  const candidateIds = new Set(dossierPeople(scope, people, related));
   // Each line's live residence reading, when the server derived one (code only; never in the prompt).
   const facetOf = new Map(facets
     .filter((f) => f.slot === "residence" && !f.deleted_at && Array.isArray(f.candidates))
@@ -245,7 +272,8 @@ export function buildInput(
       raw_text: text,
       occurred_at: capture.occurred_at,
       time_zone: capture.time_zone,
-      context_person_key: capture.context_person_id ? keyOf.get(capture.context_person_id) ?? null : null,
+      context_person_key: scope.context_person_id ? keyOf.get(scope.context_person_id) ?? null : null,
+      ...(earlier?.raw_text.trim() ? { earlier_text: earlier.raw_text.normalize("NFC").slice(0, 4000) } : {}),
     },
     roster,
     related: rosterRelated,
