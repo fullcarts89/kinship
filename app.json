@@ -41,7 +41,6 @@
       "blockedPermissions": [
         "android.permission.WRITE_CONTACTS",
         "android.permission.WRITE_CALENDAR",
-        "android.permission.RECORD_AUDIO",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
@@ -65,7 +64,14 @@
         {
           "photosPermission": "Allow Kinship to access your photos to attach them to memories in your garden.",
           "cameraPermission": "Allow Kinship to use your camera to take photos for your memories.",
-          "microphonePermission": false
+          "microphonePermission": "Allow Kinship to hear you when you tap the mic to tell it something. What you say is turned into words on this phone, and the audio is never saved."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Kinship to hear you when you tap the mic to tell it something. What you say is turned into words on this phone, and the audio is never saved.",
+          "speechRecognitionPermission": "Allow Kinship to turn what you say into words on this phone. The audio is never saved."
         }
       ],
       [

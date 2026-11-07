@@ -36,10 +36,14 @@ import { chooseOneContact } from "@/platform/deviceContacts";
 import { birthdayIso } from "@/features/setup/setupModel";
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { shortName } from "../../../supabase/functions/_shared/extraction/names";
-import { NotebookHost, NotebookTellPage } from "./notebook/NotebookTell";
+import { NotebookHost, NotebookTellPage, TELL_MAX } from "./notebook/NotebookTell";
 import { NotebookReview } from "./notebook/NotebookReview";
 import { useNoteWords } from "./notebook/useNoteWords";
 import { useTellNotebook } from "./notebook/useTellNotebook";
+import type { VoiceSupport } from "@/platform/speech";
+import { useVoice } from "./voice/useVoice";
+import { hintNames } from "./voice/names";
+import { forgetSpoken, noteSpoken, spokenMeta, withSpoken } from "./voice/spoken";
 
 /** The Kept card: what happened to the note just told (Gate D). */
 export interface KeptCardState {
@@ -89,6 +93,12 @@ export interface TellFlow {
    * one tells the rest of (Option A), recorded on the new note so every phone sees the first as answered.
    */
   keep: (text: string, contextPersonId?: string | null, source?: "text" | "onboarding", continues?: string | null) => Promise<boolean>;
+  /** The phone can turn speech into words on the phone and the account has voice: the mic shows (E18). */
+  voice: VoiceSupport | null;
+  /** The user's people as the recognizer listens for them. */
+  voiceNames: string[];
+  /** Words heard on the phone go into this Tell's draft, after what's there. */
+  addSpoken: (personId: string | null | undefined, heard: string, seconds: number) => void;
   /**
    * "Tell the rest" on a partial note (Option A): the words the understanding did not get to become the
    * draft, about the note's person, and the field takes focus; what the user then keeps is linked back.
@@ -226,6 +236,18 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
   const session = useV2Session();
   const notebook = useTellNotebook(session?.userId);
   const [page, setPage] = useState<TellPage | null>(null);
+  // Voice (E18, flag `voice_capture`): only where the phone listens on the phone.
+  const voice = useVoice();
+  const voiceNames = useMemo(() => (voice ? hintNames(people) : []), [voice, people]);
+  const draftsRef = useRef(drafts.drafts);
+  draftsRef.current = drafts.drafts;
+  const setDraftText = drafts.set;
+  const addSpoken = useCallback((personId: string | null | undefined, heard: string, seconds: number) => {
+    if (!voice || !heard.trim()) return;
+    const key = draftKey(personId);
+    setDraftText(key, withSpoken(draftsRef.current[key] ?? "", heard, TELL_MAX));
+    noteSpoken(key, voice.locale, seconds);
+  }, [voice, setDraftText]);
   const pageRef = useRef(page);
   pageRef.current = page;
 
@@ -310,8 +332,12 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     if (!text.trim()) return null;
     // When Send was tapped, before anything is saved (CC-18 telemetry, content-free).
     const tapped = u.now();
+    // Spoken, in whole or part (E18): kept as a voice note, with how it was heard. Never the audio.
+    const key = draftKey(contextPersonId);
+    const spoken = source === "text" ? spokenMeta(key) : null;
     try {
-      const id = await keepNote(text, contextPersonId ?? null, source, continues ?? null);
+      const id = await keepNote(text, contextPersonId ?? null, spoken ? "voice" : source, continues ?? null, spoken);
+      if (spoken) forgetSpoken(key);
       u.sent(id, tapped);
       // The rest is told: the request that carried its link is answered, so no later note (from any
       // surface) is linked to that first note again (NATIVE-SIMULATOR finding, 19 Oct).
@@ -475,8 +501,11 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
     setDraft: (personId, text) => drafts.set(draftKey(personId), text),
     notebook,
     openTell: (personId, opts) => openTell(personId, { onClose: opts?.onClose }),
+    voice,
+    voiceNames,
+    addSpoken,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), asking, showing, toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked, notebook, openTell]);
+  }), [tellOn, ai, keep, JSON.stringify(card), JSON.stringify(pending), questions.join(), asking, showing, toLookAt.join(), waiting.length, open.offline, currentView?.mode, openSheet, u, focusRequest, drafts.drafts, drafts.set, parked, notebook, openTell, voice, voiceNames, addSpoken]);
 
   // The review's actions, whichever look it takes: the same calls, the same order (D1, Gate D).
   const reviewProps = shown && showing ? {
@@ -553,6 +582,8 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
               onDraft={(t) => {
                 const key = draftKey(page.personId);
                 if (!(drafts.drafts[key] ?? "").trim() && t.trim()) trackStarted();
+                // Emptied by hand: what's written next is typed.
+                if (!t.trim()) forgetSpoken(key);
                 drafts.set(key, t);
               }}
               onKeep={() => void keepFromPage()}
@@ -560,6 +591,11 @@ export function TellFlowProvider({ children }: { children: React.ReactNode }) {
               frozen={page.kept?.text ?? null}
               status={pageStatus}
               ai={ai}
+              voice={voice ? {
+                support: voice,
+                names: voiceNames,
+                onSpoken: (heard, seconds) => addSpoken(page.personId, heard, seconds),
+              } : null}
             />
           ) : null}
         </NotebookHost>
