@@ -304,6 +304,8 @@ export class CaptureRepo {
       source?: CaptureSource; contextPersonId?: string; occurredAt?: string; timeZone?: string; aiEnabled: boolean;
       /** The partial note this one tells the rest of (Option A). */
       continuesCaptureId?: string | null;
+      /** A spoken note: heard on the phone, how long, in what language (E18). Never the audio. */
+      transcriptMeta?: { on_device: true; locale: string; duration_s: number } | null;
     },
   ): Promise<Capture> {
     const raw = text.normalize("NFC");
@@ -317,6 +319,7 @@ export class CaptureRepo {
       time_zone: opts.timeZone ?? null,
       status: opts.aiEnabled ? "pending" : "skipped",
       ...(opts.continuesCaptureId ? { continues_capture_id: opts.continuesCaptureId } : {}),
+      ...(opts.transcriptMeta ? { transcript_meta: { ...opts.transcriptMeta } } : {}),
     }) as Promise<Capture>;
   }
 

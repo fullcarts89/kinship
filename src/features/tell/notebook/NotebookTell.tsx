@@ -3,15 +3,17 @@
 // keeps the words as a draft. After Keep the words stay on the page, frozen, with "Understanding…";
 // the user may close it then too: understanding goes on, and the Kept card carries it (Gate D).
 import React, { useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Modal, PixelRatio, Platform, ScrollView, TextInput, View } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Modal, PixelRatio, Platform, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { X } from "lucide-react-native";
+import { Mic, X } from "lucide-react-native";
 import { font, maxScale, notebook, press, space, TOUCH } from "@/design/tokens";
 import { useReduceMotion, usePalette } from "@/ui";
 import { Pressable } from "@/ui/Pressable";
 import { NButton, NText, RuledPaper, useNotebookPalette } from "@/ui/notebook";
 import { sheetClosed, sheetOpened } from "@/ui/sheetStack";
 import { BreathingDot, FadeIn } from "./motion";
+import type { VoiceSupport } from "@/platform/speech";
+import { Listening } from "../voice/Listening";
 
 export const NOTEBOOK_TELL_COPY = {
   title: "Tell Kinship",
@@ -23,6 +25,9 @@ export const NOTEBOOK_TELL_COPY = {
   hintAsWritten: "Kinship keeps your words exactly as you write them.",
   keep: "Keep",
   pill: "Tell Kinship something…",
+  /** The mic (E18): only where the phone listens on the phone. */
+  speak: "Say it instead",
+  speakHint: "Listens on this phone and writes down what you say. The audio is never saved.",
 } as const;
 
 /** The longest note one Tell takes (as the Tell field). */
@@ -41,6 +46,8 @@ export interface NotebookTellPageProps {
   status: string | null;
   /** Understanding is on (otherwise the note is kept as written and nothing is shown back). */
   ai: boolean;
+  /** Voice, when this phone and account have it (E18): the mic, and where the words it hears go. */
+  voice?: { support: VoiceSupport; names: readonly string[]; onSpoken: (heard: string, seconds: number) => void } | null;
 }
 
 export function NotebookTellPage(props: NotebookTellPageProps) {
@@ -54,6 +61,8 @@ export function NotebookTellPage(props: NotebookTellPageProps) {
   const words = { fontSize: 21, lineHeight: notebook.ruled.tell, color: p.ink };
   const canKeep = props.draft.trim().length > 0;
   const understanding = props.frozen !== null;
+  const [listening, setListening] = useState(false);
+  const voice = !understanding ? props.voice ?? null : null;
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: p.paper }} onAccessibilityEscape={props.onClose}>
       <View style={{ paddingTop: insets.top + space.m, paddingLeft: space.xl + 2, paddingRight: space.l + 2, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -121,10 +130,35 @@ export function NotebookTellPage(props: NotebookTellPageProps) {
         ) : (
           <>
             <NText v="fine" tone="quiet" style={{ flex: 1 }}>{props.ai ? NOTEBOOK_TELL_COPY.hint : NOTEBOOK_TELL_COPY.hintAsWritten}</NText>
+            {voice ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={NOTEBOOK_TELL_COPY.speak}
+                accessibilityHint={NOTEBOOK_TELL_COPY.speakHint}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setListening(true);
+                }}
+                style={({ pressed }) => ({ width: TOUCH, height: TOUCH, alignItems: "center", justifyContent: "center", opacity: pressed ? press.link : 1 })}
+              >
+                <Mic color={p.ink} size={22} strokeWidth={1.8} />
+              </Pressable>
+            ) : null}
             <NButton label={NOTEBOOK_TELL_COPY.keep} onPress={props.onKeep} disabled={!canKeep} accessibilityHint="Keeps your words; Kinship shows you what it understood" />
           </>
         )}
       </View>
+      {voice && listening ? (
+        <Listening
+          support={voice.support}
+          names={voice.names}
+          about={props.about}
+          onDone={(heard, seconds) => {
+            setListening(false);
+            voice.onSpoken(heard, seconds);
+          }}
+        />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
