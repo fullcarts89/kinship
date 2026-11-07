@@ -4,14 +4,15 @@
 // it grows into a few lines while you type. Say it the way you'd tell a
 // friend, then send: no type to choose, no form.
 //
-// Voice (the board's microphone) arrives with on-device transcription
-// (E18, flag voice_capture). Until then the round button sends what was
-// typed, and appears only when there is something to send; the keyboard's
-// own dictation works in the field.
+// Voice (the board's microphone, E18, flag voice_capture): when the phone can
+// turn speech into words on the phone, the empty field's round button is the
+// mic (onSpeak); once there is something to send it is Send. Without on-device
+// voice there is no mic at all and the round button appears only when there
+// is something to send; the keyboard's own dictation works in the field.
 import React, { forwardRef } from "react";
 import { Text, TextInput, View } from "react-native";
 import { Pressable } from "./Pressable";
-import { ArrowUp } from "lucide-react-native";
+import { ArrowUp, Mic } from "lucide-react-native";
 import { height, maxScale, press, radius, shadow, size, space, type } from "@/design/tokens";
 import { IconButton } from "./Screen";
 import { KeyboardBar, useKeyboardBarId } from "./KeyboardBar";
@@ -34,10 +35,12 @@ export interface TellFieldProps {
   collapsed?: { preview: string; onExpand: () => void } | null;
   /** On Today and People: the keyboard's bar carries Today · People as well as Done (founder I6). */
   nav?: { current: NavKey; onGo: (to: NavKey) => void };
+  /** Only when this phone listens on the phone (E18): the empty field offers the mic. */
+  onSpeak?: () => void;
 }
 
 export const TellField = forwardRef<TextInput, TellFieldProps>(function TellField(
-  { value, onChange, onSend, placeholder = "Tell Kinship something…", autoFocus, onFocus, onBlur, collapsed, nav },
+  { value, onChange, onSend, placeholder = "Tell Kinship something…", autoFocus, onFocus, onBlur, collapsed, nav, onSpeak },
   ref,
 ) {
   const p = usePalette();
@@ -46,6 +49,10 @@ export const TellField = forwardRef<TextInput, TellFieldProps>(function TellFiel
   const send = canSend ? (
     <IconButton label="Send to Kinship" onPress={onSend} filled diameter={height.mic}>
       <ArrowUp color={p.onInk} size={size.icon} strokeWidth={1.8} />
+    </IconButton>
+  ) : onSpeak ? (
+    <IconButton label="Say it instead" onPress={onSpeak} filled diameter={height.mic}>
+      <Mic color={p.onInk} size={size.icon} strokeWidth={1.8} />
     </IconButton>
   ) : null;
   if (collapsed && canSend) {

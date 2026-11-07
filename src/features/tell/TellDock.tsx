@@ -7,13 +7,16 @@ import type { FeedbackOff } from "@/store/repositories";
 import { ActivityIndicator, Keyboard, PanResponder, TextInput, View } from "react-native";
 import { X } from "lucide-react-native";
 import { Pressable } from "@/ui/Pressable";
-import { draftPreview } from "./drafts";
+import { draftKey, draftPreview } from "./drafts";
 import { press, radius, shadow, size, space, TOUCH } from "@/design/tokens";
 import { Body, KEYBOARD_BAR, Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
 import { Replaces } from "./ReviewSheet";
 import { trackStarted, useTellFlow, useTellNotebookMode, type KeptCardState } from "./TellFlow";
 import { NotebookDock, NotebookKeptCard } from "./notebook/NotebookDock";
+import { Listening } from "./voice/Listening";
+import { forgetSpoken } from "./voice/spoken";
+import { shortName } from "../../../supabase/functions/_shared/extraction/names";
 
 /** A quiet one-line status (offline, and older callers). */
 export function KeptLine({
@@ -331,6 +334,8 @@ export interface TellDockViewProps {
   /** Who this Tell is about, when it isn't the general one ("About Ben"). */
   about?: string | null;
   autoFocus?: boolean;
+  /** Only when this phone listens on the phone (E18): the mic in the empty field. */
+  onSpeak?: () => void;
 }
 
 /** The dock's look, from plain data (the lab renders it without a session). */
@@ -359,6 +364,7 @@ export function TellDockView(props: TellDockViewProps) {
             collapsed={props.collapsed}
             autoFocus={props.autoFocus}
             nav={{ current: props.current, onGo: props.onGo }}
+            onSpeak={props.onSpeak}
           />
         </TellDockFrame>
       ) : null}
@@ -382,6 +388,9 @@ function AlphaTellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: 
   const [about, setAbout] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [focusNow, setFocusNow] = useState(false);
+  const [listening, setListening] = useState(false);
+  // Opening the mic puts the keyboard away; that blur isn't leaving the Tell.
+  const speaking = useRef(false);
   const started = useRef(false);
   const sending = useRef(false);
   const input = useRef<TextInput>(null);
@@ -404,7 +413,8 @@ function AlphaTellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: 
     input.current?.focus();
   }, [flow.focusRequest]);
 
-  const aboutName = about ? people.find((p) => p.id === about)?.display_name ?? null : null;
+  const aboutPerson = about ? people.find((p) => p.id === about) ?? null : null;
+  const aboutName = aboutPerson?.display_name ?? null;
 
   const send = async () => {
     const text = draft;
@@ -438,7 +448,9 @@ function AlphaTellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: 
     line = <KeptLine text={OFFLINE_LINE} />;
   }
 
+  const voice = flow.voice;
   return (
+    <>
     <TellDockView
       tellOn={flow.tellOn}
       draft={draft}
@@ -447,6 +459,8 @@ function AlphaTellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: 
           started.current = true;
           trackStarted();
         }
+        // Emptied by hand: what's written next is typed.
+        if (!t.trim()) forgetSpoken(draftKey(about));
         flow.setDraft(about, t);
       }}
       onSend={() => void send()}
@@ -454,8 +468,8 @@ function AlphaTellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: 
       onBlur={() => {
         setOpen(false);
         setFocusNow(false);
-        // An empty Tell about someone goes back to being the general one.
-        if (!draft.trim()) setAbout(null);
+        // An empty Tell about someone goes back to being the general one (not while it's being said).
+        if (!draft.trim() && !speaking.current) setAbout(null);
       }}
       placeholder={aboutName ? `Tell Kinship about ${aboutName}…` : undefined}
       line={line}
@@ -476,7 +490,32 @@ function AlphaTellDock({ current, onGo, typing }: { current: NavKey; onGo: (to: 
           setFocusNow(true);
         },
       } : null}
+      onSpeak={voice ? () => {
+        speaking.current = true;
+        Keyboard.dismiss();
+        setListening(true);
+      } : undefined}
     />
+    {voice && listening ? (
+      <Listening
+        modal
+        support={voice}
+        names={flow.voiceNames}
+        about={aboutPerson ? shortName(aboutPerson) : null}
+        onDone={(heard, seconds) => {
+          speaking.current = false;
+          setListening(false);
+          flow.addSpoken(about, heard, seconds);
+          if (!heard.trim() && !draft.trim()) setAbout(null);
+          // The words wait in the field, open, to read over and send.
+          if (heard.trim()) {
+            setOpen(true);
+            setFocusNow(true);
+          }
+        }}
+      />
+    ) : null}
+    </>
   );
 }
 

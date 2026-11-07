@@ -10,7 +10,9 @@ const IOS_USAGE_ALLOWLIST = [
   "NSCalendarsUsageDescription",
   "NSCameraUsageDescription", // photos for memories
   "NSContactsUsageDescription", // import people (read only)
+  "NSMicrophoneUsageDescription", // speak a Tell, transcribed on the phone (E18, D5)
   "NSPhotoLibraryUsageDescription", // attach photos (read only)
+  "NSSpeechRecognitionUsageDescription", // on-device speech recognition only (E18, D5)
   // Never requested. expo-calendar refuses to load without these (it checks
   // them on startup and crashes development builds), so they say plainly
   // that Kinship doesn't use reminders. Found by the Phase 0 device test.
@@ -23,12 +25,12 @@ const ANDROID_ALLOWLIST = [
   "android.permission.READ_CALENDAR",
   "android.permission.READ_CONTACTS",
   "android.permission.READ_EXTERNAL_STORAGE", // photo picker on Android 12 and older
+  "android.permission.RECORD_AUDIO", // speak a Tell, recognized on the phone (E18, D5)
 ].sort();
 
 const MUST_BE_BLOCKED = [
   "android.permission.WRITE_CONTACTS",
   "android.permission.WRITE_CALENDAR",
-  "android.permission.RECORD_AUDIO",
   "android.permission.WRITE_EXTERNAL_STORAGE",
 ];
 
@@ -82,13 +84,22 @@ it("Android requests only the allowed permissions", () => {
   expect(requested.sort()).toEqual(ANDROID_ALLOWLIST);
 });
 
-it("Android blocks write and microphone permissions any library might add", () => {
+it("Android blocks write permissions any library might add", () => {
   expect(config.android.blockedPermissions).toEqual(expect.arrayContaining(MUST_BE_BLOCKED));
 });
 
-it("the camera only takes still photos, so no microphone description is needed", () => {
-  // expo-image-picker requires NSMicrophoneUsageDescription when the CAMERA
-  // records video or Live Photos. Kinship's only camera path is photoPicker.
+it("the microphone and speech descriptions say the words stay on the phone and the audio is never saved", () => {
+  for (const key of ["NSMicrophoneUsageDescription", "NSSpeechRecognitionUsageDescription"]) {
+    const text = String(config.ios.infoPlist[key]);
+    expect(text).toMatch(/on this phone/);
+    expect(text).toMatch(/audio is never saved/);
+  }
+});
+
+it("the camera only takes still photos: the microphone is for voice alone", () => {
+  // expo-image-picker uses NSMicrophoneUsageDescription when the CAMERA
+  // records video or Live Photos. Kinship's only camera path is photoPicker,
+  // so the one microphone use is listening for a Tell (E18).
   const fs = jest.requireActual<typeof import("fs")>("fs");
   const src = fs.readFileSync(`${ROOT}/src/lib/photoPicker.ts`, "utf8");
   expect(src).toMatch(/mediaTypes:\s*\["images"\]/);

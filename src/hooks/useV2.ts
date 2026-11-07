@@ -3,6 +3,7 @@
 // write, a sync, or a step of Understanding.
 
 import { shortName } from "../../supabase/functions/_shared/extraction/names";
+import type { TranscriptMeta } from "@/features/tell/voice/spoken";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { arrivedLabel, momentLabel, provenanceLine, whenLabel } from "@/features/memory/format";
@@ -61,6 +62,9 @@ function timeZone(): string | undefined {
 
 // ─── Tell ───────────────────────────────────────────────────────────────
 
+/** Where a Tell came from: typed, the first Tell in setup, or spoken on the phone (E18). */
+export type TellSource = "text" | "onboarding" | "voice";
+
 export function useTell() {
   const { store, understanding, userId } = useV2Session();
   const flags = useFlags(userId);
@@ -69,11 +73,15 @@ export function useTell() {
   // The server checks consent on every call; this only decides whether to ask.
   const consent = s ? (s.ai_consent === true && Number(s.ai_consent_version ?? 0) >= AI_CONSENT_VERSION ? "on" : "off") : "unknown";
   const ai = isOn(flags, "ai_extraction") && consent !== "off";
-  const keep = useCallback(async (text: string, contextPersonId?: string | null, source: "text" | "onboarding" = "text", continues: string | null = null): Promise<string> => {
+  const keep = useCallback(async (
+    text: string, contextPersonId?: string | null, source: TellSource = "text", continues: string | null = null,
+    transcriptMeta: TranscriptMeta | null = null,
+  ): Promise<string> => {
     const capture = await repositoriesFor(store).captures.tell(text, {
       aiEnabled: ai, timeZone: timeZone(), contextPersonId: contextPersonId ?? undefined, source,
       // "Tell the rest" (Option A): the partial note this one answers, so every phone sees it answered.
       continuesCaptureId: continues,
+      transcriptMeta: source === "voice" ? transcriptMeta : null,
     });
     track("capture_completed", { source, chars_bucket: charsBucket([...text].length), offline: understanding.offline });
     if (ai) {

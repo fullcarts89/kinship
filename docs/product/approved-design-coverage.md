@@ -19,7 +19,7 @@
 | 3 | **Consent** | D2, D3; P §9, ONB-02 | Plain disclosure + one explicit choice | PARTIAL — a sheet over an empty Today | **BUILT** — the first setup step, full screen, the approved D2 sentence word for word; Allow / Keep notes as written; the over-Today sheet remains only as a fallback for accounts that finished setup without being asked | Yes | Lab ✓ (no board; built from B1 setup composition) | Lab ✓ | ✗ | ✓ | ✓ | — | — | n/a | Native pass |
 | 4 | **People-selection onboarding** | B1 "Who do you want to show up for?" (Setting up · 1 of 2); P E16/ONB-03; T8 | Bring 8–20 real people in one pass | **NOT BUILT** | **BUILT** — contacts multi-select: search, suggestions (family names, birthdays this month), sprig + name + why, T8 lock line, "Continue with N people"; Add by name; denied/limited/unavailable states; only picked people saved (name, contact id, birthday) | Yes | Lab ✓ | Lab ✓ | ✗ | ✓ | ✓ | — | — | n/a | Native: permission prompt copy, 2,000-contact scroll, limited-access (iOS 18) picker |
 | 5 | **Already worth knowing** | B1 "Already worth knowing" (Setting up · 2 of 2); T7 | Prove value before any work | **NOT BUILT** | **BUILT** — real birthdays in the next 14 days from picked contacts ("Maya's birthday is Saturday.", "From Contacts"); when there are none the screen opens on the first Tell instead | Yes | Lab ✓ | Lab ✓ | ✗ | ✓ | ✓ | — | Calendar line removed by T7 | Yes (T7, D6) | Native pass |
-| 6 | **First Tell** | B1 board 2 lower half; P E16, ONB-04 | One thing worth remembering, in her own words | **NOT BUILT** | **BUILT** — same Tell pipeline (`source=onboarding`); "Skip for now" / "Keep it"; lands on Today with the Kept line or the review sheet | Yes | Lab ✓ | Lab ✓ | ✗ | ✓ | ✓ | — | Mic button replaced: no voice until E18 (D5) | Yes (D5) | Native: keyboard over the field |
+| 6 | **First Tell** | B1 board 2 lower half; P E16, ONB-04 | One thing worth remembering, in her own words | **NOT BUILT** | **BUILT** — same Tell pipeline (`source=onboarding`); "Skip for now" / "Keep it"; lands on Today with the Kept line or the review sheet | Yes | Lab ✓ | Lab ✓ | ✗ | ✓ | ✓ | — | Mic button replaced: no voice until E18 (D5). E18 is built (7 Nov) for Today/People and the notebook Tell page; setup's First Tell stays typed | Yes (D5) | Native: keyboard over the field |
 | 7 | **Normal Tell** | B1 Tell field; DD §H | Tell from anywhere, no navigation | BUILT | BUILT | Yes | ✓ (no mic) | ✓ | ✗ | ✓ | ✓ | — | — | n/a | Native keyboard lift |
 | 8 | **Extraction / "Here's what I'll remember"** | B1 "Kept for David"; P §8 | Show what was kept; fix only what's wrong | BUILT | BUILT | Yes | ✓ (token row instead of inline tokens — technical) | ✓ | ✗ | ✓ | ✓ | — | — | n/a | Native pass |
 | 9 | **Clarification** | B1 "Is 'his son' Leo?"; P §8 | One question when genuinely ambiguous | BUILT | BUILT | Yes | ✓ | ✓ | ✗ | ✓ | ✓ | — | — | n/a | Relaunch with a question waiting (native) |
@@ -42,7 +42,7 @@
 | 26 | **Offline** | P §7 | Kept now, understood later | BUILT | BUILT; setup works offline except contacts are local anyway; consent saved when online (asked again if it couldn't save) | Yes | ✓ | ✓ | ✗ | ✓ | ✓ | — | — | n/a | Airplane-mode pass on device |
 | 27 | **Error / loading / permission states** | Contract §7; brief §21 | Human words; no dead ends | PARTIAL | BUILT for setup (contacts denied/limited/unavailable, save failure, consent offline); existing states unchanged | Yes | Lab ✓ | Lab ✓ | ✗ | ✓ | ✓ | — | — | n/a | Native permission dialogs |
 | 28 | **Night appearance** | B3 "Good evening."; SYS | The night garden | BUILT | BUILT (new screens use tokens; night renders captured) | Yes | ✓ | — | ✗ | ✓ | ✓ | — | — | n/a | Native appearance switch |
-| 29 | **Listening (voice) screen** | B1 4th phone; P E18 | Speak a Tell; on-device | NOT BUILT | NOT BUILT; no mic shown anywhere | No | — | — | — | ✗ | ✗ (beta wk 3) | ✓ | D5: voice in beta week 3, on-device only | Yes (D5) | E18 |
+| 29 | **Listening (voice) screen** | B1 4th phone; P E18 | Speak a Tell; on-device | NOT BUILT | **BUILT behind `voice_capture`** (7 Nov 2026; board re-confirmed by the founder): mic in the empty Tell field and on the notebook Tell page, only where the phone listens on the phone; see "Voice (E18)" below | Flag only | Tests ✓ | Tests ✓ | ✗ | ✗ | ✓ | — | — | n/a (built) | Native pass: device × locale matrix, airplane mode, a call mid-listening, permission denied |
 | 30 | **Garden / Landscape** | B3 Garden phone | — | Superseded | Superseded | — | — | — | — | ✗ | ✗ | ✓ | D7, plan §34 checkpoint | Yes (D7) | GDN-00 checkpoint |
 | 31 | **Notification permission ask** | P §22, PUSH-08 | Ask after the first real moment | NOT BUILT | NOT BUILT | No | — | — | — | ✗ (no push yet) | ✓ | — | Server push not built (E15) | Yes (CC-25, 16 Oct: asked with the minimal push, committed next, only after a genuinely useful Moment) | E15 |
 | 32 | **Siri / Action Button / widget / share sheet** | DD §C, P §21 | Capture from anywhere | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Native targets, Next/Later | Yes (plan §4) | E24 |
@@ -461,7 +461,7 @@ Strategy only; no surface is built, removed or redesigned by this entry. **No ap
 | 21 | Reflection (monthly letter) | INTENTIONALLY DEFERRED | Explore later, downgraded to validation | Year-ago resurfacing, Ask over history, or an occasional / yearly reflection instead of a monthly report |
 | 22 | Ask Kinship | INTENTIONALLY DEFERRED | **Alpha direction**, the first major Alpha expansion | v1 grounded search over statements with sources, then bounded synthesis if needed; one capability with `retrieval_answer`; not limited to one-person lookups; never a chat |
 | 23 | Privacy / settings (export, delete-account v2) | BUILT (native pending), 30 Oct (FD-30e, WS-4) | Was **Commit next**; built | `docs/product/trust-floor.md` |
-| 29 | Listening (voice) screen | NOT BUILT (D5) | Explore later; **questioned before implementation** | Capture order: Siri / Action Button → a simple on-device mic in Tell → a text share extension. The board stays approved; re-confirm or change it before voice work |
+| 29 | Listening (voice) screen | BUILT behind `voice_capture` (7 Nov) | **Re-confirmed by the founder, 7 Nov 2026**, before voice work began | Built as the board shows it; the mic lives in Tell (the "simple on-device mic"). Siri / Action Button and the share extension are still to come |
 | 30 | Garden / Landscape | Superseded (D7) | Explore later; chapters / life groups first | User-named, many-to-many groups as a People filter; any visual stays the GDN-00 checkpoint |
 | 31 | Notification permission ask | NOT BUILT | **Commit next**, with the minimal push | One private notification of the Moment Today chose; D4's caps the ceiling; pause |
 | 32 | Siri / Action Button / widget / share sheet | NOT BUILT | Siri / Action Button: **Alpha direction**; share: explore later; widget: **hold** | — |
@@ -531,3 +531,35 @@ Native pass pending on all of these.
 | 12 Relationship page, Edit | The sheet is titled "Edit Natalia" and opens with the keyboard down, so its controls aren't covered | Needed by the two rows above | Follows from them |
 | 12 Relationship page, Now and Knows (`notebook_deck`) | Each section is its own card with a larger title. The sections themselves are unchanged. Pages keeps its note cards | "make the sub-title a little bigger… make the sections more distinct" | Yes |
 | 23 Privacy / settings | Settings closes from an **X** and has no bar. "Paused and remembered" reads **Paused reminders** | It scrolls, so a drag moves its content and the bar promised something it couldn't do | Yes |
+
+## Voice (E18, founder 7 Nov 2026): what changed on approved surfaces
+
+**Founder decisions (7 Nov 2026, in the session that built it):** the Listening board (B1, 4th phone) is
+re-confirmed as approved; the microphone permission is unblocked; a new native build is approved; `voice_capture`
+is turned on for the two accounts that already have founder-approved overrides (`21bb55a0-…` and `97748654-…`)
+and for no one else; the mic shows **only** where on-device transcription is actually available. The engine is
+the phone's own recognizer (`expo-speech-recognition`, `requiresOnDeviceRecognition` on every session), per
+plan T3/§21; the desktop app Handy (Whisper/Parakeet) was considered and set aside for now (desktop-only, large
+models), with an on-phone Whisper engine kept as the fallback if native quality falls short.
+
+| Surface | Was | Now (`voice_capture` and on-device voice) | Rules it keeps | Status |
+|---|---|---|---|---|
+| Tell field (Today, People) | The round button appears only with words to send | Empty field: the round button is the mic ("Say it instead"); with words it is Send, as before | No mic without on-device voice (contract §8); keyboard dictation is never called voice | BUILT; tests; not yet native |
+| Notebook Tell page | Keep, with the hint | A mic beside Keep while writing; spoken words go after what's written | The page, Keep and the review are unchanged | BUILT; tests; not yet native |
+| **Listening** (#29) | NOT BUILT | Full screen in the night palette whatever the appearance: "LISTENING" / "LISTENING · FOR BEN" (the name as the page says it), the words as they arrive in Newsreader Light, each of the user's people underlined as heard, the voice's line, the lock line "Transcribed on this phone. The audio is never saved.", one round Stop. Starts listening as it opens | D5: on-device only, no server path, audio never kept; T3: "on this phone" shown only while on-device recognition is on (it always is) | BUILT; tests; not yet native |
+| After Stop | — | The words go into the Tell to read over, fix and keep like any note. Nothing is kept by listening alone | Trust: the user's Keep, never an automatic save | BUILT |
+| Kept note | `source` text | A note spoken in whole or part is kept with `source = voice` and `transcript_meta {on_device: true, locale, duration_s}` (existing columns; no migration). Emptied by hand and retyped: `text` again | Audio is never stored anywhere | BUILT |
+| Can't listen | — | No permission: "Kinship can't hear you yet." with Open Settings and Type instead. The phone refuses after all (language, service): "Speaking isn't available on this phone right now." and the mic is gone for the session | Fail closed; typing always stays | BUILT |
+
+**Deviations from the board, with reasons.** The underline and the voice's line take the **mark** colour, not
+ochre (FD-30b replaced ochre with the mark for everything Kinship understood). Only **the user's own people** are
+underlined while listening: phrases ("kindergarten next week") are understood only after Keep, by the same
+understanding as typed notes, and an underline before then would be a guess. Back (Android) and the accessibility
+escape mean Stop, never "throw the words away".
+
+**Where the mic is not:** setup's First Tell (row 6), the alpha person sheet (`TellSheet` without `notebook_deck`;
+the notebook page covers telling about someone), Siri / Action Button, widgets. Android below 13 and any phone or
+language without on-device recognition get no mic at all.
+
+**Readiness: NOT READY** until a native build has been walked (`docs/product/voice-device-checklist.md`).
+
