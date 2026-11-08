@@ -2,7 +2,7 @@
 // People (Anthony, Anthony Lopez, Sam Eden, Chris):
 //   1. Chris has a race in two days and a birthday tomorrow: Today speaks of him. Pause Chris from his page:
 //      Today says nothing about him, his open reasons are suppressed on the server and a forced refresh makes
-//      none; his page says "Paused". Resume: Today may speak of him again.
+//      none; his page says "Reminders paused". Resume: Today may speak of him again.
 //   2. Anthony (by name) has a job start, a shared line with Sam and a sister; merge him into Anthony Lopez
 //      from Anthony Lopez's page: the picker offers Anthony (a shared name, no score), the preview lists
 //      exactly what moves, every memory is on the survivor with its source untouched on the server, Anthony
@@ -15,7 +15,7 @@
 // Stand-ins, stated: sql.js for SQLCipher; the share sheet and the file system are recorded, not shown; the
 // device wipe is asserted as called (its own proof is src/lib/__tests__/localDataReset.test.ts).
 import { Alert } from "react-native";
-import { canTap, mount, setUp, settle, show, signedIn, tap, texts, until } from "./app";
+import { canTap, mount, setUp, settle, show, signedIn, tap, texts, toggle, until } from "./app";
 import { authUserExists, serverRows } from "./localStack";
 import { harness } from "./state";
 import { files } from "@/test-utils/memoryFileSystem";
@@ -46,7 +46,7 @@ function answerAlerts(pick: (title: string, labels: string[]) => string | null) 
 
 jest.setTimeout(240_000);
 
-it("trust floor: Paused silences Today and the server; Merge keeps every memory and its source; Export leaves only through the share sheet; Delete leaves no row", async () => {
+it("trust floor: Pause reminders silences Today and the server; Merge keeps every memory and its source; Export leaves only through the share sheet; Delete leaves no row", async () => {
   const acct = await signedIn();
   const r = await mount();
   await setUp(r, PEOPLE);
@@ -85,16 +85,14 @@ it("trust floor: Paused silences Today and the server; Merge keeps every memory 
   await refresh();
   expect((await serverRows<{ person_id: string; state: string }>("reasons", acct.userId)).filter((x) => x.person_id === chris && x.state === "candidate")).toHaveLength(1);
 
-  // ── 1. Paused (D13) ──
+  // ── 1. Pause reminders (D13) ──
   await show(r, { screen: "today" });
   await until(r, (s) => s.some((t) => /Chris/u.test(t)), "Today to speak of Chris");
   await show(r, { screen: "person", id: chris });
   await until(r, () => canTap(r, "Edit"), "Chris's page");
   await tap(r, "Edit");
-  let alerts = answerAlerts((title) => (title === "Pause Chris?" ? "Pause" : null));
-  await tap(r, "Pause Chris");
-  await until(r, (s) => s.includes("Paused"), "the Paused line on his page");
-  alerts.mockRestore();
+  await toggle(r, "Pause reminders for Chris", true);
+  await until(r, (s) => s.includes("Reminders paused"), "the paused line on his page");
   await acct.engine.sync();
   await refresh();
   expect((await serverRows<{ state: string }>("people", acct.userId)).find((p) => (p as unknown as { id: string }).id === chris)?.state).toBe("paused");
@@ -108,8 +106,8 @@ it("trust floor: Paused silences Today and the server; Merge keeps every memory 
   await show(r, { screen: "person", id: chris });
   await until(r, () => canTap(r, "Edit"), "Chris's page again");
   await tap(r, "Edit");
-  await tap(r, "Resume Chris");
-  await until(r, (s) => !s.includes("Paused"), "the Paused line to go");
+  await toggle(r, "Pause reminders for Chris", false);
+  await until(r, (s) => !s.includes("Reminders paused"), "the paused line to go");
   await acct.engine.sync();
   await refresh();
   expect((await serverRows<{ person_id: string; state: string }>("reasons", acct.userId)).filter((x) => x.person_id === chris && x.state === "candidate")).toHaveLength(1);
@@ -153,7 +151,7 @@ it("trust floor: Paused silences Today and the server; Merge keeps every memory 
   // Undo from the survivor's page.
   await show(r, { screen: "person", id: lopez });
   await until(r, () => canTap(r, "Undo: Merged with Anthony"), "Undo");
-  alerts = answerAlerts(() => null);
+  let alerts = answerAlerts(() => null);
   await tap(r, "Undo: Merged with Anthony");
   await until(r, (s) => !s.includes("Merged with Anthony"), "the merged line to go", 60_000);
   alerts.mockRestore();

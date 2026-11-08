@@ -133,6 +133,7 @@ Not destinations: Garden, Landscape, Activity, Garden Walk, Seasons, Reach Out, 
 | **Night prompt only after a signal** (T6) | "After 8 pm Today leads with 'Anything worth remembering?'" | Asked after a hand-off "Yes" (built), or a planned encounter (later) |
 | **A hand-off alone never counts** (T12) | — | Only "Yes" to the return check records contact |
 | **Relationship value before commerce** (CC-28) | — | Memory → meaningful opportunity → user-chosen action → optional commercial fulfillment. Commercial incentives never affect ranking or Moment eligibility; nothing is purchased, booked, invited or sent autonomously; non-commercial actions stay first-class; vulnerable contexts are never monetised; the user is free to do nothing |
+| **One Pause reminders control** (founder, 5 Nov 2026) | D13's two user-set states, Paused and Remembered | One switch on the person's Edit sheet. The person stays in People with everything kept; nothing about them comes up until it is turned off. It takes effect at once, with no question over the sheet. A row holding `remembered` reads the same; the state stays in the schema, and invariant 10 still holds |
 | **Onboarding must not be deferred** (recovery brief, 5 Oct 2026) | `docs/phase2/quiet-herbarium-build.md` §6 decision to defer promise/onboarding | The wife-critical portion of E16 is built now |
 
 ---
@@ -148,7 +149,7 @@ Not destinations: Garden, Landscape, Activity, Garden Walk, Seasons, Reach Out, 
 7. Kinship never sends anything. Opening a channel is not contact.
 8. No user content in logs or analytics.
 9. No fake people, memories, events or reasons in a real account. Fixtures live in the lab and tests only.
-10. D13: remembered and paused people get no proactive reasons (including birthdays), and only the user sets those states.
+10. D13: a person whose reminders are paused (`paused`, or `remembered` on an older row) gets no proactive reasons (including birthdays), and only the user sets that.
 
 ---
 

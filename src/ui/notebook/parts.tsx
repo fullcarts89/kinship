@@ -2,7 +2,7 @@
 // tags, raised cards, ruled paper, the lens control and section labels. Meaning colours always come
 // with a word; nothing here counts, ranks or scores.
 import React, { useState } from "react";
-import { View, type ViewStyle } from "react-native";
+import { View, type ViewProps, type ViewStyle } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import { notebook, notebookShadow, press, radius, size, space, TOUCH } from "@/design/tokens";
 import { Pressable } from "../Pressable";
@@ -165,10 +165,11 @@ export function CategoryTag({ label, tint }: { label: string; tint: string }) {
 }
 
 /** A raised white card with the soft lift (ideas, questions, the return check, review lines). */
-export function Raised({ children, style, edge, large = false }: { children: React.ReactNode; style?: ViewStyle; edge?: string; large?: boolean }) {
+export function Raised({ children, style, edge, large = false, onLayout }: { children: React.ReactNode; style?: ViewStyle; onLayout?: ViewProps["onLayout"]; edge?: string; large?: boolean }) {
   const n = useNotebookPalette();
   return (
     <View
+      onLayout={onLayout}
       style={[
         { backgroundColor: n.card, borderRadius: large ? notebook.raised.large : notebook.raised.radius, padding: space.l, ...notebookShadow.card },
         edge ? { borderLeftWidth: 3, borderLeftColor: edge } : null,
@@ -181,12 +182,12 @@ export function Raised({ children, style, edge, large = false }: { children: Rea
 }
 
 /** A caps label with a dot before it ("Coming up", "You could mention"). */
-export function Lbl({ children, dot, style }: { children: string; dot?: string | null; style?: ViewStyle }) {
+export function Lbl({ children, dot, style, section = false }: { children: string; dot?: string | null; style?: ViewStyle; section?: boolean }) {
   const n = useNotebookPalette();
   return (
     <View style={[{ flexDirection: "row", alignItems: "center", gap: space.s }, style]}>
       {dot === null ? null : <View style={{ width: size.dot, height: size.dot, borderRadius: size.dot / 2, backgroundColor: dot ?? n.lime }} />}
-      <NText v="cap" tone="ink2" accessibilityRole="header">{children}</NText>
+      <NText v={section ? "section" : "cap"} tone={section ? "ink" : "ink2"} accessibilityRole="header">{children}</NText>
     </View>
   );
 }

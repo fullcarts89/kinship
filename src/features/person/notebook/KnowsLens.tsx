@@ -17,7 +17,7 @@ import type { ItemLine } from "@/features/tell/reviewModel";
 import type { LineFact } from "@/hooks/usePages";
 import { todayIso, usePeople, usePersonRecord, useTrail, useUnderstanding, useV2Actions } from "@/hooks/useV2";
 import { Emphasis, Sheet } from "@/ui";
-import { Lbl, NButton, NText } from "@/ui/notebook";
+import { Lbl, NButton, NText, Raised } from "@/ui/notebook";
 import { afterSheets } from "@/ui/sheetStack";
 import { NotebookLine, PrivateSource, SproutRow, Was } from "./parts";
 
@@ -40,8 +40,8 @@ export function KnowsLensView(props: KnowsLensProps) {
   return (
     <View>
       {props.sections.map((section) => (
-        <View key={section.key} onLayout={(e) => props.onLayoutGroup?.(section.key, e.nativeEvent.layout.y)}>
-          <Lbl dot={null} style={{ marginTop: 24, marginBottom: 6 }}>{section.label}</Lbl>
+        <Raised large key={section.key} style={{ marginTop: space.m }} onLayout={(e) => props.onLayoutGroup?.(section.key, e.nativeEvent.layout.y)}>
+          <Lbl section dot={null} style={{ marginBottom: space.xs }}>{section.label}</Lbl>
           {section.rows.map((r, i) => {
             const heading = r.under && r.under !== section.rows[i - 1]?.under ? r.under : null;
             const ids = r.composed ? r.composed.memberIds : [r.line.id];
@@ -82,7 +82,7 @@ export function KnowsLensView(props: KnowsLensProps) {
               ) : null}
             </View>
           )) : null}
-        </View>
+        </Raised>
       ))}
       <NText v="fine" tone="quiet" style={{ marginTop: 14 }}>{KNOWS_FINE}</NText>
     </View>

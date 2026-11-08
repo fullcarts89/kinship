@@ -47,7 +47,7 @@
 | 31 | **Notification permission ask** | P §22, PUSH-08 | Ask after the first real moment | NOT BUILT | NOT BUILT | No | — | — | — | ✗ (no push yet) | ✓ | — | Server push not built (E15) | Yes (CC-25, 16 Oct: asked with the minimal push, committed next, only after a genuinely useful Moment) | E15 |
 | 32 | **Siri / Action Button / widget / share sheet** | DD §C, P §21 | Capture from anywhere | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Native targets, Next/Later | Yes (plan §4) | E24 |
 | 33 | **Subscriptions, Intentions, Opportunity Engine** | D10, P §35 | — | NOT BUILT | NOT BUILT | No | — | — | — | ✗ | ✗ | ✓ | Post-validation | Yes (D10, §35) | — |
-| 34 | **Person states (Remembered / Paused)** | D13; P PER-06 | Hold grief and estrangement | PARTIAL (rendering only) | **BUILT (native pending)** — set only by the user from the person's name sheet (Pause · Hold as remembered, each confirmed; Resume, asked once more when leaving Remembered); one quiet line on the page, no marker in People (D13); nothing proactive on Today, no birthday, no server candidate; listed in Settings with Resume; `isProactiveEligible` for every reader. WS-4, 30 Oct 2026 | Yes | Lab ✓ | Lab ✓ | ✗ | ✗ | ✓ | — | — | FD-30e (30 Oct) | Native pass; WS-3 to route Today's three state checks through the helper (`docs/product/trust-floor.md`) |
+| 34 | **Person states (Remembered / Paused)** | D13; P PER-06 | Hold grief and estrangement | PARTIAL (rendering only) | **Founder 5 Nov 2026: one "Pause reminders" switch replaces both controls; "Hold as remembered" is removed with their approval, because the two did almost the same thing. Native pending.** Earlier: **BUILT (native pending)** — set only by the user from the person's name sheet (Pause · Hold as remembered, each confirmed; Resume, asked once more when leaving Remembered); one quiet line on the page, no marker in People (D13); nothing proactive on Today, no birthday, no server candidate; listed in Settings with Resume; `isProactiveEligible` for every reader. WS-4, 30 Oct 2026 | Yes | Lab ✓ | Lab ✓ | ✗ | ✗ | ✓ | — | — | FD-30e (30 Oct) | Native pass; WS-3 to route Today's three state checks through the helper (`docs/product/trust-floor.md`) |
 | 35 | **App icon, Terms, Privacy Policy pages** | DD §B identity | No 1.0 visual leaks | 1.0-styled | 1.0-styled | Yes (links from sign-in) | ✗ | — | ✗ | Rough edge | ✓ | — | — | — | Restyle; new icon |
 
 ---
@@ -519,6 +519,18 @@ four fixes). Not yet on a phone or with VoiceOver.
 
 **Not built, by decision (no control shown):** Help me start (DN-8), the tender hard-time poster (DN-9 / RSN-09), Find it
 (DN-16), Write a card, Option B idea titles, Night-specific art direction for the poster beyond the night tokens.
+
+## Person page, Edit and Settings (founder, 5 Nov 2026)
+
+Native pass pending on all of these.
+
+| Surface | Change | Why | Founder approved? |
+|---|---|---|---|
+| 12 Relationship page, Edit | **Pause reminders** (one switch, at once) replaces Pause, Hold as remembered and Resume. The page's line reads "Reminders paused" | The two did almost the same thing, and the founder found them broken from Edit | Yes: "merge with a 'Pause reminders' setting" |
+| 12 Relationship page, Edit | **Pronouns**: she/her, he/him, they/them or Other (their own words, up to 40 characters), shown under the relation and included in the export. Not sent to a model or read by the server. Migration `20261106090000` | Asked for by the founder's wife | Yes |
+| 12 Relationship page, Edit | The sheet is titled "Edit Natalia" and opens with the keyboard down, so its controls aren't covered | Needed by the two rows above | Follows from them |
+| 12 Relationship page, Now and Knows (`notebook_deck`) | Each section is its own card with a larger title. The sections themselves are unchanged. Pages keeps its note cards | "make the sub-title a little bigger… make the sections more distinct" | Yes |
+| 23 Privacy / settings | Settings closes from an **X** and has no bar. "Paused and remembered" reads **Paused reminders** | It scrolls, so a drag moves its content and the bar promised something it couldn't do | Yes |
 
 ## Voice (E18, founder 7 Nov 2026): what changed on approved surfaces
 

@@ -6,18 +6,19 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { contactsAccess, openAppSettings, requestContactsAccess, shareMoreContacts, type ContactsAccess } from "@/platform/deviceContacts";
 import { Alert, AppState, Switch, View } from "react-native";
-import { space } from "@/design/tokens";
+import { X } from "lucide-react-native";
+import { size, space } from "@/design/tokens";
 import { CONSENT_COPY } from "@/features/tell/ConsentSheet";
 import { DEV_NOTIFICATION_HOOK } from "@/lib/momentNotification";
-import { Body, Label, Pill, Sheet, Small, Title, usePalette } from "@/ui";
-import { HOLD_COPY, type HoldState } from "@/store/peopleStates";
+import { Body, IconButton, Label, Pill, Sheet, Small, Title, usePalette } from "@/ui";
+import { PAUSE_COPY, type HoldState } from "@/store/peopleStates";
 import type { ExportFormat } from "@/lib/exportData";
 import { PLACE_ATTRIBUTION } from "../../../supabase/functions/_shared/semantic/attribution";
 
 /** The trust floor in Settings (FD-30e): held people, your data, your account. */
 export const TRUST_COPY = {
   held: {
-    title: "Paused and remembered",
+    title: "Paused reminders",
     body: "They stay in People with everything you've told Kinship. Nothing about them comes up on its own until you resume.",
   },
   export: {
@@ -95,9 +96,16 @@ export function SettingsSheetView(props: {
 }) {
   const p = usePalette();
   return (
-    <Sheet visible={props.visible} onDismiss={props.onDismiss} label="Settings">
-      <Title>Settings</Title>
-      <View style={{ marginTop: space.xl, borderTopWidth: 1, borderBottomWidth: 1, borderColor: p.hairline, paddingVertical: space.l }}>
+    // Long enough to scroll, so a drag moves its content, not the sheet: a pinned X, and no bar (founder, 5 Nov 2026).
+    <Sheet visible={props.visible} onDismiss={props.onDismiss} label="Settings" header={
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
+        <Title style={{ flex: 1 }}>Settings</Title>
+        <IconButton label="Close Settings" onPress={props.onDismiss}>
+          <X color={p.ink} size={size.iconLarge} strokeWidth={1.8} />
+        </IconButton>
+      </View>
+    }>
+      <View style={{ marginTop: space.s, borderTopWidth: 1, borderBottomWidth: 1, borderColor: p.hairline, paddingVertical: space.l }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.m }}>
           <View style={{ flex: 1 }}>
             <Body tone="ink">Understanding what you tell Kinship</Body>
@@ -170,9 +178,8 @@ export function SettingsSheetView(props: {
             <View key={h.id} style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginTop: space.s }}>
               <View style={{ flex: 1 }}>
                 <Body>{h.name}</Body>
-                <Small>{HOLD_COPY[h.state].line}</Small>
               </View>
-              <Pill variant="quiet" size="small" label={HOLD_COPY[h.state].resume} accessibilityLabel={`${HOLD_COPY[h.state].resume} ${h.name}`} onPress={() => props.onResume?.(h.id)} />
+              <Pill variant="quiet" size="small" label={PAUSE_COPY.resume} accessibilityLabel={`${PAUSE_COPY.resume} ${h.name}`} onPress={() => props.onResume?.(h.id)} />
             </View>
           ))}
         </View>
@@ -244,14 +251,8 @@ export function SettingsSheet({ visible, onDismiss, understanding, setUnderstand
   const [exporting, setExporting] = useState(false);
   const [contacts, setContacts] = useState<ContactsAccess | null>(null);
   const fail = (title: string) => Alert.alert(title, "Nothing was lost. Try again in a moment.");
-  // Leaving "remembered" is asked once more (D13: grief deserves a second thought); Resume from paused just resumes.
   const resume = (h: { id: string; name: string; state: HoldState }) => {
-    const go = () => void onResume?.(h.id).catch(() => fail("That couldn't be changed"));
-    if (h.state !== "remembered") return go();
-    Alert.alert(HOLD_COPY.remembered.resumeTitle(h.name), HOLD_COPY.remembered.resumeBody(h.name), [
-      { text: HOLD_COPY.cancel, style: "cancel" },
-      { text: HOLD_COPY.remembered.resume, onPress: go },
-    ]);
+    void onResume?.(h.id).catch(() => fail("That couldn't be changed"));
   };
   const exportData = (format: ExportFormat) => {
     if (!onExport || exporting) return;

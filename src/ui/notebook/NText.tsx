@@ -62,6 +62,8 @@ export const NT = {
   tag: sans(11.5, "600", 1.2),
   /** Caps: section labels, the date, a source. */
   cap: caps(11, 0.14),
+  /** A section's title on a person's page (founder, 5 Nov 2026). */
+  section: caps(13.5, 0.1, "700"),
   source: caps(10.5, 0.12),
   category: caps(10.5, 0.12, "700"),
   dayCap: caps(10.5, 0.1, "700"),

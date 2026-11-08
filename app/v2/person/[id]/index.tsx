@@ -23,7 +23,7 @@ import { MergeSheet } from "@/features/people/MergeSheet";
 import { NamePane } from "@/features/tell/Pickers";
 import { PHOTO_COPY, usePersonPortrait } from "@/hooks/usePersonPortrait";
 import { MERGE_COPY } from "@/store/peopleMerge";
-import { HOLD_COPY, stateLine, type HoldState } from "@/store/peopleStates";
+import { isHeld, PAUSE_COPY, stateLine } from "@/store/peopleStates";
 import type { Person } from "@/store/repositories";
 import { Pill, Sheet, Title } from "@/ui";
 import { afterSheets } from "@/ui/sheetStack";
@@ -55,8 +55,8 @@ function PersonScreen({ notebook }: { notebook: boolean }) {
   }, [flow.focusRequest, personId]);
   const [renaming, setRenaming] = useState(false);
   const [inTouch, setInTouch] = useState(false);
-  const { rename, removePerson, inTouch: recordInTouch } = useV2Actions();
-  // The trust floor (FD-30e): Pause / Hold as remembered / Resume (D13), Merge with someone (PER-05).
+  const { rename, setPronouns, removePerson, inTouch: recordInTouch } = useV2Actions();
+  // The trust floor (FD-30e): Pause reminders (D13), Merge with someone (PER-05).
   const trust = useTrustActions();
   const merges = useMerges(personId);
   const [merging, setMerging] = useState<{ candidates: Person[]; everyone: Person[] } | null>(null);
@@ -105,25 +105,6 @@ function PersonScreen({ notebook }: { notebook: boolean }) {
   });
 
   const state = portrait.person?.state;
-  // Holding someone is asked first, in plain words (D13); leaving "remembered" is asked once more.
-  const hold = (next: HoldState) => {
-    const c = HOLD_COPY[next];
-    Alert.alert(c.confirmTitle(first), c.confirmBody(first), [
-      { text: HOLD_COPY.cancel, style: "cancel" },
-      { text: c.confirm, onPress: () => { setRenaming(false); fail(trust.hold(personId, next)); } },
-    ]);
-  };
-  const resume = () => {
-    if (state === "remembered") {
-      Alert.alert(HOLD_COPY.remembered.resumeTitle(first), HOLD_COPY.remembered.resumeBody(first), [
-        { text: HOLD_COPY.cancel, style: "cancel" },
-        { text: HOLD_COPY.remembered.resume, onPress: () => { setRenaming(false); fail(trust.resume(personId)); } },
-      ]);
-      return;
-    }
-    setRenaming(false);
-    fail(trust.resume(personId));
-  };
   const openMerge = () => {
     setRenaming(false);
     void Promise.all([trust.candidates(personId), trust.everyoneElse(personId)])
@@ -134,14 +115,21 @@ function PersonScreen({ notebook }: { notebook: boolean }) {
       );
   };
 
-  // The shared sheets: the hand-off, the name (with Pause / Hold / Resume / Merge / Remove), merge, a
+  // The shared sheets: the hand-off, Edit (name, pronouns, Pause reminders, Merge, Remove), merge, a
   // conversation Kinship couldn't know about, and Tell about them.
   const sheets = (
     <>
       {handoff.sheet}
-      <Sheet visible={renaming} onDismiss={() => setRenaming(false)} label="Their name">
+      <Sheet visible={renaming} onDismiss={() => setRenaming(false)} label={`Edit ${first}`}>
         {renaming && name ? (
-          <NamePane initial={name} short={first} state={state} onHold={hold} onResume={resume} onMerge={openMerge} onCancel={() => setRenaming(false)} onSave={(n) => {
+          <NamePane initial={name} short={first} state={state} pronouns={portrait.person?.pronouns ?? null} onMerge={openMerge} onCancel={() => setRenaming(false)}
+            onPause={() => fail(trust.hold(personId, "paused"))}
+            onResume={() => fail(trust.resume(personId))}
+            onPronouns={(said) => {
+              fail(setPronouns(personId, said));
+              setRenaming(false);
+            }}
+            onSave={(n) => {
             fail(rename(personId, n));
             setRenaming(false);
           }} onRemove={() => {
@@ -194,9 +182,10 @@ function PersonScreen({ notebook }: { notebook: boolean }) {
     loading: portrait.loading,
     short: first,
     label: portrait.label,
+    pronouns: portrait.person?.pronouns ?? null,
     remembered: portrait.person?.state === "remembered",
     stateLine: stateLine(portrait.person),
-    stateExplain: state === "paused" || state === "remembered" ? HOLD_COPY[state].explain(first) : null,
+    stateExplain: isHeld(portrait.person) ? PAUSE_COPY.explain(first) : null,
     merged: merges.map((m) => ({ id: m.id, line: MERGE_COPY.mergedLine(m.sourceName) })),
     onUndoMerge: (id) => {
       const m = merges.find((x) => x.id === id);

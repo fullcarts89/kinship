@@ -30,6 +30,7 @@ async function world() {
   const sam = await repos.people.add({ display_name: "Sam Eden", relationship_label: "friend" });
   const chris = await repos.people.add({ display_name: "Chris" });
   await repos.people.hold(chris.id, "paused");
+  await repos.people.setPronouns(chris.id, "they/them");
   const gone = await repos.people.add({ display_name: "Kaiya" });
   await repos.people.archive(gone.id);
   const note = await repos.captures.tell("Anthony and Sam love ice skating with Chris. I said I'd send Sam the rink's link.", { aiEnabled: false, contextPersonId: lopez.id, timeZone: "America/Los_Angeles" });
@@ -58,7 +59,7 @@ it("builds the whole export in the user's terms, with sources and nothing the us
   // Dates and times are the user's: 4:30 pm on Oct 30 in Los Angeles, not Oct 31 UTC.
   expect(doc.exportedAt).toMatch(/Oct 30, 2026, 4:30 PM/u);
   expect(doc.people.map((p) => [p.name, p.status])).toEqual([
-    ["Anthony Lopez", "in People"], ["Chris", "paused"], ["Kaiya", "removed from People"], ["Sam Eden", "in People"],
+    ["Anthony Lopez", "in People"], ["Chris", "reminders paused"], ["Kaiya", "removed from People"], ["Sam Eden", "in People"],
   ]);
   const lopez = doc.people[0];
   expect(lopez.birthday).toBe("Mar 14, 1990");
@@ -88,7 +89,8 @@ it("reads as a document", async () => {
   const md = exportMarkdown(buildExport(await exportInputFrom(repos, store, NOW, "America/Los_Angeles")));
   expect(md).toMatch(/^# Your Kinship data/u);
   expect(md).toContain("### Anthony Lopez");
-  expect(md).toContain("- Status: paused");
+  expect(md).toContain("- Status: reminders paused");
+  expect(md).toContain("- Pronouns: they/them");
   expect(md).toContain("- Anthony Lopez and Sam love ice skating with Chris");
   expect(md).toContain("  - from note 1: “Anthony and Sam love ice skating with Chris.”");
   expect(md).toContain("## Notes, as you wrote them");

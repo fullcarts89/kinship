@@ -18,7 +18,7 @@ import * as Sharing from "expo-sharing";
 import { kindLabel, whenLabel } from "@/features/memory/format";
 import { voiced } from "@/features/memory/statements";
 import { trailVerb } from "@/features/person/trail";
-import { HOLD_COPY } from "@/store/peopleStates";
+import { PAUSE_COPY } from "@/store/peopleStates";
 import type { Capture, MemoryItem, MemorySource, Person, RelatedPerson, Repositories } from "@/store/repositories";
 import type { Data } from "@/store/userStore";
 import { shortName } from "../../supabase/functions/_shared/extraction/names";
@@ -62,8 +62,9 @@ export interface ExportedPerson {
   name: string;
   fullName?: string;
   alsoKnownAs?: string[];
+  pronouns?: string;
   relationship?: string;
-  /** "in People", "paused", "remembered", "removed from People". */
+  /** "in People", "reminders paused", "removed from People". */
   status: string;
   birthday?: string;
   birthdaySource?: string;
@@ -141,7 +142,7 @@ function statusWord(item: MemoryItem): string {
 
 function personStatus(p: Person): string {
   if (p.state === "archived") return "removed from People";
-  if (p.state === "paused" || p.state === "remembered") return HOLD_COPY[p.state].line.toLowerCase();
+  if (p.state === "paused" || p.state === "remembered") return PAUSE_COPY.line.toLowerCase();
   return "in People";
 }
 
@@ -215,6 +216,7 @@ export function buildExport(input: ExportInput): ExportDocument {
         name: p.display_name,
         ...(typeof p.full_name === "string" && p.full_name && p.full_name !== p.display_name ? { fullName: p.full_name } : {}),
         ...(aliases.length ? { alsoKnownAs: aliases } : {}),
+        ...(typeof p.pronouns === "string" && p.pronouns ? { pronouns: p.pronouns } : {}),
         ...(typeof p.relationship_label === "string" && p.relationship_label ? { relationship: p.relationship_label } : {}),
         status: personStatus(p),
         ...(p.birthday ? { birthday: fmtCalendarDay(p.birthday, p.birthday_year_known !== false) } : {}),
@@ -263,6 +265,7 @@ export function exportMarkdown(doc: ExportDocument): string {
     const facts = [
       p.status !== "in People" ? `Status: ${p.status}` : null,
       p.alsoKnownAs?.length ? `Also goes by: ${p.alsoKnownAs.join(", ")}` : null,
+      p.pronouns ? `Pronouns: ${p.pronouns}` : null,
       p.birthday ? `Birthday: ${p.birthday}${p.birthdaySource ? ` (from ${p.birthdaySource})` : ""}` : null,
     ].filter(Boolean) as string[];
     for (const f of facts) out.push(`- ${f}`);
