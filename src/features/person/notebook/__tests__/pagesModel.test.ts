@@ -240,4 +240,35 @@ describe("from the store", () => {
     const withSaved = await pagesFor(store, rosa.id, now);
     expect(withSaved.find((e) => e.type === "note" && e.captureId === saved.id)).toEqual(expect.objectContaining({ intention: true }));
   });
+
+  // Founder, 10 Nov 2026: every Tell is logged. A note that kept no line is still on the page of whoever it
+  // was told about or names, in full; a note whose reading this phone can't vouch for as "nothing" is not.
+  it("a note that kept no line shows on the page of whoever it's about; a declined reading never does", async () => {
+    const { store, repos } = await world2();
+    const kaiya = await repos.people.add({ display_name: "Kaiya" });
+    const ben = await repos.people.add({ display_name: "Ben" });
+    const now = new Date(Date.UTC(2026, 10, 10, 9));
+    const row = (captureId: string, state: string, reading: unknown) => store.db.run(
+      "INSERT INTO understanding (capture_id, state, reading, attempts, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)",
+      [captureId, state, reading === null ? null : JSON.stringify(reading), now.toISOString(), now.toISOString()],
+    );
+    const SILLY = "She is the silliest little girl in the world and is very much into dressing up like princesses";
+    const silly = await repos.captures.tell(SILLY, { aiEnabled: true, contextPersonId: kaiya.id });
+    await row(silly.id, "done", { tier: "nothing", saved: [], held: [], clarification: null, review_created_at: null, settled: true });
+    // Understood with a reading the user declined ("Don't keep this"): not "nothing", so never shown.
+    const declined = await repos.captures.tell("Kaiya had a rough night at the hospital", { aiEnabled: true, contextPersonId: kaiya.id });
+    await row(declined.id, "done", { tier: "clarify", saved: [], held: [], clarification: null, review_created_at: null, settled: true, answered: [{ index: 0, skip: true }] });
+    // Told on another phone: this phone can't say what its reading was, so it waits for a line.
+    await repos.captures.tell("Kaiya lost a tooth", { aiEnabled: true, contextPersonId: kaiya.id });
+    // Kept as written (understanding off) and naming Ben by his own name, from Today.
+    const asWritten = await repos.captures.tell("ben made pancakes", { aiEnabled: false });
+
+    const kaiyas = (await pagesFor(store, kaiya.id, now)).filter((e) => e.type === "note");
+    expect(kaiyas).toEqual([expect.objectContaining({ captureId: silly.id, text: SILLY, spans: [] })]);
+    const bens = (await pagesFor(store, ben.id, now)).filter((e) => e.type === "note");
+    expect(bens).toEqual([expect.objectContaining({ captureId: asWritten.id, text: "ben made pancakes" })]);
+    // Undone: gone from the page.
+    await repos.captures.remove(silly.id);
+    expect((await pagesFor(store, kaiya.id, now)).filter((e) => e.type === "note")).toEqual([]);
+  });
 });

@@ -213,6 +213,16 @@ export class Understanding {
     return r ? parseRow(r) : null;
   }
 
+  /**
+   * Notes this phone told that were settled with no reading to keep: understood with nothing in it
+   * (never a reading the user declined: held readings are never "nothing"), kept as written, or kept
+   * after understanding failed. Each is still the user's words, kept on the page of whoever it is
+   * about (founder, 10 Nov 2026: every Tell is logged).
+   */
+  async quietNotes(): Promise<Set<string>> {
+    return quietNotesIn(this.store);
+  }
+
   /** Every note still in progress or waiting for the user, oldest first. */
   async open(): Promise<UnderstandingRow[]> {
     const rows = await this.store.db.all<Record<string, SqlValue>>(
@@ -1147,4 +1157,14 @@ function parseRow(r: Record<string, SqlValue>): UnderstandingRow {
     created_at: r.created_at as string,
     updated_at: r.updated_at as string,
   };
+}
+
+/** Understanding.quietNotes for code that holds only the store (a person's Pages). */
+export async function quietNotesIn(store: UserStore): Promise<Set<string>> {
+  const rows = await store.db.all<Record<string, SqlValue>>("SELECT * FROM understanding WHERE state IN ('done', 'kept', 'failed')");
+  const out = new Set<string>();
+  for (const row of rows.map(parseRow)) {
+    if (row.state === "kept" || row.state === "failed" || row.reading?.tier === "nothing") out.add(row.capture_id);
+  }
+  return out;
 }

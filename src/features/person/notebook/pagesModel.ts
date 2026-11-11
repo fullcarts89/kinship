@@ -7,6 +7,10 @@
 //                 lines are marked in it; other people's lines in the same note are not. A sensitive
 //                 line is marked only once it is a line at all, which it is only after the user's yes
 //                 (held readings are never memory). Retracted or deleted lines mark nothing.
+//   a quiet note  a note that kept no line at all, understood with nothing in it, kept as written, or
+//                 kept after understanding failed, on the page of whoever it was told about or names
+//                 (founder, 10 Nov 2026: every Tell is logged; tell/keptOn.ts). Never a note whose
+//                 reading the user declined: those are not "nothing". The caller says which they are.
 //   an intention  a note Kinship never sent for understanding ("skipped") whose only lines are the
 //                 user's own promises: "You saved this", not "You told Kinship".
 //   showing up    a conversation the user confirmed (the trail), and a promise of theirs they kept.
@@ -149,6 +153,8 @@ export function buildPages(input: {
   conversations: PagesConversation[];
   /** The note behind their relation, when one is known. */
   labelNoteId?: string | null;
+  /** Notes that kept no line and belong on this page (tell/keptOn.ts): shown in full, nothing marked. */
+  quietNotes?: readonly string[];
 }): PageEntry[] {
   const { personId } = input;
   const byId = new Map(input.items.map((m) => [m.id, m]));
@@ -159,6 +165,7 @@ export function buildPages(input: {
   const notes = new Set<string>();
   for (const s of noteSources) if (theirs.has(s.memory_item_id) && captures.has(s.capture_id as string)) notes.add(s.capture_id as string);
   if (input.labelNoteId && captures.has(input.labelNoteId)) notes.add(input.labelNoteId);
+  for (const id of input.quietNotes ?? []) if (captures.has(id)) notes.add(id);
 
   const out: (PageEntry & { rank: number })[] = [];
   for (const id of notes) {

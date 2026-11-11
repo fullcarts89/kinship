@@ -9,7 +9,7 @@ import { X } from "lucide-react-native";
 import { Pressable } from "@/ui/Pressable";
 import { draftKey, draftPreview } from "./drafts";
 import { press, radius, shadow, size, space, TOUCH } from "@/design/tokens";
-import { Body, KEYBOARD_BAR, Label, Line, NavBar, type NavKey, Pill, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
+import { Body, KEYBOARD_BAR, Label, Line, NavBar, type NavKey, Pill, Quote, Small, TellDockFrame, TellField, usePalette, WAITING_DELAY_MS } from "@/ui";
 import { usePeople } from "@/hooks/useV2";
 import { Replaces } from "./ReviewSheet";
 import { trackStarted, useTellFlow, useTellNotebookMode, type KeptCardState } from "./TellFlow";
@@ -189,6 +189,8 @@ function AlphaKeptCard({
               {working ? <Working /> : null}
             </Pressable>
           ) : null}
+          {/* A note kept with no line from it: the user's own words, shown back (founder, 10 Nov 2026). */}
+          {card.words ? <Quote numberOfLines={4} accessibilityLabel={`Your words: ${card.words}`}>{card.words}</Quote> : null}
           {lines.map((l) => (
             <Pressable
               key={l.id}

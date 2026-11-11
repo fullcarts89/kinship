@@ -8,7 +8,9 @@ import { voiced } from "@/features/memory/statements";
 import { trailFor, type ContactEventRow } from "@/features/person/trail";
 import { nextBirthday } from "@/features/setup/setupModel";
 import { buildPages, isIntention, sentenceAround, type PageEntry, type PagesCapture, type PagesConversation, type PagesItem, type PagesSource } from "@/features/person/notebook/pagesModel";
-import { repositoriesFor, type MemoryItem, type Person } from "@/store/repositories";
+import { repositoriesFor, type Capture, type MemoryItem, type Person } from "@/store/repositories";
+import { quietNotesIn } from "@/store/understanding";
+import { keptOnPeople } from "@/features/tell/keptOn";
 import type { UserStore } from "@/store/userStore";
 import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { shortName } from "../../supabase/functions/_shared/extraction/names";
@@ -47,7 +49,14 @@ export async function pagesFor(store: UserStore, personId: string, now: Date): P
   const at = new Map(contacts.map((c) => [c.id, c.occurred_at]));
   const conversations: PagesConversation[] = trailFor(contacts, about, person, now)
     .map((t) => ({ id: t.id, label: t.label, about: t.about, at: at.get(t.id) ?? "" }));
-  return buildPages({ personId, items: items as unknown as PagesItem[], sources, captures, conversations });
+  // Notes that kept no line, on the page of whoever they're about (founder, 10 Nov 2026: every Tell is logged).
+  const settledQuiet = await quietNotesIn(store);
+  const withLine = new Set(sources.filter((s) => s.source_kind === "capture" && !s.deleted_at && typeof s.capture_id === "string").map((s) => s.capture_id as string));
+  const quietNotes = (captures as unknown as Capture[])
+    .filter((c) => !c.deleted_at && !withLine.has(c.id) && c.raw_text && (settledQuiet.has(c.id) || c.status === "skipped" || c.status === "failed"))
+    .filter((c) => keptOnPeople(c, people).includes(personId))
+    .map((c) => c.id);
+  return buildPages({ personId, items: items as unknown as PagesItem[], sources, captures, conversations, quietNotes });
 }
 
 export function usePages(personId: string): { entries: PageEntry[]; loading: boolean } {

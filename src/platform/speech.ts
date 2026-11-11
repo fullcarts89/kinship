@@ -143,11 +143,43 @@ export function resetSpeechForTests(): void {
 
 // ─── listening ───────────────────────────────────────────────────────────
 
-/** Settled words plus the words still being heard, with one space between. */
-export function joinWords(settled: string, hearing: string): string {
+/** Words compared without case, punctuation or spacing. */
+function folded(text: string): string {
+  return text.toLocaleLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/gu, " ").trim();
+}
+
+/** `b` again at the end of `a`, as whole words (one word only when it is all of `a`). */
+function endsWithWords(a: string, b: string): boolean {
+  if (!b) return true;
+  if (a === b) return true;
+  return b.includes(" ") && (a.endsWith(` ${b}`));
+}
+
+/**
+ * The words heard so far plus what just came, with nothing said twice. The phone's recognizer can send
+ * the same words more than once: iOS 18 calls a pause "final" and then sends the same sentence as final
+ * again at Stop (founder device, 10 Nov 2026: a note about Kaiya was kept twice over, and its quotes
+ * could no longer be placed), and some versions send the whole session so far each time. Words already
+ * at the end are not added again; a result that already holds everything replaces it.
+ */
+export function joinWords(settled: string, next: string): string {
   const a = settled.trim();
-  const b = hearing.trim();
-  return a && b ? `${a} ${b}` : a || b;
+  const b = next.trim();
+  if (!a || !b) return a || b;
+  const fa = folded(a);
+  const fb = folded(b);
+  if (endsWithWords(fa, fb)) return a;
+  if (fb === fa || fb.startsWith(`${fa} `)) return b;
+  return `${a} ${b}`;
+}
+
+/** A transcript that is one passage said twice over, word for word, said once (a last guard). */
+export function onceOver(text: string): string {
+  const words = text.trim().split(/\s+/u);
+  if (words.length < 8 || words.length % 2) return text.trim();
+  const half = words.length / 2;
+  const first = words.slice(0, half).join(" ");
+  return folded(first) === folded(words.slice(half).join(" ")) ? first : text.trim();
 }
 
 /** The recognizer's loudness (about -2 to 10) as 0..1. */
@@ -181,7 +213,7 @@ export async function listen(support: VoiceSupport, names: readonly string[], on
   let cancelled = false;
   let cap: ReturnType<typeof setTimeout> | undefined;
   const subs: { remove: () => void }[] = [];
-  const words = () => joinWords(settled, hearing);
+  const words = () => onceOver(joinWords(settled, hearing));
   const close = () => {
     done = true;
     clearTimeout(cap);
