@@ -1,0 +1,111 @@
+/* Motion concepts for the brand directions (19 Oct 2026). Exploratory, unapproved.
+   Every concept has a Reduce Motion twin: a 150 ms fade with the same meaning. Nothing here is a reward. */
+.mwrap { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+.mcard { width: 393px; }
+.mcard h3 { font: 500 15px/20px "Instrument Sans", system-ui, sans-serif; margin: 0 0 4px; }
+.mcard .why { font-size: 13px; line-height: 19px; color: #5E645D; margin: 0 0 10px; min-height: 57px; }
+.mcard .ctl { display: flex; gap: 8px; margin: 10px 0 0; align-items: center; }
+.mcard .ctl button { font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 16px; border: 1px solid #CFCEC5; background: #F7F6F2; cursor: pointer; }
+.mcard .ctl .t { font-size: 12px; color: #5E645D; }
+.mcard .phone { --H: 640px; height: 640px; border-radius: 36px; }
+.mcard .phone .content { bottom: 0; }
+.mcard .phone .dock { display: none; }
+
+/* M1 · Understood: a story becomes lines (the sheet's kept lines arrive, each with the direction's accent) */
+.phone.m1 .sheet .keptline, .phone.m1 .sheet .pending { opacity: 0; }
+.phone.m1.play .sheet .keptline { animation: arrive 320ms cubic-bezier(.2,.8,.2,1) both; }
+.phone.m1.play .sheet .keptline:nth-child(2) { animation-delay: 120ms; } .phone.m1.play .sheet .keptline:nth-child(3) { animation-delay: 240ms; } .phone.m1.play .sheet .keptline:nth-child(4) { animation-delay: 360ms; } .phone.m1.play .sheet .keptline:nth-child(5) { animation-delay: 480ms; } .phone.m1.play .sheet .keptline:nth-child(6) { animation-delay: 600ms; }
+.phone.m1.play .sheet .pending { animation: fadeIn 300ms ease 900ms both; }
+.phone.m1.play .sheet .keptline .line { position: relative; display: inline; }
+.phone.m1.play .sheet .keptline .line::after { content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 1.5px; background: var(--accent); transform: scaleX(0); transform-origin: 0 50%; animation: draw 600ms cubic-bezier(.2,.8,.2,1) forwards; animation-delay: inherit; }
+@keyframes draw { to { transform: scaleX(1); } }
+.phone.m1.play .sheet .keptline:nth-child(2) .line::after { animation-delay: 320ms; } .phone.m1.play .sheet .keptline:nth-child(3) .line::after { animation-delay: 440ms; } .phone.m1.play .sheet .keptline:nth-child(4) .line::after { animation-delay: 560ms; } .phone.m1.play .sheet .keptline:nth-child(5) .line::after { animation-delay: 680ms; } .phone.m1.play .sheet .keptline:nth-child(6) .line::after { animation-delay: 800ms; }
+.phone[data-theme=bloom].m1.play .sheet .keptline .line::after { height: 6px; bottom: 2px; background: #FFB300; opacity: .5; z-index: -1; border-radius: 3px; }
+.phone[data-theme=keepsake].m1.play .sheet .keptline { transform-origin: 0 0; animation-name: drop; }
+@keyframes drop { from { opacity: 0; transform: translateY(-10px) rotate(-1.5deg); } 70% { transform: translateY(1px) rotate(.4deg); } to { opacity: 1; transform: none; } }
+.phone[data-theme=keepsake].m1.play .sheet .keptline .line::after { height: 2px; background: var(--accent); }
+.phone[data-theme=orbit].m1.play .sheet .keptline .line::after { width: 9px; height: 9px; left: -16px; right: auto; bottom: 8px; border-radius: 50%; border: 2px solid var(--accent); background: transparent; transform: scale(0); animation-name: pop; }
+@keyframes pop { to { transform: scale(1); } }
+.phone[data-theme=postmark].m1.play .sheet .keptline .line::after { height: 2px; background: var(--accent); }
+.phone[data-theme=woven].m1.play .sheet .keptline .line::after { height: 4px; bottom: -4px; border-radius: 2px; background: repeating-linear-gradient(90deg, #F25C54 0 6px, #F7B32B 6px 12px, #2BB3A3 12px 18px); }
+.phone.reduce.m1.play .sheet .keptline, .phone.reduce.m1.play .sheet .pending { animation: fadeIn 150ms ease both; transform: none; }
+.phone.reduce.m1.play .sheet .keptline .line::after { animation: fadeIn 150ms ease both; transform: none; }
+
+/* M2 · Arrival: the Moment's entrance, per direction */
+.phone.m2 .plate, .phone.m2 .actions, .phone.m2 .week { opacity: 0; }
+.phone.m2.play .plate { animation: arrive 320ms cubic-bezier(.2,.8,.2,1) both; }
+.phone.m2.play .actions { animation: arrive 320ms cubic-bezier(.2,.8,.2,1) 160ms both; }
+.phone.m2.play .week { animation: arrive 320ms cubic-bezier(.2,.8,.2,1) 260ms both; }
+.phone[data-theme=bloom].m2.play .plate { animation: fadeIn 260ms ease both; }
+.phone[data-theme=bloom].m2.play .plate .art { animation: unfold 420ms cubic-bezier(.2,.8,.2,1) 80ms both; transform-origin: 60% 60%; }
+@keyframes unfold { from { opacity: 0; transform: scale(.6) rotate(-10deg); } to { opacity: 1; transform: none; } }
+.phone[data-theme=bloom].m2.play .plate .words > :not(.art) { animation: arrive 320ms cubic-bezier(.2,.8,.2,1) 160ms both; }
+.phone[data-theme=keepsake].m2.play .plate { animation: cardDrop 380ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes cardDrop { from { opacity: 0; transform: translateY(-18px) rotate(-3.5deg); } 75% { transform: translateY(2px) rotate(-.9deg); } to { opacity: 1; transform: rotate(-1.2deg); } }
+.phone[data-theme=keepsake].m2.play .plate .tape { animation: fadeIn 200ms ease 360ms both; }
+.phone[data-theme=orbit].m2.play .plate { animation: fadeIn 200ms ease both; }
+.phone[data-theme=orbit].m2.play .plate .who .mark circle { animation: converge 480ms cubic-bezier(.2,.8,.2,1) both; }
+.phone[data-theme=orbit].m2.play .plate .who .mark circle:nth-child(1) { --dx: -18px; } .phone[data-theme=orbit].m2.play .plate .who .mark circle:nth-child(2) { --dx: 18px; } .phone[data-theme=orbit].m2.play .plate .who .mark circle:nth-child(3) { --dy: 18px; }
+@keyframes converge { from { transform: translate(var(--dx, 0), var(--dy, 0)); opacity: .3; } to { transform: none; opacity: 1; } }
+.phone[data-theme=orbit].m2.play .plate .art { animation: fadeIn 400ms ease 200ms both; }
+.phone[data-theme=postmark].m2.play .plate { animation: deliver 380ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes deliver { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: none; } }
+.phone[data-theme=postmark].m2.play .plate .pm { animation: stamp 220ms cubic-bezier(.2,.8,.2,1) 380ms both; }
+@keyframes stamp { from { opacity: 0; transform: scale(1.5) rotate(-6deg); } to { opacity: .85; transform: none; } }
+.phone[data-theme=woven].m2.play .plate { animation: fadeIn 200ms ease both; }
+.phone[data-theme=woven].m2.play .plate .who .mark { clip-path: inset(0 100% 0 0 round 6px); animation: weave 520ms cubic-bezier(.2,.8,.2,1) 120ms forwards; }
+@keyframes weave { to { clip-path: inset(0 0 0 0 round 6px); } }
+.phone[data-theme=woven].m2.play .plate .words > :not(.who) { animation: arrive 320ms cubic-bezier(.2,.8,.2,1) 200ms both; }
+.phone[data-theme=garden].m2.play .plate .words > * { animation: arrive 320ms cubic-bezier(.2,.8,.2,1) both; }
+.phone[data-theme=garden].m2.play .plate .words > .art { animation-delay: 80ms; }
+.phone.reduce.m2.play .plate, .phone.reduce.m2.play .actions, .phone.reduce.m2.play .week, .phone.reduce.m2.play .plate *, .phone.reduce.m2.play .plate .who .mark circle { animation: fadeIn 150ms ease both !important; transform: none !important; clip-path: none !important; }
+.phone[data-theme=keepsake].reduce.m2.play .plate { transform: rotate(-1.2deg) !important; }
+
+/* M3 · A celebration: a birthday, once, never a reward */
+.phone.m3 .plate .art, .phone.m3 .plate .petals, .phone.m3 .plate .poster { opacity: 0; }
+.phone.m3.play .plate .art { animation: fadeIn 300ms ease both; }
+.phone[data-theme=garden].m3.play .plate .art { animation: glow 900ms ease both; }
+@keyframes glow { from { opacity: 0; filter: brightness(1); } 60% { opacity: 1; } to { opacity: .9; } }
+.phone[data-theme=bloom].m3.play .plate .petals { opacity: 1; }
+.phone[data-theme=bloom].m3.play .plate .petals .petal { animation: drift 2400ms ease-out both; animation-delay: calc(var(--i) * 70ms); }
+.phone[data-theme=bloom].m3.play .plate .art { animation: unfold 420ms cubic-bezier(.2,.8,.2,1) both; transform-origin: 60% 70%; }
+.phone[data-theme=keepsake].m3.play .plate .art { opacity: 1; }
+.phone[data-theme=keepsake].m3.play .plate .art path { stroke-dasharray: 400; stroke-dashoffset: 400; animation: sketch 900ms ease-out forwards; }
+.phone[data-theme=keepsake].m3.play .plate .art path:nth-child(2) { animation-delay: 500ms; } .phone[data-theme=keepsake].m3.play .plate .art path:nth-child(3) { animation-delay: 900ms; }
+@keyframes sketch { to { stroke-dashoffset: 0; } }
+.phone[data-theme=orbit].m3.play .plate .art { opacity: 1; }
+.phone[data-theme=orbit].m3.play .plate .art circle { transform-origin: 50% 50%; transform-box: fill-box; animation: ring 700ms cubic-bezier(.2,.8,.2,1) both; }
+.phone[data-theme=orbit].m3.play .plate .art circle:nth-child(2) { animation-delay: 100ms; } .phone[data-theme=orbit].m3.play .plate .art circle:nth-child(3) { animation-delay: 200ms; } .phone[data-theme=orbit].m3.play .plate .art circle:nth-child(4) { animation-delay: 300ms; }
+@keyframes ring { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+.phone[data-theme=postmark].m3.play .plate .poster { opacity: 1; clip-path: inset(0 100% 0 0); animation: wipe 480ms cubic-bezier(.2,.8,.2,1) forwards; }
+@keyframes wipe { to { clip-path: inset(0 0 0 0); } }
+.phone[data-theme=postmark].m3.play .plate .pm { animation: stamp 220ms cubic-bezier(.2,.8,.2,1) 480ms both; }
+.phone[data-theme=woven].m3.play .plate .art { opacity: 1; }
+.phone[data-theme=woven].m3.play .plate .art > :not(path:first-child) { animation: bead 360ms cubic-bezier(.2,.8,.2,1) both; }
+.phone[data-theme=woven].m3.play .plate .art > :nth-child(2) { animation-delay: 100ms; } .phone[data-theme=woven].m3.play .plate .art > :nth-child(3) { animation-delay: 200ms; } .phone[data-theme=woven].m3.play .plate .art > :nth-child(4) { animation-delay: 300ms; } .phone[data-theme=woven].m3.play .plate .art > :nth-child(5) { animation-delay: 400ms; } .phone[data-theme=woven].m3.play .plate .art > :nth-child(6) { animation-delay: 500ms; }
+@keyframes bead { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+.phone.reduce.m3.play .plate .art, .phone.reduce.m3.play .plate .petals, .phone.reduce.m3.play .plate .poster, .phone.reduce.m3.play .plate .art *, .phone.reduce.m3.play .plate .petals *, .phone.reduce.m3.play .plate .pm { animation: fadeIn 150ms ease both !important; transform: none !important; clip-path: none !important; stroke-dashoffset: 0 !important; opacity: 1; }
+
+/* M4 · Yes: Resolve (the sentence changes tense) plus the nod of the mark. Same in every direction. */
+/* driven by the engine's phase=resolved; see brand.css (.ret .fading, .who.nod) */
+
+/* M5 · Into a person: a People row's mark becomes the page's mark */
+.phone.m5 .rows .row { transition: opacity 240ms; }
+.phone.m5.play .rows .row:not(.chosen) { opacity: 0; }
+.phone.m5.play .rows .row.chosen .rt { opacity: 0; transition: opacity 200ms; }
+.phone.m5.play .rows .row.chosen .rm { transition: transform 420ms cubic-bezier(.2,.8,.2,1); transform: translate(var(--tx), var(--ty)) scale(var(--sx), var(--sy)); transform-origin: 0 0; }
+.phone.m5.play .rows .letter { opacity: 0; transition: opacity 200ms; }
+.phone.m5.play .rows .row.chosen { border-color: transparent; }
+.phone.m5 .pagein { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.phone.m5.play .pagein { animation: fadeIn 260ms ease 360ms both; }
+.phone.m5.play .pagein .pagemark { visibility: hidden; }
+.phone.m5.play .hdr, .phone.m5.play .index { opacity: 0; transition: opacity 200ms; }
+.phone.reduce.m5.play .rows .row.chosen .rm { transition: none; transform: none; opacity: 0; }
+.phone.reduce.m5.play .pagein { animation: fadeIn 150ms ease both; }
+.phone.reduce.m5.play .pagein .pagemark { visibility: visible; }
+
+/* M6 · Press: a pill depresses 2 px with its shadow; Reduce Motion dims only */
+.phone.m6 .pill.primary { transition: transform 120ms ease, box-shadow 120ms ease; box-shadow: 0 2px 0 rgba(0,0,0,.18); }
+.phone.m6.play .pill.primary { transform: translateY(2px); box-shadow: 0 0 0 rgba(0,0,0,0); }
+.phone.reduce.m6 .pill.primary { transition: opacity 120ms; box-shadow: none; }
+.phone.reduce.m6.play .pill.primary { transform: none; opacity: .72; }
