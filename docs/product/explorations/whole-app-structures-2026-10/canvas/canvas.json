@@ -1,0 +1,94 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-31T20:05:00Z"},
+  "title": "Kinship · Five Structures",
+  "launch": {"view": "canvas", "page": "overview"},
+  "pages": [
+    {"id": "overview", "name": "Overview"},
+    {"id": "deck", "name": "1 · The Moment Deck"},
+    {"id": "wall", "name": "2 · The Wall"},
+    {"id": "almanac", "name": "3 · The Almanac"},
+    {"id": "atlas", "name": "4 · The Atlas"},
+    {"id": "notebook", "name": "5 · The Notebook"}
+  ],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 1000, "page": "overview", "title": "Why the last pass failed, and the five structures"},
+    "Compare.dc.html": {"x": 1520, "y": 0, "w": 1440, "h": 1000, "page": "overview", "title": "Side by side"},
+    "Research.dc.html": {"x": 0, "y": 1120, "w": 1440, "h": 1700, "page": "overview", "title": "What the research says"},
+    "Assets.dc.html": {"x": 1520, "y": 1120, "w": 1440, "h": 1000, "page": "overview", "title": "Assets used (all original, all fictional)"},
+
+    "deck-today.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "page": "deck", "title": "Today · the deck"},
+    "deck-people.dc.html": {"x": 470, "y": 0, "w": 390, "h": 844, "page": "deck", "title": "People · what's ahead for each"},
+    "deck-person.dc.html": {"x": 940, "y": 0, "w": 390, "h": 844, "page": "deck", "title": "Leo · his moments"},
+    "deck-tell.dc.html": {"x": 1410, "y": 0, "w": 390, "h": 844, "page": "deck", "title": "Tell › what it becomes"},
+    "deck-lock.dc.html": {"x": 1880, "y": 0, "w": 390, "h": 844, "page": "deck", "title": "Outside the app · Lock Screen"},
+    "deck-first.dc.html": {"x": 2350, "y": 0, "w": 390, "h": 844, "page": "deck", "title": "First run"},
+
+    "wall-today.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "page": "wall", "title": "Home · the wall (Today lives on it)"},
+    "wall-arrange.dc.html": {"x": 470, "y": 0, "w": 390, "h": 844, "page": "wall", "title": "Arranging · your groups, your order"},
+    "wall-person.dc.html": {"x": 940, "y": 0, "w": 390, "h": 844, "page": "wall", "title": "Sam · the print opens into a page"},
+    "wall-tell.dc.html": {"x": 1410, "y": 0, "w": 390, "h": 844, "page": "wall", "title": "Tell › notes pinned to faces"},
+    "wall-back.dc.html": {"x": 1880, "y": 0, "w": 390, "h": 844, "page": "wall", "title": "Ben · the back of the print"},
+    "wall-first.dc.html": {"x": 2350, "y": 0, "w": 390, "h": 844, "page": "wall", "title": "First run"},
+
+    "alm-today.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "page": "almanac", "title": "Today · the day page"},
+    "alm-people.dc.html": {"x": 470, "y": 0, "w": 390, "h": 844, "page": "almanac", "title": "People · the year"},
+    "alm-person.dc.html": {"x": 940, "y": 0, "w": 390, "h": 844, "page": "almanac", "title": "Ben · his river"},
+    "alm-tell.dc.html": {"x": 1410, "y": 0, "w": 390, "h": 844, "page": "almanac", "title": "Tell › placed in time"},
+    "alm-season.dc.html": {"x": 1880, "y": 0, "w": 390, "h": 844, "page": "almanac", "title": "Pinch out · the season"},
+    "alm-first.dc.html": {"x": 2350, "y": 0, "w": 390, "h": 844, "page": "almanac", "title": "First run"},
+
+    "atlas-today.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "page": "atlas", "title": "Today · a postcard"},
+    "atlas-people.dc.html": {"x": 470, "y": 0, "w": 390, "h": 844, "page": "atlas", "title": "People · where they are"},
+    "atlas-person.dc.html": {"x": 940, "y": 0, "w": 390, "h": 844, "page": "atlas", "title": "Priya · front of the card"},
+    "atlas-back.dc.html": {"x": 1410, "y": 0, "w": 390, "h": 844, "page": "atlas", "title": "Priya · back of the card"},
+    "atlas-tell.dc.html": {"x": 1880, "y": 0, "w": 390, "h": 844, "page": "atlas", "title": "Tell › write a postcard"},
+    "atlas-first.dc.html": {"x": 2350, "y": 0, "w": 390, "h": 844, "page": "atlas", "title": "First run"},
+
+    "note-today.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "page": "notebook", "title": "Today · today's page"},
+    "note-people.dc.html": {"x": 470, "y": 0, "w": 390, "h": 844, "page": "notebook", "title": "People · the ribbons"},
+    "note-person.dc.html": {"x": 940, "y": 0, "w": 390, "h": 844, "page": "notebook", "title": "Rosa · her pages"},
+    "note-tell.dc.html": {"x": 1410, "y": 0, "w": 390, "h": 844, "page": "notebook", "title": "Writing › understood in the margin"},
+    "note-ask.dc.html": {"x": 1880, "y": 0, "w": 390, "h": 844, "page": "notebook", "title": "Ask the notebook"},
+    "note-first.dc.html": {"x": 2350, "y": 0, "w": 390, "h": 844, "page": "notebook", "title": "First run"}
+  },
+  "order": [
+    "Main.dc.html", "Compare.dc.html", "Research.dc.html", "Assets.dc.html",
+    "deck-today.dc.html", "deck-people.dc.html", "deck-person.dc.html", "deck-tell.dc.html", "deck-lock.dc.html", "deck-first.dc.html",
+    "wall-today.dc.html", "wall-arrange.dc.html", "wall-person.dc.html", "wall-tell.dc.html", "wall-back.dc.html", "wall-first.dc.html",
+    "alm-today.dc.html", "alm-people.dc.html", "alm-person.dc.html", "alm-tell.dc.html", "alm-season.dc.html", "alm-first.dc.html",
+    "atlas-today.dc.html", "atlas-people.dc.html", "atlas-person.dc.html", "atlas-back.dc.html", "atlas-tell.dc.html", "atlas-first.dc.html",
+    "note-today.dc.html", "note-people.dc.html", "note-person.dc.html", "note-tell.dc.html", "note-ask.dc.html", "note-first.dc.html"
+  ],
+  "notes": {
+    "ov-title": {"x": 0, "y": -300, "text": "Kinship · five whole-app structures", "kind": "title1", "maxW": 2960, "page": "overview"},
+    "ov-read": {"x": 3040, "y": 0, "w": 440, "size": "m", "fill": "orange", "page": "overview", "text": "MY READ (not a decision)\nThe two strongest structures are 1 and 2, and they fit together: Today as the Moment Deck (posters that end, living on the Lock Screen), People as the Wall (equal prints in groups you name). Whichever you pick, take the Notebook's margin for the Tell review: it puts what Kinship understood beside your own words, which is the most trustworthy review of the five. The Almanac and Atlas work best as lenses inside the others (a season view, a place card), not as the whole app.\n\nEach page has a Play button: the tab bar and buttons link between that option's screens."},
+    "ov-how": {"x": 3040, "y": 640, "w": 440, "size": "m", "fill": "gray", "page": "overview", "text": "HOW TO READ THIS\nEach option is a page (top left): Today, People, a person, Tell and review, one signature state, and first run on a new account. Same fictional people and facts in all five, so the differences are structure, not content. Everything here is EXPLORATION, UNAPPROVED. Nothing in the app or in WS-2's in-flight work has changed."},
+
+    "deck-title": {"x": 0, "y": -300, "text": "1 · The Moment Deck — moments, not contacts", "kind": "title1", "maxW": 2740, "page": "deck"},
+    "deck-s1": {"x": 0, "y": 980, "w": 430, "size": "m", "fill": "green", "page": "deck", "text": "STRUCTURE\nThe primary object is the moment, not the person. Today is a short horizontal deck of full-bleed posters (one per reason), and it ends. Each moment has a life: told → coming up → today → after → kept. People and Person pages are made of moments. Today also lives outside the app (Lock Screen, Live Activity), so on most days you never open it."},
+    "deck-s2": {"x": 470, "y": 980, "w": 430, "size": "m", "fill": "blue", "page": "deck", "text": "BUILT ON\nFlighty (ADA 2023): one object whose state changes over time and lives in Live Activities.\nApple Invites / Partiful: the event is a full-bleed poster; swipe between them.\nParticle: the unit is the story, gathered from many sources.\nWrapped: a finite, tap-through format."},
+    "deck-s3": {"x": 940, "y": 980, "w": 430, "size": "m", "fill": "orange", "page": "deck", "text": "RULES & DECISIONS\nThe state rail must never become \"days since\". People is ordered by the date of each person's next moment (an event date, not closeness); everyone else follows in the order you added them. That replaces T4's alphabetical order: needs your yes. The Lock Screen card needs the private-notification decision (FD-30e) widened to a Live Activity."},
+
+    "wall-title": {"x": 0, "y": -300, "text": "2 · The Wall — faces, not rows", "kind": "title1", "maxW": 2740, "page": "wall"},
+    "wall-s1": {"x": 0, "y": 980, "w": 430, "size": "m", "fill": "green", "page": "wall", "text": "STRUCTURE\nOne surface. No Today tab and no People tab: the wall is home. Everyone is a print of the same size, in groups you name and an order you set by hand (households, \"Running club\"). Today is a tag pinned onto a face, plus one line at the top. Tap a print and it opens into that person's page; turn it over for the actions. Tell is a card you write that pins notes onto faces."},
+    "wall-s2": {"x": 470, "y": 980, "w": 430, "size": "m", "fill": "blue", "page": "wall", "text": "BUILT ON\niOS 17 Contact Posters, iOS 26 Phone poster favourites, Photos' People & Pets.\nLetterboxd's poster wall.\nThe Social Scrapbook board (prints on hard colour fields).\nRooms (ADA 2024): arranging things by hand feels physical.\nCapWords (ADA 2025): photos as cut-outs."},
+    "wall-s3": {"x": 940, "y": 980, "w": 430, "size": "m", "fill": "orange", "page": "wall", "text": "RULES & DECISIONS\nEvery print is the same size; position means only what you chose. No \"favourites\" row, no wilting. Groups are many-to-many and named by you (coverage row 30 already points here). Replaces T4 alphabetical and the search-first header: needs your yes. Search moves into the pinch-out view. Rotation is 0° on anything with more than one line of text."},
+
+    "alm-title": {"x": 0, "y": -300, "text": "3 · The Almanac — time, not lists", "kind": "title1", "maxW": 2740, "page": "almanac"},
+    "alm-s1": {"x": 0, "y": 980, "w": 430, "size": "m", "fill": "green", "page": "almanac", "text": "STRUCTURE\nTime is the spine. Today is a dated page with the week ribbon beneath it; scroll down into what's coming and up into what you told. Pinch out to the season (Photos-style zoom levels). People is the year: everyone sits in their birthday month. A person's page is their own river, now in the middle. Tell lands on the date it's about."},
+    "alm-s2": {"x": 470, "y": 980, "w": 430, "size": "m", "fill": "blue", "page": "almanac", "text": "BUILT ON\ngrug (ADA 2026): one page per day, past days as a strip, no backlog.\nRetro: the week as the unit, a dial through time.\nApple Photos (iOS 18): pinch between zoom levels.\nTiimo, Structured: time as a shape.\nDay One: one set of memories, several lenses."},
+    "alm-s3": {"x": 940, "y": 980, "w": 430, "size": "m", "fill": "orange", "page": "almanac", "text": "RULES & DECISIONS\nNever draw the gaps between contacts; the river shows only what you told and what's coming. No year-in-pixels colouring. People-by-birthday-month replaces T4 alphabetical: needs your yes. Someone with no birthday lives in \"Any time\", which can't feel like a lesser group. \"Sometime in November\" stays November; Kinship asks before narrowing it."},
+
+    "atlas-title": {"x": 0, "y": -300, "text": "4 · The Atlas — places, not lists", "kind": "title1", "maxW": 2740, "page": "atlas"},
+    "atlas-s1": {"x": 0, "y": 980, "w": 430, "size": "m", "fill": "green", "page": "atlas", "text": "STRUCTURE\nPeople are where their lives are happening, as far as you've told Kinship. Today is a postcard: a place photo, a postmark for the date, the sentence. People is a set of place cards (close to home, Chicago, Lisbon, Denver), each with its local time. A person is a postcard: their photo on the front; on the back, what you told, every line postmarked with its source. Tell is writing the back of a card."},
+    "atlas-s2": {"x": 470, "y": 980, "w": 430, "size": "m", "fill": "blue", "page": "atlas", "text": "BUILT ON\nThe Postcards & Places board (postmark as the date device).\nFind My, Snap Map: people shown on a map.\nDay One's Map and iOS 26 Journal Places.\nAirbnb's 2025 'living itinerary'.\nThe postmark is the one tactile mark; the stamp carries the person's bloom (identity only)."},
+    "atlas-s3": {"x": 940, "y": 980, "w": 430, "size": "m", "fill": "orange", "page": "atlas", "text": "RULES & DECISIONS\nNever live location: only places you told Kinship, city-level, each with its source. Contact postal addresses are not read (T8). People with no place live in \"Close to home\" until you say otherwise, a quiet default. Local time is a fact, not a nudge: no \"good time to call\". Needs your yes on place as an organising field, and on T4."},
+
+    "note-title": {"x": 0, "y": -300, "text": "5 · The Notebook — writing, not forms", "kind": "title1", "maxW": 2740, "page": "notebook"},
+    "note-s1": {"x": 0, "y": 980, "w": 430, "size": "m", "fill": "green", "page": "notebook", "text": "STRUCTURE\nTell is the navigation. Home is today's page, ready to write on, with today's moment as a slip tucked into it. What Kinship understood appears in the margin beside your own words, so the review and the writing are one place. People are ribbons out of the book's edge, in the order you first wrote about them. A person is their pages. Asking is just writing a question."},
+    "note-s2": {"x": 470, "y": 980, "w": 430, "size": "m", "fill": "blue", "page": "notebook", "text": "BUILT ON\nCardhop: the contacts app is one sentence parser with a preview, not a chat.\nmymind: save everything, organise nothing.\nBears Gratitude (ADA 2024): you open it and you're writing; prompts in the first person.\nApple Journal: private suggestions that never look like AI.\nAnnotated manuscripts: sources as marginalia."},
+    "note-s3": {"x": 940, "y": 980, "w": 430, "size": "m", "fill": "orange", "page": "notebook", "text": "RULES & DECISIONS\nThe margin only ever shows what was understood and asks; it never replies, so it can't become chat. Sensitive lines wait in the margin for a yes. Ask answers only from your own notes, with sources (WS-6 Ask v1). Ribbon order = the order you added people: replaces T4 alphabetical, needs your yes. Search is the same page: write a name."}
+  },
+  "designSystems": []
+}
