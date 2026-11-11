@@ -563,3 +563,18 @@ language without on-device recognition get no mic at all.
 
 **Readiness: NOT READY** until a native build has been walked (`docs/product/voice-device-checklist.md`).
 
+## Every Tell is logged (founder, 10 Nov 2026): what changed on approved surfaces
+
+**Founder decision (10 Nov 2026, after a spoken note about Kaiya came back "Nothing to remember in that one"):**
+"This needs to be logged every time. That's a tender moment you're sharing with Kinship." It supersedes J4's
+"Nothing to remember" for a note that kept no line (bug ledger K35).
+
+| Surface | Was | Now | Rules it keeps | Status |
+|---|---|---|---|---|
+| Kept card, a note that kept no line | "Nothing to remember in that one." | "Kept on Kaiya's page." (the person it was told about, else each person in People it names by their own name; a name two people share places it on neither), or "Kept your words." when it names no one; the user's words shown under it; Undo as before | Never a guess about who; the user's "Don't keep this" still reads "Nothing kept from that one." | BUILT; tests; not yet native |
+| 13 Pages (`notebook_deck`) | Only notes that yielded a live line | Also each note that kept no line (understood with nothing in it, kept as written, or after understanding failed), in full, nothing marked | Never a note whose reading the user declined: only a reading this phone holds as "nothing" counts | BUILT; tests; not yet native |
+
+**Not changed:** the server still drops a proposed line whose quote appears twice in a note
+(`evidence_ambiguous`); the voice fix (K34) removes the cause that hit the founder. A note naming no one in People
+has no page to be found on yet.
+

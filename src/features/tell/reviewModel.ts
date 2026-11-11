@@ -10,9 +10,11 @@
 //   understanding  "Understanding…" (or "I'll try again", or the answer saving)
 //   card           kept: "Kept for Ben" and what was kept, tap to correct, Undo
 //   sheet          needs the user: "One thing to check", and why
-//   nothing        understood, nothing to remember: "Nothing to remember in
-//                  that one." Only for a note with nothing in it (founder J4):
-//                  a memory Kinship couldn't place is asked about, never this
+//   nothing        understood, no line kept from it: the note itself is kept
+//                  where it can be found, and said so in the user's words:
+//                  "Kept on Kaiya's page." (founder, 10 Nov 2026: every Tell
+//                  is logged; supersedes J4's "Nothing to remember"). A memory
+//                  Kinship couldn't place is still asked about, never this
 //   failed         "Couldn't understand this one. Your note is saved."
 //   asWritten      understanding is off or declined: kept as written
 //
@@ -31,6 +33,7 @@ import { needsAcceptance } from "../../../supabase/functions/_shared/extraction/
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
 import { aliasesOf, mentionsOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
 import { residenceQuestion } from "../../../supabase/functions/_shared/semantic/questions";
+import { keptOnCopy, keptOnNames, keptOnPeople } from "./keptOn";
 
 export interface ReviewInput {
   row: UnderstandingRow;
@@ -166,6 +169,8 @@ export interface ReviewView {
   notice: string | null;
   /** The one-line summary for "summary" mode. */
   summary: string | null;
+  /** A note kept with no line from it: the user's own words, shown back on the card (founder, 10 Nov 2026). */
+  words?: string | null;
   lines: ItemLine[];
   questions: Question[];
   /** The answer is on its way (or waiting to be online). */
@@ -203,9 +208,8 @@ export const COPY = {
   retrying: "Couldn't understand this yet. Your note is saved, and I'll try again.",
   arriving: "Understanding…",
   kept: "Kept as you wrote it.",
-  // Founder J4: only for a note with nothing in it. "Your note is saved" is
-  // gone: there is nowhere in the app to find a note that kept nothing.
-  nothing: "Nothing to remember in that one.",
+  /** No one in People named: the note is kept, in the user's words (founder, 10 Nov 2026). */
+  nothing: "Kept your words.",
   /** The user's own "Don't keep this": nothing kept, never "nothing to remember". */
   notKept: "Nothing kept from that one.",
   failed: "Couldn't understand this one. Your note is saved.",
@@ -303,8 +307,13 @@ export function buildReview(input: ReviewInput): ReviewView {
   // A relationship said again that Kinship already holds (H17): said back, not kept twice.
   const known = row.reading?.known?.length ? `Already known: ${row.reading.known.join("; ")}.` : null;
   if (row.state === "done" && row.reading && row.reading.saved.length === 0 && row.reading.held.length === 0) {
-    // Understood, nothing to remember: said once, never silence.
-    return { ...empty, mode: "nothing", status: known ?? COPY.nothing, canUndo: true };
+    // Understood, and no line kept from it: the note is kept on the page of whoever it's about, and the
+    // card says where, with the user's words (founder, 10 Nov 2026: every Tell is logged).
+    const on = keptOnPeople(capture, input.people);
+    return {
+      ...empty, mode: "nothing", status: known ?? keptOnCopy(keptOnNames(on, input.people)), canUndo: true,
+      words: capture.raw_text, personIds: on.length ? on : empty.personIds,
+    };
   }
   if (row.state === "done" || row.state === "closing" || !row.reading) return empty;
 

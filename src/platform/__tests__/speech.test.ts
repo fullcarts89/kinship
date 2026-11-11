@@ -125,6 +125,34 @@ describe("listening", () => {
     expect(h.onFail).not.toHaveBeenCalled();
   });
 
+  it("iOS 18 sends a pause as final and the same sentence as final again at Stop: kept once", async () => {
+    const s = load();
+    const h = handlers();
+    const session = await s.listen({ locale: "en-US" }, [], h);
+    const said = "She is the silliest little girl in the world and is very much into dressing up like princesses";
+    mockSpeech!.hear("She is the silliest little girl");
+    mockSpeech!.hear(said, true);
+    mockSpeech!.hear(` ${said}`, true);
+    session!.stop();
+    expect(h.onEnd).toHaveBeenCalledWith(said);
+  });
+
+  it("a result holding the whole session so far replaces what was settled", () => {
+    const s = load();
+    expect(s.joinWords("Saw David tonight.", "Saw David tonight. His son starts Monday.")).toBe("Saw David tonight. His son starts Monday.");
+    expect(s.joinWords("Saw David tonight.", "saw david tonight")).toBe("Saw David tonight.");
+    expect(s.joinWords("Saw David tonight.", "His son starts Monday.")).toBe("Saw David tonight. His son starts Monday.");
+    expect(s.joinWords("I love her", "her")).toBe("I love her her");
+  });
+
+  it("a passage said twice over, word for word, is kept once", () => {
+    const s = load();
+    const said = "She is the silliest little girl in the world and is very much into dressing up like princesses";
+    expect(s.onceOver(`${said} ${said}`)).toBe(said);
+    expect(s.onceOver("Ben ran. Ben ran.")).toBe("Ben ran. Ben ran.");
+    expect(s.onceOver(said)).toBe(said);
+  });
+
   it("no microphone permission: denied, and nothing listens", async () => {
     mockSpeech = fakeSpeech({ granted: false });
     const s = load();

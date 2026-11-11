@@ -80,6 +80,8 @@ export function NotebookKeptCard({ card, onOpen, onUndo, onDismiss, onRate, onAd
               <NText v={working ? "strong14" : "body15"} tone={working ? "ink2" : card.mode === "sheet" ? "held" : "ink2"} style={{ flexShrink: 1 }}>{card.status}</NText>
             </Pressable>
           ) : null}
+          {/* A note kept with no line from it: the user's own words, shown back (founder, 10 Nov 2026). */}
+          {card.words ? <NText v="quote19" numberOfLines={4} accessibilityLabel={`Your words: ${card.words}`} style={{ paddingBottom: space.xs }}>{card.words}</NText> : null}
           {lines.map((l) => (
             <Pressable
               key={l.id}

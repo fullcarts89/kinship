@@ -57,8 +57,10 @@ export interface KeptCardState {
   more: number;
   /** The kept lines past the first three: "and 1 more" shows them in place (founder J6). */
   rest?: { id: string; statement: string; replaces?: string[] }[];
-  /** "Understanding…", "Nothing to remember in that one…", "One thing to check". */
+  /** "Understanding…", "Kept on Kaiya's page.", "One thing to check". */
   status: string | null;
+  /** A note kept with no line from it: the user's words, shown back (founder, 10 Nov 2026). */
+  words?: string | null;
   /** Who it belongs with: shown on their page, never on someone else's. */
   personIds: string[];
   /**
@@ -196,6 +198,7 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     rest: lines.slice(3),
     status: view.mode === "card" ? view.status : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
     personIds: view.personIds,
+    words: view.mode === "nothing" ? view.words ?? null : null,
     feedback: view.feedback ?? null,
     partial: view.mode === "card" && view.partial ? { tellRest: view.partial.tellRest, resolved: view.partial.resolved } : null,
     canRetry: view.mode === "failed",

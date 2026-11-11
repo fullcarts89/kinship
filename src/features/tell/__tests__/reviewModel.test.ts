@@ -196,9 +196,10 @@ it("says plainly what's happening: understanding, offline, kept, answering, chan
   expect(view(note, row("waiting", null, { attempts: 2 })).status).toBe("Couldn't understand this yet. Your note is saved, and I'll try again.");
   expect(view(note, row("kept", null))).toMatchObject({ mode: "asWritten", status: "Kept as you wrote it." });
   expect(view(note, row("failed", null))).toMatchObject({ mode: "failed", status: "Couldn't understand this one. Your note is saved." });
-  // Understood, nothing to remember: said, never silence.
+  // Understood, no line kept: the note is kept on the page of whoever it names, in the user's words
+  // (founder, 10 Nov 2026: every Tell is logged).
   expect(view(note, row("done", { tier: "nothing", saved: [], held: [] }))).toMatchObject({
-    mode: "nothing", status: "Nothing to remember in that one." });
+    mode: "nothing", status: "Kept on Ben's page.", words: note, personIds: ["ben"] });
   const answering = view(note, row("answering", { tier: "clarify", held: [held({})], settled: false }), [], [BEN], { offline: true });
   expect(answering).toMatchObject({ mode: "sheet", answering: true, status: "I'll save your answer when you're online.", questions: [] });
   expect(view(note, row("review", { settled: true }, { notice: "changed_elsewhere" }), [race]).notice).toBe("This changed on another device.");
@@ -418,8 +419,8 @@ describe("J4: never 'nothing' for a memory Kinship couldn't place", () => {
     expect(q.choices[0]).toMatchObject({ answer: { person_id: "loo" } });
   });
 
-  it("'Nothing to remember' only for a note with nothing in it; the user's own 'Don't keep this' is 'Nothing kept'", () => {
-    expect(view("testing", row("done", { tier: "nothing", saved: [], held: [] })).status).toBe("Nothing to remember in that one.");
+  it("a note with nothing kept from it is still kept, in the user's words; the user's own 'Don't keep this' is 'Nothing kept'", () => {
+    expect(view("testing", row("done", { tier: "nothing", saved: [], held: [] }))).toMatchObject({ status: "Kept your words.", words: "testing" });
     expect(COPY.nothing).not.toMatch(/saved/);
     const declined = view("Wifey got a raise.", row("review", { tier: "clarify", saved: [], held: [raise], settled: true, answered: [{ index: 0, skip: true }] }));
     expect([declined.mode, declined.status]).toEqual(["nothing", "Nothing kept from that one."]);
@@ -590,4 +591,28 @@ it("a told-again update from no page: 'Who is this about?' first with the candid
   expect(answersFor(v.questions, { [who.key]: "answer" in ben ? ben.answer : {} })).toBeNull();
   expect(answersFor(v.questions, { [who.key]: "answer" in ben ? ben.answer : {}, [replace.key]: "answer" in yes ? yes.answer : {} }))
     .toEqual([{ index: 0, person_id: "ben", replaces: "m-edited" }]);
+});
+
+describe("every Tell is logged (founder, 10 Nov 2026)", () => {
+  const KAIYA = person("kaiya", "Kaiya", { relationship_label: "daughter" });
+  const nothing = row("done", { tier: "nothing", saved: [], held: [] });
+  const told = (note: string, context: string | null, people: Person[]) => buildReview({
+    row: nothing, capture: { id: "c1", raw_text: note, context_person_id: context, status: "extracted" }, items: [], people,
+    related: [], offline: false, today: TODAY,
+  });
+
+  it("told from someone's page: kept on their page, with the words, never 'Nothing to remember'", () => {
+    const note = "She is the silliest little girl in the world and is very much into dressing up like princesses";
+    const v = told(note, "kaiya", [BEN, KAIYA]);
+    expect(v).toMatchObject({ mode: "nothing", status: "Kept on Kaiya's page.", words: note, personIds: ["kaiya"], canUndo: true });
+    expect(JSON.stringify(v)).not.toMatch(/Nothing to remember/);
+  });
+
+  it("naming people in People: kept on each page, by their own names, any case", () => {
+    expect(told("kaiya and ben were silly today", null, [BEN, KAIYA])).toMatchObject({ status: "Kept on Ben's and Kaiya's pages.", personIds: ["ben", "kaiya"] });
+  });
+
+  it("a name two people share places it on neither: never a guess", () => {
+    expect(told("Sam was funny today", null, [BEN, LEE, DIAZ])).toMatchObject({ status: "Kept your words.", personIds: [] });
+  });
 });
