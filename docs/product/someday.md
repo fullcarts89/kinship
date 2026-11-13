@@ -8,3 +8,4 @@ decision recorded in the contract's sources.
 | Saved | Reference | Why it was saved |
 | --- | --- | --- |
 | 2026-11-13 | [Instagram reel](https://www.instagram.com/reel/DdF7KNkx3jF/) | Founder: "Something to remember if Kinship ever becomes something." The reel's content wasn't captured because Instagram requires a login. Add a line about what it shows when convenient. |
+| 2026-11-13 | [Instagram reel](https://www.instagram.com/reel/DdYdT_gR142/) | Founder: "Same with this video" (same reason as above). Content not captured; Instagram requires a login. |
