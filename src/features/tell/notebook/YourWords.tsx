@@ -9,7 +9,7 @@
 // themselves clear) and faded in: the same layout, so it sits exactly under its words.
 import React, { useEffect, useRef } from "react";
 import { Animated, Platform, Text, View, type TextStyle } from "react-native";
-import { maxScale, notebook, notebookShadow, press, space, TOUCH } from "@/design/tokens";
+import { maxScale, motion, notebook, notebookShadow, press, space, TOUCH } from "@/design/tokens";
 import { useReduceMotion, usePalette } from "@/ui";
 import { Pressable } from "@/ui/Pressable";
 import { NText, NT, personLook, useNotebookPalette } from "@/ui/notebook";
@@ -83,7 +83,7 @@ export function YourWords(props: YourWordsProps) {
             )))}
           </Text>
           {overlay ? live.map((m, i) => (
-            <Underline key={m.key} delay={reduce ? 0 : i * 110} duration={reduce ? 150 : 600}>
+            <Underline key={m.key} delay={reduce ? 0 : i * 110} duration={reduce ? motion.reduced.duration : motion.understand.duration}>
               <Text style={[base, { color: "transparent" }]} numberOfLines={lines} maxFontSizeMultiplier={maxScale.text}>
                 {runs.map((r) => (
                   <Text

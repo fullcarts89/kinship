@@ -40,6 +40,7 @@ function Link({ label, hint, onPress, tone = "ink2" }: { label: string; hint?: s
       accessibilityLabel={label}
       accessibilityHint={hint}
       onPress={onPress}
+      hitSlop={{ left: space.s, right: space.s }}
       style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.link : 1 })}
     >
       <NText v="strong15" tone={tone}>{label}</NText>

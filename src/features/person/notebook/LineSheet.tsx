@@ -100,6 +100,7 @@ export function LineSheetView(props: LineSheetProps) {
         <View>
           {line.kind.changeable ? (
             <Pressable accessibilityRole="button" accessibilityLabel={kind} accessibilityHint="Change what kind of thing this is" onPress={() => setPane("kind")}
+              hitSlop={{ top: space.m, bottom: space.s, right: space.l }}
               style={({ pressed }) => ({ alignSelf: "flex-start", minHeight: 24, justifyContent: "center", opacity: pressed ? press.link : 1 })}>
               {kindText}
             </Pressable>

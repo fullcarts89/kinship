@@ -37,7 +37,7 @@ export function KeptLine({
         accessibilityLiveRegion="polite"
         disabled={!onOpen}
         onPress={onOpen}
-        style={({ pressed }) => ({ flex: 1, opacity: pressed ? press.surface : 1 })}
+        style={({ pressed }) => ({ flex: 1, alignSelf: "stretch", justifyContent: "center", opacity: pressed ? press.surface : 1 })}
       >
         <Small tone="inkBody" numberOfLines={2}>{text}</Small>
       </Pressable>

@@ -9,7 +9,7 @@ import { Image, Modal, PanResponder, ScrollView, useWindowDimensions, View } fro
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, ChevronRight, MessageCircle, Phone, X } from "lucide-react-native";
-import { notebook, press, space, TOUCH } from "@/design/tokens";
+import { motion, notebook, press, space, TOUCH } from "@/design/tokens";
 import type { MomentDetail } from "@/features/today/momentDetail";
 import { Assist, IdeaList, IdeasToggle, SHOWING_UP_COPY, UndoToast } from "@/features/showingup/IdeasViews";
 import type { Idea } from "@/features/showingup/ideas";
@@ -101,7 +101,7 @@ export function MomentFull({
       if (reduce || !from) {
         t.value = 1;
         fade.value = 0;
-        fade.value = withTiming(1, { duration: reduce ? 150 : 240 });
+        fade.value = withTiming(1, { duration: reduce ? motion.reduced.duration : motion.sheetOut.duration });
       } else {
         fade.value = 1;
         t.value = 0;
@@ -114,8 +114,8 @@ export function MomentFull({
   useEffect(() => {
     if (visible || !shown) return;
     const gone = () => setShown(null);
-    if (reduce || !from) fade.value = withTiming(0, { duration: reduce ? 150 : 200 }, (ok) => ok && runOnJS(gone)());
-    else t.value = withTiming(0, { duration: 320, easing: EASE }, (ok) => ok && runOnJS(gone)());
+    if (reduce || !from) fade.value = withTiming(0, { duration: reduce ? motion.reduced.duration : 200 }, (ok) => ok && runOnJS(gone)());
+    else t.value = withTiming(0, { duration: motion.arrive.duration, easing: EASE }, (ok) => ok && runOnJS(gone)());
     // A test renderer or a paused animation never finishes: never leave a stale moment on screen.
     const timer = setTimeout(gone, 400);
     return () => clearTimeout(timer);
@@ -126,8 +126,8 @@ export function MomentFull({
       setShown(null);
       onClose();
     };
-    if (reduce || !from) fade.value = withTiming(0, { duration: reduce ? 150 : 200 }, (ok) => ok && runOnJS(done)());
-    else t.value = withTiming(0, { duration: 320, easing: EASE }, (ok) => ok && runOnJS(done)());
+    if (reduce || !from) fade.value = withTiming(0, { duration: reduce ? motion.reduced.duration : 200 }, (ok) => ok && runOnJS(done)());
+    else t.value = withTiming(0, { duration: motion.arrive.duration, easing: EASE }, (ok) => ok && runOnJS(done)());
   };
   const frame = useAnimatedStyle(() => ({
     opacity: fade.value,

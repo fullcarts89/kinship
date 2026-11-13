@@ -141,6 +141,7 @@ export function Listening({ support, names, about, onDone, modal }: ListeningPro
                 accessibilityRole="button"
                 accessibilityLabel={LISTENING_COPY.settings}
                 onPress={() => void Linking.openSettings().catch(() => undefined)}
+                hitSlop={{ top: space.xs, bottom: space.xs, right: space.l }}
                 style={({ pressed }) => ({ alignSelf: "flex-start", paddingVertical: space.s, opacity: pressed ? press.link : 1 })}
               >
                 <Text maxFontSizeMultiplier={maxScale.text} style={[type.button, { color: p.ink, textDecorationLine: "underline" }]}>{LISTENING_COPY.settings}</Text>

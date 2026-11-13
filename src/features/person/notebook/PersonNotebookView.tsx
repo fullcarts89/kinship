@@ -602,6 +602,7 @@ function SproutIcon() {
 function QuietControl({ label, hint, a11y, onPress }: { label: string; hint?: string; a11y?: string; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={a11y ?? label} accessibilityHint={hint} onPress={onPress}
+      hitSlop={{ left: space.s, right: space.s }}
       style={({ pressed }) => ({ minHeight: TOUCH, justifyContent: "center", opacity: pressed ? press.link : 1 })}>
       <NText v="strong14" tone="ink2" style={{ textDecorationLine: "underline" }}>{label}</NText>
     </Pressable>

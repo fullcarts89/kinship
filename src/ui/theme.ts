@@ -13,13 +13,37 @@ export function usePalette(): Palette {
   return useNight() ? color.night : color.light;
 }
 
+// The setting as last read, shared by every component. The system only answers
+// asynchronously, so a hook that started from `false` began every arrival at
+// full motion and only switched to the fade once the answer came back: with
+// Reduce Motion on, the rise or slide was partly visible. The setting is asked
+// for once when this module loads (long before the first screen animates) and
+// kept current, so a component mounts already knowing it.
+let lastKnownReduce = false;
+let primed = false;
+function primeReduceMotion(): void {
+  if (primed) return;
+  primed = true;
+  AccessibilityInfo.isReduceMotionEnabled?.().then((on) => { lastKnownReduce = !!on; }).catch(() => undefined);
+  AccessibilityInfo.addEventListener?.("reduceMotionChanged", (on: boolean) => { lastKnownReduce = !!on; });
+}
+primeReduceMotion();
+
 /** True when the user asked for less motion: everything becomes a 150 ms fade. */
 export function useReduceMotion(): boolean {
-  const [reduce, setReduce] = useState(false);
+  const [reduce, setReduce] = useState(lastKnownReduce);
   useEffect(() => {
     let live = true;
-    AccessibilityInfo.isReduceMotionEnabled?.().then((on) => live && setReduce(!!on)).catch(() => undefined);
-    const sub = AccessibilityInfo.addEventListener?.("reduceMotionChanged", (on: boolean) => setReduce(!!on));
+    AccessibilityInfo.isReduceMotionEnabled?.()
+      .then((on) => {
+        lastKnownReduce = !!on;
+        if (live) setReduce(!!on);
+      })
+      .catch(() => undefined);
+    const sub = AccessibilityInfo.addEventListener?.("reduceMotionChanged", (on: boolean) => {
+      lastKnownReduce = !!on;
+      setReduce(!!on);
+    });
     return () => {
       live = false;
       sub?.remove?.();

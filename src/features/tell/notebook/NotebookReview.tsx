@@ -623,7 +623,8 @@ function LineRow(props: {
     <Pressable
       accessible={false}
       onPress={props.gone ? undefined : props.onBody}
-      style={row}
+      // The one row with no pressed state: its result (a phrase lit in "Your words") can be off-screen, so the dim is the only sign the tap landed.
+      style={({ pressed }) => [row, pressed && !props.gone ? { opacity: press.surface } : null]}
     >
       {sentence}
       {when && when.changeable && !inline && !props.gone ? <View style={{ marginTop: space.xs }}>{token(when.label)}</View> : null}

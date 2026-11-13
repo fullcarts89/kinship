@@ -578,3 +578,13 @@ language without on-device recognition get no mic at all.
 (`evidence_ambiguous`); the voice fix (K34) removes the cause that hit the founder. A note naming no one in People
 has no page to be found on yet.
 
+
+## UX and motion principles pass (13 Nov 2026): no surface changes
+
+A review of the 2.0 shell against a list of 20 UX and animation principles (`audits/2026-11-13-ux-motion-principles.md`). **No approved surface appears, changes or is removed**, and no layout, copy or look changes. What was fixed brings code back to rules that already stand:
+- Reduce Motion now holds from the first frame (contract §4 motion; the shared hook used to start at full motion and switch partway through).
+- How it works fades under Reduce Motion.
+- The review row dims on press (`press`).
+- Seven undersized controls now meet `TOUCH` through `hitSlop` or by filling their row (accessibility, contract §4).
+
+Everything that would change a surface is listed in the audit's §3 for the founder: source-link targets, once-a-day hero arrival, the A–Z rail highlight, easing alignment. **Native:** not run. **Readiness: NOT READY.**

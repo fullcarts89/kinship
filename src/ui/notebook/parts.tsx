@@ -240,6 +240,7 @@ export function LensTabs<K extends string>({ lenses, current, onChange }: {
             accessibilityState={{ selected: on }}
             accessibilityLabel={l.label}
             onPress={() => onChange(l.key)}
+            hitSlop={{ top: space.xs, bottom: space.xs }}
             style={({ pressed }) => ({ flex: 1, opacity: pressed ? press.surface : 1 })}
           >
             <View style={[

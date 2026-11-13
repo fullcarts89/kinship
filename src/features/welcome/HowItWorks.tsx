@@ -235,11 +235,13 @@ export function HowItWorksView({ step, onNext, onClose, initialPhase = 0 }: {
 /** The example, over the welcome screen. Opening it again starts at the beginning. */
 export function HowItWorks({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [step, setStep] = useState(0);
+  const reduce = useReduceMotion();
   useEffect(() => {
     if (visible) setStep(0);
   }, [visible]);
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+    // Reduce Motion: a fade, never the slide (as NotebookTell's modal does).
+    <Modal visible={visible} animationType={reduce ? "fade" : "slide"} presentationStyle="fullScreen" onRequestClose={onClose}>
       <HowItWorksView step={step} onNext={() => setStep((s) => Math.min(s + 1, HOW_COPY.steps.length - 1))} onClose={onClose} />
     </Modal>
   );
