@@ -581,10 +581,11 @@ has no page to be found on yet.
 
 ## UX and motion principles pass (13 Nov 2026): no surface changes
 
-A review of the 2.0 shell against a list of 20 UX and animation principles (`audits/2026-11-13-ux-motion-principles.md`). **No approved surface appears, changes or is removed**, and no layout, copy or look changes. What was fixed brings code back to rules that already stand:
-- Reduce Motion now holds from the first frame (contract §4 motion; the shared hook used to start at full motion and switch partway through).
+A review of the 2.0 shell against two reels (20 UX and animation principles; 20 UI animation techniques), recorded in `audits/2026-11-13-ux-motion-principles.md`. **No approved surface appears, changes or is removed**, and no layout, copy or colour changes. What was fixed brings code back to rules that already stand:
+- Reduce Motion now holds from the first frame (contract §4 motion; the shared hook used to start at full motion).
 - How it works fades under Reduce Motion.
 - The review row dims on press (`press`).
-- Seven undersized controls now meet `TOUCH` through `hitSlop` or by filling their row (accessibility, contract §4).
+- Seven undersized controls meet `TOUCH` via `hitSlop` or by filling their row (accessibility, contract §4).
+- Four entrances that used the platform's default curve now use `motion.arrive`'s easing, at their existing durations.
 
-Everything that would change a surface is listed in the audit's §3 for the founder: source-link targets, once-a-day hero arrival, the A–Z rail highlight, easing alignment. **Native:** not run. **Readiness: NOT READY.**
+The reels' expressive techniques (bounce, scale-on-press, success pulses, rubber-banding) are declined under `press`, "no overshoot", H4's "no decorative motion" and J5. Everything that would change a surface is listed for the founder in the audit's §5: source-link targets, a once-a-day Today arrival, the A–Z rail highlight, the Tell field's icon crossfade. **Native:** not run. **Readiness: NOT READY.**

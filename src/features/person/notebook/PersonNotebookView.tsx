@@ -13,7 +13,7 @@
 //
 // Nothing counts, ranks or scores the person; time is the only order. Every line shows its source.
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Image, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Animated, Easing, Image, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronRight, MessageCircle, PenLine, Phone, Search, Sprout } from "lucide-react-native";
@@ -407,7 +407,8 @@ function LensMotion({ lens, children, onLayoutY }: { lens: Lens; children: React
       return;
     }
     v.setValue(0);
-    const run = Animated.timing(v, { toValue: 1, duration: reduce ? motion.reduced.duration : 200, useNativeDriver: true });
+    // An entrance: the arrive curve (ease-out), as every arrival.
+    const run = Animated.timing(v, { toValue: 1, duration: reduce ? motion.reduced.duration : 200, easing: Easing.bezier(...motion.arrive.easing), useNativeDriver: true });
     run.start();
     return () => run.stop();
   }, [lens, reduce, v]);

@@ -201,7 +201,7 @@ export function HowItWorksView({ step, onNext, onClose, initialPhase = 0 }: {
   useEffect(() => {
     fade.setValue(0);
     setPhase(initialPhase);
-    Animated.timing(fade, { toValue: 1, duration: reduce ? motion.reduced.duration : motion.arrive.duration, useNativeDriver: true }).start();
+    Animated.timing(fade, { toValue: 1, duration: reduce ? motion.reduced.duration : motion.arrive.duration, easing: Easing.bezier(...motion.arrive.easing), useNativeDriver: true }).start();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, reduce, fade]);
   const lastStep = step >= HOW_COPY.steps.length - 1;

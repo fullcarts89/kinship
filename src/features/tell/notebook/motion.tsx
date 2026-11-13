@@ -39,7 +39,7 @@ export function FadeIn({ token, children, style }: { token: string; children: Re
   const o = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     o.setValue(0);
-    Animated.timing(o, { toValue: 1, duration: reduce ? motion.reduced.duration : 260, useNativeDriver: true }).start();
+    Animated.timing(o, { toValue: 1, duration: reduce ? motion.reduced.duration : 260, easing: Easing.bezier(...motion.arrive.easing), useNativeDriver: true }).start();
   }, [token, reduce, o]);
   return <Animated.View style={[{ flex: 1, opacity: o }, style]}>{children}</Animated.View>;
 }

@@ -4,7 +4,7 @@
 // buys, books or invites; doing nothing is always fine.
 import React, { useState } from "react";
 import { TextInput, View } from "react-native";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeInDown } from "react-native-reanimated";
 import { Bookmark, Check, ChevronDown, ChevronRight, Clock, MessageCircle, Phone, Sprout, X } from "lucide-react-native";
 import { font, ideaTint, motion, notebookShadow, press, space, TOUCH } from "@/design/tokens";
 import { DatePane } from "@/features/tell/Pickers";
@@ -12,6 +12,9 @@ import { Pressable } from "@/ui/Pressable";
 import { useReduceMotion, usePalette } from "@/ui";
 import { CategoryTag, IconWell, Lbl, NButton, NSource, NText, Raised, useNotebookPalette } from "@/ui/notebook";
 import { CATEGORY_LABEL, keepDays, type Idea, type IdeaCategory } from "./ideas";
+
+/** Ideas arrive on the arrive curve (ease-out), as every arrival. */
+const ARRIVE = Easing.bezier(...motion.arrive.easing);
 
 export const SHOWING_UP_COPY = {
   toggle: "Ideas for showing up",
@@ -74,7 +77,7 @@ export function IdeaCard({ idea, index, onPress }: { idea: Idea; index: number; 
   const g = idea.grounds[0];
   const because = g ? (g.contacts ? g.quote : `“${g.quote.replace(/^“|”$/gu, "")}”`) : "";
   return (
-    <Animated.View entering={reduce ? FadeIn.duration(motion.reduced.duration) : FadeInDown.duration(motion.arrive.duration).delay(index * 60)}>
+    <Animated.View entering={reduce ? FadeIn.duration(motion.reduced.duration) : FadeInDown.duration(motion.arrive.duration).easing(ARRIVE).delay(index * 60)}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${CATEGORY_LABEL[idea.category]}. ${idea.title}. ${because}`}
@@ -306,7 +309,7 @@ export function UndoToast({ message, onUndo, onDismiss, bottom = 150, inline = f
   const reduce = useReduceMotion();
   return (
     <Animated.View
-      entering={reduce ? FadeIn.duration(motion.reduced.duration) : FadeInDown.duration(motion.arrive.duration)}
+      entering={reduce ? FadeIn.duration(motion.reduced.duration) : FadeInDown.duration(motion.arrive.duration).easing(ARRIVE)}
       accessibilityLiveRegion="polite"
       accessibilityRole="alert"
       style={{
