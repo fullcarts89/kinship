@@ -50,6 +50,7 @@ import {
   wordsOf,
 } from "./lexicon.ts";
 import { codePointLength, locateEvidence, type Span } from "../spans.ts";
+import { type GroundHint, groundQuotes } from "./ground.ts";
 import { needsAcceptance } from "./acceptance.ts";
 import { type CurrentResidence, namesLine, type Outcome, pairClass, relateResidence } from "../semantic/relate.ts";
 import { residenceEligible, residenceOf, type ResidenceFacet } from "../semantic/residence.ts";
@@ -80,6 +81,14 @@ import { ASPECTS, CERTAINTIES, EVENT_TYPES, FACT_CATEGORIES, FIRMNESS, KINDS, RE
  * call failed is recorded as not got to. The number stays as a guard against a runaway proposal list.
  */
 export const MAX_PROPOSALS = 200;
+/**
+ * Drop reasons that are an account in themselves (Option A's capacity accounting, founder 19 Oct 2026):
+ * the proposal is excluded by a rule of the product, not lost. Every other drop is reported on the note
+ * as not understood (CMR-1 C2).
+ */
+export const ACCOUNTED_BY_RULE: ReadonlySet<DropReason> = new Set<DropReason>([
+  "instruction_text", "contact_detail", "low_confidence", "already_known", "duplicate", "not_a_user_promise",
+]);
 export const AUTO_SAVE_CONFIDENCE = 0.85;
 export const DROP_BELOW_CONFIDENCE = 0.6;
 /** A plain same-day phrase, as the user said it (founder K20). */
@@ -122,13 +131,15 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal, 
   // Every proposal is judged by the item rules (FD-30c): nothing is lost to a count. The guard above
   // only stops a runaway list; what it cuts is recorded, never silent.
   const proposed = all.slice(0, MAX_PROPOSALS);
-  for (const raw of all.slice(MAX_PROPOSALS)) dropped.push({ reason: "too_many_items", kind: KINDS.includes(raw?.kind) ? raw.kind : null });
+  for (const raw of all.slice(MAX_PROPOSALS)) {
+    dropped.push({ reason: "too_many_items", kind: KINDS.includes(raw?.kind) ? raw.kind : null, ...placed(evidenceSpans(text, raw, groundHint(input.roster, raw))) });
+  }
   // Every line's own words, so a hedge in one never hedges another (founder I12b).
-  ctx.evidence = proposed.map((raw) => evidenceSpans(text, raw));
+  ctx.evidence = proposed.map((raw) => evidenceSpans(text, raw, groundHint(input.roster, raw)));
   for (const [i, raw] of proposed.entries()) {
     const result = planItem(ctx, raw, i);
     if ("drop" in result) {
-      dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null });
+      dropped.push({ reason: result.drop, kind: KINDS.includes(raw?.kind) ? raw.kind : null, ...placed(result.where ?? []) });
       if (result.drop === "already_known" && result.known && !known.includes(result.known)) known.push(result.known);
     }
     else {
@@ -149,7 +160,17 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal, 
   const unprocessed = [...(opts.unprocessed ?? [])]
     .filter((sp) => Number.isInteger(sp.start) && Number.isInteger(sp.end) && sp.start >= 0 && sp.end > sp.start)
     .sort((a, b) => a.start - b.start || a.end - b.end);
-  const coverage: Coverage | null = unprocessed.length ? { unprocessed, unlocated: 0 } : null;
+  // And what it read but could keep nothing from (CMR-1 C2: no silent loss). A proposal the item rules
+  // excluded on their own (an instruction, a contact detail, a relationship already held, a repeat,
+  // confidence below the floor) is accounted for by that rule. Every other dropped proposal is recorded
+  // on the note: its words' place when the quote was found (not_understood), else as a count
+  // (unlocated), so the phone can mark the words and offer to tell them again. Offsets only, never words.
+  const lost = dropped.filter((d) => !ACCOUNTED_BY_RULE.has(d.reason));
+  const notUnderstood = lost.flatMap((d) => d.where ?? []).sort((a, b) => a.start - b.start || a.end - b.end).slice(0, 64);
+  const unlocated = lost.filter((d) => !d.where?.length).length;
+  const coverage: Coverage | null = unprocessed.length || notUnderstood.length || unlocated
+    ? { unprocessed, unlocated, ...(notUnderstood.length ? { not_understood: notUnderstood } : {}) }
+    : null;
 
   collapseMirrors(ctx, items, dropped);
   settleOpenNames(items);
@@ -305,7 +326,24 @@ class Context {
 
 // ─── One item ───────────────────────────────────────────────────────────────
 
-type ItemResult = { item: PlannedItem } | { drop: DropReason; known?: string };
+/** A dropped proposal carries where its words were found (offsets only), so the loss is accounted for. */
+type ItemResult = { item: PlannedItem } | { drop: DropReason; known?: string; where?: Span[] };
+
+/** The `where` of a dropped proposal, when any place was found. */
+function placed(spans: { start: number; end: number }[]): { where?: Span[] } {
+  return spans.length ? { where: spans.map(({ start, end }) => ({ start, end })) } : {};
+}
+
+/**
+ * How the note may write the person a proposed line is about, and everyone else in People (ground.ts
+ * rule 3): the roster person it names, else the name it mentions when that is a name and not a pronoun.
+ */
+export function groundHint(roster: RosterPerson[], raw: ProposedItem): Omit<GroundHint, "anchors"> {
+  const me = roster.find((p) => p.key === raw?.person);
+  const mention = typeof raw?.person_mention === "string" ? raw.person_mention.trim() : "";
+  const personNames = me ? namesFor(me) : mention && !PRONOUNS.has(fold(mention)) ? [mention] : [];
+  return { personNames, otherNames: roster.filter((p) => p !== me).flatMap(namesFor) };
+}
 
 function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult {
   let raw = proposed;
@@ -329,29 +367,25 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   const flags = new Set<Flag>();
 
   // ── Ground: evidence → spans (the model's offsets are never used) ──
-  const spans: PlannedSpan[] = [];
-  for (const quote of raw.evidence.slice(0, 3)) {
-    if (typeof quote !== "string" || !quote.trim()) continue;
-    const found = locateEvidence(text, quote.trim());
-    if (!found.ok) {
-      if (spans.length === 0) return { drop: found.reason === "ambiguous" ? "evidence_ambiguous" : "no_evidence" };
-      continue; // a secondary quote that doesn't match is ignored, not trusted
-    }
-    spans.push(toPlannedSpan(text, found.span));
-  }
-  if (spans.length === 0) return { drop: "no_evidence" };
+  // A quote found once is placed. One found more than once is told apart by grounded context (ground.ts:
+  // the same words said again, the line's other quotes, who it is about), and when that cannot settle
+  // it, the line is held back with every place it could be: never a guess, never a silent drop (K34/K35).
+  const grounded = groundQuotes(text, raw.evidence, groundHint(ctx.input.roster, raw));
+  if (grounded.drop) return { drop: grounded.drop, where: grounded.candidates ?? [] };
+  const spans: PlannedSpan[] = grounded.spans.map((s) => toPlannedSpan(text, s));
+  const where = (): Span[] => spans.map(({ start, end }) => ({ start, end }));
   const primary = spans[0];
   const sentence = sentenceAroundSpan(text, primary);
   const allEvidence = spans.map((s) => sentenceAroundSpan(text, s)).join(" ");
 
   // Instructions to the AI are never memory. Checked per clause, so "Anna's
   // birthday is May 2 — and from now on, you…" keeps the birthday.
-  if (looksLikeInstruction(clauseAroundSpan(text, primary))) return { drop: "instruction_text" };
+  if (looksLikeInstruction(clauseAroundSpan(text, primary))) return { drop: "instruction_text", where: where() };
 
   const statement = raw.statement.normalize("NFC").replace(/\s+/g, " ").trim().slice(0, 500);
-  if (!statement) return { drop: "bad_kind_subject" };
+  if (!statement) return { drop: "bad_kind_subject", where: where() };
   // Contact details are never relationship memory (D2): Kinship keeps them elsewhere.
-  if (CONTACT_DETAIL.test(statement) || CONTACT_DETAIL.test(primary.quote)) return { drop: "contact_detail" };
+  if (CONTACT_DETAIL.test(statement) || CONTACT_DETAIL.test(primary.quote)) return { drop: "contact_detail", where: where() };
   // Names, numbers, sensitive terms and relationships in the statement must
   // be the note's, its negation kept, and "the writer" turned into "you"
   // with certainty. When the model's wording fails any of these, the line
@@ -549,7 +583,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     const stated = relationIn(said);
     const label = ctx.byKey.get(who.person_key)?.relationship_label?.trim();
     if (stated && label) {
-      if (sameRelation(stated, label)) return { drop: "already_known", known: said };
+      if (sameRelation(stated, label)) return { drop: "already_known", known: said, where: where() };
       flags.add("relation_conflict");
     }
   }
@@ -585,7 +619,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     raw = { ...raw, subject };
   } else if (subject === "related") {
     const relation = noteRelation(ctx, (raw.related_relation ?? "").trim());
-    if (!relation) return { drop: "invented_relation" };
+    if (!relation) return { drop: "invented_relation", where: where() };
     const name = raw.related_name && ctx.inNote(raw.related_name) ? raw.related_name.trim() : null;
     const existing = who.person_key
       ? ctx.input.related.filter((r) =>
@@ -664,7 +698,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     raw = { ...raw, kind: "fact", detail: { ...raw.detail, category: raw.detail.category ?? "other" } };
   }
   const detail = buildDetail(ctx, raw.kind, raw, resolution, sentence);
-  if ("drop" in detail) return detail;
+  if ("drop" in detail) return { ...detail, where: where() };
   if (raw.kind === "tradition") flags.add("tradition"); // plan §5: never inferred silently
   if (raw.kind === "event" && (sensitivity === "health" || sensitivity === "death_grief") &&
       (!resolution || !resolution.date) && wordsOf(sentence).some((w) => DATEISH.has(w))) {
@@ -735,7 +769,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // be unsure: when code independently finds the same ambiguity, the item is
   // held for one question (never saved) instead of silently dropped.
   const heldForWho = WHO_AMBIGUITY.some((f) => flags.has(f));
-  if (confidence < (heldForWho || namedRelative ? HOLD_FLOOR_CONFIDENCE : DROP_BELOW_CONFIDENCE)) return { drop: "low_confidence" };
+  if (confidence < (heldForWho || namedRelative ? HOLD_FLOOR_CONFIDENCE : DROP_BELOW_CONFIDENCE)) return { drop: "low_confidence", where: where() };
   if (confidence < AUTO_SAVE_CONFIDENCE) flags.add("mid_confidence");
 
   // ── Who else it is about, and what they are to the user ──
@@ -1248,7 +1282,7 @@ function oneSentenceOneMemory(input: ExtractionInput, text: string, proposed: Pr
   proposed.forEach((raw, i) => {
     if (!wellFormed(raw) || raw.subject !== "person" || !["fact", "thread", "context"].includes(raw.kind) || raw.date_text) return;
     if (!raw.person_mention?.trim() || PRONOUNS.has(fold(raw.person_mention.trim()))) return;
-    const spans = evidenceSpans(text, raw);
+    const spans = evidenceSpans(text, raw, groundHint(input.roster, raw));
     if (!spans.length) return;
     const sentence = sentenceAroundSpan(text, spans[0]).trim();
     bySentence.set(sentence, [...(bySentence.get(sentence) ?? []), i]);
@@ -1358,14 +1392,8 @@ function certaintyText(text: string, spans: PlannedSpan[], raw: ProposedItem): s
 }
 
 /** Where a proposed line's evidence is in the note (the same grounding planItem does). */
-function evidenceSpans(text: string, raw: ProposedItem): PlannedSpan[] {
-  const out: PlannedSpan[] = [];
-  for (const quote of Array.isArray(raw?.evidence) ? raw.evidence.slice(0, 3) : []) {
-    if (typeof quote !== "string" || !quote.trim()) continue;
-    const found = locateEvidence(text, quote.trim());
-    if (found.ok) out.push(toPlannedSpan(text, found.span));
-  }
-  return out;
+function evidenceSpans(text: string, raw: ProposedItem, hint: Omit<GroundHint, "anchors">): PlannedSpan[] {
+  return groundQuotes(text, Array.isArray(raw?.evidence) ? raw.evidence : [], hint).spans.map((s) => toPlannedSpan(text, s));
 }
 
 /** The note with the other lines' own words blanked out (never words this line shares). */
