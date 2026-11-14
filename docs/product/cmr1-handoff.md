@@ -87,6 +87,19 @@ section of the directive. Ownership, to avoid conflicts in `pipeline.ts`:
 Requires the founder's explicit yes: merging to `main`, the gateway deploy, production migrations, production data
 changes, flag changes.
 
+## 4b. Session 2 record (14 Nov 2026, evening; coordinator branch `claude/keen-dirac-edt3xz`)
+
+**Baseline re-measured on `main` `c2e0ee7` in the kinship cloud environment:** Deno 497 passed / 0 failed (`supabase/functions`); extraction oracle eval 0 must-not violations, 0 person guessed, 100% expected items found on every set; `deno check` of `ai-gateway/index.ts` clean; production `ai-gateway` v17 (ezbr `a30001e1…`), `delete-account` v6, `ai-insight` v6, confirmed with the Supabase API. Jest baseline: see the integration record once run.
+
+**Environment findings this session:**
+- `ANTHROPIC_API_KEY` is on the environment (the variable name is listed) but **was not present in this session's shell**. The live-model eval and live baseline cannot run from this session until a session starts with it set, or the key is provided another way. No live result is fabricated; the eval runner is built key-ready (Workstream D) and the live baseline is marked PENDING.
+- Docker's daemon was not running (`/var/run/docker.sock` absent); started by hand with `dockerd` for the local Supabase stack, pgTAP and the black-box suites. It does not survive a container restart.
+- The agent-loop independent reviewer (`.github/workflows/kinship-claude-handoff.yml`, on `main`) fires only on an OWNER/COLLABORATOR/MEMBER comment beginning `@claude /kinship-fix` on a PR labelled `agent-loop`. It is **not** an automatic independent review of the CMR-1 PRs; independent review inside this milestone is done by review agents that did not write the code (recorded per PR), and Workstream B's review of #88 is by an agent other than #88's author. This is the documented limitation the directive's §10 asks for.
+
+**Workstreams launched** (each in its own worktree, from `main` `c2e0ee7`, with a draft PR as its deliverable): A `claude/cmr1-a-capture`, B `claude/cmr1-b-identity`, C `claude/cmr1-c-completeness`, D `claude/cmr1-d-evals`. Shared contract given to A and C: `captures.understanding text NULL CHECK IN ('kept','nothing','partial','held','declined','failed')`, written only by the server (`write_extraction`, `resolve_capture_review`, `release(... 'failed')`), read in the app through one adapter `tellOutcome(capture, localRow)` that falls back to the device-local `understanding` row until the migration is in production. File ownership as §4.
+
+**Bug ledger:** the staged reporting model (IMPLEMENTED · MERGED · DEPLOYED · LIVE-MODEL VERIFIED · NATIVE-SIM VERIFIED · DEVICE VERIFIED · FOUNDER ACCEPTED) is in `bug-ledger.md` with K34–K36 restated against it.
+
 ## 5. The founder directive (verbatim, 14 Nov 2026)
 
 Kinship — Core Memory Reliability Milestone (CMR-1)
