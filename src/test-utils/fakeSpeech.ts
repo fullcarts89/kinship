@@ -21,9 +21,12 @@ export function fakeSpeech(opts: FakeSpeechOptions = {}) {
     stopped: 0,
     aborted: 0,
     emit,
-    /** Words heard: interim unless final. */
-    hear(transcript: string, isFinal = false) {
-      emit("result", { isFinal, results: [{ transcript, confidence: 0.9, segments: [] }] });
+    /** Words heard: interim unless final; `segments` is the recognizer's timing of them, when it gives any. */
+    hear(transcript: string, isFinal = false, segments: { startTimeMillis: number; endTimeMillis: number }[] = []) {
+      emit("result", {
+        isFinal,
+        results: [{ transcript, confidence: isFinal ? 0.9 : 0, segments: segments.map((s) => ({ ...s, segment: "", confidence: -1 })) }],
+      });
     },
     listening: () => (listeners.get("result")?.size ?? 0) > 0,
     supportsOnDeviceRecognition: () => m.options.onDevice ?? true,

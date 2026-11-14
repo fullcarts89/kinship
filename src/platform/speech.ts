@@ -141,46 +141,137 @@ export function resetSpeechForTests(): void {
   ruledOut = false;
 }
 
-// ─── listening ───────────────────────────────────────────────────────────
+// ─── the words of one session ────────────────────────────────────────────
+
+/** One result from the recognizer, as its "result" event carries it. */
+export interface Heard {
+  transcript: string;
+  /** The recognizer's own timing of the words (ms into the session's audio), when it gives it. */
+  segments?: readonly { startTimeMillis: number; endTimeMillis: number }[];
+}
 
 /** Words compared without case, punctuation or spacing. */
 function folded(text: string): string {
   return text.toLocaleLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/gu, " ").trim();
 }
 
-/** `b` again at the end of `a`, as whole words (one word only when it is all of `a`). */
-function endsWithWords(a: string, b: string): boolean {
-  if (!b) return true;
-  if (a === b) return true;
-  return b.includes(" ") && (a.endsWith(` ${b}`));
+/** A result's timing, as one key, when the recognizer gave any; null when it gave none (partials, Android). */
+function timingOf(r: Heard): string | null {
+  const segs = (r.segments ?? []).filter((s) => Number.isFinite(s.startTimeMillis) && Number.isFinite(s.endTimeMillis));
+  if (!segs.length || !segs.some((s) => s.endTimeMillis > 0)) return null;
+  return segs.map((s) => `${Math.round(s.startTimeMillis)}-${Math.round(s.endTimeMillis)}`).join(",");
+}
+
+/** The words of `said` after the ones that fold to `prefix` (whole words), or null when they don't line up. */
+function afterPrefix(said: string, prefix: string): string | null {
+  const words = said.split(/\s+/u);
+  for (let k = 1; k < words.length; k++) {
+    const head = folded(words.slice(0, k).join(" "));
+    if (head === prefix) return words.slice(k).join(" ");
+    if (head.length > prefix.length) break;
+  }
+  return null;
 }
 
 /**
- * The words heard so far plus what just came, with nothing said twice. The phone's recognizer can send
- * the same words more than once: iOS 18 calls a pause "final" and then sends the same sentence as final
- * again at Stop (founder device, 10 Nov 2026: a note about Kaiya was kept twice over, and its quotes
- * could no longer be placed), and some versions send the whole session so far each time. Words already
- * at the end are not added again; a result that already holds everything replaces it.
+ * The words of one listening session, assembled from the recognizer's results by what each result
+ * *is*, never by what it says. Read against the module's own sources (expo-speech-recognition 3.1.3,
+ * `ios/ExpoSpeechRecognitionModule.swift`, `ios/ExpoSpeechRecognizer.swift` and
+ * `android/…/ExpoSpeechService.kt`):
+ *
+ *   a partial       the utterance being heard so far. It replaces the last partial, never adds to it.
+ *   a final         one utterance, whole. iOS 18 marks a pause as "final" (the module's reading of
+ *                   `speechRecognitionMetadata.speechDuration`), and from then on every transcript it
+ *                   sends is the new utterance alone, with a leading space (`hasSeenFinalResult`);
+ *                   Android 13+ sends one final per segment (`onSegmentResults`); iOS 17 sends one
+ *                   final, at Stop, holding the whole session. Each final is settled after the ones
+ *                   before it.
+ *   the same again  at Stop, iOS 18 sends the last utterance as final once more (founder device,
+ *                   10 Nov 2026, K34: a note about Kaiya was kept twice over, and the server could then
+ *                   place none of its quotes). That result is told apart from the user *saying* the
+ *                   same words again by structure, not wording:
+ *                     · the recognizer's own timing of the words is the same (`segments`), or
+ *                     · nothing new was heard since that final: a new utterance always arrives as
+ *                       partials first (interim results are on), and those partials say other words.
+ *                   So "I love her" [pause] "I love her so much" keeps both, and "no, no, no" is kept
+ *                   as said; only the recognizer repeating itself is dropped.
+ *   a revision      a final with the same timing as the last and other words is the recognizer's
+ *                   final reading of that utterance: it takes the last final's place.
+ *   the whole again a final holding everything settled, with nothing new heard since, is the session
+ *                   sent whole: it replaces what it repeats, once.
+ *
+ * Nothing here is a lexical guard over the finished text: a passage the user said twice is kept twice.
  */
-export function joinWords(settled: string, next: string): string {
-  const a = settled.trim();
-  const b = next.trim();
-  if (!a || !b) return a || b;
-  const fa = folded(a);
-  const fb = folded(b);
-  if (endsWithWords(fa, fb)) return a;
-  if (fb === fa || fb.startsWith(`${fa} `)) return b;
-  return `${a} ${b}`;
+export class Transcript {
+  private readonly finals: { text: string; timing: string | null }[] = [];
+  private hearing = "";
+  /** Other words arrived as partials since the last final: the next final is a new utterance. */
+  private fresh = true;
+
+  /** Everything settled plus what is still being heard. */
+  get text(): string {
+    return [...this.finals.map((f) => f.text), this.hearing].filter(Boolean).join(" ");
+  }
+
+  /** A result still being heard. */
+  partial(r: Heard): void {
+    const said = r.transcript.trim();
+    if (!said) return;
+    const last = this.finals[this.finals.length - 1];
+    const fs = folded(said);
+    if (last) {
+      const all = folded(this.finals.map((f) => f.text).join(" "));
+      // The session so far, said whole (a recognizer that accumulates): only the new words are being heard.
+      if (fs === all) {
+        this.hearing = "";
+        return;
+      }
+      if (fs.startsWith(`${all} `)) {
+        const rest = afterPrefix(said, all);
+        if (rest !== null) {
+          this.hearing = rest;
+          this.fresh = true;
+          return;
+        }
+      }
+    }
+    this.hearing = said;
+    if (!last || fs !== folded(last.text)) this.fresh = true;
+  }
+
+  /** A final result: one utterance, settled. */
+  final(r: Heard): void {
+    const said = r.transcript.trim();
+    // A final with no words (iOS 18 sends one at Stop after the real last one): what was heard stands.
+    if (!said) return;
+    const timing = timingOf(r);
+    const last = this.finals[this.finals.length - 1];
+    const fs = folded(said);
+    const settle = () => {
+      this.hearing = "";
+      this.fresh = false;
+    };
+    if (last && timing && last.timing) {
+      if (timing === last.timing) {
+        // The same utterance again: the same words, dropped; other words, its final reading.
+        if (fs !== folded(last.text)) last.text = said;
+        return settle();
+      }
+    } else if (last && !this.fresh) {
+      const all = folded(this.finals.map((f) => f.text).join(" "));
+      // Nothing new was heard since the last final: this is the recognizer repeating itself.
+      if (fs === folded(last.text) || fs === all) return settle();
+      if (fs.startsWith(`${all} `)) {
+        this.finals.splice(0, this.finals.length, { text: said, timing });
+        return settle();
+      }
+    }
+    this.finals.push({ text: said, timing });
+    settle();
+  }
 }
 
-/** A transcript that is one passage said twice over, word for word, said once (a last guard). */
-export function onceOver(text: string): string {
-  const words = text.trim().split(/\s+/u);
-  if (words.length < 8 || words.length % 2) return text.trim();
-  const half = words.length / 2;
-  const first = words.slice(0, half).join(" ");
-  return folded(first) === folded(words.slice(half).join(" ")) ? first : text.trim();
-}
+// ─── listening ───────────────────────────────────────────────────────────
 
 /** The recognizer's loudness (about -2 to 10) as 0..1. */
 export function levelOf(value: number): number {
@@ -194,6 +285,10 @@ const NOT_HERE = new Set(["language-not-supported", "service-not-allowed", "netw
 /**
  * Asks for the microphone (the first time), then listens until stopped.
  * Resolves with the session, or null when it couldn't start (onFail says why).
+ *
+ * Only the microphone is asked for: with `requiresOnDeviceRecognition` the iOS module skips Apple's
+ * speech-recognition authorization (its prompt is about audio sent to Apple, which never happens here).
+ * Every event after the session is over (a late result, the module's own "end" after an error) is dropped.
  */
 export async function listen(support: VoiceSupport, names: readonly string[], on: ListenHandlers): Promise<ListenSession | null> {
   const m = speech();
@@ -207,13 +302,11 @@ export async function listen(support: VoiceSupport, names: readonly string[], on
     return null;
   }
 
-  let settled = "";
-  let hearing = "";
+  const words = new Transcript();
   let done = false;
   let cancelled = false;
   let cap: ReturnType<typeof setTimeout> | undefined;
   const subs: { remove: () => void }[] = [];
-  const words = () => onceOver(joinWords(settled, hearing));
   const close = () => {
     done = true;
     clearTimeout(cap);
@@ -222,7 +315,7 @@ export async function listen(support: VoiceSupport, names: readonly string[], on
   const finish = () => {
     if (done) return;
     close();
-    if (!cancelled) on.onEnd(words());
+    if (!cancelled) on.onEnd(words.text);
   };
   const fail = (reason: ListenFailure) => {
     if (done) return;
@@ -232,14 +325,14 @@ export async function listen(support: VoiceSupport, names: readonly string[], on
 
   subs.push(
     m.addListener("result", (e) => {
-      const said = e.results[0]?.transcript ?? "";
-      if (e.isFinal) {
-        settled = joinWords(settled, said);
-        hearing = "";
-      } else {
-        hearing = said;
+      if (done) return;
+      // The first alternative is the recognizer's best; the others are never shown.
+      const heard = e.results[0];
+      if (heard) {
+        if (e.isFinal) words.final(heard);
+        else words.partial(heard);
       }
-      if (!cancelled && !done) on.onText(words());
+      if (!cancelled) on.onText(words.text);
     }),
     m.addListener("volumechange", (e) => {
       if (!done) on.onLevel?.(levelOf(e.value));
@@ -247,8 +340,8 @@ export async function listen(support: VoiceSupport, names: readonly string[], on
     m.addListener("error", (e) => {
       if (NOT_HERE.has(e.error)) ruleOutVoice();
       // Nothing heard yet: say why. Otherwise (silence, a call, "aborted") it ends with what was heard.
-      if (!words() && NOT_HERE.has(e.error)) fail("unavailable");
-      else if (!words() && e.error === "not-allowed") fail("denied");
+      if (!words.text && NOT_HERE.has(e.error)) fail("unavailable");
+      else if (!words.text && e.error === "not-allowed") fail("denied");
       else finish();
     }),
     m.addListener("end", finish),

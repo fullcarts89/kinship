@@ -125,32 +125,163 @@ describe("listening", () => {
     expect(h.onFail).not.toHaveBeenCalled();
   });
 
-  it("iOS 18 sends a pause as final and the same sentence as final again at Stop: kept once", async () => {
+  // The founder's note (K34, 10 Nov 2026), as iOS 18 sends it: a pause marked final, then at Stop the
+  // same sentence as final once more, with the module's leading space.
+  const KAIYA = "She is the silliest little girl in the world and is very much into dressing up like princesses";
+
+  it("iOS 18 sends a pause as final and the same sentence as final again at Stop: kept once (K34)", async () => {
     const s = load();
     const h = handlers();
     const session = await s.listen({ locale: "en-US" }, [], h);
-    const said = "She is the silliest little girl in the world and is very much into dressing up like princesses";
     mockSpeech!.hear("She is the silliest little girl");
-    mockSpeech!.hear(said, true);
-    mockSpeech!.hear(` ${said}`, true);
+    mockSpeech!.hear(KAIYA, true);
+    mockSpeech!.hear(` ${KAIYA}`, true);
     session!.stop();
-    expect(h.onEnd).toHaveBeenCalledWith(said);
+    expect(h.onEnd).toHaveBeenCalledWith(KAIYA);
+    expect(h.onEnd.mock.calls[0][0].split("silliest")).toHaveLength(2);
   });
 
-  it("a result holding the whole session so far replaces what was settled", () => {
+  it("the same again at Stop, with the recognizer's own timing: told apart by the timing, whatever the words", async () => {
     const s = load();
-    expect(s.joinWords("Saw David tonight.", "Saw David tonight. His son starts Monday.")).toBe("Saw David tonight. His son starts Monday.");
-    expect(s.joinWords("Saw David tonight.", "saw david tonight")).toBe("Saw David tonight.");
-    expect(s.joinWords("Saw David tonight.", "His son starts Monday.")).toBe("Saw David tonight. His son starts Monday.");
-    expect(s.joinWords("I love her", "her")).toBe("I love her her");
+    const h = handlers();
+    const session = await s.listen({ locale: "en-US" }, [], h);
+    const timing = [{ startTimeMillis: 0, endTimeMillis: 900 }, { startTimeMillis: 900, endTimeMillis: 1500 }];
+    mockSpeech!.hear("Ben got the", false);
+    mockSpeech!.hear("Ben got the job.", true, timing);
+    // Its final reading at Stop (a word revised): the same utterance, so it takes the first's place.
+    mockSpeech!.hear(" Ben got that job.", true, timing);
+    session!.stop();
+    expect(h.onEnd).toHaveBeenCalledWith("Ben got that job.");
   });
 
-  it("a passage said twice over, word for word, is kept once", () => {
+  it("the user saying the same words again is kept twice: the second time arrives as partials first", async () => {
     const s = load();
-    const said = "She is the silliest little girl in the world and is very much into dressing up like princesses";
-    expect(s.onceOver(`${said} ${said}`)).toBe(said);
-    expect(s.onceOver("Ben ran. Ben ran.")).toBe("Ben ran. Ben ran.");
-    expect(s.onceOver(said)).toBe(said);
+    const h = handlers();
+    const session = await s.listen({ locale: "en-US" }, [], h);
+    mockSpeech!.hear("I love");
+    mockSpeech!.hear("I love her", true);
+    mockSpeech!.hear(" I");
+    mockSpeech!.hear(" I love her");
+    mockSpeech!.hear(" I love her so much", true);
+    mockSpeech!.hear(" I love her so much", true); // iOS 18 at Stop
+    session!.stop();
+    expect(h.onEnd).toHaveBeenCalledWith("I love her I love her so much");
+  });
+
+  it("two separate utterances with the same words, and 'no, no, no': every word the user said", async () => {
+    const s = load();
+    const h = handlers();
+    const session = await s.listen({ locale: "en-US" }, [], h);
+    mockSpeech!.hear("Ben");
+    mockSpeech!.hear("Ben ran.", true, [{ startTimeMillis: 0, endTimeMillis: 700 }]);
+    mockSpeech!.hear(" Ben");
+    mockSpeech!.hear(" Ben ran.", true, [{ startTimeMillis: 2000, endTimeMillis: 2700 }]);
+    mockSpeech!.hear(" No, no");
+    mockSpeech!.hear(" No, no, no.", true, [{ startTimeMillis: 4000, endTimeMillis: 5000 }]);
+    mockSpeech!.hear(" No, no, no.", true, [{ startTimeMillis: 4000, endTimeMillis: 5000 }]);
+    session!.stop();
+    expect(h.onEnd).toHaveBeenCalledWith("Ben ran. Ben ran. No, no, no.");
+  });
+
+  it("a passage said twice in one breath is one utterance, kept as said", async () => {
+    const s = load();
+    const h = handlers();
+    const session = await s.listen({ locale: "en-US" }, [], h);
+    mockSpeech!.hear("Ben ran Ben");
+    mockSpeech!.hear("Ben ran. Ben ran.", true);
+    session!.stop();
+    expect(h.onEnd).toHaveBeenCalledWith("Ben ran. Ben ran.");
+  });
+
+  it("partials replace what is being heard, never add to it; a pause and more words make segments in order", async () => {
+    const s = load();
+    const h = handlers();
+    const session = await s.listen({ locale: "en-US" }, [], h);
+    mockSpeech!.hear("Saw");
+    mockSpeech!.hear("Saw David");
+    mockSpeech!.hear("Saw David tonight.", true);
+    expect(h.onText).toHaveBeenLastCalledWith("Saw David tonight.");
+    mockSpeech!.hear(" His son");
+    expect(h.onText).toHaveBeenLastCalledWith("Saw David tonight. His son");
+    mockSpeech!.hear(" His son starts Monday.", true);
+    mockSpeech!.hear(" His son starts Monday.", true);
+    session!.stop();
+    expect(h.onEnd).toHaveBeenCalledWith("Saw David tonight. His son starts Monday.");
+  });
+
+  it("a recognizer that sends the whole session each time (iOS 17): partials and the one final hold everything, once", async () => {
+    const s = load();
+    const h = handlers();
+    const session = await s.listen({ locale: "en-US" }, [], h);
+    mockSpeech!.hear("Saw David tonight");
+    mockSpeech!.hear("Saw David tonight. His son");
+    mockSpeech!.hear("Saw David tonight. His son starts Monday.");
+    expect(h.onText).toHaveBeenLastCalledWith("Saw David tonight. His son starts Monday.");
+    session!.stop();
+    mockSpeech!.hear("Saw David tonight. His son starts Monday.", true);
+    expect(h.onEnd).toHaveBeenCalledWith("Saw David tonight. His son starts Monday.");
+  });
+
+  it("the whole session sent again as one final, with nothing new heard: kept once; with more: the more is added", () => {
+    const s = load();
+    const t = new s.Transcript();
+    t.partial({ transcript: "Saw David" });
+    t.final({ transcript: "Saw David tonight." });
+    t.partial({ transcript: " His son" });
+    t.final({ transcript: " His son starts Monday." });
+    t.final({ transcript: "Saw David tonight. His son starts Monday." });
+    expect(t.text).toBe("Saw David tonight. His son starts Monday.");
+    t.final({ transcript: "Saw David tonight. His son starts Monday. He's nervous." });
+    expect(t.text).toBe("Saw David tonight. His son starts Monday. He's nervous.");
+    // An accumulating partial after settled words: only the new words are being heard.
+    t.partial({ transcript: "Saw David tonight. His son starts Monday. He's nervous. We should" });
+    expect(t.text).toBe("Saw David tonight. His son starts Monday. He's nervous. We should");
+  });
+
+  it("an empty final (iOS 18 after the real last one) leaves the words heard so far standing", () => {
+    const s = load();
+    const t = new s.Transcript();
+    t.partial({ transcript: "Ben got the job" });
+    t.final({ transcript: "" });
+    expect(t.text).toBe("Ben got the job");
+    t.final({ transcript: "Ben got the job." });
+    expect(t.text).toBe("Ben got the job.");
+  });
+
+  it("a stopped session takes no late result", async () => {
+    const s = load();
+    const h = handlers();
+    const session = await s.listen({ locale: "en-US" }, [], h);
+    mockSpeech!.hear("Ben got the job", true);
+    session!.stop();
+    mockSpeech!.hear(" Ben got the job", true);
+    mockSpeech!.emit("end");
+    expect(h.onEnd).toHaveBeenCalledTimes(1);
+    expect(h.onEnd).toHaveBeenCalledWith("Ben got the job");
+    expect(h.onText).toHaveBeenCalledTimes(1);
+  });
+
+  it("an interruption mid-utterance ends with the settled words and the ones still being heard", async () => {
+    const s = load();
+    const h = handlers();
+    await s.listen({ locale: "en-US" }, [], h);
+    mockSpeech!.hear("Ben got the job.", true);
+    mockSpeech!.hear(" His sister");
+    mockSpeech!.emit("error", { error: "interrupted", message: "" });
+    mockSpeech!.emit("end");
+    expect(h.onEnd).toHaveBeenCalledTimes(1);
+    expect(h.onEnd).toHaveBeenCalledWith("Ben got the job. His sister");
+  });
+
+  it("a session that heard nothing and was stopped ends with nothing, once", async () => {
+    const s = load();
+    const h = handlers();
+    const session = await s.listen({ locale: "en-US" }, [], h);
+    session!.stop();
+    mockSpeech!.emit("error", { error: "no-speech", message: "" });
+    expect(h.onEnd).toHaveBeenCalledTimes(1);
+    expect(h.onEnd).toHaveBeenCalledWith("");
+    expect(h.onFail).not.toHaveBeenCalled();
   });
 
   it("no microphone permission: denied, and nothing listens", async () => {
