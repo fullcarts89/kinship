@@ -574,7 +574,29 @@ language without on-device recognition get no mic at all.
 | Kept card, a note that kept no line | "Nothing to remember in that one." | "Kept on Kaiya's page." (the person it was told about, else each person in People it names by their own name; a name two people share places it on neither), or "Kept your words." when it names no one; the user's words shown under it; Undo as before | Never a guess about who; the user's "Don't keep this" still reads "Nothing kept from that one." | BUILT; tests; not yet native |
 | 13 Pages (`notebook_deck`) | Only notes that yielded a live line | Also each note that kept no line (understood with nothing in it, kept as written, or after understanding failed), in full, nothing marked | Never a note whose reading the user declined: only a reading this phone holds as "nothing" counts | BUILT; tests; not yet native |
 
-**Not changed:** the server still drops a proposed line whose quote appears twice in a note
-(`evidence_ambiguous`); the voice fix (K34) removes the cause that hit the founder. A note naming no one in People
-has no page to be found on yet.
+**Not changed (10 Nov):** the server still dropped a proposed line whose quote appears twice in a note
+(`evidence_ambiguous`); the voice fix (K34) removed the cause that hit the founder. A note naming no one in People
+has no page to be found on yet. **Superseded on the server by CMR-1 Workstream C (below, 14 Nov 2026).**
+
+## CMR-1 Workstream C (14 Nov 2026): a quote said twice, no silent loss, a durable outcome
+
+Server only (the gateway and a forward-only migration); **no approved surface appears or is removed**. The app
+(Workstream A) reads the new column and the wider coverage; until it does, every phone behaves as before.
+
+| Surface | Was | Now | Rules it keeps | Status |
+|---|---|---|---|---|
+| Understanding (`_shared/extraction/ground.ts`, the grounding block of `planItem`) | A quote found more than once in the note dropped the line (`evidence_ambiguous`): the K34 doubled note lost both its lines | The occurrences are told apart by grounded context, with no model call and no prompt change: (a) the same words said again (the same text before and after each occurrence, or the whole note repeating) → one fact, placed once at its first occurrence, never two memories; (b) identical words about different people → the occurrence beside the line's other quotes, or the one whose sentence or nearest name before it is that person's, never one whose nearest name is someone else's. When the clues disagree or none applies the quote stays ambiguous | Never a guess: an undecidable quote is not placed. A quote the note never says is still not found (no fabricated evidence); the negation, name, number and relation guards are untouched | BUILT; UNIT (`ground.test.ts`: both shapes and the founder's doubled note; `handler.test.ts`); oracle, realistic oracle and replay baseline unchanged |
+| Coverage (`captures.coverage`, the reply's `coverage`) | Only passages whose model call failed (`unprocessed`) and a count (`unlocated`, never written) | Also `not_understood`: the places of every proposal the understanding read but could keep nothing from, one span per lost proposal per place (an undecidable quote lists every place it could be); `unlocated` counts those whose words were not found at all. A drop a rule of the product makes on its own (an instruction, a contact detail, a relationship already held, a repeat, confidence below the floor) is that rule's account, not a loss (Option A's capacity accounting, 19 Oct). Content-free: offsets and counts, never words; at most 64 places | The reply is "complete" only when nothing was left out for want of room and no proposal was lost to the understanding; what the model never proposed is still not detected, and the copy never claims otherwise | BUILT; UNIT; pgTAP 74 (the shape) |
+| The note's outcome (`captures.understanding`, migration `20261114090000`) | Only `status` (pending, processing, extracted, needs_review, failed, skipped), which does not say whether anything was kept | `kept` (a line was written from this note) · `nothing` (understood, nothing kept, nothing held: the note stays as the user's words) · `partial` (kept, with coverage gaps or not-understood spans) · `held` (a question waits) · `declined` (the user declined every held line, or set the question aside) · `failed` · NULL (not yet understood, or a row older than the migration). Written only by the server, at every point the outcome changes; pulled by the app with the row | The app never writes it (no column grant; an insert's value is cleared). The 30-day expiry of an unanswered question reads `nothing`, not `declined` | BUILT; pgTAP 74 (every transition and the CHECK) |
+| Usage log (`ai_calls.drop_reasons`) | Two drop reasons the gateway has logged since October (`internal_reference`, `already_known`) were refused by the CHECK, so those calls wrote no row | Counted like the others | Content-free, counts by code | BUILT; pgTAP 74 |
+
+**Release order:** migration `20261114090000_v2_capture_understanding.sql` must be in production (merged to `main`)
+before the gateway from this work is deployed: the gateway writes `not_understood`, which the older CHECK refuses.
+An older gateway keeps working with the migration applied (same functions, same signatures; they settle
+`understanding` for it).
+
+**Rejected for repeated quotes:** asking the model for a disambiguating prefix/suffix or a sentence index (a prompt
+v8): a prompt change needs a paid eval re-freeze and still has to be verified by code, and the deterministic rules
+cover the founder's case without it. Assigning occurrences by the order of the model's items: a guess that could
+file a detail on the wrong person. Both are noted here so they are not re-opened without a reason.
 
