@@ -213,16 +213,6 @@ export class Understanding {
     return r ? parseRow(r) : null;
   }
 
-  /**
-   * Notes this phone told that were settled with no reading to keep: understood with nothing in it
-   * (never a reading the user declined: held readings are never "nothing"), kept as written, or kept
-   * after understanding failed. Each is still the user's words, kept on the page of whoever it is
-   * about (founder, 10 Nov 2026: every Tell is logged).
-   */
-  async quietNotes(): Promise<Set<string>> {
-    return quietNotesIn(this.store);
-  }
-
   /** Every note still in progress or waiting for the user, oldest first. */
   async open(): Promise<UnderstandingRow[]> {
     const rows = await this.store.db.all<Record<string, SqlValue>>(
@@ -398,7 +388,16 @@ export class Understanding {
    */
   async retry(captureId: string): Promise<void> {
     const row = await this.get(captureId);
-    if (!row || row.state !== "failed") return;
+    if (!row) {
+      // Failed on another phone (the synced row says so) and never tracked here: tracked now, and asked
+      // for once. The gateway holds the note; nothing is re-entered, and whatever it kept before stays.
+      const capture = (await this.store.get("captures", captureId)) as Capture | null;
+      if (capture?.status !== "failed") return;
+      await this.told(captureId);
+      this.kick();
+      return;
+    }
+    if (row.state !== "failed") return;
     await this.save(captureId, { state: "waiting", attempts: 0, next_at: null, understood_at: null, shown_at: null, retries: null });
     this.kick();
   }
@@ -1159,12 +1158,8 @@ function parseRow(r: Record<string, SqlValue>): UnderstandingRow {
   };
 }
 
-/** Understanding.quietNotes for code that holds only the store (a person's Pages). */
-export async function quietNotesIn(store: UserStore): Promise<Set<string>> {
-  const rows = await store.db.all<Record<string, SqlValue>>("SELECT * FROM understanding WHERE state IN ('done', 'kept', 'failed')");
-  const out = new Set<string>();
-  for (const row of rows.map(parseRow)) {
-    if (row.state === "kept" || row.state === "failed" || row.reading?.tier === "nothing") out.add(row.capture_id);
-  }
-  return out;
+/** Every note's row this phone holds, by note, for code that holds only the store (a person's Pages, Your words). */
+export async function understandingRowsIn(store: UserStore): Promise<Map<string, UnderstandingRow>> {
+  const rows = await store.db.all<Record<string, SqlValue>>("SELECT * FROM understanding");
+  return new Map(rows.map(parseRow).map((r) => [r.capture_id, r]));
 }

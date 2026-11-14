@@ -14,9 +14,19 @@
 //                  where it can be found, and said so in the user's words:
 //                  "Kept on Kaiya's page." (founder, 10 Nov 2026: every Tell
 //                  is logged; supersedes J4's "Nothing to remember"). A memory
-//                  Kinship couldn't place is still asked about, never this
-//   failed         "Couldn't understand this one. Your note is saved."
-//   asWritten      understanding is off or declined: kept as written
+//                  Kinship couldn't place is still asked about, never this.
+//                  The user's own "Don't keep this" is "Nothing added from
+//                  that one." and where the words stay (`declined`)
+//   failed         "Couldn't understand this one." and where the words are
+//                  kept; the card offers Try again
+//   asWritten      understanding is off or declined by the model: kept as
+//                  written, and where
+//
+// Every settled outcome says what was kept, where it can be found, what
+// Kinship understood, and whether anything needs the user (CMR-1). What came
+// of the note is read through store/tellOutcome.ts: the server's word when it
+// has one, else this phone's row, so no phone says one thing and another
+// another.
 //
 // The review is a view over the note's durable row (store/understanding.ts):
 // a result still on its way from sync is "understanding", never "none", so a
@@ -28,18 +38,21 @@ import { SWITCHABLE_KINDS, takesDate } from "@/store/memoryDetail";
 import { closedBy, type MemoryItem, type Person, type RelatedPerson } from "@/store/repositories";
 import type { FollowUpState, Recovery } from "@/store/followUp";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
+import { tellOutcome } from "@/store/tellOutcome";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 import { needsAcceptance } from "../../../supabase/functions/_shared/extraction/acceptance";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
 import { aliasesOf, mentionsOf, shortName, usesName } from "../../../supabase/functions/_shared/extraction/names";
 import { residenceQuestion } from "../../../supabase/functions/_shared/semantic/questions";
-import { keptOnCopy, keptOnNames, keptOnPeople } from "./keptOn";
+import { keptOnCopy, keptOnNames, keptOnPeople, whereKept } from "./keptOn";
 
 export interface ReviewInput {
   row: UnderstandingRow;
   /** The note as told (raw_text is null once a "delete after" note settles). */
   capture: {
     id: string; raw_text: string | null; context_person_id: string | null; status: string; feedback?: unknown;
+    /** The gateway's word on what came of the note (store/tellOutcome.ts), when the synced row has it. */
+    understanding?: unknown;
     /** What the understanding did not get to (Option A), from the synced row; null when taken whole. */
     coverage?: { unprocessed: { start: number; end: number }[]; unlocated: number } | null;
     /**
@@ -171,6 +184,8 @@ export interface ReviewView {
   summary: string | null;
   /** A note kept with no line from it: the user's own words, shown back on the card (founder, 10 Nov 2026). */
   words?: string | null;
+  /** The user's own "Don't keep this": nothing was added, and the status says where the words stay. */
+  declined?: boolean;
   lines: ItemLine[];
   questions: Question[];
   /** The answer is on its way (or waiting to be online). */
@@ -207,12 +222,13 @@ export const COPY = {
   offline: "I'll understand this when you're online.",
   retrying: "Couldn't understand this yet. Your note is saved, and I'll try again.",
   arriving: "Understanding…",
-  kept: "Kept as you wrote it.",
-  /** No one in People named: the note is kept, in the user's words (founder, 10 Nov 2026). */
-  nothing: "Kept your words.",
-  /** The user's own "Don't keep this": nothing kept, never "nothing to remember". */
-  notKept: "Nothing kept from that one.",
-  failed: "Couldn't understand this one. Your note is saved.",
+  /** Understanding off, or declined by the model: the words, as written, and where (`where`: tell/keptOn.ts). */
+  kept: (where: string) => `Kept as you wrote it, ${where}.`,
+  /** The user's own "Don't keep this": nothing was added, never "nothing to remember"; the words stay. */
+  notKept: "Nothing added from that one.",
+  wordsStay: (where: string) => `Your words stay ${where}.`,
+  /** Understanding kept failing: the words are kept all the same, and where; the card offers Try again. */
+  failed: (where: string) => `Couldn't understand this one. Your words are kept ${where}.`,
   /** Option A: the note held more than one understanding takes; the kept lines are kept, the rest is in the note. */
   partial: "Kinship couldn't get to all of it.",
   /** A later note tells the rest, but has not been read yet (kept, waiting, or being understood). */
@@ -302,18 +318,23 @@ export function buildReview(input: ReviewInput): ReviewView {
     const status = offline ? COPY.offline : row.attempts > 0 ? COPY.retrying : COPY.understanding;
     return { ...empty, mode: "understanding", status, canUndo: true };
   }
-  if (row.state === "kept") return { ...empty, mode: "asWritten", status: COPY.kept, canUndo: true };
-  if (row.state === "failed") return { ...empty, mode: "failed", status: COPY.failed, canUndo: true };
+  // Where the note's own words can be found (tell/keptOn.ts): the page of whoever it was told about or
+  // names, else under "Your words" in People. Every settled outcome says so, with the words themselves.
+  const on = keptOnPeople(capture, input.people);
+  const where = whereKept(keptOnNames(on, input.people));
+  const placed = { words: capture.raw_text, personIds: on.length ? on : empty.personIds, canUndo: true };
+  // What came of the note, read one way on every phone (the server's word first).
+  const outcome = tellOutcome(capture, row, input.items.length);
+  if (row.state === "kept") return { ...empty, ...placed, mode: "asWritten", status: COPY.kept(where) };
+  if (row.state === "failed" || outcome === "failed") return { ...empty, ...placed, mode: "failed", status: COPY.failed(where) };
   // A relationship said again that Kinship already holds (H17): said back, not kept twice.
   const known = row.reading?.known?.length ? `Already known: ${row.reading.known.join("; ")}.` : null;
   if (row.state === "done" && row.reading && row.reading.saved.length === 0 && row.reading.held.length === 0) {
+    // The user's own "Don't keep this": nothing added; the words stay where they can be found.
+    if (outcome === "declined") return { ...empty, ...placed, mode: "nothing", declined: true, status: COPY.wordsStay(where) };
     // Understood, and no line kept from it: the note is kept on the page of whoever it's about, and the
     // card says where, with the user's words (founder, 10 Nov 2026: every Tell is logged).
-    const on = keptOnPeople(capture, input.people);
-    return {
-      ...empty, mode: "nothing", status: known ?? keptOnCopy(keptOnNames(on, input.people)), canUndo: true,
-      words: capture.raw_text, personIds: on.length ? on : empty.personIds,
-    };
+    return { ...empty, ...placed, mode: "nothing", status: known ?? keptOnCopy(keptOnNames(on, input.people)) };
   }
   if (row.state === "done" || row.state === "closing" || !row.reading) return empty;
 
@@ -357,8 +378,8 @@ export function buildReview(input: ReviewInput): ReviewView {
   if (answering || questions.length || row.notice || questionWaiting(reading)) return { ...base, mode: "sheet" };
   // What the reading saved is still on its way here: understanding, not empty.
   if ((input.missing ?? 0) > 0) return { ...base, mode: "understanding", status: COPY.arriving };
-  // Answered, and the answer kept nothing ("Don't keep this").
-  if (lines.length === 0) return { ...base, mode: "nothing", status: known ?? COPY.notKept };
+  // Answered, and the answer kept nothing ("Don't keep this"): nothing added, and where the words stay.
+  if (lines.length === 0) return { ...base, ...placed, mode: "nothing", declined: true, status: known ?? COPY.wordsStay(where) };
   return { ...base, mode: "card", summary: summaryFor(lines) };
 }
 

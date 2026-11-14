@@ -43,13 +43,22 @@ export function keptOnPeople(
   return here.filter((p) => found.has(p.id)).map((p) => p.id);
 }
 
-/** "Kept on Kaiya's page.", "Kept on Kaiya's and Ben's pages.", or "Kept your words." for no one. */
-export function keptOnCopy(names: readonly string[]): string {
-  if (!names.length) return "Kept your words.";
+/** The place in People for the user's words that are about no one in People (CMR-1; needs founder confirmation). */
+export const WORDS_PLACE = "Your words";
+
+/** Where a note's words can be found: "on Kaiya's page", "on Kaiya's and Ben's pages", or "under “Your words” in People". */
+export function whereKept(names: readonly string[]): string {
+  if (!names.length) return `under “${WORDS_PLACE}” in People`;
   const owned = names.map((n) => `${n}'s`);
-  if (owned.length === 1) return `Kept on ${owned[0]} page.`;
+  if (owned.length === 1) return `on ${owned[0]} page`;
   const list = owned.length === 2 ? owned.join(" and ") : `${owned.slice(0, -1).join(", ")} and ${owned[owned.length - 1]}`;
-  return `Kept on ${list} pages.`;
+  return `on ${list} pages`;
+}
+
+/** "Kept on Kaiya's page.", "Kept on Kaiya's and Ben's pages.", or, for no one, where the words went. */
+export function keptOnCopy(names: readonly string[]): string {
+  if (!names.length) return `Kept your words, ${whereKept(names)}.`;
+  return `Kept ${whereKept(names)}.`;
 }
 
 /** The names the card says, as the app says them elsewhere. */

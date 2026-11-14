@@ -7,9 +7,10 @@ import { kindLabel, promiseLabel } from "@/features/memory/format";
 import { voiced } from "@/features/memory/statements";
 import { trailFor, type ContactEventRow } from "@/features/person/trail";
 import { nextBirthday } from "@/features/setup/setupModel";
-import { buildPages, isIntention, sentenceAround, type PageEntry, type PagesCapture, type PagesConversation, type PagesItem, type PagesSource } from "@/features/person/notebook/pagesModel";
+import { buildPages, isIntention, sentenceAround, type NotePage, type PageEntry, type PagesCapture, type PagesConversation, type PagesItem, type PagesSource } from "@/features/person/notebook/pagesModel";
 import { repositoriesFor, type Capture, type MemoryItem, type Person } from "@/store/repositories";
-import { quietNotesIn } from "@/store/understanding";
+import { understandingRowsIn } from "@/store/understanding";
+import { settled, tellOutcome, type TellOutcome } from "@/store/tellOutcome";
 import { keptOnPeople } from "@/features/tell/keptOn";
 import type { UserStore } from "@/store/userStore";
 import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
@@ -35,6 +36,39 @@ function utf16Range(text: string, start: unknown, end: unknown): [number, number
 
 // ─── Pages ──────────────────────────────────────────────────────────────
 
+/** A retained note and what came of it, as the notebook files it. */
+export interface FiledNote {
+  capture: Capture;
+  outcome: TellOutcome;
+  /** The people whose Pages it belongs on by the words alone (tell/keptOn.ts): told about, else named. */
+  on: string[];
+  /** Live memory lines rest on it (about anyone). */
+  lines: number;
+}
+
+/**
+ * Every retained note with its words, and what came of each (store/tellOutcome.ts): the server's word
+ * when it has one, else this phone's own row, else the synced row's status. Deleted notes (Undo, Delete
+ * this note) are gone; a note whose words were removed after understanding has no words to file.
+ */
+export async function filedNotesIn(store: UserStore, people: readonly Person[]): Promise<FiledNote[]> {
+  const captures = (await repositoriesFor(store).captures.list()).filter((c) => !c.deleted_at && c.raw_text);
+  if (!captures.length) return [];
+  const rows = await understandingRowsIn(store);
+  const sources = (await store.list("memory_item_sources")) as unknown as PagesSource[];
+  const items = new Map(((await store.list("memory_items")) as MemoryItem[]).map((m) => [m.id, m]));
+  const linesOn = new Map<string, number>();
+  for (const s of sources) {
+    if (s.source_kind !== "capture" || s.deleted_at || typeof s.capture_id !== "string") continue;
+    const m = items.get(s.memory_item_id);
+    if (m && live(m)) linesOn.set(s.capture_id, (linesOn.get(s.capture_id) ?? 0) + 1);
+  }
+  return captures.map((capture) => {
+    const lines = linesOn.get(capture.id) ?? 0;
+    return { capture, outcome: tellOutcome(capture, rows.get(capture.id) ?? null, lines), on: keptOnPeople(capture, people), lines };
+  });
+}
+
 /** A person's Pages from the store (the hook and tests share it). */
 export async function pagesFor(store: UserStore, personId: string, now: Date): Promise<PageEntry[]> {
   const repos = repositoriesFor(store);
@@ -49,14 +83,46 @@ export async function pagesFor(store: UserStore, personId: string, now: Date): P
   const at = new Map(contacts.map((c) => [c.id, c.occurred_at]));
   const conversations: PagesConversation[] = trailFor(contacts, about, person, now)
     .map((t) => ({ id: t.id, label: t.label, about: t.about, at: at.get(t.id) ?? "" }));
-  // Notes that kept no line, on the page of whoever they're about (founder, 10 Nov 2026: every Tell is logged).
-  const settledQuiet = await quietNotesIn(store);
-  const withLine = new Set(sources.filter((s) => s.source_kind === "capture" && !s.deleted_at && typeof s.capture_id === "string").map((s) => s.capture_id as string));
-  const quietNotes = (captures as unknown as Capture[])
-    .filter((c) => !c.deleted_at && !withLine.has(c.id) && c.raw_text && (settledQuiet.has(c.id) || c.status === "skipped" || c.status === "failed"))
-    .filter((c) => keptOnPeople(c, people).includes(personId))
-    .map((c) => c.id);
+  // Every settled note told about them or naming them, whatever its understanding did: understood with
+  // nothing in it, kept as written, failed, declined, or its lines since removed (founder, 10 Nov 2026:
+  // every Tell is logged). A note still being understood, or holding a question, waits elsewhere (H24).
+  const quietNotes = (await filedNotesIn(store, people))
+    .filter((n) => settled(n.outcome) && n.on.includes(personId))
+    .map((n) => n.capture.id);
   return buildPages({ personId, items: items as unknown as PagesItem[], sources, captures, conversations, quietNotes });
+}
+
+// ─── Your words: notes about no one in People ───────────────────────────
+
+/** A note that belongs with no one in People: the words, when, and what came of them. */
+export interface WordsNote {
+  page: NotePage;
+  outcome: TellOutcome;
+}
+
+/**
+ * The settled notes that name no one in People and rest no live line on anyone: kept, in the user's
+ * words, where they can be found (founder, 10 Nov 2026). A note naming a person goes on their Pages
+ * instead; one a line was kept from is on that person's Pages already. Newest first.
+ */
+export async function wordsFor(store: UserStore): Promise<WordsNote[]> {
+  const people = await repositoriesFor(store).people.list();
+  const notes = (await filedNotesIn(store, people)).filter((n) => settled(n.outcome) && n.on.length === 0 && n.lines === 0);
+  return notes
+    .map((n) => ({
+      outcome: n.outcome,
+      page: {
+        type: "note" as const, key: `note:${n.capture.id}`, captureId: n.capture.id,
+        at: String(n.capture.created_at ?? n.capture.occurred_at ?? ""), text: n.capture.raw_text, quotes: [], spans: [], intention: false,
+      },
+    }))
+    .sort((a, b) => b.page.at.localeCompare(a.page.at) || a.page.key.localeCompare(b.page.key));
+}
+
+export function useWords(): { notes: WordsNote[]; loading: boolean } {
+  const { store } = useV2Session();
+  const q = useStoreQuery(store, () => wordsFor(store));
+  return { notes: q.data ?? [], loading: !q.data };
 }
 
 export function usePages(personId: string): { entries: PageEntry[]; loading: boolean } {

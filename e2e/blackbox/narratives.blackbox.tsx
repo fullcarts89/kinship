@@ -25,6 +25,9 @@ const SHEET = /^Here's what I'll remember\.?$|^One thing to check|^\d+ things to
 const QUESTION = /^Who is .*\?$|^Which .* do you mean\?$|^Who is this about\?$|^Remember this|^Whose promise\?$|^When is it\?$|^Does this replace/u;
 /** Nothing on any screen ever claims the whole note was understood. */
 const CLAIMS_WHOLE = /understood (everything|the whole|all of)|all (of it )?kept|nothing left out/iu;
+/** The honest failure line: "Couldn't understand this one." and where the words are kept (CMR-1). */
+const FAILED = /^Couldn't understand this one\./u;
+const failedLine = (t: string) => FAILED.test(t);
 
 type CaptureRow = { id: string; raw_text: string | null; status: string; coverage: unknown; continues_capture_id: string | null };
 
@@ -36,7 +39,7 @@ afterEach(unmount);
  * quiet sheet ("Here's what I'll remember.", nothing left to answer), the Kept card, or a failure line.
  */
 async function settled(r: Awaited<ReturnType<typeof mount>>, answers: Record<string, string>, ms = 60000) {
-  await until(r, (s) => s.some((t) => CARD.test(t) || SHEET.test(t) || t === COPY.failed || t === COPY.retrying), "the reading", ms);
+  await until(r, (s) => s.some((t) => CARD.test(t) || SHEET.test(t) || failedLine(t) || t === COPY.retrying), "the reading", ms);
   for (let i = 0; i < 40; i++) {
     const shown = texts(r);
     const q = shown.find((t) => QUESTION.test(t));
@@ -59,7 +62,7 @@ async function settled(r: Awaited<ReturnType<typeof mount>>, answers: Record<str
   }
   // The result: the Kept card, the quiet sheet, a failure line, or (after many answers on a long note) the
   // sheet already closed with Today's moments in front: nothing left to answer and nothing being saved.
-  await until(r, (s) => (s.some((t) => CARD.test(t) || t === COPY.failed || t === COPY.retrying || t === "Here's what I'll remember.") || (canTap(r, "Done") && !s.some((t) => QUESTION.test(t)))) && !s.includes("Saving your answer…"), "the result", 20000);
+  await until(r, (s) => (s.some((t) => CARD.test(t) || failedLine(t) || t === COPY.retrying || t === "Here's what I'll remember.") || (canTap(r, "Done") && !s.some((t) => QUESTION.test(t)))) && !s.includes("Saving your answer…"), "the result", 20000);
 }
 
 /** Closes the quiet sheet (Done) and Today's one-time bring-back (Got it), as a new user does. */
@@ -140,7 +143,7 @@ it("a note the model cannot answer keeps the note and says so, honestly, with no
   const r = await mount();
   await setUp(r, ROSTER);
   await tell(r, NO_REPLY);
-  await until(r, (s) => s.includes(COPY.retrying) || s.includes(COPY.failed), "the honest failure line", 60000);
+  await until(r, (s) => s.includes(COPY.retrying) || s.some(failedLine), "the honest failure line", 60000);
   expect(texts(r).some((t) => CARD.test(t))).toBe(false);
   expect(texts(r).some((t) => CLAIMS_WHOLE.test(t))).toBe(false);
   await acct.engine.sync();

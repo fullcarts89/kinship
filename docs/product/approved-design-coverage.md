@@ -576,5 +576,32 @@ language without on-device recognition get no mic at all.
 
 **Not changed:** the server still drops a proposed line whose quote appears twice in a note
 (`evidence_ambiguous`); the voice fix (K34) removes the cause that hit the founder. A note naming no one in People
-has no page to be found on yet.
+had no page to be found on: see CMR-1 below ("Your words").
+
+## CMR-1 Core Memory Reliability, Workstream A (14 Nov 2026): what changed on approved surfaces
+
+**Founder directive (CMR-1):** every retained Tell must be findable; voice must never keep words twice or drop
+words the user said twice; copy must never dismiss a retained Tell because understanding failed. Builds on the
+10 Nov decision above. Everything below is app-side; the gateway's part (Workstream C) is the nullable
+`captures.understanding` column (`kept · nothing · partial · held · declined · failed`), which the app reads
+first and falls back from (`src/store/tellOutcome.ts`). **Nothing here is native-walked yet.**
+
+| Surface | Was | Now | Rules it keeps | Status / founder decision needed |
+|---|---|---|---|---|
+| **Listening** (#29), the words | `joinWords` + `onceOver`: a passage said twice word for word was collapsed to one (it would also have deleted "I love her, I love her so much" said as two utterances) | The transcript is assembled from what each recognizer result *is* (`Transcript` in `src/platform/speech.ts`): partials replace, each final settles one utterance, and a repeat is dropped only when the recognizer's own word timing matches or nothing new was heard since that final. Intentional repetition is kept | D5 (on-device only, audio never kept); the board's screen is unchanged | BUILT; tests replay the founder's K34 sequence; not native |
+| Kept card, a note that kept no line | "Kept on Kaiya's page." / "Kept your words." | "Kept on Kaiya's page." unchanged; for a note naming no one: **"Kept your words, under “Your words” in People."** The words shown under it, as before | Never a guess about who | BUILT; copy for the founder's eye |
+| Kept card, understanding failed | "Couldn't understand this one. Your note is saved." + Try again | **"Couldn't understand this one. Your words are kept on Kaiya's page."** (or under “Your words” in People), the words shown under it, Try again as before; the card belongs with the people the note names | Try again never re-enters the note; the user's edits and "Not this" are never undone by it | BUILT |
+| Kept card, kept as written (understanding off) | "Kept as you wrote it." | **"Kept as you wrote it, on Kaiya's page."** (or under “Your words” in People), the words shown | — | BUILT |
+| Kept card and review, the user's "Don't keep this" | "Nothing kept from that one." and the note was then shown nowhere | **"Nothing added from that one. Your words stay on Rosa's page."** (title + status), and the note is on Rosa's Pages in full, nothing marked | Declining a reading is not discarding the Tell (CMR-1); Undo and Delete this note still remove it, for good | BUILT. **Deviation from the 10 Nov row above** ("Never a note whose reading the user declined"), on the CMR-1 directive's words; **needs founder confirmation** |
+| 13 Pages (`notebook_deck`) | Notes with a live line about them, plus notes this phone's own row held as "nothing", as written, or failed | Every **settled** note told about them or naming them: understood with nothing in it, as written, failed, declined, or its lines since removed; read through `tellOutcome` (the server's word first, so a note told on another phone is found once the server has understood it, or by its synced status before the column exists). A note still being understood or holding a question is not placed (founder H24) | Only this person's kept words marked; the user's words never rewritten; nothing counted | BUILT; tests |
+| **Your words** (new, People › foot; `notebook_deck`) | A note naming no one in People had nowhere to be found | One quiet row after Everyone, **only when there is something there**: "Your words · Notes that aren't about anyone in People yet" → a page on notebook paper (`/v2/words`) with the settled notes that name no one and rest no line on anyone, newest first, Find, a note opens its Source page (Delete this note lives there). Nothing counted or marked | Contract §5 lists "Quick Notes" as not a destination: this is not a notes feature or an input; it is the one place the user's own retained Tells about no one can be found, as Pages is for a person | BUILT; tests. **New navigation: needs founder confirmation** of the place (People's foot) and the name ("Your words"); alternatives: a line in Settings › What Kinship knows, or Today's quiet lines |
+| Alpha look (flag off) | — | Unchanged: no Pages and no Your words (as before, Pages is notebook-only) | — | Recorded: a note about no one is still findable only with `notebook_deck` |
+
+**Shared contract assumed with the gateway (Workstream C):** `captures.understanding` text NULL,
+CHECK IN ('kept','nothing','partial','held','declined','failed'); NULL = not yet understood or older than the
+column; written by the gateway only. The app never writes it (`tables.ts`), tolerates its absence, and reads this
+phone's `understanding` row, then the synced `status`, when it is NULL.
+
+**Readiness: NOT READY** until walked natively (voice on the founder's phone; Pages, Your words and the cards at
+375 pt and the largest text).
 
