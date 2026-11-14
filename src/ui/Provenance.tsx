@@ -4,7 +4,7 @@
 import React from "react";
 import { View } from "react-native";
 import { Pressable } from "./Pressable";
-import { press, size, space } from "@/design/tokens";
+import { press, size, sourceHitSlop, space, type } from "@/design/tokens";
 import { Source } from "./Text";
 import { usePalette } from "./theme";
 
@@ -23,7 +23,7 @@ export function Provenance({ line, onPress, dot = true }: { line: string; onPres
       accessibilityLabel={line}
       accessibilityHint="Opens where this came from"
       onPress={onPress}
-      hitSlop={{ top: space.s, bottom: space.s, left: 0, right: space.l }}
+      hitSlop={sourceHitSlop(type.source.lineHeight)}
       style={({ pressed }) => ({ alignSelf: "flex-start", opacity: pressed ? press.link : 1 })}
     >
       {content}

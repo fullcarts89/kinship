@@ -246,6 +246,9 @@ describe("People as an index", () => {
     const spy = jest.spyOn(list, "scrollToLocation").mockImplementation(() => undefined);
     act(() => rail.props.onAccessibilityAction({ nativeEvent: { actionName: "increment" } }));
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ sectionIndex: 1, itemIndex: 0 }));
+    // The current letter sits on a disc; the others don't (feedback where the finger is).
+    const discs = rail.findAll((x) => typeof x.type === "string" && x.props.style?.backgroundColor !== undefined && x.props.style.backgroundColor !== "transparent");
+    expect(discs.map((d) => d.findByType(Text).props.children)).toEqual(["B"]);
     // At 25, no breaks and no rail.
     const few = render(<NotebookPeopleView {...props({}, many.slice(0, 25))} />);
     expect(few.root.findAll((x) => x.props.testID === "letter-rail")).toHaveLength(0);

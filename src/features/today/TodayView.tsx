@@ -27,6 +27,7 @@ import {
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Pressable } from "@/ui/Pressable";
 import type { QuietView, TodayView as TodayData } from "./todayModel";
+import { isFirstArrivalToday, markArrivedToday } from "@/ui/dailyArrival";
 
 export interface TodayViewProps {
   view: TodayData;
@@ -336,14 +337,18 @@ function Hero({ width, name, statement, context, hope, provenance, context2, pho
 }) {
   const p = usePalette();
   const reduce = useReduceMotion();
-  const rise = useSharedValue(reduce ? 0 : motion.hero.rise);
+  // The full arrival once a day; after that a fade, as with Reduce Motion (src/ui/dailyArrival.ts).
+  const [full] = React.useState(() => isFirstArrivalToday());
+  const quiet = reduce || !full;
+  const rise = useSharedValue(quiet ? 0 : motion.hero.rise);
   const fade = useSharedValue(0);
   React.useEffect(() => {
     const [a, b, c, d] = motion.arrive.easing;
-    const duration = reduce ? motion.reduced.duration : motion.hero.duration;
+    if (!quiet) markArrivedToday();
+    const duration = quiet ? motion.reduced.duration : motion.hero.duration;
     fade.value = withTiming(1, { duration, easing: Easing.bezier(a, b, c, d) });
     rise.value = withTiming(0, { duration, easing: Easing.bezier(a, b, c, d) });
-  }, [reduce, fade, rise]);
+  }, [quiet, fade, rise]);
   const arrive = useAnimatedStyle(() => ({ opacity: fade.value, transform: [{ translateY: rise.value }] }));
 
   const { name: poster, rest } = posterSplit(statement, name);

@@ -4,6 +4,7 @@
 import React, { useRef, useState } from "react";
 import { type GestureResponderEvent, View } from "react-native";
 import { space, TOUCH } from "@/design/tokens";
+import { usePalette } from "@/ui";
 import { NText, useNotebookPalette } from "@/ui/notebook";
 import { INDEX_COPY } from "./peopleIndexModel";
 
@@ -13,6 +14,7 @@ export const RAIL_WIDTH = TOUCH / 2 + space.s;
 
 export function LetterRail({ letters, onLetter }: { letters: string[]; onLetter: (letter: string) => void }) {
   const n = useNotebookPalette();
+  const p = usePalette();
   const rail = useRef<View>(null);
   const top = useRef(0);
   const [current, setCurrent] = useState<string | null>(null);
@@ -55,9 +57,15 @@ export function LetterRail({ letters, onLetter }: { letters: string[]; onLetter:
       testID="letter-rail"
       style={{ width: RAIL_WIDTH, paddingVertical: space.xs, alignItems: "center" }}
     >
-      {letters.map((l) => (
-        <NText key={l} v="dayCap" allowFontScaling={false} color={n.knownText} style={{ height: LETTER_HEIGHT, lineHeight: LETTER_HEIGHT, letterSpacing: 0 }}>{l}</NText>
-      ))}
+      {/* The letter under the finger sits on a small ink disc until the finger lifts (founder, 14 Nov 2026: feedback where the finger is). */}
+      {letters.map((l) => {
+        const on = l === current;
+        return (
+          <View key={l} style={{ width: LETTER_HEIGHT + space.xs, height: LETTER_HEIGHT, borderRadius: (LETTER_HEIGHT + space.xs) / 2, alignItems: "center", justifyContent: "center", backgroundColor: on ? p.ink : "transparent" }}>
+            <NText v="dayCap" allowFontScaling={false} color={on ? p.onInk : n.knownText} style={{ height: LETTER_HEIGHT, lineHeight: LETTER_HEIGHT, letterSpacing: 0 }}>{l}</NText>
+          </View>
+        );
+      })}
     </View>
   );
 }

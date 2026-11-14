@@ -4,7 +4,7 @@
 // markup only; its look belongs to WS-2.
 import React from "react";
 import { View } from "react-native";
-import { press, space } from "@/design/tokens";
+import { press, sourceHitSlop, space, type } from "@/design/tokens";
 import { Pressable } from "@/ui/Pressable";
 import { Small } from "@/ui";
 import type { Suggestion } from "./suggestions";
@@ -18,7 +18,7 @@ export function SuggestionLine({ suggestion, personName, onPress }: { suggestion
         accessibilityLabel={suggestion.text}
         accessibilityHint={`A suggestion. Opens a conversation with ${personName}`}
         onPress={onPress}
-        hitSlop={{ top: space.s, bottom: space.s, left: 0, right: space.l }}
+        hitSlop={sourceHitSlop(type.provenance.lineHeight)}
         style={({ pressed }) => ({ alignSelf: "flex-start", opacity: pressed ? press.link : 1 })}
       >
         <Small>{suggestion.text}</Small>

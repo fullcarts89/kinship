@@ -11,7 +11,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Animated, Platform, ScrollView, TextInput, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, Contact, Plus, RotateCcw, Users, X } from "lucide-react-native";
-import { font, maxScale, notebookShadow, press, space, TOUCH, GUTTER } from "@/design/tokens";
+import { font, maxScale, motion, notebookShadow, press, space, TOUCH, GUTTER } from "@/design/tokens";
 import type { HeldAnswer } from "@/store/gateway";
 import type { Person } from "@/store/repositories";
 import { isLargeText, useReduceMotion, usePalette } from "@/ui";
@@ -469,7 +469,7 @@ function Spot({ register, pulse, radius, style, children }: {
   pulse(() => {
     running.current?.stop();
     o.setValue(1);
-    running.current = Animated.timing(o, { toValue: 0, duration: 1200, useNativeDriver: true });
+    running.current = Animated.timing(o, { toValue: 0, duration: motion.highlight.duration, useNativeDriver: true });
     running.current.start();
   });
   return (

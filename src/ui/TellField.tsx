@@ -9,15 +9,15 @@
 // mic (onSpeak); once there is something to send it is Send. Without on-device
 // voice there is no mic at all and the round button appears only when there
 // is something to send; the keyboard's own dictation works in the field.
-import React, { forwardRef } from "react";
-import { Text, TextInput, View } from "react-native";
+import React, { forwardRef, useEffect, useRef } from "react";
+import { Animated, Text, TextInput, View } from "react-native";
 import { Pressable } from "./Pressable";
 import { ArrowUp, Mic } from "lucide-react-native";
-import { height, maxScale, press, radius, shadow, size, space, type } from "@/design/tokens";
+import { height, maxScale, motion, press, radius, shadow, size, space, type } from "@/design/tokens";
 import { IconButton } from "./Screen";
 import { KeyboardBar, useKeyboardBarId } from "./KeyboardBar";
 import type { NavKey } from "./NavBar";
-import { usePalette } from "./theme";
+import { usePalette, useReduceMotion } from "./theme";
 
 export interface TellFieldProps {
   value: string;
@@ -46,13 +46,17 @@ export const TellField = forwardRef<TextInput, TellFieldProps>(function TellFiel
   const p = usePalette();
   const bar = useKeyboardBarId();
   const canSend = value.trim().length > 0;
-  const send = canSend ? (
-    <IconButton label="Send to Kinship" onPress={onSend} filled diameter={height.mic}>
-      <ArrowUp color={p.onInk} size={size.icon} strokeWidth={1.8} />
+  const arrow = <ArrowUp color={p.onInk} size={size.icon} strokeWidth={1.8} />;
+  // With on-device voice the round button is always there: the mic while the field is empty, Send once
+  // there are words. One button, its icon crossfading (founder, 14 Nov 2026); what it says and does
+  // changes at once. Without voice, Send simply appears with something to send.
+  const send = onSpeak ? (
+    <IconButton label={canSend ? "Send to Kinship" : "Say it instead"} onPress={canSend ? onSend : onSpeak} filled diameter={height.mic}>
+      <Crossfade first={canSend} a={arrow} b={<Mic color={p.onInk} size={size.icon} strokeWidth={1.8} />} />
     </IconButton>
-  ) : onSpeak ? (
-    <IconButton label="Say it instead" onPress={onSpeak} filled diameter={height.mic}>
-      <Mic color={p.onInk} size={size.icon} strokeWidth={1.8} />
+  ) : canSend ? (
+    <IconButton label="Send to Kinship" onPress={onSend} filled diameter={height.mic}>
+      {arrow}
     </IconButton>
   ) : null;
   if (collapsed && canSend) {
@@ -117,6 +121,24 @@ export const TellField = forwardRef<TextInput, TellFieldProps>(function TellFiel
     </View>
   );
 });
+
+/** Two icons in one place: `a` while `first`, else `b`, crossfading (`motion.quick`; 150 ms with Reduce Motion). No scale, no blur. */
+function Crossfade({ first, a, b }: { first: boolean; a: React.ReactNode; b: React.ReactNode }) {
+  const reduce = useReduceMotion();
+  const v = useRef(new Animated.Value(first ? 1 : 0)).current;
+  useEffect(() => {
+    const run = Animated.timing(v, { toValue: first ? 1 : 0, duration: reduce ? motion.reduced.duration : motion.quick, useNativeDriver: true });
+    run.start();
+    return () => run.stop();
+  }, [first, reduce, v]);
+  const layer = { position: "absolute" as const, top: 0, left: 0, right: 0, bottom: 0, alignItems: "center" as const, justifyContent: "center" as const };
+  return (
+    <View style={{ width: size.icon, height: size.icon }}>
+      <Animated.View style={[layer, { opacity: v }]}>{a}</Animated.View>
+      <Animated.View style={[layer, { opacity: v.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}>{b}</Animated.View>
+    </View>
+  );
+}
 
 /** The field in its usual place: the gutter, above the bar. */
 export function TellDockFrame({ children }: { children: React.ReactNode }) {

@@ -4,10 +4,10 @@
 import React, { useState } from "react";
 import { View, type ViewProps, type ViewStyle } from "react-native";
 import { ChevronRight } from "lucide-react-native";
-import { notebook, notebookShadow, press, radius, size, space, TOUCH } from "@/design/tokens";
+import { notebook, notebookShadow, press, radius, size, sourceHitSlop, space, TOUCH } from "@/design/tokens";
 import { Pressable } from "../Pressable";
 import { isLargeText, usePalette } from "../theme";
-import { NText, type NTone, type NVariant } from "./NText";
+import { NT, NText, type NTone, type NVariant } from "./NText";
 import { useNotebookPalette } from "./theme";
 
 /** Where a line came from, by kind: a note (green), Contacts (sky), your own word (sunset), private (magenta). */
@@ -58,7 +58,7 @@ export function NSource({ kind = "note", label, onPress, tone, color, chevron = 
       accessibilityLabel={label}
       accessibilityHint="Opens where this came from"
       onPress={onPress}
-      hitSlop={{ top: space.s, bottom: space.s, left: 0, right: space.l }}
+      hitSlop={sourceHitSlop(NT.source.lineHeight ?? 13)}
       style={({ pressed }) => [{ alignSelf: "flex-start", opacity: pressed ? press.link : 1 }, style]}
     >
       {row}

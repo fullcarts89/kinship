@@ -191,6 +191,16 @@ export const GUTTER = space.xxl;
 /** Every control is at least this tall. */
 export const TOUCH = 44;
 
+/**
+ * The touch area of a source line (the provenance under a memory) that is shorter than TOUCH: the
+ * extra height goes below it, never above. The memory line above is tappable and is drawn first, so
+ * slop upward would take part of its target; a line below is drawn later and keeps any overlap.
+ * Founder, 14 Nov 2026 (audits/2026-11-13-ux-motion-principles.md §5.1, option a).
+ */
+export function sourceHitSlop(lineHeight: number) {
+  return { top: space.s, bottom: Math.max(space.s, TOUCH - space.s - Math.ceil(lineHeight)), left: 0, right: space.l };
+}
+
 /** Heights: buttons 50, the Tell field 52, search 50, a person row 58, the bar 62. */
 export const height = { button: 50, tell: 52, search: 50, mic: 40, small: 44, row: 58, nav: 62 } as const;
 
@@ -242,6 +252,22 @@ export const motion = {
   sheetOut: { duration: 240 },
   /** The scrim behind a sheet fades; it never slides with the sheet. */
   scrim: { duration: 240 },
+  /** A Moment growing from its card to the full screen (it closes in `arrive.duration`). */
+  expand: { duration: 420 },
+  /** A quick fade out (the full moment leaving without a card to return to). */
+  fadeOut: { duration: 200 },
+  /** The person page changing lens: the new lens fades in and slides this far. */
+  lens: { duration: 200, shift: 16 },
+  /** The review fading in over the Tell page. */
+  reviewIn: { duration: 260 },
+  /** A line the page was opened on comes up from faint. */
+  focus: { duration: 900 },
+  /** The breathing dot beside "Understanding…", each way. */
+  breathe: { duration: 500 },
+  /** The review's highlight on what a tapped phrase points at, fading. */
+  highlight: { duration: 1200 },
+  /** Staggers: understood words underlined one after another; ideas arriving one after another. */
+  stagger: { word: 110, idea: 60 },
 } as const;
 
 /**

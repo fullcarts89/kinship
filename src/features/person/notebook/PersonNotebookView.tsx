@@ -408,11 +408,11 @@ function LensMotion({ lens, children, onLayoutY }: { lens: Lens; children: React
     }
     v.setValue(0);
     // An entrance: the arrive curve (ease-out), as every arrival.
-    const run = Animated.timing(v, { toValue: 1, duration: reduce ? motion.reduced.duration : 200, easing: Easing.bezier(...motion.arrive.easing), useNativeDriver: true });
+    const run = Animated.timing(v, { toValue: 1, duration: reduce ? motion.reduced.duration : motion.lens.duration, easing: Easing.bezier(...motion.arrive.easing), useNativeDriver: true });
     run.start();
     return () => run.stop();
   }, [lens, reduce, v]);
-  const shift = reduce ? 0 : 16;
+  const shift = reduce ? 0 : motion.lens.shift;
   return (
     <Animated.View onLayout={(e) => onLayoutY(e.nativeEvent.layout.y)} style={{ opacity: v, transform: [{ translateX: v.interpolate({ inputRange: [0, 1], outputRange: [shift, 0] }) }] }}>
       {children}

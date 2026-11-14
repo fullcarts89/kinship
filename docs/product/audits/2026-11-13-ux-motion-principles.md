@@ -140,9 +140,11 @@ to deviate). None changes layout, copy, colour or what appears.
 
 **Native:** not run; this environment has no iPhone or simulator. **Readiness: NOT READY.**
 
-## 5. For the founder
+## 5. For the founder, decided 14 Nov 2026
 
-Each of these would change what a person sees or feels, so none is built.
+The founder approved items 1–5 on 14 Nov 2026 ("go ahead and implement this"), and they are now built. The two open
+choices were made as recommended: option (a) for the source links, and the expansion kept at 420 ms. Item 6 stays
+unchanged. What was built is in §6; the proposals as they were put are below.
 
 1. **Source links are 29–31 pt tall.** These are the provenance line under every memory: `Provenance`, `NSource`,
    `PrivateSource` and the "You could…" suggestion. They sit just below a tappable line, so a 44 pt target would take
@@ -184,6 +186,20 @@ Each of these would change what a person sees or feels, so none is built.
 
 Not changed, and not proposed: system spinners keep spinning under Reduce Motion (Apple keeps them). The review's
 1.2 s highlight is a fade, not movement.
+
+## 6. Built after the founder's yes (14 Nov 2026)
+
+| # | Decision | Built |
+|---|---|---|
+| 1 | Source links, option (a) | `sourceHitSlop` (`tokens.ts`) gives `Provenance`, `NSource`, `PrivateSource` and `SuggestionLine` a 44 pt touch area. The extra height goes **below** the line only: the memory line above is drawn first, so upward slop would take its target, while a line below is drawn later and keeps any overlap. The nested text links (Terms / Privacy, the review's "Add {name}" tag, the day word, the phrases in "Your words") are unchanged; they can't take slop without being rebuilt as separate controls |
+| 2 | Today's hero arrives in full once a day | `src/ui/dailyArrival.ts`. The first time the alpha Today's hero appears on a calendar day it rises (520 ms, 14 pt); later that day it fades in (150 ms), as with Reduce Motion. Kept in memory, so a fresh launch counts as a new arrival, and nothing is stored. The notebook Today (`notebook_deck`) has no hero arrival to reduce |
+| 3 | A–Z rail feedback | The letter under the finger (or the VoiceOver adjustment) sits on a small ink disc, with the letter in `onInk`, until the finger lifts |
+| 4 | Tell field crossfade | With on-device voice, the round button is one control. Its icon crossfades between the mic and Send in `motion.quick` (150 ms with Reduce Motion), with no scale or blur; its label and action change at once. Without voice, Send appears as before |
+| 5 | Motion values named | `motion.expand` 420, `fadeOut` 200, `lens` 200 / 16 pt, `reviewIn` 260, `focus` 900, `breathe` 500, `highlight` 1200, `stagger.word` 110, `stagger.idea` 60. All are the values they had; every literal now uses its token |
+
+**Tests:** `src/ui/__tests__/motionTouch.test.ts` (source slop, the once-a-day rule, the token values); the People
+rail test asserts the disc; the voice tests still find "Say it instead" and "Send to Kinship" on the one button.
+**Native:** not run. **Readiness: NOT READY.**
 
 ---
 

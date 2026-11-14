@@ -83,7 +83,7 @@ export function YourWords(props: YourWordsProps) {
             )))}
           </Text>
           {overlay ? live.map((m, i) => (
-            <Underline key={m.key} delay={reduce ? 0 : i * 110} duration={reduce ? motion.reduced.duration : motion.understand.duration}>
+            <Underline key={m.key} delay={reduce ? 0 : i * motion.stagger.word} duration={reduce ? motion.reduced.duration : motion.understand.duration}>
               <Text style={[base, { color: "transparent" }]} numberOfLines={lines} maxFontSizeMultiplier={maxScale.text}>
                 {runs.map((r) => (
                   <Text

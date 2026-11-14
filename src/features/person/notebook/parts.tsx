@@ -4,7 +4,7 @@
 import React from "react";
 import { Text, View, type TextStyle, type ViewStyle } from "react-native";
 import { ChevronLeft, Lock, Sprout } from "lucide-react-native";
-import { maxScale, notebookShadow, press, size, space, TOUCH } from "@/design/tokens";
+import { maxScale, notebookShadow, press, size, sourceHitSlop, space, TOUCH } from "@/design/tokens";
 import { Pressable } from "@/ui/Pressable";
 import { usePalette } from "@/ui";
 import { NSource, NText, NT, useNotebookPalette, type SourceKind } from "@/ui/notebook";
@@ -45,7 +45,7 @@ export function PrivateSource({ suffix, dot = "green", onPress }: { suffix?: str
   if (!onPress) return <View accessible accessibilityLabel={label}>{row}</View>;
   return (
     <Pressable accessibilityRole="link" accessibilityLabel={label} accessibilityHint="Opens where this came from" onPress={onPress}
-      hitSlop={{ top: space.s, bottom: space.s, left: 0, right: space.l }} style={({ pressed }) => ({ alignSelf: "flex-start", maxWidth: "100%", opacity: pressed ? press.link : 1 })}>
+      hitSlop={sourceHitSlop(NT.source.lineHeight ?? 13)} style={({ pressed }) => ({ alignSelf: "flex-start", maxWidth: "100%", opacity: pressed ? press.link : 1 })}>
       {row}
     </Pressable>
   );

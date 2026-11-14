@@ -29,7 +29,6 @@ export const MOMENT_COPY = {
   close: "Close",
 } as const;
 
-const EXPAND_MS = 420;
 const EASE = Easing.bezier(0.2, 0.9, 0.25, 1);
 
 export function MomentFull({
@@ -105,7 +104,7 @@ export function MomentFull({
       } else {
         fade.value = 1;
         t.value = 0;
-        t.value = withTiming(1, { duration: EXPAND_MS, easing: EASE });
+        t.value = withTiming(1, { duration: motion.expand.duration, easing: EASE });
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,7 +113,7 @@ export function MomentFull({
   useEffect(() => {
     if (visible || !shown) return;
     const gone = () => setShown(null);
-    if (reduce || !from) fade.value = withTiming(0, { duration: reduce ? motion.reduced.duration : 200 }, (ok) => ok && runOnJS(gone)());
+    if (reduce || !from) fade.value = withTiming(0, { duration: reduce ? motion.reduced.duration : motion.fadeOut.duration }, (ok) => ok && runOnJS(gone)());
     else t.value = withTiming(0, { duration: motion.arrive.duration, easing: EASE }, (ok) => ok && runOnJS(gone)());
     // A test renderer or a paused animation never finishes: never leave a stale moment on screen.
     const timer = setTimeout(gone, 400);
@@ -126,7 +125,7 @@ export function MomentFull({
       setShown(null);
       onClose();
     };
-    if (reduce || !from) fade.value = withTiming(0, { duration: reduce ? motion.reduced.duration : 200 }, (ok) => ok && runOnJS(done)());
+    if (reduce || !from) fade.value = withTiming(0, { duration: reduce ? motion.reduced.duration : motion.fadeOut.duration }, (ok) => ok && runOnJS(done)());
     else t.value = withTiming(0, { duration: motion.arrive.duration, easing: EASE }, (ok) => ok && runOnJS(done)());
   };
   const frame = useAnimatedStyle(() => ({

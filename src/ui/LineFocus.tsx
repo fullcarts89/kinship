@@ -10,7 +10,7 @@ import { motion } from "@/design/tokens";
 import { useReduceMotion } from "./theme";
 
 /** How long the focused line takes to come up to full. */
-export const FOCUS_FADE_MS = 900;
+export const FOCUS_FADE_MS = motion.focus.duration;
 /** Room left above the focused line, so it isn't pinned to the top edge. */
 export const FOCUS_ABOVE = 96;
 

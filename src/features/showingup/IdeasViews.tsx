@@ -77,7 +77,7 @@ export function IdeaCard({ idea, index, onPress }: { idea: Idea; index: number; 
   const g = idea.grounds[0];
   const because = g ? (g.contacts ? g.quote : `“${g.quote.replace(/^“|”$/gu, "")}”`) : "";
   return (
-    <Animated.View entering={reduce ? FadeIn.duration(motion.reduced.duration) : FadeInDown.duration(motion.arrive.duration).easing(ARRIVE).delay(index * 60)}>
+    <Animated.View entering={reduce ? FadeIn.duration(motion.reduced.duration) : FadeInDown.duration(motion.arrive.duration).easing(ARRIVE).delay(index * motion.stagger.idea)}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${CATEGORY_LABEL[idea.category]}. ${idea.title}. ${because}`}

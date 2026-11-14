@@ -589,3 +589,16 @@ A review of the 2.0 shell against two reels (20 UX and animation principles; 20 
 - Four entrances that used the platform's default curve now use `motion.arrive`'s easing, at their existing durations.
 
 The reels' expressive techniques (bounce, scale-on-press, success pulses, rubber-banding) are declined under `press`, "no overshoot", H4's "no decorative motion" and J5. Everything that would change a surface is listed for the founder in the audit's §5: source-link targets, a once-a-day Today arrival, the A–Z rail highlight, the Tell field's icon crossfade. **Native:** not run. **Readiness: NOT READY.**
+
+## Motion and touch decisions (founder, 14 Nov 2026): what changed on approved surfaces
+
+The founder approved the motion review's §5 items 1–5 (`audits/2026-11-13-ux-motion-principles.md`, §6 for detail). No surface is added or removed. Native pending on all of these.
+
+| Surface | Change | Founder approved? |
+|---|---|---|
+| Every source line (Provenance, notebook sources, the "You could…" line) | A 44 pt touch area, the extra height below the line only; nothing looks different | Yes (option a) |
+| 10 Today (alpha hero) | The hero's rise plays on the first appearance of the day; later that day it fades in (150 ms) | Yes |
+| 11 People (`notebook_deck`) › A–Z rail | The letter under the finger sits on a small ink disc until the finger lifts | Yes |
+| Tell field (with on-device voice) | One round button; its icon crossfades mic ↔ Send (160 ms, no scale or blur) | Yes |
+| All motion | The remaining literal durations named in `motion` at their existing values (the moment's expansion stays 420 ms) | Yes |
+
