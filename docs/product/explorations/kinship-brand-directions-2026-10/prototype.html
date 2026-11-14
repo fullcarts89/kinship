@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinship · brand directions, round 3 · interactive prototype (exploratory, unapproved)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Sans:wght@400;500;700&family=Lora:ital,wght@0,400..700;1,400..700&family=Caveat:wght@500;700&family=Courier+Prime:wght@400;700&family=Work+Sans:wght@400;500;600&family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Literata:ital,opsz,wght@0,7..72,400..600;1,7..72,400..600&family=Gabarito:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="brand.css">
+<script src="../today-redesign-2026-10/round-2/sprigs2.js"></script>
+<script src="../today-redesign-2026-10/shared.js"></script>
+<script src="fixtures.js"></script>
+<script src="art.js"></script>
+<script src="engine.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <h1>Six directions, one product</h1>
+    <div class="hint">Click inside the phone: the words, the pills, a person, a line. The same fixtures, behaviour and copy in every direction; only the identity changes.</div>
+    <div class="banner"><b>EXPLORATORY · UNAPPROVED.</b> Fictional people and notes. No production code, data or model. Items marked <span class="tagf" style="margin:0">Proposed</span> / <span class="tagf" style="margin:0">Alpha</span> / <span class="tagf" style="margin:0">Future</span> are not built and not approved.</div>
+
+    <h2>Direction</h2>
+    <div class="states themes">
+      <button data-theme="garden">A · Garden Letter</button><button data-theme="bloom">B · Bloom</button><button data-theme="keepsake">C · Keepsake</button><button data-theme="orbit">D · Orbit</button><button data-theme="postmark">E · Postmark</button><button data-theme="woven">F · Woven</button>
+    </div>
+    <h2>Side by side</h2>
+    <div class="states"><button data-compare="one">One phone</button><button data-compare="finalists">Finalists (A · B · F)</button><button data-compare="all">All six</button></div>
+
+    <h2>Scenario</h2>
+    <div class="states">
+      <button data-scn="A" data-screen="setup" data-note="A · First use: one person, one story (PROPOSED, from the rapid-understanding exploration, PR #52 concept B; not built). The question invites a story, not a fact; Someone else switches without ranking; Skip is always offered.">A · First Tell <i class="tagf">Proposed</i></button>
+      <button data-scn="A2" data-screen="today" data-state="first" data-note="A · First use on Today (built composition): a worked example drawn as a small letter, and one action.">A · First use Today</button>
+      <button data-scn="B" data-screen="today" data-state="moment" data-note="B · A meaningful Moment: Ben's race is tomorrow. The primary action is the natural one: wish him luck. Everything on the page has a source.">B · Moment</button>
+      <button data-scn="C" data-screen="today" data-state="quiet" data-note="C · A quiet day: nothing reaches the threshold and nothing is invented. Is the page still a place?">C · Quiet day</button>
+      <button data-scn="D" data-screen="person" data-person="priya" data-note="D · A portrait: current context, an interest, an upcoming plan, shared history; every line with its source. Does the information survive the decoration?">D · Portrait</button>
+      <button data-scn="E" data-screen="today" data-state="dayafter" data-note="E · The hand-off and return: tap Ask how it went → Open Messages → back → the question → Yes. Opening Messages is never taken as proof of a message.">E · Hand-off & return</button>
+      <button data-scn="F" data-screen="today" data-state="sensitive" data-note="F · A sensitive situation (RSN-09, Alpha; illustrative): no kicker, no occasion art, no celebration, nothing bright. The same identity, lowered.">F · Sensitive</button>
+    </div>
+    <h2>More Today states</h2>
+    <div class="states">
+      <button data-screen="today" data-state="birthday" data-note="A birthday: the one celebration treatment. A warm field, the occasion art, nothing that rewards the user.">Birthday</button>
+      <button data-screen="today" data-state="milestone" data-note="A wedding on Thursday: the longest statement, to test wrapping.">Milestone</button>
+      <button data-screen="today" data-state="promise" data-note="A promise reason (RSN-06, Commit next): You said you'd. The guilt firewall: no 'still haven't', no overdue state.">Promise <i class="tagf">Next</i></button>
+      <button data-screen="today" data-state="return" data-note="Back from Messages: the question is the moment; one observed fact; Yes / Not yet.">Return check</button>
+    </div>
+    <h2>People</h2>
+    <div class="states"><button data-screen="people" data-people="small">15 people</button><button data-screen="people" data-people="large">110 people</button><button data-screen="people" data-people="large" data-query="sa">Search “sa”</button></div>
+    <h2>A person</h2>
+    <div class="states"><button data-screen="person" data-person="priya">Priya · many</button><button data-screen="person" data-person="lena">Lena · one memory</button><button data-screen="person" data-person="chris">Chris · shared</button><button data-screen="person" data-person="mom">Mom · sensitive</button><button data-screen="person" data-person="nana">Nana · remembered</button><button data-screen="person" data-person="sam-diaz">Sam · nothing yet</button></div>
+    <h2>Sheets and states</h2>
+    <div class="states">
+      <button data-sheet="detail">Detail / source</button><button data-sheet="correct">Correction</button><button data-sheet="clarify">Which Sam?</button>
+      <button data-sheet="processing" data-note="A long Tell being understood (PROPOSED story-first capture): honest pending state; the user may keep telling.">Long Tell <i class="tagf">Proposed</i></button>
+      <button data-sheet="kept" data-note="Pending vs understood: five kept lines with sources; one held line that needs a yes.">Kept + pending</button>
+      <button data-sheet="ask" data-note="Ask Kinship (Alpha, provisional): typed results, sources, an explicit uncertainty line, nothing written.">Ask result <i class="tagf">Alpha</i></button>
+      <button data-sheet="idea" data-note="A contextual planning idea (FUTURE, CC-28 bucket D): a suggestion, never a remembered fact.">Planning idea <i class="tagf">Future</i></button>
+    </div>
+    <h2>Appearance</h2>
+    <div class="states"><button data-appearance="light">Light</button><button data-appearance="night">Dark</button></div>
+    <label><input id="hour" type="range" min="0" max="23" value="9"> <span id="hourLabel">09:00</span></label>
+    <h2>Accessibility and devices</h2>
+    <label><input id="voice" type="checkbox"> F′ · Woven with the serif voice (Newsreader statements; the typographic variable to test)</label>
+    <label><input id="reduce" type="checkbox"> Reduce Motion (every movement becomes a 150 ms fade)</label>
+    <label><input id="large" type="checkbox"> Larger text (×1.3, Dynamic Type)</label>
+    <label><input id="se" type="checkbox"> Small device (iPhone SE, 375 × 667)</label>
+    <h2>Run the loop</h2>
+    <ol class="steps"><li>E · Hand-off & return → tap the words (the source) → <b>Ask how it went</b> → <b>Open Messages</b>.</li><li>Back: the question. <b>Yes</b>: the sentence changes tense; the mark gives a small nod. Nothing is rewarded.</li><li><b>Nothing today</b>. Then try <b>Not now</b> on any Moment: it leaves, nothing accumulates.</li></ol>
+    <h2>What just happened</h2>
+    <div id="note" class="hint" aria-live="polite">Nothing yet.</div>
+  </div>
+  <div class="stage" id="stage"></div>
+</div>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const cfg = {};
+  for (const k of ["theme", "screen", "state", "person", "people", "query", "sheet", "appearance", "phase", "voice"]) if (q.get(k) !== null) cfg[k] = q.get(k);
+  if (q.get("hour")) cfg.hour = +q.get("hour");
+  for (const k of ["large", "reduce", "se"]) if (q.get(k)) cfg[k] = true;
+  if (q.get("capture")) document.body.classList.add("capture");
+  if (cfg.state && !cfg.screen) cfg.screen = "today";
+  if (cfg.state) cfg.base = cfg.state;
+  let compare = q.get("compare") || "one";
+  const stage = document.getElementById("stage"), noteEl = document.getElementById("note");
+  const THEMES = ["garden", "bloom", "keepsake", "orbit", "postmark", "woven"], FINAL = ["garden", "bloom", "woven"];
+  let apps = [];
+  function build() {
+    apps.forEach((a) => a.clear());
+    stage.innerHTML = "";
+    const themes = compare === "all" ? THEMES : compare === "finalists" ? FINAL : [cfg.theme || "garden"];
+    apps = themes.map((theme) => {
+      const slot = document.createElement("div"); slot.className = "slot"; stage.appendChild(slot);
+      const inner = document.createElement("div"); slot.appendChild(inner);
+      return KB.mount(inner, Object.assign({}, cfg, { theme }), { onNote: (t) => { noteEl.textContent = t; }, onRender: themes.length === 1 ? sync : null });
+    });
+  }
+  function sync(S) {
+    const on = (sel, key, val) => document.querySelectorAll(sel).forEach((b) => b.classList.toggle("on", b.dataset[key] === val));
+    on("[data-theme]", "theme", S.theme); on("[data-appearance]", "appearance", S.appearance); on("[data-compare]", "compare", compare);
+    document.querySelectorAll("[data-sheet]").forEach((b) => b.classList.toggle("on", b.dataset.sheet === S.sheet));
+    document.getElementById("hour").value = S.hour; document.getElementById("hourLabel").textContent = `${String(S.hour).padStart(2, "0")}:00`;
+    document.getElementById("reduce").checked = S.reduce; document.getElementById("voice").checked = S.voice === "serif"; document.getElementById("large").checked = S.large; document.getElementById("se").checked = S.se;
+  }
+  const setAll = (o) => { Object.assign(cfg, o); apps.forEach((a) => a.set(o)); document.querySelectorAll("[data-compare]").forEach((b) => b.classList.toggle("on", b.dataset.compare === compare)); };
+  const bind = (sel, fn) => document.querySelectorAll(sel).forEach((b) => b.addEventListener("click", () => { fn(b); if (b.dataset.note) noteEl.textContent = b.dataset.note; }));
+  bind("[data-theme]", (b) => { cfg.theme = b.dataset.theme; if (compare !== "one") { compare = "one"; build(); } else setAll({ theme: b.dataset.theme }); });
+  bind("[data-compare]", (b) => { compare = b.dataset.compare; build(); });
+  bind("[data-scn], [data-screen]", (b) => { const o = { screen: b.dataset.screen, sheet: null, phase: null, query: b.dataset.query || "" }; if (b.dataset.state) { o.state = b.dataset.state; o.base = b.dataset.state; } if (b.dataset.person) o.person = b.dataset.person; if (b.dataset.people) o.people = b.dataset.people; setAll(o); });
+  bind("[data-sheet]", (b) => { const o = { sheet: b.dataset.sheet }; if (b.dataset.sheet === "ask" || b.dataset.sheet === "idea" || b.dataset.sheet === "knows") { o.screen = "person"; o.person = "priya"; } setAll(o); });
+  bind("[data-appearance]", (b) => setAll({ appearance: b.dataset.appearance }));
+  document.getElementById("hour").addEventListener("input", (e) => setAll({ hour: +e.target.value }));
+  document.getElementById("reduce").addEventListener("change", (e) => setAll({ reduce: e.target.checked }));
+  document.getElementById("voice").addEventListener("change", (e) => setAll({ voice: e.target.checked ? "serif" : null }));
+  document.getElementById("large").addEventListener("change", (e) => setAll({ large: e.target.checked }));
+  document.getElementById("se").addEventListener("change", (e) => setAll({ se: e.target.checked }));
+  build();
+  setAll({});
+})();
+</script>
+</body>
+</html>
