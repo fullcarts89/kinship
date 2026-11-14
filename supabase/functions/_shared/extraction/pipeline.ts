@@ -17,7 +17,7 @@
 //             wrote or edited; a hedged item never replaces a firm one
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
-import { inYourWords, leadingName, statementNames, withSpokenName, yourVoice } from "./voice.ts";
+import { inYourWords, leadingName, statementNames, withSpokenName, withSubject, yourVoice } from "./voice.ts";
 import { findMention, leadingNames, MAX_MENTIONS, type MentionSubject, namesAsName, recordMentions, saysWord, shortName, usesName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
@@ -221,6 +221,14 @@ class Context {
 
   inNote(words: string): boolean {
     return this.folded.includes(fold(words).trim());
+  }
+
+  /** Whether the note writes these words as a name: capitalised, as whole words (founder device, 14 Nov 2026). */
+  writesAsName(words: string): boolean {
+    const w = words.normalize("NFC").trim();
+    if (!/^\p{Lu}/u.test(w)) return false;
+    const escaped = w.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "u").test(this.text.normalize("NFC"));
   }
 
   /** The known companions this name could mean (founder K27), whoever they belong to. */
@@ -535,6 +543,12 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // A statement that plainly leads with someone else ("John is your
   // brother") is never left on the page the model chose (Ben's).
   if (subject === "person" && who.person_key && !knownRelated) who = refileBySubject(ctx, said, who, flags);
+  // A line the model left without its subject, on the person it's about: their name goes back in front
+  // ("Has been very clingy…" → "Kaiya has been very clingy…"; founder device, 14 Nov 2026).
+  if (subject === "person" && who.person_key && !who.new_person_name) {
+    const filed = ctx.byKey.get(who.person_key);
+    if (filed) said = withSubject(said, shortName(filed), namesFor(filed));
+  }
 
   // A relationship to the user, said again (founder H17): already known is
   // never a second fact; a different one is asked about, never overwritten.
@@ -1530,7 +1544,8 @@ function refileBySubject(
   const firstOnly = lead.split(/\s+/u)[0];
   // The name must be the note's own (the invented-name check already holds
   // the statement to that); a full name only counts if the note says it.
-  const said = ctx.inNote(lead) ? lead : ctx.inNote(firstOnly) ? firstOnly : null;
+  // …and written as a name: "has" in the note never makes "Has" someone (founder device, 14 Nov 2026).
+  const said = ctx.writesAsName(lead) ? lead : ctx.writesAsName(firstOnly) ? firstOnly : null;
   if (!said) return who;
   let candidates = ctx.candidatesFor(said);
   if (candidates.length === 0 && said !== firstOnly) candidates = ctx.candidatesFor(firstOnly);

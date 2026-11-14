@@ -267,6 +267,23 @@ export function inYourWords(words: string): string {
 /** Words a statement can start with that are never a person's name. */
 const NOT_A_LEAD = new Set(["you", "your", "the", "a", "an", "his", "her", "their", "our", "my", "he", "she", "they", "we", "it", "this", "that", "mom", "dad", "mum"]);
 
+/**
+ * Everyday words a line can start with when the model left its subject out, the way people talk ("Kaiya
+ * has not been sleeping well and has been very clingy to my wife": its second line came back "Has been
+ * very clingy to your wife Krystal", and "Has" was asked about as someone new; founder device, 14 Nov
+ * 2026). Never a name. Words that are also common names ("Will", "May", "Mark") are left out.
+ */
+export const ELIDED_START = new Set([
+  "has", "hasn't", "have", "haven't", "had", "hadn't", "is", "isn't", "are", "aren't", "was", "wasn't", "were",
+  "weren't", "been", "being", "be", "am", "does", "doesn't", "did", "didn't", "do", "don't", "can", "can't",
+  "cannot", "could", "couldn't", "would", "wouldn't", "should", "shouldn't", "won't", "must", "not", "also",
+  "still", "just", "really", "very", "always", "never", "often", "sometimes", "usually", "already", "finally",
+  "recently", "lately", "now", "then", "got", "gets", "getting", "went", "goes", "going", "keeps", "kept",
+  "loves", "loved", "likes", "liked", "hates", "hated", "wants", "wanted", "needs", "needed", "says", "said",
+  "told", "tells", "thinks", "thought", "feels", "felt", "seems", "seemed", "started", "starts", "stopped",
+  "made", "makes", "took", "takes", "came", "comes", "plays", "played", "and", "but", "or", "so", "because",
+]);
+
 function key(word: string): string {
   return word.normalize("NFC").toLowerCase().replace(/[’‘`]/gu, "'").normalize("NFD").replace(/\p{M}+/gu, "").replace(/'s$/u, "").replace(/(?<=s)'$/u, "").trim();
 }
@@ -283,7 +300,7 @@ export function leadingName(statement: string): string | null {
   // "John's dog died", and "Chris' dog died" for a name ending in s (founder K7).
   const possessive = /['’]s$/u.test(w0) || /s['’]$/iu.test(w0);
   const first = w0.replace(/['’]s$/u, "").replace(/(?<=s)['’]$/iu, "");
-  if (!first || NOT_A_LEAD.has(key(first))) return null;
+  if (!first || NOT_A_LEAD.has(key(first)) || ELIDED_START.has(key(first))) return null;
   if (possessive) return first;
   let name = first;
   let next = 1;
@@ -295,6 +312,19 @@ export function leadingName(statement: string): string | null {
   // "Ben and Sam…", "Ben & Sam…": a pair, not one person.
   if (/^(and|&|or)$/iu.test(words[next] ?? "")) return null;
   return name;
+}
+
+/**
+ * A line the model wrote without its subject ("Has been very clingy to your wife Krystal"), filed on a
+ * person and naming no one: their name goes back in front ("Kaiya has been very clingy to your wife
+ * Krystal"). Anything else is returned as it is.
+ */
+export function withSubject(statement: string, name: string, names: string[]): string {
+  const text = statement.trim();
+  const w0 = text.split(/\s+/u)[0] ?? "";
+  if (!name.trim() || !ELIDED_START.has(key(w0.replace(/[.,;:!?]+$/u, "")))) return statement;
+  if (statementNames(text, names)) return statement;
+  return `${name.trim()} ${w0.charAt(0).toLocaleLowerCase()}${w0.slice(1)}${text.slice(w0.length)}`;
 }
 
 /** Whether a statement's words name this person (any of their names, or their first name). */
