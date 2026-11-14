@@ -1,0 +1,35 @@
+/* Concept 3 · RINGS */
+.rg { --sand: #F7F4EA; --navy: #0B1F4D; --blue: #0B6BFF; --sky: #4CC3FF; --orange: #FF8A00; --yellow: #FFD338; --quiet: #5E6A86; --card: #FFFFFF; background: var(--sand); color: var(--navy); font-family: "Plus Jakarta Sans", system-ui, sans-serif; }
+.rg.dark { --sand: #0B1F4D; --navy: #F7F4EA; --blue: #3D8BFF; --quiet: #A9B6D6; --card: #16305E; }
+.rg .status { color: var(--navy); }
+.rg .dayname { position: absolute; left: 26px; top: 66px; font: 400 36px/40px "Alfa Slab One", "Plus Jakarta Sans", serif; color: var(--navy); animation: rise 380ms cubic-bezier(.2,.8,.2,1) both; }
+.rg .datetag { position: absolute; left: 28px; top: 112px; font: 800 12px/16px "Plus Jakarta Sans", sans-serif; letter-spacing: 1.8px; color: var(--navy); background: var(--yellow); padding: 4px 9px; border-radius: 6px; }
+.rg.dark .datetag { color: #0B1F4D; }
+.rg .dialwrap { position: absolute; left: 0; top: 118px; width: 393px; height: 372px; animation: rise 460ms cubic-bezier(.2,.8,.2,1) 80ms both; }
+.rg .dial { display: block; }
+.rg .dial path, .rg .dial circle { transform-box: fill-box; transform-origin: center; }
+.rg .centre { position: absolute; left: 126px; top: 116px; width: 140px; height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 10px; }
+.rg .centre .ck { font: 700 11px/14px "Plus Jakarta Sans", sans-serif; letter-spacing: 1.6px; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; }
+.rg .centre .cs { font: 800 21px/24px "Plus Jakarta Sans", sans-serif; letter-spacing: -.4px; color: var(--navy); }
+.rg .centre .cq { font: 800 20px/23px "Plus Jakarta Sans", sans-serif; letter-spacing: -.3px; color: var(--navy); }
+.rg.dark .centre .cs, .rg.dark .centre .cq { color: #F7F4EA; }
+.rg .under { position: absolute; left: 26px; right: 26px; top: 486px; z-index: 2; animation: rise 380ms cubic-bezier(.2,.8,.2,1) 160ms both; }
+.rg .under .who { display: flex; align-items: center; gap: 10px; font: 800 16px/20px "Plus Jakarta Sans", sans-serif; }
+.rg .under .ctx { font: 600 15px/20px "Plus Jakarta Sans", sans-serif; margin-top: 6px; }
+.rg .under .para { font: italic 400 19px/24px "Instrument Serif", Georgia, serif; margin-top: 2px; color: var(--navy); }
+.rg .under .prov { display: inline-block; margin-top: 6px; font: 700 10px/14px "Plus Jakarta Sans", sans-serif; letter-spacing: 1.4px; text-transform: uppercase; color: var(--quiet); border: 1.5px dashed var(--quiet); border-radius: 4px; padding: 3px 8px; }
+.rg .under .kick { font: italic 400 20px/26px "Instrument Serif", Georgia, serif; color: var(--quiet); }
+.rg .acts { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.rg .pill { height: 46px; padding: 0 22px; border-radius: 25px; border: 0; background: var(--blue); color: #fff; font: 800 16px/20px "Plus Jakarta Sans", sans-serif; cursor: pointer; box-shadow: 0 6px 16px rgba(11,107,255,.28); }
+.rg .notnow { background: none; border: 0; font: 700 15px/20px "Plus Jakarta Sans", sans-serif; color: var(--quiet); cursor: pointer; }
+.rg .week { position: absolute; left: 26px; right: 0; top: 676px; display: flex; flex-wrap: nowrap; gap: 8px; z-index: 2; overflow: hidden; }
+.rg.kind-quiet .week { top: 560px; flex-wrap: wrap; right: 26px; }
+.rg .chip { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 11px 0 9px; border-radius: 16px; background: var(--card); color: var(--navy); white-space: nowrap; flex: none; font: 600 12px/16px "Plus Jakarta Sans", sans-serif; box-shadow: 0 2px 8px rgba(11,31,77,.08); }
+.rg .chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--card); border: 2.5px solid var(--navy); }
+.rg .chip b { font-weight: 800; font-size: 11px; letter-spacing: 1px; color: var(--blue); }
+.rg .tell { border-radius: 27px; background: var(--card); color: var(--quiet); font: 500 16px/20px "Plus Jakarta Sans", sans-serif; box-shadow: 0 2px 10px rgba(11,31,77,.08); }
+.rg .bar span { font: 800 14px/18px "Plus Jakarta Sans", sans-serif; color: var(--quiet); position: relative; padding-bottom: 8px; }
+.rg .bar span.on { color: var(--navy); }
+.rg .bar span.on::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--orange); }
+.rg .home { background: var(--navy); opacity: .85; }
+.rg.reduce .dayname, .rg.reduce .dialwrap, .rg.reduce .under { animation: fadeIn 150ms ease both; }
