@@ -1,0 +1,547 @@
+# CMR-1 handoff: Core Memory Reliability milestone
+
+**For the session that continues this milestone.** Written 14 Nov 2026 by the session that received the founder
+directive. That session could not see the new `ANTHROPIC_API_KEY` environment variable (it was added after the
+session started), so the founder started a new session in the **kinship** environment. Read this file, then the
+directive at the bottom (verbatim), then start executing. Do not ask the founder to repeat anything that is here.
+
+## 1. Baseline (checked 14 Nov 2026)
+
+| What | Value |
+|---|---|
+| `main` | `c2e0ee7` (merge of #88) |
+| Production gateway | `ai-gateway` **v17**, deployed 5 Nov 2026 from `1bbf7bb` (by hand, from the founder's Mac). **#85–#88 server changes are NOT deployed** (K35's pipeline effects, K36). `delete-account` v6 |
+| Prompt / model | `relationship_extract/v7`; model as recorded in `captures.extraction_version` on production rows |
+| Production migrations | latest `20261106090000_v2_person_pronouns` |
+| Native build on founder phone | EAS internal `dogfood-v2` build `dc8d97a2-bead-4c30-b89d-ef315b227b97` from `2310438` (#87). Same build available for the second registered iPhone |
+| Flags (per-user overrides only; every flag default off, rollout 0) | `21bb55a0-…` (founder) and `97748654-…` (second phone): `shell_v2`, `tell`, `ai_extraction`, `memory_v2`, `notebook_deck`, `voice_capture`. No one else |
+
+## 2. Environment facts (this cloud environment, "kinship")
+
+- **Live model:** `ANTHROPIC_API_KEY` is set as an environment variable on the environment (founder, 14 Nov). It is a
+  dedicated key for CMR-1; remind the founder to revoke it and delete the variable when the milestone ends.
+  `api.anthropic.com` bypasses the network proxy, so only this variable works (network secrets can't be saved for it).
+- **Deno:** not installed; `npx --yes deno …` works (2.x). **Docker** is available (local Supabase stack may need image
+  hosts allowed; propose exact hosts with `update_environment` if a pull is refused).
+- **No iOS simulator** (Linux). Native-simulator and physical-device tiers must be marked PENDING, not claimed.
+- **EAS:** an Expo access token is saved as a network secret for `api.expo.dev`; run eas-cli with
+  `EXPO_TOKEN=proxy-injected`. Apple team `G3FXWBPJY2`; registered devices: "Thor iPhone" and one unnamed iPhone.
+  Builds: `npx eas-cli build --profile dogfood-v2 --platform ios --non-interactive --no-wait --json` from a clean
+  checkout of `main`. Artifacts download from `wf-artifacts.eascdn.net` (allowed).
+- **Gateway deploys:** the function bundle is ~3.3 MB (31 files incl. `_shared/semantic/places/places-2026.10.json`),
+  too large for the Supabase MCP `deploy_edge_function` tool. Use the CLI:
+  `npx supabase functions deploy ai-gateway --project-ref kddpxiiyxgvjrtpdkvio --use-api`, which needs a Supabase
+  personal access token saved as a network secret for `api.supabase.com` (request it with `request_credential`;
+  the previous request was interrupted and never answered). **Every gateway deploy needs the founder's explicit yes.**
+- Supabase MCP works for read-only SQL on production (`kddpxiiyxgvjrtpdkvio`). Never look accounts up by email.
+
+## 3. What this thread already did (13–14 Nov)
+
+| Item | PR | State |
+|---|---|---|
+| Voice in Tell (E18), on-device only, behind `voice_capture` | #85 | Merged; on founder phone (build `dc8d97a2`) |
+| Person page: Pause reminders, pronouns, Settings X (from #84) | #86 | Merged; migration applied |
+| K34 voice doubled a passage (`joinWords`, `onceOver` in `src/platform/speech.ts`) | #87 | Merged; on phone. `onceOver` may remove intentional repetition: review (Workstream A) |
+| K35 "Nothing to remember" → "Kept on X's page." / "Kept your words." + quiet notes on Pages (`src/features/tell/keptOn.ts`, `quietNotesIn`) | #87 | Merged; on phone. Uses device-local state: not durable across devices (Workstream A/C) |
+| K36 "Who is Has?" (`ELIDED_START`, `neverAName`, `asName`, `withSubject`; capitals not required) | #88 | Merged, **not deployed**. Founder said yes to deploy #88, but the CMR-1 directive asks for an independent review of #88 first: deploy only the reviewed, integrated candidate, after re-confirming with the founder |
+
+Production records left as they are (do not change without founder authorization): the doubled voice note
+`b022a31b-7792-474f-84ac-58dcb4b6cbfd` and the held "Has" note `f6bb258b-30d0-4c04-9083-29f9b582d163`
+(account `21bb55a0-…`).
+
+## 4. Workstream plan (launched once, stopped before any push; relaunch)
+
+Run each as a background agent with `isolation: "worktree"`, its own branch and a DRAFT PR. Give each the relevant
+section of the directive. Ownership, to avoid conflicts in `pipeline.ts`:
+
+- **A — capture integrity & universal Tell retrieval (app):** `src/platform/speech.ts` (structural de-dup from the
+  recognizer's event semantics; read `node_modules/expo-speech-recognition/ios/*.swift`, iOS 18 `hasSeenFinalResult`;
+  remove or strictly constrain `onceOver`; preserve intentional repetition), a Notebook-sized place where a Tell with no
+  confirmed person can be found, durable retrieval across devices through one adapter (`tellOutcome(capture, localRow)`)
+  that reads C's column when present, honest copy, recovery for failed/partial Tells. Branch `claude/cmr1-a-capture`.
+- **B — identity resolution & review of #88 (server):** owns `refileBySubject`, person resolution, pronoun/related/
+  companion resolution, `leadingName`/`statementNames`/`withSubject`/`neverAName` (`voice.ts`, `names.ts`,
+  `resolve.ts`). Ground the subject in the item's own evidence span instead of lexical heuristics on the generated
+  statement; strengthen the zero-items test; positive and negative coverage for the directive's list. A prompt change
+  means a new `v8`, keeping `v7`. Branch `claude/cmr1-b-identity`.
+- **C — completeness & recovery (server + migration):** owns `locateEvidence` (`_shared/spans.ts`), the grounding block
+  in `planItem`, drop accounting, coverage, outcome assembly, `write_extraction` / `resolve_capture_review`. Fix
+  `evidence_ambiguous` by choosing occurrences by grounded context (true repetition → same fact; different contexts →
+  the occurrence consistent with the person, else held, never guessed). Turn unaccounted drops into coverage/recovery.
+  Add a durable synced content-free outcome column on `captures` (proposed name `understanding`: kept | nothing |
+  partial | held | declined | failed; declined = interpretation rejected, not the Tell), forward-only migration with
+  pgTAP. Verify long Tells (no cap, passages, "Tell the rest" context). Branch `claude/cmr1-c-completeness`.
+- **D — independent evaluation (keep it blind to A–C branches):** `evals/cmr1/`: at least 100 synthetic narratives plus
+  adversarial cases, per-fact ledgers (subject, span, disposition, Showing Up eligibility), sequences, a frozen held-out
+  split (at least 25%), and a runner for oracle | replay | live (`--repeat 3`) with the directive's metrics reported
+  per mode and split, plus a thresholds file. Commit an oracle baseline on `c2e0ee7`, then the **live baseline**
+  (now possible). Existing harness: `evals/extraction/run.ts` (modes oracle/replay/live), `evals/narrative/`.
+  Branch `claude/cmr1-d-evals`.
+- **E — integration (coordinator, after A–D):** combine into one release-candidate branch, run the full checks
+  (`npx jest`, `npx tsc --noEmit`, `npx eslint app src`, `deno test` in `supabase/functions`, `deno check` of the
+  gateway, the oracle eval, pgTAP), the black-box suites on the local stack (`e2e/README.md`), and the live eval
+  (baseline vs candidate). Update the bug ledger's reporting model (Implemented / Merged / Deployed / Live-model /
+  Native-sim / Device / Founder-accepted instead of a single FIXED). Prepare the release plan and one 5–8-scenario
+  founder acceptance session.
+
+Requires the founder's explicit yes: merging to `main`, the gateway deploy, production migrations, production data
+changes, flag changes.
+
+## 5. The founder directive (verbatim, 14 Nov 2026)
+
+Kinship — Core Memory Reliability Milestone (CMR-1)
+Founder directive
+We are temporarily freezing new feature development and design exploration to address the reliability of Kinship's core experience.
+The approved Moment Deck, Notebook and Showing Up product direction stands. We are not reconsidering the product strategy, starting over, or introducing another design direction.
+The immediate priority is making Kinship a product that people can actually trust with their memories and relationships.
+Recent founder-device bugs have been unacceptable:
+
+* K36: Kinship asked "Who is Has?" after interpreting an ordinary verb as a person's name.
+* K34: Voice recognition duplicated an entire spoken passage.
+* K35: A meaningful, tender story about my daughter produced "Nothing to remember."
+* Earlier K30/K31: Ordinary narratives produced unnecessary pronoun clarification, and Kinship's own "Tell the rest" continuation failed to understand what it was about.
+* Earlier relative-resolution bugs caused legitimate memories to be lost, incorrectly attributed, or impossible to save after clarification.
+
+These are not independent cosmetic issues. They are failures in the fundamental promise of Kinship.
+Kinship remembers what matters in the lives of the people you care about and brings it back when it matters, so you can show up.
+We cannot fulfill that promise if the user needs to speak unnaturally, repeatedly correct obvious interpretations, or wonder whether something meaningful was actually remembered.
+
+1. Execution mandate
+You are the coordinator responsible for delivering this milestone end to end.
+This is an implementation directive, not a request for a research report, architecture proposal, test plan, or backlog.
+You are authorized to:
+
+* Inspect the repository, implementation, documentation, open PRs, bug ledger, test infrastructure and available development environments.
+* Create implementation branches, workstreams, issues and PRs.
+* Delegate work to parallel Claude Code agents where appropriate.
+* Run live-model evaluations, database integration tests, black-box tests, native simulators and Release builds.
+* Implement fixes, perform bounded architectural refactoring, and independently verify the integrated result.
+* Resolve defects discovered during implementation rather than stopping after documenting them.
+
+Do not impose artificial token, iteration or simulator-run limits that prevent completing the milestone. Be efficient, but prioritize delivering a genuinely reliable product.
+Do not ask the founder to manually pass messages between workstreams or repeatedly test individual defects.
+Production merges, gateway deployments, production migrations, production data changes and feature-flag enablement still require explicit founder authorization.
+Do not expand the approved product roadmap or undertake an unnecessary full rewrite.
+
+2. Establish the actual current state
+Begin by reviewing:
+
+* Current `main`, including its latest commits and deployed-version documentation.
+* `CLAUDE.md` and the canonical product contract.
+* `docs/product/bug-ledger.md`.
+* The approved-design coverage documentation.
+* Existing CER-1 requirements, especially GitHub issue #64 and its associated workstreams.
+* PRs #74–#88, particularly #78, #80, #82, #85, #87 and #88.
+* The current extraction pipeline, voice implementation, capture storage, review flows, sync behavior, person-page retrieval and Showing Up eligibility.
+
+Identify the actual implementation state, not just what historical PR descriptions claim.
+Distinguish:
+
+1. Implemented in a branch.
+2. Merged to main.
+3. Deployed to the appropriate environment.
+4. Verified on a matching native build and gateway.
+5. Accepted by the founder.
+
+The current bug ledger's use of FIXED is too broad. Update the reporting model so that a code fix is not confused with a verified product fix.
+Record the baseline commit SHA, model, prompt version, gateway version, native build and relevant feature flags for your evaluations.
+Preserve existing founder decisions and approved product behavior.
+
+3. Architectural principle: separate the Tell, understanding and Showing Up
+The reliability architecture must explicitly distinguish three layers.
+
+A. The original Tell
+The original user-submitted words are the primary record of what was shared.
+A retained Tell must remain accessible even if:
+
+* Extraction returns no structured memories.
+* The AI misunderstands part or all of the story.
+* The note contains an unknown person.
+* The note contains no identifiable person.
+* A gateway call fails.
+* A long narrative is only partially understood.
+* The user declines an extracted interpretation.
+* The user moves between devices.
+
+Explicit discard, Undo, deletion and privacy decisions must retain their existing intended semantics.
+Never resurrect something the user explicitly chose to discard. Do not conflate rejecting an interpretation with rejecting the underlying Tell.
+
+B. Kinship's understanding
+Structured memories, people, relationships, events, promises and open threads are derived interpretations of the Tell.
+They must be:
+
+* Grounded in the user's actual words.
+* Correctly attributed.
+* Correctable.
+* Traceable to their source.
+* Recoverable when understanding is incomplete.
+* Distinguishable from the original Tell.
+
+An uncertain interpretation must not silently overwrite a confirmed fact or create a fabricated relationship.
+
+C. Showing Up
+Today, Moments, reminders, suggestions and follow-through must use appropriately trusted memories.
+An incorrectly attributed, unresolved, rejected or insufficiently grounded interpretation must never trigger an inappropriate suggestion.
+Preserve the existing product contract for source grounding, sensitive content, privacy, reminders, paused people and user-initiated actions.
+The objective is to strengthen these layers within the existing architecture, not to build a second competing system.
+
+4. Workstream A — Capture integrity and universal Tell retrieval
+Address K34 and K35 as complete product capabilities, not just the exact reported examples.
+
+Voice integrity
+Audit the entire voice recognition lifecycle:
+
+* Partial and final recognition callbacks.
+* Repeated final results.
+* Whole-session transcript replacements.
+* Pauses and resumed speech.
+* Stop, cancellation and interrupted sessions.
+* Multiple recognition segments.
+* Intentional repetitions by the user.
+* Permission failures and unsupported devices.
+
+The transcript submitted for understanding must faithfully represent what the user intended.
+Be particularly careful that duplicate-removal logic does not remove legitimate intentional repetition, such as emphasis or two similar statements spoken separately.
+Preserve the existing on-device recognition and audio privacy guarantees.
+
+Every retained Tell must be findable
+PR #87 made progress by displaying unstructured Tells on known people's Pages. That is necessary but insufficient.
+A retained Tell that says "Kept your words" must have a discoverable location even when it names nobody in People.
+Implement the smallest coherent extension to the approved Notebook experience that guarantees access to every retained Tell.
+Requirements:
+
+* A Tell associated with a known person can be found from that person's page.
+* A Tell without a confirmed person can still be found.
+* Multi-person Tells remain accessible without creating unnecessary duplicates of the underlying record.
+* Failed and partial extractions do not make a Tell disappear.
+* Retrieval works after relaunch and synchronization to another device.
+* Access respects deletion, Undo and account privacy.
+
+Use a durable shared source of truth for capture and extraction status where necessary. Do not rely solely on transient device-local state to determine whether a Tell exists or should be visible.
+Do not build an unrelated journal product or large new navigation system. Extend the approved Notebook model.
+
+Recovery
+Review how existing saved-but-unstructured Tells can be recovered or reprocessed without duplicating memories, overwriting user corrections or resurrecting rejected content.
+Implement a safe recovery path for future failures.
+Do not modify historical production records without explicit authorization.
+
+5. Workstream B — Robust identity resolution
+Review the actual architecture of:
+
+* Model-generated person references.
+* `resolvePerson`.
+* `refileBySubject`.
+* `leadingName`.
+* `statementNames`.
+* `neverAName`.
+* `withSubject`.
+* Pronoun resolution.
+* Related-person and companion matching.
+* Clarification and held-item resolution.
+
+Immediate requirement: independently review PR #88
+The proposed K36 fix must not be accepted solely because its current regression tests pass.
+Review these specific concerns:
+
+1. The English-word blacklist prevents the reported "Has" error but may not generalize to unfamiliar verbs, non-English names, uncommon names or words that can also be names.
+2. Removing capitalization as a requirement is correct. However, this must not create a new path where arbitrary lowercase words become potential people.
+3. Restoring a subject to a model-generated sentence is appropriate only when the subject is sufficiently grounded. Do not make an uncertain attribution look more authoritative.
+4. The regression test for a model proposing "has" as the new person appears capable of passing with zero retained items. Strengthen it to prove the meaningful fact is preserved or enters a valid, discoverable recovery state.
+5. Verify that preventing a false person does not introduce an unnecessary generic clarification or silent loss.
+
+Fix these issues as appropriate and add positive and negative regression coverage.
+
+Broader identity-resolution requirements
+Investigate whether the current system is unnecessarily reinterpreting the AI's semantic understanding using lexical heuristics.
+Where practical, establish a clearer boundary:
+
+* The AI proposes contextual understanding, subjects, entities, relationships and source spans.
+* Deterministic logic validates that the interpretation is grounded, authorized, internally consistent and safe.
+* Deterministic logic must not arbitrarily override a grounded subject merely because a generated statement starts with a capitalized word.
+* When model output and source evidence conflict, resolve the conflict conservatively through context, targeted verification or a genuinely necessary clarification.
+
+Evaluate bounded improvements such as structured subject references, explicit mention spans, entity types and targeted semantic verification.
+Do not automatically adopt a new architecture or add an additional AI call to every Tell. Compare alternatives against the existing implementation, including correctness, latency, cost and complexity. Implement the smallest approach that materially improves reliability.
+Cover:
+
+* Lowercase and uppercase names.
+* Uncommon and culturally diverse names.
+* Names that are also ordinary words, such as Will, May and Mark.
+* Possessive relationships.
+* Multiple people sharing a name.
+* A new person with the same name as a relative or existing contact.
+* Children, spouses, relatives and pets.
+* Pronouns across multiple sentences.
+* Subjectless continuation clauses.
+* General Tell versus a person's page.
+* Named and unnamed relatives.
+* Places, organizations and objects that resemble names.
+* Voice transcription without reliable punctuation or capitalization.
+* Multiple people discussed in one natural story.
+* Genuine ambiguity where clarification is necessary.
+
+The user should never need to capitalize names, use formal grammar or construct a sequence of artificial commands for Kinship to understand them.
+
+6. Workstream C — Memory completeness and failure recovery
+Audit the pipeline from submitted capture through final visible memories.
+Determine how information can be lost at each stage:
+
+* Model omission.
+* Model-generated invalid references.
+* Evidence matching.
+* Person resolution.
+* Duplicate detection.
+* Supersession.
+* Sensitivity handling.
+* Clarification.
+* Database writes.
+* Sync.
+* UI filtering and presentation.
+
+No silent loss
+Every meaningful, in-scope assertion should be accounted for as one of:
+
+* Correctly retained.
+* Already known and properly deduplicated.
+* Awaiting necessary clarification or confirmation.
+* Explicitly declined by the user.
+* Intentionally excluded under the product contract.
+* Not yet understood, with a discoverable recovery path.
+
+Do not imply that all information was understood when meaningful portions were not.
+Do not confuse the application's ability to extract structured facts with the value of what the user shared.
+
+Repeated evidence
+PR #87 identifies a remaining server limitation: a source phrase appearing more than once can cause otherwise legitimate memories to be rejected as `evidence_ambiguous`.
+Investigate and resolve this class of failure.
+Prefer explicit source offsets or another verifiable evidence mechanism over relying on a unique text match alone.
+Preserve existing safeguards against fabricated evidence and contradictory statements.
+Test both:
+
+* Repeated source phrases that genuinely express the same fact.
+* Identical phrases appearing in different contexts or referring to different people.
+
+Do not relax evidence validation indiscriminately.
+
+Natural narratives and long Tells
+Verify that the previous CER-1 work remains effective:
+
+* No artificial eight-item memory cap.
+* Complete processing of long, natural narratives.
+* Correct context for "Tell the rest."
+* Honest partial-coverage reporting.
+* Recovery without duplication or incorrect attribution.
+
+A person should be able to speak naturally for several minutes without Kinship silently forgetting the latter portion of their story.
+
+User-facing language
+Remove any remaining user-facing behavior that dismisses a retained meaningful Tell as worthless simply because structured extraction failed.
+Use accurate, restrained language that distinguishes:
+
+* What was kept.
+* Where it was kept.
+* What Kinship understood.
+* Whether anything requires further input.
+
+Do not redesign the approved visual experience unnecessarily.
+
+7. Workstream D — Realistic evaluation infrastructure
+The current number of passing unit tests is not a sufficient measure of product reliability.
+Create an executable, versioned evaluation suite based on realistic personal conversations.
+Use synthetic or properly anonymized data. Do not unnecessarily reproduce the founder's private relationships, personal records or actual family stories in fixtures or external evaluation services.
+
+Evaluation corpus
+Start with at least 100 diverse natural narratives, supplemented by focused adversarial cases.
+Include:
+
+* Everyday family updates.
+* Tender observations that may not require an action.
+* Friendship conversations.
+* Work and life changes.
+* Upcoming celebrations.
+* Personal preferences.
+* Health and sensitive situations.
+* Commitments and promises.
+* Multi-person anecdotes.
+* Relatives, pets and ambiguous references.
+* Long, conversational voice-style transcripts.
+* Intentional repetition.
+* Corrections to previously remembered information.
+* Notes without a known person.
+* Notes without an actionable memory.
+* Genuine non-memory input.
+
+Create expected per-fact ledgers specifying the subject, source, desired disposition, required clarification and relevant Showing Up eligibility.
+Test complete conversations and sequences, not only isolated inputs.
+Include a separate held-out evaluation subset to detect overfitting to the development fixtures.
+
+Live-model evaluation
+Run the actual supported model and matching extraction pipeline repeatedly on the corpus.
+Use at least three runs per narrative for the release-candidate evaluation, unless an independently justified equivalent provides better evidence.
+Report results separately for:
+
+* Deterministic oracle evaluations.
+* Replayed model-output tests.
+* Live-model evaluations.
+* Database and API integration.
+* Native Release-simulator journeys.
+* Physical-device verification.
+
+Do not combine these into a misleading single pass rate.
+
+Required metrics
+Measure:
+
+* Per-fact recall.
+* Per-fact precision.
+* Correct subject attribution.
+* Fabricated or incorrectly proposed person identities.
+* Unnecessary clarification rate.
+* Correct clarification rate on genuinely ambiguous cases.
+* Silent meaningful-fact loss rate.
+* Original Tell retrievability.
+* Source-grounding violations.
+* Duplicate-memory rate.
+* Incorrect Showing Up eligibility.
+* End-to-end latency, including median and p95.
+
+Capture a baseline before material changes and compare the integrated candidate against it.
+Proposed release targets for the defined evaluation corpus:
+
+* 100% of retained Tells retrievable.
+* Zero silently discarded meaningful in-scope assertions.
+* Zero confirmed wrong-person assignments.
+* Zero fabricated person identities presented as genuine clarification candidates.
+* Zero source-grounding and privacy violations.
+* At least 95% recall of eligible, unambiguous meaningful facts.
+* At least 98% precision for retained structured facts.
+* No more than 2% unnecessary clarification on unambiguous narratives.
+* All intentionally ambiguous, safety-critical cases resolved safely.
+* No material unexplained latency regression.
+
+The recall target does not excuse silent loss: any missed meaningful assertion must be explicitly accounted for and recoverable.
+These are proposed measured release targets for the corpus, not claims of perfect real-world AI behavior.
+If a target cannot be reached, investigate the failure and implement improvements. Do not weaken the evaluation or redefine the denominator to manufacture a pass. Escalate a genuine remaining product tradeoff with concrete evidence.
+
+8. Workstream E — Integrated native experience and trust verification
+Verify the reliability changes through the actual approved product experience.
+Exercise the following complete journey using a matching Release native build and real-model gateway in an authorized development or staging environment:
+
+1. Onboarding and adding people.
+2. Telling a natural story through text.
+3. Telling a natural story through voice.
+4. Reviewing correct understanding.
+5. Resolving a genuinely ambiguous person.
+6. Finding the original Tell.
+7. Viewing derived memories and their sources.
+8. Correcting or rejecting an interpretation.
+9. Undo and deletion.
+10. Partial understanding and recovery.
+11. Relaunch and synchronization across devices.
+12. A meaningful Today Moment based on a trusted memory.
+13. A grounded Showing Up suggestion.
+14. User-initiated Message or Call handoff.
+15. Return check and follow-through.
+
+Also verify:
+
+* Offline and intermittent connectivity.
+* Gateway errors and retries.
+* Multiple concurrent submissions where supported.
+* Duplicate submissions and idempotency.
+* Paused reminders.
+* Sensitive content.
+* Person merge and Undo merge.
+* Account isolation.
+* Data export and deletion.
+* Small-screen layouts and accessibility where affected by changes.
+
+Preserve the existing approved trust floor.
+Do not treat a working mocked screen, passing Jest suite or successful API response as proof that the integrated user journey works.
+Physical-device behavior that cannot be independently verified must be explicitly marked as pending. Minimize the eventual founder-device acceptance to one consolidated session.
+
+9. Workstream coordination and independent review
+Organize the milestone into parallel workstreams where it improves execution:
+
+* A: Capture integrity and universal Tell retrieval.
+* B: Identity resolution and PR #88.
+* C: Memory completeness and recovery.
+* D: Evaluation infrastructure and independent regression coverage.
+* E: Integration and native verification.
+
+The coordinator owns the overall result.
+Establish shared contracts and file ownership early to avoid conflicting changes in the extraction pipeline and capture model.
+The evaluation workstream should remain sufficiently independent from the implementation workstreams to catch regressions and prevent overfitting.
+Use GitHub PRs for implementation evidence and review. Where an independent reviewer is available, allow direct review and correction through GitHub rather than requiring the founder to act as a courier.
+Do not assume the existing agent-loop pilot automatically covers these PRs. Verify its actual enrollment and authorization before relying on it.
+Produce coherent, reviewable PRs and a final integrated release candidate.
+
+10. Completion requirements
+This milestone is NOT COMPLETE until:
+
+* K34, K35 and K36 have been addressed as failure classes, not just individual examples.
+* The earlier natural-story and continuation regressions remain resolved.
+* Every retained Tell has a discoverable location.
+* Identity resolution is substantially more robust across realistic language.
+* Meaningful omissions and incomplete understanding are explicitly accounted for.
+* Repeated evidence no longer causes avoidable memory loss.
+* The evaluation corpus and metrics are reproducible.
+* The approved Showing Up experience remains grounded and functional.
+* The integrated release candidate passes its native journeys.
+* Independent review has been completed or its actual limitations have been documented.
+* A concise, consolidated founder acceptance path is prepared.
+
+Do not declare readiness based on test counts alone.
+
+11. Final delivery package
+When the implementation is complete, deliver:
+
+A. Executive summary
+* What changed.
+* Which underlying reliability problems were solved.
+* What remains unresolved.
+* Whether the release candidate is ready for founder acceptance.
+
+B. Architecture and implementation
+* The previous failure mechanisms.
+* The revised capture, understanding and identity-resolution behavior.
+* Key design decisions and alternatives considered.
+* Relevant PRs, commits and code locations.
+* Any migrations or deployment dependencies.
+
+C. Before-and-after evidence
+Report the baseline and final live-model metrics side by side.
+Include examples of representative failures before and successful behavior after, along with regression evidence for cases that must still ask clarifying questions.
+
+D. Readiness matrix
+For each critical defect and capability, distinguish:
+* Implemented.
+* Merged.
+* Deployed.
+* Live-model verified.
+* Native-simulator verified.
+* Physical-device verified.
+* Founder accepted.
+
+E. Release and recovery plan
+Provide:
+* Exact PR merge order.
+* Required gateway deployment.
+* Required native build, if any.
+* Migration and feature-flag dependencies.
+* Safe rollback or containment options.
+* Known remaining risks.
+* Any proposed historical-memory recovery requiring approval.
+
+F. Founder acceptance
+Provide one short, consolidated acceptance journey focused on the real product experience, with approximately 5–8 meaningful scenarios.
+Do not provide an enormous manual QA spreadsheet or ask me to independently reproduce every engineering test.
+I want to evaluate whether Kinship is enjoyable, dependable and useful for showing up in people's lives.
+
+12. Start execution now
+Begin by inspecting the current repository and PR #88, establishing the baseline and coordinating the workstreams.
+Then proceed directly into implementation, evaluation, correction and integration.
+Do not stop after proposing the plan. Do not wait for separate approvals between ordinary engineering workstreams. Escalate only genuine founder-level product decisions, material architectural tradeoffs, production authorization requirements or blockers you cannot resolve independently.
+The deliverable is a working, reviewed, integrated Kinship reliability release candidate.
+The bar is not whether Kinship can pass a scripted demo. The bar is whether someone can tell Kinship an ordinary, meaningful story about someone they love and trust that it will listen, understand, remember and help them show up appropriately.
+Execute accordingly.
