@@ -755,3 +755,44 @@ Deno.test("a note the understanding takes whole has no coverage at all", () => {
   eq(out.items.length, 8);
   eq(out.coverage, undefined);
 });
+
+// Founder device, 14 Nov 2026: "Kaiya has not been sleeping very well and has been very clingy to my wife
+// Krystal". The second line came back without its subject ("Has been very clingy to your wife Krystal"),
+// and "Has" was asked about as someone new. An everyday word never names anyone; the line stays on the
+// person it's about, with their name back in front.
+Deno.test("a line without its subject is never someone new called 'Has': it stays on the person, named", () => {
+  const note = "Kaiya has not been sleeping very well and has been very clingy to my wife Krystal";
+  const roster = [...ROSTER, { key: "p20", id: "id-p20", display_name: "Kaiya", full_name: null, nicknames: [], relationship_label: "daughter" }];
+  const out = run(input(note, { roster }), [item({
+    kind: "fact", person: "p20", person_mention: "Kaiya", statement: "Has been very clingy to your wife Krystal",
+    evidence: ["has been very clingy to my wife Krystal"],
+  })]);
+  const [line] = out.items;
+  ok(line, "the line is kept or held, never dropped");
+  eq(line.person_id, "id-p20", "on Kaiya's page");
+  eq(line.new_person_name ?? null, null, "never someone new");
+  ok(!line.flags.includes("new_person"), "never asked who 'Has' is");
+  ok(/^Kaiya has been very clingy/.test(line.statement), `named in front: ${line.statement}`);
+  ok(!out.clarification || !/Has\b/.test(JSON.stringify(out.clarification)), "no question about 'Has'");
+});
+
+Deno.test("a name doesn't have to be capitalised: 'pedro' is Pedro, someone new (founder, 14 Nov 2026)", () => {
+  const note = "talked with ben. pedro is getting married in june.";
+  const out = run(input(note), [item({
+    person: "new", person_mention: "pedro", statement: "Pedro is getting married in June",
+    evidence: ["pedro is getting married in june"], date_text: "in june",
+  })]);
+  const [line] = out.items;
+  ok(line, "kept or held, never dropped");
+  eq(line.new_person_name, "Pedro", "asked about as Pedro");
+  ok(!/Has|has/.test(line.new_person_name ?? ""), "never an everyday word");
+});
+
+Deno.test("an everyday word the model gives as who it's about is never someone new", () => {
+  const note = "Kaiya has not been sleeping very well and has been very clingy to my wife Krystal";
+  const out = run(input(note), [item({
+    person: "new", person_mention: "has", statement: "Has been very clingy to your wife Krystal",
+    evidence: ["has been very clingy to my wife Krystal"],
+  })]);
+  for (const line of out.items) ok(line.new_person_name !== "Has" && line.new_person_name !== "has", `never "Has": ${JSON.stringify(line.new_person_name)}`);
+});
