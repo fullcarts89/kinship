@@ -314,6 +314,17 @@ export function leadingName(statement: string): string | null {
   return name;
 }
 
+/** Never someone's name, however it's written: everyday words ("has", "been") and words like "the" or "my". */
+export function neverAName(words: string): boolean {
+  const k = key(words.replace(/[.,;:!?]+$/u, ""));
+  return !k || NOT_A_LEAD.has(k) || ELIDED_START.has(k);
+}
+
+/** A name as Kinship says it, however the user wrote it ("pedro" → "Pedro"); a capital the user gave stays. */
+export function asName(words: string): string {
+  return words.trim().split(/\s+/u).map((w) => (w ? `${w.charAt(0).toLocaleUpperCase()}${w.slice(1)}` : w)).join(" ");
+}
+
 /**
  * A line the model wrote without its subject ("Has been very clingy to your wife Krystal"), filed on a
  * person and naming no one: their name goes back in front ("Kaiya has been very clingy to your wife

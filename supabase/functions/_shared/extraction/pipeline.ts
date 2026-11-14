@@ -17,7 +17,7 @@
 //             wrote or edited; a hedged item never replaces a firm one
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
-import { inYourWords, leadingName, statementNames, withSpokenName, withSubject, yourVoice } from "./voice.ts";
+import { asName, inYourWords, leadingName, neverAName, statementNames, withSpokenName, withSubject, yourVoice } from "./voice.ts";
 import { findMention, leadingNames, MAX_MENTIONS, type MentionSubject, namesAsName, recordMentions, saysWord, shortName, usesName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
@@ -223,13 +223,6 @@ class Context {
     return this.folded.includes(fold(words).trim());
   }
 
-  /** Whether the note writes these words as a name: capitalised, as whole words (founder device, 14 Nov 2026). */
-  writesAsName(words: string): boolean {
-    const w = words.normalize("NFC").trim();
-    if (!/^\p{Lu}/u.test(w)) return false;
-    const escaped = w.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "u").test(this.text.normalize("NFC"));
-  }
 
   /** The known companions this name could mean (founder K27), whoever they belong to. */
   companionsNamed(name: string): Companion[] {
@@ -1544,8 +1537,9 @@ function refileBySubject(
   const firstOnly = lead.split(/\s+/u)[0];
   // The name must be the note's own (the invented-name check already holds
   // the statement to that); a full name only counts if the note says it.
-  // …and written as a name: "has" in the note never makes "Has" someone (founder device, 14 Nov 2026).
-  const said = ctx.writesAsName(lead) ? lead : ctx.writesAsName(firstOnly) ? firstOnly : null;
+  // Written any way the user likes ("pedro" is Pedro: founder, 14 Nov 2026); an everyday word never is
+  // anyone (leadingName already refuses "Has").
+  const said = ctx.inNote(lead) ? lead : ctx.inNote(firstOnly) ? firstOnly : null;
   if (!said) return who;
   let candidates = ctx.candidatesFor(said);
   if (candidates.length === 0 && said !== firstOnly) candidates = ctx.candidatesFor(firstOnly);
@@ -1824,7 +1818,10 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   }
   if (candidates.length === 0) {
     // Someone not on the roster. Must look like a name and be in the note.
-    if (!/^\p{Lu}/u.test(mention)) return unresolved("person_ambiguous");
+    // A name however it's written ("pedro" is Pedro; founder, 14 Nov 2026), never an everyday word ("has").
+    if (neverAName(withoutPossessive(mention)) || withoutPossessive(mention).split(/\s+/u).some((w) => neverAName(w))) {
+      return unresolved("person_ambiguous");
+    }
     // A known companion of the person the line is about (founder K27): Chris's dog Fluffy, known from a
     // related row or from a line of Chris's own words. Filed on Chris, never asked "Who is Fluffy?". Only
     // when exactly one companion has the name, and its owner is the person the model filed the line on,
@@ -1838,7 +1835,7 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
         return { ...pick(owner), companion: companions[0] };
       }
     }
-    return unresolved("new_person", withoutPossessive(mention).slice(0, 100));
+    return unresolved("new_person", asName(withoutPossessive(mention)).slice(0, 100));
   }
   if (candidates.length === 1) {
     const c = candidates[0];

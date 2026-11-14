@@ -776,9 +776,23 @@ Deno.test("a line without its subject is never someone new called 'Has': it stay
   ok(!out.clarification || !/Has\b/.test(JSON.stringify(out.clarification)), "no question about 'Has'");
 });
 
-Deno.test("a new person's name must be written as a name in the note", () => {
-  const note = "Talked with Ben. Pedro is getting married in June.";
-  const out = run(input(note), [item({ person: "p1", statement: "Pedro is getting married in June", evidence: ["Pedro is getting married in June"], date_text: "in June" })]);
+Deno.test("a name doesn't have to be capitalised: 'pedro' is Pedro, someone new (founder, 14 Nov 2026)", () => {
+  const note = "talked with ben. pedro is getting married in june.";
+  const out = run(input(note), [item({
+    person: "new", person_mention: "pedro", statement: "Pedro is getting married in June",
+    evidence: ["pedro is getting married in june"], date_text: "in june",
+  })]);
   const [line] = out.items;
-  eq(line.new_person_name, "Pedro", "a capitalised name in the note is still someone new");
+  ok(line, "kept or held, never dropped");
+  eq(line.new_person_name, "Pedro", "asked about as Pedro");
+  ok(!/Has|has/.test(line.new_person_name ?? ""), "never an everyday word");
+});
+
+Deno.test("an everyday word the model gives as who it's about is never someone new", () => {
+  const note = "Kaiya has not been sleeping very well and has been very clingy to my wife Krystal";
+  const out = run(input(note), [item({
+    person: "new", person_mention: "has", statement: "Has been very clingy to your wife Krystal",
+    evidence: ["has been very clingy to my wife Krystal"],
+  })]);
+  for (const line of out.items) ok(line.new_person_name !== "Has" && line.new_person_name !== "has", `never "Has": ${JSON.stringify(line.new_person_name)}`);
 });
