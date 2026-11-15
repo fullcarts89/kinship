@@ -1193,3 +1193,25 @@ Deno.test("re-review 6: someone introduced before the owner and called 'she'/'he
     ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
   }
 });
+
+// ── Re-review of 8cea6a3 (15 Nov 2026): a voice note's lowercase name is someone too ──
+
+Deno.test("re-review 7: in a lowercase (voice) note, another name in lowercase keeps their husband or wife; asked", () => {
+  const nana = person("p61", "nana11", "Nana", { relationship_label: "grandmother" });
+  const ben = person("p62", "ben11", "Ben", { relationship_label: "brother" });
+  const run1 = (note: string, who: RosterPerson, rel: string, quote: string) => planExtraction(input(note, [who]), { needs_clarification: null, items: [
+    item({ person: who.key, person_mention: quote.split(/\s/u)[0], statement: `${who.display_name}'s ${rel} ${quote.replace(/^(?:he|she) /u, "")}`, evidence: [quote], confidence: 0.85 }),
+  ] } as ModelProposal);
+  for (const [note, who, rel, quote] of [
+    ["talked to nana and maria today her husband is a pilot he flies to tokyo every week", nana, "husband", "he flies to tokyo every week"],
+    ["nana and maria came over. her husband is a pilot. he flies to tokyo", nana, "husband", "he flies to tokyo"],
+    ["saw maria at church. nana was there too. her husband is a pilot. he flies to tokyo", nana, "husband", "he flies to tokyo"],
+    ["nana met maria at church. her husband is a pilot. he flies to tokyo", nana, "husband", "he flies to tokyo"],
+    ["maria told nana about her husband. he flies to tokyo", nana, "husband", "he flies to tokyo"],
+    ["ben met dave at the gym. his wife is a doctor. she works nights", ben, "wife", "she works nights"],
+  ] as const) ok(run1(note, who, rel, quote).items.every((i) => i.tier === "hold"), `${note}: asked`);
+  for (const [note, quote] of [["saw nana today her husband is retiring he is thrilled", "he is thrilled"], ["nana called. her husband is retiring. he is thrilled", "he is thrilled"]]) {
+    const line = run1(note, nana, "husband", quote).items[0];
+    ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
+  }
+});

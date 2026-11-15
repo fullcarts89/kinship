@@ -2671,6 +2671,7 @@ function personLike(ctx: Context, text: string, owner: RosterPerson): boolean {
       continue;
     }
     if (PERSON_PLURALS.test(k)) return true;
+    if (/^\p{Ll}/u.test(word) && lowercaseSomeone(ctx, word, owner)) return true;
     // "Nana met her.", "told her about…", "Nana and she talked": another person in a pronoun (re-review of #93).
     // A possessive "her husband" is not; "She looked tired" opening its sentence is the one named before.
     if (k === "him" || k === "them") return true;
@@ -2701,6 +2702,33 @@ function personLike(ctx: Context, text: string, owner: RosterPerson): boolean {
   return false;
 }
 
+/**
+ * A note written without capitals (how voice arrives: "nana met maria at church"): no capital but a sentence's
+ * first letter or "I". There a name is lowercase, so any word that is not an everyday word, the subject's
+ * verb, a relation, a place, a time or a thing is read as someone (re-review of #93).
+ */
+function lowercaseNote(ctx: Context, owner: RosterPerson): boolean {
+  // The note opens in lowercase, or writes the owner's own name in lowercase ("nana"): a typed note that
+  // capitalises its sentences and its names is read as written.
+  if (/^\P{L}*\p{Ll}/u.test(ctx.text)) return true;
+  const forms = namesFor(owner).flatMap((n) => wordsOf(n)).filter((n) => n.length > 1);
+  return [...ctx.text.matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)].some((m) => /^\p{Ll}/u.test(m[0]) &&
+    forms.some((n) => nameKey(withoutPossessive(m[0])) === nameKey(n)));
+}
+function lowercaseSomeone(ctx: Context, word: string, owner: RosterPerson): boolean {
+  const w = withoutPossessive(word);
+  const k = fold(w);
+  if (k.length < 2 || !lowercaseNote(ctx, owner)) return false;
+  if (namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey).includes(nameKey(w))) return false;
+  if (OPENING_VERBS.has(k) || NOT_A_PERSON_NOUN.has(k) || PERSON_NOUNS.has(k) || PRONOUNS.has(k) || CALENDAR.has(k) || COMMON_CAPITALS.has(k)) return false;
+  if (RELATION_WORDS.map(relationKey).includes(relationKey(k))) return false;
+  // The word right after the owner's name or a pronoun is their verb ("nana called", "she looked").
+  const esc = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const subj = [...namesFor(owner).flatMap((n) => wordsOf(n)), "she", "he", "they", "i", "we"].map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  if (new RegExp(`(?<![\\p{L}])(?:${subj})['’]?s?\\s+${esc}(?![\\p{L}])`, "iu").test(ctx.text)) return false;
+  return !ctx.wordNotAName(w);
+}
+
 /** (a) or (b) above, for the "his"/"her" at code-unit `at`. */
 function ownsPossessive(ctx: Context, owner: RosterPerson, at: number): boolean {
   const text = ctx.text;
@@ -2713,6 +2741,9 @@ function ownsPossessive(ctx: Context, owner: RosterPerson, at: number): boolean 
     const between = head.slice((inSentence.index ?? 0) + inSentence[0].length);
     // "Nana's neighbor came by with her…": the owner's own someone sits between.
     if (/^['’]s?\s/u.test(between)) return false;
+    // In a lowercase note the possessive must follow the owner's name ("nana and her husband", "nana said her
+    // husband"): a name there cannot be told from any other word, so nothing between is trusted.
+    if (lowercaseNote(ctx, owner) && !/^\s+(?:(?:today|tonight|yesterday|this (?:morning|afternoon|evening|week)|again|and|said|says|thinks|with|misses|loves|told (?:me|us))\s+)*$/iu.test(between)) return false;
     // The whole note before it, not only this sentence: "The waitress told Nana about her husband" is the
     // waitress's, and so is "A woman sat with us at church. She told Nana about her husband" (re-review of #93).
     return !personLike(ctx, text.slice(0, at), owner);
@@ -2772,7 +2803,7 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
     const word = withoutPossessive(w[0]);
     if (word === "I" || ownerKeys.has(nameKey(word))) return false;
     if (ctx.candidatesFor(word).some((c) => c.key !== owner.key)) return true;
-    if (!/^\p{Lu}/u.test(word)) return false;
+    if (!/^\p{Lu}/u.test(word)) return lowercaseSomeone(ctx, word, owner);
     if (relativesNames.has(nameKey(word))) return false;
     const lead = raw.slice(0, w.index ?? 0).trimEnd();
     if (COMMON_CAPITALS.has(fold(word)) || CALENDAR.has(fold(word)) || ctx.placeOnly(word)) return false;
