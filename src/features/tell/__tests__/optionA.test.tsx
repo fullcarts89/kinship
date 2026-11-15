@@ -298,6 +298,11 @@ describe("a note the understanding could not take whole (Option A)", () => {
     expect(partialOf(null, null)).toBeNull();
     expect(partialOf({ unprocessed: [], unlocated: 0 }, null)).toBeNull();
     expect(partialOf({ unprocessed: [{ start: 5, end: 2 }], unlocated: 0 }, null)).toBeNull();
+    // CMR-1 C2: places the understanding read but kept nothing from are marked and offered the same way, each once.
+    const c2 = partialOf({ unprocessed: [{ start: 0, end: 4 }], unlocated: 0, not_understood: [{ start: 0, end: 4 }, { start: 5, end: 9 }, { start: 5, end: 9 }] }, null);
+    expect(c2).toEqual({ unprocessed: [{ start: 0, end: 4 }, { start: 5, end: 9 }], unlocated: 0, recovered: 0, uncertain: 0, followUp: "none", resolved: false, tellRest: true });
+    expect(partialStatus(c2!)).toBe(COPY.partial);
+    expect(partialOf({ unprocessed: [], unlocated: 0, not_understood: [{ start: 5, end: 9 }] }, null)?.unprocessed).toEqual([{ start: 5, end: 9 }]);
     const two = [{ start: 0, end: 4 }, { start: 5, end: 9 }];
     expect(partialOf({ unprocessed: two, unlocated: 0 }, null)).toEqual({ unprocessed: two, unlocated: 0, recovered: 0, uncertain: 0, followUp: "none", resolved: false, tellRest: true });
     const rec = (over: Partial<Recovery>): Recovery => ({ passages: [], recovered: [], remaining: two, uncertain: 0, followUp: "read", ...over });

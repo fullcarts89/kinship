@@ -38,7 +38,8 @@ import { SWITCHABLE_KINDS, takesDate } from "@/store/memoryDetail";
 import { closedBy, type MemoryItem, type Person, type RelatedPerson } from "@/store/repositories";
 import type { FollowUpState, Recovery } from "@/store/followUp";
 import { questionWaiting, type Notice, type UnderstandingRow } from "@/store/understanding";
-import { tellOutcome } from "@/store/tellOutcome";
+import { declinedReading, tellOutcome } from "@/store/tellOutcome";
+import { leftOut, type NoteCoverage } from "@/store/coverage";
 import { kindLabel, promiseLabel, whenLabel } from "../memory/format";
 import { needsAcceptance } from "../../../supabase/functions/_shared/extraction/acceptance";
 import { selfRelationPhrase } from "../../../supabase/functions/_shared/extraction/lexicon";
@@ -53,8 +54,8 @@ export interface ReviewInput {
     id: string; raw_text: string | null; context_person_id: string | null; status: string; feedback?: unknown;
     /** The gateway's word on what came of the note (store/tellOutcome.ts), when the synced row has it. */
     understanding?: unknown;
-    /** What the understanding did not get to (Option A), from the synced row; null when taken whole. */
-    coverage?: { unprocessed: { start: number; end: number }[]; unlocated: number } | null;
+    /** What the understanding did not get to (Option A) or kept nothing from (CMR-1 C2), from the synced row; null when taken whole. */
+    coverage?: NoteCoverage | null;
     /**
      * What later notes ("Tell the rest") did for this one, from the evidence (store/followUp.ts):
      * which passages a read note's kept lines rest on, and the later notes' own state. Null when none.
@@ -272,12 +273,14 @@ const PERSON_FLAGS = ["person_ambiguous", "person_disagreement", "pronoun_multip
  * by a later note (nothing can match them). Null for a note taken whole.
  */
 export function partialOf(
-  coverage: { unprocessed: { start: number; end: number }[]; unlocated: number } | null,
+  coverage: NoteCoverage | null,
   recovery: Recovery | null,
 ): ReviewView["partial"] {
   if (!coverage) return null;
   const sound = (s: { start: number; end: number }) => Number.isInteger(s.start) && Number.isInteger(s.end) && s.end > s.start && s.start >= 0;
-  const all = coverage.unprocessed.filter(sound);
+  // Every place left out: the passages not got to, and the places read but kept nothing from (CMR-1 C2),
+  // each once; marked and offered to tell again the same way.
+  const all = leftOut(coverage);
   const unlocated = Number.isInteger(coverage.unlocated) ? Math.max(0, coverage.unlocated) : 0;
   if (!all.length && !unlocated) return null;
   const followUp = recovery?.followUp ?? "none";
@@ -332,11 +335,23 @@ export function buildReview(input: ReviewInput): ReviewView {
   // A relationship said again that Kinship already holds (H17): said back, not kept twice.
   const known = row.reading?.known?.length ? `Already known: ${row.reading.known.join("; ")}.` : null;
   if (row.state === "done" && row.reading && row.reading.saved.length === 0 && row.reading.held.length === 0) {
-    // The user's own "Don't keep this": nothing added; the words stay where they can be found.
-    if (outcome === "declined") return { ...empty, ...placed, mode: "nothing", declined: true, status: COPY.wordsStay(where) };
+    // When the understanding read something it could keep nothing from (CMR-1 C2) or did not get to a
+    // passage, the card says that too, marks the words, and offers Tell the rest: never only "Kept".
+    const quietPartial = partialOf(capture.coverage ?? row.reading.coverage ?? null, capture.recovery ?? null);
+    const quietLine = quietPartial ? partialStatus(quietPartial) : null;
+    // The user's own "Don't keep this": nothing added; the words stay where they can be found. (The server's
+    // word for such a note with a place left out is `partial`: another phone marks the place and offers the
+    // rest the same way; here the user's own act is said first.)
+    if (outcome === "declined" || declinedReading(row)) {
+      return { ...empty, ...placed, mode: "nothing", declined: true, status: [COPY.wordsStay(where), quietLine].filter(Boolean).join(" "), partial: quietPartial };
+    }
     // Understood, and no line kept from it: the note is kept on the page of whoever it's about, and the
     // card says where, with the user's words (founder, 10 Nov 2026: every Tell is logged).
-    return { ...empty, ...placed, mode: "nothing", status: known ?? keptOnCopy(keptOnNames(on, input.people), input.notebook === true) };
+    return {
+      ...empty, ...placed, mode: "nothing",
+      status: [known ?? keptOnCopy(keptOnNames(on, input.people), input.notebook === true), quietLine].filter(Boolean).join(" "),
+      partial: quietPartial,
+    };
   }
   if (row.state === "done" || row.state === "closing" || !row.reading) return empty;
 
@@ -380,8 +395,11 @@ export function buildReview(input: ReviewInput): ReviewView {
   if (answering || questions.length || row.notice || questionWaiting(reading)) return { ...base, mode: "sheet" };
   // What the reading saved is still on its way here: understanding, not empty.
   if ((input.missing ?? 0) > 0) return { ...base, mode: "understanding", status: COPY.arriving };
-  // Answered, and the answer kept nothing ("Don't keep this"): nothing added, and where the words stay.
-  if (lines.length === 0) return { ...base, ...placed, mode: "nothing", declined: true, status: known ?? COPY.wordsStay(where) };
+  // Answered, and the answer kept nothing ("Don't keep this"): nothing added, and where the words stay (and
+  // what the understanding left out, when anything, so the rest can still be told).
+  if (lines.length === 0) {
+    return { ...base, ...placed, mode: "nothing", declined: true, status: [known ?? COPY.wordsStay(where), partialLine].filter(Boolean).join(" ") };
+  }
   return { ...base, mode: "card", summary: summaryFor(lines) };
 }
 

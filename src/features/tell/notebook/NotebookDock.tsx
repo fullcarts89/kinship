@@ -146,7 +146,7 @@ export function NotebookKeptCard({ card, onOpen, onUndo, onDismiss, onRate, onAd
         </View>
       ))}
 
-      {kept && card.partial?.tellRest && onTellRest ? (
+      {card.partial?.tellRest && onTellRest ? (
         <View style={{ flexDirection: "row", marginTop: space.s }}>
           <NButton small variant="ghost" label={KEPT_COPY.tellRest} accessibilityHint="Opens Tell with the words Kinship couldn't get to, to tell again" onPress={onTellRest} />
         </View>

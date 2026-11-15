@@ -27,7 +27,7 @@ const NOW = new Date("2026-11-14T12:00:00");
 
 const note = (captureId: string, text: string, at: string, outcome: WordsNote["outcome"] = "nothing"): WordsNote => ({
   outcome,
-  page: { type: "note", key: `note:${captureId}`, captureId, at, text, quotes: [], spans: [], intention: false },
+  page: { type: "note", key: `note:${captureId}`, captureId, at, text, quotes: [], spans: [], unprocessed: [], intention: false },
 });
 const NOTES = [
   note("c2", "a quiet evening on the porch", "2026-11-13T20:00:00"),

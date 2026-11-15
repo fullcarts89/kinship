@@ -328,6 +328,7 @@ export function NoteCard({ e, now, query, target, onLine }: { e: NotePage; now: 
               text={e.text}
               spans={e.spans}
               found={query ? findRanges(e.text, query) : []}
+              unprocessed={e.unprocessed}
               style={pagesType}
               onLine={onLine}
             />
@@ -439,8 +440,11 @@ export function PersonNotebookView(props: PersonNotebookProps) {
   const first = props.short?.trim() || props.name.trim().split(/\s+/u)[0];
   const words = props.name.trim().split(/\s+/u);
   const nameLines = words.length > 1 ? `${words[0]}\n${words.slice(1).join(" ")}` : words[0];
-  // Nothing told yet: no lenses (a Contacts birthday doesn't count, and neither does a note still open).
-  const sparse = props.total === 0 && !(props.trail?.length);
+  // Nothing told yet: no lenses (a Contacts birthday doesn't count, and neither does a note still open). A
+  // note kept with no line from it counts (CMR-1: "Kept on Chris's page." must be true): the lenses show,
+  // Now keeps the invitation, and Pages holds the note.
+  const untold = props.total === 0 && !(props.trail?.length);
+  const sparse = untold && !(props.pages?.length);
   const stacked = isLargeText();
   const grow = stacked ? undefined : 1;
   const state = props.stateLine ?? (props.remembered ? PAUSE_COPY.line : null);
@@ -545,8 +549,13 @@ export function PersonNotebookView(props: PersonNotebookProps) {
           </Raised>
         ))}
 
-        {sparse ? (
+        {sparse || (untold && props.lens === "now") ? (
           <View style={{ paddingHorizontal: 24, paddingTop: 22 }}>
+            {sparse ? null : (
+              <View style={{ marginHorizontal: -4, marginBottom: 18 }}>
+                <LensTabs lenses={LENSES} current={props.lens} onChange={props.onLens} />
+              </View>
+            )}
             <NText v="serif21">{NOTEBOOK_COPY.invitation(first)}</NText>
             {props.contactsBirthday ? (() => {
               const b = dateBlock(props.contactsBirthday);

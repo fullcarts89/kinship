@@ -611,9 +611,9 @@ function knownOf(script: unknown): string[] {
 }
 
 /** As the gateway tells the phone about coverage (Option A): "partial" with spans and a count, else "complete". */
-function coverageReply(raw: unknown): { state: "complete" | "partial"; unprocessed: { start: number; end: number }[]; unlocated: number } {
-  const c = raw as { unprocessed?: { start: number; end: number }[]; unlocated?: number } | null | undefined;
-  return c && ((c.unprocessed?.length ?? 0) > 0 || (c.unlocated ?? 0) > 0)
-    ? { state: "partial", unprocessed: c.unprocessed ?? [], unlocated: c.unlocated ?? 0 }
+function coverageReply(raw: unknown): { state: "complete" | "partial"; unprocessed: { start: number; end: number }[]; unlocated: number; not_understood?: { start: number; end: number }[] } {
+  const c = raw as { unprocessed?: { start: number; end: number }[]; unlocated?: number; not_understood?: { start: number; end: number }[] } | null | undefined;
+  return c && ((c.unprocessed?.length ?? 0) > 0 || (c.unlocated ?? 0) > 0 || (c.not_understood?.length ?? 0) > 0)
+    ? { state: "partial", unprocessed: c.unprocessed ?? [], unlocated: c.unlocated ?? 0, ...(c.not_understood?.length ? { not_understood: c.not_understood } : {}) }
     : { state: "complete", unprocessed: [], unlocated: 0 };
 }

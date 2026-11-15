@@ -56,6 +56,7 @@ import {
 } from "../../supabase/functions/_shared/extraction/names";
 import { peopleOf, repositoriesFor, type Capture, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
 import { followUpsOf, keptLinesOf, recoveryOf } from "./followUp";
+import { anythingLeftOut, leftOut, type NoteCoverage } from "./coverage";
 import { apartKey, rememberLinks } from "./linksAnswered";
 import { getMeta, setMeta } from "./schema";
 import type { SyncReport } from "./syncEngine";
@@ -92,7 +93,7 @@ export interface Reading {
    * of unplaced ones. Present only when the note held more than one understanding could take. The
    * capture row's own `coverage` (synced) is the truth across phones; this is the reply's copy.
    */
-  coverage?: { unprocessed: { start: number; end: number }[]; unlocated: number };
+  coverage?: NoteCoverage;
 }
 
 export interface PendingAnswer {
@@ -424,12 +425,14 @@ export class Understanding {
     if (!capture || !capture.raw_text) return null;
     const row = await this.get(captureId);
     const coverage = capture.coverage ?? row?.reading?.coverage ?? null;
-    if (!coverage || (!coverage.unprocessed.length && !coverage.unlocated)) return null;
+    if (!anythingLeftOut(coverage)) return null;
+    // Every place left out: the passages not got to, and the places read but kept nothing from (CMR-1 C2).
+    const places = leftOut(coverage);
     const followUps = await followUpsOf(this.store, captureId);
     const still = followUps.length
-      ? recoveryOf(capture.raw_text, coverage.unprocessed, { kept: await keptLinesOf(this.store, captureId) }, followUps).remaining
-      : coverage.unprocessed;
-    if (!still.length && !coverage.unlocated) return null;
+      ? recoveryOf(capture.raw_text, places, { kept: await keptLinesOf(this.store, captureId) }, followUps).remaining
+      : places;
+    if (!still.length && !coverage!.unlocated) return null;
     const chars = Array.from(capture.raw_text);
     const passages = [...still]
       .filter((s) => Number.isInteger(s.start) && Number.isInteger(s.end) && s.start >= 0 && s.end > s.start && s.end <= chars.length)
@@ -703,6 +706,9 @@ export class Understanding {
       this.store.notify();
       return;
     }
+    // What the sync just brought (a note told on another phone, or a question waiting there) is tracked in
+    // this same pass, not the next kick's (CMR-1: never lost between phones).
+    await this.discover();
     await this.finishLeftOpen();
     this.reporting ??= this.reportResidence().catch(() => undefined);
     let wrote = await this.reportChanged();
@@ -765,11 +771,17 @@ export class Understanding {
     }
   }
 
-  /** Notes told with AI on (here, or pulled from another device) that nothing tracks yet. */
+  /**
+   * Notes told with AI on (here, or pulled from another device) that nothing tracks yet: not understood
+   * yet (`pending`), or understood on another phone with a question still waiting there (`needs_review`,
+   * CMR-1). Tracked, the gateway is asked once and answers "done" with the stored question (no model
+   * run), so the question shows here too and the note is never lost between phones; whichever phone
+   * answers, the other is told (review_changed / not_waiting).
+   */
   private async discover(): Promise<void> {
     const captures = await this.store.list("captures");
     for (const c of captures) {
-      if (c.status !== "pending" || !c.raw_text) continue;
+      if ((c.status !== "pending" && c.status !== "needs_review") || !c.raw_text) continue;
       if (!(await this.get(c.id as string))) await this.told(c.id as string);
     }
   }
@@ -842,8 +854,11 @@ export class Understanding {
     }
     // What the understanding could not take, when anything (Option A): kept with the reading so the card
     // and the Source view say so, on this phone at once and on every phone through the capture row.
-    const coverage = reply.coverage.state === "partial"
-      ? { unprocessed: reply.coverage.unprocessed, unlocated: reply.coverage.unlocated }
+    const coverage: NoteCoverage | null = reply.coverage.state === "partial"
+      ? {
+          unprocessed: reply.coverage.unprocessed, unlocated: reply.coverage.unlocated,
+          ...(reply.coverage.not_understood?.length ? { not_understood: reply.coverage.not_understood } : {}),
+        }
       : null;
     if (reply.status === "extracted") {
       track("extraction_completed", {

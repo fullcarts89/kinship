@@ -4,6 +4,7 @@
 // whose choices are the user's own people. No system vocabulary, ever.
 import { answersFor, buildReview, COPY, openQuestions, type ReviewInput, type ReviewView } from "@/features/tell/reviewModel";
 import { keptOnCopy } from "@/features/tell/keptOn";
+import { cardFor } from "@/features/tell/TellFlow";
 import { dayLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { HeldAnswer, HeldItem } from "@/store/gateway";
 import type { MemoryItem, Person } from "@/store/repositories";
@@ -610,6 +611,48 @@ it("a told-again update from no page: 'Who is this about?' first with the candid
   expect(answersFor(v.questions, { [who.key]: "answer" in ben ? ben.answer : {} })).toBeNull();
   expect(answersFor(v.questions, { [who.key]: "answer" in ben ? ben.answer : {}, [replace.key]: "answer" in yes ? yes.answer : {} }))
     .toEqual([{ index: 0, person_id: "ben", replaces: "m-edited" }]);
+});
+
+describe("what the understanding read but kept nothing from (CMR-1 C2, not_understood)", () => {
+  const note = "Ben runs Chicago Sunday. Anna loves hiking.";
+  const second = { start: note.indexOf("Anna"), end: note.length - 1 };
+
+  it("a kept line beside a place kept nothing from: the card is partial, marks the place, offers Tell the rest, and never says only 'Kept'", () => {
+    const v = buildReview({
+      row: row("review", { tier: "auto", saved: [{ id: "m1", tier: "auto" }], settled: true }),
+      capture: { id: "c1", raw_text: note, context_person_id: null, status: "extracted", understanding: "partial", coverage: { unprocessed: [], unlocated: 0, not_understood: [second, second] } },
+      items: [race], people: [BEN], related: [], offline: false, today: TODAY,
+    });
+    expect(v.mode).toBe("card");
+    expect(v.status).toBe(COPY.partial);
+    expect(v.partial).toMatchObject({ unprocessed: [second], unlocated: 0, tellRest: true, resolved: false });
+    expect(JSON.stringify(v)).not.toMatch(/Kept on Ben's page/);
+  });
+
+  it("a note with no line kept and a place kept nothing from (the server's word: partial): never 'nothing', the place marked, Tell the rest offered", () => {
+    const v = buildReview({
+      row: row("done", { tier: "nothing", saved: [], held: [], settled: true, coverage: { unprocessed: [], unlocated: 0, not_understood: [second] } }),
+      capture: { id: "c1", raw_text: note, context_person_id: null, status: "extracted", understanding: "partial", coverage: { unprocessed: [], unlocated: 0, not_understood: [second] } },
+      items: [], people: [BEN], related: [], offline: false, today: TODAY,
+    });
+    // No line to show, so the quiet card: but it says the place was left out, marks it, and offers Tell the rest.
+    expect(v.mode).toBe("nothing");
+    expect(v.partial).toMatchObject({ unprocessed: [second], tellRest: true });
+    expect(v.status).toBe(`Kept on Ben's page. ${COPY.partial}`);
+    expect(v.words).toBe(note);
+    const card = cardFor(v)!;
+    expect([card.partial?.tellRest, card.status]).toEqual([true, `Kept on Ben's page. ${COPY.partial}`]);
+    // Once a later note demonstrably took the place, the card is plain again.
+    const taken = buildReview({
+      row: row("done", { tier: "nothing", saved: [], held: [], settled: true }),
+      capture: {
+        id: "c1", raw_text: note, context_person_id: null, status: "extracted", coverage: { unprocessed: [], unlocated: 0, not_understood: [second] },
+        recovery: { passages: [], recovered: [second], remaining: [], uncertain: 0, followUp: "read" },
+      },
+      items: [], people: [BEN], related: [], offline: false, today: TODAY,
+    });
+    expect([taken.status, taken.partial?.tellRest]).toEqual(["Kept on Ben's page.", false]);
+  });
 });
 
 describe("every Tell is logged (founder, 10 Nov 2026)", () => {

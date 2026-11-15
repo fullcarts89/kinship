@@ -10,7 +10,7 @@ import { KNOWS_FINE, KnowsLensView } from "../KnowsLens";
 import { LINE_COPY, LineSheetView } from "../LineSheet";
 import { NotebookSourceView, SOURCE_COPY } from "../SourceView";
 import { openingLens, resetLenses } from "../NotebookPerson";
-import { buildPages } from "../pagesModel";
+import { buildPages, type PageEntry } from "../pagesModel";
 import type { ItemLine } from "@/features/tell/reviewModel";
 import type { RecordLine, RecordSection } from "@/features/person/PersonRecordView";
 
@@ -130,7 +130,7 @@ describe("the notebook page", () => {
 
   it("a sparse page has no lenses: the invitation, the Contacts birthday, Tell Kinship about them", () => {
     let told = 0;
-    const r = render(page({ name: "Aiko Tanaka", short: "Aiko", label: null, total: 0, trail: [], comingUp: [], youSaid: [], lately: [], between: [], contactsBirthday: "2027-01-14", onTell: () => told++ }));
+    const r = render(page({ name: "Aiko Tanaka", short: "Aiko", label: null, total: 0, trail: [], pages: [], comingUp: [], youSaid: [], lately: [], between: [], contactsBirthday: "2027-01-14", onTell: () => told++ }));
     const shown = textsOf(r);
     expect(shown).toContain("What you tell Kinship about Aiko will be here: what's going on with them, what's coming up, what you said you'd do.");
     expect(shown).toEqual(expect.arrayContaining(["JAN", "14", "Aiko's birthday", "From Contacts", "Tell Kinship about Aiko"]));
@@ -138,6 +138,17 @@ describe("the notebook page", () => {
     expect(shown).not.toContain("IDEAS-SLOT");
     press(r, "Tell Kinship about Aiko");
     expect(told).toBe(1);
+  });
+
+  it("a person with only a note kept with no line from it is not sparse: the lenses show, Now keeps the invitation, Pages holds the note (CMR-1)", () => {
+    const quiet: PageEntry = { type: "note", key: "note:q1", captureId: "q1", at: "2026-11-06T12:00:00Z", text: "Aiko and I laughed until we cried.", quotes: [], spans: [], unprocessed: [], intention: false };
+    const untold = { name: "Aiko Tanaka", short: "Aiko", label: null, total: 0, trail: [], pages: [quiet], comingUp: [], youSaid: [], lately: [], between: [] };
+    const now = render(page({ ...untold, lens: "now" }));
+    expect(textsOf(now)).toContain("What you tell Kinship about Aiko will be here: what's going on with them, what's coming up, what you said you'd do.");
+    expect(now.root.findAll((n) => typeof n.type === "string" && n.props.accessibilityRole === "tab").length).toBeGreaterThan(0);
+    const pagesLens = render(page({ ...untold, lens: "pages" }));
+    expect(textsOf(pagesLens).join("")).toContain("Aiko and I laughed until we cried.");
+    expect(textsOf(pagesLens)).toContain("Fri, Nov 6 · You told Kinship");
   });
 
   it("the return loop sits in the raised panel, as built", () => {
