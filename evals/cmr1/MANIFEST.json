@@ -1,5 +1,5 @@
 {
-  "version": "cmr1-v1",
+  "version": "cmr1-v1.1",
   "counts": {
     "by_category": {
       "everyday": 12,
@@ -8,7 +8,7 @@
       "worklife": 10,
       "celebrations": 8,
       "preferences": 8,
-      "sensitive": 12,
+      "sensitive": 16,
       "commitments": 8,
       "multiperson": 8,
       "relatives_pets": 10,
@@ -20,13 +20,13 @@
       "names": 14
     },
     "by_split": {
-      "dev": 101,
+      "dev": 105,
       "heldout": 43
     },
-    "steps": 154,
-    "facts": 414
+    "steps": 158,
+    "facts": 424
   },
-  "total": 144,
+  "total": 148,
   "files": {
     "corpus/everyday.jsonl": "152df015aaba94dec57b86ca16b3ed6685dabf0a3f460f99950eb83ec7aa82f7",
     "corpus/tender.jsonl": "b09e14a535588738b72a45565c432cd5e900b8f9c01b5959c86f6353595df254",
@@ -34,7 +34,7 @@
     "corpus/worklife.jsonl": "9fb8924674c558c9c11501bf26a4045cb7440bf23323e44affd504e5e3a703b1",
     "corpus/celebrations.jsonl": "fa0f4929dc9af5a349cde5cd001e1ce09784b04471e1f956570a236ebd63ca83",
     "corpus/preferences.jsonl": "79f7066acedbaf29a1e1736e003049e7aef6b178d1e7d56d103298f6f138b002",
-    "corpus/sensitive.jsonl": "12845d43955ae88e8c4105d24a96f3d7a57012dc17396625b6cb4eeb9b2f5be5",
+    "corpus/sensitive.jsonl": "5f43ffd7c1ff32446e2074e8bd725d6c59e5cf3159b9ea98309e80506001bf8d",
     "corpus/commitments.jsonl": "4eacdf75f6fe85d01ff432a4a0eb890daf4e622d691dc30174d5511446c49539",
     "corpus/multiperson.jsonl": "907b5d0f7916fb2ecc43c66fed49e3ac6e77c423f48822258602420d0f08a40e",
     "corpus/relatives_pets.jsonl": "b8840a119fe444bcdfd852232df96e377c81648fbfd32b94abae23b6cfd15192",
@@ -45,9 +45,9 @@
     "corpus/no_memory.jsonl": "fc1386df053fabe142ec34b1c4a909291c1d389e7812994741453334c20ffbb5",
     "corpus/names.jsonl": "9766122f62520785b17ff4d8e43a909810dc0aad4f24f4f924ce4306c2dcea18",
     "rosters.json": "c8f353c10c635ae5ddc86dcf2423d7724b4d7fae51730a80819e842f7f6a80f5",
-    "thresholds.json": "f6b113216e7106b04c681d2266cb778e75b6ed22996a140625bed9c1b6a3e247"
+    "thresholds.json": "ab861492e25a31119dad0bc9dd51c326cc2bdb385750d326ee34a9ca60265208"
   },
-  "corpus_sha256": "840a702de6e382f9059126ac24dc25a5e207ba0f61ef5afcf1960e3726e1ce15",
+  "corpus_sha256": "68436546bcb3279c769c06a15d5ea9679180f3447face36bad006a90771e2e09",
   "heldout": {
     "ids": [
       "ce-003",

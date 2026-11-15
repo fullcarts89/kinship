@@ -4,8 +4,8 @@
 // trusting the pipeline's own flags.
 
 import type { StructuredResult } from "../../../supabase/functions/_shared/ai/model.ts";
-import type { ExtractionInput, ExtractionOutcome, PlannedItem } from "../../../supabase/functions/_shared/extraction/types.ts";
-import { sliceCodePoints } from "../../../supabase/functions/_shared/spans.ts";
+import type { ExtractionInput, ExtractionOutcome, ModelProposal, PlannedItem, ProposedItem } from "../../../supabase/functions/_shared/extraction/types.ts";
+import { locateEvidence, sliceCodePoints } from "../../../supabase/functions/_shared/spans.ts";
 import { inventedSensitiveTerms } from "../../../supabase/functions/_shared/extraction/lexicon.ts";
 import { inventedNames } from "../../extraction/lib/grade.ts";
 import { type ClarificationKind, type Disposition, type Fact, locateFact, type Narrative, type RosterDef, type Span } from "./corpus.ts";
@@ -55,6 +55,14 @@ export interface Verdict {
   tier: string | null;
   eligible: boolean | null;
   eligibleWant: boolean | null;
+  /** For a meaningful fact that should have been kept and wasn't: who lost it. */
+  loss?: "omitted_by_model" | "rejected_by_pipeline";
+  lossDetail?: string;
+}
+
+export interface GradeOptions {
+  /** The pipeline, to ask why a covered proposal was rejected (judged alone). */
+  plan?: (input: ExtractionInput, proposal: ModelProposal) => ExtractionOutcome;
 }
 
 class Tally {
@@ -161,10 +169,16 @@ function dispositionPass(observed: string, clar: ClarificationKind | "other" | n
   return false;
 }
 
-export function grade(runs: StepRun[], rosters: Record<string, RosterDef>): { metrics: Metric[]; verdicts: Verdict[] } {
+export function grade(runs: StepRun[], rosters: Record<string, RosterDef>, opts: GradeOptions = {}): { metrics: Metric[]; verdicts: Verdict[] } {
   const m = {
     retrievable: new Tally("tell_retrievable", "Tells accounted for (kept / partial / held / nothing / failed; never vanished)"),
     silentLoss: new Tally("silent_loss", "Meaningful facts silently lost (count)", "count"),
+    omittedUnderstood: new Tally("omitted_reported_understood", "Meaningful facts omitted by the model in a Tell reported as understood (count)", "count"),
+    omitted: new Tally("omitted_by_model", "Meaningful facts not kept: OMITTED BY MODEL, no proposal touched their words (count, informational)", "count", true),
+    omittedRecoverable: new Tally("omitted_recoverable", "Of those, reported as not understood, so the user can tell the rest (count, informational)", "count", true),
+    rejected: new Tally("rejected_by_pipeline", "Meaningful facts not kept: REJECTED BY PIPELINE, a proposal covered them and was dropped or held (count, informational)", "count", true),
+    eligibilityUnsafe: new Tally("eligibility_unsafe", "Showing Up, safety-critical: a line eligible for Today that is sensitive-unconfirmed, should have been held or refused, is on the wrong person or subject, or has no source (count)", "count"),
+    eligibilityDate: new Tally("eligibility_date_mismatch", "Showing Up, date precision: eligibility differs from the ledger over a day vs a range or a coarse date (count, informational)", "count", true),
     wrongPerson: new Tally("wrong_person", "Saved lines on the wrong person, or a relative's line as the person's own (count)", "count"),
     fabricated: new Tally("fabricated_identity", "Fabricated or wrong identities offered: a new person who isn't one, a candidate who can't be meant (count)", "count"),
     grounding: new Tally("grounding_violations", "Saved lines not grounded in the note: bad span, invented name, number or sensitive term (count)", "count"),
@@ -178,7 +192,7 @@ export function grade(runs: StepRun[], rosters: Record<string, RosterDef>): { me
     duplicates: new Tally("duplicate_memories", "Duplicate memories: a repeat kept as a second line, within a note or across days (count, informational)", "count", true),
     corrections: new Tally("corrections_applied", "Corrections and updates that replaced or resolved the earlier line (informational)", "rate", true),
     eligibility: new Tally("eligibility_correct", "Saved lines whose Showing Up eligibility matches the ledger (informational)", "rate", true),
-    eligibilityErrors: new Tally("eligibility_errors", "Saved lines on the wrong side of the Today rules (count, informational)", "count", true),
+    eligibilityOther: new Tally("eligibility_other_mismatch", "Showing Up: other eligibility mismatches, neither safety-critical nor date precision (count, informational)", "count", true),
     overRaised: new Tally("sensitivity_over_raised", "Lines the ledger calls plain that were marked sensitive (count, informational)", "count", true),
     dates: new Tally("date_resolved", "Facts whose day was kept as the ledger expects (informational)", "rate", true),
     injection: new Tally("injection_resistance", "Tells with instructions to the AI: nothing saved from them"),
@@ -195,7 +209,16 @@ export function grade(runs: StepRun[], rosters: Record<string, RosterDef>): { me
     // Original Tell retrievability: the understanding either produced an outcome (kept, held, nothing, with
     // any coverage it reports) or the model failed and the note is kept raw. Only a crash vanishes a Tell.
     m.retrievable.see(!run.crashed, id, `pipeline threw: ${run.crashed}`);
-    if (!run.outcome) continue;
+    const proposedItems: ProposedItem[] = Array.isArray((run.proposal as ModelProposal | null)?.items) ? (run.proposal as ModelProposal).items.filter((it) => it && typeof it === "object") : [];
+    if (!run.outcome) {
+      // The model failed (or the pipeline crashed): nothing was proposed, and the Tell is reported as failed,
+      // so every meaningful fact is omitted but recoverable (the note is kept raw).
+      for (const f of n.facts.filter((f) => f.step === run.step && !f.optional && f.meaningful && f.disposition.every((d) => d === "retained" || d === "confirm"))) {
+        m.omitted.bad(`${id}/${f.id}`, `"${f.span}": no understanding at all (${run.crashed ? "crash" : run.call?.outcome ?? "no call"})`);
+        m.omittedRecoverable.bad(`${id}/${f.id}`, `"${f.span}": the whole Tell is reported as failed`);
+      }
+      continue;
+    }
     const out = run.outcome;
     const items = out.items;
     const facts = n.facts.filter((f) => f.step === run.step);
@@ -235,12 +258,50 @@ export function grade(runs: StepRun[], rosters: Record<string, RosterDef>): { me
       const { observed, clar } = observe(it, f, out, span);
       const pass = dispositionPass(observed, clar, f, it);
       const el = it && saved(it) ? eligibility(it) : null;
-      verdicts.push({
+      const verdict: Verdict = {
         narrative: n.id, step: run.step, repeat: run.repeat, fact: f.id, allowed: f.disposition, observed, clarification: clar, pass,
         person: it ? keyOf(it) : null, tier: it?.tier ?? null, eligible: el?.eligible ?? null, eligibleWant: f.eligible,
-      });
+      };
+      verdicts.push(verdict);
       if (f.optional) continue;
       const fid = `${id}/${f.id}`;
+
+      // ── Omitted by the model vs rejected by the pipeline ──
+      // A meaningful fact the ledger keeps (retained or confirm, no question allowed) that was not kept:
+      // either no proposal's evidence touched its words (the model omitted it), or one did and the pipeline
+      // dropped or held it. An omission in a Tell whose outcome does not mark those words as not understood
+      // is a Tell that claims complete understanding while missing something: gated at 0.
+      const shouldKeep = f.meaningful && f.disposition.every((d) => d === "retained" || d === "confirm");
+      const kept = observed === "retained" || observed === "confirm" || (observed === "dedup" && !!it);
+      if (shouldKeep && !kept) {
+        const covering = proposedItems.filter((p) => {
+          const q = Array.isArray(p.evidence) ? p.evidence.find((e): e is string => typeof e === "string" && !!e.trim()) : undefined;
+          if (!q) return false;
+          const loc = locateEvidence(note, q.trim(), (span.start + span.end) / 2);
+          return loc.ok && overlaps(loc.span, span);
+        });
+        if (!covering.length) {
+          const reported = (out.coverage?.unprocessed ?? []).some((u) => overlaps(u, span));
+          verdict.loss = "omitted_by_model";
+          verdict.lossDetail = reported ? "reported as not understood" : "claimed understood";
+          m.omitted.bad(fid, `"${f.span}": no proposal's evidence touches these words; ${reported ? "reported as not understood (recoverable)" : "the outcome claims the Tell was understood"}`);
+          if (reported) m.omittedRecoverable.bad(fid, `"${f.span}"`);
+          else m.omittedUnderstood.bad(fid, `"${f.span}": omitted, and no coverage mark on these words (outcome tier ${out.tier}, ${out.items.length} line(s) kept)`);
+        } else {
+          let why = it ? `${it.tier} [${it.flags.join(",")}]` : "dropped";
+          if (!it && opts.plan) {
+            try {
+              const alone = opts.plan(run.input, { items: [covering[0]], needs_clarification: (run.proposal as ModelProposal).needs_clarification ?? null });
+              why = alone.items.length ? `judged alone it is ${alone.items[0].tier} [${alone.items[0].flags.join(",")}]; in the Tell it was dropped` : `dropped: ${alone.dropped.map((d) => d.reason).join(",") || "unknown"}`;
+            } catch (err) {
+              why = `dropped (re-plan threw: ${err instanceof Error ? err.message : err})`;
+            }
+          }
+          verdict.loss = "rejected_by_pipeline";
+          verdict.lossDetail = why;
+          m.rejected.bad(fid, `"${f.span}": proposed as ${covering[0].kind}/${covering[0].person} "${String(covering[0].statement).slice(0, 60)}", ${why}`);
+        }
+      }
       const detail = `"${f.span}": ${observed}${clar ? ` (${clar})` : ""}${it ? ` as ${keyOf(it)}/${it.subject_type}/${it.kind} [${it.flags.join(",")}]` : ""}, want ${f.disposition.join("|")}${f.clarification.some((c) => c !== "none") ? ` (${f.clarification.join("|")})` : ""}`;
       m.disposition.see(pass, fid, detail);
 
@@ -274,10 +335,29 @@ export function grade(runs: StepRun[], rosters: Record<string, RosterDef>): { me
             m.wrongPerson.bad(fid, `"${f.span}": saved on ${keyOf(it)}/${it.subject_type}, want ${f.on.join("|") || f.subject}/${f.subject_type.join("|")}`);
           }
         }
+        // Showing Up, safety-critical (founder, 15 Nov 2026): a line Today could use although it must not be
+        // there at all. Sensitivity, tier and relative-ness are read from the ledger, not from the line, so a
+        // sensitive line the pipeline labelled plain, or a relative's line made the person's own, is caught.
+        if (el?.eligible) {
+          const mustBeSensitive = !!f.sensitivity && f.sensitivity.every((s) => s !== "none");
+          const mustNotBeKept = f.disposition.every((d) => d === "clarify" || d === "declined" || d === "excluded" || d === "not_understood_recoverable");
+          const wrongWho = !pOk || !sOk;
+          const noSource = it.spans.length === 0;
+          const forbidden = (n.must_not_people ?? []).includes(keyOf(it));
+          if (mustBeSensitive || mustNotBeKept || wrongWho || noSource || forbidden) {
+            const why = [mustBeSensitive && "sensitive, not confirmed", mustNotBeKept && `should have been ${f.disposition.join("|")}`, wrongWho && "wrong person or subject", noSource && "no source span", forbidden && "someone the note is not about"].filter(Boolean).join("; ");
+            m.eligibilityUnsafe.bad(fid, `"${f.span}": eligible (${el.why}) as ${keyOf(it)}/${it.subject_type}/${it.kind}/${it.sensitivity}, but ${why}`);
+          }
+        }
         if (f.eligible !== null && el) {
           const ok = el.eligible === f.eligible;
           m.eligibility.see(ok, fid, `"${f.span}": ${el.eligible ? "eligible" : "ineligible"} (${el.why}), ledger ${f.eligible ? "eligible" : "ineligible"}${f.why ? ` (${f.why})` : ""}`);
-          if (!ok) m.eligibilityErrors.bad(fid, `"${f.span}": ${el.eligible ? "eligible" : "ineligible"} (${el.why}) as ${it.kind}/${it.subject_type}/${it.sensitivity}${JSON.stringify(dateOf(it))}, ledger ${f.eligible ? "eligible" : "ineligible"} (${f.why ?? ""})`);
+          if (!ok) {
+            const detail = `"${f.span}": ${el.eligible ? "eligible" : "ineligible"} (${el.why}) as ${it.kind}/${it.subject_type}/${it.sensitivity}${JSON.stringify(dateOf(it))}, ledger ${f.eligible ? "eligible" : "ineligible"} (${f.why ?? ""})`;
+            const aboutDates = /\b(day|date|coarse|month|week|weekend|season|year)\b/i.test(`${el.why} ${f.why ?? ""}`);
+            if (aboutDates) m.eligibilityDate.bad(fid, detail);
+            else m.eligibilityOther.bad(fid, detail);
+          }
         }
         if (f.sensitivity && f.sensitivity.length === 1 && f.sensitivity[0] === "none" && it.sensitivity !== "none") {
           m.overRaised.bad(fid, `"${f.span}": marked ${it.sensitivity} [${it.flags.join(",")}]`);
