@@ -288,12 +288,12 @@ const INSTRUCTION = [
 // "Don't tell anyone about the miscarriage" and "No one say anything to Mark about the layoffs" carry news and
 // are kept; so are "Don't tell anyone but Grace is pregnant" and "Don't mention the divorce to Ben".
 const ASIDE_WORD = "[\\p{L}'’]+";
-const ASIDE_WHO = `(?:anyone|anybody|everyone|everybody|him|her|them|(?:my |our |your )?(?:${["mom", "mum", "mother", "dad", "father", "grandma", "grandpa", "nana", "gran", "granny", "papa", "brother", "sister", "wife", "husband", "partner", "aunt", "uncle", "cousin", "kids", "boss", "son", "daughter"].join("|")})(?: ${ASIDE_WORD})?|${ASIDE_WORD})`;
-const ASIDE_THING = `(?:it|this|that|anything|any of (?:it|this|that)|(?:the|her|his|their|my|our) (?:surprise |birthday |big )?(?:party|surprise|plan|plans|gift|gifts|present|presents|trip|puppy|cake|lunch|dinner|card|idea|secret|news))`;
+const ASIDE_WHO = `(?:anyone|anybody|everyone|everybody|him|her|them|the (?:kids|boys|girls|family|others)|(?:my |our |your )?(?:${["mom", "mum", "mother", "dad", "father", "grandma", "grandpa", "nana", "gran", "granny", "papa", "brother", "sister", "wife", "husband", "partner", "aunt", "uncle", "cousin", "kids", "boss", "son", "daughter"].join("|")})(?: ${ASIDE_WORD})?|${ASIDE_WORD})`;
+const ASIDE_THING = `(?:it|this|that|anything|any of (?:it|this|that)|(?:the|her|his|their|my|our|${ASIDE_WORD}['’]s) (?:surprise |birthday |big |baby |new )?(?:party|surprise|plan|plans|gift|gifts|present|presents|trip|puppy|cake|lunch|dinner|card|idea|secret|news|shower|car|ending|score|results?))`;
 const ASIDE_WHEN = "(?:(?:at|before|until|till) (?:the|her|his|their) (?:party|seventieth|sixtieth|fiftieth|fortieth|thirtieth|birthday|dinner|lunch|wedding|reunion|weekend|shower))";
 const ASIDE_ACT = `(?:tell(?: ${ASIDE_WHO})?(?:,? (?:about|of) ${ASIDE_THING}| ${ASIDE_THING})?` +
   `|(?:say|breathe) (?:anything|a word)(?: (?:to|around|in front of) ${ASIDE_WHO})?(?: (?:about|of) ${ASIDE_THING})?` +
-  `|let on(?: (?:to|around) ${ASIDE_WHO})?|(?:spoil|ruin)(?: ${ASIDE_THING})?` +
+  `|let on(?: (?:to|around) ${ASIDE_WHO})?|(?:spoil|ruin)(?: ${ASIDE_THING})?(?: (?:for|on) ${ASIDE_WHO})?` +
   `|mention (?:it|this|that|anything)(?: (?:to|around|in front of) ${ASIDE_WHO})?` +
   `|bring (?:it|this|that) up(?: (?:with|around|in front of) ${ASIDE_WHO})?` +
   `|let ${ASIDE_WHO} (?:find out|know|see|hear)(?: (?:about|of) ${ASIDE_THING})?)`;

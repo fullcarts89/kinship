@@ -210,7 +210,8 @@ describe("every retained Tell is findable through the screens", () => {
     const rows = await captures(acct.userId);
     expect("understanding" in rows[0]).toBe(true); // the CMR-1 column is on the local database
     const word = (id: string) => rows.find((c) => c.id === id)?.understanding;
-    expect([word(n6.id), word(nothing.id), word(broken.id)]).toEqual(["kept", "nothing", "failed"]);
+    // The note the model left empty is "partial" on the server: a meaningful sentence was left, so it is told again, never "taken whole".
+    expect([word(n6.id), word(nothing.id), word(broken.id)]).toEqual(["kept", "partial", "failed"]);
     const johns3 = await pagesOf(second.r, john.id);
     expect(johns3).toContain(N6);
     expect(johns3).toContain(BROKEN_JOHN);
@@ -348,7 +349,7 @@ describe("every retained Tell is findable through the screens", () => {
     const second = await anotherDevice(acct.credentials);
     const rows = await captures(acct.userId);
     await noLocalRows(rows.map((c) => c.id));
-    expect(rows.map((c) => [c.raw_text, c.status, c.understanding]).sort()).toEqual([[K4, "extracted", "nothing"], [BROKEN_ALONE, "failed", "failed"]].sort());
+    expect(rows.map((c) => [c.raw_text, c.status, c.understanding]).sort()).toEqual([[K4, "extracted", "partial"], [BROKEN_ALONE, "failed", "failed"]].sort());
     const elsewhere = await yourWords(second.r);
     expect(elsewhere).toContain(K4);
     expect(elsewhere).toContain(BROKEN_ALONE);

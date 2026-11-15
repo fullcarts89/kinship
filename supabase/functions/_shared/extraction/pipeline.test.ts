@@ -960,3 +960,8 @@ Deno.test("re-review 1: an aside that carries news is never set aside; health wo
   for (const t of ["He saw a consultant about his knee", "seeing a specialist next week", "Ben's knee is sore"]) ok(sensitivitiesOf(t).includes("health"), `health: ${t}`);
   for (const t of ["The essay was poorly written", "It's poorly organised", "Her eyes were sore from crying", "his eyes are bad at spotting typos", "my heart is bad at goodbyes", "Saw the specialist cheese shop", "We saw a consultant about the kitchen remodel", "Ben is seeing a consultant for his business"]) ok(!sensitivitiesOf(t).includes("health"), `plain: ${t}`);
 });
+
+Deno.test("re-review 3: asides about a named person's party, a shower, a car, the kids, an ending are asides", () => {
+  for (const t of ["Don't tell Mom about Ben's party", "Don't tell Grace about the baby shower", "dont tell dad about the new car", "Don't tell the kids about the puppy", "Don't spoil the ending for Ben", "remember don't tell Ben the score"]) ok(asideOf(t), `an aside: ${t}`);
+  for (const t of ["Don't tell Mom about Ben's diagnosis", "Don't tell the kids Grandpa died", "Don't tell Mom about Ben's divorce"]) ok(!asideOf(t), `news, kept: ${t}`);
+});

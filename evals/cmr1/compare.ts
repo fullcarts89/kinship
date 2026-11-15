@@ -30,7 +30,8 @@ let regressions = 0;
 function better(m: MetricResult, from: number | null, to: number | null): "better" | "worse" | "same" | "n/a" {
   if (from === null || to === null) return "n/a";
   if (Math.abs(from - to) < 1e-9) return "same";
-  const lowerIsBetter = m.type === "count" || m.key === "unnecessary_clarification";
+  // More omissions reported as not understood (told again, never lost) is better (founder item 2).
+  const lowerIsBetter = (m.type === "count" && m.key !== "omitted_recoverable") || m.key === "unnecessary_clarification";
   return (to < from) === lowerIsBetter ? "better" : "worse";
 }
 

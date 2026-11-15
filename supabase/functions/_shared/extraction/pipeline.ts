@@ -972,7 +972,11 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     // "Talked to Grace. Her mom is in the hospital again." filed as Grace's: the quote's own subject is the
     // relative, whatever the statement says (final review of #93).
     const quoteRelativeLeads = new RegExp(`^(?:[\\p{L}\\p{M}'’-]+['’]s?|his|her|their|the)\\s+(?:\\w+\\s+)?(?:${POSSESSED_RELATION})\\b`, "iu").test(primary.quote.trim());
-    if (leadsWithPerson && !relativeLeads && !together && !quoteRelativeLeads) {
+    // The pronoun was read as the person's relative because the person cannot be it ("Sam and her brother came
+    // by. He brought cake"): a statement led by the person's name never overrules that; it is asked (re-review of #93).
+    if (leadsWithPerson && !relativeLeads && !together && !quoteRelativeLeads && "relation" in who && who.relation) {
+      flags.add("subject_check");
+    } else if (leadsWithPerson && !relativeLeads && !together && !quoteRelativeLeads) {
       subject = "person";
       raw = { ...raw, subject, related_relation: null, related_name: null };
       knownRelated = null;
@@ -2611,13 +2615,21 @@ function descriptorFits(descriptor: string, p: RosterPerson): boolean {
 /** A sentence opened by the writer's own verb, subject left out ("Talked to Nana.", "Picked up Kaiya…"), not a name. */
 function openingVerb(word: string): boolean {
   const k = fold(word);
-  if (k.length > 4 && /(?:ed|ing)$/u.test(k)) return true;
+  // "Talked", "Seeing", "Luckily", "Thankfully": a verb or an adverb opening the sentence, never a name.
+  if (k.length > 4 && /(?:ed|ing|ly)$/u.test(k)) return true;
   return OPENING_VERBS.has(k);
 }
+/** Words for a person who is not named ("a new neighbor", "a woman at church"), with the gender they say. */
+const PERSON_NOUNS = new Map<string, "f" | "m" | null>([
+  ["woman", "f"], ["lady", "f"], ["girl", "f"], ["gal", "f"], ["man", "m"], ["guy", "m"], ["boy", "m"], ["gentleman", "m"],
+  ["neighbor", null], ["neighbour", null], ["friend", null], ["colleague", null], ["coworker", null], ["someone", null],
+  ["somebody", null], ["stranger", null], ["person", null], ["kid", null], ["nurse", null], ["doctor", null], ["teacher", null],
+]);
 const OPENING_VERBS = new Set([
   "met", "saw", "had", "got", "went", "took", "ran", "spent", "caught", "told", "heard", "made", "came", "brought",
   "gave", "found", "left", "sent", "spoke", "drove", "flew", "rang", "bumped", "texted", "called", "visited", "ate",
   "grabbed", "dropped", "picked", "helped", "drew", "wrote", "read", "sat", "stood", "watched", "won", "lost", "bought",
+  "poor", "sounds", "looks", "seems", "feels", "glad", "sad", "lucky", "funny",
 ]);
 
 function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: RosterPerson): { relation: string; excludesOwner: boolean } | null {
@@ -2637,6 +2649,8 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
     fitting.push({ relation: rel, excludesOwner, det, index: m.index ?? 0 });
   }
   if (!fitting.length) return null;
+  // "Her friend's husband came too. He…": a chain's first link is never who the pronoun is (re-review of #93).
+  if ([...before.matchAll(re)].some((m) => /^['’]s?(?![\p{L}])/u.test(before.slice((m.index ?? 0) + m[0].length)))) return null;
   // Two different relatives the pronoun could be ("Nana's husband and her brother visited. He brought cake."):
   // never a guess between them (contract §7.3; final review of #93).
   if (new Set(fitting.map((f) => relationKey(f.relation))).size > 1) return null;
@@ -2694,11 +2708,15 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
         continue;
       }
       const rel = relationKey(fold(word));
-      if (RELATION_WORDS.map(relationKey).includes(rel)) {
-        // "my aunt", "our neighbor": someone of the writer's own, never the owner (unless it is the owner's label).
-        const own = /\b(?:my|our|your)\s+(?:[\p{L}'’-]+\s+)?$/iu.test(head.slice(0, at));
-        const g = FEMALE_RELATIONS.has(rel) ? "f" : MALE_RELATIONS.has(rel) ? "m" : null;
-        if (own && fits(g)) nearest = { at, owner: false };
+      const personNoun = PERSON_NOUNS.get(fold(word));
+      if (personNoun !== undefined || RELATION_WORDS.map(relationKey).includes(rel)) {
+        // "my aunt", "our neighbor", "a new neighbor", "a woman at church", "the lady next door", "a friend from
+        // bridge": someone else, never the owner (re-review of #93). "Nana's husband", "her husband" are not.
+        const lead = head.slice(0, at);
+        const other = /\b(?:my|our|your|a|an|the|this|that|another|some|one|new|old)\s+(?:[\p{L}'’-]+\s+)?$/iu.test(lead) &&
+          !/['’]s?\s+(?:[\p{L}'’-]+\s+)?$/u.test(lead);
+        const g = personNoun !== undefined ? personNoun : FEMALE_RELATIONS.has(rel) ? "f" : MALE_RELATIONS.has(rel) ? "m" : null;
+        if (other && fits(g)) nearest = { at, owner: false };
         continue;
       }
       if (!/^\p{Lu}/u.test(word) || word === "I") continue;
@@ -3415,7 +3433,7 @@ function chooseClarification(ctx: Context, items: PlannedItem[]): Clarification 
     // The relation from the line's sentence, the clause before it, else the line's own words ("Ben's dad caught a
     // trout"), so the question names who it might be about.
     const fromStatement = subject.statement.match(new RegExp(`^[\\p{L}\\p{M}'’-]+['’]s?\\s+(${POSSESSED_RELATION})\\b`, "iu"))?.[1] ?? null;
-    const rel = possessiveRelationWord(ctx.sentenceAround(subject.spans[0]), p) ?? possessiveRelationWord(clauseBefore(ctx, subject.spans[0]), p) ?? fromStatement ?? "family";
+    const rel = possessiveRelationWord(ctx.sentenceAround(subject.spans[0]), p) ?? possessiveRelationWord(clauseBefore(ctx, subject.spans[0]), p) ?? fromStatement ?? subject.related?.relation ?? "family";
     return {
       about: "subject",
       question: `Is this about ${p.display_name}, or ${p.display_name}'s ${rel}?`,

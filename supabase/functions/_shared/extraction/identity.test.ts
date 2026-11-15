@@ -1053,3 +1053,41 @@ Deno.test("re-review S1': a place one passes through is where, a friend from chu
   ] } as ModelProposal);
   ok(out.items.every((i) => i.person_id !== "jordan6" || i.tier === "hold"), "the Austin office: never saved on the friend Jordan");
 });
+
+// ── Re-review of 270e2b9 (15 Nov 2026): an unnamed woman's husband is never the roster person's ──
+
+Deno.test("re-review 3: 'her husband' after a neighbor, a woman, a friend, the lady next door or a friend's husband is asked", () => {
+  const nana = person("p55", "nana7", "Nana", { relationship_label: "grandmother" });
+  for (const [note, quote, page] of [
+    ["Nana met a new neighbor. Her husband is a pilot. He flies to Tokyo every week.", "He flies to Tokyo every week", null],
+    ["Nana met a woman at church. Her husband is a pilot. He flies to Tokyo every week.", "He flies to Tokyo every week", null],
+    ["Nana sat with a friend from bridge. Her husband just retired. He wants to travel.", "He wants to travel", null],
+    ["The lady next door came with her husband. He fixed the sink.", "He fixed the sink", "p55"],
+    ["Her friend's husband came too. He fixed the sink.", "He fixed the sink", "p55"],
+  ] as const) {
+    const out = planExtraction(input(note, [nana], page), { needs_clarification: null, items: [
+      item({ person: "p55", person_mention: "He", statement: "Nana's husband " + quote.replace(/^He /, "").replace(/flies/, "flies").replace(/wants/, "wants"), evidence: [quote], confidence: 0.85 }),
+    ] } as ModelProposal);
+    ok(out.items.every((i) => i.tier === "hold"), `${note}: asked (${out.items.map((i) => `${i.tier} ${i.subject_type} ${i.related?.relation ?? ""}`).join(", ")})`);
+  }
+  // Still a related line with no question: one relative, the owner plainly theirs.
+  for (const [note, quote, page] of [
+    ["Talked to Nana. Her husband had a fall. He's in the hospital.", "He's in the hospital", null],
+    ["Her husband had a fall. He's in the hospital.", "He's in the hospital", "p55"],
+    ["Nana's husband had a fall. Luckily he is okay now.", "Luckily he is okay now", null],
+    ["Nana's husband watched the Packers game. He was thrilled.", "He was thrilled", null],
+  ] as const) {
+    const out = planExtraction(input(note, [nana], page), { needs_clarification: null, items: [
+      item({ person: "p55", person_mention: "he", statement: "Nana's husband is okay", evidence: [quote], confidence: 0.85 }),
+    ] } as ModelProposal);
+    const line = out.items[0];
+    ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
+  }
+  // "Sam and her brother came by. He brought cake": the model's "Sam brought cake" never overrules "he" ≠ Sam.
+  const sam = person("p56", "sam7", "Sam");
+  const out = planExtraction(input("Sam and her brother came by. He brought cake.", [sam]), { needs_clarification: null, items: [
+    item({ person: "p56", person_mention: "He", statement: "Sam brought cake", evidence: ["He brought cake"], confidence: 0.85 }),
+  ] } as ModelProposal);
+  ok(out.items.every((i) => i.tier === "hold"), "asked, never saved on Sam");
+  eq(out.clarification?.options, ["Sam", "Sam's brother"]);
+});
