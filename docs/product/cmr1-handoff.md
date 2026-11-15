@@ -153,6 +153,33 @@ changes, flag changes.
 - **Final independent review of PR #93** (at `fc974b7`): ready for the acceptance session after the live run, no blocker; two should-fix: F1 the phone did not yet show the server's `not_understood` accounting (A's item in progress); F2 one bare sentence read on a spoken run (fixed on the RC, `ctx.sentenceAround`); F3 a question held on phone A is findable nowhere on phone B (pre-existing; sent to A); F4/F5 rollback and pre-migration reopen residues (C documents); F6 a model identifier in new pgTAP fixtures (replaced with `claude-test` on the RC); F7 a conditional readiness label in the delivery doc (removed). Verified by the reviewer: migration compatibility and grants, sync follow-on and idempotency, stale-state precedence, security (content-free logs and coverage, offsets never trusted), source integrity with ten constructed grounding probes, recovery semantics, the rollback sequence; Deno 569, Jest 1366, pgTAP 923, standard evals clean, `k4` 36/36. The reviewer also found the Docker daemon and local stack down and revived them.
 - **RC `91780b2`** (C `6f175e6`, D `1a973ad`, the review fixes): Deno 570; pgTAP 950; CMR-1 oracle vs the `main` v1.1 baseline: every gated metric at target, no regressions; `omitted_reported_understood` 0; false not-understood rate 7.1% dev / 6.5% held-out (the omission rule's cost, every mark on optional words); unnecessary clarification 1.0% dev (1/102) under the re-judged corpus.
 
+## 4e. The live-model run (15 Nov 2026, 04:59–05:08 UTC): run 43679094441 on PR #93
+
+Founder-authorised by the `run-evals-cmr1` label; model and effort as the repository's full-corpus job; candidate `3ef12d0` (before C's omission coverage and the later fixes); 483 calls, $6.27 at list prices, 9 minutes. Dev 306 Tells graded (102 × 3), held-out 126 (42 × 3). The same model outputs replayed through `main`'s pipeline (baseline) and the candidate's:
+
+| Metric | main dev | RC dev | main held-out | RC held-out | Target |
+|---|---|---|---|---|---|
+| Tells accounted for | 100% | 100% | 100% | 100% | 100% |
+| Per-fact recall | 99.2% | 99.2% | 98.0% | 99.5% | ≥95% |
+| Per-fact precision | 99.5% | 99.6% | 98.9% | 99.0% | ≥98% |
+| Fabricated or wrong identities offered | 23 | **0** | 5 | **0** | 0 |
+| Saved lines on the wrong person | 5 | 5 | 0 | 0 | 0 |
+| Unnecessary clarification | 10.5% | **1.0%** | 11.1% | **0%** | ≤2% |
+| Correct clarification on ambiguous cases | 13/24 | 19/24 | n/a | n/a | 24/24 |
+| Ambiguous facts saved without asking | 3 | 3 | 0 | 0 | 0 |
+| Subject attribution right | 98.2% | 98.3% | 98.7% | 98.9% | 100% |
+| Silent loss | 4 | 4 | 4 | 1 | 0 |
+| Omitted by the model and reported as understood | 4 | 4 | 1 | 1 | 0 |
+| Rejected by the pipeline (informational) | 55 | 12 | 26 | 0 | — |
+| Safety-critical wrong eligibility | 3 | 2 | 1 | 1 | 0 |
+| Grounding violations | 0 | 0 | 0 | 0 | 0 |
+| Duplicates | 0 | 0 | 0 | 0 | — |
+| Latency p50 / p95 (end to end) | 3.97 s / 7.40 s | same | 3.90 s / 8.53 s | same | ≤ +25% |
+
+**Reading.** The identity work holds up on the live model: no fabricated identity, one unnecessary question in a hundred Tells, recall above 99%, no latency change. **Not yet at target on the candidate**, each a named shape: wrong-person saves (se-015 the husband's line saved as Nana's own ×3; na-014 a new Jordan "from the Austin office" filed on the roster Jordan ×2); ambiguous saved without asking (na-014; ce-001 "asked if I can bring the cake" saved as a thread once in three); correct clarification (np-001/np-002 the pronoun after a new name asks which-person, not who-is-new); subject attribution (a relative or name in object or possessive position turning a line `related`/`shared`: fr-007, na-002, td-006, na-008); safety-critical eligibility (vl-004 "her back is bad again" saved plain and eligible; ce-003 "dont tell mom" saved as a thread; na-008's wrong subject); omitted by the model and reported as understood (rt-005 "Ingrid is moving to Oslo" ×3, td-003, vl-001: candidate `3ef12d0` predates the omission coverage in `6f175e6`, which should mark the first two). All sent to B (identity) and C (safety, exclusion, the page-note omission rule); D adds a free label-triggered replay of the stored live outputs so the current RC is re-measured without a second paid run.
+
+**Blocked here:** the artifact's blob host is outside this environment's network allowlist, so the raw outputs stay in CI (kept 90 days).
+
 **Bug ledger:** the staged reporting model (IMPLEMENTED · MERGED · DEPLOYED · LIVE-MODEL VERIFIED · NATIVE-SIM VERIFIED · DEVICE VERIFIED · FOUNDER ACCEPTED) is in `bug-ledger.md` with K34–K36 restated against it.
 
 ## 5. The founder directive (verbatim, 14 Nov 2026)
