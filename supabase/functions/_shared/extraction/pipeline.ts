@@ -101,7 +101,8 @@ const SAME_DAY = /\b(?:today|tonight|this (?:morning|afternoon|evening))\b/giu;
 const OTHER_WHEN = /\b(?:tomorrow|yesterday|weekend|week|month|year|next|last|later|soon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|\d)/iu;
 /**
  * Contact data, never relationship memory (D2, trust invariant 6): a phone number, as digits with or
- * without separators ("415-555-0100", "4155550100", "+1 415 555 0100": nine digits or more), a device word
+ * without separators ("415-555-0100", "4155550100", "+1 415 555 0100": ten characters of digits and
+ * separators holding nine digits or more; a timestamp or a ZIP+4 is caught too, rare in a note), a device word
  * followed within a few words by a run of digits ("phone is 4155550100", "cell 4155550100"), or named
  * ("cell number", "new number", "number ends in", "call her on 415…"); an email. A preference about how to
  * be reached ("prefers Teams calls to phone calls") or a new phone is a fact about the person and is kept

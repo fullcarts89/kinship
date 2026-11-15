@@ -30,14 +30,28 @@ Deno.test("segment: a transcript with no punctuation is cut where a new subject 
 });
 
 Deno.test("segment: a coordinator starts a sentence only before a subject; a pair of names is one subject or one object", () => {
-  // vl-004, shortened.
-  const note = "nana is moving to the ground floor flat december first mark and will are doing the heavy lifting and i said id take the boxes of books to her new place on the saturday after so december fifth um toby has a soccer tournament on the twenty first in albany and grace asked if we could come and i said we would try";
-  eq(texts(note, ["Nana", "Mark", "Will", "Toby", "Grace"]), [
+  // vl-004, as the note opens (a filler and a time word: the run has a subject, so it is cut).
+  const note = "ok sunday dinner recap because there was a lot um mom is doing the seventieth at the italian place on main street on december fourteenth thats confirmed grace booked it for one oclock dad is not allowed to make a speech mom said that twice uh mark brought the new puppy whose name is apparently waffles nana is moving to the ground floor flat december first mark and will are doing the heavy lifting and i said id take the boxes of books to her new place on the saturday after so december fifth um toby has a soccer tournament on the twenty first in albany and grace asked if we could come and i said we would try";
+  eq(texts(note, ["Mom", "Dad", "Grace", "Mark", "Nana", "Will", "Toby"]), [
+    "ok sunday dinner recap because there was a lot",
+    "um mom is doing the seventieth at the italian place on main street on december fourteenth thats confirmed",
+    "grace booked it for one oclock",
+    "dad is not allowed to make a speech",
+    "mom said that twice",
+    "uh mark brought the new puppy whose name is apparently waffles",
     "nana is moving to the ground floor flat december first mark and will are doing the heavy lifting",
     "and i said id take the boxes of books to her new place on the saturday after so december fifth",
     "um toby has a soccer tournament on the twenty first in albany",
     "and grace asked if we could come",
     "and i said we would try",
+  ]);
+  // A run that opens with fillers has its subject past them, and the fillers never stand alone (ev-006, vl-001 shapes).
+  eq(texts("ok so toby lost his first tooth today and he was so proud of it he put it under the pillow", ["Toby"]), [
+    "ok so toby lost his first tooth today", "and he was so proud of it", "he put it under the pillow",
+  ]);
+  // "from then" is a time phrase: the next sentence starts at the name, not at "then".
+  eq(texts("keiko wants to shift her hours earlier from then lars is doing the migration with felipe and is grumpy about on call", ["Keiko", "Lars", "Felipe"]), [
+    "keiko wants to shift her hours earlier from then", "lars is doing the migration with felipe and is grumpy about on call",
   ]);
   // vl-006: a name followed by a verb starts a sentence ("…on call keiko offered…"), an object name does not.
   eq(texts("lars is doing the migration with felipe and is grumpy about on call keiko offered to cover some of it devi texted shes got two interviews next week", ["Lars", "Felipe", "Keiko", "Devi"]), [
@@ -95,6 +109,31 @@ Deno.test("segment: shapes that are one clause stay one (PR #90 review): okay, n
   eq(texts("so i finally called mom and she is doing better than last time we talked about dad", n), [
     "so i finally called mom", "and she is doing better than last time we talked about dad",
   ]);
+});
+
+Deno.test("segment: a hedged or reported name stays in its clause, so hearsay stays hearsay (PR #90 re-review)", () => {
+  eq(texts("i heard ben got the job and i am so happy for him honestly it has been a long time coming", ["Ben"]), [
+    "i heard ben got the job", "and i am so happy for him honestly it has been a long time coming",
+  ]);
+  eq(texts("i owe ben is the thing he lent me money for the trip and i still have not paid him back", ["Ben"]), [
+    "i owe ben is the thing he lent me money for the trip", "and i still have not paid him back",
+  ]);
+  eq(texts("i gather ben is moving and i suppose she is going with him though i doubt they have told anyone", ["Ben"]).length, 2);
+  // Through the pipeline: "i heard ben got the job" is reported, shown for a look, never saved as stated.
+  const ROSTER = [{ key: "p1", id: "id-ben", display_name: "Ben", full_name: "Ben Ortiz", nicknames: [], relationship_label: "friend" }];
+  const note = "i heard ben got the job and i am so happy for him honestly it has been a long time coming";
+  const input: ExtractionInput = {
+    capture: { id: "c1", raw_text: note, occurred_at: "2026-11-10T20:00:00Z", time_zone: "America/Los_Angeles", context_person_key: null },
+    roster: ROSTER, related: [], dossier: [],
+  };
+  const item: ProposedItem = {
+    kind: "milestone", person: "p1", person_mention: "ben", subject: "person", related_relation: null, related_name: null,
+    statement: "Ben got the job", evidence: ["ben got the job"], certainty: "stated", sensitivity: "none", confidence: 0.9, date_text: null, date_direction: "past",
+    detail: { event_type: null, event_goal: null, category: null, attribute: null, value: null, firmness: null, topic: null, place: null, milestone_type: "job", recurrence: null, anchor: null, aspect: null, time_of_day: null },
+    existing: { action: "new", target: null },
+  };
+  const out = planExtraction(input, { items: [item], needs_clarification: null } as ModelProposal);
+  eq(out.items.map((i) => [i.certainty, i.tier, i.flags.includes("certainty_lowered")]), [["reported", "confirm", true]]);
 });
 
 Deno.test("segment: punctuated text, a short note and a quoted phrase are left alone", () => {
