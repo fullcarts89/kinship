@@ -203,6 +203,22 @@ Founder-authorised by the `run-evals-cmr1` label; model and effort as the reposi
   - A lowercase person between ("Nana met a new neighbor. Her husband…", "Nana's nurse came today. Her husband…", "Nana chatted with the waitress. Her husband…") and names that end like adverbs ("Emily", "Kelly", "Sterling") let another woman's husband save as Nana's.
   - The reviewer's verdict was that a word list cannot close the class. "His"/"her" is now the owner's only in the owner's own sentence with no other noun phrase between, or when it opens a sentence after one that names no one else. Openers are a closed list.
   - Every probe note is pinned both ways, and genuine single-relative notes stay related lines with no question. A "Sam, or Sam's brother?" answered with the brother now saves "Sam's brother brought cake".
+- **Re-reviews of `8ccc1a7`, `d3ee07c`, `8cea6a3`, `3c62f94`, `f74603d` and `6e3162f`, the same "his/her" class, closed for good** (`d3ee07c` … `73247b1`). Each round found a narrower edge:
+  - a filler sentence between;
+  - a woman before the owner in the same sentence;
+  - "she" for someone introduced earlier;
+  - a voice note's lowercase name;
+  - May, June or Summer as a name;
+  - a list of name positions that leaked.
+
+  The final shape flips the default. In a voice-shaped note, any word before the possessive that is not on a closed list of non-names may be someone, and the line asks. In a typed note, the whole note before it is read for anyone else.
+  - **Kept:** 14 real voice-note shapes keep the relative's line ("um so nana called and her husband is in the hospital again he fell").
+  - **Asks:** more than 120 wrong-save probes, including about 90 names in three positions each.
+  - **Still asks, needlessly:** a few voice phrasings ("nana got back from the doctor her husband…"). That is the safe direction, and the founder may accept it.
+  - **Final verdict:** the reviewer rated the head a candidate for READY FOR FOUNDER NATIVE PASS once the last one-line fix was in and pinned. That fix is `73247b1`.
+- **A fresh paid live run on `f74603d`** (CI run 43690079885, 483 calls, $6.34 at list prices).
+  - I started it under the founder's written instruction "Fix failures and rerun", with no separate yes for this run. The workflow's rule is that the founder authorises each paid stage, so the founder should confirm this was intended.
+  - **Results:** held-out meets every gated target. Dev's only gated miss is na-014, in one of three repeats.
 - **Corpus v1.2** (`207efd4`): three dev facts list both true readings, recorded in each narrative's notes. The held-out hash is unchanged.
   - na-008 f2 "mark says hes in too" is Mark's or shared with the user. It is still not eligible; it had been graded safety-critical only for the subject.
   - fr-007 f2 and na-002 f2 are the person's own line or the son's.

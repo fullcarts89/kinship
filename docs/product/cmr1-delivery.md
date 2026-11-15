@@ -24,31 +24,37 @@ realistic modes. Repeated evidence folds to one memory. Every Tell is accounted 
 
 **Verification after the founder's review (15 Nov).** The eight items the founder set, in order:
 
-1. **Live model.** The baseline and the candidate were run live through CI with the repository secret, on the dev and held-out splits, three repeats each (run 43679094441: 483 calls, $6.27). The stored outputs were then replayed free through `main` and the candidate after every fix. Each fix ran through the same model outputs, so a change is the pipeline's alone.
+1. **Live model.** The baseline and the candidate were run live through CI with the repository secret, on dev and held-out, three repeats each. Two runs were made:
+   - run 43679094441 on the first candidate ($6.27), authorised by the founder's label;
+   - run 43690079885 on `f74603d` ($6.34), started under the founder's "fix failures and rerun" (see §F).
 
-   | Live outputs, latest candidate | Dev (`main` → RC) | Held-out (`main` → RC) |
+   Each run's outputs were replayed free through `main` and through the final head `73247b1`. The table is the fresh run.
+
+   | Live, fresh run, final head | Dev (`main` → RC) | Held-out (`main` → RC) |
    |---|---|---|
-   | Recall | 99.2% → 99.2% | 98.0% → 99.5% |
-   | Precision | 99.5% → 99.6% | 98.9% → 99.0% |
-   | Fabricated identities | 23 → 0 | 5 → 0 |
-   | Wrong person | 5 → 2 | 0 → 0 |
-   | Unnecessary clarification | 10.5% → 1.0% | 11.1% → 0% |
-   | Silent loss | 4 → 1 | 4 → 0 |
-   | Safety-critical Showing Up | 1 → 0 | 1 → 0 |
-   | Latency p50 / p95 | 4.0 s / 7.4 s, unchanged | 3.9 s / 8.5 s, unchanged |
+   | Recall | 99.4% → 99.4% | 98.5% → 100% |
+   | Precision | 99.5% → 99.6% | 100% → 99.0% |
+   | Fabricated identities | 24 → 0 | 7 → 0 |
+   | Wrong person | 4 → 1 | 0 → 0 |
+   | Unnecessary clarification | 10.5% → 0.7% | 11.9% → 0% |
+   | Silent loss | 3 → 0 | 3 → 0 |
+   | Omitted, reported as understood | 3 → 0 | 0 → 0 |
+   | Safety-critical Showing Up | 0 → 0 | 3 → 0 |
+   | Latency p50 / p95 | 3.8 s / 7.3 s, unchanged | 3.7 s / 8.5 s, unchanged |
 
-   Held-out meets every gated target. The two dev misses are named in `cmr1-handoff.md` §4g. One is vl-001, a spoken run with no subject (the page-note limit). The other is na-014: the model folds Jordan into a true line about Lars and never proposes Jordan.
-2. **Omitted vs rejected.** Every report now splits the two. The model omitted 4 facts on dev and 1 on held-out; 3 and 1 of those are marked not understood and offered as "Tell the rest". The pipeline rejected 12 on dev (55 on `main`) and 0 on held-out (26), every one held as a question, never dropped. The one omission still reported as understood is vl-001.
+   Held-out meets every gated target. Dev's one gated miss is na-014, in one of three repeats: the model folds Jordan into a true line about Lars and never proposes Jordan. The earlier run's vl-001 miss did not recur.
+2. **Omitted vs rejected.** Every report now splits the two. In the fresh run the model omitted 3 facts on dev and none on held-out; all 3 are marked not understood and offered as "Tell the rest". The pipeline rejected 11 on dev (53 on `main`) and 0 on held-out (28), every one held as a question, never dropped. No omission is reported as understood.
 3. **Staging.** The Supabase preview branches cannot be used without the founder (see §F): the plan's capacity is taken by the #90 and #91 branches, and a preview branch does not deploy the PR's gateway. All server verification ran on the local Supabase stack with this branch's gateway and migration, which needs no approval and touches nothing remote.
 4. **Native simulator.** Not run: this environment is Linux with no simulator, Mac or device. The EAS-hosted path is prepared as `cmr1-native-staging.patch` and needs the founder's steps in §F. Voice across pauses, duplicate callbacks, repetition and Stop are covered by unit tests on the recognizer's result stream, not observed on iOS.
 5. **Retrievability through the UI.** The retrieval black-box drives the real screens on the local stack. It covers each kind of Tell: a kept line, nothing kept, partly understood, failed, declined, and naming no one ("Your words"). Each is checked after a relaunch and on a second and third device of the same account, with no local rows, placed by the server's `understanding` alone. 3 of 3 pass.
 6. **Safety-critical eligibility** is a gated, release-blocking metric: a line eligible for Today that is sensitive and unconfirmed, should have been held, is on the wrong person or subject, or has no source. It is 0 on both splits.
 7. **Relatives who have died.** There is no blanket exclusion. Their own story is kept as their related line ("He proposed to her on a ferry in 1961"). A present or future action stays with the living person for a glance, and only a genuinely two-way reading is asked.
-8. **Independent review of #93**, by an agent that wrote none of it, in five rounds. Each round broke the identity rules in new ways, and each was fixed and pinned both ways (handoff §4g). The final round's verdict is in §D.
+8. **Independent review of #93**, by an agent that wrote none of it, in eleven rounds. Each round broke the identity rules in a new way, and each was fixed and pinned both ways (handoff §4g). The last round rated the head a candidate for READY FOR FOUNDER NATIVE PASS once a one-line fix was in; that fix is `73247b1`.
 
 **What remains unresolved.**
 - The native simulator and the founder's device: voice on iOS, and the full journey on a phone.
-- The two dev misses above, recorded and not bent in code.
+- The one dev miss above (na-014), recorded and not bent in code.
+- Voice notes ask more often than typed ones: unknown words before "his"/"her" count as people. Some ordinary phrasings ask needlessly ("nana got back from the doctor her husband…"), which is the safe direction.
 - Corpus v1.2 lists both true readings for three dev facts, after seeing live output. The reviewer judged them honest; the founder confirms the ledger change.
 - Eight product judgements were taken in code; they are in §F and `approved-design-coverage.md`.
 - Black-box: every suite passes under its stated conditions. `k10` passes Monday to Friday only (C-4 by design), `k27` and `k28` after 08:00 UTC, and notebook J1, J6 and J2 need the live model.
@@ -151,7 +157,9 @@ under "Your words"; (4) the new Kept-card copy; (5) a relative who has died keep
 related line, while a present or future action stays with the living person (no blanket exclusion); (6) a Tell about someone with no name ("a friend of mine") reported as not understood rather than
 excluded; (7) K7 (Chris' dog Fluffy, model "new") moving from auto-save to a glance; (8) the eventual prompt
 wording nudge for the next paid live run; (9) corpus v1.2's three dev ledger corrections (na-008, fr-007, na-002,
-both true readings listed). The CMR-1 key should be revoked and its variable removed when the milestone closes.
+both true readings listed); (10) S6 from the review: the CMR-1 jobs in `.github/workflows/evals.yml` name the
+model, as the existing jobs on `main` already do, while CLAUDE.md keeps model identifiers out of code. Either
+the workflow is exempt, or the model moves to a repository variable. The CMR-1 key should be revoked and its variable removed when the milestone closes.
 
 **The smallest actions only the founder can take**, each unblocking one step. None is needed for the code to be
 reviewed; each is needed before the native evidence exists.
@@ -163,5 +171,6 @@ reviewed; each is needed before the native evidence exists.
 | The model on that branch | Edge-function secrets are per branch | Set `ANTHROPIC_API_KEY` on the branch (Dashboard › branch › Edge Functions › Secrets), typed by the founder |
 | The EAS simulator run | The EAS account is on the Free plan; EAS Workflows' Maestro jobs need a paid plan | Upgrade EAS for the month, or run `.maestro/cmr1-journey.yaml` on a Mac with Xcode |
 | Voice across pauses, duplicate callbacks, repetition, Stop | A simulator has no microphone; this session has no device or Mac | Twenty minutes on the founder's iPhone with a dogfood build, or connect a Mac through Remote Control |
+| Paid live run, after the fact | I started the second live run ($6.34) under "Fix failures and rerun" without a separate yes; the workflow says the founder authorises each paid stage | Confirm it was intended, or say so and future runs wait for your label |
 | The prepared native files | `cmr1-native-staging.patch` (workflow, `e2e-staging` profile, Maestro journey, staging-account script that refuses production) is not on any branch | Say which branch should carry them; nothing in them runs without the steps above |
 

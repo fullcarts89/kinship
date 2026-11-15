@@ -83,11 +83,11 @@ Stages per the ledger's reporting model. "RC" = on `claude/cmr1-rc`.
 
 | Tier | Result |
 |---|---|
-| UNIT (Deno, Jest, tsc, eslint) | Deno 596 / 0; Jest 135 suites / 1377 tests; tsc clean; eslint 0 errors |
+| UNIT (Deno, Jest, tsc, eslint) | Deno 604 / 0; Jest 135 suites / 1377 tests; tsc clean; eslint 0 errors |
 | INTEGRATION (standard oracle / realistic / replay; pgTAP) | 0 must-not violations, 0 persons guessed in all three; pgTAP 31 files / 923 tests; fingerprint md5 `26a8c58d` |
 | CMR-1 eval, oracle and realistic, dev and held-out, vs `main` | every gated metric at target, no regressions (handoff §4c) |
 | BLACK-BOX (local stack, replayed replies, the RC's gateway) | Every suite PASS under its stated conditions: b3 20, b4 5, b5 4, b6 4, b7b8 4, dates 2, h4 2, k19 2, k20 22, k25 3, k27 2, k28 3, k4 36, k4legacy 18, narrative 3, narratives 4, notebook J3+J5, removal 3, showingup 2, today 2, trustfloor 1. k10 passes Monday to Friday only (weekend "last Friday" asks, by design); notebook J1/J6 and J2 are live-model tests with no recorded replies. The stall first seen was K37, a latent app bug now fixed |
-| LIVE-MODEL | **RUN** through CI with the repository secret on the founder's label (run 43679094441: 483 calls, $6.27, dev and held-out, three repeats). The stored outputs are replayed free through `main` and the candidate after every fix. On the candidate `8ccc1a7` (run 43687945729): **held-out meets every gated target**, including safety-critical eligibility 0; dev meets every gate but silent loss 1 (vl-001) and the na-014 identity miss (`cmr1-handoff.md` §4g). Latency p50 3.9–4.0 s, p95 7.4–8.5 s, unchanged |
+| LIVE-MODEL | **RUN** twice through CI with the repository secret: 43679094441 ($6.27, the founder's label) and 43690079885 on `f74603d` ($6.34, under "fix failures and rerun"). Each run is 483 calls covering dev and held-out, three repeats. Replayed free through `main` and the final head `73247b1` (run 43691125390): **held-out meets every gated target**, and safety-critical eligibility is 0 on both splits. Dev's one gated miss is na-014, in one of three repeats. Latency is unchanged |
 | NATIVE-SIMULATOR | NOT RUN: no iOS simulator reachable from this environment (Linux, no Mac, no Remote Control). The EAS-hosted path is prepared as `cmr1-native-staging.patch` (workflow, `e2e-staging` profile, Maestro journey, staging-account script that refuses production) and needs the founder's steps listed in the delivery package |
 | FOUNDER-DEVICE | PENDING the acceptance session |
 
