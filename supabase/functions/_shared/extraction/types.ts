@@ -196,7 +196,10 @@ export type DropReason =
   | "no_one_named"
   // The quote is the earlier note's words, not this one's ("Tell the rest", CER-1): that note holds the
   // line and its own accounting; here it is neither evidence nor a loss (founder, 15 Nov 2026).
-  | "earlier_note";
+  | "earlier_note"
+  // An aside to the writer about the note itself ("dont tell mom", "keep it quiet"): not a memory about
+  // anyone; excluded by contract, like an instruction (founder-authorised live run, 15 Nov 2026).
+  | "secret_aside";
 
 export type Flag =
   | "new_person"

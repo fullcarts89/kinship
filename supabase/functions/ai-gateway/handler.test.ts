@@ -1184,6 +1184,28 @@ Deno.test("Model omissions are not understanding: a sentence no proposal touches
   eq(rest.logs[0].drop_reasons, { earlier_note: 1 });
 });
 
+Deno.test("A note the model proposed nothing for is not 'understood, nothing in it': its meaningful sentence is marked, the outcome partial (td-003, live run 15 Nov 2026)", async () => {
+  const note = "Mom still keeps Dad's reading glasses on the hall table even though he has new ones. I don't think she notices she does it.";
+  const people = [
+    { id: "person-mom", display_name: "Mom", full_name: "Dolores Hart", nicknames: [], relationship_label: "mother", state: "active" },
+    { id: "person-dad", display_name: "Dad", full_name: "Raymond Hart", nicknames: [], relationship_label: "father", state: "active" },
+  ];
+  const w = world({ note, people, model: { output: { items: [], needs_clarification: null } } });
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200);
+  eq([body.tier, (body.saved as unknown[]).length, (body.held as unknown[]).length], ["nothing", 0, 0]);
+  const chars = Array.from(note);
+  const nu = (body.coverage as { state: string; not_understood?: { start: number; end: number }[] });
+  eq(nu.state, "partial", "never 'complete' for a note the model left whole");
+  eq((nu.not_understood ?? []).map((s) => chars.slice(s.start, s.end).join("")), ["Mom still keeps Dad's reading glasses on the hall table even though he has new ones"], "the tender sentence, at its words; the pronoun aside is not");
+  eq(w.coverages.length, 1, "written on the capture, so understanding settles as partial and the card offers Tell the rest");
+  // A genuinely empty note stays nothing, with no coverage at all.
+  const empty = world({ note: "Hope you're all well. Milk, eggs, dish soap, the good butter.", people, model: { output: { items: [], needs_clarification: null } } });
+  const r = await call(empty, post(extract));
+  eq([r.body.tier, r.body.coverage], ["nothing", { state: "complete", unprocessed: [], unlocated: 0 }]);
+  eq(empty.coverages, []);
+});
+
 Deno.test("C2: a reply lost to a timeout comes back with what was not understood too", async () => {
   const w = world({ claim: "done", savedIds: ["item-a"], coverage: { v: 1, unprocessed: [], unlocated: 0, not_understood: [{ start: 3, end: 9 }] } });
   const { body } = await call(w, post(extract));

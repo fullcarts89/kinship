@@ -39,6 +39,7 @@ import {
   userIsActor,
   kinshipReference,
   looksLikeInstruction,
+  looksLikeSecretAside,
   mirrorBag,
   nameKey,
   PRONOUNS,
@@ -52,7 +53,7 @@ import {
 } from "./lexicon.ts";
 import { codePointLength, locateEvidence, type Span, utf16ToCodePoint } from "../spans.ts";
 import { type GroundHint, groundQuotes } from "./ground.ts";
-import { isSpokenRun, sentenceSpans, spokenSentenceAt, spokenSentences } from "./segment.ts";
+import { isSpokenRun, sentenceSpans, spokenSentenceAt, spokenSentences, VERBS } from "./segment.ts";
 import { needsAcceptance } from "./acceptance.ts";
 import { type CurrentResidence, namesLine, type Outcome, pairClass, relateResidence } from "../semantic/relate.ts";
 import { residenceEligible, residenceOf, type ResidenceFacet } from "../semantic/residence.ts";
@@ -90,6 +91,9 @@ export const MAX_PROPOSALS = 200;
  */
 export const ACCOUNTED_BY_RULE: ReadonlySet<DropReason> = new Set<DropReason>([
   "instruction_text", "contact_detail", "low_confidence", "already_known", "duplicate",
+  // An aside to the writer about the note itself ("dont tell mom", "keep it quiet"): instruction_text's
+  // sibling, never a line about anyone.
+  "secret_aside",
   // A quote from the earlier note a continuation carries on from ("Tell the rest"): that note's line, that
   // note's accounting; here it is neither evidence nor a loss, so the rest is never doubled.
   "earlier_note",
@@ -197,7 +201,17 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal, 
   // as complete understanding): a sentence no proposal's words touch, that still names someone, a relation,
   // a pronoun, a day or a referent the note proposed elsewhere, is reported at its words. A greeting, a
   // filler or a list is not. Offsets only.
-  const touched = [...ctx.evidence.flat(), ...items.flatMap((i) => i.spans), ...dropped.flatMap((d) => d.where ?? []), ...unprocessed];
+  // "Touched" means judged on its words: a kept line, a proposal dropped for what it said (its place is
+  // reported or accounted), a failed passage. A proposal the model itself was unsure of (low_confidence)
+  // touches nothing: its sentence is as unread as one with no proposal (a tender one-sentence note the
+  // model offered at 0.5 must not read as "understood, nothing in it"; live run, 15 Nov 2026). The rule
+  // runs with an empty proposal list too: every meaningful sentence of such a note is reported, a
+  // genuinely empty note (a greeting, a list) stays "nothing".
+  const touched = [
+    ...items.flatMap((i) => i.spans),
+    ...dropped.filter((d) => d.reason !== "low_confidence").flatMap((d) => d.where ?? []),
+    ...unprocessed,
+  ];
   const untouched = untouchedSentences(ctx, text, touched, proposed);
   const notUnderstood = [...lost.flatMap((d) => d.where ?? []), ...untouched].sort((a, b) => a.start - b.start || a.end - b.end).slice(0, 64);
   const unlocated = lost.filter((d) => !d.where?.length).length;
@@ -389,6 +403,16 @@ const WHEN_WORDS = /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunda
 
 /** A sentence shorter than this is an aside ("Coffee with Jordan", "mom called tonight"), not a thing left out. */
 const UNTOUCHED_MIN_WORDS = 4;
+/**
+ * Evaluated and not adopted (founder-authorised live run, 15 Nov 2026): on a note told from a person's
+ * page, an untouched sentence of this many words with a verb would be about that person even with no name
+ * in it ("work is actually going well now that the new director started", vl-001). On the CMR-1 eval corpus
+ * it raised false marks on page notes from 5 of 77 to 14 of 77, every one an aside the ledger lets a model
+ * skip ("She just seemed happy to be out", "He didn't want to get into it"), and vl-001 itself is a spoken run
+ * whose opener has no subject ("ok so long catch up with grace tonight"), so it is never cut into sentences
+ * and the omission cannot be placed. Known limit; null keeps the rule off. Set a number to try it again.
+ */
+export const PAGE_NOTE_UNTOUCHED_MIN_WORDS: number | null = null;
 const OWNERS = new Set(["my", "our", "his", "her", "their", "your"]);
 
 /**
@@ -425,7 +449,9 @@ function untouchedSentences(ctx: Context, text: string, touched: { start: number
     const relationAt = keys.map((k) => relations.has(relationKey(k)));
     const owned = relationAt.some((r, i) => r && i > 0 && OWNERS.has(keys[i - 1]));
     const dated = relationAt.some(Boolean) && WHEN_WORDS.test(fold(text.slice(s.start, s.end)));
-    if (named || owned || dated) out.push(span);
+    const onPage = PAGE_NOTE_UNTOUCHED_MIN_WORDS !== null && !!ctx.input.capture.context_person_key &&
+      words.length >= PAGE_NOTE_UNTOUCHED_MIN_WORDS && keys.some((k) => VERBS.has(k));
+    if (named || owned || dated || onPage) out.push(span);
   }
   return out;
 }
@@ -495,6 +521,8 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // Instructions to the AI are never memory. Checked per clause, so "Anna's
   // birthday is May 2 — and from now on, you…" keeps the birthday.
   if (looksLikeInstruction(ctx.clauseAround(primary))) return { drop: "instruction_text", where: where() };
+  // "dont tell mom", "keep it quiet": the writer's aside about the note, not about anyone (15 Nov 2026).
+  if (looksLikeSecretAside(primary.quote) || looksLikeSecretAside(raw.statement)) return { drop: "secret_aside", where: where() };
 
   const statement = raw.statement.normalize("NFC").replace(/\s+/g, " ").trim().slice(0, 500);
   if (!statement) return { drop: "bad_kind_subject", where: where() };
