@@ -145,6 +145,24 @@ Deno.test("ground (b) before (a): two people's identical words in identical surr
   eq(out.dropped, []);
 });
 
+Deno.test("ground (b): a name counts only in subject position, and a nickname's 'my' is nobody's name (PR #90 review)", () => {
+  const note = "Ann is great. She loves hiking with my dog. Krystal is fun. She loves hiking with my dog and Ann.";
+  const q = "She loves hiking with my dog";
+  const krystal = groundEvidence(note, q, { personNames: ["Krystal", "my wife"], otherNames: ["Ann"] });
+  const ann = groundEvidence(note, q, { personNames: ["Ann"], otherNames: ["Krystal", "my wife"] });
+  eq(krystal, { ok: true, span: { start: 60, end: 88 }, how: "person" }, "Krystal's: 'my' is not her name, and Ann after the quote is not the subject");
+  eq(ann, { ok: true, span: { start: 14, end: 42 }, how: "person" }, "Ann's: the one after Ann");
+  const roster = [
+    { key: "p4", id: "id-krystal", display_name: "Krystal", full_name: null, nicknames: ["my wife"], relationship_label: "wife" },
+    { key: "p1", id: "id-ann", display_name: "Ann", full_name: null, nicknames: [], relationship_label: "niece" },
+  ];
+  const out = run(input(note, { roster }), [
+    item({ person: "p4", person_mention: "Krystal", statement: "Krystal loves hiking with your dog", evidence: [q] }),
+    item({ person: "p1", person_mention: "Ann", statement: "Ann loves hiking with your dog", evidence: [q] }),
+  ]);
+  eq(out.items.map((i) => [i.person_id, i.spans[0].start]), [["id-krystal", 60], ["id-ann", 14]], "each memory's source is its own person's sentence");
+});
+
 // ─── Through the pipeline ────────────────────────────────────────────────────
 
 const ONCE = "Kaiya is the silliest little girl in the world. She is really into dressing up like princesses";

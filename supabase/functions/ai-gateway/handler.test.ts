@@ -1130,8 +1130,9 @@ Deno.test("C2: a database that does not know not_understood yet (gateway deploye
   eq(status, 200, "the note is still understood");
   eq((body.saved as unknown[]).length, 1, "Ben's line is written");
   eq(w.releases, [], "never released as failed");
-  eq(w.coverages, [null], "the older database holds no empty record; the places not understood are in this reply only");
-  eq(body.coverage, { state: "complete", unprocessed: [], unlocated: 0 }, "and the reply says what was stored");
+  eq(w.coverages, [null], "the older database holds no empty record");
+  eq(body.coverage, { state: "partial", unprocessed: [], unlocated: 0, not_understood: [{ start: 0, end: 16 }, { start: 31, end: 47 }] },
+    "the places not understood are in this reply: the phone is never told the note was taken whole");
   // With something the older shape can carry, that is what is stored.
   const w2 = world({ model: { output: { items: [
     { ...BEN_PROPOSAL.items[0], evidence: ["Ben runs Boston Sunday"] },
@@ -1142,8 +1143,8 @@ Deno.test("C2: a database that does not know not_understood yet (gateway deploye
   w2.deps.service.setCoverage = (u, c, coverage) => coverage?.not_understood?.length ? Promise.reject(new ServiceError("22023")) : inner2(u, c, coverage);
   const r2 = await call(w2, post(extract));
   eq(r2.status, 200);
-  eq(w2.coverages, [{ v: 1, unprocessed: [], unlocated: 1 }], "the count is kept");
-  eq(r2.body.coverage, { state: "partial", unprocessed: [], unlocated: 1 });
+  eq(w2.coverages, [{ v: 1, unprocessed: [], unlocated: 1 }], "the count is kept on the row");
+  eq(r2.body.coverage, { state: "partial", unprocessed: [], unlocated: 1, not_understood: [{ start: 0, end: 23 }] }, "the reply carries the place too");
   // Any other refusal is still a failure, as before.
   const w3 = world({ model: { output: { items: [{ ...BEN_PROPOSAL.items[0], evidence: ["Ben runs Boston Sunday"] }], needs_clarification: null } } });
   w3.deps.service.setCoverage = () => Promise.reject(new ServiceError("42501"));

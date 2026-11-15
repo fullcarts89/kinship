@@ -11,15 +11,21 @@
 // keep their byte-identical behaviour for them.
 //
 // Boundaries, each starting a new segment:
-//   1. a coordinator or filler ("and", "but", "so", "then", "also", "anyway", "plus", "oh", "um", "uh",
-//      "ok", "okay"), when the next real word is a subject: a subject pronoun, a time adverbial, or a name
-//      from People that is not part of a pair ("mark and will are doing", "call Ben Kim and Ben": one
-//      subject or one object). A possessive or a kin word after "and" may be an object ("call Ben and his
-//      brother"), so it is not a boundary;
+//   1. a coordinator or filler ("and", "but", "so", "then", "also", "anyway", "plus", "oh", "um", "uh"),
+//      when the next real word is a subject: a subject pronoun, a time adverbial, or a name from People —
+//      and the word before the coordinator is not a name ("mark and will are doing", "grace and i are
+//      doing", "call Ben Kim and Ben": one subject or one object). A possessive or a kin word after "and"
+//      may be an object ("call Ben and his brother"), so it is not a boundary;
 //   2. a subject pronoun that can never be an object ("i", "we", "she", "he", "they", and their
 //      contractions, apostrophe or not), unless the word before it subordinates or reports ("that", "if",
-//      "because", "when", "which", "said", "think"…), joins ("and", "or", "than") or is a preposition.
-// Neither applies while the sentence so far has no subject of its own: spoken shorthand drops the speaker
+//      "because", "when", "which", "said", "think"…), joins ("and", "or", "than"), is a preposition or an
+//      object pronoun ("ben told me she was leaving"), or heads a noun phrase a determiner introduced one or
+//      two words before ("the person she interviewed against", "the job he wanted", "the new place he moved
+//      to", "last time we talked": a reduced relative).
+//   3. a name from People followed by a verb ("…grumpy about on call keiko offered to cover some of it"),
+//      unless the word before the name binds it: a coordinator (rule 1 decides), a preposition, a
+//      determiner or possessive, a kin or role word ("my cousin ben loves…"), a reporting verb, or a name.
+// None applies while the sentence so far has no subject of its own: spoken shorthand drops the speaker
 // ("promised tomasz the proposal by wednesday and i need to loop in keiko"), and the "i" that follows is
 // that same speaker's, not a new sentence.
 //
@@ -38,7 +44,9 @@ const ANY_PUNCTUATION = /[.!?\n,;:]/u;
 export const SPOKEN_RUN_WORDS = 12;
 const QUOTE = /["“”]/gu;
 
-const COORDINATORS = new Set(["and", "but", "so", "then", "also", "anyway", "plus", "oh", "um", "uh", "ok", "okay"]);
+// Not "ok"/"okay": mid-clause they are adjectives ("he's okay but…", "she is okay and…"); at the very start
+// of a note they need no rule (the first word always begins the first sentence).
+const COORDINATORS = new Set(["and", "but", "so", "then", "also", "anyway", "plus", "oh", "um", "uh"]);
 /** Pronouns that are only ever a subject (object forms are him, her, them, us, me). */
 const SUBJECT_PRONOUNS = new Set([
   "i", "we", "she", "he", "they",
@@ -53,8 +61,33 @@ const TIME_WORDS = new Set([
   "yesterday", "today", "tonight", "tomorrow", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
   "last", "next", "this", "later", "afterwards", "earlier", "meanwhile",
 ]);
+/** Possessives and kin words that open a sentence with a subject of its own ("my dentist retired", "mom said"). */
+const SUBJECT_OPENERS = new Set(["my", "our", "his", "her", "their", "mom", "mum", "dad", "mother", "father", "nana", "grandma", "grandpa", "gran", "granny"]);
+/** Verbs (and the adverbs that sit before one) a sentence's subject is followed by, as spoken notes use them. */
+const VERBS = new Set([
+  "is", "was", "has", "had", "got", "gets", "said", "says", "told", "tells", "wants", "wanted", "offered", "offers", "asked", "asks",
+  "started", "starts", "finished", "moved", "moves", "loves", "likes", "hates", "thinks", "thought", "seems", "seemed", "sees", "saw",
+  "called", "texted", "mentioned", "booked", "brought", "bought", "went", "came", "left", "lost", "found", "made", "took", "gave", "spent",
+  "owes", "works", "worked", "lives", "lived", "plays", "runs", "ran", "needs", "needed", "might", "will", "would", "can", "cant", "can't",
+  "couldnt", "couldn't", "isnt", "isn't", "wasnt", "wasn't", "doesnt", "doesn't", "didnt", "didn't", "hasnt", "hasn't", "also", "just",
+  "still", "apparently", "actually", "really", "always", "never", "finally", "recently", "already", "basically", "honestly",
+]);
+/** Before a name these bind it to the clause before it: it is an object, a possession or part of a phrase, not a new subject. */
+const NO_BREAK_BEFORE_NAME = new Set([
+  "to", "with", "for", "at", "on", "in", "from", "by", "of", "about", "between", "through", "without", "into", "onto", "over", "under", "like",
+  "than", "as", "the", "a", "an", "this", "that", "my", "our", "his", "her", "their", "your", "and", "or", "nor", "but", "so", "then", "also",
+  "cousin", "friend", "friends", "sister", "brother", "aunt", "uncle", "mom", "mum", "dad", "daughter", "son", "wife", "husband", "partner", "boss",
+  "neighbour", "neighbor", "colleague", "coworker", "teacher", "doctor", "dr", "mr", "mrs", "ms", "miss", "dog", "cat", "kid", "kids", "baby",
+  // Reporting verbs ("told ben he…", "saw ben was tired"); not every verb: "about on call keiko offered" is Keiko's sentence.
+  "told", "tell", "tells", "asked", "ask", "saw", "see", "met", "meet", "said", "says", "think", "thought", "know", "knew", "hope",
+  "is", "was", "be", "am", "are", "named", "name", "that's", "thats", "it's", "its",
+]);
+/** A determiner: the word after it heads a noun phrase, and a subject pronoun right after that noun starts a reduced relative ("the person she interviewed", "the job he wanted", "last time we talked"), not a sentence. */
+const DETERMINERS = new Set(["the", "a", "an", "this", "that", "these", "those", "last", "next", "every", "first", "one", "some", "any", "each"]);
 /** Before a subject pronoun these make it part of the clause before it: never a boundary. */
 const NO_BREAK_BEFORE = new Set([
+  // An object pronoun: "ben told me she was leaving" reports, it does not start a sentence.
+  "me", "him", "her", "them", "us", "it",
   "that", "if", "whether", "because", "cause", "cos", "since", "as", "when", "whenever", "while", "until", "till", "before", "after",
   "which", "who", "whom", "whose", "what", "where", "why", "how", "unless", "though", "although", "like", "than", "so", "and", "or", "but", "nor",
   "said", "says", "saying", "say", "told", "tells", "telling", "tell", "think", "thinks", "thought", "know", "knows", "knew", "hope", "hopes",
@@ -94,8 +127,11 @@ export function spokenSentences(text: string, names: readonly string[] = []): Se
   const quoted = quotedRanges(text);
   const inQuotes = (at: number) => quoted.some(([a, b]) => at > a && at < b);
 
+  // A sentence has a subject of its own when it opens with one: a subject pronoun, a time word, a name, a
+  // possessive or a determiner and its noun ("the funeral is…", "my dentist retired"). One that opens with a
+  // verb ("promised tomasz…", "told her…") is spoken shorthand for "I …".
   const isSubject = (k: number) => k < words.length && (SUBJECT_PRONOUNS.has(words[k].lower) || TIME_WORDS.has(words[k].lower) ||
-    words[k].lower === "my" || words[k].lower === "our" || isName(words[k]));
+    SUBJECT_OPENERS.has(words[k].lower) || DETERMINERS.has(words[k].lower) || isName(words[k]));
   // Whether the sentence that starts at word k names its own subject up front (after any coordinators).
   const hasSubject = (k: number) => {
     let j = k;
@@ -109,8 +145,18 @@ export function spokenSentences(text: string, names: readonly string[] = []): Se
     if (inQuotes(w.start)) continue;
     if (!hasSubject(starts[starts.length - 1])) continue;
     const prev = words[i - 1];
-    // 2. A subject pronoun that is never an object, after a word that does not bind it to the clause before.
-    if (SUBJECT_PRONOUNS.has(w.lower) && !NO_BREAK_BEFORE.has(prev.lower) && !COORDINATORS.has(prev.lower) && !isName(prev) && i + 1 < words.length) {
+    // 2. A subject pronoun that is never an object, after a word that does not bind it to the clause before:
+    // not a subordinator, a reporting verb, a preposition, an object pronoun, a coordinator or a name, and not
+    // a noun a determiner introduced ("the person she interviewed against": a reduced relative).
+    const reducedRelative = !TIME_WORDS.has(prev.lower) && !isName(prev) &&
+      ((i >= 2 && DETERMINERS.has(words[i - 2].lower)) || (i >= 3 && DETERMINERS.has(words[i - 3].lower) && !COORDINATORS.has(words[i - 2].lower)));
+    if (SUBJECT_PRONOUNS.has(w.lower) && !NO_BREAK_BEFORE.has(prev.lower) && !COORDINATORS.has(prev.lower) && !isName(prev) && !reducedRelative && i + 1 < words.length) {
+      starts.push(i);
+      continue;
+    }
+    // 3. A name followed by a verb, after a word that leaves it free to be a subject.
+    if (isName(w) && i + 1 < words.length && VERBS.has(words[i + 1].lower) && !NO_BREAK_BEFORE_NAME.has(prev.lower) &&
+        !COORDINATORS.has(prev.lower) && !isName(prev) && !DETERMINERS.has(prev.lower)) {
       starts.push(i);
       continue;
     }
@@ -120,8 +166,13 @@ export function spokenSentences(text: string, names: readonly string[] = []): Se
     while (j < words.length && COORDINATORS.has(words[j].lower)) j++;
     if (j + 1 >= words.length) continue;
     const next = words[j];
-    const subject = SUBJECT_PRONOUNS.has(next.lower) || TIME_WORDS.has(next.lower) ||
-      (isName(next) && !isName(prev) && !isName(words[j + 1]) && words[j + 1].lower !== "and");
+    // "grace and i are doing the turkey trot", "mark and i went": a name that opens the sentence and a pronoun
+    // are one subject; "called mom and she is doing better" is a new sentence. "mark and will are doing",
+    // "call Ben Kim and Ben": after a name, a coordinator joins two names, never starts a sentence; "and will
+    // and grace stayed home" does start one.
+    const opener = words.slice(starts[starts.length - 1], i - 1).every((x) => COORDINATORS.has(x.lower));
+    const subject = (SUBJECT_PRONOUNS.has(next.lower) && !(isName(prev) && opener)) ||
+      (!isName(prev) && (TIME_WORDS.has(next.lower) || isName(next)));
     if (subject) starts.push(i);
   }
   const unique = [...new Set(starts)].sort((a, b) => a - b);

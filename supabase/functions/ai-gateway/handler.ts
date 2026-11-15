@@ -361,8 +361,10 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
       // What this understanding could not take (the note held more than it carries) is recorded on the
       // note before its lines are written (Option A): the note is never shown whole by mistake, on any
       // phone, and never silently less than it was. Cleared when a later run takes the note whole.
-      let coverage: StoredCoverage | null = outcome.coverage ? { v: 1, ...outcome.coverage } : null;
-      if (coverage || storedCoverage(capture.coverage)) coverage = await writeCoverage(deps.service, caller.userId, captureId, coverage);
+      const coverage: StoredCoverage | null = outcome.coverage ? { v: 1, ...outcome.coverage } : null;
+      // The reply always carries what this understanding found; the row carries what the database can hold
+      // (an older database stores the three-key shape, see writeCoverage).
+      if (coverage || storedCoverage(capture.coverage)) await writeCoverage(deps.service, caller.userId, captureId, coverage);
       const written = await deps.service.write(
         caller.userId,
         captureId,
@@ -402,7 +404,8 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
  * Records the coverage on the capture. A database that does not yet know `not_understood` (the gateway
  * deployed before migration 20261114090000; the CHECK refuses the key with 22023) is given the older
  * three-key shape instead, so the note's lines are still written and the model call is not spent for
- * nothing; the places not understood are then only in this reply. Returns what was stored.
+ * nothing; the places not understood are then only in this reply (the caller replies with the full
+ * coverage, not with what was stored). Returns what was stored.
  */
 async function writeCoverage(service: ServiceOps, userId: string, captureId: string, coverage: StoredCoverage | null): Promise<StoredCoverage | null> {
   try {

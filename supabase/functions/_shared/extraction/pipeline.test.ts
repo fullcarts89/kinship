@@ -454,6 +454,7 @@ Deno.test("contact details are never memory (core-058)", () => {
     ["Ben takes his coffee black. He also prefers Teams calls to phone calls.", "Ben prefers Teams calls to phone calls"],
     ["Ben got a new phone and loves it.", "Ben got a new phone"],
     ["Ben hates talking on the phone.", "Ben hates talking on the phone"],
+    ["Ben moved there on 12.11.2026 and loves it.", "Ben moved there on 12.11.2026"],
   ]) {
     const out = run(input(note), [item({ statement, evidence: [note.split(". ").at(-1)!.replace(/\.$/, "")] })]);
     eq([out.items.length, out.dropped], [1, []], note);
@@ -462,6 +463,11 @@ Deno.test("contact details are never memory (core-058)", () => {
     ["Ben's cell number is 415-555-0100.", "Ben's cell number is 415-555-0100"],
     ["Ben's cell number changed.", "Ben's cell number changed"],
     ["Call Ben on 415 555 0100.", "Call Ben on 415 555 0100"],
+    // Dictated without separators, as a transcript writes it (PR #90 review): still a number.
+    ["Ben's phone is 4155550100.", "Ben's phone is 4155550100"],
+    ["Ben's mobile is 07700900123.", "Ben's mobile is 07700900123"],
+    ["Ben's cell 4155550100.", "Ben's cell 4155550100"],
+    ["Ben's mobile changed to +1 415 555 0100.", "Ben's mobile changed to +1 415 555 0100"],
   ]) {
     const out = run(input(note), [item({ statement, evidence: [note.replace(/\.$/, "")] })]);
     eq(out.dropped.map((d) => d.reason), ["contact_detail"], note);

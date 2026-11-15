@@ -5,7 +5,7 @@
 -- which words were read but not understood; the usage log counts every drop
 -- reason the gateway has.
 BEGIN;
-SELECT plan(60);
+SELECT plan(64);
 
 \set A '''aaaaaaaa-7474-7474-7474-747474747474'''
 \set B '''bbbbbbbb-7474-7474-7474-747474747474'''
@@ -72,7 +72,8 @@ INSERT INTO public.captures (id, source, raw_text) VALUES
   ('00000000-0000-0000-0000-000000007418', 'text', 'Ben loves jazz.'),
   ('00000000-0000-0000-0000-000000007420', 'text', 'Ben loves jazz.'),
   ('00000000-0000-0000-0000-000000007421', 'text', 'Ben loves jazz. Ben bakes.'),
-  ('00000000-0000-0000-0000-000000007422', 'text', 'Ben loves jazz.');
+  ('00000000-0000-0000-0000-000000007422', 'text', 'Ben loves jazz.'),
+  ('00000000-0000-0000-0000-000000007423', 'text', 'Ben loves jazz.');
 
 -- ── The column, and who may write it ────────────────────────────────────────
 SELECT has_column('public', 'captures', 'understanding', 'captures.understanding exists');
@@ -136,6 +137,15 @@ SELECT is((SELECT jsonb_array_length(items) FROM public.capture_reviews WHERE ca
 SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$ SELECT public.resolve_capture_review(%L, '00000000-0000-0000-0000-000000007421', %L, pg_temp.jazz(), '[]') $s$) $$,
   :A, (SELECT t FROM r WHERE k = 'mixed')), 'one kept, one declined');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007421'), 'kept', 'kept: a line of this note is live');
+
+-- ── declined with gaps: not taken whole, so partial, not declined ────────────
+SELECT lives_ok(format($$ SELECT public.set_capture_coverage(%L, '00000000-0000-0000-0000-000000007423',
+  '{"v": 1, "unprocessed": [], "unlocated": 0, "not_understood": [{"start": 0, "end": 14}]}') $$, :A), 'part of the note was not understood');
+INSERT INTO r VALUES ('gaps', pg_temp.hold('00000000-0000-0000-0000-000000007423'));
+SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007423'), 'held', 'held while the question waits');
+SELECT lives_ok(format($$ SELECT public.resolve_capture_review(%L, '00000000-0000-0000-0000-000000007423', %L, '[]', '[]') $$,
+  :A, (SELECT t FROM r WHERE k = 'gaps')), 'every held line declined');
+SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007423'), 'partial', 'partial: the gaps are still there to tell again');
 
 -- ── a stale processing claim (a worker died mid-call) starts afresh ─────────
 SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007422'), 'claimed', 'claimed');

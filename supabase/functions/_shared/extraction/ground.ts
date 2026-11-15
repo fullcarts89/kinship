@@ -130,19 +130,31 @@ function plainWords(s: string): string {
 }
 
 /**
- * Every occurrence's sentence names the same people from People (or none): a copy of a sentence, not a
- * sentence about someone else that happens to be worded the same way.
+ * Every occurrence has the same people from People in subject position (or none): a copy of a sentence,
+ * not a sentence about someone else that happens to be worded the same way.
  */
 function sameNamesAround(chars: string[], found: Span[], names: string[]): boolean {
   const keys = new Set(nameKeys(names));
   if (!keys.size) return true;
-  const text = chars.join("");
-  const sets = found.map((s) => {
-    const from = chars.slice(0, s.start).join("").length;
-    const to = chars.slice(0, s.end).join("").length;
-    return [...new Set(wordsOf(sentenceAround(text, from, to, names)).map(nameKey).filter((k) => keys.has(k)))].sort().join(" ");
-  });
+  const sets = found.map((s) => [...subjectWords(chars, s, names)].filter((k) => keys.has(k)).sort().join(" "));
   return sets.every((x) => x === sets[0]);
+}
+
+/**
+ * The words in subject position for an occurrence: those before it inside its sentence, and its own first
+ * word ("Kaiya is the silliest…"). Never a word after the quote ("Krystal is fun. She loves hiking with Ann"
+ * is Krystal's, not Ann's; PR #90 review). As name keys.
+ */
+function subjectWords(chars: string[], s: Span, names: readonly string[]): Set<string> {
+  const text = chars.join("");
+  const from = chars.slice(0, s.start).join("").length;
+  const to = chars.slice(0, s.end).join("").length;
+  const sentence = sentenceAround(text, from, to, names);
+  const sentenceStart = text.indexOf(sentence, Math.max(0, from - sentence.length));
+  const lead = new Set(wordsOf(text.slice(sentenceStart < 0 ? 0 : sentenceStart, from)).map(nameKey));
+  const firstWord = wordsOf(text.slice(from, to))[0];
+  if (firstWord) lead.add(nameKey(firstWord));
+  return lead;
 }
 
 /** Rule 2: the one occurrence nearest every anchor (the line's quotes found once), within reach. */
@@ -163,9 +175,9 @@ function nearAnchors(found: Span[], anchors: Span[]): Span | null {
 
 /**
  * Rule 1: who each occurrence is about, by the note's own names. An occurrence whose sentence names
- * the line's person (and no one else) scores 2; one whose nearest name before it is theirs, 1; one
- * whose nearest name before it is someone else's, −1. The one best occurrence is chosen; a tie is
- * never broken.
+ * the line's person before the quote (subject position, and no one else there) scores 2; one whose
+ * nearest name before it is theirs, 1; one whose nearest name before it is someone else's, −1. The one
+ * best occurrence is chosen; a tie is never broken.
  */
 function byWho(chars: string[], found: Span[], personNames: string[], otherNames: string[]): Span | null {
   const mine = new Set(nameKeys(personNames));
@@ -176,11 +188,10 @@ function byWho(chars: string[], found: Span[], personNames: string[], otherNames
     key: nameKey(m[0]), at: utf16ToCodePoint(text, m.index ?? 0),
   }));
   const scores = found.map((s) => {
-    const from = chars.slice(0, s.start).join("").length;
-    const to = chars.slice(0, s.end).join("").length;
-    const sentence = new Set(wordsOf(sentenceAround(text, from, to, [...personNames, ...otherNames])).map(nameKey));
-    const namesMine = [...mine].some((k) => sentence.has(k));
-    const namesTheirs = [...theirs].some((k) => sentence.has(k));
+    // Only a name in subject position counts (subjectWords; PR #90 review).
+    const lead = subjectWords(chars, s, [...personNames, ...otherNames]);
+    const namesMine = [...mine].some((k) => lead.has(k));
+    const namesTheirs = [...theirs].some((k) => lead.has(k));
     if (namesMine && !namesTheirs) return 2;
     if (namesMine && namesTheirs) return 0;
     for (let i = words.length - 1; i >= 0; i--) {
@@ -195,13 +206,23 @@ function byWho(chars: string[], found: Span[], personNames: string[], otherNames
   return winners.length === 1 ? winners[0] : null;
 }
 
-/** The single-word keys a person may be written as: each form, and the first word of a longer one. */
+/** Words that start a longer form without naming anyone ("my wife", "the twins", "Dr Patel"). */
+const NOT_A_NAME_WORD = new Set([
+  "my", "our", "your", "his", "her", "their", "the", "a", "an", "this", "that", "these", "those", "mr", "mrs", "ms", "miss", "dr", "doctor",
+  "aunt", "auntie", "uncle", "cousin", "coach", "pastor", "little", "big", "old", "new",
+]);
+
+/**
+ * The single-word keys a person may be written as: each form, and the first word of a longer one when it
+ * can be a name on its own (never a determiner, a possessive, a title or a word of two letters or fewer).
+ */
 function nameKeys(names: string[]): string[] {
   return names.flatMap((n) => {
     const k = nameKey(n);
     if (!k || PRONOUNS.has(k)) return [];
     const first = k.split(/\s+/u)[0];
-    return first && first !== k ? [k, first] : [k];
+    const firstCounts = first && first !== k && first.length > 2 && !NOT_A_NAME_WORD.has(first) && !PRONOUNS.has(first);
+    return firstCounts ? [k, first] : [k];
   });
 }
 

@@ -8,7 +8,8 @@
 --      nothing   the understanding ran, nothing was kept and nothing is held; the note stays as the
 --                user's words
 --      partial   not taken whole: the note has coverage gaps or not-understood spans (captures.coverage
---                says where), whether or not any line was kept from the rest
+--                says where), whether or not any line was kept from the rest, and even when the user
+--                declined every held line (the gaps are still there to tell again)
 --      held      a review or question is waiting on the user
 --      declined  the user declined the reading ("Don't keep this" for every held line, or "not now");
 --                the Tell itself remains

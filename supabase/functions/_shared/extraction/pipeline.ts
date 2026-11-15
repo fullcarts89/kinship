@@ -89,10 +89,9 @@ export const MAX_PROPOSALS = 200;
  */
 export const ACCOUNTED_BY_RULE: ReadonlySet<DropReason> = new Set<DropReason>([
   "instruction_text", "contact_detail", "low_confidence", "already_known", "duplicate",
-  // Someone the note leaves unnamed ("a friend", "someone at work"; Workstream B, PR #91): no one in People
-  // can be meant and no name can be added, so the app keeps the words ("Kept your words"): the account is
-  // the note itself, by contract, not a loss.
-  "no_one_named",
+  // Not here, pending the founder's word (PR #90 review): no_one_named (someone the note leaves unnamed,
+  // Workstream B) is reported as not understood, because the user can add the person or tell the rest,
+  // and a mis-filed drop must not vanish from the completeness signal.
 ]);
 export const AUTO_SAVE_CONFIDENCE = 0.85;
 export const DROP_BELOW_CONFIDENCE = 0.6;
@@ -101,11 +100,24 @@ const SAME_DAY = /\b(?:today|tonight|this (?:morning|afternoon|evening))\b/giu;
 /** Any other word for when: with one of these too, the day isn't plain, so none is taken. */
 const OTHER_WHEN = /\b(?:tomorrow|yesterday|weekend|week|month|year|next|last|later|soon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|\d)/iu;
 /**
- * Contact data, never relationship memory (D2): a phone number (as digits, or named: "cell number", "new
- * number", "number ends in"), an email. A preference about how to be reached ("prefers Teams calls to
- * phone calls") is a fact about the person and is kept (CMR-1 eval pr-003).
+ * Contact data, never relationship memory (D2, trust invariant 6): a phone number, as digits with or
+ * without separators ("415-555-0100", "4155550100", "+1 415 555 0100": nine digits or more), a device word
+ * followed within a few words by a run of digits ("phone is 4155550100", "cell 4155550100"), or named
+ * ("cell number", "new number", "number ends in", "call her on 415…"); an email. A preference about how to
+ * be reached ("prefers Teams calls to phone calls") or a new phone is a fact about the person and is kept
+ * (CMR-1 eval pr-003). Known gaps, out of scope here: digits spelled out, postal addresses, handles.
  */
-const CONTACT_DETAIL = /\b(?:phone|cell|mobile|landline|work|home)\s+(?:number|no\.?|#)\b|\bnew number\b|\bnumber (?:ends|ending) in\b|\b(?:call|text|reach) (?:him|her|them|me|us) (?:at|on) \+?\(?\d|[\w.+-]+@[\w-]+\.[a-z]{2,}|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b|\(\d{3}\)\s?\d{3}[-.\s]?\d{4}/i;
+const CONTACT_DETAIL = new RegExp([
+  String.raw`\b(?:phone|cell|mobile|landline|work|home)\s+(?:number|no\.?|#)\b`,
+  String.raw`\bnew number\b`,
+  String.raw`\bnumber (?:ends|ending) in\b`,
+  String.raw`\b(?:call|text|reach) (?:him|her|them|me|us) (?:at|on) \+?\(?\d`,
+  String.raw`\b(?:phone|cell|mobile|landline)\b[^.!?\n]{0,20}?\d{7,}`,
+  String.raw`\b(?=(?:[\s().-]*\d){9})\+?\d[\d\s().-]{8,}\d\b`,
+  String.raw`[\w.+-]+@[\w-]+\.[a-z]{2,}`,
+  String.raw`\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b`,
+  String.raw`\(\d{3}\)\s?\d{3}[-.\s]?\d{4}`,
+].join("|"), "i");
 /** Floor for items held because code confirms the person or subject is ambiguous. */
 export const HOLD_FLOOR_CONFIDENCE = 0.3;
 const WHO_AMBIGUITY: Flag[] = ["person_ambiguous", "pronoun_multiple", "subject_check", "person_archived"];
@@ -257,6 +269,25 @@ class Context {
     return this.folded.includes(fold(words).trim());
   }
 
+  // The one way this note's sentences and clauses are read (CMR-1 C): a spoken run is cut into spoken
+  // sentences with the roster's names (segment.ts), so every check in the pipeline sees the same sentence.
+  /** The sentence holding a span. */
+  sentenceAround(span: PlannedSpan): string {
+    return sentenceAroundSpan(this.text, span, this.names);
+  }
+  /** The clause holding a span (never past its spoken sentence). */
+  clauseAround(span: PlannedSpan): string {
+    return clauseAroundSpan(this.text, span, this.names);
+  }
+  /** The sentence after the one holding a span, or null. */
+  sentenceAfter(span: PlannedSpan): string | null {
+    return sentenceAfter(this.text, span, this.names);
+  }
+  /** The sentence holding UTF-16 [from, to). */
+  sentenceAt(from: number, to: number): string {
+    return sentenceAround(this.text, from, to, this.names);
+  }
+
 
   /** The known companions this name could mean (founder K27), whoever they belong to. */
   companionsNamed(name: string): Companion[] {
@@ -388,12 +419,12 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   const spans: PlannedSpan[] = grounded.spans.map((s) => toPlannedSpan(text, s));
   const where = (): Span[] => spans.map(({ start, end }) => ({ start, end }));
   const primary = spans[0];
-  const sentence = sentenceAroundSpan(text, primary, ctx.names);
-  const allEvidence = spans.map((s) => sentenceAroundSpan(text, s, ctx.names)).join(" ");
+  const sentence = ctx.sentenceAround(primary);
+  const allEvidence = spans.map((s) => ctx.sentenceAround(s)).join(" ");
 
   // Instructions to the AI are never memory. Checked per clause, so "Anna's
   // birthday is May 2 — and from now on, you…" keeps the birthday.
-  if (looksLikeInstruction(clauseAroundSpan(text, primary, ctx.names))) return { drop: "instruction_text", where: where() };
+  if (looksLikeInstruction(ctx.clauseAround(primary))) return { drop: "instruction_text", where: where() };
 
   const statement = raw.statement.normalize("NFC").replace(/\s+/g, " ").trim().slice(0, 500);
   if (!statement) return { drop: "bad_kind_subject", where: where() };
@@ -408,14 +439,14 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // Negation is local: "Ben didn't get the job, but he's interviewing" has
   // one negated clause and one plain one.
   const voiced = yourVoice(statement);
-  const negationLost = negatedWhereStated(clauseAroundSpan(text, primary, ctx.names), statement) && !hasNegation(statement);
+  const negationLost = negatedWhereStated(ctx.clauseAround(primary), statement) && !hasNegation(statement);
   const unfaithful = inventedName(ctx, statement) || inventedNumber(statement, text) ||
     inventedSensitiveTerms(statement, text).length > 0 || inventedRelations(statement, text, ctx.knownRelations).length > 0 ||
     negationLost || !voiced.certain;
   // Never an instruction or a contact detail, whichever quote it was in.
   let said = unfaithful
     ? ownWords(text, spans.filter((s, i) => i === 0 ||
-      (!looksLikeInstruction(clauseAroundSpan(text, s, ctx.names)) && !looksLikeInstruction(sentenceAroundSpan(text, s, ctx.names)) && !CONTACT_DETAIL.test(s.quote))))
+      (!looksLikeInstruction(ctx.clauseAround(s)) && !looksLikeInstruction(ctx.sentenceAround(s)) && !CONTACT_DETAIL.test(s.quote))))
     : voiced.text;
   if (unfaithful) flags.add("own_words");
   // A mention the note never says ("your wife" for "Wifey") is the model's
@@ -427,7 +458,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   let subject = raw.subject;
   // The user's own news read as a fact or a milestone about the user (founder K5).
   let userNews = false;
-  const clause = clauseAroundSpan(text, primary, ctx.names);
+  const clause = ctx.clauseAround(primary);
   const mine = userIsActor(clause) || userIsActor(primary.quote);
   const theirs = !mine && (theyPromisedMe(clause) || theyPromisedMe(primary.quote) || theyPromisedMe(sentence));
   // Someone else's commitment to the user ("Tyler said he'd send me his
@@ -532,7 +563,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     //     never decides on its own ("moving to Austin", "saving for May").
     // Someone not in People is asked as for anyone; someone removed is offered back (J4, I3).
     if (!who.new_person_name && !who.archived_ids?.length) {
-      const near = withFollowing(text, primary, sentence);
+      const near = withFollowing(text, primary, sentence, ctx.names);
       const told = whoTheUserTells(ctx, near);
       const page = ctx.input.capture.context_person_key ? ctx.byKey.get(ctx.input.capture.context_person_key) : undefined;
       const unsure = flags.has("person_ambiguous") || flags.has("person_disagreement") || flags.has("pronoun_multiple");
@@ -660,7 +691,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // the "might" is the Seattle line's own word, so it never hedges the
   // promotion (founder I12b). A hedge on this line, or outside every line
   // ("I think…"), still holds.
-  const cap = capCertainty(raw.certainty, wordingCertainty(certaintyText(withoutOtherLines(ctx, text, spans, index), spans, raw)));
+  const cap = capCertainty(raw.certainty, wordingCertainty(certaintyText(withoutOtherLines(ctx, text, spans, index), spans, raw, ctx.names)));
   const certainty = cap.certainty;
   if (cap.lowered) flags.add("certainty_lowered");
   if (certainty === "reported") flags.add("reported");
@@ -1018,8 +1049,8 @@ const TELLS = "tell|tells|told|telling|text|texts|texted|texting|call|calls|call
 const WITH_OR_FOR = "with|for";
 
 /** The line's sentence, and a short one right after it with no subject of its own ("I got the job! Can't wait to tell Loo Loo."). */
-function withFollowing(text: string, span: PlannedSpan, sentence: string): string {
-  const next = sentenceAfter(text, span);
+function withFollowing(text: string, span: PlannedSpan, sentence: string, names: readonly string[] = []): string {
+  const next = sentenceAfter(text, span, names);
   // Only a sentence that is itself the telling ("Can't wait to tell Loo Loo."): never one with a subject of its own
   // ("Hope called Ben.", "Can't believe Sarah called Ben.", reviewer A, r3).
   const telling = new RegExp(`^(?:can['’]?t wait|cannot wait|can not wait|(?:so\\s+)?excited|looking forward|want|wanna|going|gonna|need|have)\\s+(?:to\\s+)?(?:${TELLS})\\s`, "iu");
@@ -1257,7 +1288,9 @@ const RESTATED = new Set([
 const ALONE = new WeakMap<ProposedItem, string>();
 
 function oneSentenceOneMemory(input: ExtractionInput, text: string, proposed: ProposedItem[], asked: ModelProposal["needs_clarification"]): ProposedItem[] {
-  const nameWords = new Set(input.roster.flatMap((p) => namesFor(p)).flatMap((n) => wordsOf(fold(n))));
+  // The roster's names: how a spoken run is cut into sentences, the same way Context reads them.
+  const names = input.roster.flatMap((p) => namesFor(p));
+  const nameWords = new Set(names.flatMap((n) => wordsOf(fold(n))));
   const content = (t: string) => new Set(wordsOf(fold(t)).map((w) => w.replace(/(?<=\p{L}{3})s$/u, ""))
     .filter((w) => w.length > 2 && !RESTATED.has(w) && !nameWords.has(w)));
   const people = (mention: string | null) => {
@@ -1276,7 +1309,7 @@ function oneSentenceOneMemory(input: ExtractionInput, text: string, proposed: Pr
   } as ProposedItem);
   if (!proposed.length && asked?.about === "person" && asked.mention && fold(text).includes(fold(asked.mention))) {
     const at = fold(text).indexOf(fold(asked.mention));
-    const sentence = sentenceAround(text, at, at + asked.mention.length).trim().replace(/[.!?]+$/u, "");
+    const sentence = sentenceAround(text, at, at + asked.mention.length, names).trim().replace(/[.!?]+$/u, "");
     if (sentence && !wordsOf(fold(sentence)).some((w) => SELF_WORDS.has(w))) return [heldSentence(sentence, asked.mention)];
   }
   // The model keeps nothing but asks who it is about, and names no one (CER-1, WS-5: "Actually the Pilsen
@@ -1297,7 +1330,7 @@ function oneSentenceOneMemory(input: ExtractionInput, text: string, proposed: Pr
     if (!raw.person_mention?.trim() || PRONOUNS.has(fold(raw.person_mention.trim()))) return;
     const spans = evidenceSpans(text, raw, groundHint(input.roster, raw));
     if (!spans.length) return;
-    const sentence = sentenceAroundSpan(text, spans[0]).trim();
+    const sentence = sentenceAroundSpan(text, spans[0], names).trim();
     bySentence.set(sentence, [...(bySentence.get(sentence) ?? []), i]);
   });
   const replaced = new Map<number, ProposedItem | null>();
@@ -2315,7 +2348,7 @@ function chooseClarification(ctx: Context, items: PlannedItem[]): Clarification 
   const subject = held.find((i) => i.flags.includes("subject_check"));
   if (subject && subject.person_key) {
     const p = ctx.byKey.get(subject.person_key)!;
-    const rel = possessiveRelationWord(sentenceAroundSpan(ctx.text, subject.spans[0]), p) ?? "family";
+    const rel = possessiveRelationWord(ctx.sentenceAround(subject.spans[0]), p) ?? "family";
     return {
       about: "subject",
       question: `Is this about ${p.display_name}, or ${p.display_name}'s ${rel}?`,

@@ -39,6 +39,16 @@ Deno.test("segment: a coordinator starts a sentence only before a subject; a pai
     "and grace asked if we could come",
     "and i said we would try",
   ]);
+  // vl-006: a name followed by a verb starts a sentence ("…on call keiko offered…"), an object name does not.
+  eq(texts("lars is doing the migration with felipe and is grumpy about on call keiko offered to cover some of it devi texted shes got two interviews next week", ["Lars", "Felipe", "Keiko", "Devi"]), [
+    "lars is doing the migration with felipe and is grumpy about on call",
+    "keiko offered to cover some of it",
+    "devi texted",
+    "shes got two interviews next week",
+  ]);
+  eq(texts("i should call keiko tomorrow about the hours and my cousin ben loves the new place he moved to in may", ["Keiko", "Ben"]), [
+    "i should call keiko tomorrow about the hours and my cousin ben loves the new place he moved to in may",
+  ], "an object name, and a name after a kin word, never start a sentence");
   // vl-006, shortened: "i said id cover" is its own sentence, so whose promise it is can be read from it.
   const work = "amara is dropping to four days from december and wants fridays for her book i said id cover her vendor calls on fridays which is fine honestly";
   eq(texts(work, ["Amara"]), [
@@ -52,6 +62,38 @@ Deno.test("segment: a coordinator starts a sentence only before a subject; a pai
   eq(texts("she said she loves hiking because it clears her head and i think that is lovely to hear from her", []), [
     "she said she loves hiking because it clears her head",
     "and i think that is lovely to hear from her",
+  ]);
+});
+
+Deno.test("segment: shapes that are one clause stay one (PR #90 review): okay, name-and-pronoun subjects, reported speech, reduced relatives", () => {
+  const n = ["Ben", "Grace", "Mark", "Mom", "Dad"];
+  // "okay" is an adjective mid-clause, not a filler.
+  eq(texts("ben's dad is in hospital again he's okay but they're keeping him in for a few more days i should call", n), [
+    "ben's dad is in hospital again", "he's okay", "but they're keeping him in for a few more days", "i should call",
+  ]);
+  eq(texts("she is okay and i believe her though she sounded tired on the phone last night when we spoke", n), [
+    "she is okay", "and i believe her though she sounded tired on the phone last night when we spoke",
+  ]);
+  // A name and a pronoun are one subject (na-008).
+  eq(texts("grace and i are doing the turkey trot on thursday morning and she is bringing the kids along", n), [
+    "grace and i are doing the turkey trot on thursday morning", "and she is bringing the kids along",
+  ]);
+  eq(texts("mark and i went to the game and we loved it and will and grace stayed home with the baby", [...n, "Will"]), [
+    "mark and i went to the game", "and we loved it", "and will and grace stayed home with the baby",
+  ]);
+  // Reported speech with an object pronoun.
+  eq(texts("ben told me she was leaving the firm in january and i think he is sad about it honestly", n), [
+    "ben told me she was leaving the firm in january", "and i think he is sad about it honestly",
+  ]);
+  // Reduced relatives (wl-008).
+  eq(texts("the person she interviewed against got the role and she is taking it well considering everything", n), [
+    "the person she interviewed against got the role", "and she is taking it well considering everything",
+  ]);
+  eq(texts("ben did not get the job he wanted but he is interviewing at two other places next week", n), [
+    "ben did not get the job he wanted", "but he is interviewing at two other places next week",
+  ]);
+  eq(texts("so i finally called mom and she is doing better than last time we talked about dad", n), [
+    "so i finally called mom", "and she is doing better than last time we talked about dad",
   ]);
 });
 
