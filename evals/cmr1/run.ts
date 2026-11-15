@@ -21,6 +21,7 @@
 //          --repeat N (live; default 1; release-candidate runs use 3)  --concurrency N  --out <dir>  --tag <label>
 //          --shared <dir>     the supabase/functions/_shared to run the pipeline from (default: this tree's)
 //          --max-failures N   how many failing cases to list per informational metric (gated ones always list up to 100)
+//          --dump-ids a,b     for these narrative ids, print the note, roster, the model's raw items and the pipeline's outcome
 //          --dry-run          (live) print the call count and cost estimate, run nothing
 //          --require-frozen   refuse unless the whole corpus matches MANIFEST.json
 //          --refreeze <why>   the held-out set changed on purpose: rewrite MANIFEST.json, then run
@@ -42,7 +43,7 @@ const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
 const VERSION_FALLBACK = "cmr1-v1";
 
 const args = parseArgs(Deno.args, {
-  string: ["mode", "split", "categories", "ids", "limit", "model", "effort", "repeat", "concurrency", "out", "tag", "replay", "refreeze", "shared", "max-failures"],
+  string: ["mode", "split", "categories", "ids", "limit", "model", "effort", "repeat", "concurrency", "out", "tag", "replay", "refreeze", "shared", "max-failures", "dump-ids"],
   boolean: ["realistic", "require-frozen", "dry-run"],
   default: { mode: "oracle", split: "all", repeat: "1", concurrency: "4", out: `${DIR}/../results/cmr1` },
 });
@@ -325,6 +326,37 @@ for (const s of splits) {
   const info = graded[s].metrics.filter((r) => r.informational);
   const f = [...failures(gated, Math.max(maxFailures, 100)), ...failures(info, maxFailures)];
   if (f.length) md.push("", `## Failures (${s})`, "", ...f);
+}
+// The model's own proposals for named narratives, beside what the pipeline made of them (synthetic corpus only):
+// what a fix has to be built from when a miss shows up on live outputs that cannot be downloaded.
+const dumpIds = new Set(String(args["dump-ids"] ?? "").split(",").map((x) => x.trim()).filter(Boolean));
+if (dumpIds.size) {
+  md.push("", `## Raw proposals (${[...dumpIds].join(", ")})`, "");
+  for (const r of runs.filter((x) => dumpIds.has(x.narrative.id))) {
+    const items = (r.proposal as ModelProposal | null)?.items ?? [];
+    const block = {
+      tell: `${r.narrative.id}#${r.step}@${r.repeat}`,
+      note: r.input.capture.raw_text,
+      context_person_key: r.input.capture.context_person_key ?? null,
+      roster: r.input.roster.map((p) => [p.key, p.display_name, p.relationship_label ?? null]),
+      related: r.input.related.map((x) => [x.key, x.person_key, x.relation, x.name ?? null]),
+      clarification_asked: (r.proposal as ModelProposal | null)?.needs_clarification ?? null,
+      model_items: items.map((i) => ({
+        kind: i.kind, person: i.person, person_mention: i.person_mention, subject: i.subject, related_relation: i.related_relation,
+        related_name: i.related_name, statement: i.statement, evidence: i.evidence, certainty: i.certainty, sensitivity: i.sensitivity,
+        confidence: i.confidence, date_text: i.date_text,
+      })),
+      outcome: r.outcome ? {
+        tier: r.outcome.tier,
+        items: r.outcome.items.map((i) => ({ statement: i.statement, person_key: i.person_key, subject: i.subject_type, related: i.related ?? null, tier: i.tier, flags: i.flags, new_person_name: i.new_person_name ?? null })),
+        dropped: r.outcome.dropped,
+        clarification: r.outcome.clarification ?? null,
+        coverage: r.outcome.coverage ?? null,
+      } : null,
+      crashed: r.crashed ?? null,
+    };
+    md.push("<details><summary>" + block.tell + "</summary>", "", "```json", JSON.stringify(block, null, 1), "```", "", "</details>");
+  }
 }
 console.log(md.join("\n"));
 

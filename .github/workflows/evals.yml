@@ -310,6 +310,7 @@ jobs:
           set -o pipefail
           echo "## Candidate: replay through ${{ github.event.pull_request.head.sha }}" >> "$GITHUB_STEP_SUMMARY"
           deno run -A --config evals/deno.json evals/cmr1/run.ts --mode replay --replay "$raw" --split all --max-failures 100 \
+            --dump-ids "${CMR1_DUMP_IDS:-se-015,na-014,fr-007,na-002,na-008,ev-011,vl-003,nm-009,ce-003,vl-001}" \
             --model claude-opus-5-5 --effort low --out evals/results/cmr1 --tag candidate | tee -a "$GITHUB_STEP_SUMMARY" || true
       - name: Replay through main's pipeline (baseline)
         run: |
