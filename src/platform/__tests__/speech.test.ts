@@ -166,6 +166,50 @@ describe("listening", () => {
     expect(t.text).toBe("Ben got the job.");
   });
 
+  it("the recognizer's own timing of a new utterance is never ignored: disjoint spans with nothing heard between keep both", () => {
+    const s = load();
+    // Probe G: a different thought after a pause, no partial in between.
+    const g = new s.Transcript();
+    g.partial({ transcript: "Ben loves" });
+    g.final({ transcript: "Ben loves hiking.", segments: ms(0, 1500) });
+    g.final({ transcript: " Ben loves swimming.", segments: ms(2500, 4000) });
+    expect(g.text).toBe("Ben loves hiking. Ben loves swimming.");
+    // Probe I: a genuine repeat a second and a half later, no partial in between.
+    const i = new s.Transcript();
+    i.partial({ transcript: "Ben" });
+    i.final({ transcript: "Ben ran.", segments: ms(0, 500) });
+    i.final({ transcript: " Ben ran.", segments: ms(2000, 2500) });
+    expect(i.text).toBe("Ben ran. Ben ran.");
+  });
+
+  it("a re-reading keeps the length and most of the words; one word changed in a short sentence is a different thought", () => {
+    const s = load();
+    // Probe L: the same span, one of two words changed: kept after, never in place of.
+    const l = new s.Transcript();
+    l.partial({ transcript: "Ben" });
+    l.final({ transcript: "Ben ran.", segments: ms(0, 500) });
+    l.final({ transcript: " Ben swam.", segments: ms(0, 500) });
+    expect(l.text).toBe("Ben ran. Ben swam.");
+    // Probe H: no timing, no partial between, one of three words changed: kept after.
+    const h = new s.Transcript();
+    h.partial({ transcript: "Ben loves" });
+    h.final({ transcript: "Ben loves hiking." });
+    h.final({ transcript: " Ben loves swimming." });
+    expect(h.text).toBe("Ben loves hiking. Ben loves swimming.");
+    // A long sentence re-read with one word revised, the same span: the re-reading.
+    const k = new s.Transcript();
+    k.partial({ transcript: "She is the silliest" });
+    k.final({ transcript: "She is the silliest little girl in the whole world.", segments: ms(0, 3000) });
+    k.final({ transcript: " She is the silliest little girl in the wide world.", segments: ms(0, 3000) });
+    expect(k.text).toBe("She is the silliest little girl in the wide world.");
+    // A reading that lost or gained more than a word is not a re-reading.
+    const m = new s.Transcript();
+    m.partial({ transcript: "She is" });
+    m.final({ transcript: "She is the silliest little girl in the whole world.", segments: ms(0, 3000) });
+    m.final({ transcript: " She is the silliest little girl.", segments: ms(0, 3000) });
+    expect(m.text).toBe("She is the silliest little girl in the whole world. She is the silliest little girl.");
+  });
+
   it("the same utterance re-read with a word changed takes the first reading's place; mostly other words are something new", async () => {
     const s = load();
     const h = handlers();
@@ -300,7 +344,7 @@ describe("listening", () => {
     expect(t.text).toBe("Ben got the job.");
   });
 
-  it("the platform limit: no timing, no partial between, the same words as a second final: kept once", () => {
+  it("the platform limits, as they are: no timing and no partial between is the same utterance again", () => {
     // Android gives no word timing. A genuine repeat arrives as partials first and is kept twice (above);
     // a second final with the same words and nothing heard between cannot be told from a re-send.
     const s = load();
@@ -309,6 +353,28 @@ describe("listening", () => {
     t.final({ transcript: "I love her." });
     t.final({ transcript: " I love her." });
     expect(t.text).toBe("I love her.");
+    // And mostly-shared words of the same length, no timing, no partial between: taken as a re-reading.
+    const r = new s.Transcript();
+    r.partial({ transcript: "She is the silliest" });
+    r.final({ transcript: "She is the silliest little girl in the whole world." });
+    r.final({ transcript: " She is the silliest little girl in the wide world." });
+    expect(r.text).toBe("She is the silliest little girl in the wide world.");
+    // Probe C: a recognizer that re-emitted a pause-final's words as a partial before its Stop re-send
+    // would, without timing, be taken at its word (a partial is a new utterance): kept twice. iOS 18
+    // carries timing, so the re-send's overlap drops it there; theoretical on Android.
+    const c = new s.Transcript();
+    c.partial({ transcript: "Ben got" });
+    c.final({ transcript: "Ben got the job." });
+    c.partial({ transcript: " Ben got the job." });
+    c.final({ transcript: " Ben got the job." });
+    expect(c.text).toBe("Ben got the job. Ben got the job.");
+    const ios = new s.Transcript();
+    ios.partial({ transcript: "Ben got" });
+    ios.final({ transcript: "Ben got the job.", segments: ms(0, 1500) });
+    ios.partial({ transcript: " Ben got the job." });
+    ios.final({ transcript: " Ben got the job.", segments: ms(0, 1500) });
+    // With a partial between, even overlapping timing never drops: the partial is the certain signal.
+    expect(ios.text).toBe("Ben got the job. Ben got the job.");
   });
 
   it("an ended session takes no late result", async () => {

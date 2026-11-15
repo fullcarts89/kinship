@@ -173,7 +173,12 @@ function overlap(a: Span, b: Span): boolean {
   return a.start < b.end && b.start < a.end;
 }
 
-/** The share of words two readings have in common (0..1): a re-reading changes a word or two, not the sentence. */
+/**
+ * The share of words two readings have in common (0..1), as a multiset, without order ("the dog bit Ben"
+ * and "Ben bit the dog" share every word). Enough for its one use: judging whether a result that is
+ * already known to be the *same utterance again* (nothing heard since the last final) is a re-reading of
+ * it; it never decides on its own whether two results are the same utterance.
+ */
 function sharedWords(a: string, b: string): number {
   const wa = a.split(" ").filter(Boolean);
   const wb = b.split(" ").filter(Boolean);
@@ -189,6 +194,18 @@ function sharedWords(a: string, b: string): number {
     }
   }
   return shared / Math.max(wa.length, wb.length);
+}
+
+/**
+ * Whether `said` reads as the recognizer's re-reading of `last` (a word or two revised), rather than other
+ * words: the same length give or take a word, and most words shared (three in four for a short sentence,
+ * where one changed word is a different thought: "Ben ran" / "Ben swam").
+ */
+function reReading(said: string, last: string): boolean {
+  const na = said.split(" ").filter(Boolean).length;
+  const nb = last.split(" ").filter(Boolean).length;
+  if (Math.abs(na - nb) > 1) return false;
+  return sharedWords(said, last) >= (Math.max(na, nb) < 6 ? 0.75 : 0.5);
 }
 
 /** The words of `said` after the ones that fold to `prefix` (whole words), or null when they don't line up. */
@@ -218,16 +235,15 @@ function afterPrefix(said: string, prefix: string): string | null {
  *   the same again  at Stop, iOS 18 sends the last utterance as final once more (founder device,
  *                   10 Nov 2026, K34: a note about Kaiya was kept twice over, and the server could then
  *                   place none of its quotes). That result is told apart from the user *saying* the
- *                   same words again by structure, not wording:
- *                     · the recognizer's own timing of the words (`segments`) covers the same stretch
- *                       of audio as the last final (an utterance said after a pause starts after it), or
- *                     · nothing new was heard since that final: a new utterance always arrives as
- *                       partials first (interim results are on).
+ *                   same words again by structure, not wording: nothing new was heard since that final
+ *                   (a new utterance always arrives as partials first, interim results being on), and
+ *                   the recognizer's own timing of the words (`segments`), when both finals have it,
+ *                   covers the same stretch of audio (an utterance said after a pause starts after it).
  *                   So "I love her" [pause] "I love her so much" keeps both, "no" [pause] "no" is two,
  *                   and "no, no, no" is kept as said; only the recognizer repeating itself is dropped.
- *   a re-reading    the same utterance (by timing or by nothing heard since) with a word or two changed
- *                   is the recognizer's final reading of it: it takes the last final's place. Mostly
- *                   different words are something new, kept after it.
+ *   a re-reading    the same utterance again with a word or two changed is the recognizer's final
+ *                   reading of it: it takes the last final's place. Other words are something new,
+ *                   kept after it.
  *   the whole again a final holding everything settled, with nothing new heard since, is the session
  *                   sent whole: it replaces what it repeats, once.
  *
@@ -275,18 +291,19 @@ export class Transcript {
   /**
    * A final result: one utterance, settled.
    *
-   * Whether it is the *same* utterance as the last final, again, is decided by structure:
-   *   · both carry timing and the spans overlap (a re-send covers the same stretch of audio; an utterance
-   *     said after a pause starts after the last one ended), or
-   *   · nothing was heard since the last final (no partial: a new utterance always arrives as partials
-   *     first while interim results are on).
-   * The same utterance with the same words is dropped. With other words it is the recognizer's final
-   * reading when most of the words are shared (a word or two revised), and replaces the last final; words
-   * that are mostly different are something new, and are kept after it.
+   * Whether it is the *same* utterance as the last final, again, is decided by structure, and a partial
+   * since the last final is the one certain sign of a new utterance (interim results are on, so a new
+   * utterance always arrives as partials first): with one, nothing is ever dropped or replaced. Without
+   * one, the result is the same utterance again unless both finals carry timing and their spans are
+   * disjoint (an utterance said after a pause starts after the last one ended; a re-send covers the same
+   * stretch of audio). The same utterance with the same words is dropped. With other words it is the
+   * recognizer's re-reading when the length and most of the words match (`reReading`), and replaces the
+   * last final; otherwise it is something new, kept after it.
    *
-   * Limit (recorded in approved-design-coverage.md): a recognizer that gives no timing (Android) and sends
-   * a second final with the same words with no partial between cannot be told from a re-send, and is kept
-   * once.
+   * Limits (recorded in approved-design-coverage.md): on a recognizer that gives no timing (Android), a
+   * second final with no partial between is treated as the same utterance again, so the same words are
+   * kept once and mostly-shared words are taken as a re-reading; and should such a recognizer re-emit a
+   * pause-final's words as a partial before its Stop re-send, that re-send would be kept twice.
    */
   final(r: Heard): void {
     const said = r.transcript.trim();
@@ -310,11 +327,13 @@ export class Transcript {
           return settle();
         }
       }
-      const same = (timing && last.timing) ? overlap(timing, last.timing) || !this.fresh : !this.fresh;
+      // Nothing heard since the last final, and the recognizer's own timing (when both have it) does not
+      // say otherwise: the same utterance again.
+      const same = !this.fresh && (!(timing && last.timing) || overlap(timing, last.timing));
       if (same) {
         const fl = folded(last.text);
         if (fs === fl) return settle();
-        if (sharedWords(fs, fl) >= 0.5) {
+        if (reReading(fs, fl)) {
           last.text = said;
           last.timing = timing ?? last.timing;
           return settle();
