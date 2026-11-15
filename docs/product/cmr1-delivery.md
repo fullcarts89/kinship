@@ -1,8 +1,7 @@
 # CMR-1 delivery: Core Memory Reliability release candidate
 
-**15 Nov 2026. Candidate: branch `claude/cmr1-rc`.** Readiness label: **NOT READY** until the founder's acceptance
-session (`cmr1-acceptance.md`) passes on a build and gateway that carry it; the candidate is **READY FOR FOUNDER
-NATIVE PASS** in the sense of CLAUDE.md's labels once merged, migrated and deployed on the founder's yes. The record
+**15 Nov 2026. Candidate: branch `claude/cmr1-rc`.** Readiness label: **NOT READY**. It becomes a label other than
+that only when the founder's acceptance session (`cmr1-acceptance.md`) passes on a build and gateway that carry it. The record
 of how it was built is `cmr1-handoff.md` §4b–4c; the plan to ship and undo it is `cmr1-release-plan.md`.
 
 ## A. Executive summary
