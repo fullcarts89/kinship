@@ -27,7 +27,8 @@
 --
 -- 3. ai_drop_reasons_ok learns the two drop reasons the gateway has logged since October
 --    (internal_reference, already_known): a call that dropped a line for either reason could not write
---    its content-free usage row at all, so those understandings were missing from ai_calls.
+--    its content-free usage row at all, so those understandings were missing from ai_calls. And
+--    no_one_named, the reason CMR-1 Workstream B adds (someone the note leaves unnamed).
 --
 -- Release order: this migration must be in production (merged to main) before the ai-gateway that
 -- writes `not_understood` is deployed, or set_capture_coverage refuses the write (22023). An older
@@ -163,7 +164,7 @@ AS $$
                            'invented_sensitive_term', 'invented_relation', 'mention_not_in_note',
                            'polarity_mismatch', 'not_a_user_promise', 'instruction_text',
                            'low_confidence', 'bad_kind_subject', 'duplicate', 'too_many_items',
-                           'contact_detail', 'internal_reference', 'already_known')
+                           'contact_detail', 'internal_reference', 'already_known', 'no_one_named')
           OR jsonb_typeof(e.value) <> 'number'
           OR NOT (e.value::text ~ '^[0-9]{1,3}$'))
 $$;

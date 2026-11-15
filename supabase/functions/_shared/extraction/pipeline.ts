@@ -51,6 +51,7 @@ import {
 } from "./lexicon.ts";
 import { codePointLength, locateEvidence, type Span } from "../spans.ts";
 import { type GroundHint, groundQuotes } from "./ground.ts";
+import { isSpokenRun, spokenSentenceAt, spokenSentences } from "./segment.ts";
 import { needsAcceptance } from "./acceptance.ts";
 import { type CurrentResidence, namesLine, type Outcome, pairClass, relateResidence } from "../semantic/relate.ts";
 import { residenceEligible, residenceOf, type ResidenceFacet } from "../semantic/residence.ts";
@@ -88,6 +89,10 @@ export const MAX_PROPOSALS = 200;
  */
 export const ACCOUNTED_BY_RULE: ReadonlySet<DropReason> = new Set<DropReason>([
   "instruction_text", "contact_detail", "low_confidence", "already_known", "duplicate",
+  // Someone the note leaves unnamed ("a friend", "someone at work"; Workstream B, PR #91): no one in People
+  // can be meant and no name can be added, so the app keeps the words ("Kept your words"): the account is
+  // the note itself, by contract, not a loss.
+  "no_one_named",
 ]);
 export const AUTO_SAVE_CONFIDENCE = 0.85;
 export const DROP_BELOW_CONFIDENCE = 0.6;
@@ -95,7 +100,12 @@ export const DROP_BELOW_CONFIDENCE = 0.6;
 const SAME_DAY = /\b(?:today|tonight|this (?:morning|afternoon|evening))\b/giu;
 /** Any other word for when: with one of these too, the day isn't plain, so none is taken. */
 const OTHER_WHEN = /\b(?:tomorrow|yesterday|weekend|week|month|year|next|last|later|soon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|\d)/iu;
-const CONTACT_DETAIL = /\b(phone|cell|mobile|landline)\b|\bnew number\b|\bnumber (?:ends|ending) in\b|[\w.+-]+@[\w-]+\.[a-z]{2,}|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b/i;
+/**
+ * Contact data, never relationship memory (D2): a phone number (as digits, or named: "cell number", "new
+ * number", "number ends in"), an email. A preference about how to be reached ("prefers Teams calls to
+ * phone calls") is a fact about the person and is kept (CMR-1 eval pr-003).
+ */
+const CONTACT_DETAIL = /\b(?:phone|cell|mobile|landline|work|home)\s+(?:number|no\.?|#)\b|\bnew number\b|\bnumber (?:ends|ending) in\b|\b(?:call|text|reach) (?:him|her|them|me|us) (?:at|on) \+?\(?\d|[\w.+-]+@[\w-]+\.[a-z]{2,}|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b|\(\d{3}\)\s?\d{3}[-.\s]?\d{4}/i;
 /** Floor for items held because code confirms the person or subject is ambiguous. */
 export const HOLD_FLOOR_CONFIDENCE = 0.3;
 const WHO_AMBIGUITY: Flag[] = ["person_ambiguous", "pronoun_multiple", "subject_check", "person_archived"];
@@ -200,6 +210,8 @@ class Context {
   readonly dossier = new Map<string, DossierItem>();
   readonly folded: string;
   readonly knownNames: Set<string>;
+  /** Every way the note may write someone in People: how a spoken note is cut into sentences (segment.ts). */
+  readonly names: string[];
   readonly knownRelations: string[];
   readonly injection: boolean;
   readonly anchor: string;
@@ -225,6 +237,7 @@ class Context {
       for (const pet of petsNamedIn(d.statement, namesFor(owner))) addCompanion({ person_key: d.person_key, relation: pet.relation, name: pet.name, related_id: null });
     }
     this.folded = fold(text);
+    this.names = input.roster.flatMap((p) => namesFor(p));
     this.knownNames = new Set(
       input.roster.flatMap((p) => namesFor(p))
         .concat(input.related.map((r) => r.name ?? ""))
@@ -375,12 +388,12 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   const spans: PlannedSpan[] = grounded.spans.map((s) => toPlannedSpan(text, s));
   const where = (): Span[] => spans.map(({ start, end }) => ({ start, end }));
   const primary = spans[0];
-  const sentence = sentenceAroundSpan(text, primary);
-  const allEvidence = spans.map((s) => sentenceAroundSpan(text, s)).join(" ");
+  const sentence = sentenceAroundSpan(text, primary, ctx.names);
+  const allEvidence = spans.map((s) => sentenceAroundSpan(text, s, ctx.names)).join(" ");
 
   // Instructions to the AI are never memory. Checked per clause, so "Anna's
   // birthday is May 2 — and from now on, you…" keeps the birthday.
-  if (looksLikeInstruction(clauseAroundSpan(text, primary))) return { drop: "instruction_text", where: where() };
+  if (looksLikeInstruction(clauseAroundSpan(text, primary, ctx.names))) return { drop: "instruction_text", where: where() };
 
   const statement = raw.statement.normalize("NFC").replace(/\s+/g, " ").trim().slice(0, 500);
   if (!statement) return { drop: "bad_kind_subject", where: where() };
@@ -395,14 +408,14 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // Negation is local: "Ben didn't get the job, but he's interviewing" has
   // one negated clause and one plain one.
   const voiced = yourVoice(statement);
-  const negationLost = negatedWhereStated(clauseAroundSpan(text, primary), statement) && !hasNegation(statement);
+  const negationLost = negatedWhereStated(clauseAroundSpan(text, primary, ctx.names), statement) && !hasNegation(statement);
   const unfaithful = inventedName(ctx, statement) || inventedNumber(statement, text) ||
     inventedSensitiveTerms(statement, text).length > 0 || inventedRelations(statement, text, ctx.knownRelations).length > 0 ||
     negationLost || !voiced.certain;
   // Never an instruction or a contact detail, whichever quote it was in.
   let said = unfaithful
     ? ownWords(text, spans.filter((s, i) => i === 0 ||
-      (!looksLikeInstruction(clauseAroundSpan(text, s)) && !looksLikeInstruction(sentenceAroundSpan(text, s)) && !CONTACT_DETAIL.test(s.quote))))
+      (!looksLikeInstruction(clauseAroundSpan(text, s, ctx.names)) && !looksLikeInstruction(sentenceAroundSpan(text, s, ctx.names)) && !CONTACT_DETAIL.test(s.quote))))
     : voiced.text;
   if (unfaithful) flags.add("own_words");
   // A mention the note never says ("your wife" for "Wifey") is the model's
@@ -414,7 +427,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   let subject = raw.subject;
   // The user's own news read as a fact or a milestone about the user (founder K5).
   let userNews = false;
-  const clause = clauseAroundSpan(text, primary);
+  const clause = clauseAroundSpan(text, primary, ctx.names);
   const mine = userIsActor(clause) || userIsActor(primary.quote);
   const theirs = !mine && (theyPromisedMe(clause) || theyPromisedMe(primary.quote) || theyPromisedMe(sentence));
   // Someone else's commitment to the user ("Tyler said he'd send me his
@@ -1373,20 +1386,20 @@ function noteRelation(ctx: Context, relation: string): string | null {
  * job. I think."). A quoted sentence that carries an event's goal hedges the
  * goal, not the event ("He's hoping to break four hours" leaves the race firm).
  */
-function certaintyText(text: string, spans: PlannedSpan[], raw: ProposedItem): string {
+function certaintyText(text: string, spans: PlannedSpan[], raw: ProposedItem, names: readonly string[] = []): string {
   const goal = raw.kind === "event" && typeof raw.detail?.event_goal === "string" && raw.detail.event_goal.trim()
     ? fold(raw.detail.event_goal.trim())
     : null;
   // In one sentence too: "running the Berlin half in April, wants to go under
   // two hours" leaves the race firm; the clause carrying the goal is the goal's.
-  const main = sentenceAroundSpan(text, spans[0]);
+  const main = sentenceAroundSpan(text, spans[0], names);
   const parts = [goal ? main.split(/(?<=[,;—–])/).filter((c) => !fold(c).includes(goal)).join("") : main];
   for (const sp of spans.slice(1)) {
-    const sentence = sentenceAroundSpan(text, sp);
+    const sentence = sentenceAroundSpan(text, sp, names);
     if (goal && fold(sentence).includes(goal)) continue;
     parts.push(sentence);
   }
-  const next = sentenceAfter(text, spans[0]);
+  const next = sentenceAfter(text, spans[0], names);
   if (next && wordsOf(next).length <= 4) parts.push(next);
   return parts.join(" ");
 }
@@ -1407,7 +1420,14 @@ function withoutOtherLines(ctx: Context, text: string, own: PlannedSpan[], index
 }
 
 /** The sentence that follows the one holding `span`, or null. */
-function sentenceAfter(text: string, span: PlannedSpan): string | null {
+function sentenceAfter(text: string, span: PlannedSpan, names: readonly string[] = []): string | null {
+  if (isSpokenRun(text)) {
+    // A spoken run: the segment after the one holding the span (segment.ts).
+    const segments = spokenSentences(text, names);
+    const to = Array.from(text).slice(0, span.end).join("").length;
+    const after = segments.find((s) => s.start >= to);
+    return after ? text.slice(after.start, after.end).trim() || null : null;
+  }
   const boundary = /[.!?\n]/;
   let b = Array.from(text).slice(0, span.end).join("").length;
   if (!(b > 0 && boundary.test(text[b - 1]))) {
@@ -1427,24 +1447,26 @@ function toPlannedSpan(text: string, span: Span): PlannedSpan {
   return { start: span.start, end: span.end, quote: Array.from(quote).slice(0, QUOTE_MAX).join("") };
 }
 
-function sentenceAroundSpan(text: string, span: PlannedSpan): string {
+function sentenceAroundSpan(text: string, span: PlannedSpan, names: readonly string[] = []): string {
   const chars = Array.from(text);
   const from = chars.slice(0, span.start).join("").length;
   const to = chars.slice(0, span.end).join("").length;
-  return sentenceAround(text, from, to);
+  return sentenceAround(text, from, to, names);
 }
 
-function clauseAroundSpan(text: string, span: PlannedSpan): string {
+function clauseAroundSpan(text: string, span: PlannedSpan, names: readonly string[] = []): string {
   const chars = Array.from(text);
   const from = chars.slice(0, span.start).join("").length;
   const to = chars.slice(0, span.end).join("").length;
+  // A spoken run (no punctuation): the clause never reaches past its spoken sentence (segment.ts).
+  const limit = isSpokenRun(text) ? spokenSentenceAt(text, from, to, names) : { start: 0, end: text.length };
   const boundary = /[.!?\n,;:—–()]/;
   let a = from;
-  while (a > 0 && !boundary.test(text[a - 1]) && !/\bbut $/i.test(text.slice(Math.max(0, a - 4), a))) a--;
+  while (a > limit.start && !boundary.test(text[a - 1]) && !/\bbut $/i.test(text.slice(Math.max(0, a - 4), a))) a--;
   // A quote ending in its own punctuation ends its clause there (the next
   // sentence, e.g. an injected instruction, is not part of this item).
   let b = to > from && boundary.test(text[to - 1]) ? to - 1 : to;
-  while (b < text.length && !boundary.test(text[b]) && !/^ but\b/i.test(text.slice(b, b + 4))) b++;
+  while (b < limit.end && !boundary.test(text[b]) && !/^ but\b/i.test(text.slice(b, b + 4))) b++;
   // The quote itself always counts, even if it spans a boundary.
   return text.slice(Math.min(a, from), Math.max(b, to));
 }

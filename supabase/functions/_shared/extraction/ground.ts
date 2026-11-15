@@ -19,6 +19,7 @@
 
 import { codePointLength, type Span, utf16ToCodePoint } from "../spans.ts";
 import { fold, nameKey, PRONOUNS, sentenceAround, wordsOf } from "./lexicon.ts";
+export { hasSentencePunctuation, isSpokenRun, type Segment, SPOKEN_RUN_WORDS, spokenSentenceAt, spokenSentences } from "./segment.ts";
 
 /** Code points of context compared on each side of an occurrence. */
 const CONTEXT = 80;
@@ -139,7 +140,7 @@ function sameNamesAround(chars: string[], found: Span[], names: string[]): boole
   const sets = found.map((s) => {
     const from = chars.slice(0, s.start).join("").length;
     const to = chars.slice(0, s.end).join("").length;
-    return [...new Set(wordsOf(sentenceAround(text, from, to)).map(nameKey).filter((k) => keys.has(k)))].sort().join(" ");
+    return [...new Set(wordsOf(sentenceAround(text, from, to, names)).map(nameKey).filter((k) => keys.has(k)))].sort().join(" ");
   });
   return sets.every((x) => x === sets[0]);
 }
@@ -177,7 +178,7 @@ function byWho(chars: string[], found: Span[], personNames: string[], otherNames
   const scores = found.map((s) => {
     const from = chars.slice(0, s.start).join("").length;
     const to = chars.slice(0, s.end).join("").length;
-    const sentence = new Set(wordsOf(sentenceAround(text, from, to)).map(nameKey));
+    const sentence = new Set(wordsOf(sentenceAround(text, from, to, [...personNames, ...otherNames])).map(nameKey));
     const namesMine = [...mine].some((k) => sentence.has(k));
     const namesTheirs = [...theirs].some((k) => sentence.has(k));
     if (namesMine && !namesTheirs) return 2;

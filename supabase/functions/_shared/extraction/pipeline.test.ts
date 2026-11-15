@@ -449,6 +449,23 @@ Deno.test("contact details are never memory (core-058)", () => {
     eq(out.dropped.map((d) => d.reason), ["contact_detail"], note);
   }
   eq(run(input("Ben's jersey number is 23."), [item({ statement: "Ben's jersey number is 23", evidence: ["Ben's jersey number is 23"] })]).items.length, 1, "a number that isn't contact detail is fine");
+  // A preference about how to be reached is a fact about the person, not contact data (CMR-1 eval pr-003).
+  for (const [note, statement] of [
+    ["Ben takes his coffee black. He also prefers Teams calls to phone calls.", "Ben prefers Teams calls to phone calls"],
+    ["Ben got a new phone and loves it.", "Ben got a new phone"],
+    ["Ben hates talking on the phone.", "Ben hates talking on the phone"],
+  ]) {
+    const out = run(input(note), [item({ statement, evidence: [note.split(". ").at(-1)!.replace(/\.$/, "")] })]);
+    eq([out.items.length, out.dropped], [1, []], note);
+  }
+  for (const [note, statement] of [
+    ["Ben's cell number is 415-555-0100.", "Ben's cell number is 415-555-0100"],
+    ["Ben's cell number changed.", "Ben's cell number changed"],
+    ["Call Ben on 415 555 0100.", "Call Ben on 415 555 0100"],
+  ]) {
+    const out = run(input(note), [item({ statement, evidence: [note.replace(/\.$/, "")] })]);
+    eq(out.dropped.map((d) => d.reason), ["contact_detail"], note);
+  }
 });
 
 Deno.test("a tradition with no calendar recurrence is kept as shared context, still confirmed (core-078)", () => {
