@@ -20,6 +20,7 @@
 //          --model <id> --effort low|medium|high|none   (passthrough, as evals/extraction/run.ts)
 //          --repeat N (live; default 1; release-candidate runs use 3)  --concurrency N  --out <dir>  --tag <label>
 //          --shared <dir>     the supabase/functions/_shared to run the pipeline from (default: this tree's)
+//          --max-failures N   how many failing cases to list per informational metric (gated ones always list up to 100)
 //          --dry-run          (live) print the call count and cost estimate, run nothing
 //          --require-frozen   refuse unless the whole corpus matches MANIFEST.json
 //          --refreeze <why>   the held-out set changed on purpose: rewrite MANIFEST.json, then run
@@ -41,7 +42,7 @@ const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
 const VERSION_FALLBACK = "cmr1-v1";
 
 const args = parseArgs(Deno.args, {
-  string: ["mode", "split", "categories", "ids", "limit", "model", "effort", "repeat", "concurrency", "out", "tag", "replay", "refreeze", "shared"],
+  string: ["mode", "split", "categories", "ids", "limit", "model", "effort", "repeat", "concurrency", "out", "tag", "replay", "refreeze", "shared", "max-failures"],
   boolean: ["realistic", "require-frozen", "dry-run"],
   default: { mode: "oracle", split: "all", repeat: "1", concurrency: "4", out: `${DIR}/../results/cmr1` },
 });
@@ -316,8 +317,13 @@ if (unstable.length) {
   md.push("", `## Unstable across repeats (${unstable.length})`, "");
   for (const u of unstable.slice(0, 40)) md.push(`- ${u}`);
 }
+// Every gated miss listed in full (per fact, with its id) so a job summary is readable without the artifact;
+// informational metrics keep the shorter list unless --max-failures raises it.
+const maxFailures = Math.max(1, Number(args["max-failures"] ?? 15));
 for (const s of splits) {
-  const f = failures(graded[s].metrics);
+  const gated = graded[s].metrics.filter((r) => !r.informational);
+  const info = graded[s].metrics.filter((r) => r.informational);
+  const f = [...failures(gated, Math.max(maxFailures, 100)), ...failures(info, maxFailures)];
   if (f.length) md.push("", `## Failures (${s})`, "", ...f);
 }
 console.log(md.join("\n"));
