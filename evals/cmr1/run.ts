@@ -8,22 +8,26 @@
 //   deno run -A --config evals/deno.json evals/cmr1/run.ts --mode oracle --realistic
 //       The same, with each fact's recorded live-model shape where the ledger has one (free).
 //   ANTHROPIC_API_KEY=… deno run -A --config evals/deno.json evals/cmr1/run.ts --mode live --split dev --repeat 3
-//       The real prompt, the live model (runExtraction, passages and all) and the pipeline. Costs money.
-//       Raw outputs are saved under evals/results/cmr1/ for replay.
+//       The real prompt, the live model (runExtraction, passages and all) and the pipeline. Costs money;
+//       the estimate is printed first (--dry-run prints only the estimate). Raw outputs are saved under
+//       evals/results/cmr1/ for replay.
 //   deno run -A --config evals/deno.json evals/cmr1/run.ts --mode replay --replay evals/results/cmr1/<run>.json[.gz]
-//       Re-grades saved model outputs through the current pipeline (free). CI runs this for baselines.
+//       Re-grades saved model outputs through the current pipeline (free). With --shared <dir>, through
+//       another tree's supabase/functions/_shared (main's, say), so one paid run grades baseline and
+//       candidate on identical model outputs.
 //
 // Options: --split dev|heldout|all (default all)  --categories a,b  --ids a,b  --limit N
 //          --model <id> --effort low|medium|high|none   (passthrough, as evals/extraction/run.ts)
 //          --repeat N (live; default 1; release-candidate runs use 3)  --concurrency N  --out <dir>  --tag <label>
+//          --shared <dir>     the supabase/functions/_shared to run the pipeline from (default: this tree's)
+//          --dry-run          (live) print the call count and cost estimate, run nothing
 //          --require-frozen   refuse unless the whole corpus matches MANIFEST.json
 //          --refreeze <why>   the held-out set changed on purpose: rewrite MANIFEST.json, then run
 
 import { parseArgs } from "jsr:@std/cli@1/parse-args";
+import { resolve, toFileUrl } from "jsr:@std/path@1";
 import type { StructuredResult } from "../../supabase/functions/_shared/ai/model.ts";
-import { CAPABILITIES } from "../../supabase/functions/_shared/ai/registry.ts";
-import { runExtraction } from "../../supabase/functions/_shared/extraction/run.ts";
-import { planExtraction } from "../../supabase/functions/_shared/extraction/pipeline.ts";
+import { costUsd } from "../../supabase/functions/_shared/ai/registry.ts";
 import type { ExtractionOutcome, ModelProposal, PlannedItem } from "../../supabase/functions/_shared/extraction/types.ts";
 import { callerFor } from "../extraction/lib/callers.ts";
 import { readResults } from "../extraction/lib/results.ts";
@@ -37,8 +41,8 @@ const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
 const VERSION_FALLBACK = "cmr1-v1";
 
 const args = parseArgs(Deno.args, {
-  string: ["mode", "split", "categories", "ids", "limit", "model", "effort", "repeat", "concurrency", "out", "tag", "replay", "refreeze"],
-  boolean: ["realistic", "require-frozen"],
+  string: ["mode", "split", "categories", "ids", "limit", "model", "effort", "repeat", "concurrency", "out", "tag", "replay", "refreeze", "shared"],
+  boolean: ["realistic", "require-frozen", "dry-run"],
   default: { mode: "oracle", split: "all", repeat: "1", concurrency: "4", out: `${DIR}/../results/cmr1` },
 });
 
@@ -46,6 +50,19 @@ const mode = args.mode as "oracle" | "live" | "replay";
 if (!["oracle", "live", "replay"].includes(mode)) throw new Error(`unknown mode ${mode}`);
 const split = args.split as "dev" | "heldout" | "all";
 if (!["dev", "heldout", "all"].includes(split)) throw new Error(`--split must be dev, heldout or all`);
+
+// ── The pipeline: this tree's supabase/functions/_shared, or another tree's (--shared) ──
+const sharedDir = args.shared ? resolve(args.shared) : resolve(`${DIR}/../../supabase/functions/_shared`);
+const sharedUrl = toFileUrl(sharedDir).href.replace(/\/$/, "");
+type PipelineModule = typeof import("../../supabase/functions/_shared/extraction/pipeline.ts");
+type RunModule = typeof import("../../supabase/functions/_shared/extraction/run.ts");
+type ContextModule = typeof import("../../supabase/functions/_shared/extraction/context.ts");
+type RegistryModule = typeof import("../../supabase/functions/_shared/ai/registry.ts");
+const { planExtraction } = await import(`${sharedUrl}/extraction/pipeline.ts`) as PipelineModule;
+const { runExtraction, passagesOf, MAX_PASSAGES } = await import(`${sharedUrl}/extraction/run.ts`) as RunModule;
+const { buildInput } = await import(`${sharedUrl}/extraction/context.ts`) as ContextModule;
+const { CAPABILITIES } = await import(`${sharedUrl}/ai/registry.ts`) as RegistryModule;
+
 const cap = CAPABILITIES.relationship_extract;
 const model = args.model ?? cap.model;
 const effort = args.effort === "none" ? null : (args.effort ?? cap.effort) as typeof cap.effort;
@@ -87,6 +104,21 @@ if (args.ids) {
 }
 if (args.limit) corpus = corpus.slice(0, Number(args.limit));
 
+// ── Cost before any call (live): one call per passage, a long note in several ──
+const TOKENS_PER_CALL = { input: 2600, output: 450, cacheRead: 0, cacheWrite: 0 };
+let estimate = "";
+if (mode === "live") {
+  const tells = corpus.reduce((a, n) => a + n.steps.length, 0);
+  const calls = corpus.reduce((a, n) => a + n.steps.reduce((b, s) => b + Math.min(MAX_PASSAGES, passagesOf(s.note.normalize("NFC")).length), 0), 0) * repeat;
+  const cost = costUsd(model, { input: TOKENS_PER_CALL.input * calls, output: TOKENS_PER_CALL.output * calls, cacheRead: 0, cacheWrite: 0 });
+  estimate = `${calls} model calls (${tells} Tells × ${repeat} repeat${repeat > 1 ? "s" : ""}, long notes in passages) ≈ ${Number.isNaN(cost) ? "unknown price for this model" : `$${cost.toFixed(2)}`} at list prices for ${model}${effort ? ` (${effort})` : ""}, assuming ~${TOKENS_PER_CALL.input} input and ~${TOKENS_PER_CALL.output} output tokens per call`;
+  console.error(`Estimated cost: ${estimate}`);
+  if (args["dry-run"]) {
+    console.log(`Estimated cost: ${estimate}`);
+    Deno.exit(0);
+  }
+}
+
 // ── Run every narrative, step by step, carrying the kept lines forward as the next step's memory ──
 interface Saved {
   id: string;
@@ -103,11 +135,11 @@ const runs: StepRun[] = [];
 async function runNarrative(
   n: Narrative,
   rep: number,
-  propose: (n: Narrative, step: number, input: ReturnType<typeof stepInput>, state: ReturnType<typeof freshState>) => Promise<{ proposal: ModelProposal | null; outcome?: ExtractionOutcome | null; call: StructuredResult | null; factOfIndex?: string[]; latencyMs?: number }>,
+  propose: (n: Narrative, step: number, input: ReturnType<typeof stepInput>, state: ReturnType<typeof freshState>) => Promise<{ proposal: ModelProposal | null; outcome?: ExtractionOutcome | null; call: StructuredResult | null; latencyMs?: number }>,
 ): Promise<void> {
   let state = freshState();
   for (let s = 0; s < n.steps.length; s++) {
-    const input = stepInput(n, s, rosters, state);
+    const input = stepInput(n, s, rosters, state, buildInput);
     const got = await propose(n, s, input, state);
     let outcome: ExtractionOutcome | null = got.outcome ?? null;
     let crashed: string | undefined;
@@ -154,6 +186,7 @@ if (mode === "oracle") {
   const call = callerFor(model);
   const queue: { n: Narrative; rep: number }[] = [];
   for (let i = 0; i < repeat; i++) for (const n of corpus) queue.push({ n, rep: i });
+  const total = queue.length;
   let done = 0;
   const worker = async () => {
     while (queue.length) {
@@ -164,7 +197,7 @@ if (mode === "oracle") {
         return { proposal: r.proposal, outcome: r.outcome, call: r.call, latencyMs: Math.round(performance.now() - started) };
       });
       done++;
-      if (done % 10 === 0) console.error(`  ${done}/${queue.length + done}`);
+      if (done % 10 === 0) console.error(`  ${done}/${total}`);
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, Number(args.concurrency)) }, worker));
@@ -174,24 +207,25 @@ if (mode === "oracle") {
 
 // ── Grade: per split, never blended ──
 const thresholds = JSON.parse(await Deno.readTextFile(`${DIR}/thresholds.json`)) as Record<string, Threshold>;
+const gradeOpts = { plan: planExtraction };
 const splits = (["dev", "heldout"] as const).filter((s) => runs.some((r) => r.narrative.split === s));
 const graded: Record<string, { metrics: MetricResult[]; verdicts: Verdict[]; stats: ReturnType<typeof callStats> | null }> = {};
 for (const s of splits) {
   const rs = runs.filter((r) => r.narrative.split === s);
-  const { metrics, verdicts } = grade(rs, rosters);
+  const { metrics, verdicts } = grade(rs, rosters, gradeOpts);
   graded[s] = { metrics: judge(metrics, thresholds), verdicts, stats: mode === "oracle" ? null : callStats(rs, model) };
 }
 const byCategory: Record<string, Record<string, MetricResult>> = {};
 for (const c of CATEGORIES) {
   const rs = runs.filter((r) => r.narrative.category === c);
   if (!rs.length) continue;
-  byCategory[c] = Object.fromEntries(judge(grade(rs, rosters).metrics, thresholds).map((m) => [m.key, { ...m, failures: [] }]));
+  byCategory[c] = Object.fromEntries(judge(grade(rs, rosters, gradeOpts).metrics, thresholds).map((m) => [m.key, { ...m, failures: [] }]));
 }
 const bySource: Record<string, Record<string, MetricResult>> = {};
 for (const src of ["typed", "voice"] as const) {
   const rs = runs.filter((r) => r.narrative.source === src);
   if (!rs.length) continue;
-  bySource[src] = Object.fromEntries(judge(grade(rs, rosters).metrics, thresholds).map((m) => [m.key, { ...m, failures: [] }]));
+  bySource[src] = Object.fromEntries(judge(grade(rs, rosters, gradeOpts).metrics, thresholds).map((m) => [m.key, { ...m, failures: [] }]));
 }
 
 // Repeat stability (live/replay with --repeat): facts whose verdict differs between repeats.
@@ -214,21 +248,58 @@ const counts = Object.fromEntries(CATEGORIES.map((c) => [c, corpus.filter((n) =>
 const meta: Record<string, string> = {
   Mode: mode + (args.realistic ? " (realistic shapes)" : ""),
   Model: mode === "oracle" ? "none (perfect proposals from the ledgers through the real pipeline)" : `${model}${effort ? `, effort ${effort}` : ""}`,
+  Pipeline: args.shared ? `${sharedDir} (--shared)` : "this tree's supabase/functions/_shared",
   "Prompt version": cap.promptVersion,
   Split: split,
   Narratives: `${corpus.length} (${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ")}); ${runs.length} Tells graded${repeat > 1 ? ` (× ${repeat} repeats)` : ""}`,
   Run: stamp,
   Commit: Deno.env.get("EVAL_COMMIT") ?? Deno.env.get("GITHUB_SHA") ?? (await gitHead()),
   Corpus: `${now.version}: ${now.total} narratives, ${now.heldout.ids.length} held out, sha256 ${now.corpus_sha256.slice(0, 16)}…${isFrozen ? " (matches MANIFEST.json)" : " (NOT the frozen manifest)"}`,
+  ...(estimate ? { "Estimated cost": estimate } : {}),
 };
+
+/** The one table the founder reads: the release metrics per split, this mode. */
+function summary(): string[] {
+  const rows: [string, string][] = [
+    ["Per-fact recall", "fact_recall"],
+    ["Per-fact precision", "fact_precision"],
+    ["Identity errors: fabricated", "fabricated_identity"],
+    ["Identity errors: wrong person", "wrong_person"],
+    ["Unnecessary clarification (Tells)", "unnecessary_clarification"],
+    ["Silent loss (facts)", "silent_loss"],
+    ["Omitted by model, reported as understood", "omitted_reported_understood"],
+    ["Omitted by model (any)", "omitted_by_model"],
+    ["Rejected by pipeline", "rejected_by_pipeline"],
+    ["Showing Up: unsafe eligibility", "eligibility_unsafe"],
+    ["Tells retrievable", "tell_retrievable"],
+  ];
+  const cell = (s: string, key: string) => {
+    const x = graded[s].metrics.find((y) => y.key === key);
+    if (!x) return "—";
+    const mark = x.informational ? "" : x.pass === false ? " ✗" : x.pass === true ? " ✓" : "";
+    return `${x.display}${mark}`;
+  };
+  const out = [`| ${mode === "oracle" ? "Oracle" : mode === "live" ? "Live" : "Replay"} | ${splits.map((s) => s === "dev" ? "Dev" : "Held-out").join(" | ")} | Target |`, `|---|${splits.map(() => "---|").join("")}---|`];
+  for (const [name, key] of rows) {
+    const t = graded[splits[0]].metrics.find((y) => y.key === key)?.threshold ?? "—";
+    out.push(`| ${name} | ${splits.map((s) => cell(s, key)).join(" | ")} | ${t} |`);
+  }
+  if (mode !== "oracle") {
+    out.push(`| Latency p50 (end to end) | ${splits.map((s) => graded[s].stats?.p50 != null ? `${graded[s].stats!.p50} ms` : "—").join(" | ")} | no material regression |`);
+    out.push(`| Latency p95 (end to end) | ${splits.map((s) => graded[s].stats?.p95 != null ? `${graded[s].stats!.p95} ms` : "—").join(" | ")} | ≤ +25% vs baseline |`);
+  }
+  return out;
+}
+
 const md: string[] = [`# CMR-1 eval — ${label}${args.tag ? ` (${args.tag})` : ""}`, ""];
 for (const [k, v] of Object.entries(meta)) md.push(`- **${k}:** ${v}`);
+md.push("", "## Summary", "", ...summary());
 for (const s of splits) {
   md.push("", `## ${s === "dev" ? "Dev split" : "Held-out split"}`, "");
   md.push(...table(graded[s].metrics));
   if (graded[s].stats) md.push("", `### Calls (${s})`, "", ...callsMarkdown(graded[s].stats!));
 }
-const keyMetrics = ["fact_recall", "fact_precision", "silent_loss", "wrong_person", "unnecessary_clarification", "correct_clarification", "fabricated_identity", "grounding_violations", "duplicate_memories", "eligibility_errors"];
+const keyMetrics = ["fact_recall", "fact_precision", "silent_loss", "omitted_reported_understood", "wrong_person", "unnecessary_clarification", "correct_clarification", "fabricated_identity", "grounding_violations", "duplicate_memories", "eligibility_unsafe", "eligibility_date_mismatch"];
 md.push("", "## By category", "", "| Metric | " + Object.keys(byCategory).join(" | ") + " |", "|---|" + Object.keys(byCategory).map(() => "---|").join(""));
 for (const key of keyMetrics) {
   const row = Object.values(byCategory).map((ms) => {
@@ -256,7 +327,7 @@ if (mode !== "replay" || args.tag) {
   const base = `${args.out}/${stamp}-${label}${args.tag ? `-${args.tag}` : ""}`;
   await Deno.writeTextFile(`${base}.md`, md.join("\n"));
   await Deno.writeTextFile(`${base}.json`, JSON.stringify({
-    meta: { ...meta, model, effort, mode, split, repeat, realistic: !!args.realistic },
+    meta: { ...meta, model, effort, mode, split, repeat, realistic: !!args.realistic, shared: args.shared ?? null },
     splits: Object.fromEntries(splits.map((s) => [s, {
       metrics: graded[s].metrics.map(({ failures, ...r }) => ({ ...r, failures: failures.slice(0, 300) })),
       stats: graded[s].stats,

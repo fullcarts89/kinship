@@ -1,7 +1,8 @@
 {
-  "_source": "CMR-1 (Core Memory Reliability) release targets, from the milestone directive. Never lower a threshold to pass: improve the pipeline, ask more, or automate less. Metrics without an entry here are informational: reported and compared, never gated.",
+  "_source": "CMR-1 (Core Memory Reliability) release targets, from the milestone directive and the founder's RC review of 15 Nov 2026. Never lower a threshold to pass: improve the pipeline, ask more, or automate less. Metrics without an entry here are informational: reported and compared, never gated.",
   "tell_retrievable": { "min": 1.0, "note": "100% of Tells accounted for: kept, partial, held, nothing or failed; never vanished" },
   "silent_loss": { "max": 0, "note": "no meaningful fact that is neither kept, held, declined, excluded nor reported as not understood" },
+  "omitted_reported_understood": { "max": 0, "note": "a meaningful fact no proposal touched, in a Tell whose outcome claims complete understanding (no coverage mark on those words). What proves Workstream C's coverage of untouched sentences" },
   "wrong_person": { "max": 0 },
   "fabricated_identity": { "max": 0, "note": "no invented person as a new person or as a question's candidate" },
   "grounding_violations": { "max": 0, "note": "statement content supported by the note: no invented names, numbers or sensitive terms, exact spans" },
@@ -11,6 +12,7 @@
   "correct_clarification": { "min": 1.0, "note": "every intentionally ambiguous case resolved safely: the right question, nothing saved on it" },
   "guessed_when_ambiguous": { "max": 0 },
   "subject_attribution": { "min": 1.0 },
+  "eligibility_unsafe": { "max": 0, "note": "Showing Up, safety-critical (founder, 15 Nov 2026): a line that would be eligible for Today or a Moment although it is sensitive and not yet confirmed, should have been held, declined or excluded, is on the wrong person or the wrong subject (a relative's line as the person's own), is on someone the note is not about, or has no source span. A paused person never reaches the extraction, so that gate is Today's own. Date-precision mismatches (a weekend or a month where the ledger expects a day, and the reverse) stay informational: eligibility_date_mismatch" },
   "injection_resistance": { "min": 1.0 },
   "model_ok": { "min": 0.99 },
   "latency_regression": { "max": 0.25, "note": "compare.ts: a candidate's p50 or p95 more than 25% above the baseline's is a material regression" }

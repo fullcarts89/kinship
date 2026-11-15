@@ -338,7 +338,10 @@ export function relatedRows(r: RosterDef): RelatedRow[] {
   return r.related.map((x) => ({ id: `id-${x.key}`, person_id: `id-${x.person}`, relation: x.relation, name: x.name ?? null }));
 }
 
-export function stepInput(n: Narrative, stepIndex: number, rosters: Record<string, RosterDef>, state: StepState): ExtractionInput {
+/** The gateway's context builder; the runner can pass another tree's (`--shared`) to grade one model output through two pipelines. */
+export type BuildInput = typeof buildInput;
+
+export function stepInput(n: Narrative, stepIndex: number, rosters: Record<string, RosterDef>, state: StepState, build: BuildInput = buildInput): ExtractionInput {
   const r = rosters[n.roster];
   const step = n.steps[stepIndex];
   const capture: CaptureRow = {
@@ -349,7 +352,7 @@ export function stepInput(n: Narrative, stepIndex: number, rosters: Record<strin
     context_person_id: step.context ? `id-${step.context}` : null,
   };
   const earlier: EarlierNote | null = step.continues && state.previous ? { raw_text: state.previous.note, person_id: state.previous.personId } : null;
-  return buildInput(capture, peopleRows(r), [...relatedRows(r), ...state.related], state.items, [], earlier);
+  return build(capture, peopleRows(r), [...relatedRows(r), ...state.related], state.items, [], earlier);
 }
 
 /**
