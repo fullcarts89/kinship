@@ -329,9 +329,11 @@ for (const s of splits) {
 }
 // The model's own proposals for named narratives, beside what the pipeline made of them (synthetic corpus only):
 // what a fix has to be built from when a miss shows up on live outputs that cannot be downloaded.
+// Printed ahead of the report, so the report (every gated miss) is what a job log's tail shows.
 const dumpIds = new Set(String(args["dump-ids"] ?? "").split(",").map((x) => x.trim()).filter(Boolean));
+const raw: string[] = [];
 if (dumpIds.size) {
-  md.push("", `## Raw proposals (${[...dumpIds].join(", ")})`, "");
+  raw.push(`## Raw proposals (${[...dumpIds].join(", ")})`, "");
   for (const r of runs.filter((x) => dumpIds.has(x.narrative.id))) {
     const items = (r.proposal as ModelProposal | null)?.items ?? [];
     const block = {
@@ -355,8 +357,10 @@ if (dumpIds.size) {
       } : null,
       crashed: r.crashed ?? null,
     };
-    md.push("<details><summary>" + block.tell + "</summary>", "", "```json", JSON.stringify(block, null, 1), "```", "", "</details>");
+    raw.push("<details><summary>" + block.tell + "</summary>", "", "```json", JSON.stringify(block, null, 1), "```", "", "</details>");
   }
+  console.log(raw.join("\n"));
+  md.push("", ...raw);
 }
 console.log(md.join("\n"));
 
