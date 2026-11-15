@@ -46,19 +46,24 @@ export function keptOnPeople(
 /** The place in People for the user's words that are about no one in People (CMR-1; needs founder confirmation). */
 export const WORDS_PLACE = "Your words";
 
-/** Where a note's words can be found: "on Kaiya's page", "on Kaiya's and Ben's pages", or "under “Your words” in People". */
-export function whereKept(names: readonly string[]): string {
-  if (!names.length) return `under “${WORDS_PLACE}” in People`;
+/**
+ * Where a note's words can be found: "on Kaiya's page", "on Kaiya's and Ben's pages", or, for no one,
+ * "under “Your words” in People" when that place exists (the `notebook_deck` look; contract §9: no copy
+ * points at a place that is not there), else null.
+ */
+export function whereKept(names: readonly string[], notebook = false): string | null {
+  if (!names.length) return notebook ? `under “${WORDS_PLACE}” in People` : null;
   const owned = names.map((n) => `${n}'s`);
   if (owned.length === 1) return `on ${owned[0]} page`;
   const list = owned.length === 2 ? owned.join(" and ") : `${owned.slice(0, -1).join(", ")} and ${owned[owned.length - 1]}`;
   return `on ${list} pages`;
 }
 
-/** "Kept on Kaiya's page.", "Kept on Kaiya's and Ben's pages.", or, for no one, where the words went. */
-export function keptOnCopy(names: readonly string[]): string {
-  if (!names.length) return `Kept your words, ${whereKept(names)}.`;
-  return `Kept ${whereKept(names)}.`;
+/** "Kept on Kaiya's page.", "Kept on Kaiya's and Ben's pages.", or, for no one, "Kept your words." and where, when there is a where. */
+export function keptOnCopy(names: readonly string[], notebook = false): string {
+  const where = whereKept(names, notebook);
+  if (!names.length) return where ? `Kept your words, ${where}.` : "Kept your words.";
+  return `Kept ${where}.`;
 }
 
 /** The names the card says, as the app says them elsewhere. */

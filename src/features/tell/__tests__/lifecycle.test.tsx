@@ -304,7 +304,8 @@ it("nothing to remember, or understanding that keeps failing: said plainly, neve
   const w = await world();
   const r = await mount();
   await tell(w, NOTHING_NOTE);
-  expect(flow.current!.card).toMatchObject({ mode: "nothing", status: "Kept your words, under “Your words” in People.", words: NOTHING_NOTE });
+  // The alpha look here (no notebook_deck): no place to name, so just the words (never a place that isn't there).
+  expect(flow.current!.card).toMatchObject({ mode: "nothing", status: "Kept your words.", words: NOTHING_NOTE });
   expect(await w.repos.captures.get(flow.current!.card!.captureId)).toBeTruthy();
 
   const uh = new Understanding(w.store, () => w.engine.sync(), new Gateway(w.gateway), { maxAttempts: 1 });

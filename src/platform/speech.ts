@@ -155,11 +155,40 @@ function folded(text: string): string {
   return text.toLocaleLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/gu, " ").trim();
 }
 
-/** A result's timing, as one key, when the recognizer gave any; null when it gave none (partials, Android). */
-function timingOf(r: Heard): string | null {
-  const segs = (r.segments ?? []).filter((s) => Number.isFinite(s.startTimeMillis) && Number.isFinite(s.endTimeMillis));
+/** When an utterance was spoken, in ms into the session's audio, when the recognizer said (`segments`). */
+interface Span {
+  start: number;
+  end: number;
+}
+
+/** A result's timing as one span, when the recognizer gave any; null when it gave none (partials, Android). */
+function timingOf(r: Heard): Span | null {
+  const segs = (r.segments ?? []).filter((s) => Number.isFinite(s.startTimeMillis) && Number.isFinite(s.endTimeMillis) && s.endTimeMillis > s.startTimeMillis);
   if (!segs.length || !segs.some((s) => s.endTimeMillis > 0)) return null;
-  return segs.map((s) => `${Math.round(s.startTimeMillis)}-${Math.round(s.endTimeMillis)}`).join(",");
+  return { start: Math.min(...segs.map((s) => s.startTimeMillis)), end: Math.max(...segs.map((s) => s.endTimeMillis)) };
+}
+
+/** The two results were spoken over the same stretch of audio: a re-send or a re-reading, never a new utterance. */
+function overlap(a: Span, b: Span): boolean {
+  return a.start < b.end && b.start < a.end;
+}
+
+/** The share of words two readings have in common (0..1): a re-reading changes a word or two, not the sentence. */
+function sharedWords(a: string, b: string): number {
+  const wa = a.split(" ").filter(Boolean);
+  const wb = b.split(" ").filter(Boolean);
+  if (!wa.length || !wb.length) return 0;
+  const pool = new Map<string, number>();
+  for (const w of wb) pool.set(w, (pool.get(w) ?? 0) + 1);
+  let shared = 0;
+  for (const w of wa) {
+    const n = pool.get(w) ?? 0;
+    if (n > 0) {
+      shared++;
+      pool.set(w, n - 1);
+    }
+  }
+  return shared / Math.max(wa.length, wb.length);
 }
 
 /** The words of `said` after the ones that fold to `prefix` (whole words), or null when they don't line up. */
@@ -190,22 +219,24 @@ function afterPrefix(said: string, prefix: string): string | null {
  *                   10 Nov 2026, K34: a note about Kaiya was kept twice over, and the server could then
  *                   place none of its quotes). That result is told apart from the user *saying* the
  *                   same words again by structure, not wording:
- *                     · the recognizer's own timing of the words is the same (`segments`), or
+ *                     · the recognizer's own timing of the words (`segments`) covers the same stretch
+ *                       of audio as the last final (an utterance said after a pause starts after it), or
  *                     · nothing new was heard since that final: a new utterance always arrives as
- *                       partials first (interim results are on), and those partials say other words.
- *                   So "I love her" [pause] "I love her so much" keeps both, and "no, no, no" is kept
- *                   as said; only the recognizer repeating itself is dropped.
- *   a revision      a final with the same timing as the last and other words is the recognizer's
- *                   final reading of that utterance: it takes the last final's place.
+ *                       partials first (interim results are on).
+ *                   So "I love her" [pause] "I love her so much" keeps both, "no" [pause] "no" is two,
+ *                   and "no, no, no" is kept as said; only the recognizer repeating itself is dropped.
+ *   a re-reading    the same utterance (by timing or by nothing heard since) with a word or two changed
+ *                   is the recognizer's final reading of it: it takes the last final's place. Mostly
+ *                   different words are something new, kept after it.
  *   the whole again a final holding everything settled, with nothing new heard since, is the session
  *                   sent whole: it replaces what it repeats, once.
  *
  * Nothing here is a lexical guard over the finished text: a passage the user said twice is kept twice.
  */
 export class Transcript {
-  private readonly finals: { text: string; timing: string | null }[] = [];
+  private readonly finals: { text: string; timing: Span | null }[] = [];
   private hearing = "";
-  /** Other words arrived as partials since the last final: the next final is a new utterance. */
+  /** A partial arrived since the last final: the recognizer is hearing a new utterance. */
   private fresh = true;
 
   /** Everything settled plus what is still being heard. */
@@ -222,7 +253,8 @@ export class Transcript {
     if (last) {
       const all = folded(this.finals.map((f) => f.text).join(" "));
       // The session so far, said whole (a recognizer that accumulates): only the new words are being heard.
-      if (fs === all) {
+      // With one final settled, the same words again are a new utterance ("no" [pause] "no"), not the session.
+      if (fs === all && this.finals.length > 1) {
         this.hearing = "";
         return;
       }
@@ -235,11 +267,27 @@ export class Transcript {
         }
       }
     }
+    // Any partial after a final is a new utterance being heard, whatever its words: "no" [pause] "no" is two.
     this.hearing = said;
-    if (!last || fs !== folded(last.text)) this.fresh = true;
+    this.fresh = true;
   }
 
-  /** A final result: one utterance, settled. */
+  /**
+   * A final result: one utterance, settled.
+   *
+   * Whether it is the *same* utterance as the last final, again, is decided by structure:
+   *   · both carry timing and the spans overlap (a re-send covers the same stretch of audio; an utterance
+   *     said after a pause starts after the last one ended), or
+   *   · nothing was heard since the last final (no partial: a new utterance always arrives as partials
+   *     first while interim results are on).
+   * The same utterance with the same words is dropped. With other words it is the recognizer's final
+   * reading when most of the words are shared (a word or two revised), and replaces the last final; words
+   * that are mostly different are something new, and are kept after it.
+   *
+   * Limit (recorded in approved-design-coverage.md): a recognizer that gives no timing (Android) and sends
+   * a second final with the same words with no partial between cannot be told from a re-send, and is kept
+   * once.
+   */
   final(r: Heard): void {
     const said = r.transcript.trim();
     // A final with no words (iOS 18 sends one at Stop after the real last one): what was heard stands.
@@ -251,19 +299,26 @@ export class Transcript {
       this.hearing = "";
       this.fresh = false;
     };
-    if (last && timing && last.timing) {
-      if (timing === last.timing) {
-        // The same utterance again: the same words, dropped; other words, its final reading.
-        if (fs !== folded(last.text)) last.text = said;
-        return settle();
-      }
-    } else if (last && !this.fresh) {
+    if (last) {
       const all = folded(this.finals.map((f) => f.text).join(" "));
-      // Nothing new was heard since the last final: this is the recognizer repeating itself.
-      if (fs === folded(last.text) || fs === all) return settle();
-      if (fs.startsWith(`${all} `)) {
-        this.finals.splice(0, this.finals.length, { text: said, timing });
-        return settle();
+      if (!this.fresh) {
+        // Nothing new was heard since the last final, and this holds the whole session: sent again (dropped),
+        // or sent whole with more at the end (it takes the place of what it repeats).
+        if (fs === all && this.finals.length > 1) return settle();
+        if (fs.startsWith(`${all} `)) {
+          this.finals.splice(0, this.finals.length, { text: said, timing });
+          return settle();
+        }
+      }
+      const same = (timing && last.timing) ? overlap(timing, last.timing) || !this.fresh : !this.fresh;
+      if (same) {
+        const fl = folded(last.text);
+        if (fs === fl) return settle();
+        if (sharedWords(fs, fl) >= 0.5) {
+          last.text = said;
+          last.timing = timing ?? last.timing;
+          return settle();
+        }
       }
     }
     this.finals.push({ text: said, timing });

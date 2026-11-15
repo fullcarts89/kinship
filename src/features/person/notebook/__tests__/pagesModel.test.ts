@@ -326,7 +326,8 @@ describe("from the store", () => {
     const bens = await repos.captures.tell("ben made pancakes", { aiEnabled: true });
     await row(bens.id, "done", nothing);
     const lined = await repos.captures.tell("He made pancakes", { aiEnabled: true });
-    await repos.memory.remember({ kind: "fact", person_id: ben.id, statement: "Ben made pancakes" }, { captureId: lined.id, quote: "He made pancakes" });
+    const pancakes = await repos.memory.remember({ kind: "fact", person_id: ben.id, statement: "Ben made pancakes" }, { captureId: lined.id, quote: "He made pancakes" });
+    await row(lined.id, "done", { ...nothing, tier: "auto", saved: [{ id: pancakes.id, tier: "auto" }] });
     // Still being understood: not here yet.
     const open = await repos.captures.tell("hmm", { aiEnabled: true });
     await row(open.id, "waiting", null);
@@ -337,7 +338,11 @@ describe("from the store", () => {
     // Deleted (Undo): gone, and never back.
     await repos.captures.remove(lol.id);
     expect((await wordsFor(store)).map((w) => w.page.captureId)).toEqual([written.id]);
-    // Its lines since removed ("Not this" on each): the Tell itself stays findable, on Ben's Pages (the note names no one, but Ben's line did).
+    // Ben's Pages hold both the note naming him and the note his line rests on.
     expect((await pagesFor(store, ben.id, now)).filter((e) => e.type === "note").map((e) => e.type === "note" && e.captureId)).toEqual([lined.id, bens.id]);
+    // Ben removed from People (founder I3): his lines go out of sight with him, and the note his line rested
+    // on, naming no one, is found under Your words rather than vanishing (pending the founder's word).
+    await repos.people.archive(ben.id);
+    expect((await wordsFor(store)).map((w) => [w.page.captureId, w.outcome])).toEqual([[lined.id, "kept"], [bens.id, "nothing"], [written.id, "nothing"]]);
   });
 });

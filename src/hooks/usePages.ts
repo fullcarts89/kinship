@@ -42,7 +42,7 @@ export interface FiledNote {
   outcome: TellOutcome;
   /** The people whose Pages it belongs on by the words alone (tell/keptOn.ts): told about, else named. */
   on: string[];
-  /** Live memory lines rest on it (about anyone). */
+  /** Live memory lines rest on it, about someone still in People (a removed person's lines are out of sight with them). */
   lines: number;
 }
 
@@ -50,6 +50,9 @@ export interface FiledNote {
  * Every retained note with its words, and what came of each (store/tellOutcome.ts): the server's word
  * when it has one, else this phone's own row, else the synced row's status. Deleted notes (Undo, Delete
  * this note) are gone; a note whose words were removed after understanding has no words to file.
+ *
+ * Reads every capture, source and line once per call; a person's Pages and Your words each call it, so
+ * the store is read twice on a screen that shows both. Fine at dogfood size.
  */
 export async function filedNotesIn(store: UserStore, people: readonly Person[]): Promise<FiledNote[]> {
   const captures = (await repositoriesFor(store).captures.list()).filter((c) => !c.deleted_at && c.raw_text);
@@ -57,11 +60,17 @@ export async function filedNotesIn(store: UserStore, people: readonly Person[]):
   const rows = await understandingRowsIn(store);
   const sources = (await store.list("memory_item_sources")) as unknown as PagesSource[];
   const items = new Map(((await store.list("memory_items")) as MemoryItem[]).map((m) => [m.id, m]));
+  // Someone removed from People (founder I3) takes their lines out of sight: a line counts as resting on
+  // the note only while someone it is about is still in People, so the note itself stays findable (under
+  // Your words) rather than vanishing with them. Pending the founder's word on where it belongs.
+  const present = new Set(people.filter((p) => !p.deleted_at && p.state !== "archived").map((p) => p.id));
   const linesOn = new Map<string, number>();
   for (const s of sources) {
     if (s.source_kind !== "capture" || s.deleted_at || typeof s.capture_id !== "string") continue;
     const m = items.get(s.memory_item_id);
-    if (m && live(m)) linesOn.set(s.capture_id, (linesOn.get(s.capture_id) ?? 0) + 1);
+    if (!m || !live(m)) continue;
+    const about = [m.person_id, ...(Array.isArray(m.with_person_ids) ? (m.with_person_ids as string[]) : [])];
+    if (about.some((id) => present.has(id))) linesOn.set(s.capture_id, (linesOn.get(s.capture_id) ?? 0) + 1);
   }
   return captures.map((capture) => {
     const lines = linesOn.get(capture.id) ?? 0;

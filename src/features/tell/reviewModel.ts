@@ -72,6 +72,8 @@ export interface ReviewInput {
   offline: boolean;
   /** Today as an ISO day, for "this year" in dates. */
   today: string;
+  /** The notebook look (`notebook_deck`): "Your words" exists, so a note about no one can be said to be there. */
+  notebook?: boolean;
 }
 
 export type ReviewMode =
@@ -222,13 +224,13 @@ export const COPY = {
   offline: "I'll understand this when you're online.",
   retrying: "Couldn't understand this yet. Your note is saved, and I'll try again.",
   arriving: "Understanding…",
-  /** Understanding off, or declined by the model: the words, as written, and where (`where`: tell/keptOn.ts). */
-  kept: (where: string) => `Kept as you wrote it, ${where}.`,
+  /** Understanding off, or declined by the model: the words, as written, and where (`where`: tell/keptOn.ts; null: no place to name). */
+  kept: (where: string | null) => (where ? `Kept as you wrote it, ${where}.` : "Kept as you wrote it."),
   /** The user's own "Don't keep this": nothing was added, never "nothing to remember"; the words stay. */
   notKept: "Nothing added from that one.",
-  wordsStay: (where: string) => `Your words stay ${where}.`,
+  wordsStay: (where: string | null) => (where ? `Your words stay ${where}.` : "Your words are kept."),
   /** Understanding kept failing: the words are kept all the same, and where; the card offers Try again. */
-  failed: (where: string) => `Couldn't understand this one. Your words are kept ${where}.`,
+  failed: (where: string | null) => (where ? `Couldn't understand this one. Your words are kept ${where}.` : "Couldn't understand this one. Your words are kept."),
   /** Option A: the note held more than one understanding takes; the kept lines are kept, the rest is in the note. */
   partial: "Kinship couldn't get to all of it.",
   /** A later note tells the rest, but has not been read yet (kept, waiting, or being understood). */
@@ -321,7 +323,7 @@ export function buildReview(input: ReviewInput): ReviewView {
   // Where the note's own words can be found (tell/keptOn.ts): the page of whoever it was told about or
   // names, else under "Your words" in People. Every settled outcome says so, with the words themselves.
   const on = keptOnPeople(capture, input.people);
-  const where = whereKept(keptOnNames(on, input.people));
+  const where = whereKept(keptOnNames(on, input.people), input.notebook === true);
   const placed = { words: capture.raw_text, personIds: on.length ? on : empty.personIds, canUndo: true };
   // What came of the note, read one way on every phone (the server's word first).
   const outcome = tellOutcome(capture, row, input.items.length);
@@ -334,7 +336,7 @@ export function buildReview(input: ReviewInput): ReviewView {
     if (outcome === "declined") return { ...empty, ...placed, mode: "nothing", declined: true, status: COPY.wordsStay(where) };
     // Understood, and no line kept from it: the note is kept on the page of whoever it's about, and the
     // card says where, with the user's words (founder, 10 Nov 2026: every Tell is logged).
-    return { ...empty, ...placed, mode: "nothing", status: known ?? keptOnCopy(keptOnNames(on, input.people)) };
+    return { ...empty, ...placed, mode: "nothing", status: known ?? keptOnCopy(keptOnNames(on, input.people), input.notebook === true) };
   }
   if (row.state === "done" || row.state === "closing" || !row.reading) return empty;
 

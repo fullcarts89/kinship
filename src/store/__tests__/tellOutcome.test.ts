@@ -21,6 +21,14 @@ describe("the server's word comes first", () => {
     }
   });
 
+  it("except a question still held on this phone, which wins over the server's kept or partial (agreed with the gateway)", () => {
+    const asking = row("review", { tier: "clarify", saved: [{ id: "m1", tier: "auto" }], held: [held], settled: false, review_created_at: "t" });
+    expect(tellOutcome(cap("needs_review", { understanding: "kept" }), asking, 1)).toBe("held");
+    expect(tellOutcome(cap("needs_review", { understanding: "partial" }), asking, 1)).toBe("held");
+    // Answered (settled), the server's word stands again.
+    expect(tellOutcome(cap("extracted", { understanding: "kept" }), row("review", { saved: [{ id: "m1", tier: "auto" }], settled: true }), 1)).toBe("kept");
+  });
+
   it("null, absent or an unknown word is no word: the phone's own row decides", () => {
     expect(tellOutcome(cap("extracted", { understanding: null }), row("failed"))).toBe("failed");
     expect(tellOutcome(cap("extracted"), row("failed"))).toBe("failed");
@@ -42,6 +50,10 @@ describe("this phone's row", () => {
     const skipped = row("done", { tier: "clarify", saved: [], held: [], settled: true, answered: [{ index: 0, skip: true }] });
     expect(declinedReading(skipped)).toBe(true);
     expect(tellOutcome(cap("extracted"), skipped)).toBe("declined");
+    // The durable mark, once the answer itself has been checked and forgotten (afterPull).
+    const marked = row("done", { tier: "clarify", saved: [], held: [], settled: true, declined: true });
+    expect(declinedReading(marked)).toBe(true);
+    expect(tellOutcome(cap("extracted"), marked)).toBe("declined");
     expect(tellOutcome(cap("extracted"), row("done", { tier: "nothing" }))).toBe("nothing");
     // An answer that chose someone, not "Don't keep this": not declined.
     expect(declinedReading(row("done", { tier: "clarify", saved: [{ id: "m1", tier: "confirm" }], settled: true, answered: [{ index: 0, person_id: "ben" }] }))).toBe(false);

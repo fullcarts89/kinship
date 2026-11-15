@@ -47,18 +47,34 @@ function partialCoverage(c: OutcomeCapture["coverage"]): boolean {
   return !!c && ((Array.isArray(c.unprocessed) && c.unprocessed.length > 0) || (Number.isInteger(c.unlocated) && c.unlocated > 0));
 }
 
-/** The reading the user turned down: every held item answered "Don't keep this", nothing saved. */
+/**
+ * The reading the user turned down: every held item answered "Don't keep this", nothing saved. The row
+ * records it durably (`reading.declined`, set when the answer lands); the answer itself is also read, for
+ * the moment between landing and the next pull.
+ */
 export function declinedReading(row: UnderstandingRow | null): boolean {
   const r = row?.reading;
   if (!r || r.saved.length > 0 || r.held.length > 0) return false;
+  if (r.declined === true) return true;
   return Array.isArray(r.answered) && r.answered.length > 0 && r.answered.every((a) => a.skip === true);
+}
+
+/** A question is waiting for the user on this phone's row. */
+function questionOpen(local: UnderstandingRow | null): boolean {
+  const r = local?.reading;
+  return !!r && local?.state === "review" && !r.settled && r.held.length > 0;
 }
 
 /**
  * What came of this Tell. `lines` is how many live memory lines rest on the note on this phone (its
  * sources, less retracted and deleted lines), for a settled note the server has not labelled.
+ *
+ * Precedence (agreed with the gateway, CMR-1): a question still held wins. The server writes `held`
+ * whenever a live review waits; should this phone hold a question the server's word has not caught up
+ * with, the question still wins here.
  */
 export function tellOutcome(capture: OutcomeCapture, local: UnderstandingRow | null, lines = 0): TellOutcome {
+  if (questionOpen(local)) return "held";
   const server = serverUnderstanding(capture);
   if (server) return server;
   if (local) {

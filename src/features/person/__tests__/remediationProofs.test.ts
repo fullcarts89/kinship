@@ -291,8 +291,8 @@ describe("J4: a memory is never dropped as 'nothing' because who or what it name
     await w.understanding.answer(t.id, [{ index: 0, skip: true }]);
     await w.understanding.run();
     const after = await review(w, t.id);
-    // Nothing added; the words stay where they can be found (Wifey isn't in People, so under "Your words").
-    expect([after.mode, after.declined, after.status]).toEqual(["nothing", true, "Your words stay under “Your words” in People."]);
+    // Nothing added; the words are kept (Wifey isn't in People, and this proof runs without the notebook look, so no place is named).
+    expect([after.mode, after.declined, after.status]).toEqual(["nothing", true, "Your words are kept."]);
     expect(JSON.stringify(after)).not.toMatch(/Nothing to remember/);
     expect(serverItems(w)).toEqual([]);
   });

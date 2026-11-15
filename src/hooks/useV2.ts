@@ -123,7 +123,9 @@ export function editedFrom(sources: { source_kind: string; created_at?: unknown;
 // ─── The review ─────────────────────────────────────────────────────────
 
 export function useReview(captureId: string | null): ReviewView | null {
-  const { store, understanding } = useV2Session();
+  const { store, understanding, userId } = useV2Session();
+  // "Your words" exists only in the notebook look (`notebook_deck`): the card names it only then (contract §9).
+  const notebook = isOn(useFlags(userId), "notebook_deck");
   const q = useStoreQuery(store, async (repos) => {
     if (!captureId) return null;
     const row = await understanding.get(captureId);
@@ -147,8 +149,9 @@ export function useReview(captureId: string | null): ReviewView | null {
       related: await repos.people.related(),
       offline: understanding.offline,
       today: todayIso(),
+      notebook,
     });
-  }, [captureId]);
+  }, [captureId, notebook]);
   // Only ever the note asked for: while a new id loads, the previous note's
   // view must not stand in for it.
   return q.data && q.data.captureId === captureId ? q.data : null;

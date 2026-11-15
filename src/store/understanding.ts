@@ -79,8 +79,14 @@ export interface Reading {
   settled: boolean;
   /** Relationships said again that Kinship already holds: said back, never kept twice (H17). */
   known?: string[];
-  /** The answer that settled it, to check it landed after "already_resolved". */
+  /** The answer that settled it, to check it landed after "already_resolved" (cleared once checked). */
   answered?: HeldAnswer[];
+  /**
+   * The user answered "Don't keep this" to everything held and nothing was kept from the note: the
+   * reading was declined (CMR-1). Durable on this row, so the note is never later said to be "nothing"
+   * as if understood so; the Tell itself remains, where its words belong.
+   */
+  declined?: boolean;
   /**
    * What the understanding did not get to (Option A, founder 19 Oct): the note's own spans and a count
    * of unplaced ones. Present only when the note held more than one understanding could take. The
@@ -389,8 +395,9 @@ export class Understanding {
   async retry(captureId: string): Promise<void> {
     const row = await this.get(captureId);
     if (!row) {
-      // Failed on another phone (the synced row says so) and never tracked here: tracked now, and asked
-      // for once. The gateway holds the note; nothing is re-entered, and whatever it kept before stays.
+      // Failed on another phone (the synced row says so) and never tracked here: tracked now, from a fresh
+      // count, and understood as any new note is (the usual retries and waits). The gateway holds the
+      // note; nothing is re-entered, and whatever it kept before stays.
       const capture = (await this.store.get("captures", captureId)) as Capture | null;
       if (capture?.status !== "failed") return;
       await this.told(captureId);
@@ -923,12 +930,17 @@ export class Understanding {
       const saved = reply.status === "resolved"
         ? [...reading.saved, ...reply.saved.filter((s) => s.id).map((s) => ({ id: s.id as string, tier: "confirm" as const }))]
         : reading.saved;
+      // "Don't keep this" to everything held, and nothing kept from the note at all: declined, for good.
+      const declined = saved.length === 0 && pending.answers.length > 0 && pending.answers.every((a) => a.skip === true);
       await this.save(id, {
         // Always back to review: what the answer kept is shown ("Kept for …")
         // and stays accounted for until the user is finished with it. A
         // review nobody is looking at is finished later (finishLeftOpen).
         state: "review",
-        reading: { ...reading, saved, held: [], clarification: null, review_created_at: null, settled: true, answered: pending.answers },
+        reading: {
+          ...reading, saved, held: [], clarification: null, review_created_at: null, settled: true, answered: pending.answers,
+          ...(declined ? { declined: true } : {}),
+        },
         answer: null, notice: null, attempts: 0, next_at: null,
       });
       return true;

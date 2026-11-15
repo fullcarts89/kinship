@@ -45,9 +45,21 @@ export function fakeSpeech(opts: FakeSpeechOptions = {}) {
       m.started.push(o);
       emit("start");
     },
+    /**
+     * As the phone does it: Stop returns at once; the recognizer's last result (iOS: the real `isFinal`,
+     * often the last utterance again) may still arrive, and "end" follows on a later turn. A test that
+     * wants the last result sends it with `hear(…, true)` right after `stop()`; `await settled()` then
+     * lets "end" land.
+     */
     stop() {
       m.stopped += 1;
-      emit("end");
+      // A native promise, not queueMicrotask: Jest's fake timers take the latter over.
+      void Promise.resolve().then(() => emit("end"));
+    },
+    /** Lets the turn a stop queued run (the "end" after Stop). */
+    settled: async () => {
+      await Promise.resolve();
+      await Promise.resolve();
     },
     abort() {
       m.aborted += 1;
