@@ -72,7 +72,10 @@ export class SyncEngine {
    * cycle is in flight gets one follow-on cycle that starts when it ends (that cycle's push may already
    * have run before the caller's writes were queued: a Tell kept ~140 ms into Today's first sync used to
    * join it, find its insert still in the outbox afterwards, and wait on "Understanding…" with nothing
-   * scheduled). Everyone who asks during the same cycle shares the one follow-on; never a chain beyond it.
+   * scheduled). Everyone who asks during the same cycle shares the one follow-on. The follow-on itself is an
+   * ordinary call: if another cycle has started in the few microtasks before it wakes, it queues behind that
+   * one (its awaiters' writes are still covered), so a steady stream of immediate re-syncs could keep deferring
+   * it; no caller in the app does that, and nothing ever runs by itself after the queued cycle.
    */
   sync(): Promise<SyncReport> {
     if (!this.running) {
