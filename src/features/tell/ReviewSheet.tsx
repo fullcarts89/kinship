@@ -171,10 +171,10 @@ export function ReviewSheet(props: ReviewSheetProps) {
         ) : null}
         {questionOnly ? null : view.lines.length ? (
           <Title style={{ marginTop: label ? space.m : 0 }}>{`${COPY.remember}.`}</Title>
-        ) : view.mode === "nothing" ? (
+        ) : view.declined ? (
           <Title style={{ marginTop: label ? space.m : 0 }}>{COPY.notKept}</Title>
         ) : null}
-        {view.status && !(view.mode === "nothing" && view.status === COPY.notKept) ? (
+        {view.status ? (
           <Small style={{ marginTop: space.s }} accessibilityLiveRegion="polite">{view.status}</Small>
         ) : null}
         {/* Option A: the note held more than the understanding could take; the rest can be told again from here. */}

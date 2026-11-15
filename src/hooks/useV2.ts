@@ -32,6 +32,7 @@ import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, smallCount, tr
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { followUpsOf, keptLinesOf, recoveryOf, type Recovery } from "@/store/followUp";
+import { leftOut } from "@/store/coverage";
 import { isOn } from "@/store/flags";
 import { linksAnswered, rememberLinks } from "@/store/linksAnswered";
 import { closedBy, peopleOf, repositoriesFor, type Capture, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
@@ -123,7 +124,9 @@ export function editedFrom(sources: { source_kind: string; created_at?: unknown;
 // ─── The review ─────────────────────────────────────────────────────────
 
 export function useReview(captureId: string | null): ReviewView | null {
-  const { store, understanding } = useV2Session();
+  const { store, understanding, userId } = useV2Session();
+  // "Your words" exists only in the notebook look (`notebook_deck`): the card names it only then (contract §9).
+  const notebook = isOn(useFlags(userId), "notebook_deck");
   const q = useStoreQuery(store, async (repos) => {
     if (!captureId) return null;
     const row = await understanding.get(captureId);
@@ -147,8 +150,9 @@ export function useReview(captureId: string | null): ReviewView | null {
       related: await repos.people.related(),
       offline: understanding.offline,
       today: todayIso(),
+      notebook,
     });
-  }, [captureId]);
+  }, [captureId, notebook]);
   // Only ever the note asked for: while a new id loads, the previous note's
   // view must not stand in for it.
   return q.data && q.data.captureId === captureId ? q.data : null;
@@ -163,7 +167,8 @@ export async function recoveryFor(store: UserStore, capture: Capture): Promise<R
   if (!capture.coverage || !capture.raw_text) return null;
   const followUps = await followUpsOf(store, capture.id);
   if (!followUps.length) return null;
-  return recoveryOf(capture.raw_text, capture.coverage.unprocessed, { kept: await keptLinesOf(store, capture.id) }, followUps);
+  // Every place left out (not got to, or read and kept nothing from: CMR-1 C2) is what a later note can answer.
+  return recoveryOf(capture.raw_text, leftOut(capture.coverage), { kept: await keptLinesOf(store, capture.id) }, followUps);
 }
 
 export interface OpenNotes {

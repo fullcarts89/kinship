@@ -269,7 +269,9 @@ describe("a note the understanding could not take whole (Option A)", () => {
     const people = await w.repos.people.list();
     const capture = (await w.repos.captures.get(c.id))!;
     const v = buildReview({ row, capture: { id: c.id, raw_text: capture.raw_text, context_person_id: null, status: capture.status }, items: [], people, related: [], offline: false, today: "2026-10-19" });
-    expect([v.mode, v.status]).toEqual(["failed", COPY.failed]);
+    // The note names Priya: the words are kept on her page, failed understanding or not.
+    expect([v.mode, v.status]).toEqual(["failed", "Couldn't understand this one. Your words are kept on Priya's page."]);
+    expect(v.words).toBe(THREE);
     expect(cardFor(v)!.canRetry).toBe(true);
     expect(capture.raw_text).toBe(THREE);
 
@@ -296,6 +298,11 @@ describe("a note the understanding could not take whole (Option A)", () => {
     expect(partialOf(null, null)).toBeNull();
     expect(partialOf({ unprocessed: [], unlocated: 0 }, null)).toBeNull();
     expect(partialOf({ unprocessed: [{ start: 5, end: 2 }], unlocated: 0 }, null)).toBeNull();
+    // CMR-1 C2: places the understanding read but kept nothing from are marked and offered the same way, each once.
+    const c2 = partialOf({ unprocessed: [{ start: 0, end: 4 }], unlocated: 0, not_understood: [{ start: 0, end: 4 }, { start: 5, end: 9 }, { start: 5, end: 9 }] }, null);
+    expect(c2).toEqual({ unprocessed: [{ start: 0, end: 4 }, { start: 5, end: 9 }], unlocated: 0, recovered: 0, uncertain: 0, followUp: "none", resolved: false, tellRest: true });
+    expect(partialStatus(c2!)).toBe(COPY.partial);
+    expect(partialOf({ unprocessed: [], unlocated: 0, not_understood: [{ start: 5, end: 9 }] }, null)?.unprocessed).toEqual([{ start: 5, end: 9 }]);
     const two = [{ start: 0, end: 4 }, { start: 5, end: 9 }];
     expect(partialOf({ unprocessed: two, unlocated: 0 }, null)).toEqual({ unprocessed: two, unlocated: 0, recovered: 0, uncertain: 0, followUp: "none", resolved: false, tellRest: true });
     const rec = (over: Partial<Recovery>): Recovery => ({ passages: [], recovered: [], remaining: two, uncertain: 0, followUp: "read", ...over });

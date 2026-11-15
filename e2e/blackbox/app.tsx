@@ -15,6 +15,8 @@ import PeopleScreen from "../../app/v2/(main)/people";
 import PersonScreen from "../../app/v2/person/[id]/index";
 import KnowsScreen from "../../app/v2/person/[id]/knows";
 import Setup from "../../app/v2/setup";
+import WordsScreen from "../../app/v2/words";
+import SourceScreen from "../../app/v2/source/[captureId]";
 import { SETUP_COPY } from "@/features/setup/SetupViews";
 import { CONSENT_COPY } from "@/features/tell/ConsentSheet";
 import { ConsentSheet } from "@/features/tell/ConsentSheet";
@@ -31,9 +33,18 @@ import { Understanding } from "@/store/understanding";
 import { UserStore } from "@/store/userStore";
 import { openSqlJsDb } from "@/test-utils/sqljsDb";
 import { harness } from "./state";
-import { localAccount } from "./localStack";
+import { localAccount, type LocalCredentials } from "./localStack";
 
-export type Where = { screen: "setup" } | { screen: "today" } | { screen: "people" } | { screen: "person"; id: string; params?: Record<string, string> } | { screen: "knows"; id: string };
+export type Where =
+  | { screen: "setup" }
+  | { screen: "today" }
+  | { screen: "people" }
+  | { screen: "person"; id: string; params?: Record<string, string> }
+  | { screen: "knows"; id: string }
+  /** Your words (CMR-1): the notes about no one in People. */
+  | { screen: "words" }
+  /** A note's Source page. */
+  | { screen: "source"; captureId: string; params?: Record<string, string> };
 
 let go: (w: Where) => void = () => undefined;
 let start: Where = { screen: "setup" };
@@ -41,14 +52,22 @@ let start: Where = { screen: "setup" };
 function Root() {
   const [where, setWhere] = useState<Where>(start);
   go = setWhere;
-  harness.params = where.screen === "person" ? { id: where.id, ...(where.params ?? {}) } : where.screen === "knows" ? { id: where.id } : {};
+  harness.params = where.screen === "person" ? { id: where.id, ...(where.params ?? {}) }
+    : where.screen === "knows" ? { id: where.id }
+    : where.screen === "source" ? { captureId: where.captureId, ...(where.params ?? {}) }
+    : {};
   // As app/v2/_layout.tsx and app/v2/(main)/_layout.tsx compose them.
   return (
     <TellFlowProvider>
       {where.screen === "setup" ? <Setup /> : (
         <>
           <ConsentSheet />
-          {where.screen === "today" ? <TodayScreen /> : where.screen === "people" ? <PeopleScreen /> : where.screen === "person" ? <PersonScreen key={`p:${where.id}:${JSON.stringify(where.params ?? {})}`} /> : <KnowsScreen key={`k:${where.id}`} />}
+          {where.screen === "today" ? <TodayScreen />
+            : where.screen === "people" ? <PeopleScreen />
+            : where.screen === "person" ? <PersonScreen key={`p:${where.id}:${JSON.stringify(where.params ?? {})}`} />
+            : where.screen === "words" ? <WordsScreen />
+            : where.screen === "source" ? <SourceScreen key={`s:${where.captureId}`} />
+            : <KnowsScreen key={`k:${where.id}`} />}
           <TellDock current="today" onGo={() => undefined} />
         </>
       )}
@@ -58,10 +77,14 @@ function Root() {
 
 /**
  * A brand-new signed-in local account with the app's session over it (setup
- * not yet done). `device`: a phone's slower store and network round trip.
+ * not yet done). `device`: a phone's slower store and network round trip;
+ * `reuse`: the same account on a second device (a fresh local store, setup
+ * already done there, so it opens on Today); `maxAttempts`: how many failed
+ * attempts before a note is kept as written (the app's default is 6, with
+ * waits of minutes between; a suite proving the failure path asks for 1).
  */
-export async function signedIn(device: { statementMs?: number; networkMs?: number } = {}) {
-  const { client, userId, email } = await localAccount({ networkMs: device.networkMs });
+export async function signedIn(device: { statementMs?: number; networkMs?: number; reuse?: LocalCredentials; maxAttempts?: number } = {}) {
+  const { client, userId, email, password } = await localAccount({ networkMs: device.networkMs, reuse: device.reuse });
   const db = await openSqlJsDb(`bb-${randomUUID()}`, { statementMs: device.statementMs });
   await prepareSchema(db, userId);
   const store = new UserStore(db, userId, { newId: randomUUID });
@@ -71,14 +94,14 @@ export async function signedIn(device: { statementMs?: number; networkMs?: numbe
   harness.user = { id: userId, email, user_metadata: {} };
   harness.session = {
     userId, store,
-    understanding: new Understanding(store, () => engine.sync(), gateway),
+    understanding: new Understanding(store, () => engine.sync(), gateway, device.maxAttempts ? { maxAttempts: device.maxAttempts } : {}),
     reasons: new Reasons(supabaseReasonsTransport(client), () => engine.sync()),
     reasonLocal: new ReasonLocal(store),
   };
   harness.pushes = [];
   harness.opens = [];
-  start = { screen: "setup" };
-  return { client, userId, store, engine, repos: repositoriesFor(store) };
+  start = device.reuse ? { screen: "today" } : { screen: "setup" };
+  return { client, userId, store, engine, repos: repositoriesFor(store), credentials: { userId, email, password } as LocalCredentials };
 }
 
 /**
