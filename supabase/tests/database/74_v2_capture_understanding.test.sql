@@ -217,8 +217,8 @@ SELECT ok(NOT public.capture_coverage_ok(('{"v": 1, "unprocessed": [], "unlocate
 
 -- ── the usage log counts every drop reason the gateway has ──────────────────
 SELECT lives_ok($$ INSERT INTO public.ai_calls (capability, model, prompt_version, eval_version, outcome, result, latency_ms, items_dropped, drop_reasons)
-  VALUES ('relationship_extract', 'claude-opus-5-5', 'relationship_extract/v7', 'extraction-v2.9', 'ok', 'auto', 1200, 3, '{"internal_reference": 1, "already_known": 1, "no_one_named": 1}') $$,
-  'internal_reference, already_known and no_one_named are counted (the first two were refused before, and the row was lost)');
+  VALUES ('relationship_extract', 'claude-opus-5-5', 'relationship_extract/v7', 'extraction-v2.9', 'ok', 'auto', 1200, 4, '{"internal_reference": 1, "already_known": 1, "no_one_named": 1, "earlier_note": 1}') $$,
+  'internal_reference, already_known, no_one_named and earlier_note are counted (the first two were refused before, and the row was lost)');
 SELECT throws_ok($$ INSERT INTO public.ai_calls (capability, model, prompt_version, eval_version, outcome, latency_ms, drop_reasons)
   VALUES ('relationship_extract', 'claude-opus-5-5', 'relationship_extract/v7', 'extraction-v2.9', 'ok', 1, '{"Ben loves jazz": 1}') $$,
   '23514', NULL, 'text smuggled into the drop reasons is still refused');

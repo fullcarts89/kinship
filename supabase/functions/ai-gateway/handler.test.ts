@@ -1104,6 +1104,7 @@ Deno.test("C2: a quote the note never says is counted as unplaced; a rule's own 
     ], needs_clarification: null } },
   });
   const { body } = await call(w, post(extract));
+  // One unplaceable proposal; the contact detail is excluded by contract; "He's hoping to break four hours" names no one (a pronoun alone is an aside).
   eq(body.coverage, { state: "partial", unprocessed: [], unlocated: 1 }, "one unplaceable proposal; the contact detail is excluded by contract");
   eq(w.coverages, [{ v: 1, unprocessed: [], unlocated: 1 }]);
   eq(w.logs[0].drop_reasons, { no_evidence: 1, contact_detail: 1 });
@@ -1150,6 +1151,37 @@ Deno.test("C2: a database that does not know not_understood yet (gateway deploye
   w3.deps.service.setCoverage = () => Promise.reject(new ServiceError("42501"));
   eq((await call(w3, post(extract))).status, 500);
   eq(w3.releases, ["failed"]);
+});
+
+Deno.test("Model omissions are not understanding: a sentence no proposal touches is reported, and 'Tell the rest' recovers it once (founder, 15 Nov 2026)", async () => {
+  const first = "Ben loves jazz. Ben grows tomatoes in the garden. Anyway, hope all is well.";
+  const jazz = { ...BEN_PROPOSAL.items[0], kind: "fact", statement: "Ben loves jazz", evidence: ["Ben loves jazz"], date_text: null, date_direction: "unclear",
+    detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "interest" } };
+  const w = world({ note: first, model: { output: { items: [jazz], needs_clarification: null } } });
+  const { body } = await call(w, post(extract));
+  eq((body.saved as unknown[]).length, 1, "the jazz line is kept");
+  const chars = Array.from(first);
+  const nu = (body.coverage as { not_understood?: { start: number; end: number }[] }).not_understood ?? [];
+  eq(nu.map((s) => chars.slice(s.start, s.end).join("")), ["Ben grows tomatoes in the garden"], "the sentence the model skipped, at its words; the sign-off is not reported");
+  eq(w.coverages, [{ v: 1, unprocessed: [], unlocated: 0, not_understood: [{ start: 16, end: 48 }] }], "on the capture, for every phone");
+
+  // "Tell the rest": the phone puts the not-understood words in the field, linked to the first note. The
+  // earlier note goes to the model as context; a proposal that quotes it is that note's line, never doubled here.
+  const rest = world({
+    note: "Ben grows tomatoes in the garden", parent: { id: "00000000-0000-0000-0000-000000000c00", note: first, context_person_id: "person-ben" },
+    items: [{ id: "line-jazz", person_id: "person-ben", kind: "fact", subject_type: "person", subject_related_id: null, statement: "Ben loves jazz",
+      certainty: "stated", status: "active", user_state: "unreviewed", detail: { category: "interest" } }],
+    model: { output: { items: [
+      { ...jazz, statement: "Ben grows tomatoes in the garden", evidence: ["Ben grows tomatoes in the garden"] },
+      jazz, // quoted from the earlier note: context, not evidence
+    ], needs_clarification: null } },
+  });
+  const r = await call(rest, post(extract));
+  eq(r.status, 200);
+  ok(rest.modelCalls[0].content.includes(`<earlier_part>\n${first}\n</earlier_part>`), "the earlier note is context");
+  eq((r.body.saved as { statement: string }[]).map((s) => s.statement), ["Ben grows tomatoes in the garden"], "one new line, nothing doubled");
+  eq(r.body.coverage, { state: "complete", unprocessed: [], unlocated: 0 }, "the continuation is taken whole; the earlier note's quote is neither evidence nor a loss");
+  eq(rest.logs[0].drop_reasons, { earlier_note: 1 });
 });
 
 Deno.test("C2: a reply lost to a timeout comes back with what was not understood too", async () => {

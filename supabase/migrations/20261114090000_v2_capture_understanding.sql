@@ -29,12 +29,39 @@
 -- 3. ai_drop_reasons_ok learns the two drop reasons the gateway has logged since October
 --    (internal_reference, already_known): a call that dropped a line for either reason could not write
 --    its content-free usage row at all, so those understandings were missing from ai_calls. And
---    no_one_named, the reason CMR-1 Workstream B adds (someone the note leaves unnamed).
+--    no_one_named, the reason CMR-1 Workstream B adds (someone the note leaves unnamed), and
+--    earlier_note (a continuation's proposal that quotes the note it continues).
 --
--- Release order: this migration must be in production (merged to main) before the ai-gateway that
--- writes `not_understood` is deployed, or set_capture_coverage refuses the write (22023). An older
--- gateway keeps working with the column and the wider CHECK in place: it calls the same functions with
--- the same signatures, and the functions settle `understanding` for it.
+-- Release order: migration first, preferred. With it in production (merged to main) before the gateway
+-- that writes `not_understood` is deployed, every row carries the places not understood. A gateway
+-- deployed first still works: set_capture_coverage refuses the key (22023) and the gateway stores the
+-- three-key shape (or none) and writes the lines regardless (handler.ts writeCoverage; handler.test.ts
+-- "a database that does not know not_understood yet").
+--
+-- Compatibility with the gateway in production before this (v17), as evidence for the final review
+-- (pgTAP 75_v2_capture_understanding_compat.test.sql):
+--   (a) v17's calls succeed on this schema with their argument shapes unchanged: claim_capture_extraction,
+--       release_capture_extraction, set_capture_coverage with the three-key coverage, write_extraction and
+--       write_extraction_with_review with v17's item and review shapes, resolve_capture_review,
+--       settle_capture_review / close_capture_review. Every signature here is the one v17 calls; the only
+--       new function, capture_understanding_settle, is called from inside them.
+--   (b) the new gateway on the old schema degrades as designed: handler.test.ts (above).
+--   (c) a row whose `understanding` is already set is never left stale by a v17 write: the functions
+--       settle it again from what the database holds (claim → NULL, write → kept/partial/nothing, a review
+--       → held, an answer or "not now" → kept/partial/declined, the purge → nothing, failure → failed), and
+--       a v17 call that writes nothing (settle on a note that is not waiting, release on one not
+--       processing) leaves it exactly as it was.
+--   (d) a four-key coverage row read by v17: its storedCoverage() copies only v, unprocessed and
+--       unlocated, so the extra key is ignored, and v17's own three-key writes pass the CHECK.
+--
+-- Rollback: the gateway is rolled back by redeploying v17; nothing in the database needs to change, and
+-- `understanding` keeps being settled by these functions (so the app's column stays truthful; only
+-- `not_understood` stops being written). The migration itself is forward-only and is not rolled back. If
+-- the column ever had to go, that would be a new forward migration: drop trigger captures_understanding_guard,
+-- re-create the six functions from 20261004090000 / 20261004100000 / 20261031100000 / 20261031110000 without
+-- the settle lines, rewrite every coverage row to the three keys (jsonb - 'not_understood') and restore the
+-- 20261019090000 capture_coverage_ok, then drop the column; the app would then see `understanding` absent,
+-- which it already treats as "not yet understood".
 
 -- ─── understanding: the column, its guard, and how it is settled ──────────────
 
@@ -165,7 +192,7 @@ AS $$
                            'invented_sensitive_term', 'invented_relation', 'mention_not_in_note',
                            'polarity_mismatch', 'not_a_user_promise', 'instruction_text',
                            'low_confidence', 'bad_kind_subject', 'duplicate', 'too_many_items',
-                           'contact_detail', 'internal_reference', 'already_known', 'no_one_named')
+                           'contact_detail', 'internal_reference', 'already_known', 'no_one_named', 'earlier_note')
           OR jsonb_typeof(e.value) <> 'number'
           OR NOT (e.value::text ~ '^[0-9]{1,3}$'))
 $$;
