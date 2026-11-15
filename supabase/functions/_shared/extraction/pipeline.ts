@@ -442,12 +442,12 @@ class Context {
       .map((m) => ({ key: nameKey(m[0]), at: m.index ?? 0, cap: /^\p{Lu}/u.test(m[0]) }));
     const words = this.words;
     let best = -1;
-    for (const form of formsSpoken(p)) {
+    for (const { form, spoken } of formsSpoken(p)) {
       const parts = (form.match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).map(nameKey);
       if (!parts.length) continue;
       // The whole name, or (written as a name) the first name of a longer one, as namedInNote reads it.
       const at = words.findIndex((w, i) =>
-        parts.every((part, j) => words[i + j]?.key === part) || (parts.length > 1 && !hyphenated(form) && w.key === parts[0] && w.cap));
+        parts.every((part, j) => words[i + j]?.key === part) || (parts.length > 1 && !spoken && w.key === parts[0] && w.cap));
       if (at >= 0 && (best < 0 || words[at].at < best)) best = words[at].at;
     }
     return best;
@@ -459,12 +459,12 @@ class Context {
       .map((m) => ({ key: nameKey(m[0]), at: m.index ?? 0, cap: /^\p{Lu}/u.test(m[0]) }));
     const words = this.words;
     let best = -1;
-    for (const form of formsSpoken(p)) {
+    for (const { form, spoken } of formsSpoken(p)) {
       const parts = (form.match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).map(nameKey);
       if (!parts.length) continue;
       for (let i = 0; i < words.length && words[i].at < at; i++) {
         const whole = parts.every((part, j) => words[i + j]?.key === part);
-        const first = parts.length > 1 && !hyphenated(form) && words[i].key === parts[0] && (words[i].cap || this.mentions.some((m) => nameKey(firstName(m)) === parts[0]));
+        const first = parts.length > 1 && !spoken && words[i].key === parts[0] && (words[i].cap || this.mentions.some((m) => nameKey(firstName(m)) === parts[0]));
         if ((whole || first) && words[i].at > best) best = words[i].at;
       }
     }
@@ -1828,19 +1828,14 @@ function namesFor(p: RosterPerson): string[] {
   return [p.display_name, p.full_name ?? "", ...(p.nicknames ?? []), ...(p.line_names ?? [])].filter(Boolean);
 }
 
-/** The same names, and each hyphenated one as it is said aloud ("Hyun-woo Park" → "Hyun woo Park"); the spoken form is marked. */
-const SPOKEN = new Set<string>();
-function hyphenated(form: string): boolean {
-  return SPOKEN.has(form);
-}
-function formsSpoken(p: RosterPerson): string[] {
-  const out = namesFor(p);
-  for (const n of namesFor(p)) {
-    if (!n.includes("-")) continue;
-    const spoken = n.replace(/-+/gu, " ");
-    SPOKEN.add(spoken);
-    out.push(spoken);
-  }
+/**
+ * The same names, and each hyphenated one as it is said aloud ("Hyun-woo Park" → "Hyun woo Park"), the spoken
+ * form marked so its first word never counts as a first name. Computed per call: nothing is kept between
+ * requests (a shared edge function; review of #91 r3).
+ */
+function formsSpoken(p: RosterPerson): { form: string; spoken: boolean }[] {
+  const out = namesFor(p).map((form) => ({ form, spoken: false }));
+  for (const n of namesFor(p)) if (n.includes("-")) out.push({ form: n.replace(/-+/gu, " "), spoken: true });
   return out;
 }
 
