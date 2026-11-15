@@ -2536,7 +2536,7 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   // ("Starts kindergarten Tuesday" on David's page).
   if (!mention) {
     // "He starts in two weeks" with no mention at all: the pronoun the quote opens with is the mention.
-    const q0 = (evidenceSpans(ctx.text, raw)[0]?.quote.match(/^[\p{L}][\p{L}\p{M}'’]*/u) ?? [""])[0];
+    const q0 = (evidenceSpans(ctx.text, raw, groundHint(ctx.input.roster, raw))[0]?.quote.match(/^[\p{L}][\p{L}\p{M}'’]*/u) ?? [""])[0];
     const q0p = fold(q0).replace(/['’](s|ll|d|re)$/u, "");
     if (q0p && SINGULAR_PRONOUNS.has(q0p)) return resolvePerson(ctx, { ...raw, person_mention: q0 }, flags);
     // A clause the model quoted from the middle of a sentence, joined to what came before ("…and has been
