@@ -858,7 +858,11 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     // Only the line's own words, or the possessive its clause opens with ("Sarah's sister | has surgery"):
     // a relative named elsewhere in the sentence is no candidate for a line plainly about the person
     // ("seun's dad passed away… he's flying out tomorrow"), nor for the user's own line (CMR-1 B).
-    if (!userNews && subject !== "user" && subject !== "shared" && possessiveRelationOf(ctx, spans, person)) flags.add("subject_check");
+    if (!userNews && subject !== "user" && subject !== "shared") {
+      const verdict = possessiveRelationOf(ctx, spans, person);
+      if (verdict === "ask") flags.add("subject_check");
+      if (verdict === "glance") flags.add("subject_after_loss");
+    }
   }
 
   // ── Certainty: wording can only lower it ──
@@ -1776,15 +1780,23 @@ function possessiveRelation(sentence: string, person: RosterPerson): boolean {
  * predicate). Never the rest of the sentence: "seun's dad passed away… he's flying out tomorrow" asks nothing
  * of the flying line, and "Mercy's baby shower" names an occasion, not a baby.
  */
-function possessiveRelationOf(ctx: Context, spans: PlannedSpan[], person: RosterPerson): boolean {
-  if (spans.some((sp) => possessiveRelation(sp.quote, person))) return true;
+/**
+ * The clause's action is plainly a living person's: a future time word, or travel (founder, 15 Nov 2026). Used
+ * only for a he/she clause right after a clause saying the person's relative has died, to accept the model's
+ * filing on the person for a glance instead of asking. Kept small on purpose.
+ */
+const LIVING_CUE = /\b(?:tomorrow|tonight|next (?:week|month|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|this weekend|(?:fly|flying|flies|flew|drive|driving|drives|drove|head|heading|heads|travel|travell?ing|travels)\b(?:\s+\w+){0,2}\s+(?:out|down|up|over|back|to|home))\b/iu;
+const DIED = /\b(?:passed away|passed|died|death|funeral|late)\b/iu;
+
+function possessiveRelationOf(ctx: Context, spans: PlannedSpan[], person: RosterPerson): "ask" | "glance" | null {
+  if (spans.some((sp) => possessiveRelation(sp.quote, person))) return "ask";
   const chars = Array.from(ctx.text);
   const from = chars.slice(0, spans[0].start).join("").length;
   let a = from;
   while (a > 0 && !/[.!?\n,;:—–()]/u.test(ctx.text[a - 1]) && !/\b(?:and|but|so|then)\s+$/iu.test(ctx.text.slice(Math.max(0, a - 6), a))) a--;
   const lead = ctx.text.slice(a, from).trim();
   const possessiveSubject = (s: string, re: (first: string) => RegExp) => namesFor(person).some((n) => re(fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(fold(s)));
-  if (lead && possessiveSubject(lead, (first) => new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})${RELATION_COMPOUND}\\b(?:\\s+\\w+){0,2}$`))) return true;
+  if (lead && possessiveSubject(lead, (first) => new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})${RELATION_COMPOUND}\\b(?:\\s+\\w+){0,2}$`))) return "ask";
   // "Kaiya's mom has not been sleeping and | has been clingy": a clause with no subject of its own shares the
   // sentence's subject, and that subject is the relative.
   let b = from;
@@ -1792,9 +1804,11 @@ function possessiveRelationOf(ctx: Context, spans: PlannedSpan[], person: Roster
   const sentenceLead = ctx.text.slice(b, from);
   const quoteFirst = (spans[0].quote.match(/^[\p{L}][\p{L}\p{M}'’-]*/u) ?? [""])[0];
   // "Sarah's sister got engaged, | she's over the moon": a pronoun clause right after a clause whose subject is
-  // the relative may be the relative's, when the relative's gender fits (review of #91 r2). PRODUCT JUDGEMENT,
-  // needing the founder's confirmation (recorded in the PR and the coverage doc): not when that clause says
-  // the relative has died ("seun's dad passed away… he's flying out" is Seun's).
+  // the relative may be the relative's, when the relative's gender fits (review of #91 r2): asked. A relative who
+  // has died is still someone the user talks about ("Grandma passed away in March. She loved her garden";
+  // founder, 15 Nov 2026): never a blanket rule. When that clause says the relative died and this clause's
+  // action is plainly a living person's (LIVING_CUE: "he's flying out tomorrow"), the model's filing on the
+  // person stands for a glance; otherwise it is asked, never guessed either way (contract §7.3).
   const pron = fold(quoteFirst).match(/^(he|she)(?:['’]?s)?$/u)?.[1];
   if (pron) {
     let pEnd = a;
@@ -1804,16 +1818,16 @@ function possessiveRelationOf(ctx: Context, spans: PlannedSpan[], person: Roster
     let pStart = pEnd;
     while (pStart > 0 && !/[.!?\n,;:—–()]/u.test(ctx.text[pStart - 1])) pStart--;
     const prev = lead || ctx.text.slice(pStart, pEnd).trim();
-    if (prev && !/\b(?:passed away|passed|died|death|funeral|late)\b/iu.test(fold(prev))) {
+    if (prev) {
       const fits = (rel: string) => (pron === "he" ? !FEMALE_RELATIONS.has(rel) : !MALE_RELATIONS.has(rel));
       const m = namesFor(person).map((n) => fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
         .map((first) => fold(prev).match(new RegExp(`^(?:\\w+\\s+){0,2}${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})${RELATION_COMPOUND}\\b`)))
         .find(Boolean);
-      if (m && fits(m[1])) return true;
+      if (m && fits(m[1])) return DIED.test(fold(prev)) && LIVING_CUE.test(fold(spans[0].quote)) ? "glance" : "ask";
     }
   }
   const continuation = (CONTINUES.test(sentenceLead.trimEnd()) || CONTINUES_START.test(spans[0].quote)) && !!quoteFirst && ctx.elidedStart(quoteFirst);
-  return continuation && possessiveSubject(sentenceLead, (first) => new RegExp(`^(?:\\w+\\s+){0,2}${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})${RELATION_COMPOUND}\\b`));
+  return continuation && possessiveSubject(sentenceLead, (first) => new RegExp(`^(?:\\w+\\s+){0,2}${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})${RELATION_COMPOUND}\\b`)) ? "ask" : null;
 }
 
 const DATEISH = new Set([
