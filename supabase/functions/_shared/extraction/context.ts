@@ -12,7 +12,7 @@
 // Someone the note names who isn't on the list stays unknown to the model,
 // which proposes "new"; the pipeline then asks rather than guessing.
 
-import { fold, kinshipReference, nameKey, relationKey, wordsOf } from "./lexicon.ts";
+import { fold, kinshipReference, nameKey, relationKey, spokenKey, wordsOf } from "./lexicon.ts";
 import { mentionsOf } from "./names.ts";
 import type { DossierItem, ExtractionInput, RosterPerson, RosterRelated } from "./types.ts";
 
@@ -135,7 +135,9 @@ function namedIn(text: string): (p: PersonRow) => boolean {
   return (p: PersonRow) =>
     namesOf(p).some((n) => {
       const k = nameKey(n);
-      return noteWords.has(k) || noteWords.has(k.split(/\s+/)[0]) || (k.includes(" ") && fold(text).includes(k));
+      // A hyphenated name said aloud without its hyphen ("hyun woo" for Hyun-woo) still names them (CMR-1 B).
+      return noteWords.has(k) || noteWords.has(k.split(/\s+/)[0]) || (k.includes(" ") && fold(text).includes(k)) ||
+        (k.includes("-") && fold(text).includes(spokenKey(n)));
     });
 }
 

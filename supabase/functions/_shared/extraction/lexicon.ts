@@ -19,8 +19,12 @@ export function withoutPossessive(word: string): string {
 
 /** Accent-insensitive comparison key for names ("José" ≈ "jose"; "Chris'" ≈ "chris"). */
 export function nameKey(text: string): string {
-  // A hyphen is a space ("hyun woo" said aloud is Hyun-woo; CMR-1 B).
-  return withoutPossessive(fold(text).normalize("NFD").replace(/\p{M}+/gu, "").replace(/-+/gu, " ").replace(/\s+/gu, " ").trim()).trim();
+  return withoutPossessive(fold(text).normalize("NFD").replace(/\p{M}+/gu, "").trim()).trim();
+}
+
+/** The key of a hyphenated name said aloud ("Hyun-woo" → "hyun woo"); the key itself when there is no hyphen. */
+export function spokenKey(text: string): string {
+  return nameKey(text).replace(/-+/gu, " ").replace(/\s+/gu, " ").trim();
 }
 
 /**

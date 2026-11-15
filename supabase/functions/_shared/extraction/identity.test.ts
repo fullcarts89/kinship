@@ -625,6 +625,89 @@ Deno.test("places: 'Johns Hopkins' after 'at' is a place, not someone else befor
   eq(out.items.map((i) => [i.person_id, i.tier === "hold"]), [["florence", false]]);
 });
 
+// ─── Review of #91, round 2 ──────────────────────────────────────────────────────────────────────
+
+Deno.test("r2-1: the nearest subject grounds a pronoun only when the model chose them too; the model's 'unknown' between two people is asked, nearest first", () => {
+  const SAM = person("p50", "sam", "Sam");
+  for (const [note, roster, quote] of [
+    ["Ben said Sam got the job. He's thrilled for him.", [BEN, SAM], "He's thrilled for him"],
+    ["Priya called. Raj is sick. She's worried.", [person("p51", "priya", "Priya"), person("p52", "raj", "Raj")], "She's worried"],
+    ["Ben thinks Sam is overworked. He wants to talk to him.", [BEN, SAM], "He wants to talk to him"],
+  ] as const) {
+    const out = run(input(note, [...roster]), [item({ person: "unknown", person_mention: quote.split(/['’\s]/u)[0], statement: quote.replace(/['’]s/u, " is"), evidence: [quote] })]);
+    eq([out.items[0].person_id, out.items[0].tier, (out.items[0].candidate_ids ?? []).length], [null, "hold", 2], note);
+    eq(out.items[0].candidate_ids?.[0], roster[1].id, `${note}: the nearest subject is offered first`);
+  }
+  // The model chose the nearest subject: grounded, no question.
+  const chosen = run(input("Ben said Sam got the job. He's thrilled for him.", [BEN, SAM]), [item({ person: "p50", person_mention: "He", statement: "Sam is thrilled", evidence: ["He's thrilled for him"] })]);
+  eq(chosen.items.map((i) => [i.person_id, i.tier === "hold"]), [["sam", false]]);
+  // One person before it: still them, whatever the model said.
+  const maya = person("p53", "maya", "Maya");
+  const garden = run(input("Maya visited her mom. She loved the garden.", [maya, BEN]), [item({ person: "p53", person_mention: "She", statement: "Maya loved the garden", evidence: ["She loved the garden"] })]);
+  eq(garden.items.map((i) => [i.person_id, i.tier === "hold"]), [["maya", false]]);
+});
+
+Deno.test("r2-2: a relationship label's head word says the gender, never its possessor ('sister's boyfriend' is a man)", () => {
+  const benSbf = { ...BEN, relationship_label: "sister's boyfriend" };
+  const out = run(input("Ben and Will went climbing. He fell.", [benSbf, WILL]), [item({ person: "p4", person_mention: "He", statement: "Will fell", evidence: ["He fell"] })]);
+  // A pair: still asked with both offered (a pronoun hold keeps the model's person until the answer, as J1 does); never a confirm save on Will.
+  eq([out.items[0].tier, out.items[0].flags.includes("pronoun_multiple"), out.items[0].candidate_ids], ["hold", true, ["ben", "will"]], "a pair: still asked, Ben not ruled out");
+  const rose = person("p54", "rose", "Rose", { relationship_label: "mom's friend" });
+  const wine = run(input("Rose and Will came by. He brought wine.", [rose, WILL]), [item({ person: "p4", person_mention: "He", statement: "Will brought wine", evidence: ["He brought wine"] })]);
+  eq([wine.items[0].tier, wine.items[0].flags.includes("pronoun_multiple"), wine.items[0].candidate_ids], ["hold", true, ["rose", "will"]], "'mom's friend' says nothing about Rose");
+  const nana = person("p55", "nana", "Nana");
+  const guy = person("p56", "guy", "Guy");
+  // "Nana" says she is a woman when the label is silent; "Guy" says nothing to code, so "She" after the pair is still asked,
+  // while "He" can only be Guy.
+  const pie = run(input("Guy and Nana visited. She made pie.", [guy, nana]), [item({ person: "p55", person_mention: "She", statement: "Nana made pie", evidence: ["She made pie"] })]);
+  eq([pie.items[0].tier, pie.items[0].candidate_ids], ["hold", ["guy", "nana"]]);
+  const fence = run(input("Guy and Nana visited. He fixed the fence.", [guy, nana]), [item({ person: "p56", person_mention: "He", statement: "Guy fixed the fence", evidence: ["He fixed the fence"] })]);
+  eq(fence.items.map((i) => [i.person_id, i.tier === "hold"]), [["guy", false]]);
+});
+
+Deno.test("r2-3: a pronoun clause right after the relative's clause may be the relative's: asked (product judgement, founder to confirm); not after a death", () => {
+  for (const [note, statement, sensitivity] of [
+    ["Sarah's sister got engaged, she's over the moon", "Sarah is over the moon", "none"],
+    ["Sarah's sister has surgery Friday, she's nervous", "Sarah is nervous", "health"],
+    ["Sarah's sister has surgery Friday. She's nervous.", "Sarah is nervous", "health"],
+    ["Sarah's sister got engaged and she's over the moon", "Sarah is over the moon", "none"],
+  ] as const) {
+    const quote = note.match(/[Ss]he['’]s [a-z ]+/u)![0].replace(/\.$/u, "");
+    const out = run(input(note, [SARAH]), [item({ person: "p9", person_mention: quote.split(/['’]/u)[0], statement, evidence: [quote], sensitivity })]);
+    eq([out.items[0].person_id, out.items[0].flags.includes("subject_check"), out.items[0].tier], ["sarah", true, "hold"], note);
+    eq(out.clarification?.question, "Is this about Sarah, or Sarah's sister?", note);
+  }
+  // A brother is never "she"; a relative who died is never the one flying out.
+  const brother = run(input("Sarah's brother got engaged, she's over the moon", [SARAH]), [item({ person: "p9", person_mention: "she", statement: "Sarah is over the moon", evidence: ["she's over the moon"] })]);
+  eq(brother.items.map((i) => [i.person_id, i.flags.includes("subject_check")]), [["sarah", false]]);
+  const seun = run(input("seun's dad passed away on sunday the funeral is next saturday in houston he's flying out tomorrow", [SEUN]), [item({ kind: "event", person: "p32", person_mention: "he's", statement: "Seun is flying out tomorrow", evidence: ["he's flying out tomorrow"], date_text: "tomorrow" })]);
+  eq(seun.items.map((i) => [i.person_id, i.flags.includes("subject_check")]), [["seun", false]]);
+});
+
+Deno.test("r2-4: a companion whose name someone in People also goes by is asked, never moved to the namesake (K27); a lower-case voice note still files on the owner", () => {
+  const MAX_FRIEND = person("p57", "max", "Max", { relationship_label: "friend" });
+  const related = [{ key: "r1", id: "rel-max", person_key: "p43", relation: "dog", name: "Max" }];
+  const note = "max is getting old mark says he struggles with the stairs";
+  const both = run(input(note, [MARK, MAX_FRIEND], null, { related }), [item({ person: "p43", person_mention: "he", statement: "Max struggles with the stairs", evidence: ["he struggles with the stairs"] })]);
+  eq([both.items[0].person_id, both.items[0].tier, both.items[0].flags.includes("person_disagreement"), both.items[0].candidate_ids], [null, "hold", true, ["mark", "max"]]);
+  const alone = run(input(note, [MARK], null, { related }), [item({ person: "p43", person_mention: "he", statement: "Max struggles with the stairs", evidence: ["he struggles with the stairs"] })]);
+  eq(alone.items.map((i) => [i.person_id, i.new_person_name, i.tier === "hold"]), [["mark", null, false]]);
+  eq(alone.clarification, null);
+});
+
+Deno.test("r2-5: a hyphenated name's first word is not that name ('Mary' with Mary and Mary-Kate is Mary); said aloud without the hyphen it is still found", () => {
+  const MARY = person("p58", "mary", "Mary");
+  const MARYKATE = person("p59", "mary-kate", "Mary-Kate");
+  const mary = run(input("Mary is visiting Friday", [MARY, MARYKATE]), [item({ kind: "event", person: "p58", person_mention: "Mary", statement: "Mary is visiting Friday", evidence: ["Mary is visiting Friday"], date_text: "Friday" })]);
+  eq(mary.items.map((i) => [i.person_id, i.tier === "hold"]), [["mary", false]]);
+  const mk = run(input("Mary-Kate is visiting Friday", [MARY, MARYKATE]), [item({ kind: "event", person: "p59", person_mention: "Mary-Kate", statement: "Mary-Kate is visiting Friday", evidence: ["Mary-Kate is visiting Friday"], date_text: "Friday" })]);
+  eq(mk.items.map((i) => [i.person_id, i.tier === "hold"]), [["mary-kate", false]]);
+  const spoken = run(input("mary kate is visiting friday", [MARY, MARYKATE]), [item({ kind: "event", person: "p59", person_mention: "mary kate", statement: "Mary-Kate is visiting Friday", evidence: ["mary kate is visiting friday"], date_text: "friday" })]);
+  eq(spoken.items.map((i) => [i.person_id, i.tier === "hold"]), [["mary-kate", false]]);
+  const jean = run(input("Jean got the job", [person("p60", "jean", "Jean"), person("p61", "jean-luc", "Jean-Luc")]), [item({ person: "p60", person_mention: "Jean", statement: "Jean got the job", evidence: ["Jean got the job"] })]);
+  eq(jean.items.map((i) => [i.person_id, i.tier === "hold"]), [["jean", false]]);
+});
+
 // ─── voice.ts units ──────────────────────────────────────────────────────────────────────────────
 
 Deno.test("voice.ts: leadingName refuses everyday words and pairs; asName capitalises; withSubject prepends only for an elided start", () => {
