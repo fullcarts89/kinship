@@ -4,6 +4,14 @@ Plan §10. Every prompt or model change ships with an eval run attached to
 its pull request. Fixtures are written by the team from patterns, never taken
 from real users' data.
 
+Two harnesses share the pipeline's own entry points:
+
+- `evals/extraction/` (below): single-note fixtures with field-level expectations, the frozen
+  corpus the prompt was approved on.
+- `evals/cmr1/` (`evals/cmr1/README.md`): the Core Memory Reliability suite: natural
+  narratives, voice-style transcripts and multi-turn sequences with per-fact ledgers, graded
+  per split (dev, held-out) on the CMR-1 release targets. Baselines in `evals/results/cmr1/`.
+
 ## relationship_extract
 
 `evals/extraction/` holds the fixtures (`fixtures/*.jsonl`, one case per

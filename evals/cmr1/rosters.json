@@ -1,0 +1,75 @@
+{
+  "_comment": "Synthetic rosters for the CMR-1 corpus. Invented people only; nothing here is anyone real. 'hart' is a family (with the ordinary-word names Will, May, Mark and Grace); 'circle' is a friend group with a shared name (two Mateos), nicknames, place-like names (Paris, Austin) and a gender-neutral name (Jordan); 'work' is colleagues (Mercy is an ordinary word too); 'solo' has one person; 'empty' is a first-run account with nobody added yet.",
+  "hart": {
+    "people": [
+      { "key": "p1", "name": "Mom", "full": "Dolores Hart", "label": "mother" },
+      { "key": "p2", "name": "Dad", "full": "Raymond Hart", "label": "father" },
+      { "key": "p3", "name": "Grace", "full": "Grace Okonkwo", "label": "sister" },
+      { "key": "p4", "name": "Will", "full": "Will Okonkwo", "label": "brother-in-law" },
+      { "key": "p5", "name": "Mark", "full": "Mark Hart", "label": "brother" },
+      { "key": "p6", "name": "May", "full": "May Lindqvist", "label": "aunt" },
+      { "key": "p7", "name": "Nana", "full": "Imogen Hart", "label": "grandmother" },
+      { "key": "p8", "name": "Toby", "full": "Tobias Hart", "nick": ["Tobes"], "label": "nephew" },
+      { "key": "p9", "name": "Florence", "full": "Florence Mensah", "label": "cousin" },
+      { "key": "p10", "name": "Rosa", "full": "Rosa Hart", "label": "wife" }
+    ],
+    "related": [
+      { "key": "r1", "person": "p3", "relation": "daughter", "name": "Juniper" },
+      { "key": "r2", "person": "p5", "relation": "dog", "name": "Biscuit" },
+      { "key": "r3", "person": "p1", "relation": "sister" },
+      { "key": "r4", "person": "p10", "relation": "mother", "name": "Carmen" }
+    ]
+  },
+  "circle": {
+    "people": [
+      { "key": "p1", "name": "Priyanka", "full": "Priyanka Raman", "label": "best friend" },
+      { "key": "p2", "name": "Seun", "full": "Oluwaseun Adebayo", "label": "college friend" },
+      { "key": "p3", "name": "Noor", "full": "Noor Haddad", "label": "running club" },
+      { "key": "p4", "name": "Mateo", "full": "Mateo Vargas", "label": "neighbor" },
+      { "key": "p5", "name": "Mateo", "full": "Mateo Lindgren", "label": "coworker" },
+      { "key": "p6", "name": "Xiulan", "full": "Xiulan Zhao", "nick": ["Lan"], "label": "book club" },
+      { "key": "p7", "name": "Dmitri", "full": "Dmitri Volkov", "nick": ["Dima"], "label": "old friend" },
+      { "key": "p8", "name": "Yusuf", "full": "Yusuf Demir", "label": "friend" },
+      { "key": "p9", "name": "Aroha", "full": "Aroha Ngata", "label": "friend from work" },
+      { "key": "p10", "name": "Thandi", "full": "Thandiwe Mokoena", "label": "cousin" },
+      { "key": "p11", "name": "Hyun-woo", "full": "Hyun-woo Park", "label": "climbing partner" },
+      { "key": "p12", "name": "Ingrid", "full": "Ingrid Solberg", "label": "friend" },
+      { "key": "p13", "name": "Paris", "full": "Paris Okafor", "label": "friend from yoga" },
+      { "key": "p14", "name": "Austin", "full": "Austin Reyes", "label": "neighbor" },
+      { "key": "p15", "name": "Jordan", "full": "Jordan Blake", "label": "friend" }
+    ],
+    "related": [
+      { "key": "r1", "person": "p1", "relation": "husband", "name": "Arjun" },
+      { "key": "r2", "person": "p3", "relation": "mom" },
+      { "key": "r3", "person": "p8", "relation": "son", "name": "Emre" },
+      { "key": "r4", "person": "p2", "relation": "cat", "name": "Pepper" },
+      { "key": "r5", "person": "p12", "relation": "partner", "name": "Sofie" }
+    ]
+  },
+  "work": {
+    "people": [
+      { "key": "p1", "name": "Rafael", "full": "Rafael Costa", "label": "manager" },
+      { "key": "p2", "name": "Keiko", "full": "Keiko Tanaka", "label": "teammate" },
+      { "key": "p3", "name": "Amara", "full": "Amara Nwosu", "label": "mentor" },
+      { "key": "p4", "name": "Lars", "full": "Lars Eriksen", "label": "coworker" },
+      { "key": "p5", "name": "Devi", "full": "Devi Pillai", "label": "former teammate" },
+      { "key": "p6", "name": "Tomasz", "full": "Tomasz Nowak", "label": "client" },
+      { "key": "p7", "name": "Felipe", "full": "Felipe Duarte", "label": "coworker" },
+      { "key": "p8", "name": "Mercy", "full": "Mercy Achieng", "label": "coworker" }
+    ],
+    "related": [
+      { "key": "r1", "person": "p2", "relation": "daughter", "name": "Hana" },
+      { "key": "r2", "person": "p1", "relation": "wife" }
+    ]
+  },
+  "solo": {
+    "people": [
+      { "key": "p1", "name": "Priyanka", "full": "Priyanka Raman", "label": "best friend" }
+    ],
+    "related": []
+  },
+  "empty": {
+    "people": [],
+    "related": []
+  }
+}
