@@ -70,24 +70,25 @@ Stages per the ledger's reporting model. "RC" = on `claude/cmr1-rc`.
 | Defect / capability | Implemented | Merged | Deployed | Live-model | Native-sim | Device | Founder accepted |
 |---|---|---|---|---|---|---|---|
 | K34 voice doubled a passage (as a class: structural de-dup from the recognizer's results) | RC (#89) | no | no | n/a (app) | NOT RUN (no simulator here) | PENDING: log `(isFinal, transcript, segments)` across a pause on the founder's iPhone | pending |
-| K35 "Nothing to remember" (every retained Tell findable, honest copy, durable outcome) | RC (#89 app, #90 server) | no | no | PENDING key | NOT RUN | PENDING | pending |
-| K36 "Who is Has?" (as a class: grounded referents, no list as the mechanism) | RC (#91; #88 merged) | #88 only | no | PENDING key | NOT RUN | PENDING | pending |
-| Repeated evidence no longer drops a memory | RC (#90) | no | no | PENDING key | NOT RUN | PENDING | pending |
-| No silent loss: every drop accounted for in coverage | RC (#90) | no | no | PENDING key | NOT RUN | PENDING | pending |
-| Identity resolution across realistic language (0% unnecessary clarification, 0 fabricated on the corpus) | RC (#91) | no | no | PENDING key | n/a | PENDING | pending |
-| Long Tells, passages, "Tell the rest" (CER-1) still hold | RC (verified by the existing suites) | yes (CER-1) | yes (v17) | PENDING key | NOT RUN | n/a | n/a |
-| Evaluation corpus and metrics reproducible | RC (#92) | no | n/a | PENDING key (live baseline) | n/a | n/a | n/a |
+| K35 "Nothing to remember" (every retained Tell findable, honest copy, durable outcome) | RC (#89 app, #90 server) | no | no | VERIFIED on the 15 Nov live outputs (retrievable 100%, omitted-as-understood 0 held-out); UI retrieval, relaunch and two more devices PASS on the local stack | NOT RUN | PENDING | pending |
+| K36 "Who is Has?" (as a class: grounded referents, no list as the mechanism) | RC (#91; #88 merged) | #88 only | no | VERIFIED on the live outputs: fabricated identities 23 → 0 (dev), 5 → 0 (held-out) | NOT RUN | PENDING | pending |
+| Repeated evidence no longer drops a memory | RC (#90) | no | no | VERIFIED on the live outputs (duplicates 0) | NOT RUN | PENDING | pending |
+| No silent loss: every drop accounted for in coverage | RC (#90) | no | no | Held-out 0; dev 1 (vl-001, the page-note limit, 1 of 3 repeats) | NOT RUN | PENDING | pending |
+| Identity resolution across realistic language (0% unnecessary clarification, 0 fabricated on the corpus) | RC (#91) | no | no | Held-out every gate; dev unnecessary clarification 1.0%, wrong person 2 (na-014) | n/a | PENDING | pending |
+| Safety-critical Showing Up eligibility (release-blocking, founder item 6) | RC (eval gate) | no | n/a | 0 on dev and held-out | n/a | PENDING | pending |
+| Long Tells, passages, "Tell the rest" (CER-1) still hold | RC (verified by the existing suites) | yes (CER-1) | yes (v17) | voice_long category in the live outputs | NOT RUN | n/a | n/a |
+| Evaluation corpus and metrics reproducible | RC (#92; corpus v1.2) | no | n/a | RUN: live baseline and candidate (CI run 43679094441), replayed free after every fix | n/a | n/a | n/a |
 
 ## 5. Evidence (filled from the integrated run; see `cmr1-handoff.md` §4c for the numbers)
 
 | Tier | Result |
 |---|---|
-| UNIT (Deno, Jest, tsc, eslint) | Deno 569 / 0; Jest 134 suites / 1366 tests; tsc clean; eslint 0 errors; CI on PR #93 green |
+| UNIT (Deno, Jest, tsc, eslint) | Deno 596 / 0; Jest 135 suites / 1377 tests; tsc clean; eslint 0 errors |
 | INTEGRATION (standard oracle / realistic / replay; pgTAP) | 0 must-not violations, 0 persons guessed in all three; pgTAP 31 files / 923 tests; fingerprint md5 `26a8c58d` |
 | CMR-1 eval, oracle and realistic, dev and held-out, vs `main` | every gated metric at target, no regressions (handoff §4c) |
 | BLACK-BOX (local stack, replayed replies, the RC's gateway) | Every suite PASS under its stated conditions: b3 20, b4 5, b5 4, b6 4, b7b8 4, dates 2, h4 2, k19 2, k20 22, k25 3, k27 2, k28 3, k4 36, k4legacy 18, narrative 3, narratives 4, notebook J3+J5, removal 3, showingup 2, today 2, trustfloor 1. k10 passes Monday to Friday only (weekend "last Friday" asks, by design); notebook J1/J6 and J2 are live-model tests with no recorded replies. The stall first seen was K37, a latent app bug now fixed |
-| LIVE-MODEL | **RUN** through CI with the repository secret on the founder's label (run 43679094441: 483 calls, $6.27, 9 minutes; dev and held-out, three repeats). The stored outputs are replayed free through `main` and the candidate after every fix (`run-evals-cmr1-replay`). On the candidate `c1e6eb6`: held-out meets every gated target; dev remaining misses are named in `cmr1-handoff.md` §4f. Latency p50 3.9–4.0 s, p95 7.4–8.5 s, unchanged from `main` |
-| NATIVE-SIMULATOR | NOT RUN: no iOS simulator reachable from this environment; an EAS-hosted path is prepared but gated (`cmr1-handoff.md` §4c, the native staging entry) |
+| LIVE-MODEL | **RUN** through CI with the repository secret on the founder's label (run 43679094441: 483 calls, $6.27, dev and held-out, three repeats). The stored outputs are replayed free through `main` and the candidate after every fix. On the candidate `8ccc1a7` (run 43687945729): **held-out meets every gated target**, including safety-critical eligibility 0; dev meets every gate but silent loss 1 (vl-001) and the na-014 identity miss (`cmr1-handoff.md` §4g). Latency p50 3.9–4.0 s, p95 7.4–8.5 s, unchanged |
+| NATIVE-SIMULATOR | NOT RUN: no iOS simulator reachable from this environment (Linux, no Mac, no Remote Control). The EAS-hosted path is prepared as `cmr1-native-staging.patch` (workflow, `e2e-staging` profile, Maestro journey, staging-account script that refuses production) and needs the founder's steps listed in the delivery package |
 | FOUNDER-DEVICE | PENDING the acceptance session |
 
 ## 6. Known remaining risks
@@ -95,11 +96,11 @@ Stages per the ledger's reporting model. "RC" = on `claude/cmr1-rc`.
 - The K34 class fix rests on the recognizer's segment timing and "nothing heard since" together; the exact
   iOS 18 behaviour at Stop is read from the module's source, not observed. The native pass must log one
   result stream across a pause before K34 is called more than IMPLEMENTED.
-- No live-model run of the candidate yet: all extraction evidence is oracle, realistic-oracle and replay.
+- The live evidence is one live run (15 Nov) replayed through each fix; a fresh paid live run of the final head is optional and costs about $6 (label `run-evals-cmr1`). Two dev misses remain (vl-001, na-014), named in `cmr1-handoff.md` §4g.
+- Corpus v1.2 lists both true readings for three dev facts after seeing live output (na-008, fr-007, na-002); the held-out set is unchanged. The independent reviewer judged them honest and asks the founder to confirm the ledger change.
 - Product judgements taken in code, each recorded in `approved-design-coverage.md` and needing the founder's
   word: where "Your words" lives and its name; a declined reading no longer hides the Tell on the person's
-  Pages; a removed person's note moving under "Your words"; a relative who has died is not offered as the
-  subject of the next pronoun; `no_one_named` reported as not-understood coverage; K7 moving from auto to a
+  Pages; a removed person's note moving under "Your words"; a relative who has died keeps their own story as their related line while a present or future action stays with the living person (reviewed 15 Nov: no blanket exclusion, `cmr1-handoff.md` §4g); `no_one_named` reported as not-understood coverage; K7 moving from auto to a
   glance (`subject_moved`); the new Kept-card copy.
 - Prompt v7 unchanged; a wording nudge ("every statement names its subject; `person_mention` is never a
   verb") is recommended for the next founder-authorised live run, not shipped.

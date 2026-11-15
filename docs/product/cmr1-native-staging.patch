@@ -1,0 +1,647 @@
+diff --git a/.eas/workflows/cmr1-native.yml b/.eas/workflows/cmr1-native.yml
+new file mode 100644
+index 0000000..db670a2
+--- /dev/null
++++ b/.eas/workflows/cmr1-native.yml
+@@ -0,0 +1,80 @@
++# CMR-1 native journeys on an EAS-hosted iOS simulator (docs/product/cmr1-native-staging.md).
++#
++# Manual dispatch only. It builds the app for the simulator with the `e2e-staging` profile (eas.json),
++# pointed at the RC's Supabase preview branch, then drives the three Maestro flows against that build.
++# Nothing here touches production: the Supabase URL and anon key come in as inputs at dispatch time
++# (never committed), and the accounts are staging-only test accounts (e2e/make-staging-account.mjs).
++#
++# Dispatch (from a checkout of claude/cmr1-rc or claude/cmr1-native-staging, after the founder's yes;
++# every run spends EAS build minutes and Maestro minutes on the account's plan):
++#
++#   EXPO_TOKEN=… npx eas-cli workflow:run .eas/workflows/cmr1-native.yml --non-interactive \
++#     -F supabase_url=https://<branch-ref>.supabase.co -F supabase_anon_key=<the branch's anon key> \
++#     -F e2e_email=<fresh account A> -F e2e_password=<…> \
++#     -F journey_email=<fresh account B> -F journey_password=<…>
++#
++# Order of the flows: the CMR-1 journey first (self-contained: its own fresh account, people added by
++# name), then the permanent fresh-install gate (needs a never-used account AND a simulator contact
++# "Maya Okafor" with a birthday within 14 days — not present on an EAS simulator unless seeded; see the
++# doc), then smoke-tell on the account fresh-install finished setting up.
++#
++# Voice cannot be driven here (no microphone, SFSpeechRecognizer unavailable on a simulator): the voice
++# scenarios stay with the founder's device pass.
++name: CMR-1 native journeys (staging simulator)
++
++on:
++  workflow_dispatch:
++    inputs:
++      supabase_url:
++        type: string
++        required: true
++        description: "The RC's Supabase preview branch API URL, https://<branch-ref>.supabase.co. Never production (kddpxiiyxgvjrtpdkvio)."
++      supabase_anon_key:
++        type: string
++        required: true
++        description: "That preview branch's anon (publishable) key. Production's key is refused by the build step below."
++      e2e_email:
++        type: string
++        required: true
++        description: "Fresh-install gate account (never used; no notebook_deck). Also smoke-tell's account afterwards."
++      e2e_password:
++        type: string
++        required: true
++        description: "Its password."
++      journey_email:
++        type: string
++        required: true
++        description: "CMR-1 journey account (never used; notebook_deck, tell, ai_extraction, memory_v2, shell_v2 on)."
++      journey_password:
++        type: string
++        required: true
++        description: "Its password."
++
++jobs:
++  build_ios_simulator:
++    name: Build iOS simulator (e2e-staging)
++    type: build
++    params:
++      platform: ios
++      profile: e2e-staging
++    env:
++      # The profile carries no Supabase target on purpose: it comes from the dispatch inputs.
++      EXPO_PUBLIC_SUPABASE_URL: ${{ inputs.supabase_url }}
++      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ inputs.supabase_anon_key }}
++
++  maestro_journeys:
++    name: Maestro journeys (CMR-1, fresh-install gate, smoke-tell)
++    needs: [build_ios_simulator]
++    type: maestro
++    params:
++      build_id: ${{ needs.build_ios_simulator.outputs.build_id }}
++      flow_path:
++        - .maestro/cmr1-journey.yaml
++        - .maestro/fresh-install.yaml
++        - .maestro/smoke-tell.yaml
++    env:
++      E2E_EMAIL: ${{ inputs.e2e_email }}
++      E2E_PASSWORD: ${{ inputs.e2e_password }}
++      E2E_PERSON: Maya Okafor
++      E2E_JOURNEY_EMAIL: ${{ inputs.journey_email }}
++      E2E_JOURNEY_PASSWORD: ${{ inputs.journey_password }}
+diff --git a/.maestro/cmr1-journey.yaml b/.maestro/cmr1-journey.yaml
+new file mode 100644
+index 0000000..d559297
+--- /dev/null
++++ b/.maestro/cmr1-journey.yaml
+@@ -0,0 +1,283 @@
++# CMR-1 INTEGRATED JOURNEY (docs/product/cmr1-native-staging.md; founder acceptance cmr1-acceptance.md)
++#
++# One fresh account, the whole loop the founder named, typed, on a simulator against the RC's own
++# Supabase preview branch (migration + the RC gateway with the model key):
++#
++#   onboarding, four people added by name → a natural story in the K36 shape, told from the child's
++#   page ("Grace has not been sleeping very well and has been very clingy to my wife Rosa.") → the
++#   review ("Here's what I'll remember.") with no one called "Has" → a genuinely ambiguous person
++#   (two Mateos: "Which Mateo do you mean?", answered once) → the line on that Mateo's page only →
++#   Undo of that whole Tell → a note naming nobody, found under "Your words" (People's foot,
++#   notebook_deck) and its Source ("Your note") → a line's source from Grace's page ("You told
++#   Kinship · … · open the note") → correcting a line's words ("Edit words" → Save) → declining a
++#   reading ("Not this" → "Forget it") while the Tell's words stay on Grace's Pages → a promise due
++#   today becomes Today's Moment ("You said you'd call Rosa tonight.") → Message hand-off (the
++#   simulator opens Messages; nothing is sent) → return to Kinship → the return check when it is due.
++#
++# VOICE IS NOT DRIVEN HERE. A simulator has no microphone and SFSpeechRecognizer is unavailable, so
++# K34 (a spoken passage kept once) and the spoken scenarios (cmr1-acceptance.md 2 and 5) stay with the
++# founder's device pass. Everything below is typed.
++#
++# Names are placeholders from the CMR-1 eval rosters (evals/cmr1/rosters.json: "hart" and "circle"),
++# invented people only. Never the founder's family or People.
++#
++# Needs: a build of the e2e-staging profile (eas.json) pointed at the RC's preview branch; a dedicated,
++# NEVER-USED account on that branch with shell_v2, tell, ai_extraction, memory_v2 and notebook_deck on
++# through user_flag_overrides (e2e/make-staging-account.mjs --notebook); the branch's ai-gateway with
++# ANTHROPIC_API_KEY set as that branch's own edge-function secret. The understanding is the live model,
++# so each wait is generous and the few places a model may honestly ask are handled either way.
++# The hand-off needs a contact with a phone number: a fresh simulator's own sample contacts (Kate Bell)
++# serve, through the system picker; nothing about them is stored.
++#
++#   maestro test .maestro/cmr1-journey.yaml \
++#     -e E2E_JOURNEY_EMAIL=<a never-used staging account> -e E2E_JOURNEY_PASSWORD=<…>
++appId: com.zenroost.kinship
++env:
++  STORY: "Grace has not been sleeping very well and has been very clingy to my wife Rosa."
++  AMBIGUOUS: "Mateo loved the book I lent him."
++  NOBODY: "Ran into an old teammate from the city office. She is moving to Lisbon in March."
++  PROMISE: "I told Rosa I'd call her tonight."
++---
++- launchApp:
++    clearState: true
++    clearKeychain: true
++    permissions:
++      contacts: allow
++
++# ── Onboarding: promise → sign in (email, the one path automation can drive) → name → consent ──
++- assertVisible: "Remember what matters about the people you care about."
++- tapOn: "Use email"
++- tapOn: "Email"
++- inputText: ${E2E_JOURNEY_EMAIL}
++- tapOn: "Password"
++- inputText: ${E2E_JOURNEY_PASSWORD}
++- tapOn: "Sign in"
++- extendedWaitUntil:
++    visible: "What should Kinship call you?"
++    timeout: 20000
++- inputText: "Dana"
++- tapOn: "Continue"
++- assertVisible: "So Kinship can understand what you tell it"
++- tapOn: "Allow understanding"
++
++# ── Adding people: four by name (no contact is read; nobody is pre-selected) ──
++- assertVisible: "Who do you want to show up for?"
++- tapOn: "Add someone by name"
++- assertVisible: "Add someone"
++- tapOn: "Their name"
++- inputText: "Grace"
++- tapOn: "Done"
++- tapOn: "Add someone by name"
++- tapOn: "Their name"
++- inputText: "Rosa"
++- tapOn: "Done"
++- tapOn: "Add someone by name"
++- tapOn: "Their name"
++- inputText: "Mateo Vargas"
++- tapOn: "Done"
++- tapOn: "Add someone by name"
++- tapOn: "Their name"
++- inputText: "Mateo Lindgren"
++- tapOn: "Done"
++- assertVisible: "Continue with 4 people"
++- tapOn: "Continue with 4 people"
++
++# No birthdays were read, so setup asks for one thing to tell; the stories below are told from the
++# pages they belong to, as the founder's session does. Skipping is an approved exit (SETUP_COPY.skip).
++- assertVisible: "Tell Kinship one thing about someone."
++- tapOn: "Skip for now"
++- extendedWaitUntil:
++    visible: "Today"
++    timeout: 20000
++
++# ── K36 as a class: the story from the child's page; nobody called "Has"; two lines naming Grace ──
++- tapOn: "People"
++- assertVisible: "Grace"
++- assertVisible: "Mateo Vargas"
++- assertVisible: "Mateo Lindgren"
++- tapOn: "Grace"
++- assertVisible: "Tell Kinship about Grace"
++- tapOn: "Tell Kinship about Grace"
++- assertVisible: "About Grace. In your own words."
++- inputText: ${STORY}
++- tapOn: "Keep"
++- extendedWaitUntil:
++    visible: "(Here’s what I’ll remember\\.|Kept .*|One thing to check.*)"
++    timeout: 60000
++# "has not been sleeping" may be read as health: a held line is memory only after the user's yes.
++- runFlow:
++    when:
++      visible: "Needs your yes"
++    commands:
++      - repeat:
++          while:
++            visible: "Keep it"
++          commands:
++            - tapOn: "Keep it"
++- assertNotVisible: "Who is Has\\?"
++- assertNotVisible: "Which Has do you mean\\?"
++- assertNotVisible: "Add Has"
++- assertNotVisible: "Has isn't in your people yet\\."
++- assertVisible: "Grace .*(sleeping|clingy).*"
++- runFlow:
++    when:
++      visible: "Done"
++    commands:
++      - tapOn: "Done"
++# Grace's page: the lines are hers, in her name.
++- assertVisible: "Grace .*(sleeping|clingy).*"
++- assertNotVisible: "Has .*"
++- tapOn: "Back"
++
++# ── Genuine ambiguity: two Mateos → exactly one question, both offered; the answer places the line ──
++- tapOn: "Tell Kinship something.*"
++- assertVisible: "About anyone. In your own words."
++- inputText: ${AMBIGUOUS}
++- tapOn: "Keep"
++- extendedWaitUntil:
++    visible: "Which Mateo do you mean\\?"
++    timeout: 60000
++- assertVisible: "Mateo Vargas"
++- assertVisible: "Mateo Lindgren"
++- tapOn: "Mateo Vargas"
++- extendedWaitUntil:
++    visible: "Done"
++    timeout: 30000
++- tapOn: "Done"
++- extendedWaitUntil:
++    visible: "Kept for Mateo Vargas\\."
++    timeout: 30000
++- tapOn: "Mateo Vargas"
++- assertVisible: ".*loved the book.*"
++- tapOn: "Back"
++- tapOn: "Mateo Lindgren"
++- assertNotVisible: ".*loved the book.*"
++- tapOn: "Back"
++
++# ── Undo: the whole Tell and its line, gone, from the Kept card ──
++- assertVisible: "Kept for Mateo Vargas\\."
++- tapOn: "Undo"
++- assertNotVisible: "Kept for Mateo Vargas\\."
++- tapOn: "Mateo Vargas"
++- assertNotVisible: ".*loved the book.*"
++- tapOn: "Back"
++
++# ── Every retained Tell is findable: a note naming nobody → "Your words" at the foot of People → Source ──
++- tapOn: "Tell Kinship something.*"
++- inputText: ${NOBODY}
++- tapOn: "Keep"
++- extendedWaitUntil:
++    visible: "(Kept your words.*|Nothing added from that one.*|Who is this about\\?|Here’s what I’ll remember\\.)"
++    timeout: 60000
++# Should the model ask who this is about, nothing is guessed: the words are kept, nothing added.
++- runFlow:
++    when:
++      visible: "Who is this about\\?"
++    commands:
++      - tapOn: "Don’t keep"
++- runFlow:
++    when:
++      visible: "Done"
++    commands:
++      - tapOn: "Done"
++- extendedWaitUntil:
++    visible: "(Kept your words.*|Nothing added from that one.*)"
++    timeout: 30000
++- scrollUntilVisible:
++    element:
++      text: "Your words"
++    direction: DOWN
++- tapOn: "Your words"
++- assertVisible: "What you told Kinship that isn't about anyone in People yet.*"
++- assertVisible: "Ran into an old teammate.*"
++- tapOn: "Ran into an old teammate.*"
++- assertVisible: "Your note"
++- assertVisible: "Typed.*"
++- assertVisible: "Ran into an old teammate.*"
++- tapOn: "Back"
++- tapOn: "Back"
++
++# ── A line's source, from Grace's page: the line sheet → "open the note" → the note ──
++- tapOn: "Grace"
++- tapOn: "Grace .*sleeping.*"
++- assertVisible: "You told Kinship.*open the note"
++- tapOn: "You told Kinship.*open the note"
++- assertVisible: "Your note"
++- assertVisible: "What Kinship kept from this"
++- assertVisible: "Grace has not been sleeping very well.*"
++- tapOn: "Back"
++
++# ── Correcting a reading: the user's words replace Kinship's; the edit wins ──
++- tapOn: "Grace .*sleeping.*"
++- tapOn: "Edit words"
++- assertVisible: "In your words"
++- tapOn: "What to remember"
++- eraseText: 300
++- inputText: "Grace has been sleeping badly lately"
++- tapOn: "Save"
++- assertVisible: "Grace has been sleeping badly lately.*"
++
++# ── Declining a reading: the line goes; the Tell's words stay on Grace's Pages ──
++- tapOn: "Grace .*clingy.*"
++- tapOn: "Not this"
++- assertVisible: "Forget this line\\? Your note stays exactly as you wrote it\\."
++- tapOn: "Forget it"
++- assertNotVisible: "Grace .*clingy.*"
++- tapOn: "Pages"
++- assertVisible: ".*You told Kinship"
++- assertVisible: "Grace has not been sleeping very well and has been very clingy to my wife Rosa\\."
++- tapOn: "Back"
++
++# ── A Today Moment from a trusted memory: the user's own promise, due today ──
++- tapOn: "Rosa"
++- tapOn: "Tell Kinship about Rosa"
++- inputText: ${PROMISE}
++- tapOn: "Keep"
++- extendedWaitUntil:
++    visible: "(Here’s what I’ll remember\\.|Kept .*|One thing to check.*)"
++    timeout: 60000
++- runFlow:
++    when:
++      visible: "Needs your yes"
++    commands:
++      - repeat:
++          while:
++            visible: "Keep it"
++          commands:
++            - tapOn: "Keep it"
++- runFlow:
++    when:
++      visible: "Done"
++    commands:
++      - tapOn: "Done"
++- tapOn: "Back"
++- tapOn: "Today"
++- extendedWaitUntil:
++    visible: "You said you.d .*Rosa.*"
++    timeout: 30000
++- assertVisible: "I did this"
++
++# ── Hand-off: Message opens Messages; nothing is sent; Kinship never stores the number ──
++- tapOn: "Message Rosa"
++# Rosa was typed, not picked from Contacts, so the sheet asks which contact she is (read at tap time).
++- runFlow:
++    when:
++      visible: "Choose Rosa"
++    commands:
++      - tapOn: "Choose Rosa"
++      - tapOn: "Kate Bell"
++- extendedWaitUntil:
++    visible: "Open Messages"
++    timeout: 15000
++- tapOn: "Open Messages"
++- launchApp:
++    stopApp: false
++
++# ── Return check: the app returns to Kinship, never a 1.0 screen; the question when it is due ──
++- assertVisible: "Today"
++- runFlow:
++    when:
++      visible: "Did you .*Rosa.*\\?"
++    commands:
++      - tapOn: "Yes"
++- assertVisible: "Today"
+diff --git a/docs/product/cmr1-native-staging.md b/docs/product/cmr1-native-staging.md
+new file mode 100644
+index 0000000..ad38e1a
+--- /dev/null
++++ b/docs/product/cmr1-native-staging.md
+@@ -0,0 +1,194 @@
++# CMR-1 native staging: the simulator run on EAS, against the RC's own Supabase branch
++
++**Status: PREPARED, NOT RUN. Nothing below happens without the founder's yes at each marked step; nothing here
++touches production.** Companion to `cmr1-release-plan.md` (the NATIVE-SIMULATOR row reads NOT RUN) and
++`cmr1-acceptance.md`. This is the only native path open to a cloud session: Linux, no KVM, no Mac, no Remote
++Control to a Mac, so the simulator has to be EAS-hosted. The files on `claude/cmr1-native-staging` (= the RC
++`fc974b7` + these):
++
++| File | What it is |
++|---|---|
++| `.eas/workflows/cmr1-native.yml` | Manual-dispatch EAS Workflow: build the iOS simulator app with `e2e-staging`, then run three Maestro flows on an EAS simulator |
++| `eas.json` → `e2e-staging` | A copy of `e2e-sim` without a Supabase target and without the local-networking entitlement (`EXPO_PUBLIC_E2E_LOCAL`); the branch URL and anon key arrive as workflow inputs, never committed. Every existing profile is byte-for-byte unchanged |
++| `.maestro/cmr1-journey.yaml` | The integrated typed journey the founder named (below). Voice is not driven: a simulator has no microphone and SFSpeechRecognizer is unavailable |
++| `e2e/make-staging-account.mjs` | Makes a never-used test account on a preview branch with the dogfood flags on for that account alone; refuses the production ref |
++
++## 1. How the staging works
++
++**The server.** The Supabase GitHub integration makes one preview branch per PR (`FUNCTIONS_DEPLOYED` when done).
++For PR #93 (`claude/cmr1-rc`) that branch would carry the RC's migration `20261114090000_v2_capture_understanding`
++(applied by the integration's *migrate* step) and be an isolated project: its own database, auth, API URL
++`https://<branch-ref>.supabase.co`, anon key and service-role key, no production data, no production accounts.
++
++Two things the integration does **not** give, verified on 15 Nov against the two preview branches that exist
++(`yycpamsjsroidfkfzcjn` for #90, `ourilvivxrmlwsroesbw` for #91) by listing their edge functions:
++
++1. **The branch does not run the PR's gateway.** Both branches' function records are identical to production's
++   (same function ids, `ai-gateway` **v17**, same bundle hash, same entrypoint path from the founder's Mac).
++   `FUNCTIONS_DEPLOYED` reports the integration's *deploy* step; the records say the step changed nothing. The
++   same was seen on PR #58 (`option-a-release-sequence.md`). So the RC gateway (v18) must be put on the branch by
++   hand, from the RC checkout, with the branch's ref, never production's:
++   `npx supabase functions deploy ai-gateway --project-ref <branch-ref> --use-api`. Then
++   `npx supabase functions download ai-gateway --project-ref <branch-ref> --use-api` and a diff against the
++   checkout, as the release plan does for production. This is a deploy to a throwaway project, but it is a deploy:
++   founder's yes (§4 b).
++2. **Secrets are branch-specific** (Supabase, "Managing secrets for branches": "Secrets set for one branch are not
++   automatically available in other branches"). The gateway reads the model key from the edge-function secret
++   **`ANTHROPIC_API_KEY`** (`supabase/functions/ai-gateway/index.ts`). Without it every Tell on the branch fails
++   honestly ("Couldn't understand this one. Your words are kept…"), and the journey cannot pass. Only the founder
++   holds the key. The exact setting, either way:
++   - Dashboard: switch to the branch in the branch dropdown → **Edge Functions › Secrets** → add `ANTHROPIC_API_KEY`
++     (this is the per-project secrets page, `https://supabase.com/dashboard/project/<branch-ref>/functions/secrets`).
++   - CLI: `npx supabase secrets set --project-ref <branch-ref> ANTHROPIC_API_KEY=<the CMR-1 key>` (the value typed
++     into the shell by the founder, never into a chat or a file in the repo).
++   Use the dedicated CMR-1 key the founder already made (`cmr1-handoff.md` §2), and revoke it when the milestone
++   closes. `AI_DAILY_LIMIT`, `AI_CONSENT_VERSION`, `AI_ALLOWED_ORIGINS` keep their defaults (50, 1, none).
++
++**The accounts.** Two never-used accounts on the branch, made with the branch's service-role key (from the dashboard
++with the branch selected, Settings › API, or `npx supabase --experimental branches get claude/cmr1-rc -o env`):
++
++```bash
++# account A: the fresh-install gate, then smoke-tell (the alpha look the gate was written for: no notebook_deck)
++STAGING_API_URL=https://<branch-ref>.supabase.co STAGING_SERVICE_ROLE_KEY=<branch key> node e2e/make-staging-account.mjs
++# account B: the CMR-1 journey (the notebook look the founder's account has)
++STAGING_API_URL=https://<branch-ref>.supabase.co STAGING_SERVICE_ROLE_KEY=<branch key> node e2e/make-staging-account.mjs --notebook
++```
++
++Each writes `user_flag_overrides` rows for that user id only: `shell_v2`, `memory_v2`, `tell`, `ai_extraction`,
++`relationship_page_v2`, plus `notebook_deck` with `--notebook` and `voice_capture` with `--voice` (voice is on the
++founder's account, but a simulator cannot use it, so the journey account does without). `feature_flags` stays as the
++migrations leave it: every flag default off, rollout 0, so nobody else on the branch is on. These are the same rows
++the founder sets by hand for a real account; here they are on a project that will be deleted with the PR. The
++script refuses `kddpxiiyxgvjrtpdkvio` and any key minted for it. Credentials land in the gitignored
++`e2e/.captured/staging-account.<branch-ref>.local.json`.
++
++**The app.** EAS builds the `e2e-staging` profile for the simulator with `EXPO_PUBLIC_SUPABASE_URL` and
++`EXPO_PUBLIC_SUPABASE_ANON_KEY` taken from the dispatch inputs (the workflow's build job `env`), so the branch's
++address is never in git. `EXPO_PUBLIC_V2_ENTRY=1` and analytics off, as `e2e-sim`. The anon key is a client key by
++design, but it still belongs to a throwaway project, which is why inputs rather than `eas.json`.
++
++**The flows**, in the order the workflow runs them on one EAS simulator (each starts with `clearState`; the server
++accounts persist between flows):
++
++1. `.maestro/cmr1-journey.yaml` on account B. Onboarding (email sign-in, name, consent) → four people added by name
++   (Grace, Rosa, Mateo Vargas, Mateo Lindgren: invented names from `evals/cmr1/rosters.json`, never the founder's
++   family) → the first-Tell step skipped (no birthdays were read) → from Grace's page, the K36-shaped story "Grace
++   has not been sleeping very well and has been very clingy to my wife Rosa." → the review: nobody called "Has", two
++   lines naming Grace, held lines kept on the user's yes → from the Tell pill, "Mateo loved the book I lent him." →
++   exactly "Which Mateo do you mean?", both offered, Vargas chosen → the line on Vargas's page, not Lindgren's →
++   Undo from the Kept card, the line gone → "Ran into an old teammate from the city office. She is moving to Lisbon
++   in March." → "Kept your words, under “Your words” in People" (or, if the model asks who, nothing is guessed:
++   Don't keep) → People's foot → Your words → the note → its Source ("Your note", "Typed") → Grace's page → a line →
++   "You told Kinship · … · open the note" → the Source with "What Kinship kept from this" → Edit words → Save →
++   Not this → Forget it: the line gone, the Tell's words still on Grace's Pages under "You told Kinship" → from
++   Rosa's page, "I told Rosa I'd call her tonight." → Today's Moment "You said you'd call Rosa tonight." with "I did
++   this" and "Message Rosa" → the hand-off (Rosa was typed, so "Which contact is Rosa?" → the system picker → the
++   simulator's own sample contact Kate Bell; nothing stored) → "Open Messages" → Messages opens → back to Kinship
++   on Today, never a 1.0 screen → "Did you call Rosa tonight?" answered Yes when it is shown (its timing is Jest's;
++   the flow does not wait ten minutes).
++2. `.maestro/fresh-install.yaml` on account A: the permanent gate, unchanged. **It needs a simulator contact "Maya
++   Okafor" with a birthday within 14 days and a mobile number** (its header). An EAS simulator has only the
++   sample contacts, so on EAS this flow fails at "Maya Okafor" unless that contact is seeded; the pre-packaged
++   Maestro job has no seeding step. Run it on EAS for the record (it proves promise → sign-in → setup is drawn), and
++   count it as a PASS only from a Mac (`xcrun simctl addmedia booted maya.vcf`), or ask for a custom job later.
++3. `.maestro/smoke-tell.yaml` on account A with `E2E_PERSON=Maya Okafor`: passes only after 2 did.
++
++A flow's failure does not undo the others' evidence: each uploads its own log and video to the run.
++
++**What this run proves, and does not.** NATIVE-SIMULATOR for the typed CMR-1 journey on the RC's own server
++code, with the live model: K36 as a class, genuine ambiguity asked once, every retained Tell findable, source,
++correction, decline, Undo, a grounded Moment, the hand-off and the return. It does not touch K34 (voice), the second
++phone, or anything on the founder's own data. FOUNDER-DEVICE stays the only tier that makes an item VERIFIED.
++
++## 2. Dispatching the workflow
++
++From a checkout of `claude/cmr1-native-staging` (or the RC once these files are on it), with the founder's EAS
++token in the shell (the cloud environment has it proxy-injected for `api.expo.dev`; `EXPO_TOKEN=proxy-injected`):
++
++```bash
++npx eas-cli workflow:validate .eas/workflows/cmr1-native.yml --non-interactive
++
++npx eas-cli workflow:run .eas/workflows/cmr1-native.yml --non-interactive \
++  -F supabase_url=https://<branch-ref>.supabase.co \
++  -F supabase_anon_key=<the branch's anon key> \
++  -F e2e_email=<account A email> -F e2e_password=<account A password> \
++  -F journey_email=<account B email> -F journey_password=<account B password>
++
++npx eas-cli workflow:runs                      # the run id
++npx eas-cli workflow:view <run id>             # jobs and their status
++npx eas-cli workflow:logs <run id>             # pick the Maestro job for the flow logs
++npx eas-cli workflow:insights:maestro          # per-flow pass/flake history, once there is some
++```
++
++`workflow:run` packages the working directory and uploads it (or `--ref <commit>` to build from git), so run it from a
++clean checkout. Inputs are stored with the run on expo.dev, visible to the account: the passwords are those of two
++throwaway staging accounts, the URL and key those of a project deleted with the PR. The Maestro job's `env` is how the
++flows receive `E2E_EMAIL`, `E2E_PASSWORD`, `E2E_PERSON`, `E2E_JOURNEY_EMAIL`, `E2E_JOURNEY_PASSWORD` (Maestro reads
++`${VAR}` from its environment when no `-e` is given).
++
++## 3. Expected cost
++
++Read on 15 Nov with read-only `eas-cli`/API calls:
++
++- **Plan: Free** (`thoroxnard`, subscription "Free", price 0). **`workflow:validate` of this file is refused on the
++  Free plan with "Running maestro_test jobs requires a paid plan"**, so the Maestro job cannot run at all until the
++  account is on a paid plan (expo.dev › Account settings › Billing). Everything else in the file validates (the
++  inputs and the build job were validated on their own: "Workflow configuration YAML is valid.").
++- **Build minutes.** The last `dogfood-v2` iOS device build (`dc8d97a2`, 11 Nov) took 341 s of build time on a
++  medium worker (queue 20 s, wait 3 s). A simulator Release build is of the same order: budget **6–8 build minutes**
++  per run, plus the queue. On a paid plan an iOS build is billed at that plan's per-minute rate once the plan's
++  included builds are used; on the Free plan it counts against the monthly free iOS build quota and runs at low
++  priority.
++- **Maestro minutes.** The three flows drive one simulator: the CMR-1 journey makes five live-model Tells with up to
++  60 s waits each; expect **8–12 minutes** of E2E time for the run (plus simulator boot and app install), billed at
++  the plan's E2E/Maestro per-minute rate. The exact rates were not readable from here (`docs.expo.dev` and the
++  billing page are outside this session's network); the founder reads them at Billing before approving.
++- **Model spend.** Five Tells on the branch gateway with the CMR-1 key, each one `relationship_extract` call plus a
++  possible re-read: a few cents. `AI_DAILY_LIMIT` (50 per user per day) caps it.
++- **Supabase.** A preview branch is billed per hour while active (it pauses when idle) at the organization's
++  branching rate; the integration deletes it when PR #93 closes or merges.
++
++No workflow has ever run on this account (`workflow:runs` is empty), so this is the first.
++
++## 4. Founder approvals needed before the first run, in their smallest form
++
++| | Approval | Smallest form |
++|---|---|---|
++| **a** | **Free preview-branch capacity for PR #93.** The integration cancelled #93's branch for capacity; the two branches that exist belong to the component PRs #90 and #91, whose content the RC supersedes (`cmr1-release-plan.md` §1 recommends merging the RC itself). | Either close #90 and #91 (their branches are deleted with them), or delete the two branches in the dashboard (Branches › the branch › Delete) or with `npx supabase --experimental branches delete <branch-ref>`, then re-trigger #93's branch by pushing to `claude/cmr1-rc` or closing and reopening #93. One sentence: "delete the #90 and #91 preview branches and recreate #93's." No production object is touched |
++| **b** | **The RC gateway and the model key on #93's branch.** Deploy `ai-gateway` from the RC checkout to `<branch-ref>` (the integration will not), and set `ANTHROPIC_API_KEY` as that branch's edge-function secret (§1, item 2). | The founder runs the two commands in §1 (or sets the secret in the branch's Edge Functions › Secrets page) with the existing CMR-1 key. The key is never pasted into a chat, a file in the repo, a workflow input or an EAS environment variable. Revoke it when CMR-1 closes |
++| **c** | **The spend.** A paid EAS plan (the Maestro job is refused on Free), one simulator build (~6–8 build minutes), ~8–12 Maestro minutes, a few cents of model calls, the branch's hours. | "Yes to one run of `cmr1-native.yml` on a paid plan" — plus the plan change itself at Billing, which only the account owner can make. The founder may prefer to cancel the plan after the pass; nothing in the repo depends on it staying |
++
++Also for the founder's awareness (no approval needed): the two staging accounts hold the flag rows (§1), the run
++stores its inputs on expo.dev, and this document's §1 corrects a premise in `cmr1-release-plan.md`'s staging notes:
++a preview branch's `FUNCTIONS_DEPLOYED` is not a deploy of the PR's functions.
++
++## 5. What was verified here, and what could not be
++
++Verified on 15 Nov from this environment, spending nothing:
++
++- `eas-cli` 27.10.0 with the proxy-injected token: `whoami` (thoroxnard), `project:info` (`@thoroxnard/kinship`,
++  `b2f87ba6-…`), `build:list` (the three latest iOS builds), `env:list` for development/preview/production
++  (`EXPO_PUBLIC_POSTHOG_KEY` and a `SENTRY_AUTH_TOKEN` secret in each; no Supabase variables), `workflow:runs`
++  (empty), `account:view`; the account's plan through the GraphQL API (Free).
++- `workflow:validate`: the full file is refused only for the paid-plan gate on the Maestro job; the same file without
++  the Maestro job is "valid", which covers the `workflow_dispatch` inputs, the `build` job with `profile: e2e-staging`
++  and its `env`. The Maestro job's own params therefore validated only as far as the gate (its `type` was recognised;
++  `build_id`, `flow_path` as a list and `env` follow the published shape but were not confirmed by the server).
++- `eas.json` parses as JSON; removing `e2e-staging` gives the previous file byte for byte.
++- The three Maestro flows parse as YAML (header + commands). Every selector in `cmr1-journey.yaml` was cross-checked
++  against the RC's copy: `SETUP_COPY`, `CONSENT_COPY`, `AddByNameSheet`, `NOTEBOOK_TELL_COPY`,
++  `NOTEBOOK_REVIEW_COPY` (curly apostrophes where the source has them: "Here’s what I’ll remember.", "Don’t keep"),
++  `reviewModel` prompts ("Which Mateo do you mean?", "Who is Has?", "Kept for …"), `KEPT_COPY.undo`, `WORDS_COPY`,
++  `SOURCE_COPY`, `LINE_COPY`, `WordsPane` ("In your words", "What to remember", "Save"), `PAGES_COPY`, the person
++  page's "Tell Kinship about <first>" label and lens names, `promiseStatement`, `DECK_COPY.did`, the Moment's
++  `Message <name>`, `CHANNEL_LABEL.text` ("Open Messages"), the hand-off sheet's "Choose <name>", and the return
++  question. Where the model's wording is its own (the lines it writes), the flow matches by regex on the words the
++  note itself contains.
++- Supabase, read-only: the branch list (three: main, #90's, #91's; none for #93) and the function records on
++  production and both branches (identical, v17).
++
++Not verifiable here: the Maestro job's execution (plan-gated); `maestro` itself is not installed, so the flows were
++not executed anywhere; whether the EAS simulator's sample contacts include Kate Bell with a number (true of a fresh
++Xcode simulator, assumed for EAS's); how Maestro on EAS receives the job's `env` (assumed as the process
++environment); the EAS per-minute prices; and the live model's wording on the day, which the flow tolerates but
++cannot pin. All of that is settled by the first run, which is the founder's call.
+diff --git a/e2e/make-staging-account.mjs b/e2e/make-staging-account.mjs
+new file mode 100644
+index 0000000..9f14ca5
+--- /dev/null
++++ b/e2e/make-staging-account.mjs
+@@ -0,0 +1,45 @@
++// Makes a test account on a Supabase PREVIEW BRANCH for the EAS-hosted simulator run (never production):
++// email + password printed once and written to the gitignored e2e/.captured/staging-account.<ref>.local.json,
++// the dogfood flags on for this account alone through user_flag_overrides (`--notebook`: notebook_deck too;
++// `--voice`: voice_capture too). Nothing is seeded into the account: no people, memories or reasons.
++//
++//   STAGING_API_URL=https://<branch-ref>.supabase.co STAGING_SERVICE_ROLE_KEY=<the branch's service role key> \
++//     node e2e/make-staging-account.mjs --notebook
++//
++// The branch ref and key come from the Supabase dashboard with that branch selected (Settings › API), or
++// `npx supabase --experimental branches get <git-branch> -o env`. The production ref is refused.
++import { Buffer } from "node:buffer";
++import { randomUUID } from "node:crypto";
++import { mkdirSync, writeFileSync } from "node:fs";
++
++const PRODUCTION_REF = "kddpxiiyxgvjrtpdkvio";
++const url = (process.env.STAGING_API_URL ?? "").replace(/\/+$/u, "");
++const key = process.env.STAGING_SERVICE_ROLE_KEY ?? "";
++const m = url.match(/^https:\/\/([a-z]{20})\.supabase\.co$/u);
++if (!m) throw new Error("STAGING_API_URL must be https://<branch-ref>.supabase.co");
++const ref = m[1];
++if (ref === PRODUCTION_REF) throw new Error("that is production; this script is for a preview branch only");
++if (!key) throw new Error("STAGING_SERVICE_ROLE_KEY is required (the branch's own key, never production's)");
++if (key.includes(`"ref":"${PRODUCTION_REF}"`) || Buffer.from(key.split(".")[1] ?? "", "base64").toString().includes(PRODUCTION_REF)) {
++  throw new Error("that service role key belongs to production");
++}
++
++const h = { apikey: key, authorization: `Bearer ${key}`, "content-type": "application/json" };
++const email = `staging-${randomUUID().slice(0, 8)}@kinship.test`;
++const password = `pw-${randomUUID()}`;
++const res = await fetch(`${url}/auth/v1/admin/users`, { method: "POST", headers: h, body: JSON.stringify({ email, password, email_confirm: true }) });
++const user = await res.json();
++if (!res.ok || !user?.id) throw new Error(`could not create the user: ${res.status} ${JSON.stringify(user)}`);
++
++// The flags the dogfood accounts have (cmr1-handoff.md §1), for this account only; every flag stays off
++// by default and at rollout 0 for everyone else (contract §10).
++const keys = ["shell_v2", "memory_v2", "tell", "ai_extraction", "relationship_page_v2",
++  ...(process.argv.includes("--notebook") ? ["notebook_deck"] : []),
++  ...(process.argv.includes("--voice") ? ["voice_capture"] : [])];
++const over = await fetch(`${url}/rest/v1/user_flag_overrides`, { method: "POST", headers: h, body: JSON.stringify(keys.map((flag_key) => ({ user_id: user.id, flag_key, enabled: true }))) });
++if (!over.ok) throw new Error(`flag overrides failed: ${over.status} ${await over.text()}`);
++
++mkdirSync(new URL("./.captured/", import.meta.url), { recursive: true });
++writeFileSync(new URL(`./.captured/staging-account.${ref}.local.json`, import.meta.url), JSON.stringify({ ref, email, password, id: user.id, flags: keys }, null, 2));
++console.log(`staging account ready on ${ref}: ${email} (flags: ${keys.join(", ")})`);
++console.log(`credentials in e2e/.captured/staging-account.${ref}.local.json (gitignored)`);
+diff --git a/eas.json b/eas.json
+index cf6ce7e..0adcb95 100644
+--- a/eas.json
++++ b/eas.json
+@@ -56,6 +56,16 @@
+         "EXPO_PUBLIC_ANALYTICS_ENABLED": "false",
+         "EXPO_PUBLIC_E2E_LOCAL": "1"
+       }
++    },
++    "e2e-staging": {
++      "distribution": "internal",
++      "ios": {
++        "simulator": true
++      },
++      "env": {
++        "EXPO_PUBLIC_V2_ENTRY": "1",
++        "EXPO_PUBLIC_ANALYTICS_ENABLED": "false"
++      }
+     }
+   },
+   "submit": {

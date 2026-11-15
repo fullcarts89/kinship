@@ -192,6 +192,41 @@ Founder-authorised by the `run-evals-cmr1` label; model and effort as the reposi
 - **Four live-shape fixes** (`c1e6eb6`, `pipeline.ts`, each pinned in `identity.test.ts`): a "<name>'s <relation>"-led statement on a pronoun's quote is the relative's line (se-015); a reporting verb after the name keeps a related line related (ev-011); a secret-keeping aside riding as a later quote is not a source (ce-003); an instruction to the AI is never marked not understood (nm-009). Two existing tests caught over-reach in the first draft (the "Sam or Sam's mom?" question; "Mark says he's in" as Mark's own); both rules were narrowed. Deno 584; standard oracle, realistic and replay 0 violations; CMR-1 oracle and realistic no regressions.
 - **Free live replay on `c1e6eb6`** (run 43682659765, the 15 Nov live outputs): **held-out meets every gated target** (silent loss 0, omitted-as-understood 0, safety-critical eligibility 0, wrong person 0, fabricated 0, unnecessary clarification 0%, subject attribution 100%, recall 99.5%, precision 99.0%). **Dev, remaining:** silent loss 1 and omitted-as-understood 1 (vl-001, the documented page-note limit: a spoken run opening without a subject); safety-critical 1 and subject 1 (na-008: the model files "Mark says he's in for the turkey trot with you" as shared with the user, a defensible reading); wrong person 2, ambiguous saved 2, correct clarification 22/24 (na-014 ×2: the model folds "Jordan from the Austin office" into Lars's hosting line and never proposes Jordan; the line on Lars is true, Jordan is not asked about); subject 3+1 (fr-007, na-002: the model adds a correct related line "Yusuf's son Emre is starting school" beside the person's own line, and the grader maps the fact to it); vl-003 ×2 now asks whose promise for "asked if i'd pick it up with amara", a request the user has not accepted (J11's rule; the ledger expects it kept). These are recorded as ledger judgements or model behaviour, not bent in code.
 
+## 4g. Re-reviews of `d4eea01` and `d8c600a`, and the live replay at `270e2b9` (15 Nov 2026, 06:00–07:00 UTC)
+
+- **Re-review of `d4eea01`** (independent agent, read-only): the S1 object-position namesake regression, B3 aside recall, S5 health recall and B1 over-asking. Fixed in `d8c600a`. The retrieval black-box was also corrected: the note the model left empty is honestly "couldn't get to all of it" (server `understanding` = `partial`), and the test matched the old copy.
+- **Re-review of `d8c600a`: two blockers, both fixed in `270e2b9`, pinned both ways.**
+  - An aside that carried news dropped it silently ("Don't tell Mom Ben lost his job", "Don't tell Kaiya Grandpa died"). The aside now has a fixed shape, and sensitive words are never set aside.
+  - "He" was guessed as Nana's husband with someone else in reach ("…was talking to Dave", "Tom came too", "Grace came over with her husband"). Sentence-opening names and "to"/"from" names now count, and "his"/"her" must stand for the owner.
+  - The re-check found one older wrong save, fixed too: "Grace came over with her friend Ana and her husband. He was hilarious." saved on Grace. The note's own "her friend" now says Grace is not "he".
+- **Re-review of `270e2b9`, one blocker; re-review of `da2d573`, the same class again** (fixed in `da2d573`, then structurally in `8ccc1a7`).
+  - A lowercase person between ("Nana met a new neighbor. Her husband…", "Nana's nurse came today. Her husband…", "Nana chatted with the waitress. Her husband…") and names that end like adverbs ("Emily", "Kelly", "Sterling") let another woman's husband save as Nana's.
+  - The reviewer's verdict was that a word list cannot close the class. "His"/"her" is now the owner's only in the owner's own sentence with no other noun phrase between, or when it opens a sentence after one that names no one else. Openers are a closed list.
+  - Every probe note is pinned both ways, and genuine single-relative notes stay related lines with no question. A "Sam, or Sam's brother?" answered with the brother now saves "Sam's brother brought cake".
+- **Corpus v1.2** (`207efd4`): three dev facts list both true readings, recorded in each narrative's notes. The held-out hash is unchanged.
+  - na-008 f2 "mark says hes in too" is Mark's or shared with the user. It is still not eligible; it had been graded safety-critical only for the subject.
+  - fr-007 f2 and na-002 f2 are the person's own line or the son's.
+- **The 15 Nov live outputs replayed through `270e2b9`, `da2d573` and `8ccc1a7`** (runs 43686685597, 43687328510, 43687945729, free; the three give identical figures):
+  - **Held-out meets every gated target:** silent loss 0, omitted-as-understood 0, **safety-critical eligibility 0**, fabricated 0, wrong person 0, unnecessary clarification 0%, recall 99.5%, precision 99.0%, subject 100%.
+  - **Dev:** safety-critical eligibility 0, fabricated 0 (was 23 on `main`), unnecessary clarification 1.0% (32 → 3 Tells), recall 99.2%, precision 99.6%. Two recorded misses remain:
+    - vl-001: a spoken run with no subject, the page-note limit; one of three repeats.
+    - na-014: the model folds "Jordan from the Austin office" into a true line about Lars and never proposes Jordan, so Jordan is not offered as someone new; two of three repeats.
+  - Latency is unchanged: p50 3.9–4.0 s, p95 7.4–8.5 s.
+- **Model omission vs pipeline rejection** (founder item 2), dev / held-out:
+
+  | Outcome | Dev | Held-out |
+  |---|---|---|
+  | Omitted by the model | 4 | 1 |
+  | Of those, reported as not understood ("Tell the rest") | 3 | 1 |
+  | Rejected by the pipeline | 12 (was 55 on `main`) | 0 (was 26) |
+
+  - Every rejection is a held question, never a drop.
+  - The one omission reported as understood is vl-001.
+- **Deceased relatives** (founder item 7): no blanket exclusion.
+  - A dead relative's own story is kept as that relative's line: "He proposed to her on a ferry in 1961", "He loved fishing", "He used to take him fishing".
+  - A present or future action stays with the living person, for a glance ("Seun's dad passed away. He's flying out tomorrow" is Seun).
+  - Only a reading that could be either is asked ("He'll want company that day").
+
 **Bug ledger:** the staged reporting model (IMPLEMENTED · MERGED · DEPLOYED · LIVE-MODEL VERIFIED · NATIVE-SIM VERIFIED · DEVICE VERIFIED · FOUNDER ACCEPTED) is in `bug-ledger.md` with K34–K36 restated against it.
 
 ## 5. The founder directive (verbatim, 14 Nov 2026)
