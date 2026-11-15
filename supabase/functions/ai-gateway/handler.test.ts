@@ -1045,3 +1045,118 @@ Deno.test("Option A: a reply lost to a timeout comes back as what was kept and w
   eq(body.coverage, { state: "partial", unprocessed: [{ start: 3, end: 9 }], unlocated: 2 });
   eq([w.modelCalls.length, w.quota, w.writes.length], [0, 0, 0], "no second model run, no second write");
 });
+
+// ─── CMR-1 Workstream C (14 Nov 2026): a quote said twice, and no silent loss ──
+
+const KAIYA_ONCE = "Kaiya is the silliest little girl in the world. She is really into dressing up like princesses";
+const KAIYA = [{ id: "person-kaiya", display_name: "Kaiya", full_name: null, nicknames: [], relationship_label: "daughter", state: "active" }];
+const kaiyaItem = (statement: string, quote: string) => ({
+  ...BEN_PROPOSAL.items[0], kind: "fact", person: "p1", person_mention: quote.startsWith("She") ? "She" : "Kaiya", statement, evidence: [quote],
+  date_text: null, date_direction: "unclear", confidence: 0.9,
+  detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "other" },
+});
+
+Deno.test("K34/K35: a note said twice (every quote twice) keeps each thing once; nothing is dropped and the note is whole", async () => {
+  const w = world({
+    note: `${KAIYA_ONCE} ${KAIYA_ONCE}`, people: KAIYA,
+    model: { output: { items: [
+      kaiyaItem("Kaiya is the silliest little girl in the world", "Kaiya is the silliest little girl in the world"),
+      kaiyaItem("Kaiya is really into dressing up like princesses", "She is really into dressing up like princesses"),
+    ], needs_clarification: null } },
+  });
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200);
+  ok(body.tier !== "nothing", `kept, never "nothing to remember": ${body.tier}`);
+  eq((body.saved as unknown[]).length + (body.held as unknown[]).length, 2, "both things, once each");
+  eq(body.coverage, { state: "complete", unprocessed: [], unlocated: 0 });
+  eq(w.coverages, [], "no coverage to record");
+  eq(w.logs[0].items_dropped, 0);
+  eq(w.logs[0].drop_reasons, {});
+  const spans = (body.saved as { spans: { start: number; end: number }[] }[]).flatMap((i) => i.spans);
+  ok(spans.length > 0 && spans.every((sp) => sp.end <= KAIYA_ONCE.length), "placed in the first copy, never twice");
+});
+
+Deno.test("C2: a line whose quote cannot be placed is recorded on the note as not understood (offsets only), for every phone", async () => {
+  const note = "She loves hiking. Then dinner. She loves hiking, she said again.";
+  const w = world({
+    note, people: [{ id: "person-anna", display_name: "Anna", full_name: "Anna Reyes", nicknames: [], relationship_label: "friend", state: "active" }],
+    model: { output: { items: [{
+      ...BEN_PROPOSAL.items[0], kind: "fact", person: "p1", person_mention: "She", statement: "Anna loves hiking", evidence: ["She loves hiking"],
+      date_text: null, date_direction: "unclear", detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "interest" },
+    }], needs_clarification: null } },
+  });
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200);
+  eq([(body.saved as unknown[]).length, (body.held as unknown[]).length], [0, 0], "nothing saved on a guess");
+  eq(body.coverage, { state: "partial", unprocessed: [], unlocated: 0, not_understood: [{ start: 0, end: 16 }, { start: 31, end: 47 }] }, "both places it could be");
+  eq(w.coverages, [{ v: 1, unprocessed: [], unlocated: 0, not_understood: [{ start: 0, end: 16 }, { start: 31, end: 47 }] }], "written on the capture before the lines");
+  eq(JSON.stringify(w.coverages).includes("hiking"), false, "offsets only, never words");
+  eq(w.logs[0].drop_reasons, { evidence_ambiguous: 1 }, "counted, content-free");
+  eq(w.writes.length, 1, "the write still happens (the outcome is settled on the row)");
+});
+
+Deno.test("C2: a quote the note never says is counted as unplaced; a rule's own exclusion is not a loss", async () => {
+  const w = world({
+    model: { output: { items: [
+      { ...BEN_PROPOSAL.items[0], evidence: ["Ben runs Boston Sunday"] },
+      { ...BEN_PROPOSAL.items[0], kind: "fact", statement: "Ben's number is 555-123-4567", evidence: ["Ben runs Chicago Sunday"], date_text: null, date_direction: "unclear",
+        detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "other" } },
+    ], needs_clarification: null } },
+  });
+  const { body } = await call(w, post(extract));
+  eq(body.coverage, { state: "partial", unprocessed: [], unlocated: 1 }, "one unplaceable proposal; the contact detail is excluded by contract");
+  eq(w.coverages, [{ v: 1, unprocessed: [], unlocated: 1 }]);
+  eq(w.logs[0].drop_reasons, { no_evidence: 1, contact_detail: 1 });
+});
+
+Deno.test("C2: a database that does not know not_understood yet (gateway deployed first) still gets the lines, with the older coverage shape", async () => {
+  const note = "She loves hiking. Then dinner. She loves hiking, she said again. Ben runs Chicago Sunday.";
+  const w = world({
+    note, people: [{ id: "person-anna", display_name: "Anna", full_name: "Anna Reyes", nicknames: [], relationship_label: "friend", state: "active" },
+      { id: "person-ben", display_name: "Ben", full_name: "Ben Ortiz", nicknames: [], relationship_label: "college roommate", state: "active" }],
+    // The roster puts the person the note names first: Ben is p1, Anna p2.
+    model: { output: { items: [
+      { ...BEN_PROPOSAL.items[0], kind: "fact", person: "p2", person_mention: "She", statement: "Anna loves hiking", evidence: ["She loves hiking"],
+        date_text: null, date_direction: "unclear", detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "interest" } },
+      { ...BEN_PROPOSAL.items[0], person: "p1", evidence: ["Ben runs Chicago Sunday"] },
+    ], needs_clarification: null } },
+  });
+  const inner = w.deps.service.setCoverage;
+  w.deps.service.setCoverage = (u, c, coverage) => {
+    if (coverage?.not_understood?.length) return Promise.reject(new ServiceError("22023"));
+    return inner(u, c, coverage);
+  };
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200, "the note is still understood");
+  eq((body.saved as unknown[]).length, 1, "Ben's line is written");
+  eq(w.releases, [], "never released as failed");
+  eq(w.coverages, [null], "the older database holds no empty record");
+  eq(body.coverage, { state: "partial", unprocessed: [], unlocated: 0, not_understood: [{ start: 0, end: 16 }, { start: 31, end: 47 }] },
+    "the places not understood are in this reply: the phone is never told the note was taken whole");
+  // With something the older shape can carry, that is what is stored.
+  const w2 = world({ model: { output: { items: [
+    { ...BEN_PROPOSAL.items[0], evidence: ["Ben runs Boston Sunday"] },
+    { ...BEN_PROPOSAL.items[0], kind: "fact", statement: "   ", evidence: ["Ben runs Chicago Sunday"], date_text: null, date_direction: "unclear",
+      detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "other" } },
+  ], needs_clarification: null } } });
+  const inner2 = w2.deps.service.setCoverage;
+  w2.deps.service.setCoverage = (u, c, coverage) => coverage?.not_understood?.length ? Promise.reject(new ServiceError("22023")) : inner2(u, c, coverage);
+  const r2 = await call(w2, post(extract));
+  eq(r2.status, 200);
+  eq(w2.coverages, [{ v: 1, unprocessed: [], unlocated: 1 }], "the count is kept on the row");
+  eq(r2.body.coverage, { state: "partial", unprocessed: [], unlocated: 1, not_understood: [{ start: 0, end: 23 }] }, "the reply carries the place too");
+  // Any other refusal is still a failure, as before.
+  const w3 = world({ model: { output: { items: [{ ...BEN_PROPOSAL.items[0], evidence: ["Ben runs Boston Sunday"] }], needs_clarification: null } } });
+  w3.deps.service.setCoverage = () => Promise.reject(new ServiceError("42501"));
+  eq((await call(w3, post(extract))).status, 500);
+  eq(w3.releases, ["failed"]);
+});
+
+Deno.test("C2: a reply lost to a timeout comes back with what was not understood too", async () => {
+  const w = world({ claim: "done", savedIds: ["item-a"], coverage: { v: 1, unprocessed: [], unlocated: 0, not_understood: [{ start: 3, end: 9 }] } });
+  const { body } = await call(w, post(extract));
+  eq(body.coverage, { state: "partial", unprocessed: [], unlocated: 0, not_understood: [{ start: 3, end: 9 }] });
+  // An older row without the key reads as before.
+  const old = world({ claim: "done", coverage: { v: 1, unprocessed: [{ start: 1, end: 4 }], unlocated: 0 } });
+  eq((await call(old, post(extract))).body.coverage, { state: "partial", unprocessed: [{ start: 1, end: 4 }], unlocated: 0 });
+});

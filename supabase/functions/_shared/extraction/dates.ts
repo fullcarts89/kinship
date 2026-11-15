@@ -155,8 +155,39 @@ export function resolveDate(
   return zoneGuessed && r.date ? { ...r, ambiguous: true } : r;
 }
 
+/** Spoken ordinals, as a transcript writes them ("december first", "the fourteenth of december", "the twenty first"). */
+const ORDINAL_WORDS: Record<string, number> = {
+  first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10,
+  eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15, sixteenth: 16, seventeenth: 17,
+  eighteenth: 18, nineteenth: 19, twentieth: 20, thirtieth: 30,
+};
+const ORDINAL_UNITS: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9 };
+const ORDINAL = /\b(?:(twenty|thirty)[- ]?(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)|(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth))\b/g;
+const MONTH_WORD = Object.keys(MONTHS).join("|");
+
+/** "december first" → "december 1st", "the fourteenth of december" → "the 14th of december", "the twenty first" → "the 21st". */
+function spokenOrdinals(e: string): string {
+  const asNumber = (m: string, tens: string | undefined, unit: string | undefined, whole: string | undefined): string => {
+    const n = tens ? (tens === "twenty" ? 20 : 30) + ORDINAL_UNITS[unit!] : ORDINAL_WORDS[whole!];
+    if (!n || n > 31) return m;
+    const suffix = n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th";
+    return `${n}${suffix}`;
+  };
+  // Only in a date's own shapes, so "the first few weeks" stays words.
+  const shapes = [
+    new RegExp(`^((?:${MONTH_WORD})\\.? )(${ORDINAL.source})((?:,? \\d{4})?)$`, "u"),
+    new RegExp(`^((?:the )?)(${ORDINAL.source})( of (?:${MONTH_WORD})\\.?(?:,? \\d{4})?)$`, "u"),
+    new RegExp(`^(the )(${ORDINAL.source})()$`, "u"),
+  ];
+  for (const shape of shapes) {
+    const m = e.match(shape);
+    if (m) return `${m[1]}${m[2].replace(ORDINAL, asNumber)}${m[m.length - 1]}`;
+  }
+  return e;
+}
+
 function normalise(expr: string): string {
-  return expr
+  return spokenOrdinals(expr
     .normalize("NFC")
     .toLowerCase()
     .replace(/[’']/g, "'")
@@ -167,7 +198,7 @@ function normalise(expr: string): string {
     .replace(/^(?!last night$)(.+?)\s+(night|morning|afternoon|evening)$/, "$1")
     // "sometime in November", "around March": the month is still the month.
     .replace(/^(?:some ?time|sometime around|around|about|roughly) (?:in |on |during )?(?=\S)/, "")
-    .trim();
+    .trim());
 }
 
 function day(c: CivilDate, rule: string, ambiguous = false): DateResolution {

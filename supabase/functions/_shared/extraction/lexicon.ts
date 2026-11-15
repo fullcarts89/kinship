@@ -2,6 +2,7 @@
 // the pipeline MORE careful: lower certainty, raise sensitivity, drop an
 // item, or ask. They never upgrade anything the model said.
 
+import { isSpokenRun, spokenSentenceAt } from "./segment.ts";
 import type { Certainty, Sensitivity } from "./types.ts";
 
 /** Lower-cased, NFC, curly apostrophes straightened. */
@@ -274,7 +275,13 @@ export function looksLikeInstruction(sentence: string): boolean {
 // ─── Sentences ──────────────────────────────────────────────────────────────
 
 /** The sentence(s) of `text` that contain the UTF-16 range [from, to). */
-export function sentenceAround(text: string, from: number, to: number): string {
+export function sentenceAround(text: string, from: number, to: number, names: readonly string[] = []): string {
+  // A spoken run (no punctuation at all, a dozen words or more) is read in its spoken sentences (segment.ts,
+  // CMR-1 C); every other note is read exactly as before.
+  if (isSpokenRun(text)) {
+    const seg = spokenSentenceAt(text, from, to, names);
+    return text.slice(seg.start, seg.end);
+  }
   const boundary = /[.!?\n]/;
   let a = from;
   while (a > 0 && !boundary.test(text[a - 1])) a--;

@@ -104,11 +104,16 @@ export interface PendingReview {
   clarification: ExtractionOutcome["clarification"];
 }
 
-/** The capture's coverage as stored (Option A): the note's own spans and a count, never words. */
+/**
+ * The capture's coverage as stored (Option A): the note's own spans and a count, never words. Since
+ * CMR-1 C2 also `not_understood`: the places of proposals the understanding read but could keep nothing
+ * from (migration 20261114090000 lets the column hold it; an older row has none).
+ */
 export interface StoredCoverage {
   v: 1;
   unprocessed: { start: number; end: number }[];
   unlocated: number;
+  not_understood?: { start: number; end: number }[];
 }
 
 /** A pending review as stored; created_at identifies the version the user answers. */
@@ -357,7 +362,9 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
       // note before its lines are written (Option A): the note is never shown whole by mistake, on any
       // phone, and never silently less than it was. Cleared when a later run takes the note whole.
       const coverage: StoredCoverage | null = outcome.coverage ? { v: 1, ...outcome.coverage } : null;
-      if (coverage || storedCoverage(capture.coverage)) await deps.service.setCoverage(caller.userId, captureId, coverage);
+      // The reply always carries what this understanding found; the row carries what the database can hold
+      // (an older database stores the three-key shape, see writeCoverage).
+      if (coverage || storedCoverage(capture.coverage)) await writeCoverage(deps.service, caller.userId, captureId, coverage);
       const written = await deps.service.write(
         caller.userId,
         captureId,
@@ -391,6 +398,31 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
       return json({ error: "internal_error" }, 500, cors);
     }
   };
+}
+
+/**
+ * Records the coverage on the capture. A database that does not yet know `not_understood` (the gateway
+ * deployed before migration 20261114090000; the CHECK refuses the key with 22023) is given the older
+ * three-key shape instead, so the note's lines are still written and the model call is not spent for
+ * nothing; the places not understood are then only in this reply (the caller replies with the full
+ * coverage, not with what was stored). Returns what was stored.
+ */
+async function writeCoverage(service: ServiceOps, userId: string, captureId: string, coverage: StoredCoverage | null): Promise<StoredCoverage | null> {
+  try {
+    await service.setCoverage(userId, captureId, coverage);
+    return coverage;
+  } catch (err) {
+    const shapeRefused = err instanceof ServiceError ? err.code === "22023" : err instanceof Error && /\(22023\)/u.test(err.message);
+    if (!shapeRefused || !coverage?.not_understood?.length) throw err;
+    const { not_understood: _, ...older } = coverage;
+    if (!older.unprocessed.length && !older.unlocated) {
+      // Nothing the older shape can carry: no record, rather than an empty one.
+      await service.setCoverage(userId, captureId, null);
+      return null;
+    }
+    await service.setCoverage(userId, captureId, older);
+    return older;
+  }
 }
 
 /**
@@ -447,21 +479,33 @@ function toWriteItem(i: PlannedItem): WriteItem {
 /** The stored coverage, when the row holds one of the shape the database allows; anything else is none. */
 function storedCoverage(raw: unknown): StoredCoverage | null {
   if (!raw || typeof raw !== "object") return null;
-  const c = raw as { v?: unknown; unprocessed?: unknown; unlocated?: unknown };
+  const c = raw as { v?: unknown; unprocessed?: unknown; unlocated?: unknown; not_understood?: unknown };
   if (c.v !== 1 || !Array.isArray(c.unprocessed) || typeof c.unlocated !== "number") return null;
-  const unprocessed = c.unprocessed.filter((s): s is { start: number; end: number } =>
+  const spans = (v: unknown) => (Array.isArray(v) ? v : []).filter((s): s is { start: number; end: number } =>
     !!s && typeof s === "object" && typeof (s as { start?: unknown }).start === "number" && typeof (s as { end?: unknown }).end === "number"
   ).map((s) => ({ start: s.start, end: s.end }));
-  return unprocessed.length || c.unlocated > 0 ? { v: 1, unprocessed, unlocated: c.unlocated } : null;
+  const unprocessed = spans(c.unprocessed);
+  const notUnderstood = spans(c.not_understood);
+  return unprocessed.length || notUnderstood.length || c.unlocated > 0
+    ? { v: 1, unprocessed, unlocated: c.unlocated, ...(notUnderstood.length ? { not_understood: notUnderstood } : {}) }
+    : null;
 }
 
 /**
- * What the phone is told about the note's coverage (Option A): "partial" with the spans it can mark and
- * the count it cannot, or "complete". Never a claim that the note was understood whole: "complete" says
- * only that nothing was left out for want of room.
+ * What the phone is told about the note's coverage (Option A): "partial" with the spans it can mark (not
+ * got to, and not understood: CMR-1 C2) and the count it cannot, or "complete". Never a claim that the
+ * note was understood whole: "complete" says only that nothing was left out for want of room and no
+ * proposal was lost to the understanding itself; what the model never proposed is not detected.
  */
-function coverageReply(c: StoredCoverage | null): { state: "complete" | "partial"; unprocessed: { start: number; end: number }[]; unlocated: number } {
-  return c ? { state: "partial", unprocessed: c.unprocessed, unlocated: c.unlocated } : { state: "complete", unprocessed: [], unlocated: 0 };
+function coverageReply(c: StoredCoverage | null): {
+  state: "complete" | "partial";
+  unprocessed: { start: number; end: number }[];
+  unlocated: number;
+  not_understood?: { start: number; end: number }[];
+} {
+  return c
+    ? { state: "partial", unprocessed: c.unprocessed, unlocated: c.unlocated, ...(c.not_understood?.length ? { not_understood: c.not_understood } : {}) }
+    : { state: "complete", unprocessed: [], unlocated: 0 };
 }
 
 function present(i: PlannedItem) {
