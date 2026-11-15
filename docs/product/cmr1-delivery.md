@@ -32,8 +32,9 @@ realistic modes. Repeated evidence folds to one memory. Every Tell is accounted 
   across a pause.
 - Eight product judgements were taken in code and are listed for the founder in §F below and in
   `approved-design-coverage.md`.
-- `k10` black-box fails on weekends by construction of the suite (the resolver reads "last Friday" said on a
-  Sunday as last week's Friday and asks, per C-4); rerun on a weekday.
+- Black-box: every suite passes on the candidate under its stated conditions; `k10` passes Monday to Friday only (the
+  resolver reads "last Friday" said on a Sunday as last week's Friday and asks, per C-4) and notebook J1/J6 and J2
+  are live-model tests awaiting the key. The stall first seen in this tier was a real latent app bug (K37), fixed.
 
 **Ready for founder acceptance?** Yes, as a candidate: it is a working, reviewed, integrated branch whose every
 runnable tier is green and whose independent eval meets every target. Acceptance itself needs the merge, the
