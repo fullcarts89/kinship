@@ -22,6 +22,11 @@ export function nameKey(text: string): string {
   return withoutPossessive(fold(text).normalize("NFD").replace(/\p{M}+/gu, "").trim()).trim();
 }
 
+/** The key of a hyphenated name said aloud ("Hyun-woo" → "hyun woo"); the key itself when there is no hyphen. */
+export function spokenKey(text: string): string {
+  return nameKey(text).replace(/-+/gu, " ").replace(/\s+/gu, " ").trim();
+}
+
 /**
  * A statement's words as a bag, ignoring "and", "&" and "with", so a mirrored
  * reading of one shared memory matches: "Michelle might be moving to
@@ -221,14 +226,16 @@ export function kinshipReference(mention: string): string | null {
 
 // ─── Promises ───────────────────────────────────────────────────────────────
 
-const USER_COMMITMENT = /\b(i'll|i will|i'm going to|im going to|i am going to|i said i'd|i said i would|i told (?:him|her|them|\w+) i'd|i told (?:him|her|them|\w+) i would|i promised|i offered to|i owe|i need to|i have to|i've got to|i gotta|i should|i must|i agreed to|i'm supposed to|im supposed to|i'm bringing|i'm taking|i'm sending|i'm calling|remind me to|i'd send|i'd call|i'd bring|i'd help|need to (?:send|call|text|bring|get|book|buy|return|email|ask|check)|gotta|let me)\b/;
+const USER_COMMITMENT = /\b(i'll|ill (?:send|call|text|bring|get|book|buy|return|email|ask|check|help|take|cover|do)|i will|i'm going to|im going to|i am going to|i said i'd|i said id|i said i would|i said we would|i said we'd|i said wed|i said we will|i said yes|i told (?:him|her|them|\w+) i'd|i told (?:him|her|them|\w+) id|i told (?:him|her|them|\w+) i would|i promised|i offered to|i owe|i still owe|i need to|i have to|i've got to|i gotta|i should|i must|i agreed(?: to)?|i'm supposed to|im supposed to|i'm bringing|i'm taking|i'm sending|i'm calling|remind me to|i'd send|i'd call|i'd bring|i'd help|id send|id call|id bring|id help|id take|id cover|need to (?:send|call|text|bring|get|book|buy|return|email|ask|check)|gotta|let me|which (?:fine|sure|ok|okay|of course)|said yes to)\b/;
 
 /** True when the wording has the user committing to something. */
 export function isUserCommitment(sentence: string): boolean {
   return USER_COMMITMENT.test(fold(sentence));
 }
 
-const SELF_NOTE_START = /^(?:let's|lets|gonna|going to|i'm gonna|im gonna|i|i'm|im|i've|i'll|i'd|me|need|needs|have to|gotta|must|should|remember|don't forget|dont forget|ask|send|call|text|email|bring|return|buy|get|book|check|drop|dropping|bringing|sending|calling|texting|taking|picking|making|getting|buying|booking|returning|todo|to do|reminder)\b/;
+// A note to self may leave off its "I" ("Promised Tomasz the proposal by Wednesday", "Still owe Tomasz…",
+// "Offered to help Ben move"): the commitment is the user's own (CMR-1 B).
+const SELF_NOTE_START = /^(?:let's|lets|gonna|going to|i'm gonna|im gonna|i|i'm|im|i've|i'll|i'd|me|need|needs|have to|gotta|must|should|remember|don't forget|dont forget|ask|send|call|text|email|bring|return|buy|get|book|check|drop|dropping|bringing|sending|calling|texting|taking|picking|making|getting|buying|booking|returning|todo|to do|reminder|(?:promised|owe|still owe|offered|agreed)(?![^.!?]*\b(?:me|us)\b)|told \w+ (?:i'd|id|i would)|said (?:i'd|id|i would))\b/;
 
 /**
  * Whether the user is the one acting in this clause: an explicit commitment
@@ -248,7 +255,7 @@ export function userIsActor(clause: string): boolean {
  * nor someone's commitment to the user is plain, these make whose promise
  * it is a real question; without any of them, nothing here is a promise.
  */
-const COMMITMENT = /\b(?:promise[sd]?|promising|swore|swears?|vow(?:ed|s)?|(?:agree[sd]?|offer(?:ed|s)?|commit(?:ted|s)?)\s+to|owe[sd]?|supposed\s+to|(?:said|says|told\s+[\p{L}'-]+)\s+(?:that\s+)?(?:i|we|he|she|they|you)(?:'d|'ll|\s+would|\s+will)|(?:asked|asks|wants|wanted|needs|needed|told|tells|reminded|reminds)\s+(?:me|us)\s+to)\b/u;
+const COMMITMENT = /\b(?:promise[sd]?|promising|swore|swears?|vow(?:ed|s)?|(?:agree[sd]?|offer(?:ed|s)?|commit(?:ted|s)?)\s+to|owe[sd]?|supposed\s+to|(?:said|says|told\s+[\p{L}'-]+)\s+(?:that\s+)?(?:i|we|he|she|they|you)(?:'d|'ll|\s+would|\s+will)|(?:asked|asks|wants|wanted|needs|needed|told|tells|reminded|reminds)\s+(?:me|us)\s+to|(?:asked|asks|asking|wondered|wants to know)\s+(?:me\s+|us\s+)?(?:if|whether)\s+(?:i|we)(?:'d|'ll|d|ll|\s+can|\s+could|\s+would|\s+will|\s+might|\s+can't|\s+cant))\b/u;
 
 export function commitsSomeone(clause: string): boolean {
   return COMMITMENT.test(fold(clause));
@@ -378,7 +385,7 @@ export function theyPromisedMe(clause: string): boolean {
   // "Tyler said he'd send me…", "promised she would…"
   return /\b(?:said|says|promised|offered|told me)\b[^.!?]{0,20}\b(?:he|she|they)(?:'d|'ll| would| will| was going to| is going to)\b/u.test(c)
     // "Tyler promised to send me…", "offered to lend us…"
-    || /\b(?:promised|offered|agreed)\s+to\s+\w+(?:\s+\w+)?\s+(?:me|us)\b/u.test(c)
+    || /\b(?:promised|offered|agreed)\s+to\s+(?:[\p{L}'-]+\s+){1,6}?(?:me|us)\b/u.test(c)
     // "Tyler promised me his contractor's number", "owes me $20"
     || /\b(?:promised|owes)\s+(?:me|us)\b/u.test(c)
     // "Tyler will send me…", "Tyler's going to text me…", "he'll bring us…":
