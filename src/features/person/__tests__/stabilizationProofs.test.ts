@@ -225,7 +225,13 @@ describe("round two, end to end", () => {
         items: [item({ kind, person: key(i, "John"), person_mention: "John", statement, evidence: [note.replace(/\.$/, "")], certainty,
           detail: kind === "thread" ? { topic: "knee" } : { category: "health" } })],
       }));
-    await say("John's knee has been bothering him.", "John's knee has been bothering him", "thread");
+    // A knee bothering someone is health (contract §7 invariant 2; CMR-1 C's wording, 15 Nov): it waits for the
+    // user's yes ("Remember this about John Oxnard?") before it is memory. The user says yes, and the history
+    // below is the same as before.
+    const first = await say("John's knee has been bothering him.", "John's knee has been bothering him", "thread");
+    expect(first.review.questions.map((q) => q.prompt)).toEqual(["Remember this about John Oxnard?"]);
+    expect(serverItems(w).some((m) => m.statement === "John's knee has been bothering him")).toBe(false);
+    await answer(w, first.id, [{ index: 0, accept: true }]);
     await say("John said his knee is getting better.", "John said his knee is getting better", "thread", "reported");
     await say("John's knee is better now.", "John's knee is better now", "fact");
     await w.engine.sync();
