@@ -946,3 +946,17 @@ Deno.test("re-review B3/S5: asides and health wording, both directions", () => {
   for (const t of ["Mum is poorly", "Ben threw his back out", "Dad's heart has been bad lately", "her eyes are getting worse", "my hand hurts", "his teeth are killing him", "she's seeing a specialist"]) ok(sensitivitiesOf(t).includes("health"), `health: ${t}`);
   for (const t of ["The crowd was at fever pitch", "We had a cold beer after", "Grace is a specialist at Deloitte", "My heart went out to her", "Kaiya's tooth is out!", "He got cold feet", "his heart is in the right place"]) ok(!sensitivitiesOf(t).length, `plain: ${t}`);
 });
+
+Deno.test("re-review 1: an aside that carries news is never set aside; health wording that is not health stays plain", () => {
+  for (const t of ["dont tell mom", "Don't mention it to Grace", "nobody say anything at the seventieth", "don't say anything to Grace", "don't spoil it", "Don't tell Uncle Joe", "it's a surprise so don't say anything"]) ok(asideOf(t), `an aside: ${t}`);
+  for (const t of ["Don't tell Mom Ben lost his job", "Don't tell Kaiya Grandpa died", "Don't tell Grace about Ben's diagnosis", "Don't tell anyone about the miscarriage", "Don't tell Mom Grace got engaged", "Don't tell Dad about Ben's new job", "Don't let Mom find out Ben quit", "No one say anything to Mark about the layoffs", "Don't tell Grace Ben proposed", "Don't tell Ben the twins are coming", "it's a surprise so don't tell Mom Ben quit", "not a word to Mom about the cancer"]) ok(!asideOf(t), `news, kept: ${t}`);
+  const mom = { key: "p61", id: "id-mom6", display_name: "Mom", full_name: null, nicknames: [], relationship_label: "mother" };
+  const ben = { key: "p62", id: "id-ben6", display_name: "Ben", full_name: null, nicknames: [], relationship_label: "brother" };
+  const out = run(input("Don't tell Mom Ben lost his job.", { roster: [mom, ben], related: [] }), [
+    item({ person: "p62", person_mention: "Ben", statement: "Ben lost his job", evidence: ["Don't tell Mom Ben lost his job"], sensitivity: "money" }),
+  ]);
+  eq(out.dropped.map((d) => d.reason), [], "nothing dropped as an aside");
+  ok(out.items.some((i) => i.person_id === "id-ben6"), "Ben's news is kept, for the user's yes");
+  for (const t of ["He saw a consultant about his knee", "seeing a specialist next week", "Ben's knee is sore"]) ok(sensitivitiesOf(t).includes("health"), `health: ${t}`);
+  for (const t of ["The essay was poorly written", "It's poorly organised", "Her eyes were sore from crying", "his eyes are bad at spotting typos", "my heart is bad at goodbyes", "Saw the specialist cheese shop", "We saw a consultant about the kitchen remodel", "Ben is seeing a consultant for his business"]) ok(!sensitivitiesOf(t).includes("health"), `plain: ${t}`);
+});

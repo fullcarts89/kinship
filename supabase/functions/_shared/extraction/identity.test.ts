@@ -1013,3 +1013,43 @@ Deno.test("re-review B1: one relative, the owner named earlier or on the page, a
     ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
   }
 });
+
+// ── Re-review of d8c600a (15 Nov 2026): never a guess, wherever the other person sits ──
+
+Deno.test("re-review 2: 'he' after someone else named, a friend's husband, or the writer's aunt's husband is asked, never Nana's husband", () => {
+  const nana = person("p52", "nana6", "Nana", { relationship_label: "grandmother" });
+  for (const [note, quote, page] of [
+    ["Nana's husband was talking to Dave. He said the roof needs work.", "He said the roof needs work", null],
+    ["Nana's husband stayed at Tom's last night. He is moving to Ohio.", "He is moving to Ohio", null],
+    ["Nana's husband stopped by. Tom came too. He brought cake.", "He brought cake", null],
+    ["Talked to Nana. Grace came over with her husband. He fixed the sink.", "He fixed the sink", null],
+    ["Grace came over with her husband. He fixed the sink.", "He fixed the sink", "p52"],
+    ["My aunt came by with her husband. He fixed the sink.", "He fixed the sink", "p52"],
+  ] as const) {
+    const out = planExtraction(input(note, [nana], page), { needs_clarification: null, items: [
+      item({ person: "p52", person_mention: "He", statement: "Nana's husband " + quote.replace(/^He /, ""), evidence: [quote], confidence: 0.85 }),
+    ] } as ModelProposal);
+    ok(out.items.every((i) => i.tier === "hold"), `${note}: asked (${out.items.map((i) => `${i.tier} ${i.subject_type}`).join(", ")})`);
+  }
+  // The note's own "her" says Grace is a woman: "he" is not Grace.
+  const grace = person("p53", "grace6", "Grace", { relationship_label: "friend" });
+  const out = planExtraction(input("Grace came over with her friend Ana and her husband. He was hilarious.", [grace]), { needs_clarification: null, items: [
+    item({ person: "p53", person_mention: "He", statement: "He was hilarious", evidence: ["He was hilarious"], confidence: 0.85 }),
+  ] } as ModelProposal);
+  ok(out.items.every((i) => i.tier === "hold"), `"He was hilarious" is asked, never Grace (${out.items.map((i) => i.tier)})`);
+});
+
+Deno.test("re-review S1': a place one passes through is where, a friend from church is the friend; the Austin office still asks", () => {
+  const jordan = person("p54", "jordan6", "Jordan", { relationship_label: "friend" });
+  for (const [note, quote] of [["Texted Jordan from the airport, he's moving to Denver.", "he's moving to Denver"], ["Jordan from church had twins!", "Jordan from church had twins"]] as const) {
+    const out = planExtraction(input(note, [jordan]), { needs_clarification: null, items: [
+      item({ person: "p54", person_mention: "Jordan", statement: "Jordan " + (note.includes("twins") ? "had twins" : "is moving to Denver"), evidence: [quote], confidence: 0.9 }),
+    ] } as ModelProposal);
+    eq(out.items.map((i) => i.person_id), ["jordan6"], note);
+    eq(out.clarification, null, `${note}: no question`);
+  }
+  const out = planExtraction(input("Had lunch with Jordan from the Austin office, he's moving to Denver.", [jordan]), { needs_clarification: null, items: [
+    item({ person: "p54", person_mention: "Jordan", statement: "Jordan is moving to Denver", evidence: ["he's moving to Denver"], confidence: 0.85 }),
+  ] } as ModelProposal);
+  ok(out.items.every((i) => i.person_id !== "jordan6" || i.tier === "hold"), "the Austin office: never saved on the friend Jordan");
+});

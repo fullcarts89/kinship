@@ -2394,14 +2394,45 @@ function genderOf(p: RosterPerson): "f" | "m" | null {
   return FEMALE_RELATIONS.has(head) ? "f" : "m";
 }
 
+/**
+ * A person's gender as the note itself writes it, when their relationship to the user does not say it: the
+ * first "his"/"her" owning something right after their name, with no one else named between ("Grace came over
+ * with her friend Ana and her husband. He was hilarious": Grace is not "he"; re-review of #93). Null when the
+ * note never says, or says both.
+ */
+function genderInNote(ctx: Context, p: RosterPerson): "f" | "m" | null {
+  const seen = new Set<"f" | "m">();
+  const relations = new Set(RELATION_WORDS.map(relationKey));
+  for (const n of new Set(namesFor(p).map((x) => firstName(x)).filter(Boolean))) {
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    for (const m of ctx.text.matchAll(new RegExp(`(?<![\\p{L}\\p{M}'’-])${esc}(?![\\p{L}\\p{M}'’-])([^.!?\\n]{0,60})`, "giu"))) {
+      for (const w of m[1].matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)) {
+        const word = w[0];
+        const k = fold(word);
+        // Only "his"/"her" owning a relation ("her friend", "his mom"); "talk to her on Monday" is someone else.
+        if (k === "his" || k === "her") {
+          const next = fold((m[1].slice((w.index ?? 0) + word.length).match(/^\s+([\p{L}][\p{L}\p{M}'’-]*)/u) ?? ["", ""])[1]);
+          if (relations.has(relationKey(next)) || next === "own") {
+            seen.add(k === "his" ? "m" : "f");
+          }
+          break;
+        }
+        if (PRONOUNS.has(k.replace(/['’]?(?:s|d|ll|re)$/u, "")) || PRONOUNS.has(k)) break;
+        if (/^\p{Lu}/u.test(word) && !COMMON_CAPITALS.has(k) && !CALENDAR.has(k)) break;
+      }
+    }
+  }
+  return seen.size === 1 ? [...seen][0] : null;
+}
+
 /** The candidates a gendered pronoun can mean: those whose known gender fits, and those whose gender is not known. */
-function fitsPronoun(people: RosterPerson[], pronoun: string): RosterPerson[] {
+function fitsPronoun(people: RosterPerson[], pronoun: string, ctx?: Context): RosterPerson[] {
   const p = fold(pronoun);
   const male = p === "he" || p === "him" || p === "his" || p === "himself";
   const female = p === "she" || p === "her" || p === "hers" || p === "herself";
   if (!male && !female) return people;
   return people.filter((x) => {
-    const g = genderOf(x);
+    const g = genderOf(x) ?? (ctx ? genderInNote(ctx, x) : null);
     return g === null || (male ? g === "m" : g === "f");
   });
 }
@@ -2537,19 +2568,27 @@ function descriptorAfter(ctx: Context, mention: string): string | null {
   // not who they are (final review of #93). "Had lunch with Jordan from the Austin office" stays a descriptor.
   const lead = fold(ctx.text.slice(0, m.index ?? 0).trimEnd());
   const pickUp = /\b(?:picked up|pick up|picking up|picks up|collected|collect|collecting|dropped off|drop off|dropping off|got|get|getting|fetched|fetch|grabbed)$/u.test(lead);
-  const place = /^(?:the )?(?:school|preschool|nursery|daycare|day care|airport|station|train station|bus|work|practice|training|rehearsal|camp|class|lessons?|swim|soccer|football|ballet|gym|library|party|sleepover|grandma'?s|nana'?s|church)\b/u.test(fold(m[1].trim()));
+  const what = fold(m[1].trim());
+  const place = /^(?:the )?(?:school|preschool|nursery|daycare|day care|airport|station|train station|bus|work|practice|training|rehearsal|camp|class|lessons?|swim|soccer|football|ballet|gym|library|party|sleepover|grandma'?s|nana'?s|church)\b/u.test(what);
   if (pickUp && place) return null;
+  // A place one only passes through, after any verb ("Texted Jordan from the airport"), is where the user was;
+  // "work", "school", "church" or "the gym" can still say who someone is ("Met Jordan from work") (re-review of #93).
+  const transit = /^(?:the )?(?:airport|station|train station|train|bus|plane|car|hospital|party|sleepover|practice|training|rehearsal|camp|class|lessons?|swim|soccer|football|ballet|library|grandma'?s|nana'?s|daycare|day care|nursery|preschool|store|shop|supermarket|beach|park|pool)\b/u.test(what);
+  const opensClause = lead === "" || /[.!?;:\n…,]["“”'‘’(]*$/u.test(lead) || /\b(?:and|but|so|then)$/u.test(lead);
+  if (transit && !opensClause) return null;
   return m[1].trim();
 }
 
 /** Words of a descriptor that mean the same as a relationship label's ("the office" and "coworker"). */
+// A friend from church, the gym or school fits a friend (re-review of #93); "from the office" or "from work"
+// still asks, as a friend is not a coworker (the live na-014 shape).
 const DESCRIPTOR_KIN: Record<string, string[]> = {
   office: ["coworker", "colleague", "boss", "manager", "teammate", "client", "work"],
   work: ["coworker", "colleague", "boss", "manager", "teammate", "client", "work"],
-  gym: ["gym", "trainer", "climbing"],
-  school: ["classmate", "teacher", "school"],
-  college: ["college", "classmate", "roommate"],
-  church: ["church"],
+  gym: ["gym", "trainer", "climbing", "friend"],
+  school: ["classmate", "teacher", "school", "friend"],
+  college: ["college", "classmate", "roommate", "friend"],
+  church: ["church", "friend"],
   "next door": ["neighbor", "neighbour"],
   upstairs: ["neighbor", "neighbour"],
   downstairs: ["neighbor", "neighbour"],
@@ -2569,6 +2608,18 @@ function descriptorFits(descriptor: string, p: RosterPerson): boolean {
  * dad"), the last one before it, when the relation word can be the pronoun's gender; null otherwise. The
  * relation word as the note says it.
  */
+/** A sentence opened by the writer's own verb, subject left out ("Talked to Nana.", "Picked up Kaiya…"), not a name. */
+function openingVerb(word: string): boolean {
+  const k = fold(word);
+  if (k.length > 4 && /(?:ed|ing)$/u.test(k)) return true;
+  return OPENING_VERBS.has(k);
+}
+const OPENING_VERBS = new Set([
+  "met", "saw", "had", "got", "went", "took", "ran", "spent", "caught", "told", "heard", "made", "came", "brought",
+  "gave", "found", "left", "sent", "spoke", "drove", "flew", "rang", "bumped", "texted", "called", "visited", "ate",
+  "grabbed", "dropped", "picked", "helped", "drew", "wrote", "read", "sat", "stood", "watched", "won", "lost", "bought",
+]);
+
 function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: RosterPerson): { relation: string; excludesOwner: boolean } | null {
   const before = fold(ctx.text.slice(0, at));
   const male = pronoun === "he" || pronoun === "him" || pronoun === "his" || pronoun === "himself";
@@ -2612,19 +2663,57 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
     if (!/^\p{Lu}/u.test(word)) return false;
     if (relativesNames.has(nameKey(word))) return false;
     const lead = raw.slice(0, w.index ?? 0).trimEnd();
-    const atStart = lead === "" || /[.!?\n…]["“”'‘’(]*$/u.test(lead);
-    // A place after a preposition ("flew to Denver", "in Ohio") or a name after "the" ("loves the Yankees") is no one.
-    const afterPreposition = /\b(?:to|from|in|at|near|into|around|outside|across|through|via|the|a|an)$/iu.test(lead);
-    return !atStart && !afterPreposition && !COMMON_CAPITALS.has(fold(word)) && !CALENDAR.has(fold(word)) && !ctx.placeOnly(word);
+    if (COMMON_CAPITALS.has(fold(word)) || CALENDAR.has(fold(word)) || ctx.placeOnly(word)) return false;
+    // A sentence's first word is someone unless it is an everyday word ("Tom came too. He brought cake": Tom).
+    if (lead === "" || /[.!?\n…]["“”'‘’(]*$/u.test(lead)) return !ctx.wordNotAName(word) && !openingVerb(word);
+    // "at Tom's", "in Grace's car": a person's, whatever comes before it.
+    if (/['’]s?$/u.test(w[0]) && w[0] !== word) return true;
+    // A place after "in"/"at"/"near" ("in Ohio", "at Costco"), after a journey ("flew to Denver", "back from
+    // Ohio") or a name after "the" ("loves the Yankees") is no one; "talking to Dave", "a text from Dave" is someone.
+    if (/\b(?:in|at|near|into|around|outside|across|through|via|the|a|an)$/iu.test(lead)) return false;
+    if (/\b(?:flew|fly|flying|flies|moved|move|moving|moves|went|go|going|goes|drove|drive|driving|travel+ed|travel+ing|travels?|headed|heading|head|back|home|trip|flight|way|returned|returning|relocated|relocating|came back|got back) (?:to|from)$/iu.test(lead)) return false;
+    return true;
   });
   if (someoneElse) return null;
   const last = fitting[fitting.length - 1];
   // "his"/"her" must plainly be the owner's: the owner is named before it (no one else was, above), or the note
   // is told from the owner's page ("Talked to Nana. Her husband had a fall. He's in the hospital.").
   if (last.det === "his" || last.det === "her" || last.det === "their") {
-    const lead = before.slice(0, last.index);
+    // The nearest one before it that "his"/"her" can stand for must be the owner: "Talked to Nana. Grace came
+    // over with her husband" is Grace's husband, "My aunt came by with her husband" the aunt's (re-review of #93).
+    const head = ctx.text.slice(0, last.index);
+    const herMale = last.det === "his";
+    const fits = (g: "m" | "f" | null) => last.det === "their" || g === null || g === (herMale ? "m" : "f");
+    let nearest: { at: number; owner: boolean } | null = null;
+    for (const m of head.matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)) {
+      const word = withoutPossessive(m[0]);
+      const k = nameKey(word);
+      const at = m.index ?? 0;
+      if (ownerKeys.has(k)) {
+        if (fits(genderOf(owner))) nearest = { at, owner: true };
+        continue;
+      }
+      const rel = relationKey(fold(word));
+      if (RELATION_WORDS.map(relationKey).includes(rel)) {
+        // "my aunt", "our neighbor": someone of the writer's own, never the owner (unless it is the owner's label).
+        const own = /\b(?:my|our|your)\s+(?:[\p{L}'’-]+\s+)?$/iu.test(head.slice(0, at));
+        const g = FEMALE_RELATIONS.has(rel) ? "f" : MALE_RELATIONS.has(rel) ? "m" : null;
+        if (own && fits(g)) nearest = { at, owner: false };
+        continue;
+      }
+      if (!/^\p{Lu}/u.test(word) || word === "I") continue;
+      const other = ctx.candidatesFor(word).find((c) => c.key !== owner.key);
+      if (other) {
+        if (fits(genderOf(other))) nearest = { at, owner: false };
+        continue;
+      }
+      const lead = head.slice(0, at).trimEnd();
+      const opens = lead === "" || /[.!?\n…]["“”'‘’(]*$/u.test(lead);
+      if (COMMON_CAPITALS.has(fold(word)) || CALENDAR.has(fold(word)) || ctx.placeOnly(word) || (opens && (ctx.wordNotAName(word) || openingVerb(word)))) continue;
+      nearest = { at, owner: false };
+    }
     const onPage = ctx.input.capture.context_person_key === owner.key;
-    if (!onPage && !names.some((n) => new RegExp(`\\b${n}\\b`, "u").test(lead))) return null;
+    if (nearest ? !nearest.owner : !onPage) return null;
   }
   return { relation: last.relation, excludesOwner: last.excludesOwner };
 }
@@ -2740,7 +2829,7 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
     flags.add("pronoun");
     const { allowed: everyone, at } = pronounReferents(ctx, raw, mention);
     // A woman is never "he": those whose relationship to the user says their gender fit or don't (CMR-1 B).
-    const allowed = fitsPronoun(everyone, folded);
+    const allowed = fitsPronoun(everyone, folded, ctx);
     const ids = allowed.map((p) => p.id);
     const chosen = ctx.byKey.get(modelKey);
     // One person it can mean (the one the note named before it, or the page's person), and nothing
