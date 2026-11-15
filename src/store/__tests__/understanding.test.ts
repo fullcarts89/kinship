@@ -10,6 +10,7 @@ import { repositoriesFor, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
 import { SyncEngine } from "@/store/syncEngine";
 import { Understanding } from "@/store/understanding";
+import { tellOutcome } from "@/store/tellOutcome";
 import { UserStore } from "@/store/userStore";
 import { FakeGateway, type Script } from "@/test-utils/fakeGateway";
 import { FakeRemote, FakeServer } from "@/test-utils/fakeRemote";
@@ -387,6 +388,29 @@ describe("two Sams", () => {
     expect(serverItems(server)).toEqual([]);
     expect(server.table("captures").get(captureId)?.status).toBe("extracted");
     expect(events.filter(([e]) => e === "clarification_dismissed")).toEqual([["clarification_dismissed", { type: "person" }]]);
+  });
+
+  it("'Don't keep this' stays declined on the row through the next pull and Done: never later said to be 'nothing' (CMR-1)", async () => {
+    const { gateway, d } = await world();
+    await twoSams(d);
+    gateway.script(SAM_NOTE, samScript);
+    const captureId = await tell(d, SAM_NOTE);
+    await d.understanding.run();
+    await d.understanding.answer(captureId, [{ index: 0, skip: true }]);
+    await d.understanding.run();
+    const capture = () => d.repos.captures.get(captureId) as Promise<NonNullable<Awaited<ReturnType<typeof d.repos.captures.get>>>>;
+    const landed = (await d.understanding.get(captureId))!;
+    expect([landed.state, landed.reading?.declined]).toEqual(["review", true]);
+    expect(tellOutcome(await capture(), landed)).toBe("declined");
+    // The next pass pulls again and checks the answer landed, forgetting `answered`; the decision stays.
+    await d.understanding.run();
+    const pulled = (await d.understanding.get(captureId))!;
+    expect([pulled.reading?.answered, pulled.reading?.declined]).toEqual([undefined, true]);
+    expect(tellOutcome(await capture(), pulled)).toBe("declined");
+    await d.understanding.finish(captureId, "dismissed");
+    const done = (await d.understanding.get(captureId))!;
+    expect(done.state).toBe("done");
+    expect(tellOutcome(await capture(), done)).toBe("declined");
   });
 });
 

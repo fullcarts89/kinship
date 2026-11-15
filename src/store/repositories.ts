@@ -50,6 +50,12 @@ export interface Capture extends Data {
   coverage?: { v: 1; unprocessed: { start: number; end: number }[]; unlocated: number } | null;
   /** The partial note this one tells the rest of ("Tell the rest"); set once, at insert. */
   continues_capture_id?: string | null;
+  /**
+   * What came of understanding the note, in the gateway's word (CMR-1 shared contract; `tellOutcome.ts`):
+   * kept · nothing · partial · held · declined · failed. The gateway's alone; null until it has
+   * understood the note, and absent on rows older than its column or before its migration is applied.
+   */
+  understanding?: string | null;
 }
 
 export interface MemoryItem extends Data {

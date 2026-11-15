@@ -27,7 +27,7 @@ import { router } from "expo-router";
 import { ReviewSheet, type Correction, type ReviewSheetProps } from "@/features/tell/ReviewSheet";
 import { todayIso, useOpenNotes, usePending, usePeople, useReview, useTell, useTellDrafts, useUnderstanding, type PendingNote } from "@/hooks/useV2";
 import { draftKey } from "./drafts";
-import type { ReviewMode, ReviewView } from "./reviewModel";
+import { COPY, type ReviewMode, type ReviewView } from "./reviewModel";
 import type { FeedbackOff } from "@/store/repositories";
 import { useActivation } from "@/hooks/useActivation";
 import { charsBucket, track } from "@/platform/analytics";
@@ -196,9 +196,14 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     lines: lines.slice(0, 3),
     more: Math.max(0, lines.length - 3),
     rest: lines.slice(3),
-    status: view.mode === "card" ? view.status : view.mode === "sheet" ? "One thing to check about what you told me." : view.status,
+    status: view.mode === "card" ? view.status
+      : view.mode === "sheet" ? "One thing to check about what you told me."
+      // "Don't keep this": what was (not) added, then where the words stay.
+      : view.declined && view.status ? `${COPY.notKept} ${view.status}` : view.status,
     personIds: view.personIds,
-    words: view.mode === "nothing" ? view.words ?? null : null,
+    // The note's own words, shown back whenever no line was kept from it (understood as nothing,
+    // declined, kept as written, or after understanding failed): the user sees what Kinship kept.
+    words: view.mode === "nothing" || view.mode === "failed" || view.mode === "asWritten" ? view.words ?? null : null,
     feedback: view.feedback ?? null,
     partial: view.mode === "card" && view.partial ? { tellRest: view.partial.tellRest, resolved: view.partial.resolved } : null,
     canRetry: view.mode === "failed",

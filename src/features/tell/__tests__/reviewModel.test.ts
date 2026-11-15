@@ -3,6 +3,7 @@
 // needs the user ("One thing to check", and why), and one question at a time
 // whose choices are the user's own people. No system vocabulary, ever.
 import { answersFor, buildReview, COPY, openQuestions, type ReviewInput, type ReviewView } from "@/features/tell/reviewModel";
+import { keptOnCopy } from "@/features/tell/keptOn";
 import { dayLabel, provenanceLine, whenLabel } from "@/features/memory/format";
 import type { HeldAnswer, HeldItem } from "@/store/gateway";
 import type { MemoryItem, Person } from "@/store/repositories";
@@ -194,8 +195,10 @@ it("says plainly what's happening: understanding, offline, kept, answering, chan
   expect(view(note, row("waiting", null)).status).toBe(COPY.understanding);
   expect(view(note, row("waiting", null), [], [BEN], { offline: true }).status).toBe("I'll understand this when you're online.");
   expect(view(note, row("waiting", null, { attempts: 2 })).status).toBe("Couldn't understand this yet. Your note is saved, and I'll try again.");
-  expect(view(note, row("kept", null))).toMatchObject({ mode: "asWritten", status: "Kept as you wrote it." });
-  expect(view(note, row("failed", null))).toMatchObject({ mode: "failed", status: "Couldn't understand this one. Your note is saved." });
+  // Kept as written, or after understanding failed: the words, and where they can be found (CMR-1).
+  expect(view(note, row("kept", null))).toMatchObject({ mode: "asWritten", status: "Kept as you wrote it, on Ben's page.", words: note, personIds: ["ben"] });
+  expect(view(note, row("failed", null))).toMatchObject({ mode: "failed", status: "Couldn't understand this one. Your words are kept on Ben's page.", words: note, personIds: ["ben"] });
+  expect(view("lol ok", row("failed", null), [], undefined, { notebook: true })).toMatchObject({ mode: "failed", status: "Couldn't understand this one. Your words are kept under “Your words” in People.", personIds: [] });
   // Understood, no line kept: the note is kept on the page of whoever it names, in the user's words
   // (founder, 10 Nov 2026: every Tell is logged).
   expect(view(note, row("done", { tier: "nothing", saved: [], held: [] }))).toMatchObject({
@@ -419,11 +422,27 @@ describe("J4: never 'nothing' for a memory Kinship couldn't place", () => {
     expect(q.choices[0]).toMatchObject({ answer: { person_id: "loo" } });
   });
 
-  it("a note with nothing kept from it is still kept, in the user's words; the user's own 'Don't keep this' is 'Nothing kept'", () => {
+  it("a note with nothing kept from it is still kept, in the user's words; the user's own 'Don't keep this' is 'Nothing added', and the words stay", () => {
+    // Your words exists only in the notebook look: the card names it only then (contract §9: no broken affordances).
+    expect(view("testing", row("done", { tier: "nothing", saved: [], held: [] }), [], undefined, { notebook: true })).toMatchObject({ status: "Kept your words, under “Your words” in People.", words: "testing" });
     expect(view("testing", row("done", { tier: "nothing", saved: [], held: [] }))).toMatchObject({ status: "Kept your words.", words: "testing" });
-    expect(COPY.nothing).not.toMatch(/saved/);
-    const declined = view("Wifey got a raise.", row("review", { tier: "clarify", saved: [], held: [raise], settled: true, answered: [{ index: 0, skip: true }] }));
-    expect([declined.mode, declined.status]).toEqual(["nothing", "Nothing kept from that one."]);
+    expect(view("testing", row("kept", null))).toMatchObject({ status: "Kept as you wrote it." });
+    expect(view("testing", row("failed", null))).toMatchObject({ status: "Couldn't understand this one. Your words are kept." });
+    expect(keptOnCopy([])).not.toMatch(/saved/);
+    const skipped: Partial<Reading> = { tier: "clarify", saved: [], held: [], settled: true, answered: [{ index: 0, skip: true }] };
+    const declined = view("Wifey got a raise.", row("review", skipped), [], undefined, { notebook: true });
+    expect([declined.mode, declined.declined, declined.status]).toEqual(["nothing", true, "Your words stay under “Your words” in People."]);
+    expect(view("Wifey got a raise.", row("review", skipped)).status).toBe("Your words are kept.");
+    expect(COPY.notKept).toBe("Nothing added from that one.");
+    // Finished (done), and on another phone the server's word is "declined": the same, never "Kept on Ben's page".
+    const later = view("Ben got a raise.", row("done", skipped));
+    expect([later.declined, later.status]).toEqual([true, "Your words stay on Ben's page."]);
+    const elsewhere = buildReview({
+      row: row("done", { tier: "clarify", saved: [], held: [], settled: true }),
+      capture: { id: "c1", raw_text: "Ben got a raise.", context_person_id: null, status: "extracted", understanding: "declined" },
+      items: [], people: [BEN], related: [], offline: false, today: TODAY,
+    });
+    expect([elsewhere.mode, elsewhere.declined, elsewhere.status]).toEqual(["nothing", true, "Your words stay on Ben's page."]);
   });
 });
 
@@ -598,7 +617,7 @@ describe("every Tell is logged (founder, 10 Nov 2026)", () => {
   const nothing = row("done", { tier: "nothing", saved: [], held: [] });
   const told = (note: string, context: string | null, people: Person[]) => buildReview({
     row: nothing, capture: { id: "c1", raw_text: note, context_person_id: context, status: "extracted" }, items: [], people,
-    related: [], offline: false, today: TODAY,
+    related: [], offline: false, today: TODAY, notebook: true,
   });
 
   it("told from someone's page: kept on their page, with the words, never 'Nothing to remember'", () => {
@@ -613,6 +632,6 @@ describe("every Tell is logged (founder, 10 Nov 2026)", () => {
   });
 
   it("a name two people share places it on neither: never a guess", () => {
-    expect(told("Sam was funny today", null, [BEN, LEE, DIAZ])).toMatchObject({ status: "Kept your words.", personIds: [] });
+    expect(told("Sam was funny today", null, [BEN, LEE, DIAZ])).toMatchObject({ status: "Kept your words, under “Your words” in People.", personIds: [] });
   });
 });

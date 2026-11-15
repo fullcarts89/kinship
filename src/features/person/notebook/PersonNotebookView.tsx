@@ -307,7 +307,8 @@ function NowLens(props: PersonNotebookProps & { first: string; focus: Focus }) {
   );
 }
 
-function NoteCard({ e, now, query, target, onLine }: { e: NotePage; now: Date; query: string; target: boolean; onLine: (id: string) => void }) {
+/** One note on notebook paper: the day and "You told Kinship", the words with this person's kept words marked (Pages, Your words). */
+export function NoteCard({ e, now, query, target, onLine }: { e: NotePage; now: Date; query: string; target: boolean; onLine: (id: string) => void }) {
   const p = usePalette();
   const n = useNotebookPalette();
   const cap = `${pageDay(e.at, now)} · ${e.intention ? PAGES_COPY.saved : PAGES_COPY.told}`;

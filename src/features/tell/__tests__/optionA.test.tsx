@@ -269,7 +269,9 @@ describe("a note the understanding could not take whole (Option A)", () => {
     const people = await w.repos.people.list();
     const capture = (await w.repos.captures.get(c.id))!;
     const v = buildReview({ row, capture: { id: c.id, raw_text: capture.raw_text, context_person_id: null, status: capture.status }, items: [], people, related: [], offline: false, today: "2026-10-19" });
-    expect([v.mode, v.status]).toEqual(["failed", COPY.failed]);
+    // The note names Priya: the words are kept on her page, failed understanding or not.
+    expect([v.mode, v.status]).toEqual(["failed", "Couldn't understand this one. Your words are kept on Priya's page."]);
+    expect(v.words).toBe(THREE);
     expect(cardFor(v)!.canRetry).toBe(true);
     expect(capture.raw_text).toBe(THREE);
 
