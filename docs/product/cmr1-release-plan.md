@@ -86,8 +86,8 @@ Stages per the ledger's reporting model. "RC" = on `claude/cmr1-rc`.
 | INTEGRATION (standard oracle / realistic / replay; pgTAP) | 0 must-not violations, 0 persons guessed in all three; pgTAP 31 files / 923 tests; fingerprint md5 `26a8c58d` |
 | CMR-1 eval, oracle and realistic, dev and held-out, vs `main` | every gated metric at target, no regressions (handoff §4c) |
 | BLACK-BOX (local stack, replayed replies, the RC's gateway) | Every suite PASS under its stated conditions: b3 20, b4 5, b5 4, b6 4, b7b8 4, dates 2, h4 2, k19 2, k20 22, k25 3, k27 2, k28 3, k4 36, k4legacy 18, narrative 3, narratives 4, notebook J3+J5, removal 3, showingup 2, today 2, trustfloor 1. k10 passes Monday to Friday only (weekend "last Friday" asks, by design); notebook J1/J6 and J2 are live-model tests with no recorded replies. The stall first seen was K37, a latent app bug now fixed |
-| LIVE-MODEL | NOT RUN: the key is on the environment but was not in this session's shell |
-| NATIVE-SIMULATOR | NOT RUN: no iOS simulator in this environment |
+| LIVE-MODEL | **RUN** through CI with the repository secret on the founder's label (run 43679094441: 483 calls, $6.27, 9 minutes; dev and held-out, three repeats). The stored outputs are replayed free through `main` and the candidate after every fix (`run-evals-cmr1-replay`). On the candidate `c1e6eb6`: held-out meets every gated target; dev remaining misses are named in `cmr1-handoff.md` §4f. Latency p50 3.9–4.0 s, p95 7.4–8.5 s, unchanged from `main` |
+| NATIVE-SIMULATOR | NOT RUN: no iOS simulator reachable from this environment; an EAS-hosted path is prepared but gated (`cmr1-handoff.md` §4c, the native staging entry) |
 | FOUNDER-DEVICE | PENDING the acceptance session |
 
 ## 6. Known remaining risks
