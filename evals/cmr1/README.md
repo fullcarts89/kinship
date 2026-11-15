@@ -68,6 +68,13 @@ and latency to the job log and summary, then replays the same raw output through
 (candidate) and through `origin/main`'s `supabase/functions/_shared` (baseline, `--shared`), and prints
 `compare.ts` for baseline → candidate and baseline → live. The existing jobs are untouched.
 
+Free, repeatable after every fix: label the pull request **`run-evals-cmr1-replay`**. The `cmr1-replay` job
+finds the newest unexpired `eval-cmr1-live-*` artifact in the repository (the API, with the job's own
+token; the repository variable `CMR1_LIVE_RUN_ID` pins a run instead), downloads it, replays its raw model
+outputs through the PR head's pipeline (candidate) and through `origin/main`'s (baseline, `--shared`),
+prints both reports with every gated miss listed per fact (`--max-failures 100`) and `compare.ts` to the
+job summary, and uploads the results. No model calls: the current RC's numbers on the same live outputs.
+
 ### Modes
 
 - **oracle**: no model. Each fact the ledger keeps, asks about or declines becomes one proposal (the fact's
