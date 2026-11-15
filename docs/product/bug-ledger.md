@@ -4,10 +4,24 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
 
 ## Status values
 
+**Reporting model (CMR-1, founder directive 14 Nov 2026).** A code change is never a verified product fix. From CMR-1 on, every row's status names how far the fix has actually travelled, as the furthest of these stages it has reached, with the stages below it implied:
+
+| Stage | Meaning | Evidence that counts |
+|---|---|---|
+| **IMPLEMENTED** | Code changed on a branch (what older rows call FIXED). | Unit and integration tests on the branch |
+| **MERGED** | On `main`. | The merge commit |
+| **DEPLOYED** | In production: the gateway version carrying it, the migration applied, or the build that carries the app side. A fix that is half app and half server is DEPLOYED only when both halves are. | `ai-gateway` version and the deploy's parity check; migration name; EAS build id |
+| **LIVE-MODEL VERIFIED** | The scenario proved against the real model through the matching pipeline (the acceptance harness or `evals/cmr1` live mode), not a replayed reply. | Run id, model, prompt version, repeat count |
+| **NATIVE-SIM VERIFIED** | The journey ran on a Release simulator build against the matching gateway. | Build and gateway named |
+| **DEVICE VERIFIED** | The founder reproduced the original scenario on a physical iPhone against a build and gateway that carry the fix, and it behaved correctly (what older rows call VERIFIED). Tests, CI, browser renders and code reading never count. | The founder's words, build, gateway |
+| **FOUNDER ACCEPTED** | The founder accepted the behaviour as the product's, in an acceptance session. | The session record |
+
+A row may be at a stage for one half and not the other: say so ("IMPLEMENTED (app) · DEPLOYED (server, v18)"). Older statuses keep their meaning where they stand:
+
 | Status | Meaning |
 |---|---|
-| **FIXED** | Code changed. |
-| **VERIFIED** | The founder reproduced the original scenario on a physical iPhone against a newer build and it behaved correctly. Tests, CI, browser renders or code reading never count. |
+| **FIXED** | Code changed (= IMPLEMENTED; may or may not be merged or deployed: read the row). |
+| **VERIFIED** | = DEVICE VERIFIED. |
 | **STILL OPEN** | Not fixed, or fixed and then seen again on device. |
 | **DEFERRED** | Deliberately not in the current pass (product decision or brief). |
 | **SUPERSEDED** | Folded into another item, which carries the status. |
@@ -21,6 +35,8 @@ The single, living quality ledger for founder native-pass feedback. It covers F1
   - **Seen working (pass N)**: the founder used the fixed behaviour on device in pass N but did not deliberately re-run the original scenario. It is *not* VERIFIED; it needs a deliberate re-test.
   - **Re-seen (pass N)**: the problem happened again on device.
   - **Not re-tested**: no native evidence since the fix.
+
+*Update, 14 Nov 2026 (CMR-1, Core Memory Reliability; `docs/product/cmr1-handoff.md`):* the reporting model above replaces a single FIXED. As of `main` `c2e0ee7`: **K36 is IMPLEMENTED and MERGED, not DEPLOYED** (production runs `ai-gateway` v17 from `1bbf7bb`; #85–#88's server changes are not in it). **K34 and K35 are IMPLEMENTED, MERGED and DEPLOYED (app side, build `dc8d97a2` from `2310438`)**, with nothing LIVE-MODEL, NATIVE-SIM or DEVICE VERIFIED; K35's server half (a quote that appears twice is dropped `evidence_ambiguous`) is not fixed. K34, K35 and K36 are being re-addressed as failure classes in CMR-1 workstreams A, B and C; their rows below are the record of the first fix.
 
 *Update, 19 Oct 2026:* **K26, K27 and K28 VERIFIED** on the founder's device ("ok I'm good with the results", on the fc06b10 build with gateway v15; the founder's own pass, not reported row by row). N18 stays OPEN (logged).
 

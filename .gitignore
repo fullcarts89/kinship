@@ -62,3 +62,6 @@ supabase/.branches/
 
 # Acceptance harness: live model captures stay local (never committed)
 e2e/.captured/
+
+# Agent worktrees (local only)
+.claude/worktrees/
