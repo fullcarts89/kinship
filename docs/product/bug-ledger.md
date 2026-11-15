@@ -36,6 +36,13 @@ A row may be at a stage for one half and not the other: say so ("IMPLEMENTED (ap
   - **Re-seen (pass N)**: the problem happened again on device.
   - **Not re-tested**: no native evidence since the fix.
 
+*Update, 15 Nov 2026 (CMR-1 verification):* on the RC `claude/cmr1-rc` `8ccc1a7` (PR #93, not merged), every row below and K37 stand as follows.
+- **K34 (voice, as a class):** IMPLEMENTED; not NATIVE-SIM or DEVICE verified, because there is no simulator or device here.
+- **K35 (every Tell findable, honest copy):** IMPLEMENTED, and LIVE-MODEL VERIFIED on the replay of the 15 Nov live outputs: Tells accounted for 100%, and omitted-as-understood 0 on held-out. The retrieval black-box passes after a relaunch and on two more devices, on the local stack.
+- **K36 (identity, as a class):** IMPLEMENTED and LIVE-MODEL VERIFIED: fabricated identities 23 → 0 on dev and 5 → 0 on held-out, with held-out wrong person 0.
+- **K37 (a Tell left on "Understanding…" during an in-flight sync):** IMPLEMENTED, covered by unit and black-box tests.
+- Nothing is MERGED to `main`, DEPLOYED, NATIVE-SIM, DEVICE or FOUNDER ACCEPTED. Readiness: NOT READY.
+
 *Update, 14 Nov 2026 (CMR-1, Core Memory Reliability; `docs/product/cmr1-handoff.md`):* the reporting model above replaces a single FIXED. As of `main` `c2e0ee7`: **K36 is IMPLEMENTED and MERGED, not DEPLOYED** (production runs `ai-gateway` v17 from `1bbf7bb`; #85–#88's server changes are not in it). **K34 and K35 are IMPLEMENTED, MERGED and DEPLOYED (app side, build `dc8d97a2` from `2310438`)**, with nothing LIVE-MODEL, NATIVE-SIM or DEVICE VERIFIED; K35's server half (a quote that appears twice is dropped `evidence_ambiguous`) is not fixed. K34, K35 and K36 are being re-addressed as failure classes in CMR-1 workstreams A, B and C; their rows below are the record of the first fix.
 
 *Update, 19 Oct 2026:* **K26, K27 and K28 VERIFIED** on the founder's device ("ok I'm good with the results", on the fc06b10 build with gateway v15; the founder's own pass, not reported row by row). N18 stays OPEN (logged).
