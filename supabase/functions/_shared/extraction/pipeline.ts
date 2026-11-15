@@ -2672,8 +2672,10 @@ function personLike(ctx: Context, text: string, owner: RosterPerson): boolean {
     }
     if (PERSON_PLURALS.test(k)) return true;
     if (/^\p{Ll}/u.test(word) && lowercaseSomeone(ctx, word, owner, text, words[i].index ?? 0)) return true;
-    // "Nana met June at church", "June told Nana…": a month or a season where a name goes is someone.
-    if (/^\p{Lu}/u.test(word) && (CALENDAR.has(k) || SEASONS.has(k)) && namePosition(text, words[i].index ?? 0, raw)) return true;
+    // "Nana met June at church", "Nana ran into April", "June told Nana…": a capitalised month or season is
+    // someone unless the words make it a date ("in May", "last June", "May 3rd").
+    if (/^\p{Lu}/u.test(word) && DATE_NAMES.has(k) && !opens && namePositionLoose(text, words[i].index ?? 0, raw)) return true;
+    if (/^\p{Lu}/u.test(word) && DATE_NAMES.has(k) && opens && namePosition(text, words[i].index ?? 0, raw)) return true;
     // "Nana met her.", "told her about…", "Nana and she talked": another person in a pronoun (re-review of #93).
     // A possessive "her husband" is not; "She looked tired" opening its sentence is the one named before.
     if (k === "him" || k === "them") return true;
@@ -2723,6 +2725,8 @@ const SPOKEN_FILLERS = new Set(["ok", "okay", "so", "um", "uh", "umm", "uhh", "l
   "then", "now", "oops", "wow", "omg", "btw", "fyi", "basically", "literally", "actually", "really", "today", "tonight"]);
 /** Months, days and seasons that are also names ("May", "June", "April", "Summer"). */
 const SEASONS = new Set(["spring", "summer", "autumn", "fall", "winter"]);
+/** The months and seasons people are named (never a weekday: "had surgery Tuesday" is a day). */
+const DATE_NAMES = new Set(["april", "may", "june", "july", "august", "summer", "autumn", "winter"]);
 
 /**
  * Whether the word at code-unit `at` sits where a person's name goes (re-review of #93): after "met", "with",
@@ -2755,7 +2759,7 @@ function lowercaseSomeone(ctx: Context, word: string, owner: RosterPerson, text 
     !PRONOUNS.has(k) && !neverAName(w) && !/^(?:a|an|the|this|that|my|our|your|his|her|their|some|every|each|me|us|you|myself|everyone|everybody)$/u.test(k) &&
     !RELATION_WORDS.map(relationKey).includes(relationKey(k)) && !PERSON_NOUNS.has(k) && !PERSON_PLURALS.test(k) &&
     !namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey).includes(nameKey(w))) return true;
-  if ((CALENDAR.has(k) || SEASONS.has(k) || PERSON_NOUNS.has(k) || ctx.wordNotAName(w)) && at >= 0 && namePosition(text, at, word) &&
+  if ((DATE_NAMES.has(k) || PERSON_NOUNS.has(k) || ctx.wordNotAName(w)) && at >= 0 && namePosition(text, at, word) &&
     !namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey).includes(nameKey(w)) && !PRONOUNS.has(k) && !neverAName(w) &&
     !RELATION_WORDS.map(relationKey).includes(relationKey(k)) && !NOT_A_PERSON_NOUN.has(k)) return true;
   if (namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey).includes(nameKey(w))) return false;
@@ -2768,6 +2772,61 @@ function lowercaseSomeone(ctx: Context, word: string, owner: RosterPerson, text 
   return !ctx.wordNotAName(w);
 }
 
+/**
+ * In a voice-shaped note, whether anything before `end` could be someone other than the owner, by a closed
+ * list of what is known not to be a name (re-review of #93: a list of where names go always leaked). The
+ * owner's own name and the word right after it (their verb) are no one; so are fillers, pronouns, function
+ * words, openers, things, times and a place after a journey. Anything else, a relation or a person word
+ * included, may be someone.
+ */
+function voiceSomeoneBefore(ctx: Context, owner: RosterPerson, end: number): boolean {
+  const text = ctx.text.slice(0, end);
+  const ownerKeys = new Set(namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey));
+  const words = [...text.matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)];
+  for (let i = 0; i < words.length; i++) {
+    const raw = words[i][0];
+    const w = withoutPossessive(raw);
+    const k = fold(w);
+    if (ownerKeys.has(nameKey(w)) || (k.endsWith("s") && ownerKeys.has(nameKey(w.slice(0, -1))))) continue;
+    const prev = i > 0 ? withoutPossessive(words[i - 1][0]) : "";
+    if (prev && ownerKeys.has(nameKey(prev)) && raw === w && !/^\p{Lu}/u.test(raw)) continue;
+    if (k.length < 2 && k !== "i") continue;
+    if (SPOKEN_FILLERS.has(k) || PRONOUNS.has(k) || /^(?:me|us|you|myself|i|we|her|his|their|our|my|your|its)$/u.test(k)) continue;
+    // An opener counts only as its sentence's first real word ("talked to nana"); "ben ran into drew" is Drew.
+    const sentenceLead = text.slice(0, words[i].index ?? 0).split(/[.!?\n…]/u).pop() ?? "";
+    const firstReal = wordsOf(sentenceLead).every((x) => SPOKEN_FILLERS.has(fold(x)));
+    if ((OPENING_VERBS.has(k) && firstReal) || NOT_A_PERSON_NOUN.has(k) || neverAName(w) || VOICE_EVERYDAY.has(k)) continue;
+    if (DATE_NAMES.has(k)) {
+      if (!namePositionLoose(text, words[i].index ?? 0, raw)) continue;
+      return true;
+    }
+    if (CALENDAR.has(k) || SEASONS.has(k)) continue;
+    const lead = text.slice(0, words[i].index ?? 0).trimEnd();
+    if (/\b(?:flew|fly|flying|moved|moving|went|going|drove|driving|travel+ed|headed|heading|back|home|trip|flight|returned|returning) (?:to|from)$/iu.test(lead)) continue;
+    if (/\b(?:in|at|near)$/iu.test(lead) && ctx.placeOnly(w)) continue;
+    return true;
+  }
+  return false;
+}
+/** Everyday words a voice note opens or links with, never a name. */
+const VOICE_EVERYDAY = new Set(["is", "was", "are", "were", "be", "been", "being", "am", "has", "have", "had", "do", "does", "did",
+  "got", "get", "gets", "came", "come", "comes", "went", "go", "goes", "by", "over", "back", "home", "there", "here", "too",
+  "again", "finally", "just", "still", "really", "very", "so", "such", "and", "but", "or", "then", "now", "today", "tonight",
+  "yesterday", "tomorrow", "morning", "evening", "afternoon", "night", "week", "weekend", "talked", "talk", "talking", "called",
+  "texted", "visited", "saw", "see", "seen", "spoke", "phone", "call", "on", "off", "up", "out", "about", "to", "from", "with",
+  "w", "at", "in", "of", "for", "the", "a", "an", "update", "quick", "news", "said", "says", "told", "tells", "thinks", "think",
+  "update", "earlier", "later", "lately", "recently", "while", "long", "little", "bit", "lot", "good", "great", "fine", "ok",
+  "tired", "excited", "happy", "upset", "worried", "busy", "sick", "better", "worse", "doing", "feeling", "sounded", "sounds",
+  "looked", "looks", "seemed", "seems", "glad", "sad", "stressed", "exhausted", "okay", "alright", "well", "much", "more"]);
+/** A month or season is not a name after "in", "on", "last", "next"…, nor before a day number. */
+function namePositionLoose(text: string, at: number, word: string): boolean {
+  const lead = text.slice(0, at).trimEnd();
+  const after = text.slice(at + word.length);
+  if (/\b(?:in|on|last|next|this|since|until|till|by|of|every|early|late|mid|through|during|before|after|from|for|around|since)$/iu.test(lead)) return false;
+  if (/^\s+(?:the\s+)?(?:\d|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|\w+teenth|\w+tieth|twenty|thirty)\b/iu.test(after)) return false;
+  return true;
+}
+
 /** (a) or (b) above, for the "his"/"her" at code-unit `at`. */
 function ownsPossessive(ctx: Context, owner: RosterPerson, at: number): boolean {
   const text = ctx.text;
@@ -2776,6 +2835,14 @@ function ownsPossessive(ctx: Context, owner: RosterPerson, at: number): boolean 
   const head = text.slice(start, at);
   const ownerRe = new RegExp(`(?<![\\p{L}\\p{M}'’-])(?:${namesFor(owner).flatMap((n) => [n, firstName(n)]).filter(Boolean).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\p{L}\\p{M}-])`, "giu");
   const inSentence = [...head.matchAll(ownerRe)].pop();
+  // A voice-shaped note: "her husband" is the owner's only right after them ("nana and her husband", "nana
+  // called and her husband", "saw nana today her husband") or opening a sentence after words that name no
+  // one; nothing before may be anyone else, by the closed list above. Anything else asks (re-review of #93).
+  if (lowercaseNote(ctx, owner)) {
+    if (inSentence) return !voiceSomeoneBefore(ctx, owner, at);
+    if (head.trim() !== "" && !/^["“”'‘’(\s]*$/u.test(head)) return false;
+    return new RegExp(ownerRe.source, "iu").test(text.slice(0, start)) && !voiceSomeoneBefore(ctx, owner, start);
+  }
   if (inSentence) {
     const between = head.slice((inSentence.index ?? 0) + inSentence[0].length);
     // "Nana's neighbor came by with her…": the owner's own someone sits between.
@@ -2843,7 +2910,7 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
     if (!/^\p{Lu}/u.test(word)) return lowercaseSomeone(ctx, word, owner, raw, w.index ?? 0);
     if (relativesNames.has(nameKey(word))) return false;
     const lead = raw.slice(0, w.index ?? 0).trimEnd();
-    if ((CALENDAR.has(fold(word)) || SEASONS.has(fold(word))) && namePosition(raw, w.index ?? 0, w[0])) return true;
+    if (DATE_NAMES.has(fold(word)) && (lead === "" || /[.!?\n…]["“”'‘’(]*$/u.test(lead) ? namePosition(raw, w.index ?? 0, w[0]) : namePositionLoose(raw, w.index ?? 0, w[0]))) return true;
     if (COMMON_CAPITALS.has(fold(word)) || CALENDAR.has(fold(word)) || ctx.placeOnly(word)) return false;
     // A sentence's first word is someone unless it is an everyday word ("Tom came too. He brought cake": Tom).
     if (lead === "" || /[.!?\n…]["“”'‘’(]*$/u.test(lead)) return !ctx.wordNotAName(word) && !openingVerb(word);
