@@ -721,6 +721,12 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // with its day, never under "You said you'd" (Gate F). The model often
   // reads it as something ongoing; the words decide.
   if (theirs && (raw.kind === "thread" || raw.kind === "fact" || raw.kind === "event")) raw = { ...raw, kind: "promise", subject: "person" };
+  // Someone asks the user to do something and the user hasn't said yes ("asked if I can bring the cake"): whose
+  // promise it is is asked, whatever kind the model gave the line (J11; live run, ce-001 as a thread). Never saved
+  // as a thread or a plan.
+  if (!mine && !theirs && raw.kind !== "promise" && REQUESTED.test(fold(primary.quote))) {
+    raw = { ...raw, kind: "promise", subject: raw.subject === "person" ? "person" : "user" };
+  }
   if (raw.kind === "promise") {
     if (mine) subject = "user";
     else if (theirs) subject = "person";
@@ -793,11 +799,18 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   }
   // A related person the user already knows by name ("Leo", David's son) is
   // filed under their person even though that person isn't mentioned.
-  const knownRelated = subject === "related" ? relatedByName(ctx, raw) : null;
+  let knownRelated = subject === "related" ? relatedByName(ctx, raw) : null;
   let who = knownRelated
     ? knownRelated.who
     : resolvePerson(ctx, raw, flags);
   if ("drop" in who) return who;
+  // "Nana still talks about her husband every day. He proposed to her…": "He" is her husband, so the line is a
+  // related line on Nana (her husband), whatever subject the model gave it (CMR-1 B; founder, 15 Nov 2026).
+  if ("relation" in who && who.relation && (subject === "person" || subject === "related")) {
+    const sameWord = subject === "related" && !!raw.related_relation && relationKey(raw.related_relation) === relationKey(who.relation);
+    subject = "related";
+    raw = { ...raw, subject, related_relation: sameWord ? raw.related_relation : who.relation, related_name: subject === "related" ? raw.related_name ?? null : null };
+  }
   // The model's word for who it was about was no one, and code read the sentence instead: shown for a glance,
   // never saved silently on a person the model did not name.
   if (voided && who.person_key && who.person_key !== proposed.person) flags.add("subject_moved");
@@ -887,6 +900,28 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     const verb = clauseVerb(ctx, primary);
     if (name && grounded && !(filed && possessiveRelation(sentence, filed))) {
       said = withSubject(said, name, names, (w) => ctx.elidedStart(w) || (!!verb && fold(w) === fold(verb)));
+    }
+  }
+
+  // The statement's own subject decides between the person and their relative, or the two of you (live run, 15
+  // Nov 2026): "Yusuf has a lot on his plate with Emre starting school" is Yusuf's own line though it names his
+  // son; "May is going to her son's in Tucson" is May's; "Toby fell asleep on Grace's shoulder" is Toby's, not a
+  // moment of yours; "Mark says he's in too" is Mark's. A relative or a roster name in object or possessive
+  // position never changes the subject; "Seun's dad was a carpenter" and "Juniper is doing swim lessons" stay the
+  // relative's; "You and Grace are doing the turkey trot" stays shared.
+  if ((subject === "related" || subject === "shared") && who.person_key && !("companion" in who && who.companion)) {
+    const filed = ctx.byKey.get(who.person_key)!;
+    const lead = leadingName(said);
+    const leadsWithPerson = !!lead && ctx.candidatesFor(lead).some((c) => c.key === filed.key) && !/^[\p{L}\p{M}'’-]+['’]s?\s/u.test(said.trim());
+    const relativeLeads = subject === "related" && (
+      new RegExp(`^(?:[\\p{L}\\p{M}'’-]+['’]s?|his|her|their|the)\\s+(?:\\w+\\s+)?(?:${POSSESSED_RELATION})\\b`, "iu").test(said.trim()) ||
+      (!!raw.related_name && new RegExp(`^${raw.related_name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "iu").test(said.trim())) ||
+      (!!raw.related_relation && new RegExp(`^(?:\\w+\\s+){0,2}${raw.related_relation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "iu").test(said.trim())));
+    const together = subject === "shared" && (/\b(?:you|your|yours|we|our|ours|us|i|me|my)\b/iu.test(said) || raw.kind === "context" || raw.kind === "tradition");
+    if (leadsWithPerson && !relativeLeads && !together) {
+      subject = "person";
+      raw = { ...raw, subject, related_relation: null, related_name: null };
+      knownRelated = null;
     }
   }
 
@@ -1314,6 +1349,9 @@ function toldNews(ctx: Context, text: string, span: PlannedSpan, said: string, i
   if (ctx.evidence.some((other, j) => j !== index && other.some((s) => s.start < end && start < s.end))) return null;
   return { start, end: span.end, quote: chars.slice(start, span.end).join("") };
 }
+
+/** Someone asks the user to do something ("asked if I can bring the cake", "wants me to drive"): a request, not yet a promise (J11). */
+const REQUESTED = /\b(?:asked|asks|asking|wondered|wants to know)\s+(?:me\s+|us\s+)?(?:if|whether)\s+(?:i|we)(?:'d|'ll|d|ll|\s+can|\s+could|\s+would|\s+will|\s+might)\b|\b(?:asked|asks)\s+(?:me|us)\s+to\b/u;
 
 /** Something the user means to do, in their line's own words ("can't wait to tell Loo Loo", "want to call Ben"). */
 const INTENDS = /\b(?:can['’]?t wait to|cannot wait to|wants? to|going to|gonna|will|['’]ll|plan(?:s|ning)? to|need(?:s)? to|have to|hope to|looking forward to)\b/u;
@@ -2249,6 +2287,8 @@ type Who = {
   person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string;
   /** Decided from the note's own structure (the sentence's subject, a pronoun with one referent): grounded without a name in the line (CMR-1 B). */
   grounded?: true;
+  /** The pronoun is the person's own relative ("her husband… He proposed"): the line is a related line with this relation word (CMR-1 B). */
+  relation?: string;
   /** For a pronoun held to ask: exactly who it can mean (founder J1). */
   candidate_ids?: string[];
   /** The known companion the mention named (founder K27): the line is theirs, and the name is never a name of theirs. */
@@ -2427,6 +2467,61 @@ function someoneElseBefore(ctx: Context, at: number, pronoun: string, allowed: R
   return false;
 }
 
+/** The words the note hangs on a name right after it: "from the Austin office", "a coworker", "the plumber"; null when none. */
+function descriptorAfter(ctx: Context, mention: string): string | null {
+  const name = withoutPossessive(mention.trim()).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!name) return null;
+  const re = new RegExp(`(?<![\\p{L}\\p{M}'’-])${name}(?:\\s*,\\s*(?:a|an|my|our|the)|\\s+from(?:\\s+the)?)\\s+((?:[\\p{L}][\\p{L}\\p{M}'’-]*\\s*){1,3}?)(?=\\s+(?:is|was|are|were|has|had|will|who|and|,)|[.,;!?]|$)`, "iu");
+  const m = ctx.text.match(re);
+  return m ? m[1].trim() : null;
+}
+
+/** Words of a descriptor that mean the same as a relationship label's ("the office" and "coworker"). */
+const DESCRIPTOR_KIN: Record<string, string[]> = {
+  office: ["coworker", "colleague", "boss", "manager", "teammate", "client", "work"],
+  work: ["coworker", "colleague", "boss", "manager", "teammate", "client", "work"],
+  gym: ["gym", "trainer", "climbing"],
+  school: ["classmate", "teacher", "school"],
+  college: ["college", "classmate", "roommate"],
+  church: ["church"],
+  "next door": ["neighbor", "neighbour"],
+  upstairs: ["neighbor", "neighbour"],
+  downstairs: ["neighbor", "neighbour"],
+};
+
+/** Whether the descriptor fits the roster person's relationship label (or the label says nothing about where they are from). */
+function descriptorFits(descriptor: string, p: RosterPerson): boolean {
+  const label = wordsOf(p.relationship_label ?? "");
+  if (!label.length) return false;
+  const words = wordsOf(descriptor).filter((w) => !["the", "a", "an", "my", "our", "from"].includes(w));
+  const kin = (w: string) => DESCRIPTOR_KIN[w] ?? [];
+  return words.some((w) => label.includes(w) || label.some((l) => kin(w).includes(l))) || label.some((l) => kin(fold(descriptor)).includes(l));
+}
+
+/**
+ * A relative of `owner` named as theirs before the pronoun ("her husband", "his mom", "Nana's husband", "Seun's
+ * dad"), the last one before it, when the relation word can be the pronoun's gender; null otherwise. The
+ * relation word as the note says it.
+ */
+function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: RosterPerson): { relation: string; excludesOwner: boolean } | null {
+  const before = fold(ctx.text.slice(0, at));
+  const male = pronoun === "he" || pronoun === "him" || pronoun === "his" || pronoun === "himself";
+  const names = namesFor(owner).map((n) => fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).filter(Boolean);
+  const possessor = `(his|her|their|${names.map((n) => `${n}(?:'s|(?<=s)')`).join("|")})`;
+  const re = new RegExp(`\\b${possessor}\\s+(?:(?:late|own|older|younger|little|big|elder)\\s+)?(${POSSESSED_RELATION})(?![\\w-])`, "gu");
+  let last: { relation: string; excludesOwner: boolean } | null = null;
+  for (const m of before.matchAll(re)) {
+    const rel = m[2];
+    const k = relationKey(rel);
+    if (male ? FEMALE_RELATIONS.has(k) || FEMALE_RELATIONS.has(rel) : MALE_RELATIONS.has(k) || MALE_RELATIONS.has(rel)) continue;
+    // "his mom … She": the owner is a man, so "she" is not him; "her husband … He": the owner is a woman.
+    const det = m[1];
+    const excludesOwner = (det === "his" && !male) || (det === "her" && male) || (genderOf(owner) === (male ? "f" : "m"));
+    last = { relation: rel, excludesOwner };
+  }
+  return last;
+}
+
 function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   const mention = (raw.person_mention ?? "").trim();
   const modelKey = raw.person;
@@ -2440,6 +2535,10 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   // No mention: only the person Tell was opened from can be implied
   // ("Starts kindergarten Tuesday" on David's page).
   if (!mention) {
+    // "He starts in two weeks" with no mention at all: the pronoun the quote opens with is the mention.
+    const q0 = (evidenceSpans(ctx.text, raw)[0]?.quote.match(/^[\p{L}][\p{L}\p{M}'’]*/u) ?? [""])[0];
+    const q0p = fold(q0).replace(/['’](s|ll|d|re)$/u, "");
+    if (q0p && SINGULAR_PRONOUNS.has(q0p)) return resolvePerson(ctx, { ...raw, person_mention: q0 }, flags);
     // A clause the model quoted from the middle of a sentence, joined to what came before ("…and has been
     // very clingy to my wife Krystal"), shares that sentence's subject (CMR-1 B; founder K36): the one
     // person named before it is who it is about, as "he" means who was named before (J1). The model's
@@ -2542,6 +2641,17 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
     // the model filed it on someone it can't be (the sentence's object) or couldn't tell. A relative of
     // theirs, their pet, an acronym or a place before it is no one else. "New" (the model says someone
     // not in People is meant) is still asked, unless the model's own page is that person.
+    // The person's own relative, named before it as theirs ("Nana still talks about her husband every day. He
+    // proposed to her…", "Ben misses his mom. She called"): the pronoun is that relative when the relation fits
+    // its gender, the person themself cannot be meant (their relationship to the user, or the "his"/"her" that
+    // owns the relative, says the other gender) and no one else was named before it. The line is then a related
+    // line on the person (CMR-1 B; founder, 15 Nov 2026). Anyone else named before it: asked as now.
+    if (SINGULAR_PRONOUNS.has(folded) && at >= 0) {
+      const owner = chosen ?? (context ? ctx.byKey.get(context) : undefined);
+      const owned = owner ? ownedRelationBefore(ctx, at, folded, owner) : null;
+      const ownerOut = !!owner && !!owned && (owned.excludesOwner || !allowed.some((p) => p.key === owner.key));
+      if (owner && owned && ownerOut && !allowed.some((p) => p.key !== owner.key)) return { ...pick(owner), relation: owned.relation, grounded: true };
+    }
     const only = allowed.length === 1 ? allowed[0] : null;
     if (only && SINGULAR_PRONOUNS.has(folded) &&
         (chosen?.key === only.key || (modelKey !== "new" && !someoneElseBefore(ctx, at, folded, allowed, 0, everyone)))) {
@@ -2642,6 +2752,20 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   }
   if (candidates.length === 1) {
     const c = candidates[0];
+    // "Jordan from the Austin office", "Jordan, a coworker", "Jordan the plumber": a descriptor the note gives the
+    // name that does not fit this person's relationship to the user is a namesake (a new person with the same
+    // name as a contact): asked, with this person and someone new offered, never saved on them (§7.3).
+    const descriptor = descriptorAfter(ctx, mention);
+    if (descriptor && !descriptorFits(descriptor, c)) {
+      return { ...unresolved("person_ambiguous"), candidate_ids: [c.id], mention: withoutPossessive(mention) };
+    }
+    if (modelKey !== c.key && raw.subject === "shared" && !/\b(?:you|your|yours|we|our|ours|us|i|me|my)\b/iu.test(raw.statement) &&
+        leadingName(raw.statement) && ctx.candidatesFor(leadingName(raw.statement)!).some((x) => x.key === c.key)) {
+      // "mark says hes in too", filed as a moment of yours with Grace: a line that leads with another person's
+      // name and has no "you" in it is that person's own (live run, 15 Nov 2026), for a glance.
+      flags.add("subject_moved");
+      return pick(c);
+    }
     if (modelKey !== c.key) {
       // The model filed it under someone else: ask instead of guessing. The model's "new" for a name one
       // person here goes by is that person (founder K7: "Chris' dog Fluffy" with a Chris in People; H20: "my
