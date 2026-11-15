@@ -73,7 +73,7 @@ const TIME_WORDS = new Set([
 /** "from then", "by then", "until then": a time phrase, not "then" starting a sentence. */
 const BEFORE_THEN = new Set(["from", "by", "until", "till", "since", "before", "after"]);
 /** Verbs (and the adverbs that sit before one) a sentence's subject is followed by, as spoken notes use them. */
-const VERBS = new Set([
+export const VERBS = new Set([
   "is", "was", "has", "had", "got", "gets", "said", "says", "told", "tells", "wants", "wanted", "offered", "offers", "asked", "asks",
   "started", "starts", "finished", "moved", "moves", "loves", "likes", "hates", "thinks", "thought", "seems", "seemed", "sees", "saw",
   "called", "texted", "mentioned", "booked", "brought", "bought", "went", "came", "left", "lost", "found", "made", "took", "gave", "spent",

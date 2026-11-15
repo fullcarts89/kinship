@@ -30,7 +30,8 @@
 --    (internal_reference, already_known): a call that dropped a line for either reason could not write
 --    its content-free usage row at all, so those understandings were missing from ai_calls. And
 --    no_one_named, the reason CMR-1 Workstream B adds (someone the note leaves unnamed), and
---    earlier_note (a continuation's proposal that quotes the note it continues).
+--    earlier_note (a continuation's proposal that quotes the note it continues) and secret_aside ("dont
+--    tell mom": the writer's aside about the note, excluded like an instruction).
 --
 -- Release order: migration first, preferred. With it in production (merged to main) before the gateway
 -- that writes `not_understood` is deployed, every row carries the places not understood. A gateway
@@ -202,7 +203,8 @@ AS $$
                            'invented_sensitive_term', 'invented_relation', 'mention_not_in_note',
                            'polarity_mismatch', 'not_a_user_promise', 'instruction_text',
                            'low_confidence', 'bad_kind_subject', 'duplicate', 'too_many_items',
-                           'contact_detail', 'internal_reference', 'already_known', 'no_one_named', 'earlier_note')
+                           'contact_detail', 'internal_reference', 'already_known', 'no_one_named', 'earlier_note',
+                           'secret_aside')
           OR jsonb_typeof(e.value) <> 'number'
           OR NOT (e.value::text ~ '^[0-9]{1,3}$'))
 $$;
