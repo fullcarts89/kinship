@@ -708,6 +708,19 @@ Deno.test("r2-5: a hyphenated name's first word is not that name ('Mary' with Ma
   eq(jean.items.map((i) => [i.person_id, i.tier === "hold"]), [["jean", false]]);
 });
 
+Deno.test("r3: nothing is kept between requests: a hyphenated name in one call never changes how a space-named person is read in the next", () => {
+  // Call 1: Hyun-woo Park, said aloud without the hyphen.
+  const first = run(input("ok so hyun woo and i are climbing at the gym thursday", [HYUNWOO]), [item({ kind: "event", subject: "shared", person: "p34", person_mention: "hyun woo", statement: "You and Hyun-woo are climbing at the gym Thursday", evidence: ["hyun woo and i are climbing at the gym thursday"], date_text: "thursday" })]);
+  eq(first.items.map((i) => i.person_id), ["hyunwoo"]);
+  // Call 2, another account: someone literally named "Hyun woo Park" (a space), named by first name before "He".
+  const spaced = person("p62", "hyun-space", "Hyun woo Park", { full_name: "Hyun woo Park" });
+  const second = run(input("Hyun called yesterday. He got the job.", [spaced, BEN]), [item({ person: "p62", person_mention: "He", statement: "Hyun got the job", evidence: ["He got the job"] })]);
+  eq(second.items.map((i) => [i.person_id, i.tier === "hold"]), [["hyun-space", false]], "his first name still names him");
+  // And the other way round: the space-named person first, then the hyphenated one.
+  const third = run(input("ok so hyun woo and i are climbing at the gym thursday", [HYUNWOO]), [item({ kind: "event", subject: "shared", person: "p34", person_mention: "hyun woo", statement: "You and Hyun-woo are climbing at the gym Thursday", evidence: ["hyun woo and i are climbing at the gym thursday"], date_text: "thursday" })]);
+  eq(third.items.map((i) => i.person_id), ["hyunwoo"]);
+});
+
 // ─── voice.ts units ──────────────────────────────────────────────────────────────────────────────
 
 Deno.test("voice.ts: leadingName refuses everyday words and pairs; asName capitalises; withSubject prepends only for an elided start", () => {
