@@ -12,6 +12,11 @@ describe("leftOut", () => {
     expect(leftOut(c)).toEqual([{ start: 0, end: 16 }, { start: 31, end: 47 }, { start: 40, end: 60 }, { start: 40, end: 60 }]);
   });
 
+  it("marks overlapping not_understood places once, so Tell the rest never repeats words (final review of #93)", () => {
+    const c = { unprocessed: [], unlocated: 0, not_understood: [{ start: 10, end: 30 }, { start: 0, end: 16 }, { start: 12, end: 20 }, { start: 40, end: 44 }] };
+    expect(leftOut(c)).toEqual([{ start: 0, end: 30 }, { start: 40, end: 44 }]);
+  });
+
   it("reads a row older than C2 (no not_understood), a reply with only not_understood, and nothing at all", () => {
     expect(leftOut({ unprocessed: [{ start: 3, end: 9 }], unlocated: 0 })).toEqual([{ start: 3, end: 9 }]);
     expect(leftOut({ unprocessed: [], unlocated: 0, not_understood: [{ start: 3, end: 9 }] })).toEqual([{ start: 3, end: 9 }]);

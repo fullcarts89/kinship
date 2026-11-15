@@ -917,3 +917,67 @@ Deno.test("relative-led statements: a name after the relation, or a compound, st
   ] } as ModelProposal);
   eq(b.items[0]?.subject_type, "person", "a baby shower is Mercy's own");
 });
+
+// ── Final review of #93 (15 Nov 2026): never a guess between relatives, never past anyone else ──
+
+const asks = (out: ReturnType<typeof planExtraction>, words: RegExp, msg: string) => {
+  const line = out.items.find((i) => words.test(i.statement))!;
+  ok(line, `${msg}: the line is kept or held`);
+  ok(line.tier === "hold", `${msg}: asked, never saved (tier ${line.tier}, ${line.subject_type}, ${JSON.stringify(line.related)})`);
+};
+const NANA2 = person("p40", "nana2", "Nana", { relationship_label: "grandmother" });
+const BEN2 = person("p41", "ben2", "Ben");
+const SEUN2 = person("p42", "seun2", "Seun", { relationship_label: "friend" });
+
+Deno.test("review B1: two relatives of the pronoun's gender before it are asked about", () => {
+  for (const [note, quote, statement] of [
+    ["Nana's husband and her brother visited. He brought cake.", "He brought cake", "He brought cake"],
+    ["Nana's son and her husband came for lunch. He fixed the sink.", "He fixed the sink", "Nana's husband fixed the sink"],
+    ["Nana's neighbor Tom came by with his son. He fixed the sink.", "He fixed the sink", "He fixed the sink"],
+    ["Nana told me about her husband. Then Tom arrived. He is moving to Ohio.", "He is moving to Ohio", "Nana's husband is moving to Ohio"],
+  ] as const) {
+    const out = planExtraction(input(note, [NANA2], "p40"), { needs_clarification: null, items: [
+      item({ person: "p40", person_mention: "He", statement, evidence: [quote], confidence: 0.8 }),
+    ] } as ModelProposal);
+    asks(out, /sink|cake|Ohio/, note);
+  }
+  const out = planExtraction(input("Ben's mom and sister visited. She seemed tired.", [BEN2]), { needs_clarification: null, items: [
+    item({ person: "p41", person_mention: "She", statement: "Ben's mom seemed tired", evidence: ["She seemed tired"], confidence: 0.8 }),
+  ] } as ModelProposal);
+  asks(out, /tired/, "mom and sister");
+});
+
+Deno.test("review B2: a relative-led statement on a pronoun that could be the person is asked, naming the relative", () => {
+  const out = planExtraction(input("Ben and his dad went fishing. He caught a trout.", [BEN2]), { needs_clarification: null, items: [
+    item({ person: "p41", person_mention: "He", statement: "Ben's dad caught a trout", evidence: ["He caught a trout"], confidence: 0.8 }),
+  ] } as ModelProposal);
+  asks(out, /trout/, "fishing");
+  ok(/Ben's dad/.test(JSON.stringify(out.clarification)), `the question names his dad: ${JSON.stringify(out.clarification)}`);
+});
+
+Deno.test("review B4: a dead relative's habit or might-have-been is asked, never filed on the living person", () => {
+  for (const [note, quote, statement] of [
+    ["Seun's dad passed away last spring. He flew out every summer to see the grandkids.", "He flew out every summer to see the grandkids", "Seun flew out every summer to see the grandkids"],
+    ["Seun's dad died in March. He drove down to Austin every Christmas.", "He drove down to Austin every Christmas", "Seun drove down to Austin every Christmas"],
+    ["Seun's dad died years ago. He'd head out to the lake every summer.", "He'd head out to the lake every summer", "Seun would head out to the lake every summer"],
+    ["Seun's dad died in March. He would have turned 70 tomorrow.", "He would have turned 70 tomorrow", "Seun turns 70 tomorrow"],
+  ] as const) {
+    const out = planExtraction(input(note, [SEUN2], "p42"), { needs_clarification: null, items: [
+      item({ person: "p42", person_mention: "He", statement, evidence: [quote], confidence: 0.8 }),
+    ] } as ModelProposal);
+    asks(out, /summer|Christmas|70/, note);
+  }
+});
+
+Deno.test("review B3: a secret told with its news keeps the news; only the bare aside is set aside", () => {
+  const grace = person("p43", "grace3", "Grace", { relationship_label: "friend" });
+  for (const [note, statement] of [
+    ["Don't tell anyone but Grace is pregnant!", "Grace is pregnant"],
+    ["Don't tell Grace I said this but she's moving to Denver.", "Grace is moving to Denver"],
+  ] as const) {
+    const out = planExtraction(input(note, [grace]), { needs_clarification: null, items: [
+      item({ person: "p43", person_mention: "Grace", statement, evidence: [note.replace(/[.!]$/, "")], confidence: 0.85 }),
+    ] } as ModelProposal);
+    ok(out.items.some((i) => i.statement === statement), `${note}: kept (dropped ${JSON.stringify(out.dropped)})`);
+  }
+});

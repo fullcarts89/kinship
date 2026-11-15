@@ -280,7 +280,7 @@ jobs:
           PIN_RUN_ID: ${{ vars.CMR1_LIVE_RUN_ID }}
         run: |
           set -euo pipefail
-          FILTER='.artifacts | map(select((.name | startswith("eval-cmr1-live-")) and (.expired | not)))'
+          FILTER='.artifacts | map(select((.name | startswith("eval-cmr1-live-")) and (.expired | not) and (.workflow_run.head_repository_id == .workflow_run.repository_id)))'
           if [ -n "${PIN_RUN_ID:-}" ]; then FILTER="$FILTER | map(select(.workflow_run.id == ${PIN_RUN_ID}))"; fi
           ART=$(gh api --paginate "repos/${{ github.repository }}/actions/artifacts?per_page=100" --jq "$FILTER | sort_by(.created_at) | last // empty")
           if [ -z "$ART" ]; then echo "no unexpired eval-cmr1-live-* artifact found${PIN_RUN_ID:+ for run $PIN_RUN_ID}"; exit 1; fi

@@ -622,6 +622,17 @@ function quotedFromEarlier(ctx: Context, raw: ProposedItem): boolean {
   return !!quote && fold(earlier).includes(fold(quote.trim()));
 }
 
+/** A line Kinship already holds says what this proposal says (most of its words): the earlier note's line again. */
+function alreadyKept(ctx: Context, raw: ProposedItem): boolean {
+  const mine = new Set(wordsOf(raw.statement ?? "").map((w) => w.toLowerCase()).filter((w) => w.length > 2));
+  if (!mine.size) return false;
+  return ctx.input.dossier.some((d) => {
+    const theirs = new Set(wordsOf(d.statement).map((w) => w.toLowerCase()).filter((w) => w.length > 2));
+    const shared = [...mine].filter((w) => theirs.has(w)).length;
+    return shared / mine.size >= 0.6;
+  });
+}
+
 /** The `where` of a dropped proposal, when any place was found. */
 function placed(spans: { start: number; end: number }[]): { where?: Span[] } {
   return spans.length ? { where: spans.map(({ start, end }) => ({ start, end })) } : {};
@@ -670,7 +681,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     if (kept.length !== raw.evidence.length) raw = { ...raw, evidence: kept };
   }
   const grounded = groundQuotes(text, raw.evidence, groundHint(ctx.input.roster, raw));
-  if (grounded.drop === "no_evidence" && quotedFromEarlier(ctx, raw)) return { drop: "earlier_note" };
+  if (grounded.drop === "no_evidence" && quotedFromEarlier(ctx, raw) && alreadyKept(ctx, raw)) return { drop: "earlier_note" };
   if (grounded.drop) return { drop: grounded.drop, where: grounded.candidates ?? [] };
   const spans: PlannedSpan[] = grounded.spans.map((s) => toPlannedSpan(text, s));
   const where = (): Span[] => spans.map(({ start, end }) => ({ start, end }));
@@ -930,10 +941,20 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     // Only when the line's own words are a pronoun's ("He proposed to her"): where they say the relative
     // themselves ("Sam's mom is in the hospital"), the person-or-relative question stands (subject_check).
     const quoted = !!m && spans.some((sp) => new RegExp(`\\b${m[2]}\\b`, "iu").test(sp.quote));
-    const relation = m && ownerIsFiled && !named && !quoted ? noteRelation(ctx, m[2]) : null;
+    // And only when the quote's own pronoun can mean that one relative and not the person (final review of #93):
+    // "Ben and his dad went fishing. He caught a trout." could be Ben, so the line stays as filed.
+    const q0 = fold((primary.quote.match(/^[\p{L}][\p{L}\p{M}'’]*/u) ?? [""])[0]).replace(/['’](?:s|ll|d|re)$/u, "");
+    const atQuote = ctx.text.indexOf(primary.quote);
+    const owned = m && (q0 === "he" || q0 === "she") && atQuote >= 0 ? ownedRelationBefore(ctx, atQuote, q0, filed) : null;
+    const agrees = !!m && !!owned && owned.excludesOwner && relationKey(owned.relation) === relationKey(m[2]);
+    const relation = m && ownerIsFiled && !named && !quoted && agrees ? noteRelation(ctx, m[2]) : null;
     if (relation) {
       subject = "related";
       raw = { ...raw, subject, related_relation: relation, related_name: null };
+    } else if (m && ownerIsFiled && !named && !quoted && (q0 === "he" || q0 === "she") && noteRelation(ctx, m[2])) {
+      // The model's own words say it was the relative ("Ben's dad caught a trout") but the pronoun could be
+      // either ("Ben and his dad went fishing. He caught a trout."): asked, never kept as the person's own.
+      flags.add("subject_check");
     }
   }
   if ((subject === "related" || subject === "shared") && who.person_key && !("companion" in who && who.companion)) {
@@ -948,7 +969,10 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
       (!!raw.related_name && new RegExp(`^${raw.related_name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "iu").test(said.trim())) ||
       (!!raw.related_relation && new RegExp(`^(?:\\w+\\s+){0,2}${raw.related_relation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "iu").test(said.trim())));
     const together = subject === "shared" && (/\b(?:you|your|yours|we|our|ours|us|i|me|my)\b/iu.test(said) || raw.kind === "context" || raw.kind === "tradition");
-    if (leadsWithPerson && !relativeLeads && !together) {
+    // "Talked to Grace. Her mom is in the hospital again." filed as Grace's: the quote's own subject is the
+    // relative, whatever the statement says (final review of #93).
+    const quoteRelativeLeads = new RegExp(`^(?:[\\p{L}\\p{M}'’-]+['’]s?|his|her|their|the)\\s+(?:\\w+\\s+)?(?:${POSSESSED_RELATION})\\b`, "iu").test(primary.quote.trim());
+    if (leadsWithPerson && !relativeLeads && !together && !quoteRelativeLeads) {
       subject = "person";
       raw = { ...raw, subject, related_relation: null, related_name: null };
       knownRelated = null;
@@ -1381,7 +1405,10 @@ function toldNews(ctx: Context, text: string, span: PlannedSpan, said: string, i
 }
 
 /** Someone asks the user to do something ("asked if I can bring the cake", "wants me to drive"): a request, not yet a promise (J11). */
-const REQUESTED = /\b(?:asked|asks|asking|wondered|wants to know)\s+(?:me\s+|us\s+)?(?:if|whether)\s+(?:i|we)(?:'d|'ll|d|ll|\s+can|\s+could|\s+would|\s+will|\s+might)\b|\b(?:asked|asks)\s+(?:me|us)\s+to\b/u;
+// "asked if I can bring the cake" (the user asking leave, not yet agreed: J11). Not "asked if I'd come to a tasting"
+// (an invitation), "asked if I'd heard" (a question) or "asked me to be godmother" (final review of #93; black-box
+// S15): those keep the model's reading.
+const REQUESTED = /\b(?:asked|asks|asking|wondered|wants to know)\s+(?:me\s+|us\s+)?(?:if|whether)\s+(?:i|we)\s+(?:can|could)\b(?!\s+(?:hear|see|tell|remember|believe|imagine))/u;
 
 /** Something the user means to do, in their line's own words ("can't wait to tell Loo Loo", "want to call Ben"). */
 const INTENDS = /\b(?:can['’]?t wait to|cannot wait to|wants? to|going to|gonna|will|['’]ll|plan(?:s|ning)? to|need(?:s)? to|have to|hope to|looking forward to)\b/u;
@@ -1950,7 +1977,9 @@ function possessiveRelation(sentence: string, person: RosterPerson): boolean {
  * only for a he/she clause right after a clause saying the person's relative has died, to accept the model's
  * filing on the person for a glance instead of asking. Kept small on purpose.
  */
-const LIVING_CUE = /\b(?:tomorrow|tonight|next (?:week|month|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|this weekend|(?:fly|flying|flies|flew|drive|driving|drives|drove|head|heading|heads|travel|travell?ing|travels)\b(?:\s+\w+){0,2}\s+(?:out|down|up|over|back|to|home))\b/iu;
+const LIVING_CUE = /\b(?:tomorrow|tonight|next (?:week|month|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|this weekend|(?:is|'s|s|are|will be|will|'ll|ll|gonna|going to) (?:be )?(?:fly|flying|drive|driving|head|heading|travel|travell?ing)\b(?:\s+\w+){0,2}\s+(?:out|down|up|over|back|to|home))\b/iu;
+/** A habit, a past or a might-have-been ("he flew out every summer", "would have turned 70"): never a living cue. */
+const NOT_LIVING = /\b(?:would have|would've|'d have|used to|every (?:summer|winter|year|christmas|weekend|week|sunday)|always)\b/iu;
 const DIED = /\b(?:passed away|passed|died|death|funeral|late)\b/iu;
 
 function possessiveRelationOf(ctx: Context, spans: PlannedSpan[], person: RosterPerson): "ask" | "glance" | null {
@@ -1974,7 +2003,7 @@ function possessiveRelationOf(ctx: Context, spans: PlannedSpan[], person: Roster
   // founder, 15 Nov 2026): never a blanket rule. When that clause says the relative died and this clause's
   // action is plainly a living person's (LIVING_CUE: "he's flying out tomorrow"), the model's filing on the
   // person stands for a glance; otherwise it is asked, never guessed either way (contract §7.3).
-  const pron = fold(quoteFirst).match(/^(he|she)(?:['’]?s)?$/u)?.[1];
+  const pron = fold(quoteFirst).match(/^(he|she)(?:['’]?(?:s|d|ll))?$/u)?.[1];
   if (pron) {
     let pEnd = a;
     while (pEnd > 0 && /[\s,;:—–().!?]/u.test(ctx.text[pEnd - 1])) pEnd--;
@@ -1988,7 +2017,7 @@ function possessiveRelationOf(ctx: Context, spans: PlannedSpan[], person: Roster
       const m = namesFor(person).map((n) => fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
         .map((first) => fold(prev).match(new RegExp(`^(?:\\w+\\s+){0,2}${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})${RELATION_COMPOUND}\\b`)))
         .find(Boolean);
-      if (m && fits(m[1])) return DIED.test(fold(prev)) && LIVING_CUE.test(fold(spans[0].quote)) ? "glance" : "ask";
+      if (m && fits(m[1])) return DIED.test(fold(prev)) && LIVING_CUE.test(fold(spans[0].quote)) && !NOT_LIVING.test(fold(spans[0].quote)) ? "glance" : "ask";
     }
   }
   const continuation = (CONTINUES.test(sentenceLead.trimEnd()) || CONTINUES_START.test(spans[0].quote)) && !!quoteFirst && ctx.elidedStart(quoteFirst);
@@ -2503,7 +2532,11 @@ function descriptorAfter(ctx: Context, mention: string): string | null {
   if (!name) return null;
   const re = new RegExp(`(?<![\\p{L}\\p{M}'’-])${name}(?:\\s*,\\s*(?:a|an|my|our|the)|\\s+from(?:\\s+the)?)\\s+((?:[\\p{L}][\\p{L}\\p{M}'’-]*\\s*){1,3}?)(?=\\s+(?:is|was|are|were|has|had|will|who|and|,)|[.,;!?]|$)`, "iu");
   const m = ctx.text.match(re);
-  return m ? m[1].trim() : null;
+  if (!m) return null;
+  // "Picked up Kaiya from school": a name after a verb is the object, and "from school" is where (final review).
+  const lead = ctx.text.slice(0, m.index ?? 0).trimEnd();
+  if (lead && !/(?:^|[.!?;:,\n…—–(]|\b(?:and|but|so|then|also|plus))$/iu.test(lead)) return null;
+  return m[1].trim();
 }
 
 /** Words of a descriptor that mean the same as a relationship label's ("the office" and "coworker"). */
@@ -2539,7 +2572,7 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
   const names = namesFor(owner).map((n) => fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).filter(Boolean);
   const possessor = `(his|her|their|${names.map((n) => `${n}(?:'s|(?<=s)')`).join("|")})`;
   const re = new RegExp(`\\b${possessor}\\s+(?:(?:late|own|older|younger|little|big|elder)\\s+)?(${POSSESSED_RELATION})(?![\\w-])`, "gu");
-  let last: { relation: string; excludesOwner: boolean } | null = null;
+  const fitting: { relation: string; excludesOwner: boolean; det: string; index: number }[] = [];
   for (const m of before.matchAll(re)) {
     const rel = m[2];
     const k = relationKey(rel);
@@ -2547,9 +2580,45 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
     // "his mom … She": the owner is a man, so "she" is not him; "her husband … He": the owner is a woman.
     const det = m[1];
     const excludesOwner = (det === "his" && !male) || (det === "her" && male) || (genderOf(owner) === (male ? "f" : "m"));
-    last = { relation: rel, excludesOwner };
+    fitting.push({ relation: rel, excludesOwner, det, index: m.index ?? 0 });
   }
-  return last;
+  if (!fitting.length) return null;
+  // Two different relatives the pronoun could be ("Nana's husband and her brother visited. He brought cake."):
+  // never a guess between them (contract §7.3; final review of #93).
+  if (new Set(fitting.map((f) => relationKey(f.relation))).size > 1) return null;
+  // A second relative named without "his"/"her" counts too ("Ben's mom and sister visited. She…").
+  const anyRelation = new RegExp(`\\b(${POSSESSED_RELATION})(?![\\w-])`, "gu");
+  const kinds = new Set<string>();
+  for (const m of before.matchAll(anyRelation)) {
+    const k = relationKey(m[1]);
+    if (male ? FEMALE_RELATIONS.has(k) || FEMALE_RELATIONS.has(m[1]) : MALE_RELATIONS.has(k) || MALE_RELATIONS.has(m[1])) continue;
+    if (k === "friend" || k === "boss" || k === "roommate") continue;
+    kinds.add(k);
+  }
+  if (kinds.size > 1) return null;
+  // Anyone else named before it, in People or not ("Nana's neighbor Tom came by with his son. He…", "Then Tom
+  // arrived. He…"): the pronoun could be them, so it is asked.
+  const raw = ctx.text.slice(0, at);
+  const ownerKeys = new Set(namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey));
+  const someoneElse = [...raw.matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)].some((w) => {
+    const word = withoutPossessive(w[0]);
+    if (word === "I" || ownerKeys.has(nameKey(word))) return false;
+    if (ctx.candidatesFor(word).some((c) => c.key !== owner.key)) return true;
+    if (!/^\p{Lu}/u.test(word)) return false;
+    const lead = raw.slice(0, w.index ?? 0).trimEnd();
+    const atStart = lead === "" || /[.!?\n…]["“”'‘’(]*$/u.test(lead);
+    return !atStart && !COMMON_CAPITALS.has(fold(word)) && !CALENDAR.has(fold(word)) && !ctx.placeOnly(word);
+  });
+  if (someoneElse) return null;
+  const last = fitting[fitting.length - 1];
+  // "his"/"her" must plainly be the owner's: the owner is named before it in the relative's own sentence.
+  if (last.det === "his" || last.det === "her" || last.det === "their") {
+    let b = last.index;
+    while (b > 0 && !/[.!?\n]/u.test(before[b - 1])) b--;
+    const lead = before.slice(b, last.index);
+    if (!names.some((n) => new RegExp(`\\b${n}\\b`, "u").test(lead))) return null;
+  }
+  return { relation: last.relation, excludesOwner: last.excludesOwner };
 }
 
 function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
@@ -2786,7 +2855,7 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
     // name that does not fit this person's relationship to the user is a namesake (a new person with the same
     // name as a contact): asked, with this person and someone new offered, never saved on them (§7.3).
     const descriptor = descriptorAfter(ctx, mention);
-    if (descriptor && !descriptorFits(descriptor, c)) {
+    if (descriptor && (c.relationship_label ?? "").trim() && !descriptorFits(descriptor, c)) {
       return { ...unresolved("person_ambiguous"), candidate_ids: [c.id], mention: withoutPossessive(mention) };
     }
     if (modelKey !== c.key && raw.subject === "shared" && !/\b(?:you|your|yours|we|our|ours|us|i|me|my)\b/iu.test(raw.statement) &&
@@ -3246,7 +3315,10 @@ function chooseClarification(ctx: Context, items: PlannedItem[]): Clarification 
   if (subject && subject.person_key) {
     const p = ctx.byKey.get(subject.person_key)!;
     // The relation word from the line's sentence, else from the clause before it ("Sarah's sister has surgery. She's nervous.").
-    const rel = possessiveRelationWord(ctx.sentenceAround(subject.spans[0]), p) ?? possessiveRelationWord(clauseBefore(ctx, subject.spans[0]), p) ?? "family";
+    // The relation from the line's sentence, the clause before it, else the line's own words ("Ben's dad caught a
+    // trout"), so the question names who it might be about.
+    const fromStatement = subject.statement.match(new RegExp(`^[\\p{L}\\p{M}'’-]+['’]s?\\s+(${POSSESSED_RELATION})\\b`, "iu"))?.[1] ?? null;
+    const rel = possessiveRelationWord(ctx.sentenceAround(subject.spans[0]), p) ?? possessiveRelationWord(clauseBefore(ctx, subject.spans[0]), p) ?? fromStatement ?? "family";
     return {
       about: "subject",
       question: `Is this about ${p.display_name}, or ${p.display_name}'s ${rel}?`,

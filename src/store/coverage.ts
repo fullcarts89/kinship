@@ -6,7 +6,7 @@
 //                    counts them). Kept exactly as given.
 //   not_understood   the places of proposals the understanding read but could keep nothing from, one
 //                    entry per lost proposal per place where its words were found (CMR-1 C2). The phone
-//                    marks each place once: identical spans are one, and a place already in
+//                    marks each place once: overlapping spans are one, and a place inside
 //                    `unprocessed` is not marked twice.
 //   unlocated        a count of lost proposals whose words could not be found at all (no place to mark).
 //
@@ -42,14 +42,17 @@ export function spansOf(raw: unknown): Span[] {
 export function leftOut(c: NoteCoverage | null | undefined): Span[] {
   if (!c) return [];
   const out = spansOf(c.unprocessed);
-  const seen = new Set(out.map((s) => `${s.start}-${s.end}`));
-  for (const s of spansOf(c.not_understood)) {
-    const key = `${s.start}-${s.end}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(s);
+  const overlaps = (a: Span, b: Span) => a.start < b.end && b.start < a.end;
+  // Places that overlap (two lost proposals with nested quotes) are one place, marked and told again once;
+  // one wholly inside an unprocessed passage is already marked there (final review of #93, N1).
+  const merged: Span[] = [];
+  for (const s of spansOf(c.not_understood).sort((a, b) => a.start - b.start || a.end - b.end)) {
+    if (out.some((u) => u.start <= s.start && s.end <= u.end)) continue;
+    const last = merged[merged.length - 1];
+    if (last && overlaps(last, s)) last.end = Math.max(last.end, s.end);
+    else merged.push({ ...s });
   }
-  return out.sort((a, b) => a.start - b.start || a.end - b.end);
+  return [...out, ...merged].sort((a, b) => a.start - b.start || a.end - b.end);
 }
 
 /** Whether a coverage says anything at all was left out (a place, or a count). */
