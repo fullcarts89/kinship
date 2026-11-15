@@ -56,7 +56,17 @@
 --
 -- Rollback: the gateway is rolled back by redeploying v17; nothing in the database needs to change, and
 -- `understanding` keeps being settled by these functions (so the app's column stays truthful; only
--- `not_understood` stops being written). The migration itself is forward-only and is not rolled back. If
+-- `not_understood` stops being written). One residue (final review of PR #93, F4): a note whose row
+-- carries only `not_understood` (no failed passage, nothing unplaced) and is told again with "Try again"
+-- under v17 keeps a stale `partial`: v17's storedCoverage() drops the fourth key and reads such a row as
+-- no coverage, so it neither clears the row nor can capture_understanding_settle see past
+-- `coverage IS NOT NULL`. The remedy is a one-off SQL, run only on the founder's yes: strip the key
+-- (UPDATE public.captures SET coverage = NULL WHERE coverage - 'not_understood' = '{"v": 1, "unprocessed":
+-- [], "unlocated": 0}'::jsonb; else coverage = coverage - 'not_understood') and re-settle each such row
+-- with capture_understanding_settle(user_id, id, false). And the other way (F5): while a gateway runs
+-- ahead of this migration, a reopen reply (claim 'done', built from the stored coverage) says "complete"
+-- for a not_understood-only note although the first reply carried the places; one more reason the
+-- migration goes first. The migration itself is forward-only and is not rolled back. If
 -- the column ever had to go, that would be a new forward migration: drop trigger captures_understanding_guard,
 -- re-create the six functions from 20261004090000 / 20261004100000 / 20261031100000 / 20261031110000 without
 -- the settle lines, rewrite every coverage row to the three keys (jsonb - 'not_understood') and restore the
