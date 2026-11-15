@@ -1297,3 +1297,24 @@ Deno.test("re-review 9: a voice note's name in any position keeps their husband 
     ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
   }
 });
+
+Deno.test("re-review 10: Summer, Autumn, Winter as voice-note names are someone; 'summer plans' and 'in june' are not", () => {
+  const nana = person("p67", "nana14", "Nana", { relationship_label: "grandmother" });
+  const run1 = (note: string) => {
+    const quote = note.match(/(?:^|[.\s])((?:he|He) [^.]*?)\.?$/u)![1];
+    return planExtraction(input(note, [nana]), { needs_clarification: null, items: [
+      item({ person: "p67", person_mention: quote.split(/\s/u)[0], statement: `Nana's husband ${quote.replace(/^(?:he|He) /u, "")}`, evidence: [quote], confidence: 0.85 }),
+    ] } as ModelProposal);
+  };
+  // A doctor is someone: "nana got back from the doctor. her husband…" asks.
+  ok(run1("nana saw the doctor. her husband is a pilot. he flies to tokyo").items.every((i) => i.tier === "hold"), "the doctor's husband: asked");
+  for (const name of ["summer", "autumn", "winter"]) {
+    for (const note of [`yesterday ${name} came by with nana. her husband is a pilot. he flies to tokyo`, `nana ran into ${name}. her husband is a pilot. he flies to tokyo`]) {
+      ok(run1(note).items.every((i) => i.tier === "hold"), `${note}: asked`);
+    }
+  }
+  for (const note of ["nana and i had lunch in june. her husband is retiring. he is thrilled", "Talked to Nana about summer plans. Her husband is retiring. He is thrilled.", "nana was in good spirits her husband is home he is resting"]) {
+    const line = run1(note).items[0];
+    ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line (${line?.tier} ${line?.subject_type})`);
+  }
+});

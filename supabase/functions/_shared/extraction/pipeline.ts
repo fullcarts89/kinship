@@ -2795,11 +2795,12 @@ function voiceSomeoneBefore(ctx: Context, owner: RosterPerson, end: number): boo
     // An opener counts only as its sentence's first real word ("talked to nana"); "ben ran into drew" is Drew.
     const sentenceLead = text.slice(0, words[i].index ?? 0).split(/[.!?\n…]/u).pop() ?? "";
     const firstReal = wordsOf(sentenceLead).every((x) => SPOKEN_FILLERS.has(fold(x)));
-    if ((OPENING_VERBS.has(k) && firstReal) || NOT_A_PERSON_NOUN.has(k) || neverAName(w) || VOICE_EVERYDAY.has(k)) continue;
+    // A month or season people are named, before the lists that would call it a thing ("summer came by").
     if (DATE_NAMES.has(k)) {
       if (!namePositionLoose(text, words[i].index ?? 0, raw)) continue;
       return true;
     }
+    if ((OPENING_VERBS.has(k) && firstReal) || NOT_A_PERSON_NOUN.has(k) || neverAName(w) || VOICE_EVERYDAY.has(k)) continue;
     if (CALENDAR.has(k) || SEASONS.has(k)) continue;
     const lead = text.slice(0, words[i].index ?? 0).trimEnd();
     if (/\b(?:flew|fly|flying|moved|moving|went|going|drove|driving|travel+ed|headed|heading|back|home|trip|flight|returned|returning) (?:to|from)$/iu.test(lead)) continue;
@@ -2817,7 +2818,9 @@ const VOICE_EVERYDAY = new Set(["is", "was", "are", "were", "be", "been", "being
   "w", "at", "in", "of", "for", "the", "a", "an", "update", "quick", "news", "said", "says", "told", "tells", "thinks", "think",
   "update", "earlier", "later", "lately", "recently", "while", "long", "little", "bit", "lot", "good", "great", "fine", "ok",
   "tired", "excited", "happy", "upset", "worried", "busy", "sick", "better", "worse", "doing", "feeling", "sounded", "sounds",
-  "looked", "looks", "seemed", "seems", "glad", "sad", "stressed", "exhausted", "okay", "alright", "well", "much", "more"]);
+  "looked", "looks", "seemed", "seems", "glad", "sad", "stressed", "exhausted", "okay", "alright", "well", "much", "more",
+  "spirits", "flowers", "rehab", "shopping", "planning", "checked", "check", "loved", "love", "loves",
+  "nanas", "dinner", "lunch", "breakfast", "trip", "store", "groceries", "errands", "walk", "visit", "plans", "good", "bad"]);
 /** A month or season is not a name after "in", "on", "last", "next"…, nor before a day number. */
 function namePositionLoose(text: string, at: number, word: string): boolean {
   const lead = text.slice(0, at).trimEnd();
