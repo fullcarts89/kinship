@@ -22,6 +22,7 @@
 //   failed    understanding failed
 // plus the phone's own "pending": told, not understood yet.
 import type { UnderstandingRow } from "./understanding";
+import { anythingLeftOut, type NoteCoverage } from "./coverage";
 
 export const UNDERSTANDING_VALUES = ["kept", "nothing", "partial", "held", "declined", "failed"] as const;
 export type Understanding = (typeof UNDERSTANDING_VALUES)[number];
@@ -32,8 +33,8 @@ export interface OutcomeCapture {
   status: string;
   /** The server's word (nullable; absent before the migration). */
   understanding?: unknown;
-  /** Option A: what the understanding did not get to; null when the note was taken whole. */
-  coverage?: { unprocessed: { start: number; end: number }[]; unlocated: number } | null;
+  /** Option A / CMR-1 C2: what the understanding did not get to or kept nothing from; null when the note was taken whole. */
+  coverage?: NoteCoverage | null;
 }
 
 /** The server's column, when it holds one of its words. */
@@ -42,9 +43,9 @@ export function serverUnderstanding(capture: OutcomeCapture): Understanding | nu
   return typeof v === "string" && (UNDERSTANDING_VALUES as readonly string[]).includes(v) ? (v as Understanding) : null;
 }
 
-/** Whether an Option A coverage says anything was left out. */
+/** Whether a coverage says anything was left out (a passage not got to, a place kept nothing from, or a count). */
 function partialCoverage(c: OutcomeCapture["coverage"]): boolean {
-  return !!c && ((Array.isArray(c.unprocessed) && c.unprocessed.length > 0) || (Number.isInteger(c.unlocated) && c.unlocated > 0));
+  return anythingLeftOut(c);
 }
 
 /**
@@ -94,8 +95,11 @@ export function tellOutcome(capture: OutcomeCapture, local: UnderstandingRow | n
         if (!r) return local.state === "done" ? (lines ? "kept" : "nothing") : "pending";
         if (!r.settled && r.held.length > 0) return "held";
         if (declinedReading(local)) return "declined";
+        // Anything left out (a passage not got to, a place kept nothing from, a count) is partial, whether or
+        // not a line was kept (the gateway's rule, CMR-1 C2).
+        if (partialCoverage(capture.coverage ?? r.coverage ?? null)) return "partial";
         if (r.saved.length === 0 && r.held.length === 0 && lines === 0) return "nothing";
-        return partialCoverage(capture.coverage ?? r.coverage ?? null) ? "partial" : "kept";
+        return "kept";
       }
     }
   }
@@ -108,7 +112,7 @@ export function tellOutcome(capture: OutcomeCapture, local: UnderstandingRow | n
     case "needs_review":
       return "held";
     case "extracted":
-      return lines ? (partialCoverage(capture.coverage ?? null) ? "partial" : "kept") : "nothing";
+      return partialCoverage(capture.coverage ?? null) ? "partial" : lines ? "kept" : "nothing";
     default:
       return "pending";
   }

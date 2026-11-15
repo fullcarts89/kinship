@@ -81,6 +81,11 @@ export interface NotePage {
   /** The kept excerpts, when the words are gone. */
   quotes: string[];
   spans: PageSpan[];
+  /**
+   * The words the understanding left out (Option A's dotted marks: passages not got to, and places read
+   * but kept nothing from, CMR-1 C2), in UTF-16 offsets into the note's text. Empty when taken whole.
+   */
+  unprocessed: [number, number][];
   /** Saved from an idea ("Keep it in mind"), not told. */
   intention: boolean;
 }
@@ -155,6 +160,12 @@ export function buildPages(input: {
   labelNoteId?: string | null;
   /** Notes that kept no line and belong on this page (tell/keptOn.ts): shown in full, nothing marked. */
   quietNotes?: readonly string[];
+  /**
+   * By note: the words its understanding left out and no later note took (store/coverage.ts leftOut,
+   * after followUp.ts), as code-point spans into its text. Marked dotted, as the review and the Source
+   * page mark them.
+   */
+  leftOut?: Record<string, { start: number; end: number }[]>;
 }): PageEntry[] {
   const { personId } = input;
   const byId = new Map(input.items.map((m) => [m.id, m]));
@@ -186,9 +197,12 @@ export function buildPages(input: {
       if (!spans.some((x) => x.start === r[0] && x.end === r[1] && x.itemId === m.id)) spans.push({ start: r[0], end: r[1], itemId: m.id, sensitive, statement: m.statement });
     }
     spans.sort((a, b) => a.start - b.start || b.end - a.end);
+    const unprocessed: [number, number][] = c.raw_text
+      ? (input.leftOut?.[id] ?? []).map((s) => utf16(c.raw_text!, s.start, s.end)).filter((r): r is [number, number] => !!r)
+      : [];
     out.push({
       type: "note", key: `note:${id}`, captureId: id, at: String(c.created_at ?? c.occurred_at ?? ""),
-      text: c.raw_text ?? null, quotes: c.raw_text ? [] : quotes, spans, intention: isIntention(c, lines), rank: 0,
+      text: c.raw_text ?? null, quotes: c.raw_text ? [] : quotes, spans, unprocessed, intention: isIntention(c, lines), rank: 0,
     });
   }
   for (const t of input.conversations) {

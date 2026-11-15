@@ -421,6 +421,37 @@ describe("two Sams", () => {
     expect(events.filter(([e]) => e === "clarification_dismissed")).toEqual([["clarification_dismissed", { type: "person" }]]);
   });
 
+  it("a question waiting on one phone shows on another phone of the same account, never lost (CMR-1)", async () => {
+    const { server, gateway, d } = await world();
+    await twoSams(d);
+    gateway.script(SAM_NOTE, samScript);
+    const captureId = await tell(d, SAM_NOTE);
+    await d.understanding.run();
+    expect((await d.understanding.get(captureId))?.state).toBe("review");
+    expect(server.table("captures").get(captureId)?.status).toBe("needs_review");
+    // The second phone: a fresh store for the same account. Its pass pulls the note (needs_review, no row
+    // here), tracks it, and asks the gateway, which answers with the stored question and runs no model.
+    const other = await open(server, gateway, `d2-${randomUUID()}`);
+    await other.understanding.run();
+    const row = await other.understanding.get(captureId);
+    expect(row?.state).toBe("review");
+    expect(row?.reading?.held.map((h) => h.statement)).toEqual(["Sam is redoing his kitchen"]);
+    expect((await other.understanding.open()).map((r) => r.capture_id)).toContain(captureId);
+    expect(gateway.modelRuns).toBe(1);
+    // Answered on the first phone; the second answers too, is told that answer stands, and nothing is written twice.
+    const people = await d.repos.people.list();
+    const lee = people.find((p) => p.relationship_label === "neighbor")!;
+    const diaz = people.find((p) => p.relationship_label === "climbing")!;
+    await d.understanding.answer(captureId, [{ index: 0, person_id: lee.id }]);
+    await d.understanding.run();
+    await other.understanding.answer(captureId, [{ index: 0, person_id: diaz.id }]);
+    await other.understanding.run();
+    expect(serverItems(server)).toHaveLength(1);
+    expect(serverItems(server)[0].person_id).toBe(lee.id);
+    const after = await other.understanding.get(captureId);
+    expect([after?.reading?.held, after?.notice]).toEqual([[], "changed_elsewhere"]);
+  });
+
   it("'Don't keep this' stays declined on the row through the next pull and Done: never later said to be 'nothing' (CMR-1)", async () => {
     const { gateway, d } = await world();
     await twoSams(d);

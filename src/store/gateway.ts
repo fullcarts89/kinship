@@ -23,6 +23,7 @@
 // to repeat.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { spansOf } from "./coverage";
 
 export type ItemTier = "auto" | "confirm" | "hold";
 
@@ -116,6 +117,8 @@ export interface Coverage {
   state: "complete" | "partial";
   unprocessed: { start: number; end: number }[];
   unlocated: number;
+  /** CMR-1 C2: the places of proposals the understanding read but kept nothing from (one per lost proposal per place). */
+  not_understood?: { start: number; end: number }[];
 }
 
 export type Understood =
@@ -143,17 +146,19 @@ export type Understood =
 
 const COMPLETE: Coverage = { state: "complete", unprocessed: [], unlocated: 0 };
 
-/** The reply's coverage, when it has the shape; an older gateway's reply (none) reads as complete. */
+/**
+ * The reply's coverage, when it has the shape; an older gateway's reply (none) reads as complete. Since
+ * CMR-1 C2 it may also carry `not_understood` (the places of proposals read but kept nothing from).
+ */
 function coverageOf(v: unknown): Coverage {
   if (!v || typeof v !== "object") return COMPLETE;
-  const c = v as { state?: unknown; unprocessed?: unknown; unlocated?: unknown };
-  const unprocessed = Array.isArray(c.unprocessed)
-    ? c.unprocessed.filter((s): s is { start: number; end: number } =>
-      !!s && typeof s === "object" && Number.isInteger((s as { start?: unknown }).start) && Number.isInteger((s as { end?: unknown }).end))
-      .map((s) => ({ start: s.start, end: s.end }))
-    : [];
+  const c = v as { state?: unknown; unprocessed?: unknown; unlocated?: unknown; not_understood?: unknown };
+  const unprocessed = spansOf(c.unprocessed);
+  const notUnderstood = spansOf(c.not_understood);
   const unlocated = Number.isInteger(c.unlocated) ? Math.max(0, c.unlocated as number) : 0;
-  return c.state === "partial" && (unprocessed.length || unlocated) ? { state: "partial", unprocessed, unlocated } : COMPLETE;
+  return c.state === "partial" && (unprocessed.length || notUnderstood.length || unlocated)
+    ? { state: "partial", unprocessed, unlocated, ...(notUnderstood.length ? { not_understood: notUnderstood } : {}) }
+    : COMPLETE;
 }
 
 export interface ResolvedItem {

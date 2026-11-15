@@ -205,7 +205,8 @@ export function cardFor(view: ReviewView): KeptCardState | null {
     // declined, kept as written, or after understanding failed): the user sees what Kinship kept.
     words: view.mode === "nothing" || view.mode === "failed" || view.mode === "asWritten" ? view.words ?? null : null,
     feedback: view.feedback ?? null,
-    partial: view.mode === "card" && view.partial ? { tellRest: view.partial.tellRest, resolved: view.partial.resolved } : null,
+    // Kept lines, or none kept but a place the understanding left out (CMR-1 C2): either way the rest can be told.
+    partial: (view.mode === "card" || view.mode === "nothing") && view.partial ? { tellRest: view.partial.tellRest, resolved: view.partial.resolved } : null,
     canRetry: view.mode === "failed",
     ...(() => {
       const byName = new Map<string, string[]>();

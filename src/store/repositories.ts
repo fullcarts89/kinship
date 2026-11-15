@@ -47,7 +47,7 @@ export interface Capture extends Data {
    * into raw_text) and a count of unplaced ones; null or absent when the note was taken whole. The
    * gateway's; the app only reads it.
    */
-  coverage?: { v: 1; unprocessed: { start: number; end: number }[]; unlocated: number } | null;
+  coverage?: { v: 1; unprocessed: { start: number; end: number }[]; unlocated: number; not_understood?: { start: number; end: number }[] } | null;
   /** The partial note this one tells the rest of ("Tell the rest"); set once, at insert. */
   continues_capture_id?: string | null;
   /**

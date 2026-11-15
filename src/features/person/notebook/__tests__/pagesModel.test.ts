@@ -126,6 +126,22 @@ describe("buildPages", () => {
     expect(purged).toEqual(expect.objectContaining({ text: null, quotes: ["Her figs came in"], spans: [] }));
   });
 
+  it("marks the words the understanding left out (not got to, or read and kept nothing from), as the review does", () => {
+    const w = world();
+    const at = N1.indexOf("Sam says hi");
+    const start = Array.from(N1.slice(0, at)).length;
+    const marked = buildPages({ ...w, leftOut: { n1: [{ start, end: start + "Sam says hi".length }], n2: [{ start: 0, end: 6 }] } });
+    const n1 = marked.find((e) => e.type === "note" && e.captureId === "n1")!;
+    expect(n1.type === "note" && n1.unprocessed.map(([a, b]) => N1.slice(a, b))).toEqual(["Sam says hi"]);
+    const n2 = marked.find((e) => e.type === "note" && e.captureId === "n2")!;
+    expect(n2.type === "note" && n2.unprocessed.map(([a, b]) => N2.slice(a, b))).toEqual(["Called"]);
+    // Nothing left out: nothing marked; a span that doesn't fit the text marks nothing.
+    const n3 = marked.find((e) => e.type === "note" && e.captureId === "n3")!;
+    expect(n3.type === "note" && n3.unprocessed).toEqual([]);
+    const bad = buildPages({ ...w, leftOut: { n3: [{ start: 999, end: 1200 }] } }).find((e) => e.type === "note" && e.captureId === "n3")!;
+    expect(bad.type === "note" && bad.unprocessed).toEqual([]);
+  });
+
   it("the note behind their relation is a page too, when known", () => {
     const w = world();
     const withLabel = buildPages({ ...w, labelNoteId: "sam-only" });
@@ -307,6 +323,31 @@ describe("from the store", () => {
     // Answered there with "Don't keep this": the Tell remains, and is found.
     await serverSays(asked.id, { status: "extracted", understanding: "declined" });
     expect(await kaiyas()).toEqual([asked.id, older.id, told.id]);
+  });
+
+  it("a note whose server row says what was left out (unprocessed, or CMR-1 C2's not_understood) is marked on Pages and under Your words", async () => {
+    const { store, repos } = await world2();
+    const kaiya = await repos.people.add({ display_name: "Kaiya" });
+    const now = new Date(Date.UTC(2026, 10, 10, 9));
+    const serverSays = async (id: string, patch: Record<string, unknown>) => {
+      const was = (await store.get("captures", id))!;
+      await store.db.run("UPDATE mirror SET data = ? WHERE tbl = 'captures' AND id = ?", [JSON.stringify({ ...was, ...patch }), id]);
+    };
+    const TEXT = "Kaiya lost a tooth. She wants the fairy to bring a horse.";
+    const told = await repos.captures.tell(TEXT, { aiEnabled: true, contextPersonId: kaiya.id });
+    const second = TEXT.indexOf("She wants");
+    await serverSays(told.id, {
+      status: "extracted", understanding: "partial",
+      coverage: { v: 1, unprocessed: [], unlocated: 0, not_understood: [{ start: second, end: TEXT.length }, { start: second, end: TEXT.length }] },
+    });
+    const page = (await pagesFor(store, kaiya.id, now)).find((e) => e.type === "note" && e.captureId === told.id)!;
+    expect(page.type === "note" && page.unprocessed.map(([a, b]) => TEXT.slice(a, b))).toEqual(["She wants the fairy to bring a horse."]);
+    // The same note about no one in People, under Your words.
+    const WORDS = "The fairy should bring a horse.";
+    const alone = await repos.captures.tell(WORDS, { aiEnabled: true });
+    await serverSays(alone.id, { status: "extracted", understanding: "partial", coverage: { v: 1, unprocessed: [], unlocated: 0, not_understood: [{ start: 0, end: 9 }] } });
+    const words = (await wordsFor(store)).find((w) => w.page.captureId === alone.id)!;
+    expect([words.outcome, words.page.unprocessed.map(([a, b]) => WORDS.slice(a, b))]).toEqual(["partial", ["The fairy"]]);
   });
 
   // A Tell about no one in People (names nobody, no line rests on it) is kept under "Your words" in People.

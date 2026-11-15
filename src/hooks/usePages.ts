@@ -12,6 +12,8 @@ import { repositoriesFor, type Capture, type MemoryItem, type Person } from "@/s
 import { understandingRowsIn } from "@/store/understanding";
 import { settled, tellOutcome, type TellOutcome } from "@/store/tellOutcome";
 import { keptOnPeople } from "@/features/tell/keptOn";
+import { partialOf } from "@/features/tell/reviewModel";
+import { recoveryFor } from "./useV2";
 import type { UserStore } from "@/store/userStore";
 import { codePointToUtf16 } from "../../supabase/functions/_shared/spans";
 import { shortName } from "../../supabase/functions/_shared/extraction/names";
@@ -98,7 +100,15 @@ export async function pagesFor(store: UserStore, personId: string, now: Date): P
   const quietNotes = (await filedNotesIn(store, people))
     .filter((n) => settled(n.outcome) && n.on.includes(personId))
     .map((n) => n.capture.id);
-  return buildPages({ personId, items: items as unknown as PagesItem[], sources, captures, conversations, quietNotes });
+  // The words each note's understanding left out and no later note took (Option A; CMR-1 C2): marked
+  // dotted on the page, as the review and the Source page mark them.
+  const leftOut: Record<string, { start: number; end: number }[]> = {};
+  for (const c of captures as unknown as Capture[]) {
+    if (!c.coverage || c.deleted_at || !c.raw_text) continue;
+    const partial = partialOf(c.coverage, await recoveryFor(store, c));
+    if (partial?.unprocessed.length) leftOut[c.id] = partial.unprocessed;
+  }
+  return buildPages({ personId, items: items as unknown as PagesItem[], sources, captures, conversations, quietNotes, leftOut });
 }
 
 // ─── Your words: notes about no one in People ───────────────────────────
@@ -117,15 +127,23 @@ export interface WordsNote {
 export async function wordsFor(store: UserStore): Promise<WordsNote[]> {
   const people = await repositoriesFor(store).people.list();
   const notes = (await filedNotesIn(store, people)).filter((n) => settled(n.outcome) && n.on.length === 0 && n.lines === 0);
-  return notes
-    .map((n) => ({
+  const out: WordsNote[] = [];
+  for (const n of notes) {
+    const text = n.capture.raw_text;
+    // The words its understanding left out (Option A; CMR-1 C2), marked dotted as on Pages.
+    const partial = n.capture.coverage && text ? partialOf(n.capture.coverage, await recoveryFor(store, n.capture)) : null;
+    const unprocessed = text
+      ? (partial?.unprocessed ?? []).map((s) => utf16Range(text, s.start, s.end)).filter((r): r is [number, number] => !!r)
+      : [];
+    out.push({
       outcome: n.outcome,
       page: {
-        type: "note" as const, key: `note:${n.capture.id}`, captureId: n.capture.id,
-        at: String(n.capture.created_at ?? n.capture.occurred_at ?? ""), text: n.capture.raw_text, quotes: [], spans: [], intention: false,
+        type: "note", key: `note:${n.capture.id}`, captureId: n.capture.id,
+        at: String(n.capture.created_at ?? n.capture.occurred_at ?? ""), text, quotes: [], spans: [], unprocessed, intention: false,
       },
-    }))
-    .sort((a, b) => b.page.at.localeCompare(a.page.at) || a.page.key.localeCompare(b.page.key));
+    });
+  }
+  return out.sort((a, b) => b.page.at.localeCompare(a.page.at) || a.page.key.localeCompare(b.page.key));
 }
 
 export function useWords(): { notes: WordsNote[]; loading: boolean } {

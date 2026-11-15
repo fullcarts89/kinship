@@ -32,6 +32,7 @@ import { charsBucket, minutesBucket, reasonTypeName, scoreBucket, smallCount, tr
 import { useV2Session } from "@/providers/V2SessionProvider";
 import { CONFLICT_TITLE, describeConflict } from "@/store/conflictCopy";
 import { followUpsOf, keptLinesOf, recoveryOf, type Recovery } from "@/store/followUp";
+import { leftOut } from "@/store/coverage";
 import { isOn } from "@/store/flags";
 import { linksAnswered, rememberLinks } from "@/store/linksAnswered";
 import { closedBy, peopleOf, repositoriesFor, type Capture, type MemoryItem, type Person, type Repositories } from "@/store/repositories";
@@ -166,7 +167,8 @@ export async function recoveryFor(store: UserStore, capture: Capture): Promise<R
   if (!capture.coverage || !capture.raw_text) return null;
   const followUps = await followUpsOf(store, capture.id);
   if (!followUps.length) return null;
-  return recoveryOf(capture.raw_text, capture.coverage.unprocessed, { kept: await keptLinesOf(store, capture.id) }, followUps);
+  // Every place left out (not got to, or read and kept nothing from: CMR-1 C2) is what a later note can answer.
+  return recoveryOf(capture.raw_text, leftOut(capture.coverage), { kept: await keptLinesOf(store, capture.id) }, followUps);
 }
 
 export interface OpenNotes {
