@@ -193,7 +193,10 @@ export type DropReason =
   | "already_known"
   // The line is about someone the note leaves unnamed ("someone at work", "a friend"): no one in People
   // can be meant and no name could be added, so nothing is filed; the app keeps the words (K35; CMR-1 B).
-  | "no_one_named";
+  | "no_one_named"
+  // The quote is the earlier note's words, not this one's ("Tell the rest", CER-1): that note holds the
+  // line and its own accounting; here it is neither evidence nor a loss (founder, 15 Nov 2026).
+  | "earlier_note";
 
 export type Flag =
   | "new_person"

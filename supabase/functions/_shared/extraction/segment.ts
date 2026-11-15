@@ -207,6 +207,23 @@ export function spokenSentences(text: string, names: readonly string[] = []): Se
 }
 
 /**
+ * Every sentence of a note as UTF-16 spans covering its words: a spoken run's spoken sentences, otherwise
+ * the stretches between sentence punctuation (a stop, a question or exclamation mark, a line break).
+ */
+export function sentenceSpans(text: string, names: readonly string[] = []): Segment[] {
+  if (isSpokenRun(text)) return spokenSentences(text, names);
+  const out: Segment[] = [];
+  for (const m of text.matchAll(/[^.!?\n]+/gu)) {
+    const words = [...m[0].matchAll(WORD)];
+    if (!words.length) continue;
+    const start = (m.index ?? 0) + (words[0].index ?? 0);
+    const last = words[words.length - 1];
+    out.push({ start, end: (m.index ?? 0) + (last.index ?? 0) + last[0].length });
+  }
+  return out.length ? out : [{ start: 0, end: text.length }];
+}
+
+/**
  * The spoken sentence holding [from, to) (UTF-16), as one span: the segments it touches, joined. For
  * anything but a spoken run, or a span outside every word, the whole text.
  */

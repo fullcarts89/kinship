@@ -19,7 +19,7 @@
 
 import { codePointLength, type Span, utf16ToCodePoint } from "../spans.ts";
 import { fold, nameKey, PRONOUNS, sentenceAround, wordsOf } from "./lexicon.ts";
-export { hasSentencePunctuation, isSpokenRun, type Segment, SPOKEN_RUN_WORDS, spokenSentenceAt, spokenSentences } from "./segment.ts";
+export { hasSentencePunctuation, isSpokenRun, type Segment, sentenceSpans, SPOKEN_RUN_WORDS, spokenSentenceAt, spokenSentences } from "./segment.ts";
 
 /** Code points of context compared on each side of an occurrence. */
 const CONTEXT = 80;

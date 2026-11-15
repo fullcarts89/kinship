@@ -217,6 +217,7 @@ Deno.test("two people, the same words: each line lands on its own person's words
   ok(anna && beth, `both kept: ${JSON.stringify(out.items.map((i) => [i.person_id, i.statement]))}`);
   eq(anna!.spans.map((s) => s.start), [15], "Anna's after Anna");
   eq(beth!.spans.map((s) => s.start), [46], "Beth's after Beth");
+  // "Anna is great." and "Beth is fun." had no proposal, but are under the four-word floor of an aside: not reported.
   eq(out.coverage, undefined);
 });
 

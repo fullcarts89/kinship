@@ -766,17 +766,27 @@ Deno.test("a repeat is still folded into the line it repeats, and a contact deta
 });
 
 Deno.test("a passage whose call failed is recorded as not got to, in the note's order, never silent", () => {
+  // Three of ten things proposed: the seven sentences the model never touched are reported too (founder, 15 Nov 2026).
   const out = run(input(tenNote), tenItems().slice(0, 3));
-  eq(out.coverage, undefined, "the pipeline itself never invents coverage");
+  eq(out.coverage?.unprocessed, [], "the pipeline itself never invents a failed passage");
+  eq(out.coverage?.not_understood?.length, 5, "the sentences no proposal rests on (two are under the four-word floor)");
   const failed = { start: 20, end: 40 };
   const partial = planExtraction(input(tenNote), { items: tenItems().slice(0, 3), needs_clarification: null } as ModelProposal, { unprocessed: [{ start: 50, end: 60 }, failed] });
-  eq(partial.coverage, { unprocessed: [failed, { start: 50, end: 60 }], unlocated: 0 });
+  eq(partial.coverage?.unprocessed, [failed, { start: 50, end: 60 }]);
+  eq(partial.coverage?.unlocated, 0);
 });
 
-Deno.test("a note the understanding takes whole has no coverage at all", () => {
+Deno.test("a note the understanding takes whole has no coverage at all; sentences the model never proposed for are not understood (founder, 15 Nov 2026)", () => {
+  eq(run(input(tenNote), tenItems()).coverage, undefined, "every sentence proposed for: taken whole");
   const out = run(input(tenNote), tenItems().slice(0, 8));
   eq(out.items.length, 8);
-  eq(out.coverage, undefined);
+  const chars = Array.from(tenNote);
+  const words = (sp: { start: number; end: number }) => chars.slice(sp.start, sp.end).join("");
+  eq(out.coverage?.not_understood?.map(words), ["Ben plays chess on Tuesdays"], "the thing the model left out, at its words ('Ben grows tomatoes' is under the four-word floor)");
+  // A sentence with nothing a careful reader would keep is not reported.
+  const chatty = `${TEN_THINGS[0]}. Anyway, hope all is well. ${TEN_THINGS[1]}.`;
+  eq(run(input(chatty), tenItems().slice(0, 2)).coverage, undefined);
+  eq(run(input(`${TEN_THINGS[0]}. Must remember to buy milk and eggs. ${TEN_THINGS[1]}.`), tenItems().slice(0, 2)).coverage, undefined);
 });
 
 // Founder device, 14 Nov 2026: "Kaiya has not been sleeping very well and has been very clingy to my wife

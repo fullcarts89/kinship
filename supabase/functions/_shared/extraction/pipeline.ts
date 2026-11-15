@@ -43,15 +43,16 @@ import {
   nameKey,
   PRONOUNS,
   relationKey,
+  RELATION_WORDS,
   sentenceAround,
   wordingCertainty,
   wordingSensitivities,
   withoutPossessive,
   wordsOf,
 } from "./lexicon.ts";
-import { codePointLength, locateEvidence, type Span } from "../spans.ts";
+import { codePointLength, locateEvidence, type Span, utf16ToCodePoint } from "../spans.ts";
 import { type GroundHint, groundQuotes } from "./ground.ts";
-import { isSpokenRun, spokenSentenceAt, spokenSentences } from "./segment.ts";
+import { isSpokenRun, sentenceSpans, spokenSentenceAt, spokenSentences } from "./segment.ts";
 import { needsAcceptance } from "./acceptance.ts";
 import { type CurrentResidence, namesLine, type Outcome, pairClass, relateResidence } from "../semantic/relate.ts";
 import { residenceEligible, residenceOf, type ResidenceFacet } from "../semantic/residence.ts";
@@ -89,6 +90,9 @@ export const MAX_PROPOSALS = 200;
  */
 export const ACCOUNTED_BY_RULE: ReadonlySet<DropReason> = new Set<DropReason>([
   "instruction_text", "contact_detail", "low_confidence", "already_known", "duplicate",
+  // A quote from the earlier note a continuation carries on from ("Tell the rest"): that note's line, that
+  // note's accounting; here it is neither evidence nor a loss, so the rest is never doubled.
+  "earlier_note",
   // Not here, pending the founder's word (PR #90 review): no_one_named (someone the note leaves unnamed,
   // Workstream B) is reported as not understood, because the user can add the person or tell the rest,
   // and a mis-filed drop must not vanish from the completeness signal.
@@ -189,7 +193,13 @@ export function planExtraction(input: ExtractionInput, proposal: ModelProposal, 
   // on the note: its words' place when the quote was found (not_understood), else as a count
   // (unlocated), so the phone can mark the words and offer to tell them again. Offsets only, never words.
   const lost = dropped.filter((d) => !ACCOUNTED_BY_RULE.has(d.reason));
-  const notUnderstood = lost.flatMap((d) => d.where ?? []).sort((a, b) => a.start - b.start || a.end - b.end).slice(0, 64);
+  // And what the model never proposed anything for (founder, 15 Nov 2026: a model omission must not read
+  // as complete understanding): a sentence no proposal's words touch, that still names someone, a relation,
+  // a pronoun, a day or a referent the note proposed elsewhere, is reported at its words. A greeting, a
+  // filler or a list is not. Offsets only.
+  const touched = [...ctx.evidence.flat(), ...items.flatMap((i) => i.spans), ...dropped.flatMap((d) => d.where ?? []), ...unprocessed];
+  const untouched = untouchedSentences(ctx, text, touched, proposed);
+  const notUnderstood = [...lost.flatMap((d) => d.where ?? []), ...untouched].sort((a, b) => a.start - b.start || a.end - b.end).slice(0, 64);
   const unlocated = lost.filter((d) => !d.where?.length).length;
   const coverage: Coverage | null = unprocessed.length || notUnderstood.length || unlocated
     ? { unprocessed, unlocated, ...(notUnderstood.length ? { not_understood: notUnderstood } : {}) }
@@ -374,6 +384,64 @@ class Context {
 /** A dropped proposal carries where its words were found (offsets only), so the loss is accounted for. */
 type ItemResult = { item: PlannedItem } | { drop: DropReason; known?: string; where?: Span[] };
 
+/** A day or a time said in a sentence: a weekday, a month, today/tomorrow/yesterday, a dated or counted span. */
+const WHEN_WORDS = /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|today|tonight|tomorrow|yesterday|weekend|birthday|anniversary|christmas|thanksgiving|easter|hanukkah|diwali|eid|(?:next|last|this) (?:week|month|year|weekend|spring|summer|autumn|fall|winter)|in (?:a|an|two|three|four|five|six|\d+) (?:days?|weeks?|months?|years?)|\d{1,2}(?:st|nd|rd|th)\b|\d{1,2}[/.]\d{1,2})\b/u;
+
+/** A sentence shorter than this is an aside ("Coffee with Jordan", "mom called tonight"), not a thing left out. */
+const UNTOUCHED_MIN_WORDS = 4;
+const OWNERS = new Set(["my", "our", "his", "her", "their", "your"]);
+
+/**
+ * Sentences of the note no proposal's words touch, that still carry something a careful reader would
+ * keep (founder, 15 Nov 2026): a name from People or a referent one of the note's proposals names, a
+ * relation the writer owns ("my mom"), or a relation beside a day. Four words or more. Code-point spans,
+ * in note order. Conservative by design: a sentence a model may reasonably skip is never marked.
+ */
+function untouchedSentences(ctx: Context, text: string, touched: { start: number; end: number }[], proposed: ProposedItem[]): Span[] {
+  const sentences = sentenceSpans(text, ctx.names);
+  const nameKeys = new Set(ctx.names.flatMap((n) => wordsOf(n)).map(nameKey).filter((k) => k.length > 2 && !PRONOUNS.has(k)));
+  const referents = new Set(proposed.flatMap((raw) => [raw?.person_mention ?? "", raw?.related_name ?? ""])
+    .flatMap((m) => (typeof m === "string" ? wordsOf(m) : [])).map(nameKey).filter((k) => k.length > 2 && !PRONOUNS.has(k)));
+  const relations = new Set(RELATION_WORDS.map(relationKey));
+  const plain = (s: { start: number; end: number }) => wordsOf(text.slice(s.start, s.end)).join(" ");
+  const spanOf = (s: { start: number; end: number }) => ({ start: utf16ToCodePoint(text, s.start), end: utf16ToCodePoint(text, s.end) });
+  const isTouched = (span: Span) => touched.some((t) => t.start < span.end && span.start < t.end);
+  // A sentence said again word for word (the K34 doubled note) is the touched sentence, not a second one.
+  const touchedWords = sentences.filter((s) => isTouched(spanOf(s))).map(plain);
+  const out: Span[] = [];
+  for (const s of sentences) {
+    const span = spanOf(s);
+    if (span.end <= span.start) continue;
+    if (isTouched(span)) continue;
+    const said = plain(s);
+    if (touchedWords.some((w) => w === said || w.includes(said))) continue;
+    const words = wordsOf(text.slice(s.start, s.end));
+    if (words.length < UNTOUCHED_MIN_WORDS) continue;
+    const keys = words.map(nameKey);
+    // Tuned on the CMR-1 eval corpus (15 Nov 2026): a bare pronoun or a bare day marks an aside a reader
+    // may skip ("he was so proud", "weather was awful today"), so neither counts on its own. A name does; a
+    // relation the writer owns ("my mom", "her sister") does; a relation beside a day does.
+    const named = keys.some((k) => nameKeys.has(k) || referents.has(k));
+    const relationAt = keys.map((k) => relations.has(relationKey(k)));
+    const owned = relationAt.some((r, i) => r && i > 0 && OWNERS.has(keys[i - 1]));
+    const dated = relationAt.some(Boolean) && WHEN_WORDS.test(fold(text.slice(s.start, s.end)));
+    if (named || owned || dated) out.push(span);
+  }
+  return out;
+}
+
+/**
+ * A proposal whose main quote is the earlier note's words (CER-1 "Tell the rest": the earlier note goes to
+ * the model as context, never as evidence): what it says is that note's line already, so the continuation
+ * never writes it twice and never counts it as lost.
+ */
+function quotedFromEarlier(ctx: Context, raw: ProposedItem): boolean {
+  const earlier = ctx.input.capture.earlier_text;
+  if (!earlier) return false;
+  const quote = Array.isArray(raw.evidence) ? raw.evidence.find((q): q is string => typeof q === "string" && !!q.trim()) : undefined;
+  return !!quote && fold(earlier).includes(fold(quote.trim()));
+}
+
 /** The `where` of a dropped proposal, when any place was found. */
 function placed(spans: { start: number; end: number }[]): { where?: Span[] } {
   return spans.length ? { where: spans.map(({ start, end }) => ({ start, end })) } : {};
@@ -416,6 +484,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   // the same words said again, the line's other quotes, who it is about), and when that cannot settle
   // it, the line is held back with every place it could be: never a guess, never a silent drop (K34/K35).
   const grounded = groundQuotes(text, raw.evidence, groundHint(ctx.input.roster, raw));
+  if (grounded.drop === "no_evidence" && quotedFromEarlier(ctx, raw)) return { drop: "earlier_note" };
   if (grounded.drop) return { drop: grounded.drop, where: grounded.candidates ?? [] };
   const spans: PlannedSpan[] = grounded.spans.map((s) => toPlannedSpan(text, s));
   const where = (): Span[] => spans.map(({ start, end }) => ({ start, end }));
