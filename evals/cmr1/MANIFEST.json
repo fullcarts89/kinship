@@ -1,5 +1,5 @@
 {
-  "version": "cmr1-v1.1",
+  "version": "cmr1-v1.2",
   "counts": {
     "by_category": {
       "everyday": 12,
@@ -30,7 +30,7 @@
   "files": {
     "corpus/everyday.jsonl": "152df015aaba94dec57b86ca16b3ed6685dabf0a3f460f99950eb83ec7aa82f7",
     "corpus/tender.jsonl": "b09e14a535588738b72a45565c432cd5e900b8f9c01b5959c86f6353595df254",
-    "corpus/friends.jsonl": "f1304ddb5c6a2e95ae30a1d3bf369d75a6773685e3bd79aa8a0c09ad6a74a249",
+    "corpus/friends.jsonl": "25672d0c7e6282691868e149e438228dc6023e011cb898ab33731cb4902c0cf0",
     "corpus/worklife.jsonl": "9fb8924674c558c9c11501bf26a4045cb7440bf23323e44affd504e5e3a703b1",
     "corpus/celebrations.jsonl": "fa0f4929dc9af5a349cde5cd001e1ce09784b04471e1f956570a236ebd63ca83",
     "corpus/preferences.jsonl": "79f7066acedbaf29a1e1736e003049e7aef6b178d1e7d56d103298f6f138b002",
@@ -43,11 +43,11 @@
     "corpus/sequences.jsonl": "0abe1bccc307bf3b8bb77b1e40e1f86845d4a1dd6df01e311cd15a736ffde5ab",
     "corpus/no_person.jsonl": "1c4c44a53cb888de42b66b812dc4bfb86407ecd73522a3b0c6773e17924c57e8",
     "corpus/no_memory.jsonl": "fc1386df053fabe142ec34b1c4a909291c1d389e7812994741453334c20ffbb5",
-    "corpus/names.jsonl": "9766122f62520785b17ff4d8e43a909810dc0aad4f24f4f924ce4306c2dcea18",
+    "corpus/names.jsonl": "b6bccb9c7e3cfde2f861e519d56b046e54854b74c026cbaac7e7b04f8798dd6e",
     "rosters.json": "c8f353c10c635ae5ddc86dcf2423d7724b4d7fae51730a80819e842f7f6a80f5",
     "thresholds.json": "ab861492e25a31119dad0bc9dd51c326cc2bdb385750d326ee34a9ca60265208"
   },
-  "corpus_sha256": "68436546bcb3279c769c06a15d5ea9679180f3447face36bad006a90771e2e09",
+  "corpus_sha256": "7b683bb3fc9454047e9d9d8bf7c17b179618d8f369cc6fe00fd233af06e62234",
   "heldout": {
     "ids": [
       "ce-003",

@@ -360,9 +360,10 @@ if (dumpIds.size) {
     raw.push("<details><summary>" + block.tell + "</summary>", "", "```json", JSON.stringify(block, null, 1), "```", "", "</details>");
   }
   console.log(raw.join("\n"));
-  md.push("", ...raw);
 }
 console.log(md.join("\n"));
+// The written report keeps the dumps (once on stdout, ahead of the report).
+if (raw.length) md.push("", ...raw);
 
 if (mode !== "replay" || args.tag) {
   await Deno.mkdir(args.out, { recursive: true });
