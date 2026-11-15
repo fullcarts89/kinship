@@ -250,6 +250,10 @@ export type Flag =
   // Founder K5: the user's own news, kept with the person it names (or asked
   // about), in the line's own words. Shown for a glance, never dropped.
   | "user_news"
+  // CMR-1 B (founder, 15 Nov 2026): a he/she clause right after a clause saying a relative of the person has
+  // died, read as the living person's by a bounded cue (a future time word or travel: "he's flying out
+  // tomorrow"), as the model filed it. Shown for a glance, never saved silently; without the cue it is asked.
+  | "subject_after_loss"
   // Phase 4B B3 (case E, §21): a new residence that may be incompatible with
   // one Kinship holds, where a wrong pick would show something false. Held:
   // "Is Susan still in Alameda?" Still there · Susan moved.

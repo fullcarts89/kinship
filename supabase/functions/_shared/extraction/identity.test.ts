@@ -677,11 +677,26 @@ Deno.test("r2-3: a pronoun clause right after the relative's clause may be the r
     eq([out.items[0].person_id, out.items[0].flags.includes("subject_check"), out.items[0].tier], ["sarah", true, "hold"], note);
     eq(out.clarification?.question, "Is this about Sarah, or Sarah's sister?", note);
   }
-  // A brother is never "she"; a relative who died is never the one flying out.
+  // A brother is never "she".
   const brother = run(input("Sarah's brother got engaged, she's over the moon", [SARAH]), [item({ person: "p9", person_mention: "she", statement: "Sarah is over the moon", evidence: ["she's over the moon"] })]);
   eq(brother.items.map((i) => [i.person_id, i.flags.includes("subject_check")]), [["sarah", false]]);
+  // Founder, 15 Nov 2026: a relative who has died is still someone the user talks about; no blanket rule. The model's
+  // filing on the living person stands for a glance only when the clause's action is plainly a living person's
+  // (a future time word, travel: "he's flying out tomorrow"); without such a cue it is asked, never guessed.
   const seun = run(input("seun's dad passed away on sunday the funeral is next saturday in houston he's flying out tomorrow", [SEUN]), [item({ kind: "event", person: "p32", person_mention: "he's", statement: "Seun is flying out tomorrow", evidence: ["he's flying out tomorrow"], date_text: "tomorrow" })]);
-  eq(seun.items.map((i) => [i.person_id, i.flags.includes("subject_check")]), [["seun", false]]);
+  eq(seun.items.map((i) => [i.person_id, i.tier, i.flags.includes("subject_check"), i.flags.includes("subject_after_loss")]), [["seun", "confirm", false, true]]);
+  eq(seun.clarification, null);
+  const ok = run(input("seun's dad passed away on sunday, he's doing ok considering", [SEUN]), [item({ person: "p32", person_mention: "he's", statement: "Seun is doing ok considering", evidence: ["he's doing ok considering"] })]);
+  eq([ok.items[0].person_id, ok.items[0].tier, ok.items[0].flags.includes("subject_check")], ["seun", "hold", true], "no cue: asked");
+  eq(ok.clarification?.question, "Is this about Seun, or Seun's dad?");
+  // "Grandma passed away in March. She loved her garden.": she is Grandma, no question.
+  const grandma = person("p63", "grandma", "Grandma", { full_name: "Rose Hart", relationship_label: "grandmother" });
+  const garden = run(input("Grandma passed away in March. She loved her garden.", [grandma, BEN]), [item({ person: "p63", person_mention: "She", statement: "Grandma loved her garden", evidence: ["She loved her garden"] })]);
+  eq(garden.items.map((i) => [i.person_id, i.tier === "hold", i.flags.includes("subject_check")]), [["grandma", false, false]]);
+  eq(garden.clarification, null);
+  // The same about a person's relative, filed as the model read it (Mom's mother, a related line): kept as filed, no question.
+  const mother = run(input("Mom's mother passed away in March. She loved her garden.", [MOM]), [item({ person: "p30", person_mention: "She", subject: "related", related_relation: "mother", related_name: null, statement: "Mom's mother loved her garden", evidence: ["She loved her garden"] })]);
+  eq(mother.items.map((i) => [i.person_id, i.subject_type, i.tier === "hold"]), [["mom", "related", false]]);
 });
 
 Deno.test("r2-4: a companion whose name someone in People also goes by is asked, never moved to the namesake (K27); a lower-case voice note still files on the owner", () => {
