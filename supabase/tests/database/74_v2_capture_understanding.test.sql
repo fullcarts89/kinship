@@ -47,7 +47,7 @@ DECLARE t timestamptz;
 BEGIN
   PERFORM public.claim_capture_extraction('aaaaaaaa-7474-7474-7474-747474747474', capture);
   PERFORM public.write_extraction_with_review('aaaaaaaa-7474-7474-7474-747474747474', capture,
-    'relationship_extract/v7+claude-opus-5-5', true, '[]', pg_temp.review(two));
+    'relationship_extract/v7+claude-test', true, '[]', pg_temp.review(two));
   SELECT created_at INTO t FROM public.capture_reviews WHERE capture_id = capture;
   RETURN t;
 END $$;
@@ -109,7 +109,7 @@ SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007410'), NULL, '
 SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007411'), 'claimed', 'claimed');
 CREATE TEMP TABLE before_v AS SELECT version, updated_at FROM public.captures WHERE id = '00000000-0000-0000-0000-000000007411';
 SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$ SELECT public.write_extraction(%L, '00000000-0000-0000-0000-000000007411',
-  'relationship_extract/v7+claude-opus-5-5', false, pg_temp.jazz()) $s$) $$, :A), 'one line written');
+  'relationship_extract/v7+claude-test', false, pg_temp.jazz()) $s$) $$, :A), 'one line written');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007411'), 'kept', 'kept');
 SELECT ok((SELECT c.version > b.version AND c.updated_at > b.updated_at FROM public.captures c, before_v b WHERE c.id = '00000000-0000-0000-0000-000000007411'),
   'version and updated_at moved: the app''s pull of captures carries it');
@@ -120,7 +120,7 @@ SELECT lives_ok(format($$ SELECT public.set_capture_coverage(%L, '00000000-0000-
   '{"v": 1, "unprocessed": [], "unlocated": 0, "not_understood": [{"start": 4, "end": 14}]}') $$, :A),
   'coverage may say which words were read but not understood');
 SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$ SELECT public.write_extraction(%L, '00000000-0000-0000-0000-000000007412',
-  'relationship_extract/v7+claude-opus-5-5', false, pg_temp.jazz()) $s$) $$, :A), 'one line written beside the gap');
+  'relationship_extract/v7+claude-test', false, pg_temp.jazz()) $s$) $$, :A), 'one line written beside the gap');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007412'), 'partial', 'partial');
 
 -- ── partial means "not taken whole": gaps with nothing kept are never "nothing" ──
@@ -128,7 +128,7 @@ SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007
 SELECT lives_ok(format($$ SELECT public.set_capture_coverage(%L, '00000000-0000-0000-0000-000000007420',
   '{"v": 1, "unprocessed": [], "unlocated": 0, "not_understood": [{"start": 0, "end": 14}]}') $$, :A), 'every proposal undecidable');
 SELECT lives_ok(format($$ SELECT public.write_extraction(%L, '00000000-0000-0000-0000-000000007420',
-  'relationship_extract/v7+claude-opus-5-5', false, '[]') $$, :A), 'nothing written');
+  'relationship_extract/v7+claude-test', false, '[]') $$, :A), 'nothing written');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007420'), 'partial', 'partial, not nothing: parts were not understood');
 
 -- ── a mixed answer: some kept, some declined → kept ─────────────────────────
@@ -161,7 +161,7 @@ SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007422'), NULL, '
 -- ── nothing: the understanding ran and kept nothing ─────────────────────────
 SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007413'), 'claimed', 'claimed');
 SELECT lives_ok(format($$ SELECT public.write_extraction(%L, '00000000-0000-0000-0000-000000007413',
-  'relationship_extract/v7+claude-opus-5-5', false, '[]') $$, :A), 'nothing written');
+  'relationship_extract/v7+claude-test', false, '[]') $$, :A), 'nothing written');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007413'), 'nothing', 'nothing: the note stays as the user''s words');
 
 -- ── held → kept: the user answers ───────────────────────────────────────────
@@ -198,7 +198,7 @@ SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007417'), 'nothin
 -- ── held with a line already saved → kept when the question goes ────────────
 SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007418'), 'claimed', 'claimed');
 SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$ SELECT public.write_extraction_with_review(%L, '00000000-0000-0000-0000-000000007418',
-  'relationship_extract/v7+claude-opus-5-5', true, pg_temp.jazz(), pg_temp.review()) $s$) $$, :A), 'a line saved and a question held');
+  'relationship_extract/v7+claude-test', true, pg_temp.jazz(), pg_temp.review()) $s$) $$, :A), 'a line saved and a question held');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007418'), 'held', 'held while the question waits');
 SELECT is(public.settle_capture_review(:A, '00000000-0000-0000-0000-000000007418'), true, 'the question is set aside');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007418'), 'kept', 'kept: a line of this note is live');
@@ -217,10 +217,10 @@ SELECT ok(NOT public.capture_coverage_ok(('{"v": 1, "unprocessed": [], "unlocate
 
 -- ── the usage log counts every drop reason the gateway has ──────────────────
 SELECT lives_ok($$ INSERT INTO public.ai_calls (capability, model, prompt_version, eval_version, outcome, result, latency_ms, items_dropped, drop_reasons)
-  VALUES ('relationship_extract', 'claude-opus-5-5', 'relationship_extract/v7', 'extraction-v2.9', 'ok', 'auto', 1200, 4, '{"internal_reference": 1, "already_known": 1, "no_one_named": 1, "earlier_note": 1}') $$,
+  VALUES ('relationship_extract', 'claude-test', 'relationship_extract/v7', 'extraction-v2.9', 'ok', 'auto', 1200, 4, '{"internal_reference": 1, "already_known": 1, "no_one_named": 1, "earlier_note": 1}') $$,
   'internal_reference, already_known, no_one_named and earlier_note are counted (the first two were refused before, and the row was lost)');
 SELECT throws_ok($$ INSERT INTO public.ai_calls (capability, model, prompt_version, eval_version, outcome, latency_ms, drop_reasons)
-  VALUES ('relationship_extract', 'claude-opus-5-5', 'relationship_extract/v7', 'extraction-v2.9', 'ok', 1, '{"Ben loves jazz": 1}') $$,
+  VALUES ('relationship_extract', 'claude-test', 'relationship_extract/v7', 'extraction-v2.9', 'ok', 1, '{"Ben loves jazz": 1}') $$,
   '23514', NULL, 'text smuggled into the drop reasons is still refused');
 
 SELECT * FROM finish();

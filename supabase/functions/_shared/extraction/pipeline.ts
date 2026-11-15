@@ -853,7 +853,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     const filed = who.person_key ? ctx.byKey.get(who.person_key) : undefined;
     const name = filed ? shortName(filed) : who.new_person_name;
     const names = filed ? namesFor(filed) : who.new_person_name ? [who.new_person_name] : [];
-    const near = spans.map((s) => sentenceAroundSpan(text, s)).join(" ");
+    const near = spans.map((s) => ctx.sentenceAround(s)).join(" ");
     const grounded = ("grounded" in who && who.grounded === true) || names.some((n) => saysWord(near, n) || saysWord(near, firstName(n))) ||
       (!!filed && ctx.input.capture.context_person_key === filed.key);
     const verb = clauseVerb(ctx, primary);
