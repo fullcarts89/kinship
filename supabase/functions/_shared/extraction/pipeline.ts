@@ -2614,10 +2614,8 @@ function descriptorFits(descriptor: string, p: RosterPerson): boolean {
  */
 /** A sentence opened by the writer's own verb, subject left out ("Talked to Nana.", "Picked up Kaiya…"), not a name. */
 function openingVerb(word: string): boolean {
-  const k = fold(word);
-  // "Talked", "Seeing", "Luckily", "Thankfully": a verb or an adverb opening the sentence, never a name.
-  if (k.length > 4 && /(?:ed|ing|ly)$/u.test(k)) return true;
-  return OPENING_VERBS.has(k);
+  // A closed list, never a suffix: "Emily", "Kelly", "Sterling" are names (re-review of #93).
+  return OPENING_VERBS.has(fold(word));
 }
 /** Words for a person who is not named ("a new neighbor", "a woman at church"), with the gender they say. */
 const PERSON_NOUNS = new Map<string, "f" | "m" | null>([
@@ -2629,8 +2627,91 @@ const OPENING_VERBS = new Set([
   "met", "saw", "had", "got", "went", "took", "ran", "spent", "caught", "told", "heard", "made", "came", "brought",
   "gave", "found", "left", "sent", "spoke", "drove", "flew", "rang", "bumped", "texted", "called", "visited", "ate",
   "grabbed", "dropped", "picked", "helped", "drew", "wrote", "read", "sat", "stood", "watched", "won", "lost", "bought",
-  "poor", "sounds", "looks", "seems", "feels", "glad", "sad", "lucky", "funny",
+  "poor", "sounds", "looks", "seems", "feels", "glad", "sad", "funny",
+  "talked", "talking", "picked", "texted", "called", "stopped", "spoke", "seeing", "saw", "chatted", "hung", "caught",
+  "ran", "went", "had", "spent", "visited", "dropped", "drove", "walked", "cooked", "baked", "played", "watched",
+  "luckily", "thankfully", "sadly", "hopefully", "apparently", "honestly", "anyway", "anyways", "unfortunately",
+  "fortunately", "finally", "basically", "actually", "obviously", "surprisingly", "still", "also", "later", "then",
+  "earlier", "yesterday", "today", "tonight", "tomorrow", "everyone", "everybody", "afterwards", "meanwhile",
+  "oh", "ok", "okay", "so", "well", "really", "definitely", "probably", "maybe", "turns", "spoke",
 ]);
+
+/** Words after a determiner that name a place, a time or a thing, never a person ("the weather", "the diner"). */
+const NOT_A_PERSON_NOUN = new Set([
+  "today", "tonight", "morning", "afternoon", "evening", "night", "week", "weekend", "day", "days", "year", "month", "time",
+  "moment", "house", "home", "place", "kitchen", "garden", "yard", "car", "door", "sink", "table", "phone", "call", "lunch",
+  "dinner", "breakfast", "coffee", "party", "game", "weather", "news", "way", "end", "start", "rain", "snow", "city", "town",
+  "church", "school", "office", "work", "diner", "restaurant", "cafe", "café", "beach", "hospital", "store", "shop", "park",
+  "gym", "airport", "station", "trip", "visit", "fall", "check", "checkup", "doctor's", "appointment", "news", "food", "cake",
+  "pie", "roof", "fence", "deck", "dog", "cat", "garden", "service", "funeral", "wedding", "birthday", "match", "movie", "show",
+  "book", "letter", "card", "gift", "present", "drive", "walk", "run", "bit", "lot", "while", "minute", "hour", "same", "other",
+]);
+const PERSON_PLURALS = /^(?:people|folks|neighbou?rs|friends|cousins|kids|children|guys|girls|boys|ladies|men|women|guests|grandkids|grandchildren|parents|sisters|brothers|aunts|uncles|in-laws|everyone|everybody|someone|somebody|family|couple|crowd|group|team|staff|nurses|doctors)$/u;
+
+/**
+ * Whether the text holds a person-like noun phrase other than the owner: a capitalised word that is not the
+ * owner's name, an everyday word or a closed opener; a determiner, a possessive or a quantifier before a noun
+ * that is not a place, time or thing; or a plural word for people (re-review of #93).
+ */
+function personLike(ctx: Context, text: string, owner: RosterPerson): boolean {
+  const ownerKeys = new Set(namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey));
+  const words = [...text.matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)];
+  for (let i = 0; i < words.length; i++) {
+    const raw = words[i][0];
+    const word = withoutPossessive(raw);
+    const k = fold(word);
+    const lead = text.slice(0, words[i].index ?? 0).trimEnd();
+    const opens = lead === "" || /[.!?\n…]["“”'‘’(]*$/u.test(lead);
+    if (ownerKeys.has(nameKey(word))) {
+      // "Nana's neighbor": the owner's own someone is someone else.
+      if (raw !== word && words[i + 1] && !NOT_A_PERSON_NOUN.has(fold(words[i + 1][0]))) return true;
+      continue;
+    }
+    if (PERSON_PLURALS.test(k)) return true;
+    if (/^\p{Lu}/u.test(word) && word !== "I") {
+      if (COMMON_CAPITALS.has(k) || CALENDAR.has(k) || ctx.placeOnly(word)) continue;
+      if (opens && (OPENING_VERBS.has(k) || PRONOUNS.has(k) || neverAName(word))) continue;
+      if (!opens || !neverAName(word)) return true;
+    }
+    if (/^(?:a|an|the|this|that|these|those|some|another|every|each|his|her|their|my|our|your|one|two|three|several|many|few)$/u.test(k) || (raw !== word && raw !== "")) {
+      const next = words[i + 1] ? fold(withoutPossessive(words[i + 1][0])) : "";
+      const after = words[i + 2] ? fold(withoutPossessive(words[i + 2][0])) : "";
+      if (!next) continue;
+      if (PRONOUNS.has(next) || NOT_A_PERSON_NOUN.has(next)) continue;
+      // One adjective between ("the new waitress", "a lovely woman"): the noun after it decides.
+      const noun = PERSON_NOUNS.has(next) || RELATION_WORDS.map(relationKey).includes(relationKey(next)) ? next : after || next;
+      if (NOT_A_PERSON_NOUN.has(noun)) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+/** (a) or (b) above, for the "his"/"her" at code-unit `at`. */
+function ownsPossessive(ctx: Context, owner: RosterPerson, at: number): boolean {
+  const text = ctx.text;
+  let start = at;
+  while (start > 0 && !/[.!?\n…]/u.test(text[start - 1])) start--;
+  const head = text.slice(start, at);
+  const ownerRe = new RegExp(`(?<![\\p{L}\\p{M}'’-])(?:${namesFor(owner).flatMap((n) => [n, firstName(n)]).filter(Boolean).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\p{L}\\p{M}-])`, "giu");
+  const inSentence = [...head.matchAll(ownerRe)].pop();
+  if (inSentence) {
+    const between = head.slice((inSentence.index ?? 0) + inSentence[0].length);
+    // "Nana's neighbor came by with her…": the owner's own someone sits between.
+    if (/^['’]s?\s/u.test(between)) return false;
+    return !personLike(ctx, between, owner);
+  }
+  if (head.trim() !== "" && !/^["“”'‘’(\s]*$/u.test(head)) return false;
+  // Opens its sentence: the sentence before names no one else, and the owner is named before it or it is their page.
+  let prevEnd = start - 1;
+  while (prevEnd > 0 && /[.!?\n…\s]/u.test(text[prevEnd])) prevEnd--;
+  let prevStart = prevEnd;
+  while (prevStart > 0 && !/[.!?\n…]/u.test(text[prevStart - 1])) prevStart--;
+  const prev = prevEnd > 0 ? text.slice(prevStart, prevEnd + 1) : "";
+  if (prev && personLike(ctx, prev, owner)) return false;
+  const named = ownerRe.test(text.slice(0, start));
+  return named || ctx.input.capture.context_person_key === owner.key;
+}
 
 function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: RosterPerson): { relation: string; excludesOwner: boolean } | null {
   const before = fold(ctx.text.slice(0, at));
@@ -2693,45 +2774,11 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
   // "his"/"her" must plainly be the owner's: the owner is named before it (no one else was, above), or the note
   // is told from the owner's page ("Talked to Nana. Her husband had a fall. He's in the hospital.").
   if (last.det === "his" || last.det === "her" || last.det === "their") {
-    // The nearest one before it that "his"/"her" can stand for must be the owner: "Talked to Nana. Grace came
-    // over with her husband" is Grace's husband, "My aunt came by with her husband" the aunt's (re-review of #93).
-    const head = ctx.text.slice(0, last.index);
-    const herMale = last.det === "his";
-    const fits = (g: "m" | "f" | null) => last.det === "their" || g === null || g === (herMale ? "m" : "f");
-    let nearest: { at: number; owner: boolean } | null = null;
-    for (const m of head.matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)) {
-      const word = withoutPossessive(m[0]);
-      const k = nameKey(word);
-      const at = m.index ?? 0;
-      if (ownerKeys.has(k)) {
-        if (fits(genderOf(owner))) nearest = { at, owner: true };
-        continue;
-      }
-      const rel = relationKey(fold(word));
-      const personNoun = PERSON_NOUNS.get(fold(word));
-      if (personNoun !== undefined || RELATION_WORDS.map(relationKey).includes(rel)) {
-        // "my aunt", "our neighbor", "a new neighbor", "a woman at church", "the lady next door", "a friend from
-        // bridge": someone else, never the owner (re-review of #93). "Nana's husband", "her husband" are not.
-        const lead = head.slice(0, at);
-        const other = /\b(?:my|our|your|a|an|the|this|that|another|some|one|new|old)\s+(?:[\p{L}'’-]+\s+)?$/iu.test(lead) &&
-          !/['’]s?\s+(?:[\p{L}'’-]+\s+)?$/u.test(lead);
-        const g = personNoun !== undefined ? personNoun : FEMALE_RELATIONS.has(rel) ? "f" : MALE_RELATIONS.has(rel) ? "m" : null;
-        if (other && fits(g)) nearest = { at, owner: false };
-        continue;
-      }
-      if (!/^\p{Lu}/u.test(word) || word === "I") continue;
-      const other = ctx.candidatesFor(word).find((c) => c.key !== owner.key);
-      if (other) {
-        if (fits(genderOf(other))) nearest = { at, owner: false };
-        continue;
-      }
-      const lead = head.slice(0, at).trimEnd();
-      const opens = lead === "" || /[.!?\n…]["“”'‘’(]*$/u.test(lead);
-      if (COMMON_CAPITALS.has(fold(word)) || CALENDAR.has(fold(word)) || ctx.placeOnly(word) || (opens && (ctx.wordNotAName(word) || openingVerb(word)))) continue;
-      nearest = { at, owner: false };
-    }
-    const onPage = ctx.input.capture.context_person_key === owner.key;
-    if (nearest ? !nearest.owner : !onPage) return null;
+    // A structural limit, not a list (re-review of #93): "his"/"her" is the owner's only when (a) the owner is
+    // named earlier in the same sentence with no other noun phrase between ("Nana and her husband", "Nana said
+    // her husband…"), or (b) it opens its sentence and the sentence before names no one else ("Talked to Nana.
+    // Her husband had a fall."), the owner named before it or the note told on their page. Anything else asks.
+    if (!ownsPossessive(ctx, owner, last.index)) return null;
   }
   return { relation: last.relation, excludesOwner: last.excludesOwner };
 }

@@ -1091,3 +1091,37 @@ Deno.test("re-review 3: 'her husband' after a neighbor, a woman, a friend, the l
   ok(out.items.every((i) => i.tier === "hold"), "asked, never saved on Sam");
   eq(out.clarification?.options, ["Sam", "Sam's brother"]);
 });
+
+// ── Re-review of da2d573 (15 Nov 2026): "his"/"her" bounded by the sentence, not by a list ──
+
+Deno.test("re-review 4: 'her husband' is the owner's only in her own sentence or after a sentence naming no one else", () => {
+  const nana = person("p57", "nana8", "Nana", { relationship_label: "grandmother" });
+  const he = (note: string, quote: string, page: string | null = null) => planExtraction(input(note, [nana], page), { needs_clarification: null, items: [
+    item({ person: "p57", person_mention: "He", statement: "Nana's husband " + quote.replace(/^(?:He|Honestly he) /, ""), evidence: [quote], confidence: 0.85 }),
+  ] } as ModelProposal);
+  const asks = [
+    ["Nana's neighbor came by with her husband. He fixed the sink.", "He fixed the sink"],
+    ["Nana's nurse came today. Her husband drove her. He waited in the car.", "He waited in the car"],
+    ["Talked to Nana. Emily came over with her husband. He fixed the sink.", "He fixed the sink"],
+    ["Talked to Nana. Kelly brought her husband. He fixed the sink.", "He fixed the sink"],
+    ["Nana's husband stopped by. Sterling came too. He brought cake.", "He brought cake"],
+    ["Nana's husband stopped by. Lucky came too. He brought cake.", "He brought cake"],
+    ["Nana chatted with neighbors. Her husband owns the diner. He makes great pie.", "He makes great pie"],
+    ...["waitress", "cashier", "widow", "hairdresser", "receptionist", "landlady", "vet", "new hire", "bride", "couple"]
+      .map((n) => [`Nana chatted with the ${n}. Her husband owns the diner. He makes great pie.`, "He makes great pie"]),
+  ];
+  for (const [note, quote] of asks) {
+    const out = he(note, quote);
+    ok(out.items.every((i) => i.tier === "hold"), `${note}: asked (${out.items.map((i) => `${i.tier} ${i.subject_type}`).join(", ")})`);
+  }
+  for (const [note, quote] of [
+    ["Saw Nana today. Her husband looked tired. He has been working a lot.", "He has been working a lot"],
+    ["Nana and her husband came for lunch. He fixed the sink.", "He fixed the sink"],
+    ["Nana said her husband had a check up with the doctor. He is fine.", "He is fine"],
+    ["Nana's husband is the best. Honestly he never complains.", "Honestly he never complains"],
+    ["Nana's husband turned 80. The whole family came. He loved it.", "He loved it"],
+  ]) {
+    const line = he(note, quote).items[0];
+    ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
+  }
+});
