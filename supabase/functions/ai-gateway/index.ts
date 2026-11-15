@@ -218,7 +218,8 @@ function serviceOps(db: SupabaseClient): ServiceOps {
     },
     async setCoverage(userId, captureId, coverage) {
       const { error } = await db.rpc("set_capture_coverage", { p_user_id: userId, p_capture_id: captureId, p_coverage: coverage });
-      if (error) throw new Error(`coverage write failed (${error.code ?? "?"})`);
+      // By SQLSTATE, never the message: the handler falls back to the older shape on 22023.
+      if (error) throw new ServiceError(error.code ?? "unknown");
     },
     async write(userId, captureId, version, needsReview, items, review) {
       const { data, error } = await db.rpc("write_extraction_with_review", {

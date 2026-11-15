@@ -2,6 +2,7 @@
 // the pipeline MORE careful: lower certainty, raise sensitivity, drop an
 // item, or ask. They never upgrade anything the model said.
 
+import { isSpokenRun, spokenSentenceAt } from "./segment.ts";
 import type { Certainty, Sensitivity } from "./types.ts";
 
 /** Lower-cased, NFC, curly apostrophes straightened. */
@@ -105,6 +106,10 @@ export function negatedWhereStated(clause: string, statement: string): boolean {
 const SENSITIVE: [Exclude<Sensitivity, "none">, RegExp][] = [
   ["death_grief", /\b(died|dies|dying|passed away|passed on|death|dead|funeral|memorial service|burial|buried|grief|grieving|mourning|lost (?:her|his|their|my) (?:mom|mother|dad|father|husband|wife|partner|son|daughter|brother|sister|baby|grandma|grandmother|grandpa|grandfather|dog|cat)|miscarri\w*|stillborn|terminally ill|terminal (?:illness|cancer|diagnosis)|hospice|suicide)\b/],
   ["health", /\b(surgery|surgeries|operation|hospital|hospitali[sz]ed|er visit|emergency room|icu|cancer|tumou?r|chemo\w*|radiation|diagnos\w*|biopsy|scan results|mri|ct scan|stroke|heart attack|seizure|illness|ill|sick|disease|infection|covid|flu|pneumonia|diabetes|dementia|alzheimer'?s|parkinson'?s|injur\w*|broke (?:her|his|their) (?:leg|arm|wrist|ankle|hip)|fracture\w*|concussion|rehab|therapy|therapist|depress\w*|anxiety|panic attacks?|mental health|adhd|autism|eating disorder|addiction|sober|sobriety|relapse|pregnan\w*|expecting a baby|ivf|fertility|due date|in labou?r|went into labou?r|c-section|postpartum|recovering|recovery|doctor|doctor's|clinic|appointment with (?:a|her|his|the) (?:doctor|specialist|oncologist|surgeon)|medication|meds|prognosis|treatment|physical therapy|knee replacement|hip replacement|mastectomy|colonoscopy|mammogram|ultrasound|checkup|check-up|blood test|lab results|comes home from the hospital)\b/],
+  // Everyday illness and a body that hurts (founder-authorised live run, 15 Nov 2026: "her back is bad again"
+  // was saved as plain): "her back is bad / hurting / acting up / out / giving her trouble", "a bad back",
+  // "back pain", "under the weather", "came down with", "throwing up", a migraine, a fever.
+  ["health", new RegExp(String.raw`\b(?:(?:her|his|their|my|your|the|[\p{L}]+'s|[\p{L}]+s) (?:lower |upper )?(?:back|knee|knees|hip|hips|shoulder|shoulders|neck|wrist|ankle|stomach|tummy|chest|heart|leg|legs|arm|foot|feet|hand|hands|eyes|teeth|tooth|sinuses|lungs|blood pressure) (?:is|was|has been|had been|s|'s|are|were|keeps|kept)? ?(?:really |still |quite |very |pretty |so |a bit |a little |always )?(?:bad|worse|hurting|hurts|hurt|sore|killing (?:her|him|them|me)|acting up|playing up|out|gone|went|flared up|flaring up|giving (?:her|him|them|me) (?:trouble|grief|problems)|bothering (?:her|him|them|me))|(?:bad|sore|hurt|injured|broken|sprained|twisted|dodgy|dislocated) (?:back|knee|knees|hip|hips|shoulder|neck|wrist|ankle|leg|arm|foot|ankle|tooth)|(?:back|neck|knee|hip|shoulder|chest|stomach|joint|chronic) pain|in (?:a lot of |terrible |constant )?pain|slipped disc|herniated disc|migraines?|fever|a temperature|under the weather|not feeling (?:well|great|good)|feeling (?:poorly|rough|awful|unwell|terrible|sick)|unwell|poorly|came down with|come down with|threw up|throwing up|vomit\w*|stomach bug|tummy bug|food poisoning|the runs|a cold|bad cold|head cold|bronchitis|asthma|allergic reaction|physio\w*|a specialist|the specialist|sees? (?:a|the|her|his) (?:specialist|consultant|gp|physio))\b`, "u")],
   ["conflict", /\b(divorc\w*|separat(?:ed|ing|ion)|split up|splitting up|broke up|breaking up|break-up|breakup|cheat\w*|affair|estranged|not speaking|stopped talking|falling out|fell out|fight|fighting|fought|argument|custody|restraining order|lawsuit|sued|suing|arrest\w*|jail|prison|abuse\w*|abusive|toxic)\b/],
   ["money", /\b(laid off|layoffs?|got fired|was fired|lost (?:her|his|their) job|unemploy\w*|out of work|bankrupt\w*|debt|debts|broke|can't afford|cant afford|money (?:trouble|problems|issues)|struggling financially|financial(?:ly)? (?:trouble|stress|problems)|evict\w*|foreclos\w*|loan|loans|salary|pay cut|mortgage)\b/],
   ["other_private", /\b(coming out|came out|gay|lesbian|bisexual|transgender|trans|immigration status|visa|deport\w*|undocumented|religion|converted)\b/],
@@ -153,7 +158,8 @@ function SENSITIVE_PARAPHRASE_OK(term: string, src: string): boolean {
     [/^(divorc\w*)$/, /\bdivorc\w*\b/],
     [/^(fight|fighting|fought|argument)$/, /\b(fight|fighting|fought|argu\w*)\b/],
     [/^(laid off|lost (her|his|their) job)$/, /\b(laid off|layoff|lost (her|his|their) job|let go)\b/],
-    [/^(sick|ill|illness)$/, /\b(sick|ill|illness|unwell)\b/],
+    [/^(sick|ill|illness)$/, /\b(sick|ill|illness|unwell|under the weather|poorly|not feeling (?:well|great|good))\b/],
+    [/^(?:back|neck|knee|hip|shoulder|chest|stomach|joint|chronic) pain$/, /\b(?:back|neck|knee|hip|shoulder|chest|stomach|joint)\b.{0,30}\b(?:bad|hurt\w*|sore|pain|acting up|playing up|out)\b/],
     [/^(recovering|recovery)$/, /\b(recover\w*|surgery|operation)\b/],
   ];
   return pairs.some(([t, s]) => t.test(term) && s.test(src));
@@ -265,6 +271,21 @@ const INSTRUCTION = [
   /\bas an ai\b|\bassistant:|\buser:|\bsystem:|<\/?(system|instructions?|note)>/,
 ];
 
+/**
+ * An aside to the writer themself about the note, not about anyone ("dont tell mom", "keep it quiet", "not
+ * a word to Grace", "nobody say anything"; founder-authorised live run, 15 Nov 2026: "dont tell mom" was saved
+ * as a thread on Mom). Only an imperative that opens the words; "Mom's seventieth is a surprise" is a fact.
+ */
+const SECRET_ASIDE = [
+  /^\W*(?:and |so |but |um |uh |oh |please |just |also |obviously |remember )*(?:don'?t|do not|never|nobody|no one|noone) (?:tell|mention|say anything|say a word|let on|breathe a word|spoil|ruin|bring (?:it|this|that) up)\b/u,
+  /^\W*(?:and |so |but |um |uh |oh |please |just |also )*(?:keep (?:it|this|that|the (?:news|plan|party|surprise)) (?:quiet|secret|a secret|under wraps|between us|to yourself|hush ?hush|on the down ?low)|mum'?s the word|not a word to|shh+|hush hush)\b/u,
+  /^\W*(?:and |so |but |um |uh |oh )*(?:it'?s|its|this is|that'?s) (?:a )?(?:secret|surprise)[,;]? so (?:don'?t|do not|nobody|no one|keep)\b/u,
+];
+export function looksLikeSecretAside(words: string): boolean {
+  const s = fold(words).trim();
+  return wordsOf(s).length <= 12 && SECRET_ASIDE.some((re) => re.test(s));
+}
+
 /** True when a sentence reads as instructions to the AI rather than news about someone. */
 export function looksLikeInstruction(sentence: string): boolean {
   const s = fold(sentence);
@@ -274,7 +295,13 @@ export function looksLikeInstruction(sentence: string): boolean {
 // ─── Sentences ──────────────────────────────────────────────────────────────
 
 /** The sentence(s) of `text` that contain the UTF-16 range [from, to). */
-export function sentenceAround(text: string, from: number, to: number): string {
+export function sentenceAround(text: string, from: number, to: number, names: readonly string[] = []): string {
+  // A spoken run (no punctuation at all, a dozen words or more) is read in its spoken sentences (segment.ts,
+  // CMR-1 C); every other note is read exactly as before.
+  if (isSpokenRun(text)) {
+    const seg = spokenSentenceAt(text, from, to, names);
+    return text.slice(seg.start, seg.end);
+  }
   const boundary = /[.!?\n]/;
   let a = from;
   while (a > 0 && !boundary.test(text[a - 1])) a--;

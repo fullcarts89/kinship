@@ -190,7 +190,16 @@ export type DropReason =
   | "internal_reference"
   // A relationship Kinship already holds, said again ("John is your
   // brother" when John is already your brother): never a second fact (H17).
-  | "already_known";
+  | "already_known"
+  // The line is about someone the note leaves unnamed ("someone at work", "a friend"): no one in People
+  // can be meant and no name could be added, so nothing is filed; the app keeps the words (K35; CMR-1 B).
+  | "no_one_named"
+  // The quote is the earlier note's words, not this one's ("Tell the rest", CER-1): that note holds the
+  // line and its own accounting; here it is neither evidence nor a loss (founder, 15 Nov 2026).
+  | "earlier_note"
+  // An aside to the writer about the note itself ("dont tell mom", "keep it quiet"): not a memory about
+  // anyone; excluded by contract, like an instruction (founder-authorised live run, 15 Nov 2026).
+  | "secret_aside";
 
 export type Flag =
   | "new_person"
@@ -362,17 +371,25 @@ export interface Clarification {
  * makes is judged by the item rules, so nothing is lost to a count. A long note is understood in passages
  * (run.ts), and `unprocessed` holds the code-point spans of passages whose model call failed (a timeout,
  * an error, a refusal), in the note's own words, so the phone can mark them and offer "Tell the rest" or
- * "Try again". `unlocated` stays for proposals whose words could not be placed when a passage call did
- * succeed but the pipeline could not take its spans. Content-free: offsets and a count, never words.
+ * "Try again".
+ *
+ * CMR-1 C2 (no silent loss): a proposal the item rules excluded on their own (an instruction, a contact
+ * detail, a relationship already held, a repeat, confidence below the floor) is accounted for by that
+ * rule. Every other dropped proposal is reported here: `not_understood` holds the code-point spans of its
+ * words where they were found (for a quote found in several places and not settled, every place), one
+ * entry per lost proposal per place; `unlocated` counts those whose words could not be found at all.
+ * Content-free: offsets and a count, never words.
  */
 export interface Coverage {
   unprocessed: { start: number; end: number }[];
   unlocated: number;
+  not_understood?: { start: number; end: number }[];
 }
 
 export interface ExtractionOutcome {
   items: PlannedItem[];
-  dropped: { reason: DropReason; kind: Kind | null }[];
+  /** Every proposal not kept, with why, and where its words were found when they were (offsets only). */
+  dropped: { reason: DropReason; kind: Kind | null; where?: { start: number; end: number }[] }[];
   clarification: Clarification | null;
   /** What the capture needs: auto-save, a light confirmation, one question, or nothing found. */
   tier: "auto" | "confirm" | "clarify" | "nothing";

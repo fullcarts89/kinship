@@ -1,7 +1,7 @@
 // relationship_extract guard rails (Checkpoint C). Each test hands the
 // pipeline a WRONG model answer and checks it is dropped, demoted or held;
 // nothing here depends on a model. Run: deno test supabase/functions
-import { planExtraction } from "./pipeline.ts";
+import { PAGE_NOTE_UNTOUCHED_MIN_WORDS, planExtraction } from "./pipeline.ts";
 import { sliceCodePoints } from "../spans.ts";
 import type { ExtractionInput, ModelProposal, ProposedItem } from "./types.ts";
 
@@ -449,6 +449,29 @@ Deno.test("contact details are never memory (core-058)", () => {
     eq(out.dropped.map((d) => d.reason), ["contact_detail"], note);
   }
   eq(run(input("Ben's jersey number is 23."), [item({ statement: "Ben's jersey number is 23", evidence: ["Ben's jersey number is 23"] })]).items.length, 1, "a number that isn't contact detail is fine");
+  // A preference about how to be reached is a fact about the person, not contact data (CMR-1 eval pr-003).
+  for (const [note, statement] of [
+    ["Ben takes his coffee black. He also prefers Teams calls to phone calls.", "Ben prefers Teams calls to phone calls"],
+    ["Ben got a new phone and loves it.", "Ben got a new phone"],
+    ["Ben hates talking on the phone.", "Ben hates talking on the phone"],
+    ["Ben moved there on 12.11.2026 and loves it.", "Ben moved there on 12.11.2026"],
+  ]) {
+    const out = run(input(note), [item({ statement, evidence: [note.split(". ").at(-1)!.replace(/\.$/, "")] })]);
+    eq([out.items.length, out.dropped], [1, []], note);
+  }
+  for (const [note, statement] of [
+    ["Ben's cell number is 415-555-0100.", "Ben's cell number is 415-555-0100"],
+    ["Ben's cell number changed.", "Ben's cell number changed"],
+    ["Call Ben on 415 555 0100.", "Call Ben on 415 555 0100"],
+    // Dictated without separators, as a transcript writes it (PR #90 review): still a number.
+    ["Ben's phone is 4155550100.", "Ben's phone is 4155550100"],
+    ["Ben's mobile is 07700900123.", "Ben's mobile is 07700900123"],
+    ["Ben's cell 4155550100.", "Ben's cell 4155550100"],
+    ["Ben's mobile changed to +1 415 555 0100.", "Ben's mobile changed to +1 415 555 0100"],
+  ]) {
+    const out = run(input(note), [item({ statement, evidence: [note.replace(/\.$/, "")] })]);
+    eq(out.dropped.map((d) => d.reason), ["contact_detail"], note);
+  }
 });
 
 Deno.test("a tradition with no calendar recurrence is kept as shared context, still confirmed (core-078)", () => {
@@ -743,17 +766,27 @@ Deno.test("a repeat is still folded into the line it repeats, and a contact deta
 });
 
 Deno.test("a passage whose call failed is recorded as not got to, in the note's order, never silent", () => {
+  // Three of ten things proposed: the seven sentences the model never touched are reported too (founder, 15 Nov 2026).
   const out = run(input(tenNote), tenItems().slice(0, 3));
-  eq(out.coverage, undefined, "the pipeline itself never invents coverage");
+  eq(out.coverage?.unprocessed, [], "the pipeline itself never invents a failed passage");
+  eq(out.coverage?.not_understood?.length, 5, "the sentences no proposal rests on (two are under the four-word floor)");
   const failed = { start: 20, end: 40 };
   const partial = planExtraction(input(tenNote), { items: tenItems().slice(0, 3), needs_clarification: null } as ModelProposal, { unprocessed: [{ start: 50, end: 60 }, failed] });
-  eq(partial.coverage, { unprocessed: [failed, { start: 50, end: 60 }], unlocated: 0 });
+  eq(partial.coverage?.unprocessed, [failed, { start: 50, end: 60 }]);
+  eq(partial.coverage?.unlocated, 0);
 });
 
-Deno.test("a note the understanding takes whole has no coverage at all", () => {
+Deno.test("a note the understanding takes whole has no coverage at all; sentences the model never proposed for are not understood (founder, 15 Nov 2026)", () => {
+  eq(run(input(tenNote), tenItems()).coverage, undefined, "every sentence proposed for: taken whole");
   const out = run(input(tenNote), tenItems().slice(0, 8));
   eq(out.items.length, 8);
-  eq(out.coverage, undefined);
+  const chars = Array.from(tenNote);
+  const words = (sp: { start: number; end: number }) => chars.slice(sp.start, sp.end).join("");
+  eq(out.coverage?.not_understood?.map(words), ["Ben plays chess on Tuesdays"], "the thing the model left out, at its words ('Ben grows tomatoes' is under the four-word floor)");
+  // A sentence with nothing a careful reader would keep is not reported.
+  const chatty = `${TEN_THINGS[0]}. Anyway, hope all is well. ${TEN_THINGS[1]}.`;
+  eq(run(input(chatty), tenItems().slice(0, 2)).coverage, undefined);
+  eq(run(input(`${TEN_THINGS[0]}. Must remember to buy milk and eggs. ${TEN_THINGS[1]}.`), tenItems().slice(0, 2)).coverage, undefined);
 });
 
 // Founder device, 14 Nov 2026: "Kaiya has not been sleeping very well and has been very clingy to my wife
@@ -795,4 +828,93 @@ Deno.test("an everyday word the model gives as who it's about is never someone n
     evidence: ["has been very clingy to my wife Krystal"],
   })]);
   for (const line of out.items) ok(line.new_person_name !== "Has" && line.new_person_name !== "has", `never "Has": ${JSON.stringify(line.new_person_name)}`);
+});
+
+// ─── Founder-authorised live run (15 Nov 2026): three shapes the pipeline now catches ─────
+
+Deno.test("a body that hurts is health, held for the user's yes, whatever the model said (vl-004 f13)", () => {
+  const may = { key: "p30", id: "id-may", display_name: "May", full_name: null, nicknames: [], relationship_label: "sister" };
+  const roster = [...ROSTER, may];
+  for (const [note, quote] of [
+    ["may couldnt come because her back is bad again she sees the specialist on the eighteenth and is pretty worried about it", "may couldnt come because her back is bad again"],
+    ["May couldn't come, her back is acting up again.", "her back is acting up again"],
+    ["May has had back pain all week.", "May has had back pain all week"],
+    ["May is under the weather so brunch is off.", "May is under the weather"],
+    ["May's knee is giving her trouble since the hike.", "May's knee is giving her trouble since the hike"],
+  ]) {
+    const out = run(input(note, { roster }), [item({ person: "p30", person_mention: "May", statement: quote.replace(/^may\b/i, "May"), evidence: [quote], sensitivity: "none", confidence: 0.9 })]);
+    eq(out.items.length, 1, note);
+    eq([out.items[0].sensitivity, out.items[0].tier, out.items[0].flags.includes("sensitivity_raised")], ["health", "confirm", true], note);
+  }
+  // Not health: a bad back road, a backed-up schedule, the back of the house.
+  for (const [note, quote] of [
+    ["May's back garden is finally done.", "May's back garden is finally done"],
+    ["May is back from Lisbon and loved it.", "May is back from Lisbon and loved it"],
+  ]) {
+    const out = run(input(note, { roster }), [item({ person: "p30", person_mention: "May", statement: quote, evidence: [quote], sensitivity: "none", confidence: 0.9 })]);
+    eq(out.items[0]?.sensitivity, "none", note);
+  }
+});
+
+Deno.test("an aside to the writer about the note ('dont tell mom') is never a line about anyone; a surprise itself is (ce-003 f3)", () => {
+  const mom = { key: "p31", id: "id-mom", display_name: "Mom", full_name: null, nicknames: [], relationship_label: "mother" };
+  const grace = { key: "p32", id: "id-grace", display_name: "Grace", full_name: null, nicknames: [], relationship_label: "sister" };
+  const roster = [...ROSTER, mom, grace];
+  const note = "moms seventieth is coming up on the fourteenth of december grace wants to do a surprise lunch at the italian place on main street dont tell mom";
+  const out = run(input(note, { roster }), [
+    item({ kind: "event", person: "p31", person_mention: "moms", statement: "Mom's seventieth is coming up on the fourteenth of December", evidence: ["moms seventieth is coming up on the fourteenth of december"], date_text: "the fourteenth of december", detail: { ...item({}).detail, category: null, event_type: "celebration" } }),
+    item({ kind: "thread", person: "p32", person_mention: "grace", statement: "Grace wants to do a surprise lunch for Mom at the Italian place on Main Street", evidence: ["grace wants to do a surprise lunch at the italian place on main street"], detail: { ...item({}).detail, category: null, topic: "surprise lunch" } }),
+    item({ kind: "thread", person: "p31", person_mention: "mom", statement: "Don't tell Mom about the surprise lunch", evidence: ["dont tell mom"], detail: { ...item({}).detail, category: null, topic: "surprise" } }),
+  ]);
+  eq(out.items.map((i) => /seventieth/.test(i.statement) ? "seventieth" : /surprise lunch/.test(i.statement) ? "lunch" : i.statement), ["seventieth", "lunch"], "the two facts");
+  eq(out.dropped.map((d) => d.reason), ["secret_aside"], "the aside is dropped by rule, never a thread");
+  eq(out.coverage, undefined, "and never reported as not understood: the account is the rule");
+  // The surprise as a fact stays.
+  const kept = run(input("Mom's seventieth is a surprise, Grace is planning it.", { roster }), [
+    item({ person: "p31", person_mention: "Mom", statement: "Mom's seventieth is a surprise", evidence: ["Mom's seventieth is a surprise"], detail: { ...item({}).detail, category: "other" } }),
+  ]);
+  eq(kept.items.length, 1);
+  eq(kept.dropped, []);
+  for (const words of ["dont tell mom", "Don't mention it to Grace", "keep it quiet", "it's a surprise so don't say anything", "nobody say anything at the seventieth"]) {
+    eq(run(input(words, { roster }), [item({ person: "p31", person_mention: "mom", statement: words, evidence: [words] })]).dropped.map((d) => d.reason), ["secret_aside"], words);
+  }
+});
+
+Deno.test("the live run's omissions are marked: a sentence with a name the model never touched (rt-005, td-003)", () => {
+  const ingrid = { key: "p33", id: "id-ingrid", display_name: "Ingrid", full_name: null, nicknames: [], relationship_label: "friend" };
+  const mom = { key: "p31", id: "id-mom", display_name: "Mom", full_name: null, nicknames: [], relationship_label: "mother" };
+  const dad = { key: "p34", id: "id-dad", display_name: "Dad", full_name: null, nicknames: [], relationship_label: "father" };
+  const roster = [...ROSTER, ingrid, mom, dad];
+  const words = (note: string, sp: { start: number; end: number }) => Array.from(note).slice(sp.start, sp.end).join("");
+  // rt-005: the model proposed only the reason, never the move.
+  const rt = "Ingrid is moving to Oslo. She's moving to Oslo! In February, for Sofie's job.";
+  const out = run(input(rt, { roster, capture: { ...input(rt).capture, context_person_key: "p33" } }), [
+    item({ person: "p33", person_mention: "Sofie", statement: "Ingrid's partner Sofie has a job in February", evidence: ["In February, for Sofie's job"], detail: { ...item({}).detail, category: "work" } }),
+  ]);
+  eq(out.coverage?.not_understood?.map((sp) => words(rt, sp)), ["Ingrid is moving to Oslo"], "the move, at its words (the exclamation repeats it with a pronoun only)");
+  // td-003: nothing proposed at all for the first sentence.
+  const td = "Mom still keeps Dad's reading glasses on the hall table even though he has new ones. I don't think she notices she does it.";
+  const td2 = run(input(td, { roster, capture: { ...input(td).capture, context_person_key: "p31" } }), []);
+  eq(td2.coverage?.not_understood?.map((sp) => words(td, sp)), ["Mom still keeps Dad's reading glasses on the hall table even though he has new ones"], "named, so marked; the second sentence is a pronoun aside");
+  // td-003 as the live model answered it: a proposal it was unsure of (below the floor) touches nothing, so the
+  // sentence is still marked, never "understood, nothing in it".
+  const td3 = run(input(td, { roster, capture: { ...input(td).capture, context_person_key: "p31" } }), [
+    item({ person: "p31", person_mention: "Mom", statement: "Mom still keeps Dad's reading glasses on the hall table", evidence: ["Mom still keeps Dad's reading glasses on the hall table"], confidence: 0.5, detail: { ...item({}).detail, category: "other" } }),
+  ]);
+  eq([td3.tier, td3.dropped.map((d) => d.reason)], ["nothing", ["low_confidence"]]);
+  eq(td3.coverage?.not_understood?.map((sp) => words(td, sp)), ["Mom still keeps Dad's reading glasses on the hall table even though he has new ones"], "marked at its sentence");
+  // A genuinely empty note stays "nothing" with no coverage, proposals or none.
+  eq(run(input("Hope you're all well. Milk, eggs, dish soap, the good butter.", { roster }), []).coverage, undefined);
+  // vl-001, told from Grace's page: no name, pronoun or day in the sentence the model skipped.
+  const vl = "ok so long catch up with grace tonight um she said work is actually going well now that the new director started and shes finally getting to run the childrens program which is what she wanted all along uh juniper is doing swim lessons on saturday mornings";
+  const grace = { key: "p32", id: "id-grace", display_name: "Grace", full_name: null, nicknames: [], relationship_label: "sister" };
+  const vlOut = run(input(vl, { roster: [...roster, grace], capture: { ...input(vl).capture, context_person_key: "p32" } }), [
+    item({ person: "p32", person_mention: "juniper", statement: "Grace's daughter Juniper is doing swim lessons on Saturday mornings", evidence: ["juniper is doing swim lessons on saturday mornings"], detail: { ...item({}).detail, category: "family" } }),
+  ]);
+  const marked = (vlOut.coverage?.not_understood ?? []).map((sp) => words(vl, sp));
+  if (PAGE_NOTE_UNTOUCHED_MIN_WORDS !== null) {
+    ok(marked.some((m) => m.includes("work is actually going well")), `a page note's longer sentence with a verb is about the page person: ${JSON.stringify(marked)}`);
+  } else {
+    eq(marked.some((m) => m.includes("work is actually going well")), false, "known limit: no name, pronoun or day in it");
+  }
 });
