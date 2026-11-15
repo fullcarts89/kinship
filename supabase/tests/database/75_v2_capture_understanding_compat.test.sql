@@ -51,19 +51,19 @@ SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007
 SELECT lives_ok(format($$ SELECT public.set_capture_coverage(%L, '00000000-0000-0000-0000-000000007510', '{"v": 1, "unprocessed": [{"start": 0, "end": 14}], "unlocated": 0}') $$, :A),
   'v17 three-key coverage is still the shape');
 SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$ SELECT public.write_extraction_with_review(%L, '00000000-0000-0000-0000-000000007510',
-  'relationship_extract/v7+claude-opus-5-5', false, pg_temp.v17_item(), NULL) $s$) $$, :A), 'v17 write_extraction_with_review, no review');
+  'relationship_extract/v7+claude-test', false, pg_temp.v17_item(), NULL) $s$) $$, :A), 'v17 write_extraction_with_review, no review');
 SELECT is((SELECT status FROM public.captures WHERE id = '00000000-0000-0000-0000-000000007510'), 'extracted', 'status as v17 expects');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007510'), 'partial', 'and the new column is settled for it (kept with a gap)');
 SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007510'), 'done', 'v17 retry after success: done');
 
 SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007511'), 'claimed', 'v17 claim');
 SELECT lives_ok(format($$ SELECT public.write_extraction(%L, '00000000-0000-0000-0000-000000007511',
-  'relationship_extract/v7+claude-opus-5-5', false, '[]') $$, :A), 'v17 write_extraction, nothing kept');
+  'relationship_extract/v7+claude-test', false, '[]') $$, :A), 'v17 write_extraction, nothing kept');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007511'), 'nothing', 'settled as nothing');
 
 SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007512'), 'claimed', 'v17 claim');
 SELECT lives_ok(format($$ SELECT public.write_extraction_with_review(%L, '00000000-0000-0000-0000-000000007512',
-  'relationship_extract/v7+claude-opus-5-5', true, '[]', pg_temp.v17_review()) $$, :A), 'v17 held review');
+  'relationship_extract/v7+claude-test', true, '[]', pg_temp.v17_review()) $$, :A), 'v17 held review');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007512'), 'held', 'held');
 SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$ SELECT public.resolve_capture_review(%L, '00000000-0000-0000-0000-000000007512',
   (SELECT created_at FROM public.capture_reviews WHERE capture_id = '00000000-0000-0000-0000-000000007512'), pg_temp.v17_item(), '[]') $s$) $$, :A),
@@ -72,7 +72,7 @@ SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007512'), 'kept',
 
 SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007513'), 'claimed', 'v17 claim');
 SELECT lives_ok(format($$ SELECT public.write_extraction_with_review(%L, '00000000-0000-0000-0000-000000007513',
-  'relationship_extract/v7+claude-opus-5-5', true, '[]', pg_temp.v17_review()) $$, :A), 'v17 held review');
+  'relationship_extract/v7+claude-test', true, '[]', pg_temp.v17_review()) $$, :A), 'v17 held review');
 SELECT tests.reset_role();
 SELECT tests.as_user(:A);
 SELECT is(public.close_capture_review('00000000-0000-0000-0000-000000007513'), true, 'v17 close_capture_review ("not now")');
