@@ -981,3 +981,35 @@ Deno.test("review B3: a secret told with its news keeps the news; only the bare 
     ok(out.items.some((i) => i.statement === statement), `${note}: kept (dropped ${JSON.stringify(out.dropped)})`);
   }
 });
+
+// ── Re-review of d4eea01 (15 Nov 2026): the narrowings kept the trust fixes and lost nothing ──
+
+Deno.test("re-review S1: a namesake by descriptor is asked wherever the name sits; a pick-up place is not a descriptor", () => {
+  for (const note of ["Had lunch with Jordan from the Austin office, he's moving to Denver.", "Met Jordan from the Austin office today. Jordan is moving to Denver."]) {
+    const out = planExtraction(input(note, [JORDAN]), { needs_clarification: null, items: [
+      item({ person: "p6", person_mention: "Jordan", statement: "Jordan is moving to Denver", evidence: [note.includes("he's") ? "he's moving to Denver" : "Jordan is moving to Denver"], confidence: 0.85 }),
+    ] } as ModelProposal);
+    ok(out.items.every((i) => i.person_id !== "jordan" || i.tier === "hold"), `${note}: never saved on the friend Jordan`);
+  }
+  const kaiya = person("p50", "kaiya5", "Kaiya", { relationship_label: "daughter" });
+  const out = planExtraction(input("Picked up Kaiya from school and she was beaming.", [kaiya]), { needs_clarification: null, items: [
+    item({ person: "p50", person_mention: "Kaiya", statement: "Kaiya was beaming after school", evidence: ["Picked up Kaiya from school and she was beaming"], confidence: 0.9 }),
+  ] } as ModelProposal);
+  eq(out.clarification, null, "no question for a pick-up from school");
+});
+
+Deno.test("re-review B1: one relative, the owner named earlier or on the page, a place or a team: no needless question", () => {
+  const nana = person("p51", "nana5", "Nana", { relationship_label: "grandmother" });
+  for (const [note, quote, page] of [
+    ["Talked to Nana. Her husband had a fall. He's in the hospital.", "He's in the hospital", null],
+    ["Her husband had a fall. He's in the hospital.", "He's in the hospital", "p51"],
+    ["Nana's husband flew to Denver in March. He loved it.", "He loved it", null],
+    ["Nana's husband loves the Yankees. He watches every game.", "He watches every game", null],
+  ] as const) {
+    const out = planExtraction(input(note, [nana], page), { needs_clarification: null, items: [
+      item({ person: "p51", person_mention: "He", statement: "Nana's husband " + quote.replace(/^He('s)? /, (_m, s) => (s ? "is " : "")), evidence: [quote], confidence: 0.85 }),
+    ] } as ModelProposal);
+    const line = out.items[0];
+    ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
+  }
+});

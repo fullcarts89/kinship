@@ -937,3 +937,12 @@ Deno.test("the live run's omissions are marked: a sentence with a name the model
     eq(marked.some((m) => m.includes("work is actually going well")), false, "known limit: no name, pronoun or day in it");
   }
 });
+
+// Re-review of d4eea01: common asides are set aside; real health wording waits for a yes; look-alikes do not.
+import { looksLikeSecretAside as asideOf, wordingSensitivities as sensitivitiesOf } from "./lexicon.ts";
+Deno.test("re-review B3/S5: asides and health wording, both directions", () => {
+  for (const t of ["Don't tell Mom about the party!", "dont tell mom about the surprise", "Don't tell Ben, it's a surprise", "Shh don't tell Kaiya", "Keep it quiet from Grace", "Don't let Mom find out", "nobody tell Kaiya about the puppy"]) ok(asideOf(t), `an aside: ${t}`);
+  for (const t of ["Don't tell anyone but Grace is pregnant!", "Don't mention the divorce to Ben, he's still raw.", "Never mention his ex around Ben.", "Don't tell Mom, she'll worry about the money"]) ok(!asideOf(t), `not an aside: ${t}`);
+  for (const t of ["Mum is poorly", "Ben threw his back out", "Dad's heart has been bad lately", "her eyes are getting worse", "my hand hurts", "his teeth are killing him", "she's seeing a specialist"]) ok(sensitivitiesOf(t).includes("health"), `health: ${t}`);
+  for (const t of ["The crowd was at fever pitch", "We had a cold beer after", "Grace is a specialist at Deloitte", "My heart went out to her", "Kaiya's tooth is out!", "He got cold feet", "his heart is in the right place"]) ok(!sensitivitiesOf(t).length, `plain: ${t}`);
+});

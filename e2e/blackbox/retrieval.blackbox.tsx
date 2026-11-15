@@ -171,10 +171,12 @@ describe("every retained Tell is findable through the screens", () => {
     await until(r, (s) => s.includes("What Kinship kept from this"), "the Source page", 10000);
     expect(page(r)).toContain(N6);
 
-    // (b) Understood, nothing kept: the card says where; Chris's Pages hold the words in full.
+    // (b) Understood, nothing kept: the card says where, and that a meaningful sentence was left; Chris's Pages hold the words in full.
     await useReply(K4, K4_NOTHING);
     await tellOnPage(r, K4);
-    await understood(r, (s) => s.includes("Kept on Chris's page."), "the nothing-kept card");
+    // The model proposed nothing and asked which Anthony (there is one): a meaningful omission, so the card
+    // says where the words are and, honestly, that Kinship couldn't get to all of it (Tell the rest).
+    await understood(r, (s) => s.includes("Kept on Chris's page. Kinship couldn't get to all of it."), "the nothing-kept card");
     await acct.engine.sync();
     const [nothing] = byText(await captures(acct.userId), K4);
     expect(nothing?.status).toBe("extracted");
@@ -326,7 +328,7 @@ describe("every retained Tell is findable through the screens", () => {
     // Understood with nothing in it, naming no one in People.
     await useReply(K4, K4_NOTHING);
     await tellOnPage(r, K4);
-    await understood(r, (s) => s.includes("Kept your words, under “Your words” in People."), "the card naming the place");
+    await understood(r, (s) => s.includes("Kept your words, under “Your words” in People. Kinship couldn't get to all of it."), "the card naming the place");
     // Understanding failed, naming no one.
     await tellOnPage(r, BROKEN_ALONE);
     await understood(r, (s) => s.includes("Couldn't understand this one. Your words are kept under “Your words” in People."), "the honest failure card");

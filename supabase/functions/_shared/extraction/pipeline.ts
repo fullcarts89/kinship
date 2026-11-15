@@ -2533,9 +2533,12 @@ function descriptorAfter(ctx: Context, mention: string): string | null {
   const re = new RegExp(`(?<![\\p{L}\\p{M}'’-])${name}(?:\\s*,\\s*(?:a|an|my|our|the)|\\s+from(?:\\s+the)?)\\s+((?:[\\p{L}][\\p{L}\\p{M}'’-]*\\s*){1,3}?)(?=\\s+(?:is|was|are|were|has|had|will|who|and|,)|[.,;!?]|$)`, "iu");
   const m = ctx.text.match(re);
   if (!m) return null;
-  // "Picked up Kaiya from school": a name after a verb is the object, and "from school" is where (final review).
-  const lead = ctx.text.slice(0, m.index ?? 0).trimEnd();
-  if (lead && !/(?:^|[.!?;:,\n…—–(]|\b(?:and|but|so|then|also|plus))$/iu.test(lead)) return null;
+  // "Picked up Kaiya from school", "Got Ben from the airport": after a pick-up verb, "from <a place>" is where,
+  // not who they are (final review of #93). "Had lunch with Jordan from the Austin office" stays a descriptor.
+  const lead = fold(ctx.text.slice(0, m.index ?? 0).trimEnd());
+  const pickUp = /\b(?:picked up|pick up|picking up|picks up|collected|collect|collecting|dropped off|drop off|dropping off|got|get|getting|fetched|fetch|grabbed)$/u.test(lead);
+  const place = /^(?:the )?(?:school|preschool|nursery|daycare|day care|airport|station|train station|bus|work|practice|training|rehearsal|camp|class|lessons?|swim|soccer|football|ballet|gym|library|party|sleepover|grandma'?s|nana'?s|church)\b/u.test(fold(m[1].trim()));
+  if (pickUp && place) return null;
   return m[1].trim();
 }
 
@@ -2600,23 +2603,28 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
   // arrived. He…"): the pronoun could be them, so it is asked.
   const raw = ctx.text.slice(0, at);
   const ownerKeys = new Set(namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey));
+  // The relative's own name ("Mark's wife Sarah") is that relative, not someone else.
+  const relativesNames = new Set([...raw.matchAll(new RegExp(`\\b(?:${POSSESSED_RELATION})\\s+([\\p{Lu}][\\p{L}\\p{M}'’-]*)`, "giu"))].map((x) => nameKey(x[1])));
   const someoneElse = [...raw.matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)].some((w) => {
     const word = withoutPossessive(w[0]);
     if (word === "I" || ownerKeys.has(nameKey(word))) return false;
     if (ctx.candidatesFor(word).some((c) => c.key !== owner.key)) return true;
     if (!/^\p{Lu}/u.test(word)) return false;
+    if (relativesNames.has(nameKey(word))) return false;
     const lead = raw.slice(0, w.index ?? 0).trimEnd();
     const atStart = lead === "" || /[.!?\n…]["“”'‘’(]*$/u.test(lead);
-    return !atStart && !COMMON_CAPITALS.has(fold(word)) && !CALENDAR.has(fold(word)) && !ctx.placeOnly(word);
+    // A place after a preposition ("flew to Denver", "in Ohio") or a name after "the" ("loves the Yankees") is no one.
+    const afterPreposition = /\b(?:to|from|in|at|near|into|around|outside|across|through|via|the|a|an)$/iu.test(lead);
+    return !atStart && !afterPreposition && !COMMON_CAPITALS.has(fold(word)) && !CALENDAR.has(fold(word)) && !ctx.placeOnly(word);
   });
   if (someoneElse) return null;
   const last = fitting[fitting.length - 1];
-  // "his"/"her" must plainly be the owner's: the owner is named before it in the relative's own sentence.
+  // "his"/"her" must plainly be the owner's: the owner is named before it (no one else was, above), or the note
+  // is told from the owner's page ("Talked to Nana. Her husband had a fall. He's in the hospital.").
   if (last.det === "his" || last.det === "her" || last.det === "their") {
-    let b = last.index;
-    while (b > 0 && !/[.!?\n]/u.test(before[b - 1])) b--;
-    const lead = before.slice(b, last.index);
-    if (!names.some((n) => new RegExp(`\\b${n}\\b`, "u").test(lead))) return null;
+    const lead = before.slice(0, last.index);
+    const onPage = ctx.input.capture.context_person_key === owner.key;
+    if (!onPage && !names.some((n) => new RegExp(`\\b${n}\\b`, "u").test(lead))) return null;
   }
   return { relation: last.relation, excludesOwner: last.excludesOwner };
 }
