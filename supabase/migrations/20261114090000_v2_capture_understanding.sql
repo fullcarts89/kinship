@@ -7,7 +7,8 @@
 --      kept      at least one memory line was written from this note
 --      nothing   the understanding ran, nothing was kept and nothing is held; the note stays as the
 --                user's words
---      partial   some kept, with coverage gaps or not-understood spans (captures.coverage says where)
+--      partial   not taken whole: the note has coverage gaps or not-understood spans (captures.coverage
+--                says where), whether or not any line was kept from the rest
 --      held      a review or question is waiting on the user
 --      declined  the user declined the reading ("Don't keep this" for every held line, or "not now");
 --                the Tell itself remains
@@ -58,9 +59,10 @@ REVOKE ALL ON FUNCTION public.captures_understanding_guard() FROM PUBLIC, anon, 
 CREATE TRIGGER captures_understanding_guard BEFORE INSERT ON public.captures
   FOR EACH ROW EXECUTE FUNCTION public.captures_understanding_guard();
 
--- What the note's understanding comes to now, from what the database holds: a review waiting (held); a
--- live line of this note (partial when the note has coverage gaps, else kept); otherwise declined when
--- the user answered (p_answered) and nothing when the understanding simply found nothing. Written only
+-- What the note's understanding comes to now, from what the database holds: a review waiting (held);
+-- coverage gaps or not-understood spans (partial, kept lines or not); a live line of this note (kept);
+-- otherwise declined when the user answered (p_answered) and nothing when the understanding simply
+-- found nothing. Written only
 -- when it changes; returns the state. Service paths only (every caller is SECURITY DEFINER).
 CREATE OR REPLACE FUNCTION public.capture_understanding_settle(p_user_id uuid, p_capture_id uuid, p_answered boolean)
 RETURNS text
@@ -87,7 +89,7 @@ BEGIN
                     AND m.deleted_at IS NULL AND m.status IN ('active', 'resolved')) INTO v_kept;
   v_state := CASE
     WHEN v_held THEN 'held'
-    WHEN v_kept AND coalesce(v_gaps, false) THEN 'partial'
+    WHEN coalesce(v_gaps, false) THEN 'partial'
     WHEN v_kept THEN 'kept'
     WHEN coalesce(p_answered, false) THEN 'declined'
     ELSE 'nothing'

@@ -5,7 +5,7 @@
 -- which words were read but not understood; the usage log counts every drop
 -- reason the gateway has.
 BEGIN;
-SELECT plan(49);
+SELECT plan(60);
 
 \set A '''aaaaaaaa-7474-7474-7474-747474747474'''
 \set B '''bbbbbbbb-7474-7474-7474-747474747474'''
@@ -26,29 +26,36 @@ CREATE FUNCTION pg_temp.jazz() RETURNS jsonb LANGUAGE sql AS $$
             "detail": {"category": "interest"}, "spans": [{"start": 0, "end": 14, "quote": "Ben loves jazz"}],
             "action": {"type": "new", "target_id": null}}]'::jsonb
 $$;
--- One held line and its question, as the gateway writes them.
-CREATE FUNCTION pg_temp.review() RETURNS jsonb LANGUAGE sql AS $$
-  SELECT jsonb_build_object('items', jsonb_build_array(jsonb_build_object(
+-- Held lines (one or two) and their question, as the gateway writes them.
+CREATE FUNCTION pg_temp.held(statement text, span_start int, span_end int) RETURNS jsonb LANGUAGE sql AS $$
+  SELECT jsonb_build_object(
       'kind', 'fact', 'person_id', NULL, 'new_person_name', NULL, 'subject_type', 'person', 'related', NULL,
-      'statement', 'Ben loves jazz', 'certainty', 'stated', 'sensitivity', 'none', 'confidence', 0.7,
+      'statement', statement, 'certainty', 'stated', 'sensitivity', 'none', 'confidence', 0.7,
       'detail', jsonb_build_object('category', 'interest'),
-      'spans', jsonb_build_array(jsonb_build_object('start', 0, 'end', 14)),
-      'action', jsonb_build_object('type', 'new', 'target_id', NULL), 'flags', jsonb_build_array('person_ambiguous'))),
+      'spans', jsonb_build_array(jsonb_build_object('start', span_start, 'end', span_end)),
+      'action', jsonb_build_object('type', 'new', 'target_id', NULL), 'flags', jsonb_build_array('person_ambiguous'))
+$$;
+CREATE FUNCTION pg_temp.review(two boolean DEFAULT false) RETURNS jsonb LANGUAGE sql AS $$
+  SELECT jsonb_build_object('items',
+      CASE WHEN two THEN jsonb_build_array(pg_temp.held('Ben loves jazz', 0, 14), pg_temp.held('Ben bakes', 16, 25))
+           ELSE jsonb_build_array(pg_temp.held('Ben loves jazz', 0, 14)) END,
     'clarification', jsonb_build_object('about', 'person', 'question', 'Who is this about?', 'options', jsonb_build_array('Ben', 'Someone else')))
 $$;
 -- Hold a note: claimed, nothing saved, the review written. Returns the review's version.
-CREATE FUNCTION pg_temp.hold(capture uuid) RETURNS timestamptz LANGUAGE plpgsql AS $$
+CREATE FUNCTION pg_temp.hold(capture uuid, two boolean DEFAULT false) RETURNS timestamptz LANGUAGE plpgsql AS $$
 DECLARE t timestamptz;
 BEGIN
   PERFORM public.claim_capture_extraction('aaaaaaaa-7474-7474-7474-747474747474', capture);
   PERFORM public.write_extraction_with_review('aaaaaaaa-7474-7474-7474-747474747474', capture,
-    'relationship_extract/v7+claude-opus-5-5', true, '[]', pg_temp.review());
+    'relationship_extract/v7+claude-opus-5-5', true, '[]', pg_temp.review(two));
   SELECT created_at INTO t FROM public.capture_reviews WHERE capture_id = capture;
   RETURN t;
 END $$;
 CREATE FUNCTION pg_temp.understanding(capture uuid) RETURNS text LANGUAGE sql AS $$
   SELECT understanding FROM public.captures WHERE id = capture
 $$;
+CREATE TEMP TABLE r (k text PRIMARY KEY, t timestamptz);
+GRANT ALL ON r TO PUBLIC;
 
 -- ── A's world: Ben, and notes as the app inserts them ───────────────────────
 SELECT tests.as_user(:A);
@@ -62,7 +69,10 @@ INSERT INTO public.captures (id, source, raw_text) VALUES
   ('00000000-0000-0000-0000-000000007415', 'text', 'Ben loves jazz.'),
   ('00000000-0000-0000-0000-000000007416', 'text', 'Ben loves jazz.'),
   ('00000000-0000-0000-0000-000000007417', 'text', 'Ben loves jazz.'),
-  ('00000000-0000-0000-0000-000000007418', 'text', 'Ben loves jazz.');
+  ('00000000-0000-0000-0000-000000007418', 'text', 'Ben loves jazz.'),
+  ('00000000-0000-0000-0000-000000007420', 'text', 'Ben loves jazz.'),
+  ('00000000-0000-0000-0000-000000007421', 'text', 'Ben loves jazz. Ben bakes.'),
+  ('00000000-0000-0000-0000-000000007422', 'text', 'Ben loves jazz.');
 
 -- ── The column, and who may write it ────────────────────────────────────────
 SELECT has_column('public', 'captures', 'understanding', 'captures.understanding exists');
@@ -112,6 +122,32 @@ SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$ SELECT public.write_extra
   'relationship_extract/v7+claude-opus-5-5', false, pg_temp.jazz()) $s$) $$, :A), 'one line written beside the gap');
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007412'), 'partial', 'partial');
 
+-- ── partial means "not taken whole": gaps with nothing kept are never "nothing" ──
+SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007420'), 'claimed', 'claimed');
+SELECT lives_ok(format($$ SELECT public.set_capture_coverage(%L, '00000000-0000-0000-0000-000000007420',
+  '{"v": 1, "unprocessed": [], "unlocated": 0, "not_understood": [{"start": 0, "end": 14}]}') $$, :A), 'every proposal undecidable');
+SELECT lives_ok(format($$ SELECT public.write_extraction(%L, '00000000-0000-0000-0000-000000007420',
+  'relationship_extract/v7+claude-opus-5-5', false, '[]') $$, :A), 'nothing written');
+SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007420'), 'partial', 'partial, not nothing: parts were not understood');
+
+-- ── a mixed answer: some kept, some declined → kept ─────────────────────────
+INSERT INTO r VALUES ('mixed', pg_temp.hold('00000000-0000-0000-0000-000000007421', true));
+SELECT is((SELECT jsonb_array_length(items) FROM public.capture_reviews WHERE capture_id = '00000000-0000-0000-0000-000000007421'), 2, 'two lines held');
+SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$ SELECT public.resolve_capture_review(%L, '00000000-0000-0000-0000-000000007421', %L, pg_temp.jazz(), '[]') $s$) $$,
+  :A, (SELECT t FROM r WHERE k = 'mixed')), 'one kept, one declined');
+SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007421'), 'kept', 'kept: a line of this note is live');
+
+-- ── a stale processing claim (a worker died mid-call) starts afresh ─────────
+SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007422'), 'claimed', 'claimed');
+SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007422'), 'busy', 'busy while the worker lives');
+SELECT tests.reset_role();
+ALTER TABLE public.captures DISABLE TRIGGER captures_row_guard;
+UPDATE public.captures SET updated_at = now() - interval '3 minutes', understanding = 'failed' WHERE id = '00000000-0000-0000-0000-000000007422';
+ALTER TABLE public.captures ENABLE TRIGGER captures_row_guard;
+SELECT tests.as_service();
+SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007422'), 'claimed', 'a worker that died does not hold it');
+SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007422'), NULL, 'the fresh understanding is not yet known');
+
 -- ── nothing: the understanding ran and kept nothing ─────────────────────────
 SELECT is(public.claim_capture_extraction(:A, '00000000-0000-0000-0000-000000007413'), 'claimed', 'claimed');
 SELECT lives_ok(format($$ SELECT public.write_extraction(%L, '00000000-0000-0000-0000-000000007413',
@@ -119,7 +155,6 @@ SELECT lives_ok(format($$ SELECT public.write_extraction(%L, '00000000-0000-0000
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007413'), 'nothing', 'nothing: the note stays as the user''s words');
 
 -- ── held → kept: the user answers ───────────────────────────────────────────
-CREATE TEMP TABLE r (k text PRIMARY KEY, t timestamptz);
 INSERT INTO r VALUES ('answer', pg_temp.hold('00000000-0000-0000-0000-000000007414'));
 SELECT is(pg_temp.understanding('00000000-0000-0000-0000-000000007414'), 'held', 'held: a question waits');
 SELECT lives_ok(format($$ SELECT pg_temp.at_commit($s$ SELECT public.resolve_capture_review(%L, '00000000-0000-0000-0000-000000007414', %L, pg_temp.jazz(), '[]') $s$) $$,

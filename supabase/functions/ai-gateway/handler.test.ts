@@ -1109,6 +1109,48 @@ Deno.test("C2: a quote the note never says is counted as unplaced; a rule's own 
   eq(w.logs[0].drop_reasons, { no_evidence: 1, contact_detail: 1 });
 });
 
+Deno.test("C2: a database that does not know not_understood yet (gateway deployed first) still gets the lines, with the older coverage shape", async () => {
+  const note = "She loves hiking. Then dinner. She loves hiking, she said again. Ben runs Chicago Sunday.";
+  const w = world({
+    note, people: [{ id: "person-anna", display_name: "Anna", full_name: "Anna Reyes", nicknames: [], relationship_label: "friend", state: "active" },
+      { id: "person-ben", display_name: "Ben", full_name: "Ben Ortiz", nicknames: [], relationship_label: "college roommate", state: "active" }],
+    // The roster puts the person the note names first: Ben is p1, Anna p2.
+    model: { output: { items: [
+      { ...BEN_PROPOSAL.items[0], kind: "fact", person: "p2", person_mention: "She", statement: "Anna loves hiking", evidence: ["She loves hiking"],
+        date_text: null, date_direction: "unclear", detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "interest" } },
+      { ...BEN_PROPOSAL.items[0], person: "p1", evidence: ["Ben runs Chicago Sunday"] },
+    ], needs_clarification: null } },
+  });
+  const inner = w.deps.service.setCoverage;
+  w.deps.service.setCoverage = (u, c, coverage) => {
+    if (coverage?.not_understood?.length) return Promise.reject(new ServiceError("22023"));
+    return inner(u, c, coverage);
+  };
+  const { status, body } = await call(w, post(extract));
+  eq(status, 200, "the note is still understood");
+  eq((body.saved as unknown[]).length, 1, "Ben's line is written");
+  eq(w.releases, [], "never released as failed");
+  eq(w.coverages, [null], "the older database holds no empty record; the places not understood are in this reply only");
+  eq(body.coverage, { state: "complete", unprocessed: [], unlocated: 0 }, "and the reply says what was stored");
+  // With something the older shape can carry, that is what is stored.
+  const w2 = world({ model: { output: { items: [
+    { ...BEN_PROPOSAL.items[0], evidence: ["Ben runs Boston Sunday"] },
+    { ...BEN_PROPOSAL.items[0], kind: "fact", statement: "   ", evidence: ["Ben runs Chicago Sunday"], date_text: null, date_direction: "unclear",
+      detail: { ...BEN_PROPOSAL.items[0].detail, event_type: null, event_goal: null, category: "other" } },
+  ], needs_clarification: null } } });
+  const inner2 = w2.deps.service.setCoverage;
+  w2.deps.service.setCoverage = (u, c, coverage) => coverage?.not_understood?.length ? Promise.reject(new ServiceError("22023")) : inner2(u, c, coverage);
+  const r2 = await call(w2, post(extract));
+  eq(r2.status, 200);
+  eq(w2.coverages, [{ v: 1, unprocessed: [], unlocated: 1 }], "the count is kept");
+  eq(r2.body.coverage, { state: "partial", unprocessed: [], unlocated: 1 });
+  // Any other refusal is still a failure, as before.
+  const w3 = world({ model: { output: { items: [{ ...BEN_PROPOSAL.items[0], evidence: ["Ben runs Boston Sunday"] }], needs_clarification: null } } });
+  w3.deps.service.setCoverage = () => Promise.reject(new ServiceError("42501"));
+  eq((await call(w3, post(extract))).status, 500);
+  eq(w3.releases, ["failed"]);
+});
+
 Deno.test("C2: a reply lost to a timeout comes back with what was not understood too", async () => {
   const w = world({ claim: "done", savedIds: ["item-a"], coverage: { v: 1, unprocessed: [], unlocated: 0, not_understood: [{ start: 3, end: 9 }] } });
   const { body } = await call(w, post(extract));

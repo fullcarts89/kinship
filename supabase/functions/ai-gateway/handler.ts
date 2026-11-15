@@ -361,8 +361,8 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
       // What this understanding could not take (the note held more than it carries) is recorded on the
       // note before its lines are written (Option A): the note is never shown whole by mistake, on any
       // phone, and never silently less than it was. Cleared when a later run takes the note whole.
-      const coverage: StoredCoverage | null = outcome.coverage ? { v: 1, ...outcome.coverage } : null;
-      if (coverage || storedCoverage(capture.coverage)) await deps.service.setCoverage(caller.userId, captureId, coverage);
+      let coverage: StoredCoverage | null = outcome.coverage ? { v: 1, ...outcome.coverage } : null;
+      if (coverage || storedCoverage(capture.coverage)) coverage = await writeCoverage(deps.service, caller.userId, captureId, coverage);
       const written = await deps.service.write(
         caller.userId,
         captureId,
@@ -396,6 +396,30 @@ function handler(deps: GatewayDeps): (req: Request) => Promise<Response> {
       return json({ error: "internal_error" }, 500, cors);
     }
   };
+}
+
+/**
+ * Records the coverage on the capture. A database that does not yet know `not_understood` (the gateway
+ * deployed before migration 20261114090000; the CHECK refuses the key with 22023) is given the older
+ * three-key shape instead, so the note's lines are still written and the model call is not spent for
+ * nothing; the places not understood are then only in this reply. Returns what was stored.
+ */
+async function writeCoverage(service: ServiceOps, userId: string, captureId: string, coverage: StoredCoverage | null): Promise<StoredCoverage | null> {
+  try {
+    await service.setCoverage(userId, captureId, coverage);
+    return coverage;
+  } catch (err) {
+    const shapeRefused = err instanceof ServiceError ? err.code === "22023" : err instanceof Error && /\(22023\)/u.test(err.message);
+    if (!shapeRefused || !coverage?.not_understood?.length) throw err;
+    const { not_understood: _, ...older } = coverage;
+    if (!older.unprocessed.length && !older.unlocated) {
+      // Nothing the older shape can carry: no record, rather than an empty one.
+      await service.setCoverage(userId, captureId, null);
+      return null;
+    }
+    await service.setCoverage(userId, captureId, older);
+    return older;
+  }
 }
 
 /**

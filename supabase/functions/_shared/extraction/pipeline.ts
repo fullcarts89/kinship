@@ -87,7 +87,7 @@ export const MAX_PROPOSALS = 200;
  * as not understood (CMR-1 C2).
  */
 export const ACCOUNTED_BY_RULE: ReadonlySet<DropReason> = new Set<DropReason>([
-  "instruction_text", "contact_detail", "low_confidence", "already_known", "duplicate", "not_a_user_promise",
+  "instruction_text", "contact_detail", "low_confidence", "already_known", "duplicate",
 ]);
 export const AUTO_SAVE_CONFIDENCE = 0.85;
 export const DROP_BELOW_CONFIDENCE = 0.6;

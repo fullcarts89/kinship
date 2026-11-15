@@ -114,6 +114,37 @@ Deno.test("ground: the safeguards stand: a quote the note never says is not foun
   eq(groundQuotes("Ben loves jazz.", ["Ben loves jazz", "and plays chess"], { personNames: ["Ben"], otherNames: [] }).spans, [{ start: 0, end: 14 }], "a later quote that isn't there is ignored");
 });
 
+Deno.test("ground (b) before (a): two people's identical words in identical surroundings are two facts, each on its own words (PR #90 review)", () => {
+  const who = (n: string) => `${n}, who is five and has been in kindergarten since September and loves her teacher Miss Lee a great deal, is really into dressing up like princesses.`;
+  const note = `${who("Ann")} ${who("Bea")}`;
+  const q = "is really into dressing up like princesses";
+  const ann = groundEvidence(note, q, { personNames: ["Ann"], otherNames: ["Bea"] });
+  const bea = groundEvidence(note, q, { personNames: ["Bea"], otherNames: ["Ann"] });
+  ok(ann.ok && ann.how === "person" && ann.span.start === note.indexOf(q), `Ann's on Ann's sentence: ${JSON.stringify(ann)}`);
+  ok(bea.ok && bea.how === "person" && bea.span.start === note.lastIndexOf(q), `Bea's on Bea's sentence: ${JSON.stringify(bea)}`);
+  // With no one to tell them apart, the sentences name different people: not a repetition, never folded.
+  // (The pipeline always hands over the roster's names; with none at all the sentences cannot be told apart.)
+  eq(groundEvidence(note, q, { personNames: [], otherNames: ["Ann", "Bea"] }).ok, false, "two names, no clue: ambiguous, not 'repeated'");
+  // The shorter shape: one empty side and one identical side used to pass as repetition.
+  const short = "loves hiking, which is really lovely. Bea says she loves hiking, which is really lovely.";
+  const first = groundEvidence(short, "loves hiking, which is really lovely", { personNames: ["Ann"], otherNames: ["Bea"] });
+  const second = groundEvidence(short, "loves hiking, which is really lovely", { personNames: ["Bea"], otherNames: ["Ann"] });
+  eq(first, { ok: true, span: { start: 0, end: 36 }, how: "person" }, "not Bea's words");
+  eq(second, { ok: true, span: { start: 51, end: 87 }, how: "person" }, "Bea's words");
+  eq(sliceCodePoints(short, { start: 51, end: 87 }), "loves hiking, which is really lovely");
+  eq(groundEvidence(short, "loves hiking, which is really lovely", { personNames: [], otherNames: ["Bea"] }).ok, false, "a name in one sentence only: not a copy");
+  // And through the pipeline: two lines, two sources, never Bea's memory on Ann's words.
+  const out = run(input(note, { roster: [
+    { key: "p1", id: "id-ann", display_name: "Ann", full_name: null, nicknames: [], relationship_label: "niece" },
+    { key: "p2", id: "id-bea", display_name: "Bea", full_name: null, nicknames: [], relationship_label: "niece" },
+  ] }), [
+    item({ person: "p1", person_mention: "Ann", statement: "Ann is really into dressing up like princesses", evidence: [q], detail: { ...item({}).detail, category: "other" } }),
+    item({ person: "p2", person_mention: "Bea", statement: "Bea is really into dressing up like princesses", evidence: [q], detail: { ...item({}).detail, category: "other" } }),
+  ]);
+  eq(out.items.map((i) => [i.person_id, i.spans[0].start]), [["id-ann", note.indexOf(q)], ["id-bea", note.lastIndexOf(q)]]);
+  eq(out.dropped, []);
+});
+
 // ─── Through the pipeline ────────────────────────────────────────────────────
 
 const ONCE = "Kaiya is the silliest little girl in the world. She is really into dressing up like princesses";

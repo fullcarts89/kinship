@@ -6,11 +6,12 @@
 // is placed. A quote found twice used to be dropped. Now the occurrences are told apart by grounded
 // context, deterministically, with no model call:
 //
-//   1. true repetition: every occurrence sits in the same words (the same text before and after it, or
-//      the whole note repeats) → the same fact, placed once, at its first occurrence;
-//   2. the line's other quotes, where they were found once, point at the occurrence beside them;
-//   3. who the line is about: the occurrence whose sentence names that person, or whose nearest name
+//   1. who the line is about: the occurrence whose sentence names that person, or whose nearest name
 //      before it is theirs, over one whose nearest name is someone else's;
+//   2. the line's other quotes, where they were found once, point at the occurrence beside them;
+//   3. true repetition, only when neither of those tells the occurrences apart: every occurrence sits in
+//      the same words (the same text before and after it, or the whole note repeats) and its sentence
+//      names the same people → the same fact, placed once, at its first occurrence;
 //
 // and when those do not agree, or none applies, the quote stays ambiguous: never a guess. The caller
 // then records the candidate places as not understood (Coverage.not_understood), so the phone can
@@ -68,20 +69,26 @@ export function groundEvidence(text: string, evidence: string, hint: GroundHint 
   if (found.length === 1) return { ok: true, span: found[0], how: "unique" };
 
   const chars = Array.from(text.normalize("NFC"));
-  if (sameWordsAgain(chars, found) || noteRepeats(text, quote)) return { ok: true, span: found[0], how: "repeated" };
-
-  const byAnchor = hint.anchors?.length ? nearAnchors(found, hint.anchors) : null;
+  const names = [...(hint.personNames ?? []), ...(hint.otherNames ?? [])];
+  // Who it is about, and the line's other quotes, come first: two people's identical words in identical
+  // surroundings ("Ann, who is five…, is really into princesses. Bea, who is five…, is really into
+  // princesses.") are two facts, and the one about Bea must rest on Bea's words (reviewer of PR #90).
   const byPerson = hint.personNames?.length ? byWho(chars, found, hint.personNames, hint.otherNames ?? []) : null;
+  const byAnchor = hint.anchors?.length ? nearAnchors(found, hint.anchors) : null;
   if (byAnchor && byPerson) {
     return byAnchor.start === byPerson.start ? { ok: true, span: byAnchor, how: "anchor" } : { ok: false, reason: "ambiguous", candidates: found };
   }
   if (byAnchor) return { ok: true, span: byAnchor, how: "anchor" };
   if (byPerson) return { ok: true, span: byPerson, how: "person" };
+  // Nothing tells them apart: the same words said again, in the same words, naming the same people.
+  if (sameNamesAround(chars, found, names) && (sameWordsAgain(chars, found) || noteRepeats(text, quote))) {
+    return { ok: true, span: found[0], how: "repeated" };
+  }
   return { ok: false, reason: "ambiguous", candidates: found };
 }
 
 /**
- * Rule 1a: every occurrence is preceded and followed by the same words. Each side is compared over the
+ * Rule 3a: every occurrence is preceded and followed by the same words. Each side is compared over the
  * context every occurrence has (the shortest available, up to CONTEXT), lower-cased with spaces
  * collapsed, and together the compared sides must be long enough to mean anything. A note said twice
  * ("…like princesses She is the silliest…" K34) passes on the words inside the copies; "Anna is great.
@@ -98,7 +105,7 @@ function sameWordsAgain(chars: string[], found: Span[]): boolean {
 }
 
 /**
- * Rule 1b: the whole note is one passage said again and again ("She loves hiking. She loves hiking."):
+ * Rule 3b: the whole note is one passage said again and again ("She loves hiking. She loves hiking."):
  * the folded text repeats with the period between the quote's occurrences, wherever both copies exist.
  */
 function noteRepeats(text: string, quote: string): boolean {
@@ -121,6 +128,22 @@ function plainWords(s: string): string {
   return fold(s).replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/gu, " ").trim();
 }
 
+/**
+ * Every occurrence's sentence names the same people from People (or none): a copy of a sentence, not a
+ * sentence about someone else that happens to be worded the same way.
+ */
+function sameNamesAround(chars: string[], found: Span[], names: string[]): boolean {
+  const keys = new Set(nameKeys(names));
+  if (!keys.size) return true;
+  const text = chars.join("");
+  const sets = found.map((s) => {
+    const from = chars.slice(0, s.start).join("").length;
+    const to = chars.slice(0, s.end).join("").length;
+    return [...new Set(wordsOf(sentenceAround(text, from, to)).map(nameKey).filter((k) => keys.has(k)))].sort().join(" ");
+  });
+  return sets.every((x) => x === sets[0]);
+}
+
 /** Rule 2: the one occurrence nearest every anchor (the line's quotes found once), within reach. */
 function nearAnchors(found: Span[], anchors: Span[]): Span | null {
   let chosen: Span | null = null;
@@ -138,7 +161,7 @@ function nearAnchors(found: Span[], anchors: Span[]): Span | null {
 }
 
 /**
- * Rule 3: who each occurrence is about, by the note's own names. An occurrence whose sentence names
+ * Rule 1: who each occurrence is about, by the note's own names. An occurrence whose sentence names
  * the line's person (and no one else) scores 2; one whose nearest name before it is theirs, 1; one
  * whose nearest name before it is someone else's, −1. The one best occurrence is chosen; a tie is
  * never broken.
