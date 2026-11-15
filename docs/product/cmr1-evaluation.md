@@ -69,8 +69,14 @@ not kept is classified: OMITTED BY MODEL when no proposal's evidence overlaps th
 PIPELINE when a proposal covered it and the pipeline dropped it (reason from judging the proposal alone)
 or held it (its flags). For each omission the report says whether the Tell's outcome marks those words as
 not understood (recoverable: the user can tell the rest) or claims complete understanding; the latter is
-the gated count that proves Workstream C's coverage of untouched sentences. In oracle mode nothing is
-omitted by construction, so the rejected count is the whole story there.
+the gated count that proves Workstream C's coverage of untouched sentences. "Reported as not understood"
+reads both `coverage.unprocessed` (a passage whose call failed) and `coverage.not_understood` (PR #90: a
+whole untouched meaningful sentence, a dropped proposal's place, an undecidable quote's places); the same
+reading drives silent loss and the recoverable disposition. Its cost is reported too: `false_not_understood`,
+the rate of Tells whose every meaningful ledgered fact was kept or asked about and which still carry a mark
+(on optional or incidental words, or on no fact at all). On `main` there are no such marks, so it reads 0;
+Workstream C measured 11 of 154 Tells (7.1%) on its branch. In oracle mode nothing is omitted by
+construction, so the rejected count is the whole story there.
 
 **Showing Up as release-blocking (founder, 15 Nov).** The eligibility metric is split. (a) Safety-critical,
 gated at 0: a saved line Today could use (by the Today rules at the extraction boundary) although the

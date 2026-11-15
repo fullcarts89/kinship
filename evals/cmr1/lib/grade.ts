@@ -125,11 +125,26 @@ function subjectOk(it: PlannedItem, f: Fact): boolean {
   return true;
 }
 
+/**
+ * The words the outcome reports as not understood: passages whose call failed (`unprocessed`) and, since
+ * Workstream C (PR #90), `not_understood`: a whole untouched meaningful sentence, a dropped proposal's
+ * place, an undecidable quote's places. Read defensively, so a pipeline without the field still grades.
+ */
+function notUnderstoodSpans(out: ExtractionOutcome): Span[] {
+  const cov = (out.coverage ?? {}) as { unprocessed?: unknown; not_understood?: unknown };
+  const spans = (v: unknown): Span[] =>
+    Array.isArray(v) ? v.filter((s): s is Span => !!s && typeof s === "object" && Number.isInteger((s as Span).start) && Number.isInteger((s as Span).end)) : [];
+  return [...spans(cov.unprocessed), ...spans(cov.not_understood)];
+}
+
+function reportedNotUnderstood(out: ExtractionOutcome, span: Span): boolean {
+  return notUnderstoodSpans(out).some((u) => overlaps(u, span));
+}
+
 /** The disposition the pipeline gave a fact, read from its matched line and the outcome. */
 function observe(it: PlannedItem | null, f: Fact, out: ExtractionOutcome, span: Span): { observed: string; clar: ClarificationKind | "other" | null } {
   if (!it) {
-    const covered = (out.coverage?.unprocessed ?? []).some((u) => overlaps(u, span));
-    if (covered) return { observed: "not_understood_recoverable", clar: null };
+    if (reportedNotUnderstood(out, span)) return { observed: "not_understood_recoverable", clar: null };
     if (f.dedup_of && out.dropped.some((d) => d.reason === "duplicate" || d.reason === "already_known")) return { observed: "dedup", clar: null };
     return { observed: "missing", clar: null };
   }
@@ -177,6 +192,7 @@ export function grade(runs: StepRun[], rosters: Record<string, RosterDef>, opts:
     omitted: new Tally("omitted_by_model", "Meaningful facts not kept: OMITTED BY MODEL, no proposal touched their words (count, informational)", "count", true),
     omittedRecoverable: new Tally("omitted_recoverable", "Of those, reported as not understood, so the user can tell the rest (count, informational)", "count", true),
     rejected: new Tally("rejected_by_pipeline", "Meaningful facts not kept: REJECTED BY PIPELINE, a proposal covered them and was dropped or held (count, informational)", "count", true),
+    falseNotUnderstood: new Tally("false_not_understood", "Tells the ledger calls fully understood that carry a not-understood mark (false not-understood rate, informational)", "rate", true),
     eligibilityUnsafe: new Tally("eligibility_unsafe", "Showing Up, safety-critical: a line eligible for Today that is sensitive-unconfirmed, should have been held or refused, is on the wrong person or subject, or has no source (count)", "count"),
     eligibilityDate: new Tally("eligibility_date_mismatch", "Showing Up, date precision: eligibility differs from the ledger over a day vs a range or a coarse date (count, informational)", "count", true),
     wrongPerson: new Tally("wrong_person", "Saved lines on the wrong person, or a relative's line as the person's own (count)", "count"),
@@ -281,7 +297,7 @@ export function grade(runs: StepRun[], rosters: Record<string, RosterDef>, opts:
           return loc.ok && overlaps(loc.span, span);
         });
         if (!covering.length) {
-          const reported = (out.coverage?.unprocessed ?? []).some((u) => overlaps(u, span));
+          const reported = reportedNotUnderstood(out, span);
           verdict.loss = "omitted_by_model";
           verdict.lossDetail = reported ? "reported as not understood" : "claimed understood";
           m.omitted.bad(fid, `"${f.span}": no proposal's evidence touches these words; ${reported ? "reported as not understood (recoverable)" : "the outcome claims the Tell was understood"}`);
@@ -436,6 +452,22 @@ export function grade(runs: StepRun[], rosters: Record<string, RosterDef>, opts:
     }
 
     // ── Per Tell ──
+    // The cost of the untouched-sentence rule (Workstream C): a not-understood mark on a Tell whose every
+    // meaningful fact the ledger keeps was in fact kept or asked about. Such a mark can only rest on words
+    // the ledger calls optional or incidental, or on no fact at all.
+    const fullyUnderstood = facts.every((f) => {
+      if (f.optional || !f.meaningful || !f.disposition.some((d) => d === "retained" || d === "confirm" || d === "clarify")) return true;
+      const v = verdicts.find((x) => x.narrative === n.id && x.step === run.step && x.repeat === run.repeat && x.fact === f.id);
+      return !!v && v.observed !== "missing" && v.observed !== "not_understood_recoverable";
+    });
+    if (fullyUnderstood) {
+      const marks = notUnderstoodSpans(out);
+      m.falseNotUnderstood.den++;
+      if (marks.length) {
+        m.falseNotUnderstood.num++;
+        m.falseNotUnderstood.failures.push({ id, detail: `marked not understood: ${marks.map((s) => `"${safeSlice(note, s)}"`).join("; ")}` });
+      }
+    }
     if (unambiguousTell) {
       const asked = out.tier === "clarify" || out.clarification !== null;
       m.unnecessary.see(!asked, id, asked ? `asked "${out.clarification?.question ?? "(held)"}" ${JSON.stringify(out.clarification?.options ?? [])}; held: ${items.filter((i) => i.tier === "hold").map((i) => `"${i.statement}" [${i.flags.join(",")}]`).join("; ")}` : "");
@@ -448,6 +480,14 @@ export function grade(runs: StepRun[], rosters: Record<string, RosterDef>, opts:
   }
 
   return { metrics: Object.values(m).map((t) => t.done()), verdicts };
+}
+
+function safeSlice(note: string, s: Span): string {
+  try {
+    return sliceCodePoints(note, s).slice(0, 80);
+  } catch {
+    return `[${s.start}, ${s.end})`;
+  }
 }
 
 function relKey(r: string): string {
