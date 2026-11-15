@@ -17,7 +17,7 @@
 //             wrote or edited; a hedged item never replaces a firm one
 //   tier      plan §8: auto, light confirmation, hold for one question, drop
 
-import { asName, ELIDED_START, inYourWords, leadingName, neverAName, NOT_A_LEAD, statementNames, withSpokenName, withSubject, yourVoice } from "./voice.ts";
+import { asName, ELIDED_START, inYourWords, leadingName, neverAName, NOT_A_LEAD, SPOKEN_CONTRACTION, statementNames, withSpokenName, withSubject, yourVoice } from "./voice.ts";
 import { findMention, firstName, leadingNames, MAX_MENTIONS, type MentionSubject, namesAsName, recordMentions, saysWord, shortName, usesName } from "./names.ts";
 import { threadTarget, transitionOf, type Transition } from "./threads.ts";
 import { addDays, localDay, iso, resolveDate, type DateResolution } from "./dates.ts";
@@ -266,8 +266,15 @@ class Context {
       ...this.mentions.flatMap((n) => n.split(/\s+/u)),
     ].map((n) => fold(withoutPossessive(n))).filter((n) => n.length > 1 && !ELIDED_START.has(n)))].map(esc);
     const alt = [...subjects, ...SUBJECT_WORDS].join("|");
+    // A word the note also writes at a sentence start ("Will is visiting Friday. He will stay") is a subject
+    // there, never a verb (review of #91).
+    const atStart = new RegExp(`(?:^|[.!?\\n…]\\s*["“”'‘’(]*)\\s*${esc(w)}(?![\\p{L}\\p{M}'’-])`, "iu");
+    if (atStart.test(this.text)) return false;
     const re = new RegExp(`(?<![\\p{L}\\p{M}'’-])(?:${alt})(?!['’])\\s+(${esc(w)})(?![\\p{L}\\p{M}'’-])`, "giu");
-    for (const m of this.text.matchAll(re)) if (/^\p{Ll}/u.test(m[1])) return true;
+    for (const m of this.text.matchAll(re)) {
+      // "told ben maya is coming": a word followed by an auxiliary is the next clause's subject, not ben's verb.
+      if (/^\p{Ll}/u.test(m[1]) && !AUXILIARY_AFTER.test(this.text.slice((m.index ?? 0) + m[0].length))) return true;
+    }
     return false;
   }
 
@@ -283,7 +290,8 @@ class Context {
     if (this.placeOnly(w) || this.commonNounOnly(w)) return true;
     if (this.capitalisedMidSentence(w)) return false;
     const k = fold(w);
-    return neverAName(w) || PRONOUNS.has(k) || SELF_WORDS.has(k.replace(/['’](re|ve|ll|d|m)$/u, "")) || !!kinshipReference(w) || this.verbOfSubject(w);
+    return neverAName(w) || PRONOUNS.has(k) || SELF_WORDS.has(k.replace(/['’](re|ve|ll|d|m)$/u, "")) || !!kinshipReference(w) ||
+      (COMMON_CAPITALS.has(k) && !CALENDAR.has(k)) || this.verbOfSubject(w);
   }
 
   /**
@@ -309,7 +317,7 @@ class Context {
     const w = withoutPossessive(word.trim());
     if (!w || w.includes(" ")) return false;
     const esc = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`(?<![\\p{L}\\p{M}'’-])(?:(a|an|the|this|that|these|those|some|every|each|any|no)\\s+)?${esc}(?![\\p{L}\\p{M}'’-])`, "giu");
+    const re = new RegExp(`(?<![\\p{L}\\p{M}'’-])(?:(a|an|the|this|these|those|some|every|each|any|no)\\s+)?${esc}(?![\\p{L}\\p{M}'’-])`, "giu");
     let seen = 0;
     for (const m of this.text.matchAll(re)) {
       seen++;
@@ -374,6 +382,24 @@ class Context {
       const at = words.findIndex((w, i) =>
         parts.every((part, j) => words[i + j]?.key === part) || (parts.length > 1 && w.key === parts[0] && w.cap));
       if (at >= 0 && (best < 0 || words[at].at < best)) best = words[at].at;
+    }
+    return best;
+  }
+
+  /** Where the note last names this person before `at` (a code-unit offset), or -1 (CMR-1 B). */
+  lastNamedBefore(p: RosterPerson, at: number): number {
+    this.words ??= [...this.text.matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)]
+      .map((m) => ({ key: nameKey(m[0]), at: m.index ?? 0, cap: /^\p{Lu}/u.test(m[0]) }));
+    const words = this.words;
+    let best = -1;
+    for (const form of namesFor(p)) {
+      const parts = (form.match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).map(nameKey);
+      if (!parts.length) continue;
+      for (let i = 0; i < words.length && words[i].at < at; i++) {
+        const whole = parts.every((part, j) => words[i + j]?.key === part);
+        const first = parts.length > 1 && words[i].key === parts[0] && (words[i].cap || this.mentions.some((m) => nameKey(firstName(m)) === parts[0]));
+        if ((whole || first) && words[i].at > best) best = words[i].at;
+      }
     }
     return best;
   }
@@ -665,7 +691,7 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
   }
   // A statement that plainly leads with someone else ("John is your
   // brother") is never left on the page the model chose (Ben's).
-  if (subject === "person" && who.person_key && !knownRelated && !("companion" in who && who.companion)) who = refileBySubject(ctx, said, who, flags);
+  if (subject === "person" && who.person_key && !knownRelated && !("companion" in who && who.companion)) who = refileBySubject(ctx, said, primary, who, flags);
   // A line the model left without its subject ("Has been very clingy…"), on the person it is about: their name
   // goes back in front ("Kaiya has been very clingy to your wife Krystal"; founder device, 14 Nov 2026). Only
   // when the line is grounded on them by evidence, not the model's choice alone: they are named in the line's
@@ -678,7 +704,10 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     const near = spans.map((s) => sentenceAroundSpan(text, s)).join(" ");
     const grounded = ("grounded" in who && who.grounded === true) || names.some((n) => saysWord(near, n) || saysWord(near, firstName(n))) ||
       (!!filed && ctx.input.capture.context_person_key === filed.key);
-    if (name && grounded && !(filed && possessiveRelation(sentence, filed))) said = withSubject(said, name, names, (w) => ctx.elidedStart(w));
+    const verb = clauseVerb(ctx, primary);
+    if (name && grounded && !(filed && possessiveRelation(sentence, filed))) {
+      said = withSubject(said, name, names, (w) => ctx.elidedStart(w) || (!!verb && fold(w) === fold(verb)));
+    }
   }
 
   // A relationship to the user, said again (founder H17): already known is
@@ -743,7 +772,10 @@ function planItem(ctx: Context, proposed: ProposedItem, index = -1): ItemResult 
     // subject error; if the evidence says "<name>'s <relation>", ask.
     const person = ctx.byKey.get(who.person_key)!;
     // On the user's own news the only question is whose page ("tell Ben's wife" isn't about her, reviewer B).
-    if (!userNews && possessiveRelation(sentence, person)) flags.add("subject_check");
+    // Only the line's own words, or the possessive its clause opens with ("Sarah's sister | has surgery"):
+    // a relative named elsewhere in the sentence is no candidate for a line plainly about the person
+    // ("seun's dad passed away… he's flying out tomorrow"), nor for the user's own line (CMR-1 B).
+    if (!userNews && subject !== "user" && subject !== "shared" && possessiveRelationOf(ctx, spans, person)) flags.add("subject_check");
   }
 
   // ── Certainty: wording can only lower it ──
@@ -1597,7 +1629,7 @@ function inventedName(ctx: Context, statement: string): boolean {
     const k = nameKey(t);
     if (ALWAYS_OK.has(k)) continue;
     if (ctx.knownNames.has(k)) continue;
-    if (ctx.folded.normalize("NFD").replace(/\p{M}+/gu, "").includes(k)) continue;
+    if (ctx.folded.normalize("NFD").replace(/\p{M}+/gu, "").replace(/-+/gu, " ").includes(k)) continue;
     return true;
   }
   return false;
@@ -1638,13 +1670,41 @@ function relativeNamedIn(ctx: Context, sentence: string): {
   return null;
 }
 
+/** "Mercy's baby shower", "Dad's birthday dinner": the relation word names an occasion, not a relative. */
+const RELATION_COMPOUND = "(?!\\s+(?:shower|party|birthday|wedding|funeral|graduation|christening|anniversary|celebration|dinner|lunch|brunch|visit|surgery|appointment|recital|tournament|game|match|concert))";
+
 function possessiveRelation(sentence: string, person: RosterPerson): boolean {
   const s = fold(sentence);
   const names = namesFor(person);
   return names.some((n) => {
     const first = fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})\\b`).test(s);
+    return new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})${RELATION_COMPOUND}\\b`).test(s);
   });
+}
+
+/**
+ * Whether the line's own words say "<name>'s <relation>" (CMR-1 B): inside one of its quotes, or as the subject
+ * its first quote's clause opens with ("Sarah's sister | has surgery Thursday", the model quoting only the
+ * predicate). Never the rest of the sentence: "seun's dad passed away… he's flying out tomorrow" asks nothing
+ * of the flying line, and "Mercy's baby shower" names an occasion, not a baby.
+ */
+function possessiveRelationOf(ctx: Context, spans: PlannedSpan[], person: RosterPerson): boolean {
+  if (spans.some((sp) => possessiveRelation(sp.quote, person))) return true;
+  const chars = Array.from(ctx.text);
+  const from = chars.slice(0, spans[0].start).join("").length;
+  let a = from;
+  while (a > 0 && !/[.!?\n,;:—–()]/u.test(ctx.text[a - 1]) && !/\b(?:and|but|so|then)\s+$/iu.test(ctx.text.slice(Math.max(0, a - 6), a))) a--;
+  const lead = ctx.text.slice(a, from).trim();
+  const possessiveSubject = (s: string, re: (first: string) => RegExp) => namesFor(person).some((n) => re(fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(fold(s)));
+  if (lead && possessiveSubject(lead, (first) => new RegExp(`\\b${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})${RELATION_COMPOUND}\\b(?:\\s+\\w+){0,2}$`))) return true;
+  // "Kaiya's mom has not been sleeping and | has been clingy": a clause with no subject of its own shares the
+  // sentence's subject, and that subject is the relative.
+  let b = from;
+  while (b > 0 && !/[.!?\n]/u.test(ctx.text[b - 1])) b--;
+  const sentenceLead = ctx.text.slice(b, from);
+  const quoteFirst = (spans[0].quote.match(/^[\p{L}][\p{L}\p{M}'’-]*/u) ?? [""])[0];
+  const continuation = (CONTINUES.test(sentenceLead.trimEnd()) || CONTINUES_START.test(spans[0].quote)) && !!quoteFirst && ctx.elidedStart(quoteFirst);
+  return continuation && possessiveSubject(sentenceLead, (first) => new RegExp(`^(?:\\w+\\s+){0,2}${first}(?:'s|(?<=s)') (?:\\w+ )?(${POSSESSED_RELATION})${RELATION_COMPOUND}\\b`));
 }
 
 const DATEISH = new Set([
@@ -1663,7 +1723,9 @@ function namesFor(p: RosterPerson): string[] {
 const TITLE_PREFIX = /^(?:my |our |the )?(?:(?:aunt|auntie|uncle|cousin|friend|neighbou?r|coworker|boss|dr|doctor|mr|mrs|ms|miss|coach|pastor)\.?\s+)+/iu;
 
 /** Words that stand as a subject before a verb ("he has", "it is", "I went"). */
-const SUBJECT_WORDS = ["he", "she", "it", "they", "we", "i", "you", "who", "that", "this", "everyone", "everybody", "someone", "somebody", "nobody", "one"];
+const SUBJECT_WORDS = ["he", "she", "it", "they", "we", "i", "you", "everyone", "everybody", "someone", "somebody", "nobody"];
+/** An auxiliary or copula right after a word marks that word as a subject ("maya is coming", "will is visiting"), never a verb. */
+const AUXILIARY_AFTER = /^\s+(?:is|isn't|are|aren't|was|wasn't|were|weren't|has|hasn't|have|haven't|had|hadn't|will|won't|would|wouldn't|can|can't|could|couldn't|should|shouldn't|might|must|does|doesn't|did|didn't|['’](?:s|ll|d))(?![\p{L}\p{M}])/iu;
 
 /**
  * The names the model's proposal refers to, each one the note's own words bear out (CMR-1 B): what a
@@ -1689,7 +1751,7 @@ function referentsProposed(ctx: Context, proposed: ProposedItem[]): string[] {
 /** The name a mention refers to by, or null when it refers by a pronoun, a relation word, or a word. */
 function referentName(ctx: Context, mention: string): string | null {
   const m = mention.trim();
-  if (!m || PRONOUNS.has(fold(m)) || kinshipReference(m) || SELF_WORDS.has(fold(m).replace(/['’](re|ve|ll|d|m)$/u, ""))) return null;
+  if (!m || PRONOUNS.has(fold(m)) || kinshipReference(m) || SELF_WORDS.has(fold(m).replace(/['’](re|ve|ll|d|m)$/u, "")) || SPOKEN_CONTRACTION.test(m)) return null;
   const phrase = selfRelationPhrase(m);
   if (phrase) return ctx.wordNotAName(phrase.name) ? null : phrase.name;
   const labelled = m.match(/^(.+?)\s*[,(]\s*(?:my|our)\s+[^,()]+[,)]?$/u);
@@ -1712,7 +1774,8 @@ function referentName(ctx: Context, mention: string): string | null {
  */
 function mentionIsAWord(ctx: Context, mention: string): boolean {
   const m = mention.trim();
-  if (!m || PRONOUNS.has(fold(m)) || kinshipReference(m) || selfRelationPhrase(m) || INDEFINITE.test(fold(m))) return false;
+  // A pronoun, however spoken ("shes"), a relation, someone unnamed: each has its own rule in resolvePerson.
+  if (!m || PRONOUNS.has(fold(m)) || SPOKEN_CONTRACTION.test(m) || kinshipReference(m) || selfRelationPhrase(m) || INDEFINITE.test(fold(m))) return false;
   if (SELF_WORDS.has(fold(m).replace(/['’](re|ve|ll|d|m)$/u, ""))) return false;
   if (/^(his|her|their)\s/iu.test(m) || /^(he|him|his|she|her|hers|they|them|their)(?:['’](?:s|ll|d|re|ve))?\s/iu.test(m)) return false;
   const labelled = m.match(/^(.+?)\s*[,(]\s*(?:my|our)\s+[^,()]+[,)]?$/u);
@@ -1726,6 +1789,22 @@ function mentionIsAWord(ctx: Context, mention: string): boolean {
   if (words.length === 1) return ctx.wordNotAName(core);
   // "has been": every word a word. "Ben Oxnard", "Grandma Rose": a name.
   return words.every((w) => ctx.wordNotAName(w));
+}
+
+/**
+ * The first word of a quote that is a clause joined to the one before it ("…and | works at apple"), when the
+ * note writes that word as a word (not a name): the clause's verb, with the sentence's subject left off (CMR-1 B).
+ */
+function clauseVerb(ctx: Context, primary: PlannedSpan): string | null {
+  const first = (primary.quote.match(/^[\p{L}][\p{L}\p{M}'’-]*/u) ?? [""])[0];
+  if (!first || ctx.writesAsName(first)) return null;
+  const chars = Array.from(ctx.text);
+  const from = chars.slice(0, primary.start).join("").length;
+  let a = from;
+  while (a > 0 && !/[.!?\n]/u.test(ctx.text[a - 1])) a--;
+  const before = ctx.text.slice(a, from);
+  if (!before.trim()) return null;
+  return CONTINUES.test(before.trimEnd()) || CONTINUES_START.test(primary.quote) ? first : null;
 }
 
 /** Whether the line's own sentence (around any of its quotes) says the mention; true when no quote can be placed. */
@@ -1767,7 +1846,15 @@ function elidedSubject(ctx: Context, raw: ProposedItem): Elided | null {
   let a = from;
   while (a > 0 && !/[.!?\n]/u.test(ctx.text[a - 1])) a--;
   const before = ctx.text.slice(a, from);
-  if (!before.trim()) return null;
+  if (!before.trim()) {
+    // A sentence of its own that starts without a subject ("Ben came over. Has been sore all week."): it follows the
+    // one person the sentences before it named, as a pronoun would (J1); two, or anyone else, and it is asked.
+    const w0 = (span.quote.match(/^[\p{L}][\p{L}\p{M}'’-]*/u) ?? [""])[0];
+    if (!w0 || !ctx.elidedStart(w0) || a === 0) return null;
+    const earlier = ctx.namedInNote().map((p) => ({ p, n: ctx.namedAt(p) })).filter(({ n }) => n >= 0 && n < a).sort((x, y) => x.n - y.n).map(({ p }) => p);
+    if (!earlier.length) return null;
+    return earlier.length === 1 && !someoneElseBefore(ctx, a, "", earlier) ? { person: earlier[0] } : { candidates: earlier };
+  }
   const words = wordsOf(before);
   if (words.some((w) => w === "i" || w === "we")) return null;
   // Who the sentence names before the clause, as namedInNote reads a name: a first name only as a name
@@ -1825,9 +1912,11 @@ function elidedSubject(ctx: Context, raw: ProposedItem): Elided | null {
 function refileBySubject(
   ctx: Context,
   statement: string,
-  who: { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string },
+  /** The line's first quote: a clause joined to the one before it has no subject of its own to move the line by. */
+  primary: PlannedSpan,
+  who: { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string; candidate_ids?: string[] },
   flags: Set<Flag>,
-): { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string } {
+): { person_id: string | null; person_key: string | null; new_person_name: string | null; archived_ids?: string[]; mention?: string; candidate_ids?: string[] } {
   const filed = who.person_key ? ctx.byKey.get(who.person_key) : null;
   const lead = leadingName(statement);
   if (!filed || !lead || statementNames(statement, namesFor(filed))) return who;
@@ -1836,14 +1925,42 @@ function refileBySubject(
   // the statement to that); a full name only counts if the note says it.
   // Written any way the user likes ("pedro" is Pedro: founder, 14 Nov 2026); an everyday word never is
   // anyone (leadingName already refuses "Has").
-  const said = ctx.inNote(lead) ? lead : ctx.inNote(firstOnly) ? firstOnly : null;
+  let said = ctx.inNote(lead) ? lead : ctx.inNote(firstOnly) ? firstOnly : null;
   if (!said) return who;
+  // "Noors birthday", "Moms seventieth" (voice, no apostrophe): the possessive of someone in People.
+  const stem = firstOnly.match(/^([\p{L}][\p{L}\p{M}'’-]*)s$/u)?.[1];
+  if (stem && !ctx.candidatesFor(firstOnly).length && (ctx.candidatesFor(stem).length || kinshipReference(stem))) {
+    if (ctx.candidatesFor(stem).some((c) => c.key === filed.key) || kinshipReference(stem)) return who;
+    said = stem;
+  }
   // The statement is the model's own words, never evidence (CMR-1 B): its first word moves a line, or becomes
   // someone new, only when the note's own words write it as a name: someone in People or removed, a capital the
   // user wrote mid-sentence ("my brother John"), or a referent the model proposed. A word the note writes only
   // as a word ("has", in "Kaiya has… and has been clingy"; founder K36), a month or a weekday never is anyone.
-  if (!ctx.writesAsName(said) && !ctx.writesAsName(firstOnly)) return who;
+  if (!ctx.writesAsName(said) && !ctx.writesAsName(firstOnly)) {
+    // The clause the line quotes is joined to the one before it ("…and works at apple", "…and refuses to nap"):
+    // its first word is that clause's verb, with the sentence's subject left off, never anyone.
+    const chars = Array.from(ctx.text);
+    const from = chars.slice(0, primary.start).join("").length;
+    let a = from;
+    while (a > 0 && !/[.!?\n]/u.test(ctx.text[a - 1])) a--;
+    const quoteFirst = (primary.quote.match(/^[\p{L}][\p{L}\p{M}'’-]*/u) ?? [""])[0];
+    const continuation = (CONTINUES.test(ctx.text.slice(a, from).trimEnd()) || CONTINUES_START.test(primary.quote)) && fold(quoteFirst) === fold(firstOnly);
+    if (continuation) return who;
+    // Neither a name the note bears out nor a word it writes as one ("ben said will is visiting friday", the
+    // line filed on Ben): never saved on Ben as if it were his; held with Ben offered, so the user decides
+    // (review of #91: a line about Will must not be saved on Ben's page).
+    if (!ctx.wordNotAName(firstOnly) && !CALENDAR.has(fold(firstOnly))) {
+      flags.add("person_ambiguous");
+      return { person_id: null, person_key: null, new_person_name: null, candidate_ids: [filed.id], mention: said };
+    }
+    return who;
+  }
   if (CALENDAR.has(fold(firstOnly)) && !ctx.candidatesFor(firstOnly).length) return who;
+  // "Biscuit struggles with the stairs now", filed on Mark, whose dog Biscuit is (founder K27): his line, never
+  // "Is Biscuit someone new?".
+  const theirs = ctx.companionsNamed(said);
+  if (theirs.length === 1 && theirs[0].person_key === filed.key && !ctx.candidatesFor(said).length) return who;
   let candidates = ctx.candidatesFor(said);
   if (candidates.length === 0 && said !== firstOnly) candidates = ctx.candidatesFor(firstOnly);
   // Someone removed from People: offered back, never re-created (founder I3).
@@ -1918,12 +2035,79 @@ function pronounReferents(ctx: Context, raw: ProposedItem, mention: string): { a
     .map(({ p }) => p);
   const context = ctx.input.capture.context_person_key ?? null;
   const page = context ? ctx.byKey.get(context) : undefined;
-  return { allowed: page && !named.includes(page) ? [...named, page] : named, at };
+  // Two Mateos, "Mateo handed in his notice. He's…" on one Mateo's page: the page settles which Mateo the name
+  // means (as it does for the name itself), so the namesake is no second candidate for "he" (CMR-1 B).
+  const settled = page && named.includes(page)
+    ? named.filter((p) => p === page || !namesFor(page).some((n) => namesFor(p).some((m) => nameKey(firstName(n)) === nameKey(firstName(m)))))
+    : named;
+  return { allowed: page && !settled.includes(page) ? [...settled, page] : settled, at };
+}
+
+/** A person's gender when their relationship to the user says it ("mother", "brother-in-law", "Nana"); null otherwise. */
+function genderOf(p: RosterPerson): "f" | "m" | null {
+  // "partner", "spouse", "kid" say nothing; their canonical key would ("partner" → wife).
+  const words = [...wordsOf(p.relationship_label ?? ""), ...wordsOf(p.display_name)]
+    .filter((w) => !["partner", "spouse", "kid", "kids", "child", "children", "ex"].includes(w))
+    .map((w) => (FEMALE_RELATIONS.has(w) || MALE_RELATIONS.has(w) ? w : relationKey(w)));
+  if (words.some((w) => FEMALE_RELATIONS.has(w))) return "f";
+  if (words.some((w) => MALE_RELATIONS.has(w))) return "m";
+  return null;
+}
+
+/** The candidates a gendered pronoun can mean: those whose known gender fits, and those whose gender is not known. */
+function fitsPronoun(people: RosterPerson[], pronoun: string): RosterPerson[] {
+  const p = fold(pronoun);
+  const male = p === "he" || p === "him" || p === "his" || p === "himself";
+  const female = p === "she" || p === "her" || p === "hers" || p === "herself";
+  if (!male && !female) return people;
+  return people.filter((x) => {
+    const g = genderOf(x);
+    return g === null || (male ? g === "m" : g === "f");
+  });
+}
+
+/** Words before a name that make it an object or one of a pair ("told Josh", "with Noor", "Ben and Josh"), never the clause's subject. */
+const OBJECT_LEAD = /\b(?:told|tell|telling|tells|asked|ask|asking|asks|with|for|to|from|at|about|of|than|like|saw|see|seeing|met|meet|meeting|called|call|calling|texted|text|texting|emailed|email|thanked|thank|visited|visit|visiting|invited|invite|love|loves|loved|miss|misses|owe|owes|help|helped|helping|join|joined|brought|bring|took|take)\s*$/iu;
+/** "Ben and |Josh", "noor, |xiulan": a name joined to the one before it. "lovely, |Ingrid says" is not. */
+const COORDINATED = /([\p{L}][\p{L}\p{M}'’-]*)\s*(?:,|and|&|or)\s*$/iu;
+
+/**
+ * The person a pronoun plainly means when several people were named before it (CMR-1 B; founder: deterministic
+ * logic never overrides a grounded subject, the question is for genuine ambiguity): the one named nearest
+ * before it, as a clause's subject (not after "told", "with", "and" or a comma: "Ben told Josh he's moving" and
+ * "Marin and Elise went camping. She…" stay questions), with no other candidate named between them and the
+ * pronoun, and no one else introduced there. "seun is doing ok, he said…" is Seun though Priyanka was named a
+ * sentence earlier; "Dad says she isn't sleeping" is Mom, a woman, though Dad is nearer. Null when it can't be told.
+ */
+function nearestSubject(ctx: Context, candidates: RosterPerson[], at: number, pronoun: string): RosterPerson | null {
+  const positions = candidates.map((p) => ({ p, pos: ctx.lastNamedBefore(p, at) }));
+  // Someone among the candidates not named at all (the page's person) is a competitor the words can't rank.
+  if (positions.some(({ pos }) => pos < 0)) return null;
+  positions.sort((a, b) => b.pos - a.pos);
+  const [first, second] = positions;
+  if (!first || (second && second.pos === first.pos)) return null;
+  const before = ctx.text.slice(0, first.pos);
+  if (OBJECT_LEAD.test(before)) return null;
+  const pair = before.match(COORDINATED);
+  if (pair) {
+    const names = new Set(ctx.input.roster.flatMap((p) => namesFor(p)).flatMap((n) => n.split(/\s+/u)).map(nameKey));
+    if (names.has(nameKey(pair[1])) || (/^\p{Lu}/u.test(pair[1]) && !neverAName(pair[1]))) return null;
+  }
+  // The name is one of a pair or a list with another candidate or another capitalised word right after it.
+  const after = ctx.text.slice(first.pos).match(/^[\p{L}][\p{L}\p{M}'’-]*(?:\s+[\p{L}][\p{L}\p{M}'’-]*)?\s*(?:,|and|&)\s+([\p{L}][\p{L}\p{M}'’-]*)/iu);
+  if (after) {
+    const next = after[1];
+    const names = new Set(ctx.input.roster.flatMap((p) => namesFor(p)).flatMap((n) => n.split(/\s+/u)).map(nameKey));
+    if (names.has(nameKey(next)) || /^\p{Lu}/u.test(next)) return null;
+  }
+  if (someoneElseBefore(ctx, at, pronoun, candidates, first.pos, ctx.input.roster)) return null;
+  return first.p;
 }
 
 /** Where the line's pronoun is in the note (in its own quote first), or -1. */
 function pronounAt(ctx: Context, raw: ProposedItem, mention: string): number {
-  const re = new RegExp(`(?<![\\p{L}'’])${mention.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "iu");
+  // "shes", "hes" (voice, no apostrophe) are the pronoun too.
+  const re = new RegExp(`(?<![\\p{L}'’])${mention.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:['’]?(?:s|d|ll|re|ve))?(?![\\p{L}])`, "iu");
   for (const quote of Array.isArray(raw.evidence) ? raw.evidence : []) {
     if (typeof quote !== "string" || !quote.trim()) continue;
     const found = locateEvidence(ctx.text, quote.trim());
@@ -1963,25 +2147,27 @@ const ANIMAL_BEFORE = new RegExp(String.raw`\b(?:dog|dogs|puppy|pup|cat|cats|kit
  * Bean", "a cat named Miso", a known companion), an acronym ("AI"), a place after "in/to/from/at", a
  * weekday, month or season, or a word the note also writes in lower case.
  */
-function someoneElseBefore(ctx: Context, at: number, pronoun: string, allowed: RosterPerson[], from = 0): boolean {
+function someoneElseBefore(ctx: Context, at: number, pronoun: string, allowed: RosterPerson[], from = 0, known: RosterPerson[] = allowed): boolean {
   if (at < 0) return true;
   const before = ctx.text.slice(from, at);
   const p = fold(pronoun);
   const male = p === "he" || p === "him" || p === "his" || p === "himself";
   const female = p === "she" || p === "her" || p === "hers" || p === "herself";
-  const theirs = new Set(allowed.flatMap((person) => namesFor(person)).flatMap((n) => (n.match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).map(nameKey)));
+  const theirs = new Set([...allowed, ...known].flatMap((person) => namesFor(person)).flatMap((n) => (n.match(/[\p{L}][\p{L}\p{M}'’-]*/gu) ?? []).map(nameKey)));
   const lower = new Set((ctx.text.match(/(?<![\p{L}'’])\p{Ll}[\p{L}\p{M}'’-]*/gu) ?? []).map((w) => fold(w)));
   const pets = new Set(ctx.companions.filter((c) => isPetWord(c.relation)).map((c) => nameKey(c.name)));
   for (const pet of petsNamedIn(ctx.text, allowed.flatMap((person) => namesFor(person)))) pets.add(nameKey(pet.name));
   for (const m of before.matchAll(/\p{Lu}[\p{L}\p{M}'’-]*/gu)) {
     const word = m[0];
     const k = nameKey(withoutPossessive(word));
-    if (!k || word === "I" || theirs.has(k) || COMMON_CAPITALS.has(fold(word)) || pets.has(k)) continue;
+    if (!k || word === "I" || theirs.has(k) || COMMON_CAPITALS.has(fold(word)) || pets.has(k) || neverAName(word)) continue;
     if (/^\p{Lu}{2,}$/u.test(word)) continue; // an acronym
     if (lower.has(fold(word))) continue; // a word the note also writes in lower case
     const lead = before.slice(Math.max(0, (m.index ?? 0) - 40), m.index ?? 0);
     if (ANIMAL_BEFORE.test(lead)) continue; // "our dog Bean", "a cat named Miso"
     if (/\b(?:in|to|from|at|near|of)\s+$/iu.test(lead)) continue; // a place
+    if (/\b(?:in|to|from|at|near|of)\s+(?:\p{Lu}[\p{L}\p{M}'’-]*\s+)+$/u.test(lead)) continue; // the rest of its name ("at Johns Hopkins")
+    if (/\b(?:runs?|running|ran)\s+$/iu.test(lead)) continue; // a race ("running Boston")
     return true;
   }
   // Someone the writer introduces by relation: "my friend", "our neighbor", "Mom". The subject's own
@@ -2055,6 +2241,17 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   // Ben's page). The mention says nothing about who else it's about, so it's
   // treated as no mention: only the context person or a named one can be meant.
   if (SELF_WORDS.has(fold(mention).replace(/['’](re|ve|ll|d|m)$/u, ""))) return resolvePerson(ctx, { ...raw, person_mention: null }, flags);
+  // Spoken contractions without their apostrophe ("shes", "hes", "theyre", "im", "id"; CMR-1 B): the pronoun, or the user.
+  const spoken = fold(mention).match(/^(he|she|they|i|we|you)(s|d|ll|re|ve|m)$/u);
+  if (spoken && !ctx.candidatesFor(mention).length) {
+    if (spoken[1] === "i" || spoken[1] === "we" || spoken[1] === "you") return resolvePerson(ctx, { ...raw, person_mention: null }, flags);
+    return resolvePerson(ctx, { ...raw, person_mention: spoken[1] }, flags);
+  }
+  // A spoken possessive without its apostrophe ("moms seventieth", "noors birthday"): the person or relation it stems from.
+  const stem = mention.match(/^([\p{L}][\p{L}\p{M}'’-]*)s$/u)?.[1];
+  if (stem && !ctx.candidatesFor(mention).length && !ctx.archivedFor(mention).length && (ctx.candidatesFor(stem).length || kinshipReference(stem))) {
+    return resolvePerson(ctx, { ...raw, person_mention: stem }, flags);
+  }
 
   // "My daughter Kaiya": the name, and the relation picks between namesakes (H20).
   const phrase = selfRelationPhrase(mention);
@@ -2094,7 +2291,9 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
   // line held to ask carries exactly who it can mean.
   if (PRONOUNS.has(folded)) {
     flags.add("pronoun");
-    const { allowed, at } = pronounReferents(ctx, raw, mention);
+    const { allowed: everyone, at } = pronounReferents(ctx, raw, mention);
+    // A woman is never "he": those whose relationship to the user says their gender fit or don't (CMR-1 B).
+    const allowed = fitsPronoun(everyone, folded);
     const ids = allowed.map((p) => p.id);
     const chosen = ctx.byKey.get(modelKey);
     // One person it can mean (the one the note named before it, or the page's person), and nothing
@@ -2104,8 +2303,29 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
     // not in People is meant) is still asked, unless the model's own page is that person.
     const only = allowed.length === 1 ? allowed[0] : null;
     if (only && SINGULAR_PRONOUNS.has(folded) &&
-        (chosen?.key === only.key || (modelKey !== "new" && !someoneElseBefore(ctx, at, folded, allowed)))) {
+        (chosen?.key === only.key || (modelKey !== "new" && !someoneElseBefore(ctx, at, folded, allowed, 0, everyone)))) {
       return { ...pick(only), grounded: true };
+    }
+    // Several people named before it: the one the words themselves ground (named nearest, as a subject, no one
+    // between) is who it means; the model's other choice among them is asked about beside them, never followed.
+    if (allowed.length > 1 && SINGULAR_PRONOUNS.has(folded) && modelKey !== "new") {
+      const near = nearestSubject(ctx, allowed, at, folded);
+      if (near) {
+        if (chosen && chosen.key !== near.key && allowed.some((p) => p.key === chosen.key)) {
+          flags.add("pronoun_multiple");
+          return { ...pick(chosen), candidate_ids: [near.id, chosen.id] };
+        }
+        return { ...pick(near), grounded: true };
+      }
+    }
+    // No one in People before it, but the model's proposal names someone new there ("Ravi got the job… He
+    // starts in two weeks", on an empty account): the same new person, one question for both lines.
+    if (allowed.length === 0 && SINGULAR_PRONOUNS.has(folded) && at >= 0) {
+      const fresh = ctx.mentions.filter((m) => !ctx.candidatesFor(m).length && !ctx.archivedFor(m).length && saysWord(ctx.text.slice(0, at), m));
+      if (fresh.length === 1) {
+        const theirs = { key: "", id: "", display_name: fresh[0], full_name: null, nicknames: [] } as RosterPerson;
+        if (!someoneElseBefore(ctx, at, folded, [theirs])) return unresolved("new_person", asName(fresh[0]).slice(0, 100));
+      }
     }
     if (!chosen || !allowed.some((p) => p.key === modelKey)) return { ...unresolved("person_ambiguous"), candidate_ids: ids };
     if (allowed.length > 1) {
@@ -2132,8 +2352,18 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
     return unresolved("person_ambiguous");
   }
 
-  // Someone the note leaves unnamed ("someone at work", "a friend"): no one to file on, nothing to add.
-  if (INDEFINITE.test(fold(mention))) return { drop: "no_one_named" };
+  // Someone the note leaves unnamed ("someone at work", "a friend"): no one to file on, nothing to add. Unless the
+  // model filed the line on someone in People whom the line's own sentence names ("Someone at work told Ben he's
+  // getting promoted", "a friend of Ben's is getting married"): theirs, for a glance (review of #91).
+  if (INDEFINITE.test(fold(mention))) {
+    const chosen = ctx.byKey.get(modelKey);
+    const own = evidenceSpans(ctx.text, raw).map((sp) => sentenceAroundSpan(ctx.text, sp)).join(" ");
+    if (chosen && namesFor(chosen).some((n) => saysWord(own, n) || saysWord(own, firstName(n)))) {
+      flags.add("subject_moved");
+      return pick(chosen);
+    }
+    return { drop: "no_one_named" };
+  }
 
   // A name.
   const candidates = ctx.candidatesFor(mention);
@@ -2186,6 +2416,8 @@ function resolvePerson(ctx: Context, raw: ProposedItem, flags: Set<Flag>): Who {
       if (elided && "person" in elided && elided.person.key !== c.key) {
         return { ...unresolved("person_disagreement"), candidate_ids: [elided.person.id, c.id] };
       }
+      // "Ben came over. Has been sore all week.": the clause's own structure says Ben too.
+      if (elided && "person" in elided) return { ...pick(c), grounded: true };
     }
     return pick(c);
   }
@@ -2593,9 +2825,13 @@ function chooseClarification(ctx: Context, items: PlannedItem[]): Clarification 
   if (ambiguous) {
     const mention = mentionFor(ctx, ambiguous);
     const candidates = mention ? ctx.candidatesFor(mention) : [];
-    const options = (candidates.length > 1 ? candidates : ctx.namedInNote())
-      .slice(0, 4)
-      .map((p) => (p.relationship_label ? `${p.display_name} (${p.relationship_label})` : p.display_name));
+    const offered = (candidates.length > 1 ? candidates : ctx.namedInNote()).slice(0, 4);
+    // Two people with the same display name and no label are told apart by their full names (review of #91).
+    const options = offered.map((p) => p.relationship_label
+      ? `${p.display_name} (${p.relationship_label})`
+      : offered.some((o) => o !== p && fold(o.display_name) === fold(p.display_name)) && p.full_name && fold(p.full_name) !== fold(p.display_name)
+      ? p.full_name
+      : p.display_name);
     // "Which Sam?" only for a name two or more people go by; any other word a quote starts with is never
     // asked about by name ("Which Has…?", "Which Krystal…?" for a line that isn't hers; CMR-1 B).
     return {
@@ -2629,7 +2865,7 @@ function chooseClarification(ctx: Context, items: PlannedItem[]): Clarification 
   // A residence question ("Is Susan still in Alameda?") and a replace question ("Does this replace what
   // you told me?") are the app's own, built from the line they ask about: there is no stored question for
   // them, and never "When is it?" for a line whose day is known (CER-1, 31 Oct).
-  const ownQuestion: Flag[] = ["residence_conflict", "update_check"];
+  const ownQuestion: Flag[] = ["residence_conflict", "update_check", "promise_owner"];
   if (held.every((i) => i.flags.some((f) => ownQuestion.includes(f)) && !i.flags.some((f) => !ownQuestion.includes(f) && HOLD_FLAGS.includes(f)))) {
     return null;
   }

@@ -327,9 +327,12 @@ export function leadingName(statement: string): string | null {
 }
 
 /** Never someone's name, however it's written: everyday words ("has", "been") and words like "the" or "my". */
+/** A pronoun or "I"/"we" contracted as it is spoken, without its apostrophe ("shes", "hes", "theyre", "im", "ive"). */
+export const SPOKEN_CONTRACTION = /^(he|she|they|i|we|you)(s|d|ll|re|ve|m)$/iu;
+
 export function neverAName(words: string): boolean {
   const k = key(words.replace(/[.,;:!?]+$/u, ""));
-  return !k || NOT_A_LEAD.has(k) || ELIDED_START.has(k) || FUNCTION_WORDS.has(k);
+  return !k || NOT_A_LEAD.has(k) || ELIDED_START.has(k) || FUNCTION_WORDS.has(k) || SPOKEN_CONTRACTION.test(k);
 }
 
 /** A name as Kinship says it, however the user wrote it ("pedro" → "Pedro"); a capital the user gave stays. */
