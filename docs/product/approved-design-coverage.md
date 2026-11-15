@@ -79,6 +79,7 @@
 3. **Settings export / delete account v2 UI** (#23): the 1.0 flows exist server-side; the 2.0 screens are not built. Defer to E17 before alpha? **Answered (CC-25):** before broader Alpha, with Remembered / Paused and a safe duplicate merge; not before the household dogfood.
 4. **Notification permission ask** (#31): no push exists yet, so there is nothing to ask for. Defer with E15? **Answered (CC-25):** it comes with the minimal push (committed next), after a genuinely useful Moment.
 5. Activation pass questions 1–7 in `activation-pass.md` §7 (day-of event moment, density numbers, superseded history's home, kind words in the review, reported promises, relationship labels, look-over for dense notes).
+6. **A pronoun right after a relative's clause** (Tell › "Is this about Sarah, or Sarah's sister?"; CMR-1 B, PR #91): "Sarah's sister got engaged, she's over the moon" is asked, since "she" may be the sister. The code does **not** ask when that clause says the relative has died ("seun's dad passed away… he's flying out tomorrow" is Seun's line, no question). That exemption is a product judgement made in code review, not a founder decision: confirm it, or ask there too.
 
 ## Recovery pass (founder native pass, 5 Oct): what changed on approved surfaces
 

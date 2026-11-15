@@ -811,11 +811,30 @@ Deno.test("a name doesn't have to be capitalised: 'pedro' is Pedro, someone new 
   ok(!/Has|has/.test(line.new_person_name ?? ""), "never an everyday word");
 });
 
-Deno.test("an everyday word the model gives as who it's about is never someone new", () => {
+// CMR-1 B (#88 review, concern 4): this used to pass with zero items. The fact must survive: on Kaiya when she is
+// in People (the sentence's own subject), or held for one question that names her when she isn't; never dropped,
+// never "Who is this about?", never anyone called "Has". The full matrix is identity.test.ts.
+Deno.test("an everyday word the model gives as who it's about is never someone new, and the fact is never lost", () => {
   const note = "Kaiya has not been sleeping very well and has been very clingy to my wife Krystal";
-  const out = run(input(note), [item({
+  const kaiya = { key: "p20", id: "id-p20", display_name: "Kaiya", full_name: null, nicknames: [], relationship_label: "daughter" };
+  const clingy = item({
     person: "new", person_mention: "has", statement: "Has been very clingy to your wife Krystal",
     evidence: ["has been very clingy to my wife Krystal"],
-  })]);
-  for (const line of out.items) ok(line.new_person_name !== "Has" && line.new_person_name !== "has", `never "Has": ${JSON.stringify(line.new_person_name)}`);
+  });
+  const known = run(input(note, { roster: [...ROSTER, kaiya] }), [clingy]);
+  eq(known.dropped, [], "nothing dropped");
+  eq(known.items.map((i) => [i.person_id, i.new_person_name, i.tier, i.statement]), [["id-p20", null, "confirm", "Kaiya has been very clingy to your wife Krystal"]]);
+  eq(known.clarification, null, "no question on the founder's sentence");
+  const fresh = run(input(note), [
+    item({ person: "new", person_mention: "Kaiya", statement: "Kaiya has not been sleeping very well", evidence: ["Kaiya has not been sleeping very well"] }),
+    clingy,
+  ]);
+  eq(fresh.dropped, [], "nothing dropped");
+  eq(fresh.items.map((i) => [i.person_id, i.new_person_name, i.tier]), [[null, "Kaiya", "hold"], [null, "Kaiya", "hold"]], "held under the name the note gives, discoverable as one question");
+  eq(fresh.items[1].statement, "Kaiya has been very clingy to your wife Krystal");
+  eq(fresh.clarification?.question, "Is Kaiya someone new?");
+  for (const out of [known, fresh]) {
+    for (const line of out.items) ok(line.new_person_name !== "Has" && line.new_person_name !== "has", `never "Has": ${JSON.stringify(line.new_person_name)}`);
+    ok(!/\bHas\b/.test(JSON.stringify(out.clarification ?? "")), "no question about 'Has'");
+  }
 });
