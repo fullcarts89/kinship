@@ -1,6 +1,6 @@
 # CMR-1 release candidate: plan, readiness and recovery
 
-**Status: DRAFT until the integrated checks are recorded (see "Evidence").** Companion to `cmr1-handoff.md`
+**Status: the integrated checks are recorded (see "Evidence"); the plan waits on the founder.** Companion to `cmr1-handoff.md`
 (the record), `cmr1-evaluation.md` (the eval method and baselines, on the D branch) and `cmr1-acceptance.md`
 (the founder's one session). Nothing in this plan happens without the founder's explicit yes at each marked
 step; merging is not approval.
@@ -75,10 +75,10 @@ Stages per the ledger's reporting model. "RC" = on `claude/cmr1-rc`.
 
 | Tier | Result |
 |---|---|
-| UNIT (Deno, Jest, tsc, eslint) | recorded in the handoff §4c |
-| INTEGRATION (standard oracle / realistic / replay; pgTAP) | recorded in the handoff §4c |
+| UNIT (Deno, Jest, tsc, eslint) | Deno 569 / 0; Jest 134 suites / 1366 tests; tsc clean; eslint 0 errors; CI on PR #93 green |
+| INTEGRATION (standard oracle / realistic / replay; pgTAP) | 0 must-not violations, 0 persons guessed in all three; pgTAP 31 files / 923 tests; fingerprint md5 `26a8c58d` |
 | CMR-1 eval, oracle and realistic, dev and held-out, vs `main` | every gated metric at target, no regressions (handoff §4c) |
-| BLACK-BOX (local stack, replayed replies) | b3 20, b4 5, b5 4, b6 4, b7b8 4, h4 2 PASS; the Tell-driven suites are blocked by an environment stall under diagnosis |
+| BLACK-BOX (local stack, replayed replies, the RC's gateway) | Every suite PASS under its stated conditions: b3 20, b4 5, b5 4, b6 4, b7b8 4, dates 2, h4 2, k19 2, k20 22, k25 3, k27 2, k28 3, k4 36, k4legacy 18, narrative 3, narratives 4, notebook J3+J5, removal 3, showingup 2, today 2, trustfloor 1. k10 passes Monday to Friday only (weekend "last Friday" asks, by design); notebook J1/J6 and J2 are live-model tests with no recorded replies. The stall first seen was K37, a latent app bug now fixed |
 | LIVE-MODEL | NOT RUN: the key is on the environment but was not in this session's shell |
 | NATIVE-SIMULATOR | NOT RUN: no iOS simulator in this environment |
 | FOUNDER-DEVICE | PENDING the acceptance session |
