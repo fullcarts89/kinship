@@ -51,6 +51,10 @@ coverage/
 /evals/results/*.json
 /evals/results/*.md
 !/evals/results/RUNS.md
+# CMR-1 runs write here too; frozen baselines are committed gzipped (see evals/results/cmr1/RUNS.md)
+/evals/results/cmr1/*.json
+/evals/results/cmr1/*.md
+!/evals/results/cmr1/RUNS.md
 
 # Supabase CLI local state
 supabase/.temp/

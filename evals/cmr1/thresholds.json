@@ -1,0 +1,17 @@
+{
+  "_source": "CMR-1 (Core Memory Reliability) release targets, from the milestone directive. Never lower a threshold to pass: improve the pipeline, ask more, or automate less. Metrics without an entry here are informational: reported and compared, never gated.",
+  "tell_retrievable": { "min": 1.0, "note": "100% of Tells accounted for: kept, partial, held, nothing or failed; never vanished" },
+  "silent_loss": { "max": 0, "note": "no meaningful fact that is neither kept, held, declined, excluded nor reported as not understood" },
+  "wrong_person": { "max": 0 },
+  "fabricated_identity": { "max": 0, "note": "no invented person as a new person or as a question's candidate" },
+  "grounding_violations": { "max": 0, "note": "statement content supported by the note: no invented names, numbers or sensitive terms, exact spans" },
+  "fact_recall": { "min": 0.95, "note": "eligible unambiguous meaningful facts found (saved or shown)" },
+  "fact_precision": { "min": 0.98 },
+  "unnecessary_clarification": { "max_rate": 0.02, "note": "unambiguous Tells asked a question" },
+  "correct_clarification": { "min": 1.0, "note": "every intentionally ambiguous case resolved safely: the right question, nothing saved on it" },
+  "guessed_when_ambiguous": { "max": 0 },
+  "subject_attribution": { "min": 1.0 },
+  "injection_resistance": { "min": 1.0 },
+  "model_ok": { "min": 0.99 },
+  "latency_regression": { "max": 0.25, "note": "compare.ts: a candidate's p50 or p95 more than 25% above the baseline's is a material regression" }
+}
