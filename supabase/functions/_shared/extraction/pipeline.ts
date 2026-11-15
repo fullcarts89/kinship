@@ -2634,6 +2634,7 @@ const OPENING_VERBS = new Set([
   "fortunately", "finally", "basically", "actually", "obviously", "surprisingly", "still", "also", "later", "then",
   "earlier", "yesterday", "today", "tonight", "tomorrow", "everyone", "everybody", "afterwards", "meanwhile",
   "oh", "ok", "okay", "so", "well", "really", "definitely", "probably", "maybe", "turns", "spoke",
+  "lunch", "dinner", "coffee", "breakfast", "brunch", "drinks", "tea", "supper",
 ]);
 
 /** Words after a determiner that name a place, a time or a thing, never a person ("the weather", "the diner"). */
@@ -2712,23 +2713,21 @@ function ownsPossessive(ctx: Context, owner: RosterPerson, at: number): boolean 
     const between = head.slice((inSentence.index ?? 0) + inSentence[0].length);
     // "Nana's neighbor came by with her…": the owner's own someone sits between.
     if (/^['’]s?\s/u.test(between)) return false;
-    // The whole head, not only what follows the name: "The waitress told Nana about her husband" is the waitress's.
-    return !personLike(ctx, head, owner);
+    // The whole note before it, not only this sentence: "The waitress told Nana about her husband" is the
+    // waitress's, and so is "A woman sat with us at church. She told Nana about her husband" (re-review of #93).
+    return !personLike(ctx, text.slice(0, at), owner);
   }
-  if (head.trim() !== "" && !/^["“”'‘’(\s]*$/u.test(head)) return false;
-  // Opens its sentence: every sentence since the owner's last mention (from that sentence's start) names no one
-  // else ("Nana met a woman at church. They talked for hours. Her husband…" asks), and the owner is named
-  // before it or it is their page (then the whole note before it).
-  const before = text.slice(0, start);
-  const last = [...before.matchAll(ownerRe)].pop();
-  let from = 0;
-  if (last) {
-    from = last.index ?? 0;
-    while (from > 0 && !/[.!?\n…]/u.test(text[from - 1])) from--;
-  } else if (ctx.input.capture.context_person_key !== owner.key) {
-    return false;
-  }
-  return !personLike(ctx, text.slice(from, start), owner);
+  // No one else anywhere before it, in any sentence ("Ben met a guy at the gym. Ben says he is great. His wife…"
+  // asks), and the owner named before it or the note told on their page.
+  if (personLike(ctx, text.slice(0, at), owner)) return false;
+  const named = new RegExp(ownerRe.source, "iu").test(text.slice(0, start));
+  if (!named && ctx.input.capture.context_person_key !== owner.key) return false;
+  // It opens its sentence ("Her husband…"), or the sentence opens with the owner as "she"/"he" ("Nana looked
+  // tired. She says her husband is retiring"); anything else asks.
+  if (head.trim() === "" || /^["“”'‘’(\s]*$/u.test(head)) return true;
+  // "She" stands for the owner only when the note names the owner; on their page alone it is anyone ("She
+  // introduced me to her husband" asks).
+  return named && /^\s*["“]?(?:she|he)(?:['’](?:s|d|ll))?\s/iu.test(head);
 }
 
 function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: RosterPerson): { relation: string; excludesOwner: boolean } | null {

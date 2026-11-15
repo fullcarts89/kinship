@@ -1161,3 +1161,35 @@ Deno.test("re-review 5: a filler sentence, a woman before Nana in the sentence, 
     ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
   }
 });
+
+// ── Re-review of d3ee07c (15 Nov 2026): the whole note before "his"/"her", not the owner's last sentence ──
+
+Deno.test("re-review 6: someone introduced before the owner and called 'she'/'he' keeps their husband or wife; asked", () => {
+  const nana = person("p59", "nana10", "Nana", { relationship_label: "grandmother" });
+  const ben = person("p60", "ben10", "Ben", { relationship_label: "brother" });
+  const run1 = (note: string, who: RosterPerson, rel: string, page: string | null = null) => {
+    const quote = note.split(/(?<=[.!?])\s+/u).pop()!.replace(/\.$/u, "");
+    return planExtraction(input(note, [who], page), { needs_clarification: null, items: [
+      item({ person: who.key, person_mention: quote.split(/\s/u)[0], statement: `${who.display_name}'s ${rel} ` + quote.replace(/^(?:He|She) /u, ""), evidence: [quote], confidence: 0.85 }),
+    ] } as ModelProposal);
+  };
+  for (const [note, who, rel, page] of [
+    ["A woman sat with us at church. She told Nana about her husband. He flies to Tokyo.", nana, "husband", null],
+    ["A woman sat by Nana at church. Nana said she was lovely. Her husband is a pilot. He flies to Tokyo.", nana, "husband", null],
+    ["A woman sat with us at church. She and Nana hit it off. Her husband is a pilot. He flies to Tokyo.", nana, "husband", null],
+    ["The new neighbor came over. Nana thinks she is sweet. Her husband is a pilot. He flies to Tokyo.", nana, "husband", null],
+    ["A woman sat with us at church. Nana and I loved her husband. He flies to Tokyo.", nana, "husband", null],
+    ["Ben met a guy at the gym. Ben says he is great. His wife is a doctor. She works nights.", ben, "wife", null],
+    ["She introduced me to her husband. He flies to Tokyo.", nana, "husband", "p59"],
+  ] as const) ok(run1(note, who, rel, page).items.every((i) => i.tier === "hold"), `${note}: asked`);
+  for (const note of [
+    "Lunch with Nana. Her husband is retiring. He is thrilled.",
+    "Nana looked tired. She says her husband is retiring. He is thrilled.",
+    "Saw Nana today. She looked tired. Her husband is retiring. He is thrilled.",
+    "Nana told me her husband is retiring. He is thrilled.",
+    "Nana is doing better. Her husband is retiring. He is thrilled.",
+  ]) {
+    const line = run1(note, nana, "husband").items[0];
+    ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
+  }
+});
