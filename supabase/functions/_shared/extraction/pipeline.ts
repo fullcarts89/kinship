@@ -2671,7 +2671,9 @@ function personLike(ctx: Context, text: string, owner: RosterPerson): boolean {
       continue;
     }
     if (PERSON_PLURALS.test(k)) return true;
-    if (/^\p{Ll}/u.test(word) && lowercaseSomeone(ctx, word, owner)) return true;
+    if (/^\p{Ll}/u.test(word) && lowercaseSomeone(ctx, word, owner, text, words[i].index ?? 0)) return true;
+    // "Nana met June at church", "June told Nana…": a month or a season where a name goes is someone.
+    if (/^\p{Lu}/u.test(word) && (CALENDAR.has(k) || SEASONS.has(k)) && namePosition(text, words[i].index ?? 0, raw)) return true;
     // "Nana met her.", "told her about…", "Nana and she talked": another person in a pronoun (re-review of #93).
     // A possessive "her husband" is not; "She looked tired" opening its sentence is the one named before.
     if (k === "him" || k === "them") return true;
@@ -2715,10 +2717,47 @@ function lowercaseNote(ctx: Context, owner: RosterPerson): boolean {
   return [...ctx.text.matchAll(/[\p{L}][\p{L}\p{M}'’-]*/gu)].some((m) => /^\p{Ll}/u.test(m[0]) &&
     forms.some((n) => nameKey(withoutPossessive(m[0])) === nameKey(n)));
 }
-function lowercaseSomeone(ctx: Context, word: string, owner: RosterPerson): boolean {
+/** Words that open a spoken note or clause and are never anyone ("ok so", "um", "quick update"). */
+const SPOKEN_FILLERS = new Set(["ok", "okay", "so", "um", "uh", "umm", "uhh", "like", "honestly", "update", "quick", "lol",
+  "yeah", "yes", "no", "hey", "hi", "anyway", "anyways", "just", "also", "oh", "well", "alright", "right", "and", "but",
+  "then", "now", "oops", "wow", "omg", "btw", "fyi", "basically", "literally", "actually", "really", "today", "tonight"]);
+/** Months, days and seasons that are also names ("May", "June", "April", "Summer"). */
+const SEASONS = new Set(["spring", "summer", "autumn", "fall", "winter"]);
+
+/**
+ * Whether the word at code-unit `at` sits where a person's name goes (re-review of #93): after "met", "with",
+ * "and", "told", "saw", "called"…, or after "to"/"from" when the note is not travelling, or opening a clause
+ * before its verb; never after "in", "on", "last", "next", "this", "since", "until", "by", "of", nor before a
+ * day number ("may 3rd", "june the fifth").
+ */
+function namePosition(text: string, at: number, word: string): boolean {
+  const lead = text.slice(0, at).trimEnd();
+  const after = text.slice(at + word.length);
+  if (/\b(?:in|on|last|next|this|since|until|till|by|of|every|early|late|mid|through|during|before|after)$/iu.test(lead)) return false;
+  if (/^\s+(?:the\s+)?(?:\d|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|\w+teenth|\w+tieth|twenty|thirty)\b/iu.test(after)) return false;
+  if (/\b(?:flew|fly|flying|moved|moving|went|going|drove|driving|travel+ed|headed|heading|back|home|trip|flight|way|returned|returning) (?:to|from)$/iu.test(lead)) return false;
+  if (/\b(?:met|meet|meeting|with|and|or|told|tell|telling|saw|see|seeing|called|call|calling|visited|visit|hugged|texted|asked|invited|thanked|helped|joined|to|from|for|about|introduced|like|likes|love|loves|said|says|thinks)$/iu.test(lead)) return true;
+  // Opening a clause, before a verb-like word: "June told Nana…", "may and nana had lunch".
+  return (lead === "" || /[.!?\n…,;]["“”'‘’(]*$/u.test(lead)) && /^\s+(?:and|told|said|says|is|was|came|come|met|called|asked|brought|had|has|thinks|loves|sat|hugged|texted|invited|visited)\b/iu.test(after);
+}
+
+function lowercaseSomeone(ctx: Context, word: string, owner: RosterPerson, text = ctx.text, at = -1): boolean {
   const w = withoutPossessive(word);
   const k = fold(w);
   if (k.length < 2 || !lowercaseNote(ctx, owner)) return false;
+  if (SPOKEN_FILLERS.has(k) || /^(?:me|us|you|myself|ourselves|yourself|i|we)$/u.test(k)) return false;
+  // Only where a name goes: a voice note's other words are words (re-review of #93: "nana sounded tired on
+  // the phone her husband…" is Nana's husband).
+  if (at >= 0 && !namePosition(text, at, word)) return false;
+  // Right after "met", "told", "saw", "with"… only a pronoun, a function word, a relation or a filler is no one:
+  // "nana met summer at church", "ben met drew at the gym" (re-review of #93).
+  if (at >= 0 && /\b(?:met|meet|meeting|told|tell|saw|see|seeing|called|visited|hugged|texted|asked|invited|thanked|introduced|with)$/iu.test(text.slice(0, at).trimEnd()) &&
+    !PRONOUNS.has(k) && !neverAName(w) && !/^(?:a|an|the|this|that|my|our|your|his|her|their|some|every|each|me|us|you|myself|everyone|everybody)$/u.test(k) &&
+    !RELATION_WORDS.map(relationKey).includes(relationKey(k)) && !PERSON_NOUNS.has(k) && !PERSON_PLURALS.test(k) &&
+    !namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey).includes(nameKey(w))) return true;
+  if ((CALENDAR.has(k) || SEASONS.has(k) || PERSON_NOUNS.has(k) || ctx.wordNotAName(w)) && at >= 0 && namePosition(text, at, word) &&
+    !namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey).includes(nameKey(w)) && !PRONOUNS.has(k) && !neverAName(w) &&
+    !RELATION_WORDS.map(relationKey).includes(relationKey(k)) && !NOT_A_PERSON_NOUN.has(k)) return true;
   if (namesFor(owner).flatMap((n) => wordsOf(n)).map(nameKey).includes(nameKey(w))) return false;
   if (OPENING_VERBS.has(k) || NOT_A_PERSON_NOUN.has(k) || PERSON_NOUNS.has(k) || PRONOUNS.has(k) || CALENDAR.has(k) || COMMON_CAPITALS.has(k)) return false;
   if (RELATION_WORDS.map(relationKey).includes(relationKey(k))) return false;
@@ -2741,9 +2780,6 @@ function ownsPossessive(ctx: Context, owner: RosterPerson, at: number): boolean 
     const between = head.slice((inSentence.index ?? 0) + inSentence[0].length);
     // "Nana's neighbor came by with her…": the owner's own someone sits between.
     if (/^['’]s?\s/u.test(between)) return false;
-    // In a lowercase note the possessive must follow the owner's name ("nana and her husband", "nana said her
-    // husband"): a name there cannot be told from any other word, so nothing between is trusted.
-    if (lowercaseNote(ctx, owner) && !/^\s+(?:(?:today|tonight|yesterday|this (?:morning|afternoon|evening|week)|again|and|said|says|thinks|with|misses|loves|told (?:me|us))\s+)*$/iu.test(between)) return false;
     // The whole note before it, not only this sentence: "The waitress told Nana about her husband" is the
     // waitress's, and so is "A woman sat with us at church. She told Nana about her husband" (re-review of #93).
     return !personLike(ctx, text.slice(0, at), owner);
@@ -2765,7 +2801,8 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
   const before = fold(ctx.text.slice(0, at));
   const male = pronoun === "he" || pronoun === "him" || pronoun === "his" || pronoun === "himself";
   const names = namesFor(owner).map((n) => fold(n).split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).filter(Boolean);
-  const possessor = `(his|her|their|${names.map((n) => `${n}(?:'s|(?<=s)')`).join("|")})`;
+  // "nanas husband": speech-to-text drops the apostrophe.
+  const possessor = `(his|her|their|${names.map((n) => `${n}(?:'s|’s|(?<=s)'|s)`).join("|")})`;
   const re = new RegExp(`\\b${possessor}\\s+(?:(?:late|own|older|younger|little|big|elder)\\s+)?(${POSSESSED_RELATION})(?![\\w-])`, "gu");
   const fitting: { relation: string; excludesOwner: boolean; det: string; index: number }[] = [];
   for (const m of before.matchAll(re)) {
@@ -2803,9 +2840,10 @@ function ownedRelationBefore(ctx: Context, at: number, pronoun: string, owner: R
     const word = withoutPossessive(w[0]);
     if (word === "I" || ownerKeys.has(nameKey(word))) return false;
     if (ctx.candidatesFor(word).some((c) => c.key !== owner.key)) return true;
-    if (!/^\p{Lu}/u.test(word)) return lowercaseSomeone(ctx, word, owner);
+    if (!/^\p{Lu}/u.test(word)) return lowercaseSomeone(ctx, word, owner, raw, w.index ?? 0);
     if (relativesNames.has(nameKey(word))) return false;
     const lead = raw.slice(0, w.index ?? 0).trimEnd();
+    if ((CALENDAR.has(fold(word)) || SEASONS.has(fold(word))) && namePosition(raw, w.index ?? 0, w[0])) return true;
     if (COMMON_CAPITALS.has(fold(word)) || CALENDAR.has(fold(word)) || ctx.placeOnly(word)) return false;
     // A sentence's first word is someone unless it is an everyday word ("Tom came too. He brought cake": Tom).
     if (lead === "" || /[.!?\n…]["“”'‘’(]*$/u.test(lead)) return !ctx.wordNotAName(word) && !openingVerb(word);

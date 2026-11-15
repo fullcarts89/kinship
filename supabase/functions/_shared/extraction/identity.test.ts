@@ -1215,3 +1215,45 @@ Deno.test("re-review 7: in a lowercase (voice) note, another name in lowercase k
     ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
   }
 });
+
+// ── Re-review of 3c62f94 (15 Nov 2026): names that are dates or words, where a name goes; voice notes not over-asked ──
+
+Deno.test("re-review 8: June, May, Summer, Drew where a name goes are someone; ordinary voice notes keep the relative's line", () => {
+  const nana = person("p63", "nana12", "Nana", { relationship_label: "grandmother" });
+  const ben = person("p64", "ben12", "Ben", { relationship_label: "brother" });
+  const run1 = (note: string, who: RosterPerson, rel: string) => {
+    const quote = note.match(/(?:^|[.\s])((?:he|she|He|She) [^.]*?)\.?$/u)![1];
+    return planExtraction(input(note, [who]), { needs_clarification: null, items: [
+      item({ person: who.key, person_mention: quote.split(/\s/u)[0], statement: `${who.display_name}'s ${rel} ${quote.replace(/^(?:he|she|He|She) /u, "")}`, evidence: [quote], confidence: 0.85 }),
+    ] } as ModelProposal);
+  };
+  for (const [note, who, rel] of [
+    ["Nana met June at church. Her husband is a pilot. He flies to Tokyo.", nana, "husband"],
+    ["Nana met April at church. Her husband is a pilot. He flies to Tokyo.", nana, "husband"],
+    ["Nana met Summer at church. Her husband is a pilot. He flies to Tokyo.", nana, "husband"],
+    ["Nana and May had lunch. Her husband is a pilot. He flies to Tokyo.", nana, "husband"],
+    ["June told Nana about her husband. He flies to Tokyo.", nana, "husband"],
+    ["nana met summer at church. her husband is a pilot. he flies to tokyo", nana, "husband"],
+    ["nana met june at church. her husband is a pilot. he flies to tokyo", nana, "husband"],
+    ["nana met rain at church. her husband is a pilot. he flies to tokyo", nana, "husband"],
+    ["ben met drew at the gym. his wife is a doctor. she works nights", ben, "wife"],
+    ["maria and nana came over and her husband fixed the sink he is handy", nana, "husband"],
+    ["nana said maria and her husband are moving he got a job in ohio", nana, "husband"],
+  ] as const) ok(run1(note, who, rel).items.every((i) => i.tier === "hold"), `${note}: asked`);
+  for (const note of [
+    "ok so talked to nana tonight her husband is finally retiring he is so happy about it",
+    "um so nana called and her husband is in the hospital again he fell",
+    "nana flew back from denver yesterday her husband picked her up he was late lol",
+    "nana is doing great honestly her husband retired he is gardening a lot",
+    "quick update nana is home from the hospital her husband is taking care of her he is amazing",
+    "nanas husband is retiring he is thrilled",
+    "visited nana at her place her husband made pancakes he is the best",
+    "nana sounded tired on the phone her husband has been sick he is on antibiotics",
+    "nana texted me her husband is retiring he is thrilled",
+    "nana was so excited her husband got a promotion he starts monday",
+    "Nana is worried about her husband. He has been forgetful.",
+  ]) {
+    const line = run1(note, nana, "husband").items[0];
+    ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
+  }
+});
