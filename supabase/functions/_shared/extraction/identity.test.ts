@@ -1125,3 +1125,39 @@ Deno.test("re-review 4: 'her husband' is the owner's only in her own sentence or
     ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
   }
 });
+
+// ── Re-review of 8ccc1a7 (15 Nov 2026): every sentence since the owner, the whole head, a pronoun for someone else ──
+
+Deno.test("re-review 5: a filler sentence, a woman before Nana in the sentence, or 'her' for someone else: asked", () => {
+  const nana = person("p58", "nana9", "Nana", { relationship_label: "grandmother" });
+  const he = (note: string, page: string | null = null) => {
+    const quote = note.split(/(?<=[.!?])\s+/u).pop()!.replace(/\.$/u, "");
+    return planExtraction(input(note, [nana], page), { needs_clarification: null, items: [
+      item({ person: "p58", person_mention: "He", statement: "Nana's husband " + quote.replace(/^He /u, ""), evidence: [quote], confidence: 0.85 }),
+    ] } as ModelProposal);
+  };
+  for (const note of [
+    "Nana met a woman at church. They talked for hours. Her husband is a pilot. He flies to Tokyo.",
+    "Nana met a woman at church. It was lovely. Her husband is a pilot. He flies to Tokyo.",
+    "Nana met a woman. Talked a while. Her husband is a pilot. He flies to Tokyo.",
+    "At church a woman sat with Nana. So sweet. Her husband is a pilot. He flies to Tokyo.",
+    "The waitress told Nana about her husband. He owns the diner.",
+    "My sister asked Nana about her husband. He is retiring.",
+    "A woman at church hugged Nana and her husband. He cried.",
+    "Nana met her. Her husband is a pilot. He flies to Tokyo.",
+    "Nana and she talked. Her husband is a pilot. He flies to Tokyo.",
+    "Nana was with her. Her husband is a pilot. He flies to Tokyo.",
+  ]) ok(he(note).items.every((i) => i.tier === "hold"), `${note}: asked`);
+  for (const [note, page] of [
+    ["Nana spent the summer with her husband in Maine. He loved it.", null],
+    ["Nana sent a photo of her husband. He looks great.", null],
+    ["Nana took a picture with her husband. He was smiling.", null],
+    ["Had a long chat with Nana. Her husband is retiring. He is thrilled.", null],
+    ["Called Nana this morning. Her husband had surgery. He is recovering.", null],
+    ["Nana is worried about her husband. He has been forgetful.", null],
+    ["Her husband is a pilot. He flies to Tokyo.", "p58"],
+  ] as const) {
+    const line = he(note, page).items[0];
+    ok(line && line.subject_type === "related" && line.related?.relation === "husband" && line.tier !== "hold", `${note}: Nana's husband's line, no question (${line?.tier} ${line?.subject_type})`);
+  }
+});
