@@ -52,6 +52,13 @@ commit after #91. Merging the RC branch is simpler and is the recommendation.
   CHECK widenings and re-creates six functions with settle lines; nothing is dropped and no row changes.
   Containment if the settle misbehaves: the column is advisory for the app (the adapter falls back to the
   device-local state when it is NULL or unknown), so a hotfix can stop writing it without touching the schema.
+- **Rollback residues (final review F4, F5):** after a rollback to v17, a note whose row carries only `not_understood`
+  (no failed passage, nothing unplaced) and is told again with "Try again" keeps a stale `partial`, because v17 drops
+  the fourth coverage key and reads such a row as no coverage. Remedy, a one-off content-free SQL run only on the
+  founder's yes: for each affected row set `coverage` to NULL when `coverage - 'not_understood'` is the empty
+  three-key shape, else to `coverage - 'not_understood'`, then call `capture_understanding_settle(user_id, id,
+  false)`. And while a gateway runs ahead of the migration, a reopen of a not_understood-only note reads `complete`
+  though its first reply carried the places: harmless once the migration lands, and one more reason it goes first.
 - **Historical records:** untouched. The doubled voice note and the held "Has" note on the founder's account
   stay as they are; the held note can be answered "Someone already here" → the child, or undone and told
   again, once v18 is live. Any wider recovery of past notes is a separate proposal needing approval.
