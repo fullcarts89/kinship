@@ -56,6 +56,8 @@ const DEFAULTS: Required<SyncOptions> = {
 export class SyncEngine {
   private readonly opts: Required<SyncOptions>;
   private running: Promise<SyncReport> | null = null;
+  /** The one cycle promised to everyone who asked while `running` was in flight; starts when it ends. */
+  private next: Promise<SyncReport> | null = null;
 
   constructor(
     private readonly store: UserStore,
@@ -65,14 +67,25 @@ export class SyncEngine {
     this.opts = { ...DEFAULTS, ...opts };
   }
 
-  /** One full cycle. Concurrent calls share the run in progress. */
+  /**
+   * One full cycle. The sync you awaited always covers what was queued before you asked: a call while a
+   * cycle is in flight gets one follow-on cycle that starts when it ends (that cycle's push may already
+   * have run before the caller's writes were queued: a Tell kept ~140 ms into Today's first sync used to
+   * join it, find its insert still in the outbox afterwards, and wait on "Understanding…" with nothing
+   * scheduled). Everyone who asks during the same cycle shares the one follow-on; never a chain beyond it.
+   */
   sync(): Promise<SyncReport> {
     if (!this.running) {
       this.running = this.cycle().finally(() => {
         this.running = null;
       });
+      return this.running;
     }
-    return this.running;
+    this.next ??= this.running.then(() => undefined, () => undefined).then(() => {
+      this.next = null;
+      return this.sync();
+    });
+    return this.next;
   }
 
   private async cycle(): Promise<SyncReport> {

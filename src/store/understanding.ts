@@ -151,6 +151,8 @@ const PERSON_FLAGS = ["new_person", "person_ambiguous", "person_disagreement", "
 export class Understanding {
   private running: Promise<void> | null = null;
   private again = false;
+  /** Notes found still unpushed in this run, each given one more pass (cleared when the run ends). */
+  private readonly unpushed = new Set<string>();
   /** Reviews on screen right now (not persisted: a relaunch starts with none). */
   private readonly onScreen = new Set<string>();
   private readonly maxAttempts: number;
@@ -671,6 +673,7 @@ export class Understanding {
         } while (this.again);
       } finally {
         this.running = null;
+        this.unpushed.clear();
       }
     })();
     return this.running;
@@ -808,6 +811,14 @@ export class Understanding {
     }
     // Its first sync hasn't gone through (queued, or refused and recorded).
     if ((await this.store.pendingOps()).some((op) => op.tbl === "captures" && op.row_id === id && op.kind === "insert")) {
+      // The sync this pass awaited can have started before the note was queued, its push already run:
+      // one more pass, now, so the next sync pushes it and the note is understood, rather than left
+      // waiting with nothing scheduled until the next kick. Once per run for a note: an insert the
+      // server keeps refusing is not asked for in a loop.
+      if (!this.unpushed.has(id)) {
+        this.unpushed.add(id);
+        this.again = true;
+      }
       return false;
     }
     const started = this.clock();

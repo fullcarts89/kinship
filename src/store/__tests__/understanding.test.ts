@@ -204,6 +204,37 @@ describe("Ben runs Chicago Sunday", () => {
   });
 });
 
+describe("a note whose insert the awaited sync did not push (its cycle's push ran first)", () => {
+  it("gets one more pass in the same run, is pushed and understood, and nothing is asked for in a loop", async () => {
+    const { server, gateway, d } = await world();
+    const ben = await d.repos.people.add({ display_name: "Ben" });
+    await d.engine.sync();
+    gateway.script(BEN_NOTE, benScript(ben));
+    // The first sync this run awaits is the one already in flight when the note was kept: it pushes nothing of
+    // it. Every later sync is the real engine.
+    let syncs = 0;
+    const uh = new Understanding(d.store, () => (syncs++ === 0 ? Promise.resolve(JOINED) : d.engine.sync()), new Gateway(gateway), { clock: () => clock });
+    const captureId = await tell({ ...d, understanding: uh }, BEN_NOTE);
+    await uh.run();
+    expect(syncs).toBeGreaterThanOrEqual(2);
+    expect(server.table("captures").has(captureId)).toBe(true);
+    expect((await uh.get(captureId))?.state).toBe("review");
+    expect(gateway.modelRuns).toBe(1);
+    expect(await d.store.pendingOps()).toHaveLength(0);
+
+    // A sync that never gets the insert through: one more pass, then the note waits for the next kick, never a loop.
+    let loops = 0;
+    const stuck = new Understanding(d.store, () => { loops++; return Promise.resolve(JOINED); }, new Gateway(gateway), { clock: () => clock });
+    const other = await tell({ ...d, understanding: stuck }, "Ben's sister is visiting.");
+    await stuck.run();
+    expect(loops).toBe(2);
+    expect((await stuck.get(other))?.state).toBe("waiting");
+  });
+});
+
+/** A sync report from a cycle that had already pushed before this caller's writes were queued. */
+const JOINED = { pushed: 0, rebased: 0, conflicts: 0, rejected: 0, pulled: 0, reconciled: null, fullResync: false, offline: false };
+
 describe("two Sams", () => {
   it("asks which Sam, remembers nothing until answered, then remembers it for that Sam only", async () => {
     const { server, gateway, file, d: first } = await world();
