@@ -2,6 +2,7 @@
 // the pipeline MORE careful: lower certainty, raise sensitivity, drop an
 // item, or ask. They never upgrade anything the model said.
 
+import { isSpokenRun, spokenSentenceAt } from "./segment.ts";
 import type { Certainty, Sensitivity } from "./types.ts";
 
 /** Lower-cased, NFC, curly apostrophes straightened. */
@@ -20,6 +21,11 @@ export function withoutPossessive(word: string): string {
 /** Accent-insensitive comparison key for names ("José" ≈ "jose"; "Chris'" ≈ "chris"). */
 export function nameKey(text: string): string {
   return withoutPossessive(fold(text).normalize("NFD").replace(/\p{M}+/gu, "").trim()).trim();
+}
+
+/** The key of a hyphenated name said aloud ("Hyun-woo" → "hyun woo"); the key itself when there is no hyphen. */
+export function spokenKey(text: string): string {
+  return nameKey(text).replace(/-+/gu, " ").replace(/\s+/gu, " ").trim();
 }
 
 /**
@@ -105,6 +111,10 @@ export function negatedWhereStated(clause: string, statement: string): boolean {
 const SENSITIVE: [Exclude<Sensitivity, "none">, RegExp][] = [
   ["death_grief", /\b(died|dies|dying|passed away|passed on|death|dead|funeral|memorial service|burial|buried|grief|grieving|mourning|lost (?:her|his|their|my) (?:mom|mother|dad|father|husband|wife|partner|son|daughter|brother|sister|baby|grandma|grandmother|grandpa|grandfather|dog|cat)|miscarri\w*|stillborn|terminally ill|terminal (?:illness|cancer|diagnosis)|hospice|suicide)\b/],
   ["health", /\b(surgery|surgeries|operation|hospital|hospitali[sz]ed|er visit|emergency room|icu|cancer|tumou?r|chemo\w*|radiation|diagnos\w*|biopsy|scan results|mri|ct scan|stroke|heart attack|seizure|illness|ill|sick|disease|infection|covid|flu|pneumonia|diabetes|dementia|alzheimer'?s|parkinson'?s|injur\w*|broke (?:her|his|their) (?:leg|arm|wrist|ankle|hip)|fracture\w*|concussion|rehab|therapy|therapist|depress\w*|anxiety|panic attacks?|mental health|adhd|autism|eating disorder|addiction|sober|sobriety|relapse|pregnan\w*|expecting a baby|ivf|fertility|due date|in labou?r|went into labou?r|c-section|postpartum|recovering|recovery|doctor|doctor's|clinic|appointment with (?:a|her|his|the) (?:doctor|specialist|oncologist|surgeon)|medication|meds|prognosis|treatment|physical therapy|knee replacement|hip replacement|mastectomy|colonoscopy|mammogram|ultrasound|checkup|check-up|blood test|lab results|comes home from the hospital)\b/],
+  // Everyday illness and a body that hurts (founder-authorised live run, 15 Nov 2026: "her back is bad again"
+  // was saved as plain): "her back is bad / hurting / acting up / out / giving her trouble", "a bad back",
+  // "back pain", "under the weather", "came down with", "throwing up", a migraine, a fever.
+  ["health", new RegExp(String.raw`\b(?:(?:her|his|their|my|your|the|[\p{L}]+'s) (?:lower |upper )?(?:back|knee|knees|hip|hips|shoulder|shoulders|neck|wrist|ankle|stomach|tummy|chest|heart|leg|legs|arm|foot|feet|hand|hands|eyes|eye|teeth|tooth|sinuses|lungs|blood pressure) (?:is|was|has been|had been|s|'s|are|were|keeps|kept)? ?(?:really |still |quite |very |pretty |so |a bit |a little |always )?(?:bad(?! at\b)|(?:getting |got )?worse|hurting|hurts|hurt|sore(?! from crying)|killing (?:her|him|them|me)|acting up|playing up|flared up|flaring up|giving (?:her|him|them|me) (?:trouble|grief|problems)|bothering (?:her|him|them|me))|(?:her|his|their|my|[\p{L}]+'s) (?:back|knee|hip) (?:went|gave|has gone|is|was) out|(?:bad|sore|hurt|injured|broken|sprained|twisted|dodgy|dislocated) (?:back|knee|knees|hip|hips|shoulder|neck|wrist|ankle|leg|arm|foot|ankle|tooth)|(?:back|neck|knee|hip|shoulder|chest|stomach|joint|chronic) pain|in (?:a lot of |terrible |constant )?pain|slipped disc|herniated disc|migraines?|fever(?! pitch)|a temperature|under the weather|not feeling (?:well|great|good)|feeling (?:poorly|rough|awful|unwell|terrible|sick)|unwell|(?:is|'s|s|been|was|looks?|looking) poorly(?! (?:written|worded|organi[sz]ed|attended|done|made|planned|run|designed|managed|received|paid|lit|timed|thought|handled|built|kept|maintained|explained|[\p{L}]+ed)\b)|threw (?:his|her|their|my|your) back out|came down with|come down with|threw up|throwing up|vomit\w*|stomach bug|tummy bug|food poisoning|(?:has|had|got|caught|with|fighting|getting over) (?:a |the )?(?:bad |nasty |head )?cold(?! (?:beer|beers|drink|drinks|one|ones|feet|shoulder|brew|water|call|case|snap|front|weather|day|days|night|nights|morning|hands|glass|can|coffee|pizza|start|reception|welcome))|head cold|bronchitis|asthma|allergic reaction|physio\w*|(?:sees?|seeing|saw|seen) (?:a|the|her|his|their|my) (?:gp|physio|cardiologist|neurologist|oncologist|surgeon)|(?:sees?|seeing|saw|seen) (?:a|the|her|his|their|my) (?:specialist|consultant)(?=\s*(?:$|[.,;!?]|(?:today|tomorrow|tonight|again|next|on|this|last|soon|about (?:her|his|their|my|the) (?:back|knee|hip|heart|eyes?|skin|leg|arm|pain|condition|symptoms|results|lump|headaches|migraines)|for (?:her|his|their|my|the) (?:back|knee|hip|heart|eyes?|skin|leg|arm|pain|condition|symptoms|results|lump|headaches|migraines))\b)))\b`, "u")],
   ["conflict", /\b(divorc\w*|separat(?:ed|ing|ion)|split up|splitting up|broke up|breaking up|break-up|breakup|cheat\w*|affair|estranged|not speaking|stopped talking|falling out|fell out|fight|fighting|fought|argument|custody|restraining order|lawsuit|sued|suing|arrest\w*|jail|prison|abuse\w*|abusive|toxic)\b/],
   ["money", /\b(laid off|layoffs?|got fired|was fired|lost (?:her|his|their) job|unemploy\w*|out of work|bankrupt\w*|debt|debts|broke|can't afford|cant afford|money (?:trouble|problems|issues)|struggling financially|financial(?:ly)? (?:trouble|stress|problems)|evict\w*|foreclos\w*|loan|loans|salary|pay cut|mortgage)\b/],
   ["other_private", /\b(coming out|came out|gay|lesbian|bisexual|transgender|trans|immigration status|visa|deport\w*|undocumented|religion|converted)\b/],
@@ -153,7 +163,8 @@ function SENSITIVE_PARAPHRASE_OK(term: string, src: string): boolean {
     [/^(divorc\w*)$/, /\bdivorc\w*\b/],
     [/^(fight|fighting|fought|argument)$/, /\b(fight|fighting|fought|argu\w*)\b/],
     [/^(laid off|lost (her|his|their) job)$/, /\b(laid off|layoff|lost (her|his|their) job|let go)\b/],
-    [/^(sick|ill|illness)$/, /\b(sick|ill|illness|unwell)\b/],
+    [/^(sick|ill|illness)$/, /\b(sick|ill|illness|unwell|under the weather|poorly|not feeling (?:well|great|good))\b/],
+    [/^(?:back|neck|knee|hip|shoulder|chest|stomach|joint|chronic) pain$/, /\b(?:back|neck|knee|hip|shoulder|chest|stomach|joint)\b.{0,30}\b(?:bad|hurt\w*|sore|pain|acting up|playing up|out)\b/],
     [/^(recovering|recovery)$/, /\b(recover\w*|surgery|operation)\b/],
   ];
   return pairs.some(([t, s]) => t.test(term) && s.test(src));
@@ -221,14 +232,16 @@ export function kinshipReference(mention: string): string | null {
 
 // ─── Promises ───────────────────────────────────────────────────────────────
 
-const USER_COMMITMENT = /\b(i'll|i will|i'm going to|im going to|i am going to|i said i'd|i said i would|i told (?:him|her|them|\w+) i'd|i told (?:him|her|them|\w+) i would|i promised|i offered to|i owe|i need to|i have to|i've got to|i gotta|i should|i must|i agreed to|i'm supposed to|im supposed to|i'm bringing|i'm taking|i'm sending|i'm calling|remind me to|i'd send|i'd call|i'd bring|i'd help|need to (?:send|call|text|bring|get|book|buy|return|email|ask|check)|gotta|let me)\b/;
+const USER_COMMITMENT = /\b(i'll|ill (?:send|call|text|bring|get|book|buy|return|email|ask|check|help|take|cover|do)|i will|i'm going to|im going to|i am going to|i said i'd|i said id|i said i would|i said we would|i said we'd|i said wed|i said we will|i said yes|i told (?:him|her|them|\w+) i'd|i told (?:him|her|them|\w+) id|i told (?:him|her|them|\w+) i would|i promised|i offered to|i owe|i still owe|i need to|i have to|i've got to|i gotta|i should|i must|i agreed(?: to)?|i'm supposed to|im supposed to|i'm bringing|i'm taking|i'm sending|i'm calling|remind me to|i'd send|i'd call|i'd bring|i'd help|id send|id call|id bring|id help|id take|id cover|need to (?:send|call|text|bring|get|book|buy|return|email|ask|check)|gotta|let me|which (?:fine|sure|ok|okay|of course)|said yes to)\b/;
 
 /** True when the wording has the user committing to something. */
 export function isUserCommitment(sentence: string): boolean {
   return USER_COMMITMENT.test(fold(sentence));
 }
 
-const SELF_NOTE_START = /^(?:let's|lets|gonna|going to|i'm gonna|im gonna|i|i'm|im|i've|i'll|i'd|me|need|needs|have to|gotta|must|should|remember|don't forget|dont forget|ask|send|call|text|email|bring|return|buy|get|book|check|drop|dropping|bringing|sending|calling|texting|taking|picking|making|getting|buying|booking|returning|todo|to do|reminder)\b/;
+// A note to self may leave off its "I" ("Promised Tomasz the proposal by Wednesday", "Still owe Tomasz…",
+// "Offered to help Ben move"): the commitment is the user's own (CMR-1 B).
+const SELF_NOTE_START = /^(?:let's|lets|gonna|going to|i'm gonna|im gonna|i|i'm|im|i've|i'll|i'd|me|need|needs|have to|gotta|must|should|remember|don't forget|dont forget|ask|send|call|text|email|bring|return|buy|get|book|check|drop|dropping|bringing|sending|calling|texting|taking|picking|making|getting|buying|booking|returning|todo|to do|reminder|(?:promised|owe|still owe|offered|agreed)(?![^.!?]*\b(?:me|us)\b)|told \w+ (?:i'd|id|i would)|said (?:i'd|id|i would))\b/;
 
 /**
  * Whether the user is the one acting in this clause: an explicit commitment
@@ -248,7 +261,7 @@ export function userIsActor(clause: string): boolean {
  * nor someone's commitment to the user is plain, these make whose promise
  * it is a real question; without any of them, nothing here is a promise.
  */
-const COMMITMENT = /\b(?:promise[sd]?|promising|swore|swears?|vow(?:ed|s)?|(?:agree[sd]?|offer(?:ed|s)?|commit(?:ted|s)?)\s+to|owe[sd]?|supposed\s+to|(?:said|says|told\s+[\p{L}'-]+)\s+(?:that\s+)?(?:i|we|he|she|they|you)(?:'d|'ll|\s+would|\s+will)|(?:asked|asks|wants|wanted|needs|needed|told|tells|reminded|reminds)\s+(?:me|us)\s+to)\b/u;
+const COMMITMENT = /\b(?:promise[sd]?|promising|swore|swears?|vow(?:ed|s)?|(?:agree[sd]?|offer(?:ed|s)?|commit(?:ted|s)?)\s+to|owe[sd]?|supposed\s+to|(?:said|says|told\s+[\p{L}'-]+)\s+(?:that\s+)?(?:i|we|he|she|they|you)(?:'d|'ll|\s+would|\s+will)|(?:asked|asks|wants|wanted|needs|needed|told|tells|reminded|reminds)\s+(?:me|us)\s+to|(?:asked|asks|asking|wondered|wants to know)\s+(?:me\s+|us\s+)?(?:if|whether)\s+(?:i|we)(?:'d|'ll|d|ll|\s+can|\s+could|\s+would|\s+will|\s+might|\s+can't|\s+cant))\b/u;
 
 export function commitsSomeone(clause: string): boolean {
   return COMMITMENT.test(fold(clause));
@@ -265,6 +278,39 @@ const INSTRUCTION = [
   /\bas an ai\b|\bassistant:|\buser:|\bsystem:|<\/?(system|instructions?|note)>/,
 ];
 
+/**
+ * An aside to the writer themself about the note, not about anyone ("dont tell mom", "keep it quiet", "not
+ * a word to Grace", "nobody say anything"; founder-authorised live run, 15 Nov 2026: "dont tell mom" was saved
+ * as a thread on Mom). Only an imperative that opens the words; "Mom's seventieth is a surprise" is a fact.
+ */
+// A fixed shape, never open-ended (re-review of #93): who is not to be told, and at most what, where "what" is a
+// pronoun or a word for the surprise itself. "Don't tell Mom Ben lost his job", "Don't tell Kaiya Grandpa died",
+// "Don't tell anyone about the miscarriage" and "No one say anything to Mark about the layoffs" carry news and
+// are kept; so are "Don't tell anyone but Grace is pregnant" and "Don't mention the divorce to Ben".
+const ASIDE_WORD = "[\\p{L}'’]+";
+const ASIDE_WHO = `(?:anyone|anybody|everyone|everybody|him|her|them|the (?:kids|boys|girls|family|others)|(?:my |our |your )?(?:${["mom", "mum", "mother", "dad", "father", "grandma", "grandpa", "nana", "gran", "granny", "papa", "brother", "sister", "wife", "husband", "partner", "aunt", "uncle", "cousin", "kids", "boss", "son", "daughter"].join("|")})(?: ${ASIDE_WORD})?|${ASIDE_WORD})`;
+const ASIDE_THING = `(?:it|this|that|anything|any of (?:it|this|that)|(?:the|her|his|their|my|our|${ASIDE_WORD}['’]s) (?:surprise |birthday |big |baby |new )?(?:party|surprise|plan|plans|gift|gifts|present|presents|trip|puppy|cake|lunch|dinner|card|idea|secret|news|shower|car|ending|score|results?))`;
+const ASIDE_WHEN = "(?:(?:at|before|until|till) (?:the|her|his|their) (?:party|seventieth|sixtieth|fiftieth|fortieth|thirtieth|birthday|dinner|lunch|wedding|reunion|weekend|shower))";
+const ASIDE_ACT = `(?:tell(?: ${ASIDE_WHO})?(?:,? (?:about|of) ${ASIDE_THING}| ${ASIDE_THING})?` +
+  `|(?:say|breathe) (?:anything|a word)(?: (?:to|around|in front of) ${ASIDE_WHO})?(?: (?:about|of) ${ASIDE_THING})?` +
+  `|let on(?: (?:to|around) ${ASIDE_WHO})?|(?:spoil|ruin)(?: ${ASIDE_THING})?(?: (?:for|on) ${ASIDE_WHO})?` +
+  `|mention (?:it|this|that|anything)(?: (?:to|around|in front of) ${ASIDE_WHO})?` +
+  `|bring (?:it|this|that) up(?: (?:with|around|in front of) ${ASIDE_WHO})?` +
+  `|let ${ASIDE_WHO} (?:find out|know|see|hear)(?: (?:about|of) ${ASIDE_THING})?)`;
+const ASIDE_NOT = "(?:don'?t|do not|never|nobody|no one|noone)";
+const ASIDE_TAIL = `(?: ${ASIDE_WHEN})?(?:,? (?:it'?s|its) (?:a )?(?:surprise|secret))?(?: yet)?`;
+const SECRET_ASIDE = [
+  // The aside alone: "dont tell mom", "don't say anything to Grace", "don't spoil it", "Don't let Mom find out".
+  new RegExp(`^\\W*(?:and |so |but |um |uh |oh |shh+ |please |just |also |obviously |remember )*${ASIDE_NOT} ${ASIDE_ACT}${ASIDE_TAIL}\\W*$`, "u"),
+  /^\W*(?:and |so |but |um |uh |oh |please |just |also )*(?:keep (?:it|this|that|the (?:news|plan|party|surprise)) (?:quiet|secret|a secret|under wraps|between us|to yourself|hush ?hush|on the down ?low)(?: from [\p{L}'’]+)?|mum'?s the word|not a word(?: to [\p{L}'’]+)?|shh+|hush hush)\W*$/u,
+  new RegExp(`^\\W*(?:and |so |but |um |uh |oh )*(?:it'?s|its|this is|that'?s) (?:a )?(?:secret|surprise)[,;]? so (?:${ASIDE_NOT} ${ASIDE_ACT}|keep (?:it|this|that) (?:quiet|secret|a secret|between us))\\W*$`, "u"),
+];
+export function looksLikeSecretAside(words: string): boolean {
+  const s = fold(words).trim();
+  // Words that are news in themselves are never set aside, whatever shape carries them.
+  return wordsOf(s).length <= 11 && SECRET_ASIDE.some((re) => re.test(s)) && !wordingSensitivities(s).length;
+}
+
 /** True when a sentence reads as instructions to the AI rather than news about someone. */
 export function looksLikeInstruction(sentence: string): boolean {
   const s = fold(sentence);
@@ -274,7 +320,13 @@ export function looksLikeInstruction(sentence: string): boolean {
 // ─── Sentences ──────────────────────────────────────────────────────────────
 
 /** The sentence(s) of `text` that contain the UTF-16 range [from, to). */
-export function sentenceAround(text: string, from: number, to: number): string {
+export function sentenceAround(text: string, from: number, to: number, names: readonly string[] = []): string {
+  // A spoken run (no punctuation at all, a dozen words or more) is read in its spoken sentences (segment.ts,
+  // CMR-1 C); every other note is read exactly as before.
+  if (isSpokenRun(text)) {
+    const seg = spokenSentenceAt(text, from, to, names);
+    return text.slice(seg.start, seg.end);
+  }
   const boundary = /[.!?\n]/;
   let a = from;
   while (a > 0 && !boundary.test(text[a - 1])) a--;
@@ -378,7 +430,7 @@ export function theyPromisedMe(clause: string): boolean {
   // "Tyler said he'd send me…", "promised she would…"
   return /\b(?:said|says|promised|offered|told me)\b[^.!?]{0,20}\b(?:he|she|they)(?:'d|'ll| would| will| was going to| is going to)\b/u.test(c)
     // "Tyler promised to send me…", "offered to lend us…"
-    || /\b(?:promised|offered|agreed)\s+to\s+\w+(?:\s+\w+)?\s+(?:me|us)\b/u.test(c)
+    || /\b(?:promised|offered|agreed)\s+to\s+(?:[\p{L}'-]+\s+){1,6}?(?:me|us)\b/u.test(c)
     // "Tyler promised me his contractor's number", "owes me $20"
     || /\b(?:promised|owes)\s+(?:me|us)\b/u.test(c)
     // "Tyler will send me…", "Tyler's going to text me…", "he'll bring us…":

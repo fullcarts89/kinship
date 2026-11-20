@@ -56,6 +56,7 @@ import {
 } from "../../supabase/functions/_shared/extraction/names";
 import { peopleOf, repositoriesFor, type Capture, type FeedbackOff, type MemoryItem, type MemorySource } from "./repositories";
 import { followUpsOf, keptLinesOf, recoveryOf } from "./followUp";
+import { anythingLeftOut, leftOut, type NoteCoverage } from "./coverage";
 import { apartKey, rememberLinks } from "./linksAnswered";
 import { getMeta, setMeta } from "./schema";
 import type { SyncReport } from "./syncEngine";
@@ -79,14 +80,20 @@ export interface Reading {
   settled: boolean;
   /** Relationships said again that Kinship already holds: said back, never kept twice (H17). */
   known?: string[];
-  /** The answer that settled it, to check it landed after "already_resolved". */
+  /** The answer that settled it, to check it landed after "already_resolved" (cleared once checked). */
   answered?: HeldAnswer[];
+  /**
+   * The user answered "Don't keep this" to everything held and nothing was kept from the note: the
+   * reading was declined (CMR-1). Durable on this row, so the note is never later said to be "nothing"
+   * as if understood so; the Tell itself remains, where its words belong.
+   */
+  declined?: boolean;
   /**
    * What the understanding did not get to (Option A, founder 19 Oct): the note's own spans and a count
    * of unplaced ones. Present only when the note held more than one understanding could take. The
    * capture row's own `coverage` (synced) is the truth across phones; this is the reply's copy.
    */
-  coverage?: { unprocessed: { start: number; end: number }[]; unlocated: number };
+  coverage?: NoteCoverage;
 }
 
 export interface PendingAnswer {
@@ -145,6 +152,8 @@ const PERSON_FLAGS = ["new_person", "person_ambiguous", "person_disagreement", "
 export class Understanding {
   private running: Promise<void> | null = null;
   private again = false;
+  /** Notes found still unpushed in this run, each given one more pass (cleared when the run ends). */
+  private readonly unpushed = new Set<string>();
   /** Reviews on screen right now (not persisted: a relaunch starts with none). */
   private readonly onScreen = new Set<string>();
   private readonly maxAttempts: number;
@@ -211,16 +220,6 @@ export class Understanding {
   async get(captureId: string): Promise<UnderstandingRow | null> {
     const r = await this.store.db.get<Record<string, SqlValue>>("SELECT * FROM understanding WHERE capture_id = ?", [captureId]);
     return r ? parseRow(r) : null;
-  }
-
-  /**
-   * Notes this phone told that were settled with no reading to keep: understood with nothing in it
-   * (never a reading the user declined: held readings are never "nothing"), kept as written, or kept
-   * after understanding failed. Each is still the user's words, kept on the page of whoever it is
-   * about (founder, 10 Nov 2026: every Tell is logged).
-   */
-  async quietNotes(): Promise<Set<string>> {
-    return quietNotesIn(this.store);
   }
 
   /** Every note still in progress or waiting for the user, oldest first. */
@@ -398,7 +397,17 @@ export class Understanding {
    */
   async retry(captureId: string): Promise<void> {
     const row = await this.get(captureId);
-    if (!row || row.state !== "failed") return;
+    if (!row) {
+      // Failed on another phone (the synced row says so) and never tracked here: tracked now, from a fresh
+      // count, and understood as any new note is (the usual retries and waits). The gateway holds the
+      // note; nothing is re-entered, and whatever it kept before stays.
+      const capture = (await this.store.get("captures", captureId)) as Capture | null;
+      if (capture?.status !== "failed") return;
+      await this.told(captureId);
+      this.kick();
+      return;
+    }
+    if (row.state !== "failed") return;
     await this.save(captureId, { state: "waiting", attempts: 0, next_at: null, understood_at: null, shown_at: null, retries: null });
     this.kick();
   }
@@ -416,12 +425,14 @@ export class Understanding {
     if (!capture || !capture.raw_text) return null;
     const row = await this.get(captureId);
     const coverage = capture.coverage ?? row?.reading?.coverage ?? null;
-    if (!coverage || (!coverage.unprocessed.length && !coverage.unlocated)) return null;
+    if (!anythingLeftOut(coverage)) return null;
+    // Every place left out: the passages not got to, and the places read but kept nothing from (CMR-1 C2).
+    const places = leftOut(coverage);
     const followUps = await followUpsOf(this.store, captureId);
     const still = followUps.length
-      ? recoveryOf(capture.raw_text, coverage.unprocessed, { kept: await keptLinesOf(this.store, captureId) }, followUps).remaining
-      : coverage.unprocessed;
-    if (!still.length && !coverage.unlocated) return null;
+      ? recoveryOf(capture.raw_text, places, { kept: await keptLinesOf(this.store, captureId) }, followUps).remaining
+      : places;
+    if (!still.length && !coverage!.unlocated) return null;
     const chars = Array.from(capture.raw_text);
     const passages = [...still]
       .filter((s) => Number.isInteger(s.start) && Number.isInteger(s.end) && s.start >= 0 && s.end > s.start && s.end <= chars.length)
@@ -665,6 +676,7 @@ export class Understanding {
         } while (this.again);
       } finally {
         this.running = null;
+        this.unpushed.clear();
       }
     })();
     return this.running;
@@ -694,6 +706,9 @@ export class Understanding {
       this.store.notify();
       return;
     }
+    // What the sync just brought (a note told on another phone, or a question waiting there) is tracked in
+    // this same pass, not the next kick's (CMR-1: never lost between phones).
+    await this.discover();
     await this.finishLeftOpen();
     this.reporting ??= this.reportResidence().catch(() => undefined);
     let wrote = await this.reportChanged();
@@ -756,11 +771,17 @@ export class Understanding {
     }
   }
 
-  /** Notes told with AI on (here, or pulled from another device) that nothing tracks yet. */
+  /**
+   * Notes told with AI on (here, or pulled from another device) that nothing tracks yet: not understood
+   * yet (`pending`), or understood on another phone with a question still waiting there (`needs_review`,
+   * CMR-1). Tracked, the gateway is asked once and answers "done" with the stored question (no model
+   * run), so the question shows here too and the note is never lost between phones; whichever phone
+   * answers, the other is told (review_changed / not_waiting).
+   */
   private async discover(): Promise<void> {
     const captures = await this.store.list("captures");
     for (const c of captures) {
-      if (c.status !== "pending" || !c.raw_text) continue;
+      if ((c.status !== "pending" && c.status !== "needs_review") || !c.raw_text) continue;
       if (!(await this.get(c.id as string))) await this.told(c.id as string);
     }
   }
@@ -802,6 +823,14 @@ export class Understanding {
     }
     // Its first sync hasn't gone through (queued, or refused and recorded).
     if ((await this.store.pendingOps()).some((op) => op.tbl === "captures" && op.row_id === id && op.kind === "insert")) {
+      // The sync this pass awaited can have started before the note was queued, its push already run:
+      // one more pass, now, so the next sync pushes it and the note is understood, rather than left
+      // waiting with nothing scheduled until the next kick. Once per run for a note: an insert the
+      // server keeps refusing is not asked for in a loop.
+      if (!this.unpushed.has(id)) {
+        this.unpushed.add(id);
+        this.again = true;
+      }
       return false;
     }
     const started = this.clock();
@@ -825,8 +854,11 @@ export class Understanding {
     }
     // What the understanding could not take, when anything (Option A): kept with the reading so the card
     // and the Source view say so, on this phone at once and on every phone through the capture row.
-    const coverage = reply.coverage.state === "partial"
-      ? { unprocessed: reply.coverage.unprocessed, unlocated: reply.coverage.unlocated }
+    const coverage: NoteCoverage | null = reply.coverage.state === "partial"
+      ? {
+          unprocessed: reply.coverage.unprocessed, unlocated: reply.coverage.unlocated,
+          ...(reply.coverage.not_understood?.length ? { not_understood: reply.coverage.not_understood } : {}),
+        }
       : null;
     if (reply.status === "extracted") {
       track("extraction_completed", {
@@ -924,12 +956,17 @@ export class Understanding {
       const saved = reply.status === "resolved"
         ? [...reading.saved, ...reply.saved.filter((s) => s.id).map((s) => ({ id: s.id as string, tier: "confirm" as const }))]
         : reading.saved;
+      // "Don't keep this" to everything held, and nothing kept from the note at all: declined, for good.
+      const declined = saved.length === 0 && pending.answers.length > 0 && pending.answers.every((a) => a.skip === true);
       await this.save(id, {
         // Always back to review: what the answer kept is shown ("Kept for …")
         // and stays accounted for until the user is finished with it. A
         // review nobody is looking at is finished later (finishLeftOpen).
         state: "review",
-        reading: { ...reading, saved, held: [], clarification: null, review_created_at: null, settled: true, answered: pending.answers },
+        reading: {
+          ...reading, saved, held: [], clarification: null, review_created_at: null, settled: true, answered: pending.answers,
+          ...(declined ? { declined: true } : {}),
+        },
         answer: null, notice: null, attempts: 0, next_at: null,
       });
       return true;
@@ -1159,12 +1196,8 @@ function parseRow(r: Record<string, SqlValue>): UnderstandingRow {
   };
 }
 
-/** Understanding.quietNotes for code that holds only the store (a person's Pages). */
-export async function quietNotesIn(store: UserStore): Promise<Set<string>> {
-  const rows = await store.db.all<Record<string, SqlValue>>("SELECT * FROM understanding WHERE state IN ('done', 'kept', 'failed')");
-  const out = new Set<string>();
-  for (const row of rows.map(parseRow)) {
-    if (row.state === "kept" || row.state === "failed" || row.reading?.tier === "nothing") out.add(row.capture_id);
-  }
-  return out;
+/** Every note's row this phone holds, by note, for code that holds only the store (a person's Pages, Your words). */
+export async function understandingRowsIn(store: UserStore): Promise<Map<string, UnderstandingRow>> {
+  const rows = await store.db.all<Record<string, SqlValue>>("SELECT * FROM understanding");
+  return new Map(rows.map(parseRow).map((r) => [r.capture_id, r]));
 }

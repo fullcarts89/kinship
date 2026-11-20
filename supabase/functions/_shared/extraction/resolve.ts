@@ -430,6 +430,13 @@ export function resolveHeld(held: HeldItem[], answers: HeldAnswer[], ctx: Resolv
     };
     let statement = item.statement;
     let mentions = mentionsOf(item.person_mentions);
+    // "Is this about Sam, or Sam's brother?" answered "Sam's brother": a line the model worded as Sam's own
+    // ("Sam brought cake") now says whose it is ("Sam's brother brought cake"), never Sam (re-review of #93).
+    if (flags.has("subject_check") && a.subject === "related" && related?.relation) {
+      const p = ctx.people.find((x) => x.id === personId);
+      const lead = p ? [p.display_name, ...(p.mention_names ?? [])].find((n) => n && new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=\\s)`, "u").test(statement)) : undefined;
+      if (lead) statement = `${lead}'s ${related.relation}${statement.slice(lead.length)}`;
+    }
     const chosen = needsPerson && subjectType !== "related" ? subjectFor(personId) : null;
     const openTexts = new Set(openNames.map((o) => fold(o.text)));
     // Every other name in it answered with that same person ("Anthony and Sam love watching Dragonball Z",

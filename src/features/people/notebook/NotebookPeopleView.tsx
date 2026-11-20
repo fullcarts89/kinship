@@ -15,8 +15,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Platform, ScrollView, SectionList, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Plus, Search, Settings2 } from "lucide-react-native";
-import { maxScale, notebook, notebookShadow, size, space } from "@/design/tokens";
+import { ChevronRight, PenLine, Plus, Search, Settings2 } from "lucide-react-native";
+import { maxScale, notebook, notebookShadow, press, size, space } from "@/design/tokens";
+import { Pressable } from "@/ui/Pressable";
+import { WORDS_COPY } from "./WordsView";
 import { ASK_COPY, looksLikeName } from "@/features/ask/retrieve";
 import type { AskView } from "@/features/ask/useAsk";
 import { AddByNameSheet } from "@/features/setup/AddByNameSheet";
@@ -64,13 +66,19 @@ export interface NotebookPeopleViewProps {
   memory?: AskView;
   /** A found line: that note in their notebook (an href from the model). */
   onHit: (href: string) => void;
+  /**
+   * There are notes about no one in People ("Your words", CMR-1): one quiet row after Everyone leads to
+   * them. Never shown with nothing there, and never a count.
+   */
+  hasWords?: boolean;
+  onWords?: () => void;
   /** The lab and tests. */
   initialQuery?: string;
   initialAdding?: string | null;
 }
 
 export function NotebookPeopleView({
-  loaded, people, tiles, band, names, today, onOpen, onAdd, onSettings, onAddFromContacts, onGo, onQuery, memory, onHit,
+  loaded, people, tiles, band, names, today, onOpen, onAdd, onSettings, onAddFromContacts, onGo, onQuery, memory, onHit, hasWords, onWords,
   initialQuery = "", initialAdding = null,
 }: NotebookPeopleViewProps) {
   const p = usePalette();
@@ -238,6 +246,27 @@ export function NotebookPeopleView({
 
   const footer = (
     <View style={{ paddingBottom: space.x4 }}>
+      {/* Your words (CMR-1): the notes about no one in People, when there are any. One row, no count. */}
+      {loaded && !searching && hasWords && onWords ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={WORDS_COPY.row}
+          accessibilityHint={WORDS_COPY.rowHint}
+          onPress={onWords}
+          testID="people-words"
+          style={({ pressed }) => ({
+            flexDirection: "row", alignItems: "center", gap: space.m, marginTop: space.xl, marginHorizontal: space.l, paddingHorizontal: space.xs,
+            paddingVertical: 14, borderTopWidth: 1, borderTopColor: p.hairline, borderBottomWidth: 1, borderBottomColor: p.hairline, opacity: pressed ? press.surface : 1,
+          })}
+        >
+          <PenLine color={p.ink} size={size.icon} strokeWidth={1.8} />
+          <View style={{ flex: 1 }}>
+            <NText v="strong15">{WORDS_COPY.row}</NText>
+            <NText v="small" tone="quiet">{WORDS_COPY.rowHint}</NText>
+          </View>
+          <ChevronRight color={n.quiet} size={size.icon} strokeWidth={1.8} />
+        </Pressable>
+      ) : null}
       {loaded && !searching && tiles.length === 0 ? (
         <View style={{ paddingHorizontal: space.xxl, marginTop: space.xxl }}>
           <NText v="serif21">{INDEX_COPY.empty}</NText>

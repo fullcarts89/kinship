@@ -76,6 +76,15 @@ LIVE=1 npx jest -c e2e/jest.blackbox.config.js e2e/blackbox/live.blackbox.tsx
 | `notebook.blackbox.tsx` | The Moment Deck × Notebook × Showing Up journeys (PR #77; founder directive 2 Nov 2026) with `notebook_deck` on for the test account alone: J1 poster → expanded moment → Message → back → Yes; J4 ideas on request quoting the user's words, Keep it in mind as a never-understood note and one user-authored promise; J5 a day added to the user's own promise (nothing doubles), I did this (resolved, no contact); J3 a word search opening the person's Pages at that note; J6 what happened told back, closing the earlier line without doubling; J2 PR #77's messy note (two Sams, a relative, two sensitive readings, a mid-sentence correction) through the notebook review, then Undo. Run with `GATEWAY_URL` at this branch's gateway with the model key for LIVE-MODEL evidence |
 | `b5.blackbox.tsx` | Phase 4B B5 the composed residence line (brief §9, §12): "Lives in Alameda, California" in What Kinship knows from two notes with "and 1 other note" (nothing composed stored); the sheet of its notes, each with its own source, Edit and Not this; Not this on California from the sheet leaving "Susan lives in Alameda" (California retracted, its reading gone); California → Alameda → "moved to Colorado" → Undo from the Kept card, the composed line back with the same server rows. Same stack and replies as `b3`; no new migration |
 
+## Running the whole sequence (what the CMR-1 runs taught)
+
+- One suite at a time, each from its own `npx jest -c e2e/jest.blackbox.config.js <file>`.
+- A fixture written straight to the server (`earlierLine`) needs the account's people there first: `await acct.engine.sync()` after `setUp()` (k20, k27, k28, notebook, trustfloor all do this now). On a stack where the reasons RPC takes ~100 ms, Today's first sync is still in flight when `setUp` returns.
+- `k10` computes "last Friday" from the run's own day; the resolver reads "last Friday" said on a Saturday or Sunday as last week's Friday and asks (C-4), so the suite passes Monday to Friday only.
+- `k27` and `k28` date the vet appointment "yesterday" in UTC and refresh Today in America/Los_Angeles, so the follow-up's window opens at 08:00 UTC: run them between 08:00 and 24:00 UTC, or with `TZ=America/Los_Angeles`.
+- `trustfloor` needs `deno run --config e2e/deno.json --allow-net --allow-read --allow-env e2e/serve-delete-account.ts` on :8792 and `DELETE_ACCOUNT_URL=http://127.0.0.1:8792`.
+- `notebook` J1/J6 and J2 have no captured replies: they are LIVE-MODEL tests and need the model key (`GATEWAY_URL` at a gateway with `ANTHROPIC_API_KEY`); under replay the stub answers 400 and the app shows its honest retry copy.
+
 ## The simulator build (NATIVE-SIMULATOR)
 
 Xcode 27 builds launch on iOS 27 since N11 (`plugins/withSceneLifecycle.js`). The e2e-sim environment

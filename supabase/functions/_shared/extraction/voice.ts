@@ -265,7 +265,7 @@ export function inYourWords(words: string): string {
 // ─── Whose statement is it? ─────────────────────────────────────────────────
 
 /** Words a statement can start with that are never a person's name. */
-const NOT_A_LEAD = new Set(["you", "your", "the", "a", "an", "his", "her", "their", "our", "my", "he", "she", "they", "we", "it", "this", "that", "mom", "dad", "mum"]);
+export const NOT_A_LEAD = new Set(["you", "your", "the", "a", "an", "his", "her", "their", "our", "my", "he", "she", "they", "we", "it", "this", "that", "mom", "dad", "mum"]);
 
 /**
  * Everyday words a line can start with when the model left its subject out, the way people talk ("Kaiya
@@ -284,6 +284,18 @@ export const ELIDED_START = new Set([
   "made", "makes", "took", "takes", "came", "comes", "plays", "played", "and", "but", "or", "so", "because",
 ]);
 
+/**
+ * Closed-class words (prepositions, conjunctions, determiners): never a name, however a note is written. A
+ * closed class is the one place a list is the right tool; open-class words (verbs, nouns) are read from the
+ * note's own words by the pipeline (CMR-1 B).
+ */
+export const FUNCTION_WORDS = new Set([
+  "with", "to", "for", "at", "in", "on", "of", "from", "by", "about", "into", "onto", "over", "after", "before", "under",
+  "between", "through", "during", "without", "within", "against", "among", "around", "across", "along", "behind", "beside",
+  "near", "off", "out", "up", "down", "than", "as", "if", "while", "when", "where", "which", "who", "whom", "whose", "what",
+  "some", "any", "every", "each", "all", "both", "either", "neither", "no", "none", "such", "these", "those", "there", "here",
+]);
+
 function key(word: string): string {
   return word.normalize("NFC").toLowerCase().replace(/[’‘`]/gu, "'").normalize("NFD").replace(/\p{M}+/gu, "").replace(/'s$/u, "").replace(/(?<=s)'$/u, "").trim();
 }
@@ -300,7 +312,7 @@ export function leadingName(statement: string): string | null {
   // "John's dog died", and "Chris' dog died" for a name ending in s (founder K7).
   const possessive = /['’]s$/u.test(w0) || /s['’]$/iu.test(w0);
   const first = w0.replace(/['’]s$/u, "").replace(/(?<=s)['’]$/iu, "");
-  if (!first || NOT_A_LEAD.has(key(first)) || ELIDED_START.has(key(first))) return null;
+  if (!first || NOT_A_LEAD.has(key(first)) || ELIDED_START.has(key(first)) || FUNCTION_WORDS.has(key(first))) return null;
   if (possessive) return first;
   let name = first;
   let next = 1;
@@ -315,9 +327,12 @@ export function leadingName(statement: string): string | null {
 }
 
 /** Never someone's name, however it's written: everyday words ("has", "been") and words like "the" or "my". */
+/** A pronoun or "I"/"we" contracted as it is spoken, without its apostrophe ("shes", "hes", "theyre", "im", "ive"). */
+export const SPOKEN_CONTRACTION = /^(he|she|they|i|we|you)(s|d|ll|re|ve|m)$/iu;
+
 export function neverAName(words: string): boolean {
   const k = key(words.replace(/[.,;:!?]+$/u, ""));
-  return !k || NOT_A_LEAD.has(k) || ELIDED_START.has(k);
+  return !k || NOT_A_LEAD.has(k) || ELIDED_START.has(k) || FUNCTION_WORDS.has(k) || SPOKEN_CONTRACTION.test(k);
 }
 
 /** A name as Kinship says it, however the user wrote it ("pedro" → "Pedro"); a capital the user gave stays. */
@@ -328,12 +343,14 @@ export function asName(words: string): string {
 /**
  * A line the model wrote without its subject ("Has been very clingy to your wife Krystal"), filed on a
  * person and naming no one: their name goes back in front ("Kaiya has been very clingy to your wife
- * Krystal"). Anything else is returned as it is.
+ * Krystal"). Anything else is returned as it is. `elided` says whether a first word is one a subject was
+ * left off before (the everyday-word list by default; the pipeline adds what the note's own words show).
+ * The caller decides whether the line is grounded on the person at all (pipeline.ts).
  */
-export function withSubject(statement: string, name: string, names: string[]): string {
+export function withSubject(statement: string, name: string, names: string[], elided: (word: string) => boolean = (w) => ELIDED_START.has(key(w))): string {
   const text = statement.trim();
   const w0 = text.split(/\s+/u)[0] ?? "";
-  if (!name.trim() || !ELIDED_START.has(key(w0.replace(/[.,;:!?]+$/u, "")))) return statement;
+  if (!name.trim() || !elided(w0.replace(/[.,;:!?]+$/u, ""))) return statement;
   if (statementNames(text, names)) return statement;
   return `${name.trim()} ${w0.charAt(0).toLocaleLowerCase()}${w0.slice(1)}${text.slice(w0.length)}`;
 }

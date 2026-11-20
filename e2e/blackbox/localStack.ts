@@ -44,18 +44,32 @@ async function admin(path: string, init: RequestInit = {}) {
 /** Every request a phone-like client made, in order (method and path; for latency breakdowns). */
 export const requests: string[] = [];
 
-/** A fresh local account, signed in through the real auth endpoint, with AI turned on for it alone. */
-export async function localAccount(opts: { networkMs?: number } = {}): Promise<{ client: SupabaseClient; userId: string; email: string }> {
-  const email = `e2e-${randomUUID()}@kinship.test`;
-  const password = `pw-${randomUUID()}`;
-  const user = await admin("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email, password, email_confirm: true }) }) as { id: string };
-  // The flags a dogfood account has, for this local account alone (never global, never production).
-  const keys = ["shell_v2", "memory_v2", "tell", "ai_extraction", "relationship_page_v2"];
-  await admin("/rest/v1/feature_flags?on_conflict=key", {
-    method: "POST", headers: { prefer: "resolution=ignore-duplicates" },
-    body: JSON.stringify(keys.map((key) => ({ key, description: "local harness", default_on: false, rollout_pct: 0 }))),
-  });
-  await admin("/rest/v1/user_flag_overrides", { method: "POST", body: JSON.stringify(keys.map((flag_key) => ({ user_id: user.id, flag_key, enabled: true }))) });
+/** The credentials of a local account, so a second device can sign in to the same one. */
+export interface LocalCredentials {
+  userId: string;
+  email: string;
+  password: string;
+}
+
+/**
+ * A fresh local account, signed in through the real auth endpoint, with AI turned on for it alone; or,
+ * with `reuse`, the same account signed in again (a second device: nothing created, nothing changed).
+ */
+export async function localAccount(opts: { networkMs?: number; reuse?: LocalCredentials } = {}): Promise<{ client: SupabaseClient; userId: string; email: string; password: string }> {
+  const email = opts.reuse?.email ?? `e2e-${randomUUID()}@kinship.test`;
+  const password = opts.reuse?.password ?? `pw-${randomUUID()}`;
+  const user = opts.reuse
+    ? { id: opts.reuse.userId }
+    : await admin("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email, password, email_confirm: true }) }) as { id: string };
+  if (!opts.reuse) {
+    // The flags a dogfood account has, for this local account alone (never global, never production).
+    const keys = ["shell_v2", "memory_v2", "tell", "ai_extraction", "relationship_page_v2"];
+    await admin("/rest/v1/feature_flags?on_conflict=key", {
+      method: "POST", headers: { prefer: "resolution=ignore-duplicates" },
+      body: JSON.stringify(keys.map((key) => ({ key, description: "local harness", default_on: false, rollout_pct: 0 }))),
+    });
+    await admin("/rest/v1/user_flag_overrides", { method: "POST", body: JSON.stringify(keys.map((flag_key) => ({ user_id: user.id, flag_key, enabled: true }))) });
+  }
   // A phone's round trip to the server, when asked for (the local stack answers in a few ms).
   const slowFetch: typeof fetch = async (input, init) => {
     requests.push(`${init?.method ?? "GET"} ${String(input).replace(API_URL, "").split("?")[0]}`);
@@ -77,7 +91,20 @@ export async function localAccount(opts: { networkMs?: number } = {}): Promise<{
   });
   const { error } = await client.auth.signInWithPassword({ email, password });
   if (error) throw error;
-  return { client, userId: user.id, email };
+  return { client, userId: user.id, email, password };
+}
+
+/**
+ * A per-account flag override for this local account alone (never global, never production), through the
+ * service role: what `notebook_deck` needs for the notebook experience. The flag's own row exists from
+ * its migration; only the override is written.
+ */
+export async function flagOn(userId: string, flag: string): Promise<void> {
+  if (!/^[0-9a-f-]{36}$/u.test(userId)) throw new Error("ids only");
+  await admin("/rest/v1/user_flag_overrides?on_conflict=user_id,flag_key", {
+    method: "POST", headers: { prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify([{ user_id: userId, flag_key: flag, enabled: true }]),
+  });
 }
 
 /** Which captured model reply the stub gives for this note. */

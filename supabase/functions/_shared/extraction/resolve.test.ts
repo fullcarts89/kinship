@@ -363,3 +363,17 @@ Deno.test("residence question: only that answer, only for that question", () => 
   eq("fail" in skipped ? skipped : [skipped.items.length, skipped.skipped], [0, 1], "Don't keep this: not memory");
   eq(resolveHeld([samHeld], [{ index: 0, person_id: "sam-lee", moved: true }], ctx()), { fail: "bad_answer" }, "never on another question");
 });
+
+Deno.test("\"Is this about Sarah, or Sarah's sister?\" answered with the sister: the line says whose it is, never Sarah's own", () => {
+  const note = "Sarah's sister has surgery Thursday. She is nervous.";
+  const held: HeldItem = {
+    ...samHeld, kind: "fact", person_id: "sarah", subject_type: "related", statement: "Sarah is nervous", detail: { category: "other" },
+    related: { id: null, relation: "sister", name: null }, flags: ["pronoun", "subject_check"], spans: [{ start: 37, end: 52, quote: "She is nervous" }],
+  };
+  const sister = resolveHeld([held], [{ index: 0, subject: "related", relation: "sister", accept: true }], ctx({ note }));
+  if ("fail" in sister) throw new Error(sister.fail);
+  eq([sister.items[0].subject_type, sister.items[0].statement], ["related", "Sarah's sister is nervous"]);
+  const herself = resolveHeld([held], [{ index: 0, subject: "person", accept: true }], ctx({ note }));
+  if ("fail" in herself) throw new Error(herself.fail);
+  eq([herself.items[0].subject_type, herself.items[0].statement], ["person", "Sarah is nervous"], "answered Sarah: her own words, unchanged");
+});

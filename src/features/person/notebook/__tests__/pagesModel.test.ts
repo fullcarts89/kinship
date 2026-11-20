@@ -7,7 +7,7 @@ import {
   buildPages, dateBlock, findInPages, findRanges, isIntention, keptTitle, longDay, narrowest, pageDay, segment, sentenceAround, withYears,
   type PagesCapture, type PagesItem, type PagesSource,
 } from "../pagesModel";
-import { lineDetailFor, lineFactsFor, pagesFor, sourcePageFor } from "@/hooks/usePages";
+import { lineDetailFor, lineFactsFor, pagesFor, sourcePageFor, wordsFor } from "@/hooks/usePages";
 import { repositoriesFor } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
 import { UserStore } from "@/store/userStore";
@@ -126,6 +126,22 @@ describe("buildPages", () => {
     expect(purged).toEqual(expect.objectContaining({ text: null, quotes: ["Her figs came in"], spans: [] }));
   });
 
+  it("marks the words the understanding left out (not got to, or read and kept nothing from), as the review does", () => {
+    const w = world();
+    const at = N1.indexOf("Sam says hi");
+    const start = Array.from(N1.slice(0, at)).length;
+    const marked = buildPages({ ...w, leftOut: { n1: [{ start, end: start + "Sam says hi".length }], n2: [{ start: 0, end: 6 }] } });
+    const n1 = marked.find((e) => e.type === "note" && e.captureId === "n1")!;
+    expect(n1.type === "note" && n1.unprocessed.map(([a, b]) => N1.slice(a, b))).toEqual(["Sam says hi"]);
+    const n2 = marked.find((e) => e.type === "note" && e.captureId === "n2")!;
+    expect(n2.type === "note" && n2.unprocessed.map(([a, b]) => N2.slice(a, b))).toEqual(["Called"]);
+    // Nothing left out: nothing marked; a span that doesn't fit the text marks nothing.
+    const n3 = marked.find((e) => e.type === "note" && e.captureId === "n3")!;
+    expect(n3.type === "note" && n3.unprocessed).toEqual([]);
+    const bad = buildPages({ ...w, leftOut: { n3: [{ start: 999, end: 1200 }] } }).find((e) => e.type === "note" && e.captureId === "n3")!;
+    expect(bad.type === "note" && bad.unprocessed).toEqual([]);
+  });
+
   it("the note behind their relation is a page too, when known", () => {
     const w = world();
     const withLabel = buildPages({ ...w, labelNoteId: "sam-only" });
@@ -241,9 +257,10 @@ describe("from the store", () => {
     expect(withSaved.find((e) => e.type === "note" && e.captureId === saved.id)).toEqual(expect.objectContaining({ intention: true }));
   });
 
-  // Founder, 10 Nov 2026: every Tell is logged. A note that kept no line is still on the page of whoever it
-  // was told about or names, in full; a note whose reading this phone can't vouch for as "nothing" is not.
-  it("a note that kept no line shows on the page of whoever it's about; a declined reading never does", async () => {
+  // Founder, 10 Nov 2026: every Tell is logged. A settled note is on the page of whoever it was told about or
+  // names, in full, whatever its understanding did (CMR-1: read through store/tellOutcome.ts, the server's
+  // word first). A note still being understood, or holding a question, waits elsewhere (H24).
+  it("every settled note shows on the page of whoever it's about: nothing, as written, failed, declined; never one still open", async () => {
     const { store, repos } = await world2();
     const kaiya = await repos.people.add({ display_name: "Kaiya" });
     const ben = await repos.people.add({ display_name: "Ben" });
@@ -255,20 +272,118 @@ describe("from the store", () => {
     const SILLY = "She is the silliest little girl in the world and is very much into dressing up like princesses";
     const silly = await repos.captures.tell(SILLY, { aiEnabled: true, contextPersonId: kaiya.id });
     await row(silly.id, "done", { tier: "nothing", saved: [], held: [], clarification: null, review_created_at: null, settled: true });
-    // Understood with a reading the user declined ("Don't keep this"): not "nothing", so never shown.
+    // A reading the user declined ("Don't keep this"): the reading is gone, the Tell remains, in full, nothing marked.
     const declined = await repos.captures.tell("Kaiya had a rough night at the hospital", { aiEnabled: true, contextPersonId: kaiya.id });
     await row(declined.id, "done", { tier: "clarify", saved: [], held: [], clarification: null, review_created_at: null, settled: true, answered: [{ index: 0, skip: true }] });
-    // Told on another phone: this phone can't say what its reading was, so it waits for a line.
-    await repos.captures.tell("Kaiya lost a tooth", { aiEnabled: true, contextPersonId: kaiya.id });
+    // Understanding failed here: the words are kept all the same.
+    const failed = await repos.captures.tell("Kaiya lost a tooth", { aiEnabled: true, contextPersonId: kaiya.id });
+    await row(failed.id, "failed", null);
+    // Told on another phone, not understood yet (no row here, the row still pending): not placed until it is.
+    const open = await repos.captures.tell("Kaiya wants a puppy", { aiEnabled: true, contextPersonId: kaiya.id });
+    // Told here, a question still waiting: accounted for by the question, not placed yet.
+    const asked = await repos.captures.tell("Kaiya and Sam were silly", { aiEnabled: true, contextPersonId: kaiya.id });
+    await row(asked.id, "review", { tier: "clarify", saved: [], held: [{ statement: "x", flags: [], spans: [] }], clarification: null, review_created_at: "t", settled: false });
     // Kept as written (understanding off) and naming Ben by his own name, from Today.
     const asWritten = await repos.captures.tell("ben made pancakes", { aiEnabled: false });
 
-    const kaiyas = (await pagesFor(store, kaiya.id, now)).filter((e) => e.type === "note");
-    expect(kaiyas).toEqual([expect.objectContaining({ captureId: silly.id, text: SILLY, spans: [] })]);
+    const kaiyas = (await pagesFor(store, kaiya.id, now)).filter((e) => e.type === "note").map((e) => e.type === "note" && e.captureId);
+    expect(kaiyas).toEqual([failed.id, declined.id, silly.id]);
+    expect(kaiyas).not.toContain(open.id);
+    expect(kaiyas).not.toContain(asked.id);
     const bens = (await pagesFor(store, ben.id, now)).filter((e) => e.type === "note");
-    expect(bens).toEqual([expect.objectContaining({ captureId: asWritten.id, text: "ben made pancakes" })]);
-    // Undone: gone from the page.
+    expect(bens).toEqual([expect.objectContaining({ captureId: asWritten.id, text: "ben made pancakes", spans: [] })]);
+    // Undone: gone from the page, and never back.
     await repos.captures.remove(silly.id);
-    expect((await pagesFor(store, kaiya.id, now)).filter((e) => e.type === "note")).toEqual([]);
+    expect((await pagesFor(store, kaiya.id, now)).filter((e) => e.type === "note").map((e) => e.type === "note" && e.captureId)).toEqual([failed.id, declined.id]);
+  });
+
+  it("a note told on another phone is found once the server's word arrives, with no row on this phone", async () => {
+    const { store, repos } = await world2();
+    const kaiya = await repos.people.add({ display_name: "Kaiya" });
+    const now = new Date(Date.UTC(2026, 10, 10, 9));
+    const told = await repos.captures.tell("Kaiya lost a tooth", { aiEnabled: true, contextPersonId: kaiya.id });
+    const kaiyas = async () => (await pagesFor(store, kaiya.id, now)).filter((e) => e.type === "note").map((e) => e.type === "note" && e.captureId);
+    expect(await kaiyas()).toEqual([]);
+    // The server's columns, as a pull writes them into the mirror (status and understanding are the gateway's).
+    const serverSays = async (id: string, patch: Record<string, unknown>) => {
+      const was = (await store.get("captures", id))!;
+      await store.db.run("UPDATE mirror SET data = ? WHERE tbl = 'captures' AND id = ?", [JSON.stringify({ ...was, ...patch }), id]);
+    };
+    // The gateway understood it there and kept nothing: the synced row says so.
+    await serverSays(told.id, { status: "extracted", understanding: "nothing" });
+    expect(await kaiyas()).toEqual([told.id]);
+    // Before the column exists, the synced status alone places a failed or kept-as-written note.
+    const older = await repos.captures.tell("Kaiya wants a puppy", { aiEnabled: true, contextPersonId: kaiya.id });
+    await serverSays(older.id, { status: "failed" });
+    expect(await kaiyas()).toEqual([older.id, told.id]);
+    // A question waiting on the other phone: not here until it is answered there.
+    const asked = await repos.captures.tell("Kaiya and Sam were silly", { aiEnabled: true, contextPersonId: kaiya.id });
+    await serverSays(asked.id, { status: "needs_review", understanding: "held" });
+    expect(await kaiyas()).toEqual([older.id, told.id]);
+    // Answered there with "Don't keep this": the Tell remains, and is found.
+    await serverSays(asked.id, { status: "extracted", understanding: "declined" });
+    expect(await kaiyas()).toEqual([asked.id, older.id, told.id]);
+  });
+
+  it("a note whose server row says what was left out (unprocessed, or CMR-1 C2's not_understood) is marked on Pages and under Your words", async () => {
+    const { store, repos } = await world2();
+    const kaiya = await repos.people.add({ display_name: "Kaiya" });
+    const now = new Date(Date.UTC(2026, 10, 10, 9));
+    const serverSays = async (id: string, patch: Record<string, unknown>) => {
+      const was = (await store.get("captures", id))!;
+      await store.db.run("UPDATE mirror SET data = ? WHERE tbl = 'captures' AND id = ?", [JSON.stringify({ ...was, ...patch }), id]);
+    };
+    const TEXT = "Kaiya lost a tooth. She wants the fairy to bring a horse.";
+    const told = await repos.captures.tell(TEXT, { aiEnabled: true, contextPersonId: kaiya.id });
+    const second = TEXT.indexOf("She wants");
+    await serverSays(told.id, {
+      status: "extracted", understanding: "partial",
+      coverage: { v: 1, unprocessed: [], unlocated: 0, not_understood: [{ start: second, end: TEXT.length }, { start: second, end: TEXT.length }] },
+    });
+    const page = (await pagesFor(store, kaiya.id, now)).find((e) => e.type === "note" && e.captureId === told.id)!;
+    expect(page.type === "note" && page.unprocessed.map(([a, b]) => TEXT.slice(a, b))).toEqual(["She wants the fairy to bring a horse."]);
+    // The same note about no one in People, under Your words.
+    const WORDS = "The fairy should bring a horse.";
+    const alone = await repos.captures.tell(WORDS, { aiEnabled: true });
+    await serverSays(alone.id, { status: "extracted", understanding: "partial", coverage: { v: 1, unprocessed: [], unlocated: 0, not_understood: [{ start: 0, end: 9 }] } });
+    const words = (await wordsFor(store)).find((w) => w.page.captureId === alone.id)!;
+    expect([words.outcome, words.page.unprocessed.map(([a, b]) => WORDS.slice(a, b))]).toEqual(["partial", ["The fairy"]]);
+  });
+
+  // A Tell about no one in People (names nobody, no line rests on it) is kept under "Your words" in People.
+  it("Your words: the settled notes about no one in People, newest first; filed ones and open ones are not there", async () => {
+    const { store, repos } = await world2();
+    const ben = await repos.people.add({ display_name: "Ben" });
+    const now = new Date(Date.UTC(2026, 10, 10, 9));
+    const row = (captureId: string, state: string, reading: unknown) => store.db.run(
+      "INSERT INTO understanding (capture_id, state, reading, attempts, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)",
+      [captureId, state, reading === null ? null : JSON.stringify(reading), now.toISOString(), now.toISOString()],
+    );
+    const nothing = { tier: "nothing", saved: [], held: [], clarification: null, review_created_at: null, settled: true };
+    const lol = await repos.captures.tell("lol ok", { aiEnabled: true });
+    await row(lol.id, "done", nothing);
+    const written = await repos.captures.tell("a quiet evening", { aiEnabled: false });
+    // Names Ben: on Ben's Pages, not here. A line kept for Ben from a note naming no one: on Ben's Pages, not here.
+    const bens = await repos.captures.tell("ben made pancakes", { aiEnabled: true });
+    await row(bens.id, "done", nothing);
+    const lined = await repos.captures.tell("He made pancakes", { aiEnabled: true });
+    const pancakes = await repos.memory.remember({ kind: "fact", person_id: ben.id, statement: "Ben made pancakes" }, { captureId: lined.id, quote: "He made pancakes" });
+    await row(lined.id, "done", { ...nothing, tier: "auto", saved: [{ id: pancakes.id, tier: "auto" }] });
+    // Still being understood: not here yet.
+    const open = await repos.captures.tell("hmm", { aiEnabled: true });
+    await row(open.id, "waiting", null);
+
+    const words = await wordsFor(store);
+    expect(words.map((w) => [w.page.captureId, w.outcome])).toEqual([[written.id, "nothing"], [lol.id, "nothing"]]);
+    expect(words.map((w) => w.page.text)).toEqual(["a quiet evening", "lol ok"]);
+    // Deleted (Undo): gone, and never back.
+    await repos.captures.remove(lol.id);
+    expect((await wordsFor(store)).map((w) => w.page.captureId)).toEqual([written.id]);
+    // Ben's Pages hold both the note naming him and the note his line rests on.
+    expect((await pagesFor(store, ben.id, now)).filter((e) => e.type === "note").map((e) => e.type === "note" && e.captureId)).toEqual([lined.id, bens.id]);
+    // Ben removed from People (founder I3): his lines go out of sight with him, and the note his line rested
+    // on, naming no one, is found under Your words rather than vanishing (pending the founder's word).
+    await repos.people.archive(ben.id);
+    expect((await wordsFor(store)).map((w) => [w.page.captureId, w.outcome])).toEqual([[lined.id, "kept"], [bens.id, "nothing"], [written.id, "nothing"]]);
   });
 });

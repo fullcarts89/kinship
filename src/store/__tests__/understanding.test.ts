@@ -10,6 +10,7 @@ import { repositoriesFor, type Person } from "@/store/repositories";
 import { prepareSchema } from "@/store/schema";
 import { SyncEngine } from "@/store/syncEngine";
 import { Understanding } from "@/store/understanding";
+import { tellOutcome } from "@/store/tellOutcome";
 import { UserStore } from "@/store/userStore";
 import { FakeGateway, type Script } from "@/test-utils/fakeGateway";
 import { FakeRemote, FakeServer } from "@/test-utils/fakeRemote";
@@ -203,6 +204,37 @@ describe("Ben runs Chicago Sunday", () => {
   });
 });
 
+describe("a note whose insert the awaited sync did not push (its cycle's push ran first)", () => {
+  it("gets one more pass in the same run, is pushed and understood, and nothing is asked for in a loop", async () => {
+    const { server, gateway, d } = await world();
+    const ben = await d.repos.people.add({ display_name: "Ben" });
+    await d.engine.sync();
+    gateway.script(BEN_NOTE, benScript(ben));
+    // The first sync this run awaits is the one already in flight when the note was kept: it pushes nothing of
+    // it. Every later sync is the real engine.
+    let syncs = 0;
+    const uh = new Understanding(d.store, () => (syncs++ === 0 ? Promise.resolve(JOINED) : d.engine.sync()), new Gateway(gateway), { clock: () => clock });
+    const captureId = await tell({ ...d, understanding: uh }, BEN_NOTE);
+    await uh.run();
+    expect(syncs).toBeGreaterThanOrEqual(2);
+    expect(server.table("captures").has(captureId)).toBe(true);
+    expect((await uh.get(captureId))?.state).toBe("review");
+    expect(gateway.modelRuns).toBe(1);
+    expect(await d.store.pendingOps()).toHaveLength(0);
+
+    // A sync that never gets the insert through: one more pass, then the note waits for the next kick, never a loop.
+    let loops = 0;
+    const stuck = new Understanding(d.store, () => { loops++; return Promise.resolve(JOINED); }, new Gateway(gateway), { clock: () => clock });
+    const other = await tell({ ...d, understanding: stuck }, "Ben's sister is visiting.");
+    await stuck.run();
+    expect(loops).toBe(2);
+    expect((await stuck.get(other))?.state).toBe("waiting");
+  });
+});
+
+/** A sync report from a cycle that had already pushed before this caller's writes were queued. */
+const JOINED = { pushed: 0, rebased: 0, conflicts: 0, rejected: 0, pulled: 0, reconciled: null, fullResync: false, offline: false };
+
 describe("two Sams", () => {
   it("asks which Sam, remembers nothing until answered, then remembers it for that Sam only", async () => {
     const { server, gateway, file, d: first } = await world();
@@ -387,6 +419,60 @@ describe("two Sams", () => {
     expect(serverItems(server)).toEqual([]);
     expect(server.table("captures").get(captureId)?.status).toBe("extracted");
     expect(events.filter(([e]) => e === "clarification_dismissed")).toEqual([["clarification_dismissed", { type: "person" }]]);
+  });
+
+  it("a question waiting on one phone shows on another phone of the same account, never lost (CMR-1)", async () => {
+    const { server, gateway, d } = await world();
+    await twoSams(d);
+    gateway.script(SAM_NOTE, samScript);
+    const captureId = await tell(d, SAM_NOTE);
+    await d.understanding.run();
+    expect((await d.understanding.get(captureId))?.state).toBe("review");
+    expect(server.table("captures").get(captureId)?.status).toBe("needs_review");
+    // The second phone: a fresh store for the same account. Its pass pulls the note (needs_review, no row
+    // here), tracks it, and asks the gateway, which answers with the stored question and runs no model.
+    const other = await open(server, gateway, `d2-${randomUUID()}`);
+    await other.understanding.run();
+    const row = await other.understanding.get(captureId);
+    expect(row?.state).toBe("review");
+    expect(row?.reading?.held.map((h) => h.statement)).toEqual(["Sam is redoing his kitchen"]);
+    expect((await other.understanding.open()).map((r) => r.capture_id)).toContain(captureId);
+    expect(gateway.modelRuns).toBe(1);
+    // Answered on the first phone; the second answers too, is told that answer stands, and nothing is written twice.
+    const people = await d.repos.people.list();
+    const lee = people.find((p) => p.relationship_label === "neighbor")!;
+    const diaz = people.find((p) => p.relationship_label === "climbing")!;
+    await d.understanding.answer(captureId, [{ index: 0, person_id: lee.id }]);
+    await d.understanding.run();
+    await other.understanding.answer(captureId, [{ index: 0, person_id: diaz.id }]);
+    await other.understanding.run();
+    expect(serverItems(server)).toHaveLength(1);
+    expect(serverItems(server)[0].person_id).toBe(lee.id);
+    const after = await other.understanding.get(captureId);
+    expect([after?.reading?.held, after?.notice]).toEqual([[], "changed_elsewhere"]);
+  });
+
+  it("'Don't keep this' stays declined on the row through the next pull and Done: never later said to be 'nothing' (CMR-1)", async () => {
+    const { gateway, d } = await world();
+    await twoSams(d);
+    gateway.script(SAM_NOTE, samScript);
+    const captureId = await tell(d, SAM_NOTE);
+    await d.understanding.run();
+    await d.understanding.answer(captureId, [{ index: 0, skip: true }]);
+    await d.understanding.run();
+    const capture = () => d.repos.captures.get(captureId) as Promise<NonNullable<Awaited<ReturnType<typeof d.repos.captures.get>>>>;
+    const landed = (await d.understanding.get(captureId))!;
+    expect([landed.state, landed.reading?.declined]).toEqual(["review", true]);
+    expect(tellOutcome(await capture(), landed)).toBe("declined");
+    // The next pass pulls again and checks the answer landed, forgetting `answered`; the decision stays.
+    await d.understanding.run();
+    const pulled = (await d.understanding.get(captureId))!;
+    expect([pulled.reading?.answered, pulled.reading?.declined]).toEqual([undefined, true]);
+    expect(tellOutcome(await capture(), pulled)).toBe("declined");
+    await d.understanding.finish(captureId, "dismissed");
+    const done = (await d.understanding.get(captureId))!;
+    expect(done.state).toBe("done");
+    expect(tellOutcome(await capture(), done)).toBe("declined");
   });
 });
 

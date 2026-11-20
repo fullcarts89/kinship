@@ -48,6 +48,9 @@ async function account(run: JohnRun) {
   const acct = await signedIn();
   const r = await mount();
   await setUp(r, PEOPLE);
+  // The people must be on the server before a line is written against them (K37's sibling in the harness:
+  // Today's first sync is still in flight when setUp returns on a slower stack).
+  await acct.engine.sync();
   const john = (await acct.repos.people.list()).find((p) => p.display_name === "John")!;
   if (run.yesterday) {
     const y = new Date(Date.now() - 86_400_000);

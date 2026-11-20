@@ -28,6 +28,73 @@ async function device(server: FakeServer, userId = A, start = "2026-10-05T12:00:
   };
 }
 
+describe("a sync asked for while one is in flight", () => {
+  /** A remote whose pulls wait at a gate, so a cycle can be held open mid-way (after its push). */
+  function gated(remote: Remote): { remote: Remote; open: () => void } {
+    let open!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    const slow = new Proxy(remote, {
+      get(target, key, receiver) {
+        if (key === "changedSince") {
+          return async (...args: Parameters<Remote["changedSince"]>) => {
+            await gate;
+            return target.changedSince(...args);
+          };
+        }
+        return Reflect.get(target, key, receiver) as unknown;
+      },
+    });
+    return { remote: slow, open };
+  }
+
+  it("covers what was queued before it was asked for: one follow-on cycle, shared, pushing the capture before it resolves", async () => {
+    const server = new FakeServer();
+    const db = await openSqlJsDb();
+    await prepareSchema(db, A);
+    const store = new UserStore(db, A, { now: () => "2026-11-15T12:00:00.000Z", newId: randomUUID });
+    const { remote, open } = gated(new FakeRemote(server, A));
+    const engine = new SyncEngine(store, remote);
+
+    // Today's first sync: its push has run (nothing to push), its pulls are waiting.
+    const first = engine.sync();
+    await new Promise((r) => setTimeout(r, 0));
+    // A Tell arrives mid-cycle and asks for a sync, as Understanding does.
+    const capture = await store.create("captures", { source: "text", raw_text: "Ben runs Chicago Sunday.", status: "pending" });
+    const second = engine.sync();
+    const third = engine.sync();
+    expect(second).not.toBe(first);
+    expect(third).toBe(second); // everyone who asks during the same cycle shares the one follow-on
+    expect(server.table("captures").has(capture.id as string)).toBe(false);
+
+    open();
+    await first;
+    // The in-flight cycle never saw the capture; the awaited sync has pushed it before it resolves.
+    expect(server.table("captures").has(capture.id as string)).toBe(false);
+    await second;
+    expect(server.table("captures").has(capture.id as string)).toBe(true);
+    expect(await store.pendingOps()).toHaveLength(0);
+    // Exactly two cycles ran: no chain beyond the one follow-on, and nothing runs after it by itself.
+    expect(server.calls.filter((c) => c.startsWith("insert captures"))).toHaveLength(1);
+    const cycles = () => server.calls.filter((c) => c === "pull people").length;
+    expect(cycles()).toBe(2);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(cycles()).toBe(2);
+  });
+
+  it("with nothing in flight, a sync is one cycle, as before", async () => {
+    const server = new FakeServer();
+    const d = await device(server);
+    const a = d.engine.sync();
+    await a;
+    const b = d.engine.sync();
+    expect(b).not.toBe(a);
+    await b;
+    expect(server.calls.filter((c) => c === "pull people")).toHaveLength(2);
+  });
+});
+
 describe("offline writes", () => {
   it("shows a capture immediately and queues it while offline", async () => {
     const server = new FakeServer();

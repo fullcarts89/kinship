@@ -62,6 +62,9 @@ export const TABLES: readonly TableSpec[] = [
     name: "captures", key: "id", appInsert: true, appUpdate: true, tombstones: true, personColumn: "context_person_id",
     // status starts pending/skipped (insert only); extraction fields (and coverage) are the gateway's.
     // continues_capture_id: the partial note this one tells the rest of (Option A), set once at insert.
+    // understanding (CMR-1, nullable text: kept · nothing · partial · held · declined · failed) is the
+    // gateway's word on what came of the note: pulled with the row, never written here, and read as
+    // absent until its migration is applied (store/tellOutcome.ts falls back to this phone's own row).
     writable: ["source", "raw_text", "transcript_meta", "context_person_id", "occurred_at", "time_zone",
       "status", "retention", "deleted_at", "feedback", "continues_capture_id"],
     insertOnly: ["source", "transcript_meta", "status", "continues_capture_id"],

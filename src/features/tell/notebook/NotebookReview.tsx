@@ -213,8 +213,8 @@ export function NotebookReview(props: NotebookReviewProps) {
   const title = view.lines.length
     ? NOTEBOOK_REVIEW_COPY.title
     : waiting.length ? (waiting.length === 1 ? `${COPY.check}.` : "A few things to check.")
-      : view.mode === "nothing" ? COPY.notKept : null;
-  const status = view.status && !view.status.startsWith("Already known") && !(view.mode === "nothing" && view.status === COPY.notKept) ? view.status : null;
+      : view.declined ? COPY.notKept : null;
+  const status = view.status && !view.status.startsWith("Already known") ? view.status : null;
   const lineOf = (id: string) => view.lines.find((l) => l.id === id) ?? gone.find((l) => l.id === id) ?? null;
   const questionFor = (index: number) => view.questions.find((q) => q.items.includes(index)) ?? null;
 

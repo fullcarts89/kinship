@@ -304,6 +304,7 @@ it("nothing to remember, or understanding that keeps failing: said plainly, neve
   const w = await world();
   const r = await mount();
   await tell(w, NOTHING_NOTE);
+  // The alpha look here (no notebook_deck): no place to name, so just the words (never a place that isn't there).
   expect(flow.current!.card).toMatchObject({ mode: "nothing", status: "Kept your words.", words: NOTHING_NOTE });
   expect(await w.repos.captures.get(flow.current!.card!.captureId)).toBeTruthy();
 
@@ -319,7 +320,10 @@ it("nothing to remember, or understanding that keeps failing: said plainly, neve
     await uh.run();
   });
   await settle();
-  expect(flow.current!.card).toMatchObject({ mode: "failed", status: "Couldn't understand this one. Your note is saved." });
+  // Said plainly, with where the words are kept (Ben is in People and named), and the words themselves.
+  expect(flow.current!.card).toMatchObject({
+    mode: "failed", status: "Couldn't understand this one. Your words are kept on Ben's page.", words: "Ben's sister is visiting.", canRetry: true,
+  });
   r2.unmount();
 });
 

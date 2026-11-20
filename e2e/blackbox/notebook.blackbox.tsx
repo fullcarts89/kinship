@@ -51,6 +51,8 @@ async function account(people: string[]) {
   notebookOn(acct.userId);
   const r = await mount();
   await setUp(r, people);
+  // The people must be on the server before earlierLine writes against them (as k27 and k28 do).
+  await acct.engine.sync();
   const list = await acct.repos.people.list();
   const person = (name: string) => list.find((p) => p.display_name === name)!;
   return { acct, r, person };

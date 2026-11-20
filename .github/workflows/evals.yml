@@ -167,3 +167,173 @@ jobs:
           name: eval-full-claude-opus-5-5-low-${{ github.run_id }}
           path: evals/results/
           retention-days: 90
+
+  cmr1:
+    # CMR-1 (Core Memory Reliability): the live baseline and candidate from ONE paid run. Label a pull
+    # request `run-evals-cmr1` (the founder's authorisation): the whole frozen corpus, dev and held-out,
+    # three repeats, on the model the full-corpus job uses. The raw model outputs are then re-graded, free,
+    # through the checked-out pipeline (candidate) and through main's supabase/functions/_shared (baseline),
+    # so both sides see identical model outputs; compare.ts prints the difference. The cost estimate is
+    # printed before any call is made. See evals/cmr1/README.md.
+    name: CMR-1 live baseline and candidate (claude-opus-5-5, low)
+    if: github.event_name == 'pull_request' && github.event.label.name == 'run-evals-cmr1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Corpus matches its frozen manifest (held-out set included)
+        run: deno run -A --config evals/deno.json evals/cmr1/manifest.ts
+      - name: Estimate the cost (no model calls)
+        run: |
+          deno run -A --config evals/deno.json evals/cmr1/run.ts --mode live --split all --repeat 3 --require-frozen --dry-run \
+            --model claude-opus-5-5 --effort low | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Live run (dev and held-out, three repeats; the only paid step)
+        id: live
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EVAL_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -o pipefail
+          echo "## CMR-1 live (this branch's pipeline)" >> "$GITHUB_STEP_SUMMARY"
+          deno run -A --config evals/deno.json evals/cmr1/run.ts --mode live --split all --repeat 3 --require-frozen \
+            --model claude-opus-5-5 --effort low --concurrency 4 --out evals/results/cmr1 --tag live | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Keep the raw model outputs (synthetic people only; no user data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-cmr1-live-claude-opus-5-5-low-${{ github.run_id }}
+          path: evals/results/cmr1/*-live.*
+          retention-days: 90
+      - name: Replay the same outputs through this branch's pipeline (candidate, free)
+        if: always()
+        env:
+          EVAL_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -o pipefail
+          RAW=$(ls evals/results/cmr1/*-live.json | head -n 1)
+          echo "raw=$RAW" >> "$GITHUB_ENV"
+          echo "## CMR-1 candidate (replay through ${{ github.event.pull_request.head.sha }})" >> "$GITHUB_STEP_SUMMARY"
+          deno run -A --config evals/deno.json evals/cmr1/run.ts --mode replay --replay "$RAW" --split all \
+            --model claude-opus-5-5 --effort low --out evals/results/cmr1 --tag candidate | tee -a "$GITHUB_STEP_SUMMARY" || true
+      - name: Replay the same outputs through main's pipeline (baseline, free)
+        if: always()
+        run: |
+          set -o pipefail
+          git fetch --no-tags origin main
+          MAIN_SHA=$(git rev-parse origin/main)
+          mkdir -p "$RUNNER_TEMP/main-tree"
+          git archive "$MAIN_SHA" supabase/functions/_shared | tar -x -C "$RUNNER_TEMP/main-tree"
+          echo "## CMR-1 baseline (replay through main $MAIN_SHA)" >> "$GITHUB_STEP_SUMMARY"
+          EVAL_COMMIT="$MAIN_SHA" deno run -A --config evals/deno.json evals/cmr1/run.ts --mode replay --replay "$raw" --split all \
+            --shared "$RUNNER_TEMP/main-tree/supabase/functions/_shared" \
+            --model claude-opus-5-5 --effort low --out evals/results/cmr1 --tag baseline-main | tee -a "$GITHUB_STEP_SUMMARY" || true
+      - name: Compare baseline (main) with candidate (this branch), and with the live grading
+        if: always()
+        run: |
+          set -o pipefail
+          BASE=$(ls evals/results/cmr1/*-baseline-main.json | head -n 1)
+          CAND=$(ls evals/results/cmr1/*-candidate.json | head -n 1)
+          LIVE=$(ls evals/results/cmr1/*-live.json | head -n 1)
+          echo "## compare: main (baseline) → this branch (candidate), identical model outputs" >> "$GITHUB_STEP_SUMMARY"
+          deno run -A --config evals/deno.json evals/cmr1/compare.ts "$BASE" "$CAND" | tee -a "$GITHUB_STEP_SUMMARY" || true
+          echo "## compare: main (baseline) → live grading of this branch" >> "$GITHUB_STEP_SUMMARY"
+          deno run -A --config evals/deno.json evals/cmr1/compare.ts "$BASE" "$LIVE" | tee -a "$GITHUB_STEP_SUMMARY" || true
+      - name: Keep every result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-cmr1-all-claude-opus-5-5-low-${{ github.run_id }}
+          path: evals/results/cmr1/
+          retention-days: 90
+
+  cmr1-replay:
+    # CMR-1, free: the most recent live run's raw model outputs (artifact `eval-cmr1-live-*`, kept 90 days)
+    # replayed through this PR head's pipeline (candidate) and through main's (baseline, --shared), with
+    # compare.ts and the per-fact lists of every gated miss in the job summary. No model calls. Label a pull
+    # request `run-evals-cmr1-replay`; repeat after every fix. The repository variable CMR1_LIVE_RUN_ID, when
+    # set, pins the live run whose artifact is used; otherwise the newest unexpired one is taken.
+    name: CMR-1 replay of the latest live outputs (free)
+    if: github.event_name == 'pull_request' && github.event.label.name == 'run-evals-cmr1-replay'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Find the latest live artifact (eval-cmr1-live-*)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PIN_RUN_ID: ${{ vars.CMR1_LIVE_RUN_ID }}
+        run: |
+          set -euo pipefail
+          FILTER='.artifacts | map(select((.name | startswith("eval-cmr1-live-")) and (.expired | not) and (.workflow_run.head_repository_id == .workflow_run.repository_id)))'
+          if [ -n "${PIN_RUN_ID:-}" ]; then FILTER="$FILTER | map(select(.workflow_run.id == ${PIN_RUN_ID}))"; fi
+          ART=$(gh api --paginate "repos/${{ github.repository }}/actions/artifacts?per_page=100" --jq "$FILTER | sort_by(.created_at) | last // empty")
+          if [ -z "$ART" ]; then echo "no unexpired eval-cmr1-live-* artifact found${PIN_RUN_ID:+ for run $PIN_RUN_ID}"; exit 1; fi
+          echo "$ART" | jq '{id, name, created_at, run: .workflow_run.id, head_sha: .workflow_run.head_sha}'
+          echo "ARTIFACT_ID=$(echo "$ART" | jq -r .id)" >> "$GITHUB_ENV"
+          echo "LIVE_RUN_ID=$(echo "$ART" | jq -r .workflow_run.id)" >> "$GITHUB_ENV"
+          echo "LIVE_HEAD_SHA=$(echo "$ART" | jq -r .workflow_run.head_sha)" >> "$GITHUB_ENV"
+          echo "## CMR-1 replay of live run $(echo "$ART" | jq -r .workflow_run.id) (model outputs recorded on $(echo "$ART" | jq -r .workflow_run.head_sha))" >> "$GITHUB_STEP_SUMMARY"
+      - name: Download it (no model calls)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/live"
+          gh api "repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip" > "$RUNNER_TEMP/live.zip"
+          unzip -o "$RUNNER_TEMP/live.zip" -d "$RUNNER_TEMP/live" > /dev/null
+          RAW=$(find "$RUNNER_TEMP/live" -name '*-live.json' | head -n 1)
+          if [ -z "$RAW" ]; then echo "the artifact holds no *-live.json"; find "$RUNNER_TEMP/live" -type f; exit 1; fi
+          echo "raw=$RAW" >> "$GITHUB_ENV"
+          mkdir -p evals/results/cmr1
+      - name: Corpus matches its frozen manifest (the replay grades against this PR's ledgers)
+        run: deno run -A --config evals/deno.json evals/cmr1/manifest.ts
+      - name: Replay through this PR head's pipeline (candidate)
+        env:
+          EVAL_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -o pipefail
+          echo "## Candidate: replay through ${{ github.event.pull_request.head.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          deno run -A --config evals/deno.json evals/cmr1/run.ts --mode replay --replay "$raw" --split all --max-failures 100 \
+            --dump-ids "${CMR1_DUMP_IDS:-se-015,na-014,fr-007,na-002,na-008,ev-011,vl-003,nm-009,ce-003,vl-001}" \
+            --model claude-opus-5-5 --effort low --out evals/results/cmr1 --tag candidate | tee -a "$GITHUB_STEP_SUMMARY" || true
+      - name: Replay through main's pipeline (baseline)
+        run: |
+          set -o pipefail
+          git fetch --no-tags origin main
+          MAIN_SHA=$(git rev-parse origin/main)
+          mkdir -p "$RUNNER_TEMP/main-tree"
+          git archive "$MAIN_SHA" supabase/functions/_shared | tar -x -C "$RUNNER_TEMP/main-tree"
+          echo "## Baseline: replay through main $MAIN_SHA" >> "$GITHUB_STEP_SUMMARY"
+          EVAL_COMMIT="$MAIN_SHA" deno run -A --config evals/deno.json evals/cmr1/run.ts --mode replay --replay "$raw" --split all --max-failures 100 \
+            --shared "$RUNNER_TEMP/main-tree/supabase/functions/_shared" \
+            --model claude-opus-5-5 --effort low --out evals/results/cmr1 --tag baseline-main | tee -a "$GITHUB_STEP_SUMMARY" || true
+      - name: Compare baseline (main) with candidate (this PR), identical model outputs
+        run: |
+          set -o pipefail
+          BASE=$(ls evals/results/cmr1/*-baseline-main.json | head -n 1)
+          CAND=$(ls evals/results/cmr1/*-candidate.json | head -n 1)
+          echo "## compare: main (baseline) → ${{ github.event.pull_request.head.sha }} (candidate)" >> "$GITHUB_STEP_SUMMARY"
+          deno run -A --config evals/deno.json evals/cmr1/compare.ts "$BASE" "$CAND" | tee -a "$GITHUB_STEP_SUMMARY" || true
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-cmr1-replay-${{ github.run_id }}
+          path: evals/results/cmr1/
+          retention-days: 90

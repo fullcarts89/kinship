@@ -14,6 +14,7 @@ import { SettingsSheet } from "@/features/people/SettingsSheet";
 import { useHeldPeople, useNotificationSetting, usePeopleRows, usePreviewNotification, useRemovedPeople, useTrustActions, useUnderstandingConsent, useV2Actions } from "@/hooks/useV2";
 import { useNotebook } from "@/hooks/useNotebook";
 import { usePeopleIndex } from "@/hooks/usePeopleIndex";
+import { useWords } from "@/hooks/usePages";
 import { sameNameMatch } from "@/store/peopleMerge";
 import { isHeld } from "@/store/peopleStates";
 import type { Person } from "@/store/repositories";
@@ -125,6 +126,8 @@ function AlphaPeople() {
 /** People as the notebook's index (PR #77 §9). */
 function NotebookPeople() {
   const index = usePeopleIndex();
+  // The notes about no one in People ("Your words", CMR-1): a row at the foot, only when there are any.
+  const words = useWords();
   const add = useAddByName(index.people);
   const [settings, setSettings] = useState(false);
   const [query, setQuery] = useState("");
@@ -151,6 +154,8 @@ function NotebookPeople() {
         onQuery={setQuery}
         memory={memory}
         onHit={hit}
+        hasWords={words.notes.length > 0}
+        onWords={() => router.push("/v2/words")}
       />
       <PeopleSettings visible={settings} onDismiss={() => setSettings(false)} />
     </>

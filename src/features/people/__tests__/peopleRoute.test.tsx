@@ -27,6 +27,8 @@ jest.mock("@/hooks/usePeopleIndex", () => ({
     tiles: [{ id: "ben", name: "Ben", line: null, letter: "B" }],
   }),
 }));
+let mockWords: { notes: { page: { captureId: string } }[]; loading: boolean } = { notes: [], loading: false };
+jest.mock("@/hooks/usePages", () => ({ useWords: () => mockWords }));
 jest.mock("@/hooks/useV2", () => ({
   usePeopleRows: () => [{ person: mockBen(), label: "Ben", line: null }],
   useRemovedPeople: () => [],
@@ -87,5 +89,19 @@ it("with the flag on, People is the index: the same Settings, add from contacts,
   act(() => view.props.onOpen("ben"));
   act(() => view.props.onHit("/v2/person/ben?lens=pages&note=n1"));
   expect(mockPush.mock.calls).toEqual([["/v2/people/add"], ["/v2/person/ben"], ["/v2/person/ben?lens=pages&note=n1"]]);
+  // Nothing about no one in People: no "Your words" row (never an empty destination).
+  expect(view.props.hasWords).toBe(false);
+  act(() => r.unmount());
+});
+
+it("with the flag on and notes about no one in People, the index leads to Your words", () => {
+  mockNotebook = true;
+  mockWords = { notes: [{ page: { captureId: "c1" } }], loading: false };
+  const r = render();
+  const view = r.root.findByType(NotebookPeopleView);
+  expect(view.props.hasWords).toBe(true);
+  act(() => view.props.onWords());
+  expect(mockPush.mock.calls).toEqual([["/v2/words"]]);
+  mockWords = { notes: [], loading: false };
   act(() => r.unmount());
 });
