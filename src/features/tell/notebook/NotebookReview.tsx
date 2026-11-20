@@ -607,15 +607,12 @@ function LineRow(props: {
     if (line.edited) tags.push(<Tag key="edited" label={NOTEBOOK_REVIEW_COPY.edited} />);
     if (asSaid && when && when.label !== "No date yet") tags.push(<Tag key="said" kind="known" label={NOTEBOOK_REVIEW_COPY.asSaid} />);
     for (const name of line.newcomers ?? []) {
-      tags.push(
-        <Tag key={`new:${name}`} kind="known" label={`${name} isn't in your people yet.`}>
-          {props.onAddPerson ? (
-            <NText v="tag" tone="ink" accessibilityRole="button" accessibilityLabel={`Add ${name}`} onPress={() => props.onAddPerson?.(name)} style={{ textDecorationLine: "underline", fontFamily: font.sansBold }}>
-              {`Add ${name}`}
-            </NText>
-          ) : null}
-        </Tag>,
-      );
+      // "Add {name}" is its own control (44 pt with its slop), not words inside the tag (founder, 20 Nov 2026).
+      tags.push(<Tag key={`new:${name}`} kind="known" label={`${name} isn't in your people yet.`} />);
+      if (props.onAddPerson) {
+        const add = props.onAddPerson;
+        tags.push(<TagButton key={`add:${name}`} kind="plain" label={`Add ${name}`} onPress={() => add(name)} hint={`Adds ${name} to People, so this also shows on ${name}'s page`} />);
+      }
     }
   }
   return (

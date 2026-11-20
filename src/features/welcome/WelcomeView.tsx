@@ -162,13 +162,17 @@ export function WelcomeView(props: WelcomeViewProps) {
             <Pill size="small" variant="quiet" label={WELCOME_COPY.email} disabled={props.busy} onPress={props.onEmail} />
           </View>
         ) : null}
-        <Text maxFontSizeMultiplier={maxScale.text} style={[type.provenance, { color: p.inkQuiet, textAlign: "center" }]}>
-          {"By continuing you agree to the "}
-          <Text accessibilityRole="link" onPress={props.onTerms} style={{ textDecorationLine: "underline" }}>Terms</Text>
-          {" and the "}
-          <Text accessibilityRole="link" onPress={props.onPrivacy} style={{ textDecorationLine: "underline" }}>Privacy Policy</Text>
-          {"."}
-        </Text>
+        {/* The legal line, then its two documents as their own controls (founder, 20 Nov 2026: links inside a
+            sentence were ~16 pt tall and couldn't be enlarged). */}
+        <View style={{ alignItems: "center" }}>
+          <Text maxFontSizeMultiplier={maxScale.text} style={[type.provenance, { color: p.inkQuiet, textAlign: "center" }]}>
+            {"By continuing you agree to the Terms and the Privacy Policy."}
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", columnGap: space.l }}>
+            <Pill size="small" variant="quiet" label="Terms" onPress={props.onTerms} />
+            <Pill size="small" variant="quiet" label="Privacy Policy" onPress={props.onPrivacy} />
+          </View>
+        </View>
       </View>
       <Grain />
       {props.children}

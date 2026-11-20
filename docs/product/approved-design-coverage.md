@@ -602,3 +602,15 @@ The founder approved the motion review's §5 items 1–5 (`audits/2026-11-13-ux-
 | Tell field (with on-device voice) | One round button; its icon crossfades mic ↔ Send (160 ms, no scale or blur) | Yes |
 | All motion | The remaining literal durations named in `motion` at their existing values (the moment's expansion stays 420 ms) | Yes |
 
+## Inline tap targets rebuilt as buttons (founder, 20 Nov 2026)
+
+The founder approved rebuilding the small tappable words inside sentences as their own controls (`audits/2026-11-13-ux-motion-principles.md` §7). The words and what each tap does are unchanged; each now has a 44 pt target. Native pending.
+
+| Surface | Was | Now | Founder approved? |
+|---|---|---|---|
+| 1 Welcome › legal line | "Terms" and "Privacy Policy" were links inside the sentence (~16 pt) | The sentence reads as plain text, "By continuing you agree to the Terms and the Privacy Policy.", with **Terms** · **Privacy Policy** as two quiet buttons under it | Yes |
+| Tell › review (`notebook_deck`) | "Add Pedro" was words inside the "Pedro isn't in your people yet." tag (~14 pt) | The tag stays; **Add Pedro** is its own tag button beside it (the "Whose promise" button's shape) | Yes |
+| Tell › review › Your words (`notebook_deck`) | Each understood phrase was a link inside the paragraph (~28 pt) | The paragraph is only read (still underlined in each person's colour, still lit when its line is tapped); under it, each phrase is a small button in reading order, its words on the person's colour, that finds its line | Yes |
+
+Not rebuilt (not in the approval): the dotted day word inside a review sentence and the kept spans on Pages.
+

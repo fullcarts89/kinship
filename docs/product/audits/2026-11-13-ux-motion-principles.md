@@ -201,6 +201,16 @@ Not changed, and not proposed: system spinners keep spinning under Reduce Motion
 rail test asserts the disc; the voice tests still find "Say it instead" and "Send to Kinship" on the one button.
 **Native:** not run. **Readiness: NOT READY.**
 
+## 7. Inline links rebuilt (founder, 20 Nov 2026)
+
+The founder approved rebuilding as separate buttons the inline tappable words that §6 had left alone:
+- **Welcome's Terms and Privacy Policy:** two quiet buttons under the legal sentence.
+- **The review's "Add {name}":** its own tag button beside "{name} isn't in your people yet."
+- **The "Your words" phrases:** the paragraph is now only read. Each understood phrase is a small button under it, in reading order, marked in its person's colour and selected while its line is lit.
+
+Each target is 44 pt. Not included: the review's dotted day word and the kept spans on Pages. Tests: `welcome.test.tsx`
+and `notebookReview.test.tsx`. **Native:** not run. **Readiness: NOT READY.**
+
 ---
 
 ## Appendix: all 40 points

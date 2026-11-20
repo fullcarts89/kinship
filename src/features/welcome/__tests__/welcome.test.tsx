@@ -4,6 +4,7 @@
 // build or by this phone's last shell, never guessed per account.
 import React from "react";
 import TestRenderer, { act, type ReactTestInstance } from "react-test-renderer";
+import { Text } from "react-native";
 import { buildEntryShell, readEntryShell } from "@/platform/entryShell";
 import { EmailSheet, WELCOME_COPY, WelcomeView, type WelcomeViewProps } from "@/features/welcome/WelcomeView";
 
@@ -37,6 +38,20 @@ it("says the promise, then offers Apple first, then the quiet options, then the 
   expect(at(WELCOME_COPY.apple)).toBeLessThan(at(WELCOME_COPY.google));
   expect(at(WELCOME_COPY.google)).toBeLessThan(at("Privacy Policy"));
   expect([...new Set(buttons(tree))][0]).toBe(WELCOME_COPY.apple);
+});
+
+it("Terms and Privacy Policy are their own buttons, not words inside the legal line", () => {
+  const onTerms = jest.fn();
+  const onPrivacy = jest.fn();
+  const tree = render(<WelcomeView {...base} onTerms={onTerms} onPrivacy={onPrivacy} />);
+  expect(strings(tree)).toContain("By continuing you agree to the Terms and the Privacy Policy.");
+  expect(tree.root.findAll((n: ReactTestInstance) => n.type === Text && typeof n.props.onPress === "function")).toHaveLength(0);
+  expect(buttons(tree)).toEqual(expect.arrayContaining(["Terms", "Privacy Policy"]));
+  const press = (label: string) => tree.root.findAll((n: ReactTestInstance) => n.props.accessibilityLabel === label && typeof n.props.onPress === "function")[0].props.onPress();
+  act(() => press("Terms"));
+  act(() => press("Privacy Policy"));
+  expect(onTerms).toHaveBeenCalledTimes(1);
+  expect(onPrivacy).toHaveBeenCalledTimes(1);
 });
 
 it("doesn't explain AI, list features, or run long", () => {

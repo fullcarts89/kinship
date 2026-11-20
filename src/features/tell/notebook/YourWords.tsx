@@ -1,5 +1,7 @@
 // "Your words" (PR #77 §7; shots/review-j2.jpg): the note exactly as told, each phrase Kinship read
-// underlined in its person's identity colour. A tap on a phrase finds its line; a removed line's
+// underlined in its person's identity colour. Under the words, each phrase is its own small button that
+// finds its line (founder, 20 Nov 2026: a phrase inside the paragraph was a ~28 pt target that couldn't
+// be enlarged; the paragraph itself is now only read). A removed line's
 // phrase goes dotted and faded; words the understanding did not get to stay grey and dotted. Long
 // notes fold to about five lines, with "Show all of it".
 //
@@ -68,19 +70,7 @@ export function YourWords(props: YourWordsProps) {
         <NText v="cap" tone="quiet" style={{ marginBottom: space.xs }}>{props.cap}</NText>
         <View>
           <Text style={base} numberOfLines={lines} maxFontSizeMultiplier={maxScale.text}>
-            {runs.map((r) => (r.mark && !r.mark.gone ? (
-              <Text
-                key={`${r.start}`}
-                accessibilityRole="link"
-                accessibilityLabel={props.describe(r.mark)}
-                onPress={() => props.onPhrase(r.mark!)}
-                style={runStyle(r)}
-              >
-                {r.text}
-              </Text>
-            ) : (
-              <Text key={`${r.start}`} style={runStyle(r)}>{r.text}</Text>
-            )))}
+            {runs.map((r) => <Text key={`${r.start}`} style={runStyle(r)}>{r.text}</Text>)}
           </Text>
           {overlay ? live.map((m, i) => (
             <Underline key={m.key} delay={reduce ? 0 : i * motion.stagger.word} duration={reduce ? motion.reduced.duration : motion.understand.duration}>
@@ -97,6 +87,20 @@ export function YourWords(props: YourWordsProps) {
             </Underline>
           )) : null}
         </View>
+        {live.length ? (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.s }}>
+            {live.map((m) => (
+              <PhraseButton
+                key={m.key}
+                text={props.text.slice(m.start, m.end)}
+                colour={colourOf(m)}
+                label={props.describe(m)}
+                lit={props.lit === targetKey(m)}
+                onPress={() => props.onPhrase(m)}
+              />
+            ))}
+          </View>
+        ) : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: space.l }}>
           {folds ? (
             <Pressable
@@ -124,6 +128,30 @@ export function YourWords(props: YourWordsProps) {
         </View>
       </View>
     </View>
+  );
+}
+
+const PHRASE_HEIGHT = 32;
+
+/** One understood phrase as a button: its words on the person's colour rule; it finds its line. 44 pt to the touch. */
+function PhraseButton({ text, colour, label, lit, onPress }: { text: string; colour: string; label: string; lit: boolean; onPress: () => void }) {
+  const n = useNotebookPalette();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: lit }}
+      onPress={onPress}
+      hitSlop={{ top: (TOUCH - PHRASE_HEIGHT) / 2, bottom: (TOUCH - PHRASE_HEIGHT) / 2 }}
+      style={({ pressed }) => ({
+        maxWidth: "100%", minHeight: PHRASE_HEIGHT, justifyContent: "center", paddingHorizontal: space.m, borderRadius: PHRASE_HEIGHT / 2,
+        backgroundColor: lit ? `${colour}${ALPHA_FLASH}` : n.paper2, opacity: pressed ? press.surface : 1,
+      })}
+    >
+      <NText v="small" tone="ink" numberOfLines={1} maxFontSizeMultiplier={maxScale.text} style={{ textDecorationLine: "underline", textDecorationColor: colour }}>
+        {text.trim()}
+      </NText>
+    </Pressable>
   );
 }
 

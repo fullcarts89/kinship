@@ -243,15 +243,43 @@ it("a day the user didn't write is never offered as one", () => {
 
 it("a phrase finds its line; a line lights its phrase", () => {
   const { tree } = render([]);
-  // Underlined phrases are links that say which line they show (spec §10).
-  const phrase = all(tree, "Shows the line: Priya is back from Lisbon for good");
+  // Each understood phrase is its own button under the words, saying which line it shows (spec §10);
+  // the paragraph itself is only read (founder, 20 Nov 2026).
+  const label = "Shows the line: Priya is back from Lisbon for good";
+  const phrase = all(tree, label).filter((x) => x.props.accessibilityRole === "button");
   expect(phrase.length).toBeGreaterThan(0);
+  expect(tree.root.findAll((x) => x.type === Text && x.props.accessibilityRole === "link" && typeof x.props.onPress === "function")).toHaveLength(0);
   expect(() => act(() => phrase[0].props.onPress())).not.toThrow();
-  // Tapping the line's body lights its phrase in Your words.
-  const body = tree.root.findAll((n) => n.props.accessible === false && typeof n.props.onPress === "function");
+  const selected = () => tree.root.findAll((x) => x.props.accessibilityLabel === label && x.props.accessibilityState?.selected === true);
+  expect(selected()).toHaveLength(0);
+  // Tapping the line's body lights its phrase: the paragraph's words and the phrase's button.
+  const body = tree.root.findAll((x) => x.props.accessible === false && typeof x.props.onPress === "function");
   act(() => body[0].props.onPress());
-  const lit = tree.root.findAll((n) => n.props.accessibilityLabel === "Shows the line: Priya is back from Lisbon for good" && n.props.style?.backgroundColor);
-  expect(lit.length).toBeGreaterThan(0);
+  expect(selected().length).toBeGreaterThan(0);
+});
+
+it("Add {name} is its own button beside the note that they aren't in People yet", () => {
+  const said = "Priya is moving to Oakland with Pedro.";
+  const view = buildReview({
+    row: row([]), capture: { id: "c2", raw_text: said, context_person_id: null, status: "needs_review" },
+    items: [item("m9", "priya", "Priya is moving to Oakland with Pedro")], people, related: [], offline: false, today: TODAY,
+  });
+  const onAddPerson = jest.fn();
+  let tree!: TestRenderer.ReactTestRenderer;
+  act(() => {
+    tree = TestRenderer.create(
+      <NotebookReview view={view} people={people} today={TODAY} words={null} onAddPerson={onAddPerson}
+        onDismiss={jest.fn()} onDone={jest.fn()} onUndo={jest.fn()} onReject={jest.fn()} onCorrect={jest.fn()}
+        onAnswer={jest.fn()} onOpenNote={jest.fn()} onActivity={jest.fn()} />,
+    );
+  });
+  mounted.push(tree);
+  expect(texts(tree)).toContain("Pedro isn't in your people yet.");
+  const add = all(tree, "Add Pedro");
+  expect(add.length).toBeGreaterThan(0);
+  expect(add.every((x) => x.type !== Text)).toBe(true); // a control, not words inside the tag
+  act(() => add[0].props.onPress());
+  expect(onAddPerson).toHaveBeenCalledWith("m9", "Pedro");
 });
 
 it("long words fold to five lines with Show all of it", () => {
