@@ -4,7 +4,9 @@
 
 **Reviewed:** `fullcarts89/kinship`, `main` at `c2e0ee7` (14 Nov 2026), plus the production Supabase project read-only. **Review branch:** `claude/independent-review-audit-piymeg` carries only this document and the lab screenshots in `docs/product/screens/review-2026-11-20/` (fixture data, no real people). **Method:** code reading with file:line evidence, the local checks (`tsc`, `eslint`, `jest`), production schema/function/flag state through the Supabase API, and a web export of the 2.0 lab (`EXPO_PUBLIC_V2_LAB=1`) rendered at 390 × 844 and 1280 × 900 in Chromium. **No iPhone, simulator, EAS or Maestro was available**; every statement about a phone is marked UNVERIFIED.
 
-Contents: A. Executive decision memo · Phase 0 ground truth · Phase 1 product · B. Audit appendix (Phases 2–7) · C. Ranked backlog · D. Design opportunity shortlist · E. Implementation handoff · F. Coverage and uncertainty.
+Contents: A. Executive decision memo · Phase 0 ground truth · Phase 1 product · B. Audit appendix (Phases 2–7; substitute checklists, see the missing-coverage note) · C. Ranked backlog with evidence classes · D. Design opportunity shortlist · E. Implementation handoff (specs only) · F. Coverage and uncertainty.
+
+**Execution rule.** This is a read-only audit. Nothing in it is authorisation to implement; the specs in E are proposals that wait for the founder's explicit approval.
 
 ---
 
@@ -127,9 +129,9 @@ The repository carries an unusually complete audit trail: `bug-ledger.md` (F/G/H
 
 ---
 
-# B. Complete audit appendix
+# B. Audit appendix (substitute checklists)
 
-The original master prompt's checklists (20 security attacks, 20 UX laws, 24 motion principles, 20 animation styles, 20 production protections, 8 galleries, 8 resources) were not supplied with this review. The canonical sets below were used, every item is scored, and nothing is marked MITIGATED or IMPLEMENTED without a file reference.
+**Missing coverage, stated plainly.** The original master prompt's own lists were not available in this review's context: the 20 security attacks, the 20 UX laws, the 24 motion and UX principles, the 20 animation styles and the 20 production-readiness protections. This appendix therefore does **not** claim to cover "every original checklist item". What it does: scores a canonical substitute for each list (OWASP-style attacks; the Laws of UX set; a standard motion-principle set; a standard animation-style library; a standard production-hardening set), names the substitute at the head of each table, and marks every item with evidence or UNVERIFIED. Items on the original lists that are not in these substitutes are uncovered until the founder supplies the lists; mapping them onto the findings below is a one-pass exercise and would not change the FIX NOW set, because those rest on code-verified defects, not on checklist items. The eight galleries and eight resources were named in the prompt and are covered in full (Phase 5).
 
 ## Phase 2 — Security and privacy
 
@@ -439,6 +441,14 @@ Social-media growth claims were not evaluated: none are cited in the repository,
 
 # C. Ranked improvement backlog
 
+## Evidence class of every finding
+
+| Class | Meaning | IDs |
+|---|---|---|
+| **VERIFIED IN CODE** | The behaviour is read directly from `main` at `c2e0ee7` or from production state, with file:line evidence; it does not depend on a device | REL-1, REL-2, REL-3, REL-4, REL-5, REL-8, REL-9, REL-10, SEC-1, SEC-2, SEC-3, SEC-4, SEC-5, SEC-6, SEC-7, SEC-8, UX-1, UX-2, UX-3, UX-4, UX-8, UX-9 (target sizes computed from the style values), UX-10, UX-11, UX-14, UX-15, UX-16 (contrast computed from `tokens.ts`), UX-17, UX-18, UX-20, UX-21, PRD-1, PRD-2, PRD-3, PRD-4, DOC-1 |
+| **HYPOTHESIS (needs a device or a setting not inspected)** | The code makes the outcome likely, but the user-facing effect was not observed | UX-5 (VoiceOver grouping of the poster's buttons), UX-6 (Reduce Motion first-read timing), UX-7 (label truncation seen only in the web lab), REL-6 (whether an EAS Update could reach installed builds), every Phase 2 item marked UNVERIFIED (dashboard settings, backups, deployed source parity), motion performance on a phone (Phase 4 principle 22) |
+| **DESIGN SUGGESTION (no defect; a proposal for the founder)** | A change to look, motion or copy that needs design judgement and approval | D.1, D.2, D.3, MOT-1 to MOT-4, UX-12 (Kept card control count), UX-13 (Find/Ask pair), UX-19 (contact linking on the Edit sheet), UX-14's replacement wording |
+
 Ranking order: data integrity and privacy → broken or inconsistent core-journey behaviour → accessibility of the live treatment → reliability and release hygiene → design. Effort: S < 1 day, M 1–3 days, L > 3 days. Overlap with live work is stated so nothing is built twice.
 
 ## Top ten
@@ -509,7 +519,7 @@ Not proposed: any new gallery pattern, glass, shader or 3D effect; a tab cross-f
 
 ---
 
-# E. Implementation handoff (top three; not implemented)
+# E. Implementation handoff (top three; specifications only, nothing implemented; waits for explicit approval)
 
 Each is a small, independently testable PR against `main`, with no shared files between them. None touches the extraction pipeline, the prompt, Today's eligibility or any approved surface's copy, so none collides with CMR-1 (#89–#93) except where noted in E.1.
 
