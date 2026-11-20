@@ -609,6 +609,19 @@ still found with the honest copy; a declined reading keeps the Tell; Undo gone f
 third device placing every note by the server's own word with no local row; a question held elsewhere shown as
 waiting). Results in PR #89.
 
+**Founder, 20 Nov 2026:** the eight product calls listed in `cmr1-delivery.md` §F are **approved as proposed**:
+1. "Your words" at the foot of People, and its name;
+2. a declined reading no longer hides the Tell on the person's Pages;
+3. a removed person's note moving under "Your words";
+4. the new Kept-card copy;
+5. a relative who has died keeping their own story as a related line;
+6. a Tell about someone unnamed reported as not understood;
+7. K7 moving from auto-save to a glance;
+8. the prompt wording nudge for the next authorised live run.
+
+The founder will look over the "Your words" naming and the Kept-card copy during the native pass. The voice
+trade-off is also accepted: an unknown word before "his"/"her" in a voice note asks.
+
 **Shared contract assumed with the gateway (Workstream C):** `captures.understanding` text NULL,
 CHECK IN ('kept','nothing','partial','held','declined','failed'); NULL = not yet understood or older than the
 column; written by the gateway only. The app never writes it (`tables.ts`), tolerates its absence, and reads this
