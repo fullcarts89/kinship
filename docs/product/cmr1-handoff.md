@@ -243,6 +243,19 @@ Founder-authorised by the `run-evals-cmr1` label; model and effort as the reposi
   - A present or future action stays with the living person, for a glance ("Seun's dad passed away. He's flying out tomorrow" is Seun).
   - Only a reading that could be either is asked ("He'll want company that day").
 
+## 4h. The founder's answers (20 Nov 2026)
+
+1. **The second paid live run:** OK this time. From now on, ask the founder before any paid run.
+2. **Corpus v1.2 ledger change:** approved.
+3. **S6:** move the model name into a repository variable rather than exempt `evals.yml`. Prepared, but not committed: the session's permission check stopped the commit to the CI workflow. The founder decides how to land it (below).
+4. **The eight product calls in `cmr1-delivery.md` §F:** taken as proposed. The founder will look over the "Your words" naming and the new Kept-card copy during the native pass.
+5. **The voice trade-off:** accepted. VOICE_EVERYDAY grows over time to cut needless questions.
+6. **Staging:**
+   - The #90 and #91 preview branches were deleted (done, 20 Nov), and the founder approved deploying `ai-gateway` to the new preview branch only.
+   - The founder sets `ANTHROPIC_API_KEY` there.
+   - The simulator journey is a Maestro run on a Mac (`cmr1-native-mac.md`), not an EAS upgrade. The founder does the iPhone voice test.
+   - The new branch was not created: the session's permission check stopped it, since it starts an hourly charge. The gateway deploy waits on it.
+
 **Bug ledger:** the staged reporting model (IMPLEMENTED · MERGED · DEPLOYED · LIVE-MODEL VERIFIED · NATIVE-SIM VERIFIED · DEVICE VERIFIED · FOUNDER ACCEPTED) is in `bug-ledger.md` with K34–K36 restated against it.
 
 ## 5. The founder directive (verbatim, 14 Nov 2026)

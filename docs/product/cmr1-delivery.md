@@ -161,6 +161,15 @@ both true readings listed); (10) S6 from the review: the CMR-1 jobs in `.github/
 model, as the existing jobs on `main` already do, while CLAUDE.md keeps model identifiers out of code. Either
 the workflow is exempt, or the model moves to a repository variable. The CMR-1 key should be revoked and its variable removed when the milestone closes.
 
+**Founder's answers, 20 Nov 2026** (`cmr1-handoff.md` §4h):
+- **Approved:** the second paid run (ask before every future one), corpus v1.2, all eight product calls, and the voice trade-off.
+- **S6:** the model name goes in a repository variable.
+- **Staging:**
+  - The #90 and #91 preview branches are deleted.
+  - The gateway goes to the new branch only.
+  - The simulator journey is a Maestro run on a Mac (`cmr1-native-mac.md`), and the founder does the iPhone voice test.
+- **Still open:** the new branch and the S6 commit both wait on a permission the session does not have.
+
 **The smallest actions only the founder can take**, each unblocking one step. None is needed for the code to be
 reviewed; each is needed before the native evidence exists.
 
